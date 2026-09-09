@@ -26,7 +26,7 @@ npm start
 
 For this workspace, unique manager and kitchen passwords have already been generated in the ignored `.env` file. Open that file to retrieve them. Password changes in `.env` apply at server restart. Without configured passwords, the initial startup generates and prints them once. Staff sessions expire after eight hours; use separate browser profiles for manager and kitchen.
 
-Deployment runs on Firebase: `npm run deploy` publishes Hosting and the Firestore rules in `firebase.json`. See [latest verification](MVP_VERIFICATION.md).
+See [deployment](DEPLOYMENT.md) — the server runs on Render's free tier with Firestore for data — and [latest verification](MVP_VERIFICATION.md).
 
 ## What works
 

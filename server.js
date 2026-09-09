@@ -16,7 +16,7 @@ import QRCode from 'qrcode';
 import {migrateFloor,floorView,publicFloorView,saveFloor,legacyTable,validateImage} from './floor-domain.js';
 import {aiCapabilities,geminiImage} from './gemini-provider.js';
 import {extractMenuDraft,extractFloorDraft} from './ai-imports.js';
-import {localMediaStore,decodeMedia} from './media-store.js';
+import {localMediaStore,firestoreMediaStore,decodeMedia} from './media-store.js';
 import {createFirebasePlatform} from './firebase-platform.js';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
@@ -236,4 +236,4 @@ export function createApp({dbPath=process.env.DB_PATH||path.join(root,'data/resu
  const server=http.createServer(handler);
  return {server,handler,db,read,ready};
 }
-if(process.argv[1]===fileURLToPath(import.meta.url)){const port=Number(process.env.PORT)||3000,firebaseEnabled=process.env.FIREBASE_TENANT_MODE==='true',firebase=firebaseEnabled?createFirebasePlatform({projectId:process.env.FIREBASE_PROJECT_ID||'resuto-cf8f5',seedTenant:createTenantSeed,migrateTenant:migrateTenantState}):null;createApp({storage:firebase?.store||null,identityProvider:firebase}).server.listen(port,'0.0.0.0',()=>console.log(`Resuto running at http://localhost:${port}${firebaseEnabled?' with Firebase tenant isolation':''}`));}
+if(process.argv[1]===fileURLToPath(import.meta.url)){const port=Number(process.env.PORT)||3000,firebaseEnabled=process.env.FIREBASE_TENANT_MODE==='true',firebase=firebaseEnabled?createFirebasePlatform({projectId:process.env.FIREBASE_PROJECT_ID||'resuto-cf8f5',seedTenant:createTenantSeed,migrateTenant:migrateTenantState}):null;createApp({storage:firebase?.store||null,identityProvider:firebase,...(firebase?{mediaStore:firestoreMediaStore(firebase.firestore.collection('media'))}:{})}).server.listen(port,'0.0.0.0',()=>console.log(`Resuto running at http://localhost:${port}${firebaseEnabled?' with Firebase tenant isolation':''}`));}

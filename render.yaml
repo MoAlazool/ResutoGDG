@@ -1,0 +1,46 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+#
+# The app is a plain Node HTTP server, so it needs no build step beyond the
+# client bundle. All persistence lives in Firestore (restaurant state and menu
+# images alike), which is why the free instance type is safe here: Render's
+# filesystem is wiped on every restart and nothing depends on it.
+#
+# Note: a free web service sleeps after a period of inactivity, so the first
+# request after a quiet spell takes roughly half a minute to wake.
+services:
+  - type: web
+    name: resuto
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/events
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Serve every request through Firestore tenant isolation.
+      - key: FIREBASE_TENANT_MODE
+        value: "true"
+      - key: FIREBASE_PROJECT_ID
+        value: resuto-cf8f5
+      - key: PAYMENT_MODE
+        value: test
+      # Set in the Render dashboard, never in this file:
+      #   FIREBASE_SERVICE_ACCOUNT  the service-account JSON (or base64 of it)
+      #   APP_ORIGIN                https://<your-service>.onrender.com
+      #   MANAGER_PASSWORD / KITCHEN_PASSWORD / HOST_PASSWORD
+      #   GEMINI_API_KEY            optional; without it AI falls back to demo rules
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: APP_ORIGIN
+        sync: false
+      - key: MANAGER_PASSWORD
+        sync: false
+      - key: KITCHEN_PASSWORD
+        sync: false
+      - key: HOST_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
