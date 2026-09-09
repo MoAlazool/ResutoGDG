@@ -1,0 +1,15 @@
+node_modules/
+.env
+data/
+*.sqlite*
+artifacts/
+__pycache__/
+resuto-sites/
+resuto-sites-deploy.tgz
+.claude/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# stray symlink to the root install
+.codex-build/**/node_modules

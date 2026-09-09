@@ -1,0 +1,13 @@
+@font-face{font-family:'Plex Arabic';src:url('/fonts/plex-arabic-medium.ttf') format('truetype');font-weight:500;font-display:swap}
+@font-face{font-family:'Plex Arabic';src:url('/fonts/plex-arabic-semibold.ttf') format('truetype');font-weight:600;font-display:swap}
+@font-face{font-family:'Plex Arabic';src:url('/fonts/plex-arabic-bold.ttf') format('truetype');font-weight:700 900;font-display:swap}
+html[lang=ar] body,html[lang=ar] p,html[lang=ar] input,html[lang=ar] textarea,html[lang=ar] select{font-weight:500}
+html[lang=ar] button,html[lang=ar] label,html[lang=ar] nav,html[lang=ar] .button,html[lang=ar] small{font-weight:600}
+html[lang=ar] h1,html[lang=ar] h2,html[lang=ar] h3,html[lang=ar] strong,html[lang=ar] .overline{font-weight:700}
+.provider-cloud .provider-logo-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:64px;background:transparent;border-radius:0}
+.provider-cloud .provider-logo{display:block;object-fit:contain;width:150px;max-width:90%;height:45px}
+.provider-cloud a{min-width:0}.provider-cloud a>strong{font-size:13px}
+.modifier-editor-row{border-bottom:1px solid var(--line);padding:12px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.resuto-wordmark-ar{flex-shrink:0;line-height:0}
+.resuto-wordmark-ar img{display:block;width:180px;height:60px;object-fit:contain}
+@media(max-width:600px){.resuto-wordmark-ar img{width:144px;height:48px}}

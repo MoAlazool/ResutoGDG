@@ -1,0 +1,70 @@
+.saved-floor{position:relative;width:100%;color:#173f36}
+.saved-floor svg{display:block;width:100%;height:auto;overflow:visible}
+.saved-floor>small{display:block;margin-top:10px;color:#6c786f;font-size:11px;letter-spacing:.02em}
+.canvas-base{fill:#fbfaf6;stroke:#d8ddd5;stroke-width:2}
+.floor-grid{pointer-events:none}
+.zone-surface{fill:var(--zone-color,#edf1e8);stroke:#173f3614;stroke-width:2}
+.zone-label{fill:#173f3690;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.svg-table{cursor:pointer;outline:none}
+.svg-table .chair rect{fill:#315e51;stroke:#20483e;stroke-width:2;filter:url(#tiny-shadow)}
+.svg-table .chair path{fill:none;stroke:#dce8df;stroke-width:2;stroke-linecap:round}
+.svg-table .table-shadow{fill:#173f3624}
+.svg-table .table-surface{fill:#f4ead7;stroke:#8b7757;stroke-width:3;filter:url(#soft-shadow)}
+.svg-table .table-inset{fill:#fff9ea;stroke:#baa98a;stroke-width:1.5;stroke-dasharray:3 3}
+.svg-table .table-label{fill:#163f35;font-size:17px;font-weight:800;pointer-events:none}
+.svg-table .svg-seat-label{fill:#66766c;font-size:11px;font-weight:650;pointer-events:none}
+.svg-table .table-badge{transform:translate(calc(var(--badge-x, 0px)),calc(var(--badge-y, -46px)));pointer-events:none}
+.svg-table .table-badge circle{fill:#fff;stroke:#8baa7f;stroke-width:3}
+.svg-table .table-badge text{font-size:14px;font-weight:900;fill:#315f50}
+.svg-table.state-reserved .table-surface,.svg-table.state-unavailable .table-surface{fill:#ede9e1;stroke:#a8a49c}
+.svg-table.state-reserved .table-badge circle,.svg-table.state-unavailable .table-badge circle{stroke:#969c96}
+.svg-table.state-occupied .table-surface,.svg-table.state-ordering .table-surface{fill:#dcebd7;stroke:#4d775e}
+.svg-table.state-preparing .table-surface{fill:#f7e8bf;stroke:#b88831}
+.svg-table.state-ready .table-surface{fill:#d3eee4;stroke:#168565}
+.svg-table.state-payment .table-surface,.svg-table.state-payment_pending .table-surface{fill:#eadff3;stroke:#76528f}
+.svg-table.state-partially-paid .table-surface,.svg-table.state-bill-requested .table-surface{fill:#eadff3;stroke:#76528f}
+.svg-table.state-eating .table-surface{fill:#dcebd7;stroke:#4d775e}
+.svg-table.state-paid .table-surface{fill:#d8ebe4;stroke:#2f8066}
+.svg-table.state-cleaning .table-surface{fill:#dce8f2;stroke:#4e7897}
+.svg-table.state-recommended .table-surface{stroke:#c3942f;stroke-width:6}
+.svg-table[aria-disabled=true]{opacity:.5;cursor:not-allowed}
+.wall-shadow{fill:#173f3620}.wall-core{fill:#47544e;stroke:#263b34;stroke-width:1}
+.window-frame{fill:#cce7ec;stroke:#4e8190;stroke-width:3}.window-glass{stroke:#fff;stroke-width:4}
+.opening-cut{fill:#fbfaf6}.door-leaf{stroke:#526158;stroke-width:5}.door-swing{fill:none;stroke:#8b9a91;stroke-width:2;stroke-dasharray:5 4}
+.counter-shadow{fill:#173f3622}.counter-surface{fill:#a68157;stroke:#6d5136;stroke-width:3}.counter-line{stroke:#ead8ba;stroke-width:4;stroke-linecap:round}
+.structure-label{fill:#fff;font-size:13px;font-weight:800;letter-spacing:.03em}
+.plant-pot{fill:#ddcab1;stroke:#9e8062;stroke-width:2}.plant-leaves{fill:#648a58;stroke:#325934;stroke-width:1}
+.floor-text{fill:#173f36;font-size:22px;font-weight:750}.loose-chair{fill:#315e51}.svg-chair path{fill:none;stroke:#dce8df;stroke-width:4}
+.structure-surface{fill:#d9dfd7;stroke:#6f7b72;stroke-width:2}
+.floor-object.is-selected .table-surface{stroke:#175c45;stroke-width:6}
+.selection-box{fill:none;stroke:#167151;stroke-width:3;stroke-dasharray:9 6;pointer-events:none}
+.resize-handle,.rotate-handle{fill:#fff;stroke:#167151;stroke-width:4}.rotation-stem{stroke:#167151;stroke-width:3}
+.floor-mode-marketing .zone-label{font-size:16px}
+.floor-mode-marketing .svg-table .table-badge,.floor-mode-marketing .svg-table .svg-seat-label{display:none}
+.floor-mode-marketing .svg-table .table-label{font-size:19px}
+@media(prefers-reduced-motion:reduce){.saved-floor *{transition:none!important;animation:none!important}}
+[dir=rtl] .zone-label{font-family:'Plex Arabic',sans-serif;font-weight:700}
+
+/* Table status tag — a plainly worded, colour-coded pill above each table so
+   status is readable at a glance instead of inferred from the surface tint. */
+.table-status-tag{pointer-events:none}
+.table-status-tag rect{fill:#eef1ec;stroke:#c3ccc2;stroke-width:1.5}
+.table-status-tag text{font-size:19px;font-weight:800;fill:#3c4a41;letter-spacing:.2px}
+.svg-table.state-available .table-status-tag rect{fill:#e6f2e2;stroke:#6f9c72}
+.svg-table.state-available .table-status-tag text{fill:#2f6238}
+.svg-table.state-occupied .table-status-tag rect,.svg-table.state-eating .table-status-tag rect,.svg-table.state-ordering .table-status-tag rect{fill:#dcebd7;stroke:#3f6b50}
+.svg-table.state-occupied .table-status-tag text,.svg-table.state-eating .table-status-tag text,.svg-table.state-ordering .table-status-tag text{fill:#20492f}
+.svg-table.state-reserved .table-status-tag rect{fill:#e6ecf7;stroke:#5d7cae}
+.svg-table.state-reserved .table-status-tag text{fill:#2f4a76}
+.svg-table.state-preparing .table-status-tag rect{fill:#fbedc9;stroke:#b88831}
+.svg-table.state-preparing .table-status-tag text{fill:#7d5a12}
+.svg-table.state-ready .table-status-tag rect{fill:#d3eee4;stroke:#168565}
+.svg-table.state-ready .table-status-tag text{fill:#0c5843}
+.svg-table.state-payment .table-status-tag rect,.svg-table.state-payment_pending .table-status-tag rect,.svg-table.state-bill-requested .table-status-tag rect,.svg-table.state-partially-paid .table-status-tag rect{fill:#ecdff5;stroke:#76528f}
+.svg-table.state-payment .table-status-tag text,.svg-table.state-payment_pending .table-status-tag text,.svg-table.state-bill-requested .table-status-tag text,.svg-table.state-partially-paid .table-status-tag text{fill:#523269}
+.svg-table.state-paid .table-status-tag rect{fill:#d8ebe4;stroke:#2f8066}
+.svg-table.state-paid .table-status-tag text{fill:#1d5a46}
+.svg-table.state-cleaning .table-status-tag rect{fill:#dce8f2;stroke:#4e7897}
+.svg-table.state-cleaning .table-status-tag text{fill:#2c5573}
+.svg-table.state-unavailable .table-status-tag rect{fill:#eceae6;stroke:#9a9a95}
+.svg-table.state-unavailable .table-status-tag text{fill:#5d5d58}

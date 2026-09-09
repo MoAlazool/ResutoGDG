@@ -1,0 +1,64 @@
+                                                                                  
+                                                                                  
+      A                                                                           
+                                                               SOURCES & NOTES    
+                                                                                  
+                                                                                  
+                                  ﺞﻬﻨﻤﻟا   تﺎﻈﺣﻼﻣو      ﺔﻴﻤﺳﺮﻟا   ردﺎﺼﻤﻟا         
+                                                                                  
+          .لدﺎﻌﺘﻟا ﴪﻛ ﺐﻴﺗﺮﺗو ،Google Bonus، Presentation Efficiency Bonus ،نازوﻷا :ﻖﻳﺮﻔﻟا ﻦﻣ مﺪﻘﻤﻟا ﲑﻳﺎﻌﻤﻟا ﻒﻠﻣ — IMPACT X Judging Criteria .1
+                                                                                  
+                              foodics.com/ar/foodics-pricing-egypt .ﺔﻨﻠﻌﻤﻟا ﺺﺋﺎﺼﺨﻟاو رﺎﻌﺳﻷا ،Foodics Pricing — Egypt .2
+                        foodics.com/ar/rms-solutions .ﻢﻋﺎﻄﻤﻟا ةرادإ ﻒﺋﺎﻇو قﺎﻄﻧ ،Foodics Restaurant Management Solutions .3
+                                                                                  
+                                    wosul.sa/en/pricing .ﺔﺒﻳﴬﻟا ﻞﺒﻗ تﺎﻗﺎﺒﻟا رﺎﻌﺳأ ،Wosul Pricing — Saudi Arabia .4
+                               hala.com/en/products/restaurant-pos .مﺪﺨﺘﺴﻣ ﻞﻜﻟ كاﱰﺷﻻا ﺮﻌﺳ ،Hala Restaurant POS .5
+                                       zatca.gov.sa · VAT .%15 ﳼﺎﻴﻘﻟا ﺔﻓﺎﻀﻤﻟا ﺔﻤﻴﻘﻟا ﺔﺒﻳﴐ لﺪﻌﻣ ،ZATCA — VAT .6
+                                                                                  
+                      zatca.gov.sa · E-Invoicing .ﻖﻓاﻮﺘﻤﻟا ﻞﺤﻟاو QRو ﺔﻄﺴﺒﻤﻟا ةرﻮﺗﺎﻔﻟا تﺎﺒﻠﻄﺘﻣ ،ZATCA — E-Invoicing Preparation .7
+                             Phase 2. zatca.gov.sa · Regulationsو ﺔﻴﻧوﱰﻜﻟﻹا ةﺮﺗﻮﻔﻟا ماﺰﻟإ ،ZATCA — Laws and Regulations .8
+                                eta.gov.eg · VAT Law .%14 مﺎﻌﻟا ﺮﻌﺴﻟا ،Egyptian Tax Authority — VAT Law 67/2016 .9
+                                                                                  
+                  eta.gov.eg · Restaurants .ﺔﺒﻳﴬﻠﻟ ةدﺪﺤﻤﻟا ﻢﻋﺎﻄﻤﻟا عﻮﻀﺧ ،Egyptian Tax Authority — Restaurant VAT clarification .10
+                             POS/SDK. eta.gov.eg · E-Receipt ﻊﻣ ﻞﻣﺎﻜﺘﻟا ،Egyptian Tax Authority — E-Receipt Services .11
+                                                                                  
+                          ai.google.dev/gemini-api/docs/pricing .تﺎﻘﺒﻄﻟا دوﺪﺣو ماﺪﺨﺘﺳﻻا ﲑﻌﺴﺗ ،Google Gemini API Pricing .12
+                                                                                  
+                                                            ROIـﻟاو ﲑﻌﺴﺘﻟا ﺞﻬﻨﻣ   
+                                                                                  
+        9 ﰲ ةرﻮﺸﻨﻣ ﺔﻣﺎﻋ ارًﺎﻌﺳأ مﺪﺨﺘﺴﺗ ﺔﻧرﺎﻘﻤﻟا .ﻞﻤﺘﻜﻣ willingness-to-pay ﺚﺤﺑ ﺔﺠﻴﺘﻧ ﺖﺴﻴﻟو ﻖﻳﺮﻔﻠﻟ ﺔﻴﺠﻴﺗاﱰﺳا ﺔﻴﺻﻮﺗ Resuto رﺎﻌﺳأ
+                                           ُ                                      
+                  .Pilotـﻟا لﻼﺧ ﻢﻌﻄﻣ ﻞﻛ تﺎﻧﺎﻴﺒﺑ ﺎﻬﺗﻼﺧﺪﻣ لﺪﺒﺘﺴﺗو ،راﺮﻘﻟا ﻖﻄﻨﻣ ﺢﻴﺿﻮﺘﻟ ﺔﻴﺑﺎﺴﺣ ﺔﻠﺜﻣأ ROI جذﺎﻤﻧ .2026 ﱪﻤﺘﺒﺳ
+               .قﻼﻃﻹا ﺦﻳرﺎﺗو ةﺄﺸﻨﻤﻟا طﺎﺸﻧ ﻖﻓو ﺔﻴﻤﺳﺮﻟا ﺔﻬﺠﻟاو ﺺﺘﺨﻤﻟا ﺎﻤﻫدﺪﺤﻳ لﺎﺜﺘﻣﻻاو ﺐﺋاﴬﻟا .ﺔﻴﻧﻮﻧﺎﻗ وأ ﺔﻴﺒﻳﴐ وأ ﺔﻴﻟﺎﻣ ةرﺎﺸﺘﺳا ﺔﻘﻴﺛﻮﻟا هﺬﻫ ﻞﺜﻤﺗ ﻻ
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+      23                            ﺞﻬﻨﻤﻟاو ردﺎﺼﻤﻟا                     RESUTO    

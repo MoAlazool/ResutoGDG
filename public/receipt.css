@@ -1,0 +1,173 @@
+/* Digital receipt — paper-inspired, mobile-first, grows with its content. */
+:root{--receipt-paper:#fffefb;--receipt-ink:#233b31;--receipt-faint:#8e968f;--receipt-line:#e3e6df;--receipt-tooth:11px;
+ /* Scalloped top and bottom, straight sides — the paper keeps this shape at any height. */
+ --receipt-mask:
+  radial-gradient(circle at 50% 0,transparent var(--receipt-tooth),#000 calc(var(--receipt-tooth) + .5px)) 50% 0/calc(var(--receipt-tooth)*2) var(--receipt-tooth) repeat-x,
+  radial-gradient(circle at 50% 100%,transparent var(--receipt-tooth),#000 calc(var(--receipt-tooth) + .5px)) 50% 100%/calc(var(--receipt-tooth)*2) var(--receipt-tooth) repeat-x,
+  linear-gradient(#000,#000) 50% 50%/100% calc(100% - var(--receipt-tooth)*2) no-repeat}
+
+.receipt-stage{display:flex;flex-direction:column;align-items:center;gap:20px;padding:8px 0 max(28px,env(safe-area-inset-bottom));width:100%}
+
+/* ---- the paper ------------------------------------------------------- */
+.receipt-paper{position:relative;width:100%;max-width:380px;color:var(--receipt-ink);
+ font-variant-numeric:tabular-nums;
+ filter:drop-shadow(0 1px 1px rgba(28,52,42,.05)) drop-shadow(0 12px 28px rgba(28,52,42,.10));
+ /* Rolls out of the printer: clipped from the top, so it works at any height. */
+ animation:receipt-roll 1s cubic-bezier(.22,.61,.36,1) both}
+/* The shadow that rides the leading edge as the paper feeds out. */
+.receipt-paper:after{content:'';position:absolute;inset-inline:0;top:0;height:64px;z-index:2;pointer-events:none;
+ transform:translateY(-100%);
+ background:linear-gradient(to bottom,transparent,rgba(24,48,38,.14));
+ animation:receipt-roll-edge 1s cubic-bezier(.22,.61,.36,1) both}
+@keyframes receipt-roll{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes receipt-roll-edge{from{top:0;opacity:0}12%{opacity:1}92%{opacity:1}to{top:100%;opacity:0}}
+/* Controls settle in once the paper has finished feeding. */
+.receipt-stage .receipt-actions{animation:receipt-in .45s ease-out .62s both}
+/* The scallops live on the body so the drop-shadow above traces the torn shape. */
+.receipt-body{position:relative;background:var(--receipt-paper);
+ padding:calc(24px + var(--receipt-tooth)) 22px calc(20px + var(--receipt-tooth));
+ -webkit-mask:var(--receipt-mask);mask:var(--receipt-mask)}
+.receipt-body:before{content:'';position:absolute;inset:0;pointer-events:none;
+ background:linear-gradient(101deg,rgba(0,0,0,.035) 0 6%,transparent 12% 88%,rgba(0,0,0,.028) 96% 100%)}
+
+@keyframes receipt-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---- header ---------------------------------------------------------- */
+.receipt-head{text-align:center;margin-bottom:20px}
+.receipt-logo{max-width:96px;max-height:44px;object-fit:contain;margin:0 auto 14px;display:block}
+.receipt-monogram{width:40px;height:40px;margin:0 auto 14px;display:grid;place-items:center;border-radius:11px;
+ background:var(--green,#204f43);color:#eef3e4;font-family:Georgia,serif;font-style:italic;font-size:22px}
+.receipt-title{font-family:ui-monospace,SFMono-Regular,Menlo,"Courier New",monospace;font-size:23px;font-weight:600;
+ letter-spacing:.28em;text-transform:uppercase;margin:0 0 10px;padding-inline-start:.28em;color:var(--receipt-ink)}
+.receipt-stamp{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:11.5px;font-weight:600;letter-spacing:.04em;
+ color:#4c7a52;background:#eef5e9;border-radius:999px;padding:5px 12px}
+.receipt-stars{display:block;margin-top:14px;font-size:10px;letter-spacing:.5em;color:#c8cec6}
+
+.receipt-venue{text-align:center;margin:18px 0 0;display:flex;flex-direction:column;gap:4px}
+.receipt-venue strong{font-size:14px;font-weight:600}
+.receipt-venue span{font-size:11.5px;color:var(--receipt-faint)}
+
+/* ---- rules ----------------------------------------------------------- */
+.receipt-rule{height:1px;margin:16px 0;background:var(--receipt-line)}
+.receipt-rule.dotted{background:none;border-top:1.5px dotted #cfd5cd}
+
+/* ---- metadata -------------------------------------------------------- */
+.receipt-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px;margin:0}
+.receipt-meta>div{min-width:0}
+.receipt-meta dt{font-size:9.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--receipt-faint);margin-bottom:3px}
+.receipt-meta dd{margin:0;font-size:12.5px;font-weight:550;overflow-wrap:anywhere}
+.receipt-payment dd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;font-weight:500}
+.receipt-paid-flag{color:#4c7a52;font-weight:700!important;letter-spacing:.06em}
+
+/* ---- items ----------------------------------------------------------- */
+.receipt-items{display:flex;flex-direction:column;gap:12px}
+.receipt-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:baseline}
+.receipt-qty{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--receipt-faint);min-width:16px}
+.receipt-qty:after{content:'×';margin-inline-start:2px}
+.receipt-item-name{font-size:13px;line-height:1.4;overflow-wrap:anywhere;min-width:0}
+.receipt-item-name small{display:block;font-size:10.5px;color:var(--receipt-faint);margin-top:3px}
+.receipt-item-price{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;font-weight:600;white-space:nowrap}
+
+/* ---- totals ---------------------------------------------------------- */
+.receipt-totals{display:flex;flex-direction:column;gap:10px}
+.receipt-amount{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:12.5px;color:#5f6d63}
+.receipt-amount b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;white-space:nowrap;color:var(--receipt-ink)}
+.receipt-credit b{color:#4c7a52}
+.receipt-grand{margin-top:4px;padding-top:12px;border-top:1.5px solid var(--receipt-ink);font-size:12px;
+ text-transform:uppercase;letter-spacing:.11em;font-weight:700;color:var(--receipt-ink)}
+.receipt-grand b{font-size:19px;letter-spacing:0}
+.receipt-paid b{color:#4c7a52}
+.receipt-due b{color:#a9663f}
+.receipt-settled{margin:12px 0 0;text-align:center;font-size:11.5px;font-weight:600;color:#4c7a52}
+.receipt-note{margin:12px 0 0;font-size:10.5px;line-height:1.6;color:var(--receipt-faint);text-align:center}
+
+/* ---- footer / barcode ------------------------------------------------ */
+/* display/padding/font-size override the global `footer` rule in style.css. */
+.receipt-foot{display:block;text-align:center;padding:4px 0 0;font-size:inherit;color:inherit}
+.receipt-thanks{margin:0 0 16px;font-size:12.5px;color:#5f6d63}
+.receipt-thanks span{color:#c07a63}
+.receipt-barcode{display:block;width:min(100%,240px);height:52px;margin:0 auto;fill:var(--receipt-ink)}
+.receipt-code{display:block;margin-top:9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+ letter-spacing:.22em;color:var(--receipt-faint)}
+
+/* ---- success beat ---------------------------------------------------- */
+.receipt-checkmark svg{width:56px;height:56px;fill:none;stroke:#4c7a52;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.receipt-checkmark circle{stroke:#bcd8b6;stroke-dasharray:151;stroke-dashoffset:151;animation:receipt-ring .5s cubic-bezier(.4,0,.2,1) forwards}
+.receipt-checkmark path{stroke-dasharray:34;stroke-dashoffset:34;animation:receipt-tick .3s cubic-bezier(.4,0,.2,1) .35s forwards}
+@keyframes receipt-ring{to{stroke-dashoffset:0}}
+@keyframes receipt-tick{to{stroke-dashoffset:0}}
+
+/* ---- pending / failed ------------------------------------------------ */
+.receipt-paper.is-loading .receipt-body,.receipt-paper.is-failed .receipt-body{text-align:center;padding:34px 24px 30px}
+.receipt-pending-title{margin:16px 0 6px;font-size:14px;font-weight:600}
+.receipt-spinner{width:26px;height:26px;margin:0 auto;border-radius:50%;border:2.5px solid #dfe6dc;border-top-color:var(--green,#204f43);animation:receipt-spin .8s linear infinite}
+@keyframes receipt-spin{to{transform:rotate(360deg)}}
+.receipt-failed-mark{width:40px;height:40px;margin:0 auto;display:grid;place-items:center;border-radius:50%;
+ background:#f7ece7;color:#a9663f;font-size:21px;font-weight:700}
+.receipt-skeleton{display:flex;flex-direction:column;gap:11px;margin-top:26px}
+.receipt-skeleton span{height:9px;border-radius:4px;background:linear-gradient(90deg,#eef0ec 25%,#f7f8f5 50%,#eef0ec 75%) 0/300% 100%;
+ animation:receipt-shimmer 1.4s ease-in-out infinite}
+.receipt-skeleton span:nth-child(2n){width:72%}
+.receipt-skeleton span:nth-child(3n){width:88%}
+@keyframes receipt-shimmer{to{background-position:-300% 0}}
+
+/* ---- actions --------------------------------------------------------- */
+.receipt-actions{display:flex;gap:10px;width:100%;max-width:380px}
+.receipt-actions-primary{flex-direction:column;gap:8px}
+.receipt-action{flex:1;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+ background:#fff;border:1px solid #dde3dc;border-radius:9px;color:#43554a;font-size:13px;font-weight:550;
+ padding:0 12px;transition:background .15s,transform .15s}
+.receipt-action:hover{background:#f4f7f2}
+.receipt-action:active{transform:scale(.97)}
+.receipt-actions-primary .primary{margin-top:0;min-height:48px}
+
+/* ---- receipt history entry points ------------------------------------ */
+.receipt-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.receipt-list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:start;
+ background:#fff;border:1px solid var(--receipt-line);border-radius:10px;padding:14px 16px;min-height:48px}
+.receipt-list-item:hover{background:#f7f9f5}
+.receipt-list-item strong{font-size:13px;font-weight:600;display:block}
+.receipt-list-item small{font-size:11px;color:var(--receipt-faint);display:block;margin-top:3px}
+.receipt-list-item b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;white-space:nowrap}
+
+/* ---- responsive ------------------------------------------------------ */
+@media(max-width:430px){
+ .receipt-body{padding:24px 18px 20px}
+ .receipt-title{font-size:21px}
+ .receipt-meta{gap:11px 12px}
+ .receipt-grand b{font-size:18px}
+ .receipt-barcode{height:46px}
+}
+@media(max-width:340px){
+ .receipt-body{padding:20px 14px 18px}
+ .receipt-meta{grid-template-columns:1fr}
+ .receipt-actions{flex-wrap:wrap}
+ .receipt-action{flex:1 1 100%}
+}
+@media(min-width:760px){
+ .receipt-paper,.receipt-actions{max-width:400px}
+ .receipt-body{padding:32px 30px 26px}
+}
+
+/* Arabic keeps the paper RTL while amounts and codes stay LTR-legible.
+   Letter-spacing and monospace both break Arabic letter joining, so Arabic
+   text drops them and only the LTR codes/amounts keep the receipt face. */
+[dir=rtl] .receipt-title,[dir=rtl] .receipt-paid-flag,[dir=rtl] .receipt-meta dt{letter-spacing:normal}
+[dir=rtl] .receipt-title{font-family:inherit;padding-inline-start:0}
+[dir=rtl] .receipt-payment dd{font-family:inherit;font-size:12.5px}
+[dir=rtl] .receipt-payment dd[dir=ltr]{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+.receipt-paper [dir=ltr]{unicode-bidi:isolate}
+
+@media(prefers-reduced-motion:reduce){
+ .receipt-paper,.receipt-paper:after,.receipt-stage .receipt-actions,.receipt-checkmark circle,.receipt-checkmark path,.receipt-spinner,.receipt-skeleton span{animation:none}
+ .receipt-paper{clip-path:none}.receipt-paper:after{display:none}
+ .receipt-checkmark circle,.receipt-checkmark path{stroke-dashoffset:0}
+}
+
+/* Download/print produces the paper alone, edge to edge. */
+@media print{
+ body>*{display:none!important}
+ body>.receipt-print{display:block!important}
+ .receipt-print .receipt-paper{max-width:none;filter:none;box-shadow:none;margin:0 auto}
+ .receipt-actions{display:none!important}
+}

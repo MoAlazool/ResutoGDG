@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHmac} from 'node:crypto';
+import {createCheckout,verifyPaymentEvent} from '../payments.js';
+test('Paymob intention uses server amount; signed callbacks validate order, currency and final success',async()=>{
+ const values={PAYMOB_SECRET_KEY:'fixture',PAYMOB_PUBLIC_KEY:'fixture',PAYMOB_HMAC_SECRET:'secret',PAYMOB_INTEGRATION_ID_CARD:'123'};const old=Object.fromEntries(Object.keys(values).map(k=>[k,process.env[k]]));Object.assign(process.env,values);
+ try{const result=await createCheckout({id:'attempt',amount:7250,provider:'paymob'},'https://resuto.example',{firstName:'Demo',lastName:'Guest',phone:'+201000000000',email:'demo@example.com'},async(url,options)=>{assert.equal(url,'https://accept.paymob.com/v1/intention/');const body=JSON.parse(options.body);assert.equal(body.amount,7250);assert.equal(body.special_reference,'attempt');assert.equal(body.notification_url,'https://resuto.example/api/webhooks/paymob');return {ok:true,json:async()=>({intention_order_id:777,client_secret:'fixture'})};});assert.equal(result.providerId,'777');assert.ok(result.url.startsWith('https://accept.paymob.com/unifiedcheckout/'));
+ const o={amount_cents:7250,created_at:'2026-09-06',currency:'EGP',error_occured:false,has_parent_transaction:false,id:44,integration_id:123,is_3d_secure:true,is_auth:false,is_capture:false,is_refunded:false,is_standalone_payment:true,is_voided:false,order:{id:777},owner:1,pending:false,source_data:{pan:'2345',sub_type:'MasterCard',type:'card'},success:true};
+ const signed=[7250,'2026-09-06','EGP',false,false,44,123,true,false,false,false,true,false,777,1,false,'2345','MasterCard','card',true].map(String).join('');const hmac=createHmac('sha512','secret').update(signed).digest('hex');const raw=JSON.stringify({obj:o});assert.throws(()=>verifyPaymentEvent('paymob',raw,{},new URLSearchParams('hmac=bad')));const ev=verifyPaymentEvent('paymob',raw,{},new URLSearchParams({hmac}));assert.equal(ev.paid,true);assert.equal(ev.providerId,'777');assert.equal(ev.amount,7250);assert.throws(()=>verifyPaymentEvent('paymob',JSON.stringify({obj:{...o,amount_cents:100}}),{},new URLSearchParams({hmac})));
+ }finally{for(const [k,v]of Object.entries(old))if(v===undefined)delete process.env[k];else process.env[k]=v;}
+});

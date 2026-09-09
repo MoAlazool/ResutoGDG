@@ -1,0 +1,35 @@
+{
+  "name": "resuto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --watch --env-file-if-exists=.env server.js",
+    "test": "node --test tests/*.test.js",
+    "test:firebase": "firebase emulators:exec --only auth,firestore --project resuto-cf8f5 \"node --test tests/firebase-tenancy.test.js\"",
+    "build:client": "node scripts/build-client.mjs",
+    "build": "npm run build:client && node scripts/check-source.mjs",
+    "test:browser": "python scripts/premium_smoke.py",
+    "test:experience": "python scripts/experience_smoke.py",
+    "test:editor": "python scripts/editor_smoke.py",
+    "test:data": "python scripts/data_guest_smoke.py",
+    "test:browser:legacy": "python scripts/browser_smoke.py",
+    "test:owner-ai": "python scripts/owner_ai_smoke.py",
+    "deploy": "firebase deploy"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "firebase": "^12.18.0",
+    "firebase-admin": "^14.3.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "overrides": {
+    "toml": "^4.2.0"
+  }
+}

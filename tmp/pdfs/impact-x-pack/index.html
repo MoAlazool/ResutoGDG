@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>Resuto — ملف التحكيم الشامل | IMPACT X</title>
+  <style>
+    @font-face{font-family:PlexArabic;src:url('../../../public/fonts/plex-arabic.ttf') format('truetype');font-weight:400}
+    @font-face{font-family:PlexArabic;src:url('../../../public/fonts/plex-arabic-semibold.ttf') format('truetype');font-weight:600}
+    @font-face{font-family:PlexArabic;src:url('../../../public/fonts/plex-arabic-bold.ttf') format('truetype');font-weight:700}
+    @font-face{font-family:Manrope;src:url('../../../public/fonts/manrope.ttf') format('truetype')}
+    :root{--ink:#16342d;--green:#164c41;--green2:#236b5d;--mint:#eaf4ef;--gold:#c99a45;--cream:#f7f4ed;--muted:#68766f;--line:#d7e0db;--red:#9d3b37;--amber:#9a6516;--blue:#2c5e83}
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:#dfe5e1;color:var(--ink);font-family:PlexArabic,Arial,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{font-size:10.1pt;line-height:1.55}
+    @page{size:A4;margin:0}
+    .page{position:relative;width:210mm;height:297mm;margin:8mm auto;background:#fff;padding:15mm 16mm 15mm;overflow:hidden;break-after:page;page-break-after:always}
+    .page:last-child{break-after:auto;page-break-after:auto}
+    @media print{body{background:#fff}.page{margin:0}}
+    .footer{position:absolute;right:16mm;left:16mm;bottom:7mm;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);padding-top:2.4mm;color:#78857f;font-size:7.8pt}
+    .footer b{color:var(--green)}
+    h1,h2,h3,h4,p{margin-top:0}
+    h1{font-size:33pt;line-height:1.15;margin-bottom:5mm;letter-spacing:-.4px}
+    h2{font-size:22pt;line-height:1.25;margin-bottom:5mm;color:var(--green)}
+    h3{font-size:14pt;line-height:1.3;margin:0 0 2.5mm;color:var(--green)}
+    h4{font-size:11pt;margin:0 0 1.4mm}
+    p{margin-bottom:2.6mm}
+    small,.small{font-size:8.4pt;color:var(--muted)}
+    .eyebrow{font-family:Manrope,PlexArabic,sans-serif;font-size:8.5pt;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:3mm}
+    .lead{font-size:14pt;line-height:1.65;color:#314940}
+    .muted{color:var(--muted)}
+    .ltr{direction:ltr;text-align:left;font-family:Manrope,PlexArabic,sans-serif}
+    .tag{display:inline-block;border-radius:999px;background:var(--mint);color:var(--green);padding:1mm 3mm;margin:0 0 1.5mm 1.5mm;font-weight:600;font-size:8pt}
+    .tag.gold{background:#f4ead7;color:#805b19}.tag.red{background:#f8e8e6;color:var(--red)}.tag.blue{background:#e6f0f7;color:var(--blue)}
+    .rule{height:1px;background:var(--line);margin:4mm 0}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}
+    .card{border:1px solid var(--line);border-radius:4mm;padding:4mm;background:#fff}
+    .card.soft{background:var(--cream);border-color:#ede7da}
+    .card.green{background:var(--green);color:#fff;border:none}.card.green h3,.card.green h4{color:#fff}.card.green .muted{color:#d9e7e2}
+    .card.mint{background:var(--mint);border:none}
+    .card.warn{background:#fff8e9;border-color:#ecd59e}
+    .card.danger{background:#fff2f0;border-color:#efc7c2}
+    .metric{font-family:Manrope,PlexArabic,sans-serif;font-size:23pt;line-height:1;color:var(--green);font-weight:800;margin-bottom:1.5mm}
+    .metric.gold{color:var(--gold)}
+    ul,ol{margin:0;padding-right:5mm} li{margin-bottom:1.4mm}
+    .tight li{margin-bottom:.7mm}
+    table{width:100%;border-collapse:collapse;font-size:8.8pt;line-height:1.4}
+    th{background:var(--green);color:#fff;text-align:right;padding:2.3mm;border:1px solid var(--green)}
+    td{padding:2.1mm;border:1px solid var(--line);vertical-align:top}
+    tr:nth-child(even) td{background:#f8faf9}
+    .score{font-family:Manrope,sans-serif;font-weight:800;text-align:center;white-space:nowrap}
+    .status{display:inline-block;padding:.4mm 2mm;border-radius:999px;font-size:7.7pt;font-weight:700}.done{background:#dff2e8;color:#19623f}.partial{background:#fff0cd;color:#885912}.gap{background:#f9dfdc;color:#933c34}
+    .callout{border-right:4px solid var(--gold);background:#fbf7ee;padding:3.5mm 4mm;border-radius:2.5mm;margin:3mm 0}
+    .formula{direction:ltr;text-align:center;background:#102e28;color:#fff;border-radius:4mm;padding:4mm;font-family:Manrope,sans-serif;font-size:12.5pt;font-weight:700}
+    .bar{height:5mm;background:#e5ece8;border-radius:99px;overflow:hidden}.bar span{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#e1b963);border-radius:99px}
+    .timeline{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm}.step{border-top:4px solid var(--green);padding:2.5mm;background:var(--cream);min-height:33mm}.step b{display:block;color:var(--gold);font-family:Manrope,sans-serif;margin-bottom:1mm}
+    .flow{display:flex;align-items:stretch;gap:2mm;direction:rtl}.flow .node{flex:1;border:1px solid var(--line);border-radius:3mm;padding:3mm;background:#fff;text-align:center}.arrow{display:flex;align-items:center;color:var(--gold);font-size:18pt}
+    .shot{width:100%;height:70mm;object-fit:cover;object-position:top;border-radius:4mm;border:1px solid var(--line);box-shadow:0 3mm 8mm rgba(18,54,45,.12)}
+    .shot.short{height:54mm}.shot.tall{height:105mm}
+    .caption{font-size:7.8pt;color:var(--muted);margin-top:1.5mm}
+    .quote{font-size:16pt;line-height:1.55;color:var(--green);font-weight:700;border-right:5px solid var(--gold);padding-right:5mm;margin:6mm 0}
+    .cover{background:linear-gradient(145deg,#103c34 0%,#1d6355 70%,#2d7465 100%);color:#fff;padding:18mm}
+    .cover:after{content:"";position:absolute;width:100mm;height:100mm;border:1px solid rgba(255,255,255,.14);border-radius:50%;left:-25mm;top:-20mm;box-shadow:0 0 0 18mm rgba(255,255,255,.03),0 0 0 36mm rgba(255,255,255,.03)}
+    .cover h1{color:#fff;font-size:40pt;margin-top:24mm}.cover .lead{color:#d9ebe5;max-width:150mm}.cover .eyebrow{color:#f2c96e}.cover .footer{color:#c8dcd5;border-color:rgba(255,255,255,.25)}
+    .cover-badge{display:inline-block;border:1px solid rgba(255,255,255,.4);border-radius:999px;padding:2mm 4mm;color:#fff;margin-top:8mm}
+    .logo-box{width:52mm;background:#fff;border-radius:4mm;padding:4mm 5mm;margin-top:10mm}.logo-box img{width:100%;display:block}
+    .section-no{font-family:Manrope,sans-serif;font-size:54pt;line-height:1;color:#d9e8e2;position:absolute;left:15mm;top:11mm;font-weight:800}
+    .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:2.5mm;margin:4mm 0}.kpi{background:var(--cream);border-radius:3mm;padding:3mm;text-align:center}.kpi b{display:block;font-family:Manrope,sans-serif;font-size:16pt;color:var(--green)}
+    .source-list{font-size:8.2pt;line-height:1.5}.source-list li{margin-bottom:2mm}.source-list a{color:var(--blue);text-decoration:none;direction:ltr;unicode-bidi:embed}
+    .checklist td:first-child{width:10mm;text-align:center;font-size:14pt;color:var(--green)}
+    .pillrow{display:flex;gap:2mm;flex-wrap:wrap;margin:2mm 0}
+    .architecture{display:grid;grid-template-columns:1fr 8mm 1fr 8mm 1fr;align-items:center;direction:rtl}.architecture .a{padding:4mm;border-radius:4mm;background:var(--mint);text-align:center;min-height:31mm}.architecture .a strong{display:block;margin-bottom:1mm}.architecture .arr{text-align:center;font-size:18pt;color:var(--gold)}
+    .avoid-break{break-inside:avoid;page-break-inside:avoid}
+  </style>
+</head>
+<body>
+
+<section class="page cover">
+  <div class="eyebrow">IMPACT X · JUDGING PACK · 09 SEP 2026</div>
+  <div class="logo-box"><img src="../../../public/assets/resuto-arabic-logo.png" alt="شعار Resuto"></div>
+  <h1>ملف التحكيم الشامل</h1>
+  <p class="lead">خطة جاهزة للدفاع عن المشروع أمام لجنة التحكيم: المشكلة، الأثر، الابتكار، التقنية، الجدوى، التسعير في مصر والسعودية، العائد على الاستثمار، الاستدامة، وسيناريو عرض لا يتجاوز 6 دقائق.</p>
+  <div class="cover-badge">المسار الأنسب: الأعمال والإنتاجية · SDG 8</div>
+  <div style="position:absolute;right:18mm;bottom:34mm;max-width:158mm">
+    <div class="quote" style="color:#fff;border-color:#f2c96e">Resuto يحوّل رحلة المطعم المتفرقة — من الحجز إلى المطبخ والدفع والإدارة — إلى نظام تشغيل عربي واحد مدعوم بالذكاء الاصطناعي.</div>
+    <p class="small" style="color:#cfe1db">وثيقة داخلية للعرض والتحكيم. الأرقام المالية نماذج تقديرية شفافة وليست نتائج تشغيلية مثبتة بعد.</p>
+  </div>
+  <div class="footer"><b>RESUTO</b><span>ملف التحكيم الشامل</span><span>01</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">00</div>
+  <div class="eyebrow">EXECUTIVE SNAPSHOT</div>
+  <h2>الخلاصة التي يجب أن يتذكرها الحكّام</h2>
+  <div class="card green">
+    <h3>القصة في 30 ثانية</h3>
+    <p>المطعم الصغير والمتوسط يدير الحجز والطاولات والطلبات والمطبخ والتحصيل غالبًا عبر أدوات منفصلة. ينتج عن ذلك إدخال متكرر، أخطاء، بطء، وبيانات لا تتحول إلى قرارات. Resuto يجمع رحلة الضيف وفريق التشغيل في واجهة عربية/إنجليزية واحدة، ثم يستخدم Gemini لتسريع إدخال القائمة والمخطط واقتراح التحسينات — مع بقاء القرار النهائي للمدير.</p>
+  </div>
+  <div class="grid3" style="margin-top:4mm">
+    <div class="card"><div class="metric">1</div><b>نظام موحّد</b><p class="small">حجز، طاولات، QR، طلب، مطبخ، تقسيم فاتورة، وإدارة.</p></div>
+    <div class="card"><div class="metric">2</div><b>سوقان أوليان</b><p class="small">مصر للاختبار السريع، ثم السعودية بعد جاهزية الامتثال.</p></div>
+    <div class="card"><div class="metric">30</div><b>يومًا لإثبات القيمة</b><p class="small">تجربة مدفوعة بقياسات قبل/بعد في 3 مطاعم.</p></div>
+  </div>
+  <h3 style="margin-top:5mm">الموقف الصادق اليوم</h3>
+  <table>
+    <tr><th>جاهز للعرض</th><th>يحتاج إثباتًا أو إكمالًا</th></tr>
+    <tr><td>تدفق تشغيلي مترابط، واجهات عربية/إنجليزية، إدارة الطاولات، تجربة الضيف، ذكاء Gemini، اختبارات آلية ومسار نشر.</td><td>دراسة مستخدمين موثقة، تجربة ميدانية وKPIs، تعدد المطاعم الحقيقي، فوترة إلكترونية محلية، دفع حي، مراقبة ونسخ احتياطي إنتاجي.</td></tr>
+  </table>
+  <div class="callout"><b>قاعدة العرض:</b> لا نقول «خفّضنا الأخطاء 30%». نقول «سنقيس خفض الأخطاء، ونموذجنا المحافظ يوضح متى يصبح الاشتراك مجديًا».</div>
+  <div class="footer"><b>RESUTO</b><span>الملخص التنفيذي</span><span>02</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">01</div>
+  <div class="eyebrow">JUDGING MAP</div>
+  <h2>خريطة معايير IMPACT X وخطة جمع النقاط</h2>
+  <table>
+    <tr><th>المعيار</th><th class="score">الوزن</th><th>ما نعرضه</th><th>الحالة</th></tr>
+    <tr><td>تعريف المشكلة</td><td class="score">10</td><td>شخصية مستخدم + رحلة متفرقة + فرضيات قابلة للقياس</td><td><span class="status partial">جزئي</span></td></tr>
+    <tr><td>الأثر وSDG</td><td class="score">15</td><td>SDG 8 ومؤشرات وقت/خطأ/هدر/إنتاجية</td><td><span class="status partial">بحاجة baseline</span></td></tr>
+    <tr><td>الابتكار</td><td class="score">10</td><td>ذكاء اصطناعي مساعد داخل سير العمل، لا chatbot منفصل</td><td><span class="status done">قوي</span></td></tr>
+    <tr><td>جودة الحل وUX</td><td class="score">10</td><td>رحلة حية عربية RTL من الحجز حتى الدفع</td><td><span class="status done">قوي</span></td></tr>
+    <tr><td>التنفيذ التقني</td><td class="score">15</td><td>معمارية، تخزين، أمن، idempotency، اختبارات</td><td><span class="status done">قوي</span></td></tr>
+    <tr><td>الجدوى والتنفيذ</td><td class="score">10</td><td>خطة 0–90 يومًا ومخاطر واضحة</td><td><span class="status partial">متوسط</span></td></tr>
+    <tr><td>ROI ونموذج العمل</td><td class="score">15</td><td>أسعار محلية + 3 سيناريوهات ROI + CAC/LTV قابلان للقياس</td><td><span class="status partial">نموذج لا دليل</span></td></tr>
+    <tr><td>الاستدامة والاستمرارية</td><td class="score">10</td><td>خارطة طريق، ملكية بيانات، دعم وتشغيل</td><td><span class="status partial">خطة</span></td></tr>
+    <tr><td>العرض والتواصل</td><td class="score">5</td><td>سيناريو 6 دقائق + Demo احتياطي</td><td><span class="status done">جاهز بهذه الوثيقة</span></td></tr>
+  </table>
+  <div class="grid2" style="margin-top:4mm">
+    <div class="card mint"><h3>الهدف الواقعي غدًا</h3><div class="metric">80–88 / 110</div><p class="small">يشمل Bonus استخدام Google وتقيد العرض بالوقت. ليس ضمانًا؛ هو تقدير تحضيري مبني على الحالة الحالية.</p></div>
+    <div class="card warn"><h3>مفتاح كسر التعادل</h3><p>رتّب الإجابات بهذا التسلسل: <b>الأثر → ROI → التقنية → الاستدامة → الجدوى</b>. وهو ترتيب Tie-break المعلن في المعايير.</p></div>
+  </div>
+  <div class="footer"><b>RESUTO</b><span>خريطة التحكيم</span><span>03</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">02</div>
+  <div class="eyebrow">PROBLEM & USER</div>
+  <h2>المشكلة ليست نقص شاشة؛ بل انقطاع تدفق العمل</h2>
+  <div class="grid2">
+    <div class="card soft">
+      <h3>المستخدم الأول</h3>
+      <p><b>مدير مطعم مستقل أو سلسلة صغيرة</b>، 1–3 فروع، فريق تشغيل صغير، ضغط مرتفع في ساعات الذروة، ويحتاج رؤية لحظية دون نظام مؤسسي معقد.</p>
+      <h4>وظيفته المطلوبة</h4>
+      <p>أن يعرف من حجز، أين سيجلس، ماذا طلب، أين الطلب في المطبخ، ماذا دُفع، وما الذي يحتاج تحسينًا.</p>
+    </div>
+    <div class="card">
+      <h3>تكلفة التجزؤ</h3>
+      <ul>
+        <li>إعادة إدخال البيانات بين الحجز والطاولة والكاشير.</li>
+        <li>أخطاء طلب وتأخير بسبب التسليم الشفهي أو الشاشات المنفصلة.</li>
+        <li>تسوية فاتورة بطيئة عند التقسيم أو الدفع المختلط.</li>
+        <li>قرارات تعتمد على الانطباع بدل بيانات تشغيلية.</li>
+        <li>إعداد تقني صعب للمطاعم العربية الصغيرة.</li>
+      </ul>
+    </div>
+  </div>
+  <h3 style="margin-top:5mm">صياغة المشكلة التي نقولها</h3>
+  <div class="quote">كيف نمكّن مطعمًا صغيرًا من تشغيل رحلة الضيف كاملة، بالعربية، من دون تجميع عدة أدوات أو دفع تكلفة نظام مؤسسي؟</div>
+  <h3>ما يلزم لإثباتها خلال 30 يومًا</h3>
+  <table>
+    <tr><th>الفرضية</th><th>الدليل المطلوب</th><th>حد النجاح الأولي</th></tr>
+    <tr><td>التجزؤ يستهلك وقت الفريق</td><td>10 مقابلات + قياس ساعات الإدخال/التسوية</td><td>≥ 60% يذكرون أداتين أو أكثر</td></tr>
+    <tr><td>الرحلة الموحدة تقلل الخطأ</td><td>معدل أخطاء الطلب قبل/بعد</td><td>تحسن ≥ 10%</td></tr>
+    <tr><td>العميل مستعد للدفع</td><td>3 خطابات نوايا أو اشتراك تجريبي</td><td>≥ مطعمين مدفوعين</td></tr>
+  </table>
+  <div class="footer"><b>RESUTO</b><span>المشكلة والمستخدم</span><span>04</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">03</div>
+  <div class="eyebrow">IMPACT & SDG</div>
+  <h2>الأثر: إنتاجية أفضل وعمل أكثر جودة</h2>
+  <div class="card green">
+    <h3>الارتباط الأساسي: SDG 8 — العمل اللائق ونمو الاقتصاد</h3>
+    <p>Resuto يستهدف رفع إنتاجية المنشآت الصغيرة وتحسين جودة التشغيل عبر تقليل الأعمال اليدوية والأخطاء، وتسريع الخدمة، وتحويل البيانات إلى قرارات. الارتباط ثانويًا بـ SDG 12 عند قياس الهدر والمخزون.</p>
+  </div>
+  <h3 style="margin-top:4mm">سلسلة الأثر</h3>
+  <div class="flow">
+    <div class="node"><b>مدخلات</b><br><span class="small">نظام موحّد + تدريب + AI</span></div><div class="arrow">←</div>
+    <div class="node"><b>مخرجات</b><br><span class="small">طلبات رقمية وبيانات لحظية</span></div><div class="arrow">←</div>
+    <div class="node"><b>نتائج</b><br><span class="small">وقت أقل، خطأ أقل، خدمة أسرع</span></div>
+  </div>
+  <h3 style="margin-top:5mm">لوحة مؤشرات التجربة</h3>
+  <table>
+    <tr><th>المؤشر</th><th>التعريف</th><th>طريقة القياس</th><th>هدف 30 يومًا</th></tr>
+    <tr><td>زمن دورة الطلب</td><td>من تأكيد الطلب حتى جاهزيته</td><td>أحداث زمنية داخل النظام</td><td>خفض 10%</td></tr>
+    <tr><td>معدل خطأ الطلب</td><td>الطلبات المعادة/المصححة ÷ الكل</td><td>سبب تعديل/إلغاء إلزامي</td><td>خفض 10%</td></tr>
+    <tr><td>زمن تسوية الفاتورة</td><td>من طلب الحساب حتى الإغلاق</td><td>timestamps للدفع</td><td>خفض 15%</td></tr>
+    <tr><td>ساعات الإدارة اليدوية</td><td>إدخال قائمة، مصالحة، تقارير</td><td>دفتر أسبوعي + time log</td><td>توفير 8 ساعات/شهر</td></tr>
+    <tr><td>رضا المستخدم</td><td>CSAT للفريق والضيف</td><td>استبيان 1–5</td><td>≥ 4.0/5</td></tr>
+    <tr><td>الهدر/نفاد المخزون</td><td>قيمة الهدر والأصناف غير المتاحة</td><td>سجل أسبوعي</td><td>إنشاء baseline أولًا</td></tr>
+  </table>
+  <div class="callout"><b>مهم:</b> هذه أهداف Pilot وليست نتائج محققة. في العرض نعرض آلية القياس والثقة في التعلم، لا أرقامًا مختلقة.</div>
+  <div class="footer"><b>RESUTO</b><span>الأثر وSDG</span><span>05</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">04</div>
+  <div class="eyebrow">SOLUTION</div>
+  <h2>رحلة واحدة للضيف والفريق والمدير</h2>
+  <div class="architecture" style="margin-top:4mm">
+    <div class="a"><strong>الضيف</strong>حجز · QR · طلب · تقسيم ودفع</div><div class="arr">←</div>
+    <div class="a"><strong>التشغيل</strong>طاولات · نادل · KDS · حالة الطلب</div><div class="arr">←</div>
+    <div class="a"><strong>المدير</strong>قائمة · بيانات · تكاملات · رؤى AI</div>
+  </div>
+  <div class="grid2" style="margin-top:6mm">
+    <div>
+      <img class="shot" src="../../../docs/screenshots/experience-reservation.png" alt="واجهة الحجز">
+      <p class="caption">الحجز يدخل مباشرة إلى نفس نموذج التشغيل بدل أن يبقى في قناة منفصلة.</p>
+    </div>
+    <div>
+      <img class="shot" src="../../../docs/screenshots/experience-floor-2d.png" alt="مخطط الطاولات">
+      <p class="caption">مخطط الطابق يربط السعة والطاولة والحالة مع رحلة الضيف.</p>
+    </div>
+  </div>
+  <h3 style="margin-top:5mm">التدفق الذي نعرضه حيًا</h3>
+  <ol>
+    <li>إنشاء حجز باسم ضيف ووقت وعدد أفراد.</li>
+    <li>تخصيص الطاولة من المخطط.</li>
+    <li>فتح QR وإضافة طلب وإرساله للمطبخ.</li>
+    <li>تغيير حالة الطلب في KDS.</li>
+    <li>تقسيم الفاتورة وإغلاقها ثم مشاهدة أثرها في الإدارة.</li>
+  </ol>
+  <div class="footer"><b>RESUTO</b><span>الحل وتجربة المستخدم</span><span>06</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">05</div>
+  <div class="eyebrow">INNOVATION</div>
+  <h2>Gemini يعمل داخل المهمة، والمدير يحتفظ بالقرار</h2>
+  <div class="grid2">
+    <div class="card green">
+      <h3>1 · إدخال أسرع</h3>
+      <p>تحويل صور القائمة أو مخطط الطاولات إلى مسودة منظمة بدل الإدخال اليدوي الكامل.</p>
+    </div>
+    <div class="card">
+      <h3>2 · مراجعة قبل الحفظ</h3>
+      <p>النتيجة لا تغيّر بيانات المطعم تلقائيًا؛ تُعرض للمراجعة والتعديل، ثم يعتمدها المدير.</p>
+    </div>
+    <div class="card">
+      <h3>3 · رؤى قابلة للتنفيذ</h3>
+      <p>اقتراحات حول القائمة والتشغيل مبنية على سياق المطعم، مع إظهار فشل الخدمة بصورة آمنة.</p>
+    </div>
+    <div class="card soft">
+      <h3>4 · فشل آمن</h3>
+      <p>إذا تعذر Gemini، لا تتغير بيانات المطعم. وهذا ظهر بوضوح في واجهة الاختبار الحالية.</p>
+    </div>
+  </div>
+  <div style="margin-top:5mm"><img class="shot tall" src="../../../docs/screenshots/owner-ai/plan-review.png" alt="مراجعة مخطط Gemini"></div>
+  <p class="caption">مثال من المنتج: استنتاج هندسي تقريبي ثم شاشة مراجعة؛ الذكاء مساعد وليس صاحب القرار.</p>
+  <div class="callout"><b>قيمة Google Technology Bonus:</b> نعرض استدعاء Gemini الحقيقي، بنية structured output، التحقق من المدخلات، fallback واضح، وحماية المفتاح على الخادم. لا يكفي ذكر اسم Gemini على الشريحة.</div>
+  <div class="footer"><b>RESUTO</b><span>الابتكار وGemini</span><span>07</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">06</div>
+  <div class="eyebrow">TECHNICAL IMPLEMENTATION</div>
+  <h2>تنفيذ تقني قابل للتوسّع، مع حدود معلنة</h2>
+  <div class="architecture">
+    <div class="a"><strong>واجهة ويب Responsive</strong>عربي/إنجليزي · RTL · ضيف/فريق/مدير</div><div class="arr">←</div>
+    <div class="a"><strong>API وخدمات نطاق</strong>حجوزات · طاولات · طلبات · دفع · AI</div><div class="arr">←</div>
+    <div class="a"><strong>تخزين وتكاملات</strong>Postgres/Netlify · Gemini · QR · بوابات دفع</div>
+  </div>
+  <h3 style="margin-top:5mm">نقاط الدفاع التقنية</h3>
+  <div class="grid2">
+    <div class="card">
+      <h4>سلامة العمليات</h4>
+      <ul class="tight"><li>Idempotency للعمليات الحساسة.</li><li>تحقق server-side وليس ثقة في الواجهة.</li><li>فصل منطق النطاق عن العرض.</li><li>معالجة واضحة لحالات الفشل.</li></ul>
+    </div>
+    <div class="card">
+      <h4>قابلية الاختبار</h4>
+      <ul class="tight"><li>اختبارات API والدفع والإيصالات.</li><li>اختبارات تجربة المتصفح.</li><li>فحوصات البناء والنشر.</li><li>Fixtures لتجارب AI.</li></ul>
+    </div>
+    <div class="card soft">
+      <h4>البيانات والأمن</h4>
+      <ul class="tight"><li>مفاتيح الخدمات في بيئة الخادم.</li><li>عدم حفظ نتيجة AI قبل الاعتماد.</li><li>معرّفات طلبات لمنع التكرار.</li><li>الحاجة إلى RBAC وتدقيق مستخدم كامل.</li></ul>
+    </div>
+    <div class="card warn">
+      <h4>حدود MVP</h4>
+      <ul class="tight"><li>لا يوجد Multi-tenancy إنتاجي مكتمل.</li><li>لا يوجد Offline mode.</li><li>الدفع الحي والامتثال المحلي بحاجة ربط واعتماد.</li><li>المراقبة والنسخ الاحتياطي الإنتاجي لم يكتمل.</li></ul>
+    </div>
+  </div>
+  <h3 style="margin-top:5mm">دليل جاهزية قابل للتكرار</h3>
+  <p>المستودع يحتوي على وثائق التحقق وإعداد نشر Netlify/Postgres. في فحص 9 سبتمبر 2026 نجح <b>73 من 73 اختبارًا آليًا</b>، واجتاز المشروع فحص بناء JavaScript دون أخطاء؛ وتغطي الاختبارات المسارات الأساسية والأمن والتزامن والدفع والإيصالات وAI.</p>
+  <div class="footer"><b>RESUTO</b><span>التنفيذ التقني</span><span>08</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">07</div>
+  <div class="eyebrow">MARKET & POSITIONING</div>
+  <h2>موقع Resuto: نظام تشغيل خفيف بسعر دخول واضح</h2>
+  <table>
+    <tr><th>مرجع سوقي معلن</th><th>السعر المنشور</th><th>ماذا نتعلم</th></tr>
+    <tr><td>Foodics — مصر</td><td><span class="ltr">EGP 2,848.95</span> أساسي شهريًا عند الدفع السنوي؛ <span class="ltr">EGP 3,733.67</span> متقدم</td><td>هناك استعداد للدفع لباقة تشغيل متكاملة؛ Resuto يدخل بسعر أقل لأنه MVP وأخف.</td></tr>
+    <tr><td>Wosul — السعودية</td><td><span class="ltr">SAR 259 / 359 / 579</span> شهريًا، قبل الضريبة</td><td>النطاق السوقي لخدمة مطاعم سحابية يبدأ قرب 259 ريال ويتدرج بالفروع والوظائف.</td></tr>
+    <tr><td>Hala Restaurant POS — السعودية</td><td><span class="ltr">SAR 299</span> لكل مستخدم/شهر</td><td>التسعير لكل مستخدم قد يصبح مكلفًا؛ Resuto يقترح سعرًا للفرع.</td></tr>
+  </table>
+  <div class="grid2" style="margin-top:5mm">
+    <div class="card green"><h3>موضعنا</h3><p><b>أبسط من ERP، أوسع من أداة حجز، وعربي منذ البداية.</b></p><p class="muted">ميزة البيع ليست عدد الشاشات؛ بل اتصال رحلة الضيف بالتشغيل والذكاء داخل نفس السياق.</p></div>
+    <div class="card warn"><h3>ما لا ندّعيه</h3><p>لسنا بديل POS إنتاجيًا كاملًا في السعودية قبل ZATCA، ولسنا منصة سلاسل كبيرة قبل Multi-tenancy وRBAC والمراقبة.</p></div>
+  </div>
+  <h3 style="margin-top:5mm">لماذا لا نحوّل العملات مباشرة؟</h3>
+  <p>التسعير محلي حسب البدائل وقدرة المطعم والقيمة، لا حسب سعر الصرف. مصر تحتاج نقطة دخول أقل وحساسية نقدية أعلى؛ السعودية تتطلب جاهزية امتثال ودعمًا محليًا وتكاملات دفع.</p>
+  <p class="small">الأسعار المرجعية تحققت من الصفحات الرسمية في 9 سبتمبر 2026 وقد تتغير. الروابط في قسم المصادر.</p>
+  <div class="footer"><b>RESUTO</b><span>السوق والتموضع</span><span>09</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">08</div>
+  <div class="eyebrow">PRICING — EGYPT</div>
+  <h2>التسعير المقترح لمصر</h2>
+  <p class="lead">نحافظ على الأسعار الحالية في المنتج كعرض اختراق سوقي، ونوضح حدود كل باقة حتى لا نبيع ميزات غير مكتملة.</p>
+  <table>
+    <tr><th>الباقة</th><th class="score">شهريًا قبل الضريبة</th><th>النطاق المقترح</th><th>السعر شامل 14%*</th></tr>
+    <tr><td><b>Starter</b></td><td class="score">799 EGP</td><td>فرع واحد، حجز، QR، قائمة، طاولات، تقارير أساسية</td><td class="score">910.86 EGP</td></tr>
+    <tr><td><b>Growth</b></td><td class="score">1,499 EGP</td><td>KDS، تقسيم فاتورة، بيانات عملاء، AI مساعد، تكاملات أساسية</td><td class="score">1,708.86 EGP</td></tr>
+    <tr><td><b>Pro</b></td><td class="score">2,999 EGP</td><td>تحليلات ورؤى متقدمة؛ تعدد الفروع لا يُباع قبل اكتماله</td><td class="score">3,418.86 EGP</td></tr>
+    <tr><td><b>Business</b></td><td class="score">عرض مخصص</td><td>SLA، ترحيل بيانات، تكاملات ودعم مخصص</td><td>حسب العرض</td></tr>
+  </table>
+  <div class="grid2" style="margin-top:5mm">
+    <div class="card mint"><h3>سنوي</h3><div class="metric">ادفع 10 أشهر</div><p>خصم فعلي 16.7% مقابل التزام سنوي. يساعد التدفق النقدي ويخفض churn.</p></div>
+    <div class="card soft"><h3>عرض Pilot</h3><div class="metric">30 يومًا</div><p>بدون رسوم إعداد، مع قياس baseline وأهداف نجاح. يتحول إلى Growth إذا تحقق معياران على الأقل.</p></div>
+  </div>
+  <h3 style="margin-top:5mm">إضافات مقترحة بعد ثبوت الطلب</h3>
+  <div class="pillrow"><span class="tag">فرع إضافي: 500 EGP/شهر</span><span class="tag">AI متقدم: 400 EGP/شهر</span><span class="tag">WhatsApp: 300 EGP + رسوم المزود</span></div>
+  <div class="callout"><b>المنطق:</b> Growth أقل بنحو 47% من سعر Foodics Basic المنشور للدفع السنوي، بما يعكس أن Resuto ناشئ وأخف. لا نضع السعر المنخفض باعتباره جودة أقل؛ بل كعرض تأسيسي محدود.</div>
+  <p class="small">* الضريبة 14% عند انطباقها قانونيًا. أهلية المطعم ومعالجة الفاتورة تُراجع مع محاسب/مستشار ضريبي. المصدر: مصلحة الضرائب المصرية.</p>
+  <div class="footer"><b>RESUTO</b><span>التسعير — مصر</span><span>10</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">09</div>
+  <div class="eyebrow">PRICING — SAUDI ARABIA</div>
+  <h2>التسعير المقترح للسعودية</h2>
+  <div class="card danger"><h3>شرط قبل الإطلاق التجاري الكامل</h3><p>لا نعرض Resuto كنظام POS/فوترة سعودي متوافق قبل استكمال التكامل مع الفوترة الإلكترونية ومتطلبات ZATCA. خلال الـPilot تُدار الفاتورة النظامية عبر حل معتمد قائم.</p></div>
+  <table style="margin-top:4mm">
+    <tr><th>الباقة</th><th class="score">السعر المستهدف قبل VAT</th><th>سعر المؤسسين 90 يومًا</th><th>شامل 15% عند السعر المستهدف</th></tr>
+    <tr><td><b>Starter</b></td><td class="score">199 SAR</td><td class="score">149 SAR</td><td class="score">228.85 SAR</td></tr>
+    <tr><td><b>Growth</b></td><td class="score">399 SAR</td><td class="score">299 SAR</td><td class="score">458.85 SAR</td></tr>
+    <tr><td><b>Pro</b></td><td class="score">699 SAR</td><td class="score">499 SAR</td><td class="score">803.85 SAR</td></tr>
+  </table>
+  <h3 style="margin-top:5mm">مبرر السوق</h3>
+  <ul>
+    <li><b>Starter 199</b> أقل من Wosul Basic (259) لخفض عائق التجربة.</li>
+    <li><b>Growth 399</b> قريب من Wosul Advanced (359) ويبرَّر بعد اكتمال AI والتشغيل المتكامل.</li>
+    <li><b>Pro 699</b> أعلى من Wosul Expansion (579)، لذلك يحتاج Multi-branch وSLA وتحليلات حقيقية قبل البيع.</li>
+    <li>التسعير للفرع، لا لكل مستخدم، يخلق مقارنة مفهومة مع Hala (299 لكل مستخدم).</li>
+  </ul>
+  <div class="grid2" style="margin-top:4mm">
+    <div class="card mint"><h3>بوابة Go-live</h3><p>QR إلزامي للفواتير المبسطة، تنسيق ومتطلبات ZATCA، ضريبة 15%، أرشفة، واختبار قبول محلي.</p></div>
+    <div class="card warn"><h3>قرار التسعير</h3><p>لا ننشر Pro قبل إغلاق فجوة الفروع والامتثال. نبدأ بـPilot مؤسسين محدود ونرفع السعر بعد الإثبات.</p></div>
+  </div>
+  <div class="footer"><b>RESUTO</b><span>التسعير — السعودية</span><span>11</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">10</div>
+  <div class="eyebrow">ROI MODEL</div>
+  <h2>العائد على الاستثمار: معادلة شفافة لا وعد</h2>
+  <div class="formula">ROI % = (Monthly measurable benefit − Subscription cost) ÷ Subscription cost × 100</div>
+  <h3 style="margin-top:5mm">مكونات المنفعة الشهرية</h3>
+  <div class="grid3">
+    <div class="card"><div class="metric">A</div><b>وقت موفّر</b><p class="small">ساعات الإدارة/التسوية الموفرة × تكلفة الساعة المحمّلة.</p></div>
+    <div class="card"><div class="metric">B</div><b>هدر/أخطاء متجنبة</b><p class="small">نسبة التحسن × المبيعات المتأثرة أو التكلفة المباشرة.</p></div>
+    <div class="card"><div class="metric">C</div><b>هامش مساهمة إضافي</b><p class="small">طلبات إضافية × متوسط الفاتورة × هامش المساهمة.</p></div>
+  </div>
+  <h3 style="margin-top:5mm">نتيجة السيناريوهات</h3>
+  <table>
+    <tr><th>السوق/الباقة</th><th>محافظ</th><th>أساسي</th><th>مرتفع</th></tr>
+    <tr><td><b>مصر — Growth 1,499 EGP</b></td><td>منفعة 1,800<br><b>ROI 20%</b><br>استرداد 25 يومًا</td><td>منفعة 5,100<br><b>ROI 240%</b><br>استرداد 8.8 يوم</td><td>منفعة 9,500<br><b>ROI 534%</b><br>استرداد 4.7 يوم</td></tr>
+    <tr><td><b>السعودية — Growth 399 SAR</b></td><td>منفعة 468<br><b>ROI 17%</b><br>استرداد 25.6 يوم</td><td>منفعة 1,221<br><b>ROI 206%</b><br>استرداد 9.8 يوم</td><td>منفعة 2,500<br><b>ROI 527%</b><br>استرداد 4.8 يوم</td></tr>
+  </table>
+  <div class="callout"><b>قراءة صحيحة:</b> حتى السيناريو المحافظ يقترب من نقطة التعادل خلال شهر، لكن ذلك يعتمد كليًا على تحقق الافتراضات. لذلك عقد الـPilot يربط الاستمرار ببيانات التشغيل الفعلية.</div>
+  <p class="small">فترة الاسترداد = تكلفة الاشتراك ÷ المنفعة الشهرية × 30 يومًا. لا تشمل تكلفة الأجهزة أو بوابة الدفع أو الضرائب أو رسوم الإعداد إن وجدت.</p>
+  <div class="footer"><b>RESUTO</b><span>نموذج ROI</span><span>12</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">11</div>
+  <div class="eyebrow">ROI ASSUMPTIONS</div>
+  <h2>الافتراضات التي نبني عليها السيناريو الأساسي</h2>
+  <div class="grid2">
+    <div>
+      <h3>مصر — Growth</h3>
+      <table>
+        <tr><th>البند</th><th>الحساب</th><th>القيمة</th></tr>
+        <tr><td>وقت إداري</td><td class="ltr">20 h × 75 EGP</td><td class="score">1,500</td></tr>
+        <tr><td>أخطاء/هدر</td><td class="ltr">0.4% × 600k EGP sales</td><td class="score">2,400</td></tr>
+        <tr><td>مساهمة إضافية</td><td class="ltr">8 checks × 500 × 30%</td><td class="score">1,200</td></tr>
+        <tr><td><b>الإجمالي</b></td><td></td><td class="score"><b>5,100 EGP</b></td></tr>
+      </table>
+      <div class="card mint" style="margin-top:4mm"><b>صافي منفعة شهرية</b><div class="metric">3,601 EGP</div><span class="small">بعد اشتراك 1,499 EGP، قبل الضريبة.</span></div>
+    </div>
+    <div>
+      <h3>السعودية — Growth</h3>
+      <table>
+        <tr><th>البند</th><th>الحساب</th><th>القيمة</th></tr>
+        <tr><td>وقت إداري</td><td class="ltr">15 h × 35 SAR</td><td class="score">525</td></tr>
+        <tr><td>أخطاء/هدر</td><td class="ltr">0.3% × 120k SAR sales</td><td class="score">360</td></tr>
+        <tr><td>مساهمة إضافية</td><td class="ltr">8 checks × 120 × 35%</td><td class="score">336</td></tr>
+        <tr><td><b>الإجمالي</b></td><td></td><td class="score"><b>1,221 SAR</b></td></tr>
+      </table>
+      <div class="card mint" style="margin-top:4mm"><b>صافي منفعة شهرية</b><div class="metric">822 SAR</div><span class="small">بعد اشتراك 399 SAR، قبل VAT.</span></div>
+    </div>
+  </div>
+  <h3 style="margin-top:6mm">كيف نمنع المبالغة؟</h3>
+  <ol>
+    <li>نأخذ baseline أسبوعًا قبل تفعيل Resuto.</li>
+    <li>نقيس الوقت بأحداث النظام، والخطأ بسبب مسجل، ولا نحسب «رضا» كمال مباشر.</li>
+    <li>نستخدم هامش المساهمة لا كامل المبيعات في الزيادة.</li>
+    <li>نقدم للعميل تقرير ROI شهريًا ويستطيع تعديل الافتراضات.</li>
+    <li>نستبعد أي منفعة لا يمكن إسنادها إلى تغير تشغيلي واضح.</li>
+  </ol>
+  <div class="footer"><b>RESUTO</b><span>افتراضات ROI</span><span>13</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">12</div>
+  <div class="eyebrow">BUSINESS MODEL</div>
+  <h2>نموذج SaaS بسيط، ثم توسّع بالإضافات</h2>
+  <div class="grid3">
+    <div class="card green"><div class="metric gold">01</div><h3>اشتراك للفرع</h3><p>إيراد متكرر، فاتورة مفهومة، ومستخدمون غير محدودين ضمن سياسة استخدام عادلة.</p></div>
+    <div class="card"><div class="metric">02</div><h3>إضافات</h3><p>AI متقدم، WhatsApp، ترحيل بيانات، تدريب، دعم مميز، وتكاملات محاسبية.</p></div>
+    <div class="card soft"><div class="metric">03</div><h3>Enterprise</h3><p>سلاسل، SLA، هوية خاصة، SSO، وتكاملات مخصصة بعد نضج Multi-tenancy.</p></div>
+  </div>
+  <h3 style="margin-top:5mm">اقتصاديات الوحدة — أهداف يجب اختبارها</h3>
+  <table>
+    <tr><th>المقياس</th><th>هدف أول 6 أشهر</th><th>كيف يُقاس</th></tr>
+    <tr><td>الهامش الإجمالي</td><td>≥ 75%</td><td>الإيراد ناقص الاستضافة وAI والرسائل والدعم المباشر</td></tr>
+    <tr><td>استرداد CAC</td><td>≤ 6 أشهر</td><td>تكلفة المبيعات والتسويق ÷ الهامش الشهري الجديد</td></tr>
+    <tr><td>Logo churn شهري</td><td>≤ 3%</td><td>المطاعم المغادرة ÷ المطاعم في بداية الشهر</td></tr>
+    <tr><td>LTV/CAC</td><td>≥ 3×</td><td>ARPA × هامش إجمالي ÷ churn، ثم ÷ CAC</td></tr>
+    <tr><td>زمن التفعيل</td><td>&lt; 1 يوم</td><td>من إنشاء الحساب إلى أول طلب مكتمل</td></tr>
+  </table>
+  <h3 style="margin-top:5mm">قنوات الوصول الأولية</h3>
+  <div class="pillrow"><span class="tag">شراكات موردي أجهزة POS</span><span class="tag">محاسبون ومستشارو مطاعم</span><span class="tag">زيارات ميدانية مركزة</span><span class="tag">إحالة مطعم لمطعم</span><span class="tag">محتوى عربي عملي</span></div>
+  <div class="callout"><b>لا نذكر LTV كبيرًا غدًا.</b> لا توجد بيانات churn بعد. نعرض المعادلة والهدف وخطة القياس، وهذا أقوى من رقم مصطنع.</div>
+  <div class="footer"><b>RESUTO</b><span>نموذج العمل</span><span>14</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">13</div>
+  <div class="eyebrow">FEASIBILITY</div>
+  <h2>خطة تنفيذ من Demo إلى منتج قابل للبيع</h2>
+  <div class="timeline">
+    <div class="step"><b>0–7 DAYS</b><strong>تثبيت الدليل</strong><p class="small">3 مقابلات سريعة، فيديو Demo احتياطي، اختبار كامل، صفحة ROI، إصلاح الأعطال الحرجة.</p></div>
+    <div class="step"><b>8–30 DAYS</b><strong>Pilot مصر</strong><p class="small">3 مطاعم، baseline، onboarding، event logging، تقرير أسبوعي، مطعم مدفوع واحد على الأقل.</p></div>
+    <div class="step"><b>31–60 DAYS</b><strong>جاهزية منتج</strong><p class="small">Multi-tenancy، RBAC، audit log، مراقبة، نسخ احتياطي، billing، دعم.</p></div>
+    <div class="step"><b>61–90 DAYS</b><strong>بوابة السعودية</strong><p class="small">شريك امتثال، ZATCA، SAR/VAT، Mada/Apple Pay، Pilot محلي مضبوط.</p></div>
+  </div>
+  <h3 style="margin-top:6mm">تعريف Done لكل مرحلة</h3>
+  <table>
+    <tr><th>المرحلة</th><th>مقياس خروج</th><th>قرار</th></tr>
+    <tr><td>Demo</td><td>تدفق كامل مرتين دون فشل + نسخة احتياطية</td><td>عرض أمام الحكّام</td></tr>
+    <tr><td>Pilot</td><td>مطعمان من 3 يحققان معيارين أثر + واحد يدفع</td><td>الاستمرار أو تعديل العرض</td></tr>
+    <tr><td>Production</td><td>99.5% توافر تجريبي، استعادة backup، RBAC واختبار أمني</td><td>بيع مصر</td></tr>
+    <tr><td>KSA</td><td>قبول محلي للفوترة والضريبة والدفع</td><td>إطلاق سعودي</td></tr>
+  </table>
+  <div class="grid2" style="margin-top:5mm">
+    <div class="card mint"><h3>ميزة الجدوى</h3><p>المنتج ليس Prototype بصريًا فقط؛ التدفقات الأساسية موجودة وقابلة للاختبار، ما يقلل مخاطر البناء.</p></div>
+    <div class="card warn"><h3>أكبر مخاطر التنفيذ</h3><p>الانتقال من مطعم تجريبي واحد إلى عزل بيانات عدة مطاعم وتشغيل مدفوع موثوق.</p></div>
+  </div>
+  <div class="footer"><b>RESUTO</b><span>الجدوى وخطة التنفيذ</span><span>15</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">14</div>
+  <div class="eyebrow">SUSTAINABILITY</div>
+  <h2>استمرارية التقنية والعمل بعد الهاكاثون</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>تشغيل موثوق</h3>
+      <ul><li>مراقبة الأخطاء والأداء.</li><li>نسخ احتياطي واستعادة مجربة.</li><li>Runbook للحوادث ومالك واضح.</li><li>SLA تدريجي حسب الباقة.</li></ul>
+    </div>
+    <div class="card">
+      <h3>تكلفة قابلة للسيطرة</h3>
+      <ul><li>حدود استخدام AI لكل باقة.</li><li>Cache وstructured calls.</li><li>قياس تكلفة كل تحليل.</li><li>Fallback يدوي عند التعطل.</li></ul>
+    </div>
+    <div class="card soft">
+      <h3>حماية وثقة</h3>
+      <ul><li>عزل tenant وRBAC.</li><li>تشفير أثناء النقل والتخزين.</li><li>سياسة احتفاظ وحذف.</li><li>سجل تدقيق ومراجعة صلاحيات.</li></ul>
+    </div>
+    <div class="card mint">
+      <h3>تعلم مستمر</h3>
+      <ul><li>مجلس عملاء شهري صغير.</li><li>قياس activation وretention.</li><li>Roadmap حسب الأثر لا الطلب الأعلى صوتًا.</li><li>توثيق قرارات النموذج.</li></ul>
+    </div>
+  </div>
+  <h3 style="margin-top:5mm">حوكمة الذكاء الاصطناعي</h3>
+  <table>
+    <tr><th>الخطر</th><th>الضابط</th></tr>
+    <tr><td>استخراج خاطئ للقائمة/المخطط</td><td>مسودة + مراجعة بشرية + عدم الحفظ التلقائي</td></tr>
+    <tr><td>تعطل المزود أو تجاوز الحصة</td><td>Timeout، رسالة واضحة، retry مضبوط، ومسار يدوي</td></tr>
+    <tr><td>تسريب بيانات حساسة</td><td>تقليل البيانات، إخفاء الحقول، شروط مزود مدفوع، وسياسة صريحة</td></tr>
+    <tr><td>تضخم التكلفة</td><td>سقف استخدام، قياس token cost، وتنبيه قبل الاستهلاك</td></tr>
+  </table>
+  <div class="footer"><b>RESUTO</b><span>الاستدامة والاستمرارية</span><span>16</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">15</div>
+  <div class="eyebrow">COMPLIANCE & RISK</div>
+  <h2>خريطة الامتثال والمخاطر</h2>
+  <table>
+    <tr><th>الموضوع</th><th>مصر</th><th>السعودية</th><th>حالتنا</th></tr>
+    <tr><td>الضريبة</td><td>14% عند الانطباق</td><td>VAT قياسي 15%</td><td><span class="status partial">إعداد محلي مطلوب</span></td></tr>
+    <tr><td>الفوترة/الإيصال الإلكتروني</td><td>تكامل منظومة الإيصال الإلكتروني وPOS/SDK حسب الحالة</td><td>ZATCA؛ QR للفواتير المبسطة وPhase 2 integration</td><td><span class="status gap">غير مكتمل</span></td></tr>
+    <tr><td>الدفع</td><td>بوابة مرخصة وتسوية آمنة</td><td>Mada/Apple Pay عبر مزود مرخص</td><td><span class="status partial">هيكل لا اعتماد حي</span></td></tr>
+    <tr><td>الخصوصية</td><td>موافقة واحتفاظ وتقليل بيانات</td><td>سياسة محلية وموقع معالجة واضح</td><td><span class="status partial">تحتاج قانونية</span></td></tr>
+    <tr><td>الاستمرارية</td><td colspan="2">مراقبة، نسخ احتياطي، استعادة، ودعم</td><td><span class="status gap">قبل الإنتاج</span></td></tr>
+  </table>
+  <h3 style="margin-top:5mm">سجل المخاطر الأعلى</h3>
+  <table>
+    <tr><th>الخطر</th><th>احتمال/أثر</th><th>التخفيف</th></tr>
+    <tr><td>فشل الإنترنت وقت الذروة</td><td>متوسط / عالٍ</td><td>Offline queue وخطة تشغيل يدوية مطبوعة</td></tr>
+    <tr><td>اختلاط بيانات المطاعم</td><td>منخفض / حرج</td><td>Tenant isolation واختبارات authorization إلزامية</td></tr>
+    <tr><td>فشل Demo بسبب AI</td><td>متوسط / متوسط</td><td>Fixture موثق + فيديو احتياطي + إظهار fallback</td></tr>
+    <tr><td>تكامل ضريبي متأخر</td><td>متوسط / عالٍ</td><td>شريك محلي؛ لا Go-live كامل قبله</td></tr>
+    <tr><td>تبني الفريق بطيء</td><td>متوسط / متوسط</td><td>تدريب 45 دقيقة، champion داخل المطعم، قياس activation</td></tr>
+  </table>
+  <p class="small" style="margin-top:4mm">هذه خريطة منتج وليست استشارة قانونية أو ضريبية. يعتمد الإطلاق على مراجعة مختص محلي واختبارات قبول.</p>
+  <div class="footer"><b>RESUTO</b><span>الامتثال والمخاطر</span><span>17</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">16</div>
+  <div class="eyebrow">PILOT DESIGN</div>
+  <h2>تجربة 30 يومًا تحوّل الافتراضات إلى دليل</h2>
+  <div class="kpi-row">
+    <div class="kpi"><b>3</b>مطاعم</div><div class="kpi"><b>7</b>أيام baseline</div><div class="kpi"><b>23</b>يوم تشغيل</div><div class="kpi"><b>5</b>KPIs أساسية</div>
+  </div>
+  <table>
+    <tr><th>الأسبوع</th><th>النشاط</th><th>المخرج</th></tr>
+    <tr><td>0</td><td>اختيار مطاعم مختلفة قليلًا، توقيع موافقة البيانات، تعريف المسؤول</td><td>بطاقة Pilot وخط نجاح لكل مطعم</td></tr>
+    <tr><td>1</td><td>قياس الوضع الحالي دون Resuto</td><td>Baseline للوقت والخطأ والتسوية</td></tr>
+    <tr><td>2</td><td>إعداد القائمة والطاولات وتدريب الفريق</td><td>أول طلب مكتمل + قياس activation</td></tr>
+    <tr><td>3</td><td>تشغيل كامل ومراجعة منتصف التجربة</td><td>قائمة مشاكل وترتيب إصلاحات</td></tr>
+    <tr><td>4</td><td>قياس بعدي ومقابلات وقرار شراء</td><td>Case study + ROI فعلي + شهادة عميل</td></tr>
+  </table>
+  <h3 style="margin-top:5mm">معايير النجاح</h3>
+  <div class="grid2">
+    <div class="card mint"><h3>تشغيلي</h3><ul><li>≥ 80% من الطلبات تمر عبر النظام.</li><li>تحسن ≥ 10% في مؤشرين على الأقل.</li><li>CSAT فريق ≥ 4/5.</li></ul></div>
+    <div class="card green"><h3>تجاري</h3><ul><li>مطعم واحد على الأقل يتحول لمدفوع.</li><li>اثنان يوقعان خطاب نوايا أو تمديدًا.</li><li>قائمة اعتراضات سعر موثقة.</li></ul></div>
+  </div>
+  <h3 style="margin-top:5mm">البيانات التي نسجلها منذ اليوم الأول</h3>
+  <div class="pillrow"><span class="tag">reservation_created</span><span class="tag">table_assigned</span><span class="tag">order_sent</span><span class="tag">kds_ready</span><span class="tag">bill_requested</span><span class="tag">payment_closed</span><span class="tag">order_corrected</span></div>
+  <div class="footer"><b>RESUTO</b><span>تصميم الـPilot</span><span>18</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">17</div>
+  <div class="eyebrow">6-MINUTE PITCH</div>
+  <h2>سيناريو عرض يكسب Bonus الوقت</h2>
+  <table>
+    <tr><th class="score">الوقت</th><th>ما نقول/نعرض</th><th>رسالة الحكم</th></tr>
+    <tr><td class="score">0:00–0:35</td><td>قصة مدير مطعم ينتقل بين الحجز والورقة والمطبخ والكاشير.</td><td>مشكلة واضحة وقريبة.</td></tr>
+    <tr><td class="score">0:35–1:05</td><td>العميل المستهدف + أثر التجزؤ + SDG 8.</td><td>صلة وأثر قابلان للقياس.</td></tr>
+    <tr><td class="score">1:05–3:15</td><td><b>Demo حي:</b> حجز ← طاولة ← QR وطلب ← KDS ← تقسيم فاتورة.</td><td>حل مكتمل لا مجرد شرائح.</td></tr>
+    <tr><td class="score">3:15–4:05</td><td>رفع مخطط/قائمة إلى Gemini، مراجعة النتيجة، ثم حفظ.</td><td>ابتكار Google عملي وآمن.</td></tr>
+    <tr><td class="score">4:05–4:55</td><td>الأسعار المحلية + سيناريو ROI المحافظ والأساسي.</td><td>جدوى اقتصادية مفهومة.</td></tr>
+    <tr><td class="score">4:55–5:35</td><td>خطة Pilot، KPI، وما ينقص قبل الإنتاج والسعودية.</td><td>نضج وصدق تنفيذي.</td></tr>
+    <tr><td class="score">5:35–5:55</td><td>الخاتمة والطلب.</td><td>إنهاء قبل 6 دقائق.</td></tr>
+  </table>
+  <div class="quote">نطلب من لجنة IMPACT X دعم تجربة 30 يومًا مع 3 مطاعم لتحويل نظام يعمل اليوم إلى أثر مُقاس وعائد مثبت.</div>
+  <div class="grid2">
+    <div class="card mint"><h3>Plan A</h3><p>Demo حي على localhost/نسخة منشورة مع بيانات ثابتة، متصفح نظيف، وAI fixture إذا كانت الشبكة ضعيفة.</p></div>
+    <div class="card warn"><h3>Plan B</h3><p>فيديو 90 ثانية مسجل مسبقًا + لقطات شاشة + شرح نفس التدفق دون انتظار تحميل.</p></div>
+  </div>
+  <div class="footer"><b>RESUTO</b><span>سيناريو العرض</span><span>19</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">18</div>
+  <div class="eyebrow">Q&A</div>
+  <h2>أسئلة الحكّام وإجابات قصيرة قابلة للدفاع</h2>
+  <table>
+    <tr><th>السؤال</th><th>الإجابة المقترحة</th></tr>
+    <tr><td><b>ما الجديد مقابل Foodics/Wosul؟</b></td><td>تركيزنا ليس POS فقط؛ نوحّد رحلة الضيف والتشغيل، ونضع Gemini داخل إعداد المطعم والقرار مع مراجعة بشرية، وبواجهة عربية خفيفة للمطاعم الصغيرة.</td></tr>
+    <tr><td><b>هل ROI مثبت؟</b></td><td>ليس بعد. المعروض نموذج افتراضات شفاف، والـPilot مصمم لإنتاج baseline ونتيجة قبل/بعد وقرار شراء.</td></tr>
+    <tr><td><b>لماذا هذه الأسعار؟</b></td><td>عايرناها مقابل أسعار رسمية معلنة في مصر والسعودية، ثم خفّضنا نقطة الدخول لتعكس مرحلة MVP. لا نستخدم تحويل عملة مباشر.</td></tr>
+    <tr><td><b>هل أنتم متوافقون مع ZATCA؟</b></td><td>ليس كمنتج جاهز للبيع بعد؛ هذا Gate واضح قبل السعودية. الـPilot يستخدم حل الفوترة المعتمد الحالي للمطعم.</td></tr>
+    <tr><td><b>ماذا لو أخطأ Gemini؟</b></td><td>يعرض مسودة فقط، لا يغيّر البيانات تلقائيًا، ويحتاج اعتماد المدير. عند التعطل يعود التدفق للمسار اليدوي.</td></tr>
+    <tr><td><b>هل يستطيع دعم عدة مطاعم؟</b></td><td>التدفق الحالي يثبت الوظائف الأساسية، لكن عزل tenants وRBAC الكامل ضمن بوابة ما قبل الإنتاج، ولا نبيع Pro قبلها.</td></tr>
+    <tr><td><b>كيف تكسبون؟</b></td><td>اشتراك شهري للفرع، خصم سنوي، ثم إضافات AI/رسائل/تكاملات ودعم مميز.</td></tr>
+    <tr><td><b>ما أكبر خطر؟</b></td><td>التبني وقت الذروة، وليس الكود وحده؛ لذلك نقيس activation ونستخدم تدريبًا قصيرًا ومسؤولًا داخل كل مطعم.</td></tr>
+  </table>
+  <div class="callout"><b>أسلوب الإجابة:</b> ابدأ بجملة واحدة، أعطِ دليلًا أو حدًا واضحًا، ثم توقف. لا تحوّل سؤالًا مباشرًا إلى خطاب طويل.</div>
+  <div class="footer"><b>RESUTO</b><span>الأسئلة المتوقعة</span><span>20</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">19</div>
+  <div class="eyebrow">GAP REGISTER</div>
+  <h2>ما الناقص — مرتب حسب أولوية التحكيم والإنتاج</h2>
+  <table>
+    <tr><th class="score">الأولوية</th><th>الفجوة</th><th>ما ننجزه</th><th>متى</th></tr>
+    <tr><td class="score"><span class="status gap">P0</span></td><td>502/اعتمادية Demo</td><td>تشغيل فحص كامل، تثبيت بيانات Demo، فيديو احتياطي، مراقبة logs</td><td>قبل العرض</td></tr>
+    <tr><td class="score"><span class="status gap">P0</span></td><td>دليل مشكلة/أثر</td><td>3–5 مقابلات سريعة موثقة واقتباسان بإذن أصحابها</td><td>اليوم</td></tr>
+    <tr><td class="score"><span class="status gap">P0</span></td><td>تدريب العرض</td><td>3 جولات بتوقيت فعلي، توقف عند 5:55</td><td>اليوم</td></tr>
+    <tr><td class="score"><span class="status partial">P1</span></td><td>Analytics للأثر</td><td>أحداث الرحلة ولوحة baseline/after</td><td>أسبوع 1</td></tr>
+    <tr><td class="score"><span class="status partial">P1</span></td><td>Multi-tenancy + RBAC</td><td>tenant_id، سياسات وصول، أدوار، اختبارات عزل</td><td>30–60 يومًا</td></tr>
+    <tr><td class="score"><span class="status partial">P1</span></td><td>Production ops</td><td>مراقبة، backup/restore، incident runbook، rate limits</td><td>30–60 يومًا</td></tr>
+    <tr><td class="score"><span class="status partial">P1</span></td><td>Subscription billing</td><td>تجربة، خطة، تجديد، إلغاء، dunning وفواتير</td><td>30–60 يومًا</td></tr>
+    <tr><td class="score"><span class="status done">P2</span></td><td>امتثال مصر/السعودية</td><td>ETA e-receipt + ZATCA + VAT + مزود دفع محلي</td><td>60–90 يومًا</td></tr>
+    <tr><td class="score"><span class="status done">P2</span></td><td>Offline وأجهزة</td><td>Queue محلي، مزامنة، طابعة/درج، اختبار شبكة ضعيفة</td><td>بعد Pilot</td></tr>
+    <tr><td class="score"><span class="status done">P2</span></td><td>Accessibility</td><td>تدقيق لوحة مفاتيح، contrast، screen reader، اختبارات عربية</td><td>بعد Pilot</td></tr>
+  </table>
+  <div class="card green" style="margin-top:5mm"><h3>ما نركز عليه غدًا</h3><p>اعتمادية العرض + قصة مشكلة موثقة ولو صغيرة + Demo مترابط + نموذج ROI صادق + اعتراف واضح ببوابات الإنتاج. أي ميزة جديدة الآن أقل قيمة من هذه الخمسة.</p></div>
+  <div class="footer"><b>RESUTO</b><span>سجل الفجوات</span><span>21</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">20</div>
+  <div class="eyebrow">FINAL CHECKLIST</div>
+  <h2>قائمة الليلة وصباح التحكيم</h2>
+  <table class="checklist">
+    <tr><th></th><th>المهمة</th><th>الدليل المطلوب</th></tr>
+    <tr><td>□</td><td>تشغيل الاختبارات الآلية</td><td>لقطة نتيجة ناجحة بتاريخ اليوم</td></tr>
+    <tr><td>□</td><td>فتح كل روابط Demo</td><td>حجز/طاولة/QR/KDS/فاتورة/AI تعمل</td></tr>
+    <tr><td>□</td><td>تثبيت البيانات والحسابات</td><td>مطعم Demo واحد وأسماء واضحة</td></tr>
+    <tr><td>□</td><td>تسجيل فيديو احتياطي 90 ثانية</td><td>ملف محلي يعمل دون إنترنت</td></tr>
+    <tr><td>□</td><td>جمع 3 مقابلات سريعة</td><td>اسم/دور/ألم/أداة حالية/استعداد للتجربة</td></tr>
+    <tr><td>□</td><td>طباعة ورقة ROI والأسعار</td><td>نسخة مصر + السعودية مع الضريبة</td></tr>
+    <tr><td>□</td><td>تدريب العرض 3 مرات</td><td>5:30–5:55 دون أسئلة</td></tr>
+    <tr><td>□</td><td>توزيع الأدوار</td><td>متحدث، قائد Demo، مراقب وقت، Q&A</td></tr>
+    <tr><td>□</td><td>تجهيز اتصال احتياطي وشاحن</td><td>Hotspot + PDF محلي + فيديو محلي</td></tr>
+    <tr><td>□</td><td>تحديد الطلب النهائي</td><td>3 مطاعم Pilot لمدة 30 يومًا</td></tr>
+  </table>
+  <div class="quote">إذا بقي وقت لمهمة واحدة: اجعل الـDemo يعمل من البداية للنهاية تحت الضغط وبنسخة احتياطية.</div>
+  <div class="grid2">
+    <div class="card mint"><h3>ممنوع في العرض</h3><ul><li>ادعاء عميل أو إيراد غير موجود.</li><li>تقديم ROI كضمان.</li><li>قول «متوافق ZATCA» قبل الاعتماد.</li><li>إطالة Demo لتغطية كل شاشة.</li></ul></div>
+    <div class="card green"><h3>يجب أن يسمع الحكم</h3><ul><li>من يعاني ولماذا الآن.</li><li>ما يعمل أمامه حيًا.</li><li>كيف سنقيس الأثر.</li><li>لماذا السعر منطقي.</li></ul></div>
+  </div>
+  <div class="footer"><b>RESUTO</b><span>قائمة الجاهزية</span><span>22</span></div>
+</section>
+
+<section class="page">
+  <div class="section-no">A</div>
+  <div class="eyebrow">SOURCES & NOTES</div>
+  <h2>المصادر الرسمية وملاحظات المنهج</h2>
+  <ol class="source-list">
+    <li><b>IMPACT X Judging Criteria</b> — ملف المعايير المقدم من الفريق: الأوزان، Google Bonus، Presentation Efficiency Bonus، وترتيب كسر التعادل.</li>
+    <li><b>Foodics Pricing — Egypt</b>، الأسعار والخصائص المعلنة. <a href="https://www.foodics.com/ar/foodics-pricing-egypt/">foodics.com/ar/foodics-pricing-egypt</a></li>
+    <li><b>Foodics Restaurant Management Solutions</b>، نطاق وظائف إدارة المطاعم. <a href="https://www.foodics.com/ar/rms-solutions/">foodics.com/ar/rms-solutions</a></li>
+    <li><b>Wosul Pricing — Saudi Arabia</b>، أسعار الباقات قبل الضريبة. <a href="https://www.wosul.sa/en/pricing">wosul.sa/en/pricing</a></li>
+    <li><b>Hala Restaurant POS</b>، سعر الاشتراك لكل مستخدم. <a href="https://hala.com/en/products/restaurant-pos/">hala.com/en/products/restaurant-pos</a></li>
+    <li><b>ZATCA — VAT</b>، معدل ضريبة القيمة المضافة القياسي 15%. <a href="https://zatca.gov.sa/ar/RulesRegulations/VAT/Pages/About-Vat.aspx">zatca.gov.sa · VAT</a></li>
+    <li><b>ZATCA — E-Invoicing Preparation</b>، متطلبات الفاتورة المبسطة وQR والحل المتوافق. <a href="https://zatca.gov.sa/en/E-Invoicing/PreparingYourBusiness/Phase1/Pages/How-to-prepare.aspx">zatca.gov.sa · E-Invoicing</a></li>
+    <li><b>ZATCA — Laws and Regulations</b>، إلزام الفوترة الإلكترونية وPhase 2. <a href="https://zatca.gov.sa/en/E-Invoicing/Introduction/LawsAndRegulations/Pages/default.aspx">zatca.gov.sa · Regulations</a></li>
+    <li><b>Egyptian Tax Authority — VAT Law 67/2016</b>، السعر العام 14%. <a href="https://www.eta.gov.eg/sites/default/files/2024-02/Law-english-no.67-2016.pdf.pdf">eta.gov.eg · VAT Law</a></li>
+    <li><b>Egyptian Tax Authority — Restaurant VAT clarification</b>، خضوع المطاعم المحددة للضريبة. <a href="https://portal.eta.gov.eg/ar/news/twdh-khdw-almtam-walkafyhat-almhddt-bqrarat-wzyr-almalyt-ldrybt-alqymt-almdaft">eta.gov.eg · Restaurants</a></li>
+    <li><b>Egyptian Tax Authority — E-Receipt Services</b>، التكامل مع POS/SDK. <a href="https://eta.gov.eg/ar/content/e-receipt-services">eta.gov.eg · E-Receipt</a></li>
+    <li><b>Google Gemini API Pricing</b>، تسعير الاستخدام وحدود الطبقات. <a href="https://ai.google.dev/gemini-api/docs/pricing">ai.google.dev/gemini-api/docs/pricing</a></li>
+  </ol>
+  <div class="rule"></div>
+  <h3>منهج التسعير والـROI</h3>
+  <p>أسعار Resuto توصية استراتيجية للفريق وليست نتيجة بحث willingness-to-pay مكتمل. المقارنة تستخدم أسعارًا عامة منشورة في 9 سبتمبر 2026. نماذج ROI أمثلة حسابية لتوضيح منطق القرار، وتُستبدل مدخلاتها ببيانات كل مطعم خلال الـPilot.</p>
+  <p class="small">لا تمثل هذه الوثيقة استشارة مالية أو ضريبية أو قانونية. الضرائب والامتثال يحددهما المختص والجهة الرسمية وفق نشاط المنشأة وتاريخ الإطلاق.</p>
+  <div class="footer"><b>RESUTO</b><span>المصادر والمنهج</span><span>23</span></div>
+</section>
+
+</body>
+</html>

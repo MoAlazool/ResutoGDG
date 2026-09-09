@@ -1,0 +1,83 @@
+/* ---------------------------------------------------------------------------
+   Global type scale.
+
+   Two problems this fixes across the whole app (guest + manager + kitchen):
+
+   1. The smallest labels sat at 9–11px in a light weight on pale grey, which
+      is hard to read and fails contrast. The steps below lift that floor.
+   2. IBM Plex Sans Arabic renders noticeably smaller and lighter than Manrope
+      at the same pixel size, so Arabic got a whole step more on every size
+      plus a heavier weight. That is what the --t-* variables are for: one
+      selector list, two scales.
+
+   SVG floor-plan text is excluded — it is positioned geometrically and must
+   not reflow. Table status is made legible by its own status tag instead.
+   --------------------------------------------------------------------------- */
+:root{--t-xs:11.5px;--t-sm:12.5px;--t-md:13.5px;--t-lg:15px;--t-field:14.5px}
+html[lang=ar]{--t-xs:12.5px;--t-sm:13.5px;--t-md:14.5px;--t-lg:16px;--t-field:15.5px}
+
+/* --- smallest labels ------------------------------------------------------ */
+.nav-label,.eyebrow,.overline,.dish-tags,.legend span,.state-legend,
+.floor-bottom,.consumer-footer,footer,.order-line small,.stats strong small{font-size:var(--t-xs)}
+.nav-label{letter-spacing:1.2px}
+
+/* --- secondary text ------------------------------------------------------- */
+.fine,.stats p,td small,th,.request small,.order-top span,.order-source span,
+.order-note,.badge,.profile small,.restaurant-chip small,.mode-note,
+.detail-tip,.qr-row p,.qr-row a,.qr-row strong,.audit small,.order-timeline li,
+.share-row small,.recommendation-dish p,.guest-link,.text-button,
+.menu-assistant p,.dish-body p,.table-features,.guest-sheet .fine{font-size:var(--t-sm)}
+
+/* --- body-level text ------------------------------------------------------ */
+td,label,.topbar,.order-line,.audit p,.bill-row,.bill-row strong,.menu-context,
+.profile strong,.restaurant-chip strong,.table-detail p,.quiet p,
+.recommendation-dish strong,.share-row strong,.status-order p,
+.consumer-header nav,.money-row{font-size:var(--t-md)}
+
+/* --- form controls: never below 16px on phones (iOS zoom) ----------------- */
+input,select,textarea{font-size:var(--t-field)}
+@media(max-width:700px){input,select,textarea{font-size:16px}}
+
+/* --- contrast: several greys were under 3:1 on white ---------------------- */
+td small,.order-line small,.request small,.stats p,.fine,.profile small,
+.restaurant-chip small,.floor-bottom,.audit small,.qr-row p,.dish-body p,
+.guest-sheet .fine,footer,.consumer-footer{color:#66716a}
+th{color:#75817b}
+
+/* --- Arabic weight: Plex Arabic needs a step more to match Manrope -------- */
+/* Scoped to the app shells on purpose. An earlier unscoped version listed bare
+   `span`/`b`/`li`, which matched every span on the site — including landing-page
+   type that declares 750 — and silently dragged it down to 500. */
+html[lang=ar] :is(.workspace,.consumer-app) :is(td,th,dd,dt,.badge,.nav-link,
+ .stats span,.stats p,.order-line,.bill-row,.money-row,.audit p,.topbar,.fine){font-weight:500}
+html[lang=ar] :is(.workspace,.consumer-app) :is(td strong,.badge,.order-top strong,
+ .money-row strong,.bill-row strong,.share-row strong,.recommendation-dish strong){font-weight:600}
+/* Arabic script must never be letter-spaced — it breaks letter joining. */
+html[lang=ar] :is(.eyebrow,.overline,.nav-label,.badge,.segmented){letter-spacing:0}
+
+/* --- floor plans keep their geometric type ------------------------------- */
+.floor-map small,.dining-table small,.saved-floor text,.floor-studio text{font-size:9px}
+.saved-floor text,.floor-studio text{font-weight:600}
+
+/* ---------------------------------------------------------------------------
+   Landing page, Arabic.
+
+   Measured on the live page: most body copy inherited weight 500 at 10.5–13.5px.
+   In Plex Arabic that reads faint next to the very heavy display headings, which
+   is what made the page feel thin. The weight bump below is set on the landing
+   container only, so it is INHERITED — anything that declares its own 650/700/
+   750 keeps it, and nothing gets lighter. Sizes are lifted only for the classes
+   that actually measured under 13px.
+   --------------------------------------------------------------------------- */
+html[lang=ar] body:has(.lp-shell),
+html[lang=ar] body:has(.lp-shell) :is(p,li,dd,dt,figcaption){font-weight:600}
+html[lang=ar] body:has(.lp-shell) :is(.lp-chapter-tag,.lp-stage-live,.lp-state-line,
+ .lp-live,.lp-stage-clock,.lp-book-count,.lp-spark,.lp-field-label,.lp-field-value,
+ .lp-inline,.lp-cta-long,.lp-cta-short,.language-switch){font-size:13px}
+html[lang=ar] body:has(.lp-shell) :is(p,.lp-review-meta,.lp-pipe-step,.lp-console-foot,.lp-stage-note){font-size:13.5px}
+html[lang=ar] body:has(.lp-shell) small{font-size:12.5px}
+/* The miniature product mock-ups (.lp-scr-*, .lp-kds-*, .lp-share-*, .lp-plug-*)
+   keep their small type on purpose: they simulate a UI at reduced scale, and
+   enlarging their labels would break those layouts. */
+/* Arabic never letter-spaces: it breaks the joins between letters. */
+html[lang=ar] body:has(.lp-shell) :is(.lp-chapter-tag,.lp-eyebrow,.lp-live,.lp-stage-live){letter-spacing:0}

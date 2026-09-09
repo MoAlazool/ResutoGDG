@@ -1,0 +1,266 @@
+{"kind":"deck","id":"pr/xdhpjq","name":"Deck"}
+{"kind":"layout","layoutId":"e5770092-f9e3-4ab3-8255-a715af77dfd6","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"17a10b94-017d-4e0e-8e68-5ae9e402f305","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/n09wis","slide":1,"title":"من الحجز إلى التحصيل","textShapes":3}
+{"kind":"shape","id":"sh/gbulw3u1","slide":1,"bbox":[0,0,420,720]}
+{"kind":"shape","id":"sh/e9cjutcv","slide":1,"bbox":[0,0,420,720]}
+{"kind":"textbox","id":"sh/sna1sjup","slide":1,"text":"من الحجز إلى التحصيل\nرحلة مطعم واحدة قابلة للإدارة","textPreview":"من الحجز إلى التحصيل | رحلة مطعم واحدة قابلة للإدارة","textChars":50,"textLines":2,"bbox":[485,242,665,160]}
+{"kind":"textbox","id":"sh/rm1kjet4","slide":1,"text":"منصة تشغيل عربية للمطاعم الصغيرة والمتوسطة\nIMPACT X | مسار الأعمال والإنتاجية | SDG 8","textPreview":"منصة تشغيل عربية للمطاعم الصغيرة والمتوسطة | IMPACT X | مسار الأعمال والإنتاجية | SDG 8","textChars":85,"textLines":2,"bbox":[490,426,620,75]}
+{"kind":"textbox","id":"sh/6lsjq9cj","slide":1,"text":"عرض تحكيم | 6 دقائق","textPreview":"عرض تحكيم | 6 دقائق","textChars":19,"textLines":1,"bbox":[490,570,300,30]}
+{"kind":"image","id":"im/qt036tcz","slide":1,"name":"","geometry":"roundRect","alt":"The Olive Room restaurant interior","bbox":[0,0,420,720]}
+{"kind":"image","id":"im/0j2lc3u1","slide":1,"name":"","geometry":"roundRect","alt":"Resuto logo","bbox":[865,55,260,95]}
+{"kind":"notes","id":"nt/n09wis","slide":1,"text":"مصادر: ملفات المشروع وملف التحكيم العربي المرفق. افتتح بالقصة وليس بالخصائص."}
+{"kind":"slide","id":"sl/p3n0nk","slide":2,"title":"المشكلة","textShapes":16}
+{"kind":"shape","id":"sh/29wjyxov","slide":2,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/9w729snm","slide":2,"text":"المشكلة","textPreview":"المشكلة","textChars":7,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/oby10n61","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/bypkb25s","slide":2,"text":"تشغيل المطعم يتوزع بين أدوات لا تتحدث معًا","textPreview":"تشغيل المطعم يتوزع بين أدوات لا تتحدث معًا","textChars":42,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/axgj2xo7","slide":2,"text":"النتيجة: إدخال مكرر، بطء في الخدمة، وأخطاء يصعب قياسها","textPreview":"النتيجة: إدخال مكرر، بطء في الخدمة، وأخطاء يصعب قياسها","textChars":54,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/x072dcni","slide":2,"bbox":[110,255,220,205]}
+{"kind":"textbox","id":"sh/wzy1476x","slide":2,"text":"حجز","textPreview":"حجز","textChars":3,"textLines":1,"bbox":[130,280,180,42]}
+{"kind":"shape","id":"sh/j2pkfm5o","slide":2,"bbox":[145,336,150,0]}
+{"kind":"textbox","id":"sh/y1gj6ho3","slide":2,"text":"تأكيد يدوي\nوتضارب المواعيد","textPreview":"تأكيد يدوي | وتضارب المواعيد","textChars":26,"textLines":2,"bbox":[130,355,180,70]}
+{"kind":"textbox","id":"sh/wr2lgbmt","slide":2,"text":"←","textPreview":"←","textChars":1,"textLines":1,"bbox":[335,330,35,45]}
+{"kind":"shape","id":"sh/xsvm9wne","slide":2,"bbox":[390,255,220,205]}
+{"kind":"textbox","id":"sh/apk3e14n","slide":2,"text":"طاولة وQR","textPreview":"طاولة وQR","textChars":9,"textLines":1,"bbox":[410,280,180,42]}
+{"kind":"shape","id":"sh/vqt47658","slide":2,"bbox":[425,336,150,0]}
+{"kind":"textbox","id":"sh/kfmlkbmp","slide":2,"text":"حالة الضيف\nوالطاولة منفصلة","textPreview":"حالة الضيف | والطاولة منفصلة","textChars":26,"textLines":2,"bbox":[410,355,180,70]}
+{"kind":"textbox","id":"sh/5gvmdgna","slide":2,"text":"←","textPreview":"←","textChars":1,"textLines":1,"bbox":[615,330,35,45]}
+{"kind":"shape","id":"sh/it43i14z","slide":2,"bbox":[670,255,220,205]}
+{"kind":"textbox","id":"sh/jud4b65k","slide":2,"text":"طلب ومطبخ","textPreview":"طلب ومطبخ","textChars":9,"textLines":1,"bbox":[690,280,180,42]}
+{"kind":"shape","id":"sh/sjm5ovm1","slide":2,"bbox":[705,336,150,0]}
+{"kind":"textbox","id":"sh/tkfmhg3m","slide":2,"text":"الطلب يتغير\nبين الفريق والمطبخ","textPreview":"الطلب يتغير | بين الفريق والمطبخ","textChars":30,"textLines":2,"bbox":[690,355,180,70]}
+{"kind":"textbox","id":"sh/10bm1gvq","slide":2,"text":"←","textPreview":"←","textChars":1,"textLines":1,"bbox":[895,330,35,45]}
+{"kind":"shape","id":"sh/gf2lsbe5","slide":2,"bbox":[950,255,220,205]}
+{"kind":"textbox","id":"sh/fe94z6dk","slide":2,"text":"فاتورة ودفع","textPreview":"فاتورة ودفع","textChars":11,"textLines":1,"bbox":[970,280,180,42]}
+{"kind":"shape","id":"sh/ed03qlwz","slide":2,"bbox":[985,336,150,0]}
+{"kind":"textbox","id":"sh/p4bm50vm","slide":2,"text":"تسويات كثيرة\nوغياب الرؤية","textPreview":"تسويات كثيرة | وغياب الرؤية","textChars":25,"textLines":2,"bbox":[970,355,180,70]}
+{"kind":"textbox","id":"sh/o32lwve1","slide":2,"text":"العميل المستهدف: مطعم صغير أو متوسط يحتاج تشغيلًا موحدًا دون تعقيد مؤسسي","textPreview":"العميل المستهدف: مطعم صغير أو متوسط يحتاج تشغيلًا موحدًا دون تعقيد مؤسسي","textChars":72,"textLines":1,"bbox":[110,525,1040,48]}
+{"kind":"notes","id":"nt/p3n0nk","slide":2,"text":"المعيار: تعريف المشكلة. لا ندعي أرقامًا ميدانية غير موثقة؛ سنجمع 3-5 مقابلات موثقة قبل التحكيم."}
+{"kind":"slide","id":"sl/dcv8xn","slide":3,"title":"الحل","textShapes":10}
+{"kind":"shape","id":"sh/xcvepkf2","slide":3,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/ap4fu5wb","slide":3,"text":"الحل","textPreview":"الحل","textChars":4,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/bqdwnaxw","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/kf6x0fed","slide":3,"text":"Resuto يربط رحلة الضيف وعمليات الفريق في نظام واحد","textPreview":"Resuto يربط رحلة الضيف وعمليات الفريق في نظام واحد","textChars":50,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/lgfetkvy","slide":3,"text":"واجهة عربية/إنجليزية، مع قرار المدير محفوظًا في كل خطوة حساسة","textPreview":"واجهة عربية/إنجليزية، مع قرار المدير محفوظًا في كل خطوة حساسة","textChars":61,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/zexwraxs","slide":3,"bbox":[620,185,500,50]}
+{"kind":"textbox","id":"sh/0j2xove9","slide":3,"text":"الحجز وتوصية الطاولة","textPreview":"الحجز وتوصية الطاولة","textChars":20,"textLines":1,"bbox":[645,194,440,32]}
+{"kind":"shape","id":"sh/1kbeh0fu","slide":3,"bbox":[620,255,500,50]}
+{"kind":"textbox","id":"sh/h03ytc7i","slide":3,"text":"QR للطلب داخل المطعم","textPreview":"QR للطلب داخل المطعم","textChars":20,"textLines":1,"bbox":[645,264,440,32]}
+{"kind":"shape","id":"sh/wzahkr6x","slide":3,"bbox":[620,325,500,50]}
+{"kind":"textbox","id":"sh/vy1grmpc","slide":3,"text":"KDS وحالات الطلب","textPreview":"KDS وحالات الطلب","textChars":16,"textLines":1,"bbox":[645,334,440,32]}
+{"kind":"shape","id":"sh/uxsziho7","slide":3,"bbox":[620,395,500,50]}
+{"kind":"textbox","id":"sh/5o3ixw7u","slide":3,"text":"تقسيم الفاتورة والتحصيل","textPreview":"تقسيم الفاتورة والتحصيل","textChars":23,"textLines":1,"bbox":[645,404,440,32]}
+{"kind":"shape","id":"sh/4nuhor69","slide":3,"bbox":[620,465,500,50]}
+{"kind":"textbox","id":"sh/j2l0vmpo","slide":3,"text":"إدارة القائمة والمخطط والبيانات","textPreview":"إدارة القائمة والمخطط والبيانات","textChars":31,"textLines":1,"bbox":[645,474,440,32]}
+{"kind":"textbox","id":"sh/i1czmho3","slide":3,"text":"قيمة المنتج: رحلة متصلة يمكن تشغيلها الآن وقياسها في Pilot","textPreview":"قيمة المنتج: رحلة متصلة يمكن تشغيلها الآن وقياسها في Pilot","textChars":58,"textLines":1,"bbox":[620,555,500,54]}
+{"kind":"image","id":"im/329cz6xg","slide":3,"name":"","geometry":"roundRect","alt":"Resuto guest landing page","bbox":[75,185,480,330]}
+{"kind":"notes","id":"nt/dcv8xn","slide":3,"text":"المعيار: جودة الحل وتجربة المستخدم. اعرض رابطًا واحدًا حيًا للحجز ثم QR ثم الطلب ثم المطبخ ثم التقسيم."}
+{"kind":"slide","id":"sl/l5ilo0","slide":4,"title":"التجربة","textShapes":23}
+{"kind":"shape","id":"sh/x83q9ory","slide":4,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/a5s7et87","slide":4,"text":"التجربة","textPreview":"التجربة","textChars":7,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/v6187y9s","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/83apcja1","slide":4,"text":"رحلة واحدة من الحجز حتى إغلاق الزيارة","textPreview":"رحلة واحدة من الحجز حتى إغلاق الزيارة","textChars":37,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/94jq5orm","slide":4,"text":"الـMVP يطبق انتقالات محمية ويمنع الإغلاق قبل تسوية الفاتورة وتنفيذ الطلب","textPreview":"الـMVP يطبق انتقالات محمية ويمنع الإغلاق قبل تسوية الفاتورة وتنفيذ الطلب","textChars":72,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/mhs7a9sb","slide":4,"bbox":[95,285,140,140]}
+{"kind":"textbox","id":"sh/ni183e9w","slide":4,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[95,301,140,35]}
+{"kind":"textbox","id":"sh/sze9onql","slide":4,"text":"يحجز","textPreview":"يحجز","textChars":4,"textLines":1,"bbox":[100,344,130,34]}
+{"kind":"textbox","id":"sh/t0nqhsr6","slide":4,"text":"موعد وطاولة","textPreview":"موعد وطاولة","textChars":11,"textLines":1,"bbox":[105,450,120,44]}
+{"kind":"shape","id":"sh/l4jad4za","slide":4,"bbox":[235,355,48,0]}
+{"kind":"shape","id":"sh/k3a9kzyp","slide":4,"bbox":[285,285,140,140]}
+{"kind":"textbox","id":"sh/j218beh4","slide":4,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[285,301,140,35]}
+{"kind":"textbox","id":"sh/y18ri9gj","slide":4,"text":"يجلس","textPreview":"يجلس","textChars":4,"textLines":1,"bbox":[290,344,130,34]}
+{"kind":"textbox","id":"sh/x0zq94zy","slide":4,"text":"تفعيل الزيارة","textPreview":"تفعيل الزيارة","textChars":13,"textLines":1,"bbox":[295,450,120,44]}
+{"kind":"shape","id":"sh/wzq9gzyt","slide":4,"bbox":[425,355,48,0]}
+{"kind":"shape","id":"sh/byh87uh8","slide":4,"bbox":[475,285,140,140]}
+{"kind":"textbox","id":"sh/ax8repgn","slide":4,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[475,301,140,35]}
+{"kind":"textbox","id":"sh/hw3alofi","slide":4,"text":"يمسح QR","textPreview":"يمسح QR","textChars":7,"textLines":1,"bbox":[480,344,130,34]}
+{"kind":"textbox","id":"sh/gvu9sjyx","slide":4,"text":"قائمة وسلة","textPreview":"قائمة وسلة","textChars":10,"textLines":1,"bbox":[485,450,120,44]}
+{"kind":"shape","id":"sh/0bml4ra5","slide":4,"bbox":[615,355,48,0]}
+{"kind":"shape","id":"sh/1cv2dwrq","slide":4,"bbox":[665,285,140,140]}
+{"kind":"textbox","id":"sh/e9k32hsf","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[665,301,140,35]}
+{"kind":"textbox","id":"sh/zadkbm9k","slide":4,"text":"يُرسل الطلب","textPreview":"يُرسل الطلب","textChars":11,"textLines":1,"bbox":[670,344,130,34]}
+{"kind":"textbox","id":"sh/c72l0ra9","slide":4,"text":"المطبخ ينجز","textPreview":"المطبخ ينجز","textChars":11,"textLines":1,"bbox":[675,450,120,44]}
+{"kind":"shape","id":"sh/d8b29wru","slide":4,"bbox":[805,355,48,0]}
+{"kind":"shape","id":"sh/qlkjyhs3","slide":4,"bbox":[855,285,140,140]}
+{"kind":"textbox","id":"sh/rmtk7m9o","slide":4,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[855,301,140,35]}
+{"kind":"textbox","id":"sh/4j21w7ax","slide":4,"text":"يسدد","textPreview":"يسدد","textChars":4,"textLines":1,"bbox":[860,344,130,34]}
+{"kind":"textbox","id":"sh/pkb25cri","slide":4,"text":"كامل أو مقسم","textPreview":"كامل أو مقسم","textChars":12,"textLines":1,"bbox":[865,450,120,44]}
+{"kind":"shape","id":"sh/7e94f2dk","slide":4,"bbox":[995,355,48,0]}
+{"kind":"shape","id":"sh/6d036xcz","slide":4,"bbox":[1045,285,140,140]}
+{"kind":"textbox","id":"sh/tgrmhcvq","slide":4,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1045,301,140,35]}
+{"kind":"textbox","id":"sh/sfil87u5","slide":4,"text":"تُغلق الزيارة","textPreview":"تُغلق الزيارة","textChars":13,"textLines":1,"bbox":[1050,344,130,34]}
+{"kind":"textbox","id":"sh/fi94jmdg","slide":4,"text":"تنظيف الطاولة","textPreview":"تنظيف الطاولة","textChars":13,"textLines":1,"bbox":[1055,450,120,44]}
+{"kind":"textbox","id":"sh/uh03ahcv","slide":4,"text":"تدفقات مثبتة في الاختبارات: حجوزات، طلبات، حالات مطبخ، دفعات مقسمة، تنظيف، واستمرارية بعد إعادة التشغيل","textPreview":"تدفقات مثبتة في الاختبارات: حجوزات، طلبات، حالات مطبخ، دفعات مقسمة، تنظيف، واستمرارية بعد إعادة التشغيل","textChars":103,"textLines":1,"bbox":[120,565,1040,45]}
+{"kind":"notes","id":"nt/l5ilo0","slide":4,"text":"المصدر: PROJECT_DOCUMENTATION.md وMVP_VERIFICATION.md. معيار UX والوظائف."}
+{"kind":"slide","id":"sl/32w1jd","slide":5,"title":"التقنية","textShapes":13}
+{"kind":"shape","id":"sh/j698b658","slide":5,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/k7ip4bmd","slide":5,"text":"التقنية","textPreview":"التقنية","textChars":7,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/lsrqdgny","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/6t076l4j","slide":5,"text":"تنفيذ تقني مناسب لمطعم واحد اليوم وقابل للتوسّع لاحقًا","textPreview":"تنفيذ تقني مناسب لمطعم واحد اليوم وقابل للتوسّع لاحقًا","textChars":54,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/7u98f654","slide":5,"text":"بنية واضحة، معاملات كتابة، وحماية للتدفقات الحساسة","textPreview":"بنية واضحة، معاملات كتابة، وحماية للتدفقات الحساسة","textChars":50,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/8vip8bmp","slide":5,"bbox":[75,215,245,280]}
+{"kind":"textbox","id":"sh/twrqhgna","slide":5,"text":"الواجهة","textPreview":"الواجهة","textChars":7,"textLines":1,"bbox":[93,245,210,45]}
+{"kind":"shape","id":"sh/mxw7uhof","slide":5,"bbox":[110,310,175,0]}
+{"kind":"textbox","id":"sh/nypo3m50","slide":5,"text":"Static web app\nعربية/إنجليزية\nGuest + Manager + Kitchen","textPreview":"Static web app | عربية/إنجليزية | Guest + Manager + Kitchen","textChars":55,"textLines":3,"bbox":[100,335,195,105]}
+{"kind":"shape","id":"sh/fehcveh4","slide":5,"bbox":[365,215,245,280]}
+{"kind":"textbox","id":"sh/udov290j","slide":5,"text":"الخادم","textPreview":"الخادم","textChars":6,"textLines":1,"bbox":[383,245,210,45]}
+{"kind":"shape","id":"sh/hgzuxoza","slide":5,"bbox":[400,310,175,0]}
+{"kind":"textbox","id":"sh/gfqd4jip","slide":5,"text":"Node.js\nJSON API\nجلسات HTTP-only","textPreview":"Node.js | JSON API | جلسات HTTP-only","textChars":32,"textLines":3,"bbox":[390,335,195,105]}
+{"kind":"shape","id":"sh/7axcrehs","slide":5,"bbox":[655,215,245,280]}
+{"kind":"textbox","id":"sh/69ovy907","slide":5,"text":"البيانات","textPreview":"البيانات","textChars":8,"textLines":1,"bbox":[673,245,210,45]}
+{"kind":"shape","id":"sh/tcfut4zy","slide":5,"bbox":[690,310,175,0]}
+{"kind":"textbox","id":"sh/sb6d0zid","slide":5,"text":"SQLite محليًا\nFirestore للاستضافة\nإصدار لكل تعديل","textPreview":"SQLite محليًا | Firestore للاستضافة | إصدار لكل تعديل","textChars":49,"textLines":3,"bbox":[680,335,195,105]}
+{"kind":"shape","id":"sh/j6xcnu1w","slide":5,"bbox":[945,215,245,280]}
+{"kind":"textbox","id":"sh/il4vup0b","slide":5,"text":"التكاملات","textPreview":"التكاملات","textChars":9,"textLines":1,"bbox":[963,245,210,45]}
+{"kind":"shape","id":"sh/mh4v6pk3","slide":5,"bbox":[980,310,175,0]}
+{"kind":"textbox","id":"sh/nidwfulo","slide":5,"text":"Stripe / Paymob\nFoodics / Odoo\nFirebase Hosting","textPreview":"Stripe / Paymob | Foodics / Odoo | Firebase Hosting","textChars":47,"textLines":3,"bbox":[970,335,195,105]}
+{"kind":"textbox","id":"sh/8jmd8z29","slide":5,"text":"ضوابط مثبتة: idempotency للمدفوعات، أسعـار بنود غير قابلة للتغيير، تحقق مخزون، وحماية من التعارض في المخططات والقوائم","textPreview":"ضوابط مثبتة: idempotency للمدفوعات، أسعـار بنود غير قابلة للتغيير، تحقق مخزون، وحماية من التعارض في المخططات والقوائم","textChars":117,"textLines":1,"bbox":[120,545,1040,58]}
+{"kind":"notes","id":"nt/32w1jd","slide":5,"text":"المصدر: PROJECT_DOCUMENTATION.md وMVP_VERIFICATION.md. لا تدّعِ جاهزية تشغيل متعدد المطاعم حاليًا."}
+{"kind":"slide","id":"sl/861g10","slide":6,"title":"Google Technology","textShapes":8}
+{"kind":"shape","id":"sh/7qhozixw","slide":6,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/8ba5sneh","slide":6,"text":"Google Technology","textPreview":"Google Technology","textChars":17,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/tcj61sfm","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/yl8nmdwz","slide":6,"text":"Gemini مساعد داخل سير العمل، وليس chatbot منفصلًا","textPreview":"Gemini مساعد داخل سير العمل، وليس chatbot منفصلًا","textChars":49,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/jmh4vixk","slide":6,"text":"الذكاء الاصطناعي يسرّع التحضير ويعرض مسودة قابلة للمراجعة","textPreview":"الذكاء الاصطناعي يسرّع التحضير ويعرض مسودة قابلة للمراجعة","textChars":57,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/loz6xsfq","slide":6,"bbox":[635,205,490,72]}
+{"kind":"textbox","id":"sh/ihsnyhwj","slide":6,"text":"استخراج قائمة من PDF أو صورة مع مراجعة قبل النشر","textPreview":"استخراج قائمة من PDF أو صورة مع مراجعة قبل النشر","textChars":48,"textLines":1,"bbox":[660,215,440,51]}
+{"kind":"shape","id":"sh/3ilo72x4","slide":6,"bbox":[635,299,490,72]}
+{"kind":"textbox","id":"sh/jmd0rel4","slide":6,"text":"اقتراحات للضيف ضمن المخزون والميزانية والقيود المصرّح بها","textPreview":"اقتراحات للضيف ضمن المخزون والميزانية والقيود المصرّح بها","textChars":57,"textLines":1,"bbox":[660,309,440,51]}
+{"kind":"shape","id":"sh/il4zi94j","slide":6,"bbox":[635,393,490,72]}
+{"kind":"textbox","id":"sh/5ovito3u","slide":6,"text":"ملخصات تشغيلية للمدير مبنية على حقائق النظام","textPreview":"ملخصات تشغيلية للمدير مبنية على حقائق النظام","textChars":44,"textLines":1,"bbox":[660,403,440,51]}
+{"kind":"textbox","id":"sh/knmhkjm9","slide":6,"text":"الحوكمة: لا نشر تلقائي، نتائج منظمة ومتحققة، fallback واضح عند تعذر المزود","textPreview":"الحوكمة: لا نشر تلقائي، نتائج منظمة ومتحققة، fallback واضح عند تعذر المزود","textChars":74,"textLines":1,"bbox":[635,510,480,68]}
+{"kind":"image","id":"im/hw72dovy","slide":6,"name":"","geometry":"roundRect","alt":"Arabic AI menu review screen","bbox":[75,195,485,320]}
+{"kind":"notes","id":"nt/861g10","slide":6,"text":"Google Technology bonus: Gemini API يدعم استخراج القوائم والتوصيات والرؤى. في العرض الحالي نعرض تحققا مقلدًا وموسوما بوضوح؛ لم تُختبر مفاتيح Gemini الحية."}
+{"kind":"slide","id":"sl/mdvu8p","slide":7,"title":"الأثر","textShapes":15}
+{"kind":"shape","id":"sh/y9cv6twr","slide":7,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/lc3ehovi","slide":7,"text":"الأثر","textPreview":"الأثر","textChars":5,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/kbud8jex","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/7elwjydo","slide":7,"text":"الأثر المقترح يرتبط بـ SDG 8 ويُقاس قبل وبعد التجربة","textPreview":"الأثر المقترح يرتبط بـ SDG 8 ويُقاس قبل وبعد التجربة","textChars":52,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/mdcvatw3","slide":7,"text":"نقيس الكفاءة التشغيلية بدل تقديم نتائج لم تُثبت بعد","textPreview":"نقيس الكفاءة التشغيلية بدل تقديم نتائج لم تُثبت بعد","textChars":51,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/9gnel8ve","slide":7,"bbox":[90,205,330,130]}
+{"kind":"textbox","id":"sh/8fedc3e9","slide":7,"text":"وقت الوصول لأول طلب مكتمل","textPreview":"وقت الوصول لأول طلب مكتمل","textChars":25,"textLines":1,"bbox":[110,227,290,35]}
+{"kind":"textbox","id":"sh/ni1w7ud4","slide":7,"text":"من إنشاء الحساب حتى أول عملية مكتملة","textPreview":"من إنشاء الحساب حتى أول عملية مكتملة","textChars":36,"textLines":1,"bbox":[114,273,282,42]}
+{"kind":"shape","id":"sh/2hsvy9wz","slide":7,"bbox":[455,205,330,130]}
+{"kind":"textbox","id":"sh/sv6pcf2d","slide":7,"text":"دقة الطلب","textPreview":"دقة الطلب","textChars":9,"textLines":1,"bbox":[475,227,290,35]}
+{"kind":"textbox","id":"sh/twf65kji","slide":7,"text":"عدد الطلبات المصححة أو الملغاة","textPreview":"عدد الطلبات المصححة أو الملغاة","textChars":30,"textLines":1,"bbox":[479,273,282,42]}
+{"kind":"shape","id":"sh/6t47apk7","slide":7,"bbox":[820,205,330,130]}
+{"kind":"textbox","id":"sh/ruxo3a1s","slide":7,"text":"زمن دورة الطلب","textPreview":"زمن دورة الطلب","textChars":14,"textLines":1,"bbox":[840,227,290,35]}
+{"kind":"textbox","id":"sh/gj6pgz29","slide":7,"text":"من الإرسال إلى جاهزية المطبخ","textPreview":"من الإرسال إلى جاهزية المطبخ","textChars":28,"textLines":1,"bbox":[844,273,282,42]}
+{"kind":"shape","id":"sh/1kf694ju","slide":7,"bbox":[90,385,330,130]}
+{"kind":"textbox","id":"sh/eho7epk3","slide":7,"text":"اكتمال التحصيل","textPreview":"اكتمال التحصيل","textChars":14,"textLines":1,"bbox":[110,407,290,35]}
+{"kind":"textbox","id":"sh/fixo7u1o","slide":7,"text":"الزيارات المغلقة بعد تسوية صحيحة","textPreview":"الزيارات المغلقة بعد تسوية صحيحة","textChars":32,"textLines":1,"bbox":[114,453,282,42]}
+{"kind":"shape","id":"sh/wnm54v25","slide":7,"bbox":[455,385,330,130]}
+{"kind":"textbox","id":"sh/hov6x0ja","slide":7,"text":"رضا الفريق","textPreview":"رضا الفريق","textChars":10,"textLines":1,"bbox":[475,407,290,35]}
+{"kind":"textbox","id":"sh/xknm1wve","slide":7,"text":"CSAT أسبوعي ووقت التدريب","textPreview":"CSAT أسبوعي ووقت التدريب","textChars":24,"textLines":1,"bbox":[479,453,282,42]}
+{"kind":"textbox","id":"sh/wjelsrut","slide":7,"text":"هدف Pilot: تحسن 10% على الأقل في مؤشرين لكل مطعم، مع مرور 80% من الطلبات عبر النظام","textPreview":"هدف Pilot: تحسن 10% على الأقل في مؤشرين لكل مطعم، مع مرور 80% من الطلبات عبر النظام","textChars":83,"textLines":1,"bbox":[130,585,1010,48]}
+{"kind":"notes","id":"nt/mdvu8p","slide":7,"text":"المصدر: ملف التحكيم العربي، قسم Pilot. الأهداف ليست نتائج فعلية."}
+{"kind":"slide","id":"sl/tjmuzz","slide":8,"title":"الدليل","textShapes":17}
+{"kind":"shape","id":"sh/uhwzqlwv","slide":8,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/hknil0fm","slide":8,"text":"الدليل","textPreview":"الدليل","textChars":6,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/wjehsve1","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/7ul0f6xk","slide":8,"text":"ما الذي أثبتناه حتى الآن؟","textPreview":"ما الذي أثبتناه حتى الآن؟","textChars":25,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/mtczm1wz","slide":8,"text":"وظائف MVP اختبرناها آليًا وفي متصفح Chromium، مع حدود واضحة قبل التشغيل الحي","textPreview":"وظائف MVP اختبرناها آليًا وفي متصفح Chromium، مع حدود واضحة قبل التشغيل الحي","textChars":76,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"textbox","id":"sh/9gnihgfa","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[110,210,34,34]}
+{"kind":"textbox","id":"sh/8vehobep","slide":8,"text":"48 اختبارًا آليًا ناجحًا","textPreview":"48 اختبارًا آليًا ناجحًا","textChars":24,"textLines":1,"bbox":[158,210,400,34]}
+{"kind":"textbox","id":"sh/zql0b6x8","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[110,270,34,34]}
+{"kind":"textbox","id":"sh/ypczi1wn","slide":8,"text":"رحلة QR مشتركة بلا PIN","textPreview":"رحلة QR مشتركة بلا PIN","textChars":22,"textLines":1,"bbox":[158,270,400,34]}
+{"kind":"textbox","id":"sh/wbelwryt","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[110,330,34,34]}
+{"kind":"textbox","id":"sh/xwnmpwze","slide":8,"text":"الطلب والمطبخ والتقسيم والتنظيف","textPreview":"الطلب والمطبخ والتقسيم والتنظيف","textChars":31,"textLines":1,"bbox":[158,330,400,34]}
+{"kind":"textbox","id":"sh/a9w3uhgn","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[110,390,34,34]}
+{"kind":"textbox","id":"sh/ba54nmh8","slide":8,"text":"استيراد/تصدير مع مراجعة","textPreview":"استيراد/تصدير مع مراجعة","textChars":23,"textLines":1,"bbox":[158,390,400,34]}
+{"kind":"textbox","id":"sh/o7ulsryh","slide":8,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[110,450,34,34]}
+{"kind":"textbox","id":"sh/98n2lcz2","slide":8,"text":"تحرير مخطط وصلاحيات تعارض","textPreview":"تحرير مخطط وصلاحيات تعارض","textChars":25,"textLines":1,"bbox":[158,450,400,34]}
+{"kind":"shape","id":"sh/m5c3qhgb","slide":8,"bbox":[650,190,450,320]}
+{"kind":"textbox","id":"sh/n6lkjmhw","slide":8,"text":"حدود صريحة قبل الإنتاج","textPreview":"حدود صريحة قبل الإنتاج","textChars":22,"textLines":1,"bbox":[690,220,370,40]}
+{"kind":"textbox","id":"sh/83yl4by1","slide":8,"text":"لا توجد تجربة ميدانية أو معاملات حية أو اختبار Gemini بمفتاح حقيقي.\n\nلا نعرض المنصة كحل لإطلاق أموال حقيقية أو امتثال ضريبي مكتمل.","textPreview":"لا توجد تجربة ميدانية أو معاملات حية أو اختبار Gemini بمفتاح حقيقي. |  | لا نعرض المنصة كحل لإطلاق أموال حقيقية أو امتثال ضريبي مكتمل.","textChars":130,"textLines":3,"bbox":[690,295,370,135]}
+{"kind":"textbox","id":"sh/t47mxgz6","slide":8,"text":"هذه الشفافية تحمي مصداقية العرض وتحدد خطوة الـPilot التالية","textPreview":"هذه الشفافية تحمي مصداقية العرض وتحدد خطوة الـPilot التالية","textChars":59,"textLines":1,"bbox":[680,470,390,52]}
+{"kind":"notes","id":"nt/tjmuzz","slide":8,"text":"المصدر: MVP_VERIFICATION.md. هذه الشريحة مهمة للجدوى والاستمرارية ولا يجب حذفها."}
+{"kind":"slide","id":"sl/0toj9a","slide":9,"title":"نموذج العمل","textShapes":13}
+{"kind":"shape","id":"sh/nul0z2xs","slide":9,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/8fu1s7yd","slide":9,"text":"نموذج العمل","textPreview":"نموذج العمل","textChars":11,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/9g3i1cfy","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/ypszmdgb","slide":9,"text":"اشتراك شهري للفرع مع إضافات اختيارية","textPreview":"اشتراك شهري للفرع مع إضافات اختيارية","textChars":36,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/zq10vixw","slide":9,"text":"تسعير مبدئي يُختبر في Pilot، وليس ادعاء إيراد أو قبول سوق","textPreview":"تسعير مبدئي يُختبر في Pilot، وليس ادعاء إيراد أو قبول سوق","textChars":57,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/0rahonyh","slide":9,"bbox":[100,190,1040,66]}
+{"kind":"textbox","id":"sh/ls3ixsfm","slide":9,"text":"الأساس","textPreview":"الأساس","textChars":6,"textLines":1,"bbox":[935,204,160,34]}
+{"kind":"textbox","id":"sh/qlszidgz","slide":9,"text":"حجز، طاولات، QR، طلب، KDS، فاتورة وتقسيم","textPreview":"حجز، طاولات، QR، طلب، KDS، فاتورة وتقسيم","textChars":40,"textLines":1,"bbox":[150,202,745,42]}
+{"kind":"shape","id":"sh/rm10rixk","slide":9,"bbox":[100,280,1040,66]}
+{"kind":"textbox","id":"sh/nuhsj694","slide":9,"text":"إضافات","textPreview":"إضافات","textChars":6,"textLines":1,"bbox":[935,294,160,34]}
+{"kind":"textbox","id":"sh/mt8bq1sj","slide":9,"text":"AI، رسائل، تكاملات، دعم متميز","textPreview":"AI، رسائل، تكاملات، دعم متميز","textChars":29,"textLines":1,"bbox":[150,292,745,42]}
+{"kind":"shape","id":"sh/9wjalgru","slide":9,"bbox":[100,370,1040,66]}
+{"kind":"textbox","id":"sh/ovatsbq9","slide":9,"text":"البيع","textPreview":"البيع","textChars":5,"textLines":1,"bbox":[935,384,160,34]}
+{"kind":"textbox","id":"sh/by1snq90","slide":9,"text":"زيارات ميدانية، محاسبون ومستشارو مطاعم، مورّدو POS، إحالات","textPreview":"زيارات ميدانية، محاسبون ومستشارو مطاعم، مورّدو POS، إحالات","textChars":58,"textLines":1,"bbox":[150,382,745,42]}
+{"kind":"shape","id":"sh/axsbul8f","slide":9,"bbox":[100,460,1040,66]}
+{"kind":"textbox","id":"sh/x0jap0r6","slide":9,"text":"المعادلة","textPreview":"المعادلة","textChars":8,"textLines":1,"bbox":[935,474,160,34]}
+{"kind":"textbox","id":"sh/wzatwvql","slide":9,"text":"هامش إجمالي × ARPA ÷ churn ثم مقارنة LTV/CAC عند توفر بيانات","textPreview":"هامش إجمالي × ARPA ÷ churn ثم مقارنة LTV/CAC عند توفر بيانات","textChars":60,"textLines":1,"bbox":[150,472,745,42]}
+{"kind":"textbox","id":"sh/r2xsbm9w","slide":9,"text":"نقطة القرار: مطعم واحد مدفوع أو قابل للتحويل بعد التجربة، مع قياس activation والاحتفاظ","textPreview":"نقطة القرار: مطعم واحد مدفوع أو قابل للتحويل بعد التجربة، مع قياس activation والاحتفاظ","textChars":86,"textLines":1,"bbox":[125,575,1010,45]}
+{"kind":"notes","id":"nt/0toj9a","slide":9,"text":"المصدر: ملف التحكيم العربي، نموذج العمل. لا نضع LTV أو churn مصطنعين قبل وجود بيانات."}
+{"kind":"slide","id":"sl/vh8p7y","slide":10,"title":"الجدوى","textShapes":16}
+{"kind":"shape","id":"sh/4bixormx","slide":10,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/ja9wvmlc","slide":10,"text":"الجدوى","textPreview":"الجدوى","textChars":6,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/i90fmh4r","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/t0by1w3e","slide":10,"text":"خارطة 90 يومًا من Demo إلى Pilot ثم جاهزية السوق","textPreview":"خارطة 90 يومًا من Demo إلى Pilot ثم جاهزية السوق","textChars":48,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/sz2xsrmt","slide":10,"text":"كل مرحلة تنتهي بدليل أو قرار واضح","textPreview":"كل مرحلة تنتهي بدليل أو قرار واضح","textChars":33,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/rytgzml8","slide":10,"bbox":[85,220,245,285]}
+{"kind":"textbox","id":"sh/6dkfqh4n","slide":10,"text":"0-7 أيام","textPreview":"0-7 أيام","textChars":8,"textLines":1,"bbox":[105,250,205,34]}
+{"kind":"textbox","id":"sh/14by5g3a","slide":10,"text":"تثبيت Demo","textPreview":"تثبيت Demo","textChars":10,"textLines":1,"bbox":[101,310,212,42]}
+{"kind":"shape","id":"sh/g32xwbm5","slide":10,"bbox":[125,370,165,0]}
+{"kind":"textbox","id":"sh/ax8nahcr","slide":10,"text":"3 مقابلات، فيديو احتياطي، اختبار كامل","textPreview":"3 مقابلات، فيديو احتياطي، اختبار كامل","textChars":37,"textLines":1,"bbox":[110,395,195,70]}
+{"kind":"shape","id":"sh/vyh4jmtc","slide":10,"bbox":[370,220,245,285]}
+{"kind":"textbox","id":"sh/wzq5crux","slide":10,"text":"8-30 يومًا","textPreview":"8-30 يومًا","textChars":10,"textLines":1,"bbox":[390,250,205,34]}
+{"kind":"textbox","id":"sh/x0zmlwbi","slide":10,"text":"Pilot مصر","textPreview":"Pilot مصر","textChars":9,"textLines":1,"bbox":[386,310,212,42]}
+{"kind":"shape","id":"sh/i18nehc3","slide":10,"bbox":[410,370,165,0]}
+{"kind":"textbox","id":"sh/j2h4nmt8","slide":10,"text":"3 مطاعم، baseline، تدريب، لوحة أثر","textPreview":"3 مطاعم، baseline، تدريب، لوحة أثر","textChars":34,"textLines":1,"bbox":[395,395,195,70]}
+{"kind":"shape","id":"sh/k3q5grut","slide":10,"bbox":[655,220,245,285]}
+{"kind":"textbox","id":"sh/54zmpwbe","slide":10,"text":"31-60 يومًا","textPreview":"31-60 يومًا","textChars":11,"textLines":1,"bbox":[675,250,205,34]}
+{"kind":"textbox","id":"sh/y5432xcj","slide":10,"text":"جاهزية تشغيل","textPreview":"جاهزية تشغيل","textChars":12,"textLines":1,"bbox":[671,310,212,42]}
+{"kind":"shape","id":"sh/z6x4b2t4","slide":10,"bbox":[695,370,165,0]}
+{"kind":"textbox","id":"sh/3atk3y9w","slide":10,"text":"RBAC، tenant isolation، مراقبة ونسخ احتياطي","textPreview":"RBAC، tenant isolation، مراقبة ونسخ احتياطي","textChars":43,"textLines":1,"bbox":[680,395,195,70]}
+{"kind":"shape","id":"sh/29kjatsb","slide":10,"bbox":[940,220,245,285]}
+{"kind":"textbox","id":"sh/pcb258r2","slide":10,"text":"61-90 يومًا","textPreview":"61-90 يومًا","textChars":11,"textLines":1,"bbox":[960,250,205,34]}
+{"kind":"textbox","id":"sh/4b21c3ah","slide":10,"text":"بوابة السعودية","textPreview":"بوابة السعودية","textChars":14,"textLines":1,"bbox":[956,310,212,42]}
+{"kind":"shape","id":"sh/fm90fe90","slide":10,"bbox":[980,370,165,0]}
+{"kind":"textbox","id":"sh/ul0j69sf","slide":10,"text":"VAT، شريك امتثال، ZATCA، الدفع المحلي","textPreview":"VAT، شريك امتثال، ZATCA، الدفع المحلي","textChars":37,"textLines":1,"bbox":[965,395,195,70]}
+{"kind":"notes","id":"nt/vh8p7y","slide":10,"text":"المصدر: ملف التحكيم العربي، الجدوى والتنفيذ. اذكر أن الامتثال والإنتاج بوابتان قبل الإطلاق التجاري."}
+{"kind":"slide","id":"sl/lkjwph","slide":11,"title":"الاستمرارية","textShapes":15}
+{"kind":"shape","id":"sh/gb25k3ih","slide":11,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/fatory1w","slide":11,"text":"الاستمرارية","textPreview":"الاستمرارية","textChars":11,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/upknit0b","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/pgv6x8jy","slide":11,"text":"الاستمرارية تبدأ من حدود تشغيل واضحة","textPreview":"الاستمرارية تبدأ من حدود تشغيل واضحة","textChars":36,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/4fmpo3id","slide":11,"text":"نحوّل مخاطر الـMVP إلى ضوابط قابلة للتنفيذ والمراجعة","textPreview":"نحوّل مخاطر الـMVP إلى ضوابط قابلة للتنفيذ والمراجعة","textChars":52,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"shape","id":"sh/3edovy1s","slide":11,"bbox":[115,180,1035,55]}
+{"kind":"textbox","id":"sh/2dk7md0n","slide":11,"text":"تعطل الشبكة","textPreview":"تعطل الشبكة","textChars":11,"textLines":1,"bbox":[835,191,270,32]}
+{"kind":"textbox","id":"sh/dkv61sza","slide":11,"text":"Offline queue وخطة تشغيل يدوية","textPreview":"Offline queue وخطة تشغيل يدوية","textChars":30,"textLines":1,"bbox":[170,191,620,32]}
+{"kind":"shape","id":"sh/cjmpsnip","slide":11,"bbox":[115,255,1035,55]}
+{"kind":"textbox","id":"sh/e1wv2tsv","slide":11,"text":"اختلاط بيانات المطاعم","textPreview":"اختلاط بيانات المطاعم","textChars":21,"textLines":1,"bbox":[835,266,270,32]}
+{"kind":"textbox","id":"sh/f25wby9g","slide":11,"text":"tenant isolation واختبارات authorization","textPreview":"tenant isolation واختبارات authorization","textChars":40,"textLines":1,"bbox":[170,266,620,32]}
+{"kind":"shape","id":"sh/0ned4jal","slide":11,"bbox":[115,330,1035,55]}
+{"kind":"textbox","id":"sh/1onedor6","slide":11,"text":"مخرجات AI غير دقيقة","textPreview":"مخرجات AI غير دقيقة","textChars":19,"textLines":1,"bbox":[835,341,270,32]}
+{"kind":"textbox","id":"sh/2pwv6tsr","slide":11,"text":"مسودة ومراجعة بشرية ولا حفظ تلقائي","textPreview":"مسودة ومراجعة بشرية ولا حفظ تلقائي","textChars":34,"textLines":1,"bbox":[170,341,620,32]}
+{"kind":"shape","id":"sh/nq5wfy9c","slide":11,"bbox":[115,405,1035,55]}
+{"kind":"textbox","id":"sh/oryd83qx","slide":11,"text":"تكامل ضريبي متأخر","textPreview":"تكامل ضريبي متأخر","textChars":17,"textLines":1,"bbox":[835,416,270,32]}
+{"kind":"textbox","id":"sh/ps7eh8ri","slide":11,"text":"لا Go-live قبل شريك محلي واختبارات قبول","textPreview":"لا Go-live قبل شريك محلي واختبارات قبول","textChars":39,"textLines":1,"bbox":[170,416,620,32]}
+{"kind":"shape","id":"sh/itcvu9sn","slide":11,"bbox":[115,480,1035,55]}
+{"kind":"textbox","id":"sh/3ulc3e98","slide":11,"text":"تبني الفريق بطيء","textPreview":"تبني الفريق بطيء","textChars":16,"textLines":1,"bbox":[835,491,270,32]}
+{"kind":"textbox","id":"sh/7yhsbap0","slide":11,"text":"تدريب 45 دقيقة وchampion وقياس activation","textPreview":"تدريب 45 دقيقة وchampion وقياس activation","textChars":41,"textLines":1,"bbox":[170,491,620,32]}
+{"kind":"textbox","id":"sh/6d8b258f","slide":11,"text":"تكلفة تشغيل قابلة للتحكم: مراقبة، نسخ احتياطي، cache للـAI، حد استخدام، وfallback يدوي","textPreview":"تكلفة تشغيل قابلة للتحكم: مراقبة، نسخ احتياطي، cache للـAI، حد استخدام، وfallback يدوي","textChars":86,"textLines":1,"bbox":[115,585,1030,46]}
+{"kind":"notes","id":"nt/lkjwph","slide":11,"text":"المصدر: ملف التحكيم العربي، الاستدامة والمخاطر. هذه خطة وليست ادعاء تطبيق كامل اليوم."}
+{"kind":"slide","id":"sl/4ccv4n","slide":12,"title":"نحتاج 3 مطاعم","textShapes":4}
+{"kind":"shape","id":"sh/7apg36lc","slide":12,"bbox":[0,0,470,720]}
+{"kind":"textbox","id":"sh/69wza1kr","slide":12,"text":"نحتاج 3 مطاعم\nلتجربة 30 يومًا","textPreview":"نحتاج 3 مطاعم | لتجربة 30 يومًا","textChars":29,"textLines":2,"bbox":[545,155,620,110]}
+{"kind":"textbox","id":"sh/lony1w36","slide":12,"text":"نقيس baseline ثم نشغّل الرحلة كاملة ونقارن الوقت، الدقة، التحصيل، ورضا الفريق.","textPreview":"نقيس baseline ثم نشغّل الرحلة كاملة ونقارن الوقت، الدقة، التحصيل، ورضا الفريق.","textChars":78,"textLines":1,"bbox":[550,315,570,78]}
+{"kind":"shape","id":"sh/kneh8r2l","slide":12,"bbox":[550,460,470,70]}
+{"kind":"textbox","id":"sh/jm5gzml0","slide":12,"text":"النتيجة المطلوبة: دليل أثر وقرار شراء","textPreview":"النتيجة المطلوبة: دليل أثر وقرار شراء","textChars":37,"textLines":1,"bbox":[570,476,430,35]}
+{"kind":"textbox","id":"sh/ylwz6hkf","slide":12,"text":"Resuto | نظام تشغيل عربي للمطاعم","textPreview":"Resuto | نظام تشغيل عربي للمطاعم","textChars":32,"textLines":1,"bbox":[550,610,500,30]}
+{"kind":"image","id":"im/xs7m9ovy","slide":12,"name":"","geometry":"roundRect","alt":"Resuto reservation experience","bbox":[0,0,470,720]}
+{"kind":"notes","id":"nt/4ccv4n","slide":12,"text":"الخاتمة في 20 ثانية. اطلب تحديدًا: دعم لجنة IMPACT X لثلاثة مطاعم لمدة 30 يومًا."}
+{"kind":"slide","id":"sl/7jlz2z","slide":13,"title":"ملحق","textShapes":5}
+{"kind":"shape","id":"sh/3qxgraxo","slide":13,"bbox":[0,0,16,720]}
+{"kind":"textbox","id":"sh/4r6xkfy9","slide":13,"text":"ملحق","textPreview":"ملحق","textChars":4,"textLines":1,"bbox":[1030,662,180,26]}
+{"kind":"textbox","id":"sh/5sfytkfu","slide":13,"text":"13","textPreview":"13","textChars":2,"textLines":1,"bbox":[60,662,70,26]}
+{"kind":"textbox","id":"sh/u14fe5g7","slide":13,"text":"خريطة التغطية أمام لجنة التحكيم","textPreview":"خريطة التغطية أمام لجنة التحكيم","textChars":31,"textLines":1,"bbox":[75,55,1130,62]}
+{"kind":"textbox","id":"sh/v2xgnaxs","slide":13,"text":"محتوى العرض مرتبط مباشرة بمعايير IMPACT X ذات الوزن الأعلى","textPreview":"محتوى العرض مرتبط مباشرة بمعايير IMPACT X ذات الوزن الأعلى","textChars":58,"textLines":1,"bbox":[75,116,1130,35]}
+{"kind":"textbox","id":"sh/h4fypkfi","slide":13,"text":"ملاحظة للمتحدث: استخدم هذه الشريحة فقط عند الحاجة، ولا تدخلها في مسار 6 دقائق.","textPreview":"ملاحظة للمتحدث: استخدم هذه الشريحة فقط عند الحاجة، ولا تدخلها في مسار 6 دقائق.","textChars":78,"textLines":1,"bbox":[150,585,980,40]}
+{"kind":"table","id":"tb/h4bexsjq","slide":13,"name":"","rows":7,"cols":2,"preview":"المعيار | الأدلة في العرض","bbox":[135,175,1010,370]}
+{"kind":"notes","id":"nt/7jlz2z","slide":13,"text":"المصدر: IMPACT X Judging Criteria.pdf. ملحق، لا يقدّم في الوقت الأساسي."}

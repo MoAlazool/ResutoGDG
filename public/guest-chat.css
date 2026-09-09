@@ -1,0 +1,82 @@
+.guest-sheet.chat-sheet{width:min(640px,96vw);padding:0;overflow:hidden;max-height:92dvh}.chat-sheet .sheet-head{padding:20px 22px;border-bottom:1px solid #e1e7dd;margin:0}.chat-sheet .sheet-head h2{font-size:23px}.guest-chat{display:flex;flex-direction:column;height:min(740px,78dvh);background:#f6f7f1}.chat-thread{flex:1;min-height:150px;overflow-y:auto;overscroll-behavior:contain;padding:22px;scroll-behavior:smooth}.chat-bubble{display:flex;gap:12px;align-items:flex-start;margin:12px 0}.chat-bubble p{margin:0;font-size:16px;line-height:1.7}.chat-bubble.bot>p,.chat-bubble.bot>div{padding:15px 18px;background:#fff;border:1px solid #e0e7dd;border-radius:2px 18px 18px}.chat-avatar{flex-shrink:0;display:grid;place-items:center;background:#173f36;color:#fff;width:34px;height:34px;border-radius:12px;font-size:22px}.chat-bubble.user{justify-content:flex-end}.chat-bubble.user p{max-width:90%;padding:14px 18px;border-radius:18px 2px 18px 18px;background:#173f36;color:#fff}.chat-prompts{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.chat-prompts button{border:1px solid #cedcc9;background:#fff;border-radius:22px;padding:10px 15px;min-height:44px;color:#234e3d;font-size:14px}.chat-composer{flex-shrink:0;background:#fff;border-top:1px solid #dce4d7;padding:14px 20px max(16px,env(safe-area-inset-bottom));display:block}.chat-preferences summary{font-size:14px;cursor:pointer;font-weight:700;margin-bottom:8px}.chat-preferences[open]{max-height:180px;overflow:auto;margin-bottom:10px}.chat-input-label{font-size:13px}.chat-send-row{display:flex;gap:10px;align-items:stretch}.chat-send-row textarea{resize:none;min-height:54px;font-size:16px;line-height:1.5;border-radius:14px;margin:0;flex:1;min-width:0}.chat-send-row button{min-width:74px;min-height:54px;border-radius:14px}.chat-composer>small{display:block;font-size:12px;line-height:1.6;color:#748170;margin-top:10px}.chat-meal-cards{display:grid;gap:12px;margin:16px 0}.chat-meal-card{display:grid;grid-template-columns:105px minmax(0,1fr);background:#fff;border-radius:18px;border:1px solid #dce4d7;overflow:hidden}.chat-meal-card .dish-photo{width:100%;aspect-ratio:1;align-self:center}.chat-meal-card>div:last-child{padding:14px}.chat-meal-card h3{font-size:17px;line-height:1.4;margin:0 0 6px}.chat-meal-card p{font-size:14px;line-height:1.5;color:#697964;margin:0 0 12px}.chat-meal-card>div>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px;font-size:13px}.chat-meal-total{background:#e9f0e3;border-radius:16px;padding:16px}.chat-mode{font-size:11px;color:#71846b}.chat-allergy{font-size:12px;line-height:1.7;color:#736641}.chat-follow-up{font-size:16px}.chat-meal-total button{min-height:48px}[dir=rtl] .chat-bubble.bot>p,[dir=rtl] .chat-bubble.bot>div{border-radius:18px 2px 18px 18px}[dir=rtl] .chat-bubble.user p{border-radius:2px 18px 18px}@media(max-width:600px){.consumer-app{font-size:16px}.consumer-app input,.consumer-app select,.consumer-app textarea,.booking-shell input,.booking-shell select{font-size:16px}.consumer-app button,.booking-shell button{min-height:44px}.consumer-app p{line-height:1.65}.dish-body h3{font-size:18px;line-height:1.45}.dish-body p{font-size:14px}.guest-sheet.chat-sheet{width:100%;max-width:100%;height:94dvh;max-height:94dvh;margin:auto 0 0;border-radius:22px 22px 0 0}.chat-sheet .sheet-head{padding:16px 18px}.guest-chat{height:calc(94dvh - 75px)}.chat-thread{padding:16px}.chat-composer{padding-inline:14px}.chat-meal-card{grid-template-columns:90px minmax(0,1fr)}.chat-meal-card h3{font-size:16px}.chat-send-row button{min-width:65px;padding:10px}.chat-bubble p{font-size:16px}.chat-preferences summary{min-height:32px}.booking-detail p{font-size:16px}.booking-chips button{font-size:14px;min-height:44px}}@media(prefers-reduced-motion:reduce){.chat-thread{scroll-behavior:auto}}
+
+/* Complementary suggestions — a quiet nudge, never a hard sell. */
+.suggest{background:#eef2e7;border:1px solid #dde5cf;border-radius:14px;padding:16px;margin:18px 0}
+.suggest-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.suggest-head strong{font-size:14px;line-height:1.45}
+.suggest-head .ai-mark{font-size:22px;color:#5d7a4a;flex-shrink:0}
+.suggest-list{display:flex;flex-direction:column;gap:8px}
+.suggest-item{display:flex;align-items:center;gap:12px;width:100%;text-align:start;background:#fff;
+ border:1px solid #e2e7da;border-radius:10px;padding:12px 14px;min-height:52px;transition:background .15s}
+.suggest-item:hover{background:#f7f9f3}
+.suggest-item:active{transform:scale(.99)}
+.suggest-body{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.suggest-body strong{font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.suggest-body small{font-size:12.5px;color:#6d786a}
+.suggest-item i{margin-inline-start:auto;font-style:normal;font-size:20px;color:#5d7a4a;
+ width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#eef2e7;flex-shrink:0}
+.suggest .fine{margin:12px 0 0;text-align:center}
+
+/* ---- Mobile ordering ------------------------------------------------------
+   One tap adds a dish; the button then becomes a stepper in place. Opening a
+   full sheet just to set a quantity is too much work on a phone, so the sheet
+   is now reserved for dishes that genuinely need a choice. */
+.dish-name{display:block;width:100%;text-align:start;background:none;border:0;padding:0}
+.dish-name h3{margin:0}
+.dish-card.in-cart{box-shadow:0 0 0 2px #7fa27f,0 4px 20px #21352610}
+.dish-tags .is-low{color:#a8703f}
+.dish-sold{font-size:13px;color:#98a094}
+.dish-add{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:92px;
+ padding:0 16px;border:0;border-radius:10px;background:#e7efe1;color:#26543b;font-size:14px;font-weight:650}
+.dish-add:active{transform:scale(.97)}
+.dish-add span{font-size:18px;line-height:1}
+.dish-stepper{display:inline-flex;align-items:center;gap:2px;background:#e7efe1;border-radius:10px;padding:3px}
+.dish-stepper button{width:40px;height:38px;border:0;background:transparent;border-radius:8px;
+ font-size:20px;line-height:1;color:#26543b;font-weight:650}
+.dish-stepper button:active{background:#d6e4cd}
+.dish-stepper button:disabled{opacity:.35}
+.dish-stepper output{min-width:26px;text-align:center;font-size:15px;font-weight:650;color:#1f4433;font-variant-numeric:tabular-nums}
+.dish-stepper.is-large button{width:52px;height:48px;font-size:24px}
+.dish-stepper.is-large output{min-width:40px;font-size:18px}
+.sheet-qty{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:20px 0 16px}
+.sheet-qty>span{font-size:14px;color:#5f6d63}
+.cart-item-body{flex:1;min-width:0}
+.cart-opts{display:block;color:#6d7b5e;margin-block:4px}
+.cart-unit{display:block;color:#8b948a;margin-block:4px 10px}
+.quantity-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cart-line-total{font-size:15px;font-weight:650;white-space:nowrap}
+.cart-empty-state{text-align:center;padding:26px 0}
+.cart-dock{transition:box-shadow .2s}
+.cart-dock.has-items{box-shadow:0 10px 45px #132d3238,0 0 0 2px #cfe0c6}
+@media(max-width:600px){
+ .dish-grid{grid-template-columns:1fr;gap:14px}
+ .dish-card{display:grid;grid-template-columns:112px minmax(0,1fr);align-items:stretch}
+ /* A fixed square thumb: `aspect-ratio:auto` here squashed the 4:3 sprite
+    cell into a 0.56 ratio box. */
+ .dish-card .photo-button{align-self:center;padding:12px 0 12px 12px}
+ .dish-card .dish-photo,.dish-card .dish-placeholder{width:100%;aspect-ratio:1;border-radius:12px}
+ .dish-body{padding:14px 16px}
+ .dish-body p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:0;margin-block:6px}
+ .dish-bottom{flex-direction:row;align-items:center;justify-content:space-between;margin-block-start:12px}
+ .dish-add{min-width:0;padding:0 14px}
+ .cart-dock{inset-inline:12px;inset-block-end:calc(12px + env(safe-area-inset-bottom));min-width:0;width:auto;transform:none}
+ /* Clear the fixed dock so the last dish is never trapped behind it. */
+ .consumer-main{padding-block-end:calc(120px + env(safe-area-inset-bottom))}
+ [dir=rtl] .cart-dock{transform:none}
+}
+
+/* ---- Counter ticket -------------------------------------------------------
+   Scanning the counter QR means the guest is already in the venue, so the flow
+   skips fulfilment questions entirely and leads with the number they quote at
+   the till. */
+.counter-page{max-width:560px}
+.counter-ticket{background:#fff;border:1px solid #dce4d7;border-radius:18px;padding:26px 22px;text-align:center;margin:18px 0 20px;box-shadow:0 12px 34px rgba(28,52,42,.07)}
+.counter-ticket>span{font-size:12.5px;color:#6d776f;display:block}
+.counter-ticket>strong{display:block;font-size:60px;font-weight:800;letter-spacing:-.03em;line-height:1.05;color:#204f43;margin:10px 0 4px;font-variant-numeric:tabular-nums}
+.counter-amount{display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px dashed #cfd8cd;margin-top:18px;padding-top:16px;font-size:14px;color:#5f6d63}
+.counter-amount b{font-size:20px;font-weight:800;color:#204f43}
+.counter-choice{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.counter-choice .full{margin-top:0}
+.counter-await{display:flex;align-items:center;gap:10px;background:#eef4ea;border:1px solid #cfe0c6;border-radius:12px;padding:15px 16px;font-size:13.5px;color:#3d5c46;margin-bottom:20px;line-height:1.55}
+.counter-orders{margin-top:26px}
+.counter-orders h2{margin-bottom:12px}

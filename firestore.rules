@@ -1,0 +1,53 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(restaurantId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)/memberships/$(restaurantId));
+    }
+
+    function memberRole(restaurantId) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)/memberships/$(restaurantId)).data.role;
+    }
+
+    // Public lookup exposes only the restaurant ID for an already-known slug.
+    // All slug changes are made by the trusted server through Firebase Admin.
+    match /restaurantSlugs/{slug} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Signed-in staff may read the safe restaurant account metadata for only
+    // the restaurants they belong to. Client writes are never accepted.
+    match /restaurants/{restaurantId} {
+      allow read: if isMember(restaurantId);
+      allow write: if false;
+
+      // Operational state contains orders, customers, settings and payments.
+      // It is server-only; Firebase Admin enforces membership before selecting
+      // a tenant and bypasses these client rules by design.
+      match /private/{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow write: if false;
+
+      match /memberships/{restaurantId} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

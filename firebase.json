@@ -1,0 +1,27 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "assets/smash/design-concept.png"
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css|webp|png|ttf)",
+        "headers": [{"key": "Cache-Control", "value": "public,max-age=31536000,immutable"}]
+      }
+    ],
+    "rewrites": [
+      {"source": "**", "destination": "/index.html"}
+    ]
+  },
+  "emulators": {
+    "auth": {"port": 9099},
+    "firestore": {"port": 8080}
+  }
+}

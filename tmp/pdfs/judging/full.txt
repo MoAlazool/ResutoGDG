@@ -1,0 +1,437 @@
+
+===== PAGE 1 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                        JUDGING   CRITERIA   & GUIDELINES                           
+                                                                                    
+                                                                                    
+      1. Purpose of the Judging Framework                                           
+                                                                                    
+      This framework makes IMPACT X judging consistent, transparent, fair, and practical across all rooms and all six tracks. It
+      evaluates whether a team solves a meaningful problem, creates measurable impact, builds a credible solution, has a
+      realistic path to adoption and return on value, and can continue beyond the hackathon.
+                                                                                    
+      Core principle: IMPACT X rewards the strongest combination of impact, innovation, technology, feasibility, business
+      value, and long-term potential, not the most complex technology or the most polished presentation alone.
+                                                                                    
+                                                                                    
+      2. IMPACT X Tracks                                                            
+       Track                   Primary SDG             Focus                        
+                                                       Access, learning outcomes, skills,
+       Education               SDG 4 – Quality Education teaching, student experience,
+                                                       educational productivity.    
+                                                       Access, prevention, patient experience,
+       Healthcare              SDG 3 – Good Health & Well-being delivery, efficiency, affordability,
+                                                       outcomes.                    
+                                                       Mobility, infrastructure, citizen services,
+                               SDG 11 – Sustainable Cities &                        
+       Smart Cities                                    sustainability, resource optimization,
+                               Communities                                          
+                                                       safety.                      
+                                                       Removing physical, digital, social, or
+       Accessibility           SDG 10 – Reduced Inequalities economic barriers and empowering
+                                                       underserved users.           
+                                                       Revenue, cost reduction, automation,
+       Business & Productivity SDG 8 – Decent Work & Economic Growth workforce productivity, decisions,
+                                                       operations, new opportunities.
+                                                       Energy access, affordability, renewables,
+                                                       efficiency, storage, smart management,
+       Affordable & Clean Energy SDG 7 – Affordable & Clean Energy                  
+                                                       consumption reduction, environmental
+                                                       impact.                      
+      3. Judging Structure                                                          
+       Stage                   Process                 Outcome                      
+                               Teams present in parallel rooms. Each                
+       Round 1 ( Parallel Rooms ) judge independently scores every Teams are ranked within each room.
+                               assigned team out of 110.                            
+                               Recommended: top 3 teams per room. It                
+       Qualification           may have difference if there is no balance Finalist pool.
+                               in number of teams per room.                         
+                               Finalists present to a larger cross-                 
+       Round 2 – Final         functional panel using the same 10- Final ranking.   
+                               minute maximum.                                      
+                                                       Exactly 3 winners. (we can rank the top 9
+       Awards                  Ranking determines the overall winners. teams without prizes)
+      1 | Pa ge                                                                     
+
+===== PAGE 2 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      4. Scoring System                                                             
+       Criterion               Points                  What It Measures             
+                                                       Real, important, clearly defined problem
+       Problem Definition & Relevance 10                                            
+                                                       and evidence.                
+                                                       Depth, reach, measurability, and
+       Impact & Track/SDG Alignment 15                                              
+                                                       relevance of impact.         
+                                                       Originality, differentiation, and creative
+       Innovation & Creativity 10                                                   
+                                                       effectiveness.               
+                                                       Usability, accessibility, user journey, and
+       Solution Quality & User Experience 10                                        
+                                                       effectiveness.               
+                                                       Functionality, architecture, technical
+       Technical Implementation 15                                                  
+                                                       quality, and appropriateness.
+                                                       Realistic implementation, resources,
+       Feasibility & Execution 10                                                   
+                                                       constraints, and roadmap.    
+                                                       Value proposition,           
+       ROI & Business Model    15                      revenue/savings/funding, market,
+                                                       customer, return/value.      
+                                                       Post-hackathon survival, maintenance,
+       Sustainability & Continuity 10                                               
+                                                       scalability, and long-term support.
+                                                       Clarity, structure, demo, storytelling, and
+       Presentation & Communication 5                                               
+                                                       answers.                     
+       CORE SCORE              100                     Criteria 1–9.                
+                                                       Meaningful Google technology 
+       Google Technology Bonus +5                                                   
+                                                       integration.                 
+       Presentation Efficiency Bonus +5                Efficient use of the 10-minute limit.
+       FINAL SCORE             110                     Core score plus bonuses.     
+      5. Detailed Judging Rubric                                                    
+      5.1 Problem Definition & Relevance — 10 Points                                
+      •  Problem is clear, specific, and significant.                               
+      •  Target users/beneficiaries are understood.                                 
+      •  Research, interviews, data, or credible assumptions support the problem.   
+      •  Existing alternatives are understood where relevant.                       
+      Judge test: Would this problem still matter if the hackathon did not exist?   
+      5.2 Impact & Track/SDG Alignment — 15 Points                                  
+      •  Potential positive impact is clear.                                        
+      •  Strong alignment with the selected track and SDG.                          
+      •  Reach and depth of impact are credible.                                    
+      •  Impact KPIs are identified.                                                
+      •  Team explains how outcomes will be measured.                               
+      Judge test: Who benefits, how much, and how will the team prove the impact?   
+      5.3 Innovation & Creativity — 10 Points                                       
+      •  Originality or creative problem-solving.                                   
+      •  Meaningful differentiation from alternatives.                              
+      •  Novel or unusually effective approach.                                     
+      •  Innovation may be technological, business-model, process, experience, or service innovation.
+      Judge test: What is meaningfully different or better?                         
+      2 | Pa ge                                                                     
+
+===== PAGE 3 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      5.4 Solution Quality & User Experience — 10 Points                            
+      •  Solution directly addresses the problem.                                   
+      •  User journey is intuitive.                                                 
+      •  Design fits intended users.                                                
+                                                                                    
+      •  Accessibility is considered where relevant.                                
+      •  Prototype demonstrates core value.                                         
+                                                                                    
+      Judge test: Can a real target user understand and use it?                     
+      5.5 Technical Implementation — 15 Points                                      
+                                                                                    
+      •  Working functionality appropriate to hackathon scope.                      
+      •  Technology choices fit the problem.                                        
+      •  Architecture and implementation show competence.                           
+      •  Core integrations/workflows function.                                      
+      •  Relevant security, privacy, reliability, data, and scalability considerations are addressed.
+                                                                                    
+      •  Complexity is rewarded only when it creates value.                         
+      Judge test: Does the technology genuinely enable the proposed value?          
+                                                                                    
+      5.6 Feasibility & Execution — 10 Points                                       
+                                                                                    
+      •  Realistic technical and operational path.                                  
+      •  Dependencies, constraints, risks, and resources are understood.            
+      •  Credible MVP/pilot roadmap.                                                
+      •  Reasonable assumptions about deployment, partners, regulation, or infrastructure where relevant.
+                                                                                    
+      Judge test: If funded tomorrow, could this realistically move toward launch?  
+                                                                                    
+      5.7 ROI & Business Model — 15 Points                                          
+      •  Clear value proposition.                                                   
+      •  Clear customer, payer, beneficiary, or funding source.                     
+      •  Credible revenue, savings, funding, adoption, or value model.              
+                                                                                    
+      •  Market opportunity and alternatives are understood.                        
+      •  Reasonable cost/pricing/savings/return assumptions.                        
+      •  ROI may be financial, social, environmental, or organizational depending on the track.
+                                                                                    
+      Judge test: Who pays or funds it, why, what does it cost, and what measurable value is created?
+                                                                                    
+      5.8 Sustainability & Continuity — 10 Points                                   
+      •  Clear post-hackathon roadmap.                                              
+      •  Maintenance and continued development plan.                                
+      •  Scalable beyond initial pilot/prototype.                                   
+      •  Credible funding, revenue, partnership, or institutional support.          
+                                                                                    
+      •  Clear next milestone and evidence of commitment.                           
+      Judge test: What happens after IMPACT X ends?                                 
+                                                                                    
+      5.9 Presentation & Communication — 5 Points                                   
+                                                                                    
+      •  Clear structure and storytelling.                                          
+      •  Problem, solution, demo, impact, ROI, and future are understandable.       
+      3 | Pa ge                                                                     
+                                                                                    
+                                                                                    
+
+===== PAGE 4 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      •  Complex ideas are explained simply.                                        
+      •  Demo is relevant and credible.                                             
+      •  Questions are answered effectively.                                        
+                                                                                    
+      Judge test: Can the team communicate the value clearly within the allotted time?
+                                                                                    
+                                                                                    
+      6. Score Anchors                                                              
+       Level                               Meaning                                  
+                                           Exceptional evidence, execution, differentiation, and potential;
+       Outstanding                                                                  
+                                           top-end score is justified.              
+                                           Clearly above average with convincing evidence and minor
+       Strong                                                                       
+                                           gaps.                                    
+                                           Solid and credible but with noticeable limitations or
+       Good                                                                         
+                                           unanswered questions.                    
+       Weak                                Significant gaps, limited validation, or weak execution.
+                                           Criterion is largely unaddressed, unsupported, or contradicted
+       Very Weak                                                                    
+                                           by the demonstration.                    
+      7. Google Technology Bonus — Up to +5                                         
+      IMPACT X is powered by Google. The bonus rewards meaningful integration, not the number of Google products
+      mentioned.                                                                    
+       Bonus                               Guideline                                
+                                           Google technology is central and materially enables or improves
+       +5                                                                           
+                                           the solution.                            
+       +3 to +4                            Meaningful integration with clear product value.
+       +1 to +2                            Appropriate but non-central use.         
+                                           Superficial mention, irrelevant use, unsupported claim, or no
+       0                                                                            
+                                           meaningful Google contribution.          
+      Fairness rule: Using a Google API, SDK, platform, or service does not automatically earn +5.
+      8. Presentation Efficiency Bonus — Up to +5                                   
+      Every team has a maximum presentation time of 10 minutes. The bonus rewards efficient communication and
+      preparation, not simply speaking quickly.                                     
+       Duration                            Bonus                                    
+       6:00 or less                        +5                                       
+       6:01–8:00                           +3                                       
+       8:01–9:59                           +1                                       
+       Over 10:00                          0 bonus + time violation                 
+      Timing must be standardized across all rooms. Use the same timer and rules for every team.
+      9. Technical + Business Judge Balance                                         
+                                                                                    
+       Perspective                         Particular Attention                     
+                                           Technical implementation, architecture, functionality,
+       Technical Judge                     integrations, feasibility, scalability, security/privacy where
+                                           relevant.                                
+                                           Problem relevance, impact, ROI, business model,
+       Business Judge                                                               
+                                           market/adoption, sustainability, customer value, execution.
+                                           Every criterion is scored. Expertise informs judgment; it does
+       All Judges                                                                   
+                                           not replace the unified rubric.          
+      4 | Pa ge                                                                     
+
+===== PAGE 5 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      10. Round 1 — Parallel Judging                                                
+      •  Each judge independently scores every assigned team out of 110.            
+      •  Judges submit individual scores before discussing a team.                  
+                                                                                    
+      •  Official room score = arithmetic average of valid judge scores.            
+      •  Teams are ranked within their room.                                        
+      •  Recommended: top 3 teams from each room advance.                           
+      •  If room sizes differ materially, organizers will decide the number of qualified teams of the room.
+      •  Qualification rules must not change after Round 1 begins.                  
+                                                                                    
+                                                                                    
+      11. Room-to-Room Fairness                                                     
+                                                                                    
+      •  Same rubric, score sheet, timing, and presentation rules in every room.    
+      •  Brief all judges together before judging starts.                           
+      •  Use the same score anchors and definitions.                                
+      •  Where practical, balance technical and business expertise across rooms.    
+      •  Judge against the rubric, not against the previous team.                   
+      •  Do not revise a score merely because a later team seems stronger.          
+      •  Borderline qualification cases may receive a structured calibration review based on original scores and the rubric.
+                                                                                    
+                                                                                    
+      12. Round 2 — Final                                                           
+                                                                                    
+      •  Finalists present again with the same 10-minute maximum.                   
+      •  Final panel should ideally include technology, business, impact/SDG, industry, and Google-technology expertise.
+      •  Final judges score independently before discussion.                        
+      •  Final assessment should emphasize impact, technical credibility, ROI/value, feasibility, continuity, and scalability.
+      •  Exactly three overall winners are selected.                                
+                                                                                    
+                                                                                    
+      13. Tie-Breaking Rules                                                        
+                                                                                    
+       Priority Tie-Break                                                           
+         1   Higher Impact & Track/SDG Alignment score.                             
+         2   Higher ROI & Business Model score.                                     
+         3   Higher Technical Implementation score.                                 
+         4   Higher Sustainability & Continuity score.                              
+         5   Higher Feasibility & Execution score.                                  
+         6   If still tied, final panel conducts a structured comparison using the same rubric and records the decision.
+                                                                                    
+      14. Conflict of Interest & Fairness                                           
+      •  Judges must disclose relevant conflicts of interest.                       
+                                                                                    
+      •  A conflicted judge should not score the affected team where practical.     
+      •  Judges must not coach, favor, penalize, or influence a team during judging.
+      •  Claims should not receive full credit without supporting evidence or a credible plan.
+      •  Presentation charisma must not compensate for weak impact or execution.    
+      •  Technical complexity must not automatically mean a higher score.           
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      5 | Pa ge                                                                     
+                                                                                    
+                                                                                    
+
+===== PAGE 6 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      15. Track-Specific Impact Guidance                                            
+       Track             Examples of High-Value Impact                              
+       Education         Learning outcomes, access, affordability, engagement, skills, teacher/student productivity.
+       Healthcare        Access, prevention, patient outcomes, quality, affordability, clinical/operational efficiency.
+       Smart Cities      Mobility, citizen services, infrastructure efficiency, sustainability, resource use, safety.
+       Accessibility     Independence, inclusion, affordability, usability, participation, removal of barriers.
+                         Revenue, cost reduction, automation, productivity, decisions, customer value, operational
+       Business & Productivity                                                      
+                         efficiency.                                                
+                         Lower energy costs, renewable adoption, efficiency, access, storage, consumption reduction,
+       Affordable & Clean Energy                                                    
+                         emissions reduction, environmental/social value.           
+      16. Recommended 10-Minute Presentation Flow                                   
+       Section      Purpose                                                         
+       Problem      What is the problem and who experiences it?                     
+       Why It Matters Evidence, urgency, scale, and impact.                         
+       Solution     What did the team build and how does it solve the problem?      
+       Live Demo    Show the core workflow/value.                                   
+       Technology   Explain architecture and meaningful Google technology use.      
+       Impact + ROI Show measurable outcomes and financial/social/environmental/organizational value.
+       Continuity   Explain the roadmap from prototype to MVP/pilot and beyond.     
+                                                                                    
+      17. Official Judge Score Sheet                                                
+       Criterion                Max   Score                                         
+       Problem Definition & Relevance 10 ____ / 10                                  
+       Impact & Track/SDG Alignment 15 ____ / 15                                    
+       Innovation & Creativity   10   ____ / 10                                     
+       Solution Quality & User Experience 10 ____ / 10                              
+       Technical Implementation  15   ____ / 15                                     
+       Feasibility & Execution   10   ____ / 10                                     
+       ROI & Business Model      15   ____ / 15                                     
+       Sustainability & Continuity 10 ____ / 10                                     
+       Presentation & Communication 5 ____ / 5                                      
+       CORE SCORE                100  ____ / 100                                    
+       Google Technology Bonus   +5   ____ / 5                                      
+       Presentation Efficiency Bonus +5 ____ / 5                                    
+       FINAL SCORE               110  ____ / 110                                    
+      18. Judge Quick Checklist                                                     
+                                                                                    
+      •  What real problem is being solved?                                         
+      •  Who benefits and what measurable impact results?                           
+      •  Does the demonstrated solution work?                                       
+      •  Is the technology appropriate and credible?                                
+      •  What makes the approach innovative or better?                              
+      •  Who pays, funds, adopts, or benefits—and why?                              
+                                                                                    
+      •  What is the expected ROI or measurable value?                              
+      •  Can it realistically launch?                                               
+      •  What happens after the hackathon?                                          
+      •  Can it scale?                                                              
+      •  Was Google technology used meaningfully?                                   
+      •  Did the team communicate effectively within 10 minutes?                    
+                                                                                    
+      6 | Pa ge                                                                     
+                                                                                    
+                                                                                    
+
+===== PAGE 7 =====
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      19. Definition of an IMPACT X Winner                                          
+      An IMPACT X winner is not simply the team with the best prototype. It is the team that most convincingly
+      demonstrates that a real problem can be addressed through an innovative, technically credible, feasible, economically
+      or socially valuable solution with a realistic path to sustainable impact beyond the hackathon.
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                         Build what matters. Prove it works. Make the impact last.  
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+                                                                                    
+      7 | Pa ge                                                                     
+                                                                                    
+                                                                                    
