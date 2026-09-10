@@ -13,3 +13,6 @@ ui-debug.log
 
 # stray symlink to the root install
 .codex-build/**/node_modules
+
+# Office lock files
+~$*
