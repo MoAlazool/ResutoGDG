@@ -49,7 +49,7 @@
    status is readable at a glance instead of inferred from the surface tint. */
 .table-status-tag{pointer-events:none}
 .table-status-tag rect{fill:#eef1ec;stroke:#c3ccc2;stroke-width:1.5}
-.table-status-tag text{font-size:19px;font-weight:800;fill:#3c4a41;letter-spacing:.2px}
+.table-status-tag text{font-size:24px;font-weight:800;fill:#3c4a41;letter-spacing:0}
 .svg-table.state-available .table-status-tag rect{fill:#e6f2e2;stroke:#6f9c72}
 .svg-table.state-available .table-status-tag text{fill:#2f6238}
 .svg-table.state-occupied .table-status-tag rect,.svg-table.state-eating .table-status-tag rect,.svg-table.state-ordering .table-status-tag rect{fill:#dcebd7;stroke:#3f6b50}

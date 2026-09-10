@@ -56,8 +56,11 @@ html[lang=ar] :is(.workspace,.consumer-app) :is(td strong,.badge,.order-top stro
 html[lang=ar] :is(.eyebrow,.overline,.nav-label,.badge,.segmented){letter-spacing:0}
 
 /* --- floor plans keep their geometric type ------------------------------- */
-.floor-map small,.dining-table small,.saved-floor text,.floor-studio text{font-size:9px}
-.saved-floor text,.floor-studio text{font-weight:600}
+/* Only the small geometric seat labels are pinned. A blanket `text` rule here
+   also caught the status pill and shrank it to 9px, which is why the tag read
+   as a big empty capsule. */
+.floor-map small,.dining-table small,.saved-floor .svg-seat-label,.floor-studio .svg-seat-label{font-size:9px}
+.saved-floor .svg-seat-label,.floor-studio .svg-seat-label{font-weight:600}
 
 /* ---------------------------------------------------------------------------
    Landing page, Arabic.
@@ -81,3 +84,37 @@ html[lang=ar] body:has(.lp-shell) small{font-size:12.5px}
    enlarging their labels would break those layouts. */
 /* Arabic never letter-spaces: it breaks the joins between letters. */
 html[lang=ar] body:has(.lp-shell) :is(.lp-chapter-tag,.lp-eyebrow,.lp-live,.lp-stage-live){letter-spacing:0}
+
+/* ---------------------------------------------------------------------------
+   File inputs.
+
+   Every upload in the app — floor plan, menu CSV, dish photo, logo — was the
+   raw browser widget: a grey system button next to unstyled filename text,
+   which looks nothing like the rest of the interface and reads as broken.
+   Styling ::file-selector-button turns the control itself into a proper
+   button, so this applies everywhere at once without touching any markup.
+   --------------------------------------------------------------------------- */
+input[type=file]{
+ width:100%;min-height:48px;padding:8px;cursor:pointer;
+ border:1.5px dashed var(--border,#e5e9e6);border-radius:10px;background:#fafbf9;
+ font-size:13px;color:#6d776f;line-height:32px;
+ transition:border-color .15s,background .15s;
+}
+input[type=file]:hover{border-color:#a9c69c;background:#f4f8f1}
+input[type=file]:focus-visible{outline:3px solid #9bc76a;outline-offset:2px}
+input[type=file]::file-selector-button{
+ margin-inline-end:12px;min-height:32px;padding:0 16px;cursor:pointer;
+ border:0;border-radius:7px;background:var(--green,#204f43);color:#fff;
+ font:inherit;font-size:12.5px;font-weight:600;
+ transition:background .15s;
+}
+input[type=file]::file-selector-button:hover{background:#2b6553}
+html[lang=ar] input[type=file]::file-selector-button{font-weight:700}
+
+/* The dark burger storefront keeps its own palette. */
+.bg-app input[type=file]{background:#241e1a;border-color:#2e2722;color:#c9b9a7}
+.bg-app input[type=file]::file-selector-button{background:var(--flame,#ff5a1f)}
+
+/* The floor studio's sidebar is tight, so the control stays compact there. */
+.background-panel input[type=file]{min-height:42px;font-size:12px;line-height:26px}
+.background-panel input[type=file]::file-selector-button{min-height:26px;padding:0 12px;font-size:11.5px}

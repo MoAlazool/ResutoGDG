@@ -28,8 +28,10 @@ const metaCell=(label,value)=>value?`<div><dt>${t(label)}</dt><dd>${e(String(val
 const amountRow=(label,value,cls='')=>`<div class="receipt-amount ${cls}"><span>${t(label)}</span><b dir="ltr">${money(value)}</b></div>`;
 
 function receiptHeader(r){
- const logo=r.restaurant.logo?`<img class="receipt-logo" src="${e(r.restaurant.logo)}" alt="">`:`<span class="receipt-monogram" aria-hidden="true">${e((r.restaurant.name||'R').trim()[0])}</span>`;
- return `<header class="receipt-head">${logo}<h2 class="receipt-title">${t('Receipt')}</h2><p class="receipt-stamp">✓ ${t('Payment Successful')}</p><span class="receipt-stars" aria-hidden="true">✳ ✳ ✳</span></header>`;
+ // Only a real uploaded logo appears. The initial-in-a-square placeholder and
+ // the decorative asterisks added nothing but noise to a payment record.
+ const logo=r.restaurant.logo?`<img class="receipt-logo" src="${e(r.restaurant.logo)}" alt="">`:'';
+ return `<header class="receipt-head">${logo}<h2 class="receipt-title">${t('Receipt')}</h2><p class="receipt-stamp">✓ ${t('Payment Successful')}</p></header>`;
 }
 
 function receiptMeta(r){

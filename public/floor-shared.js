@@ -19,8 +19,10 @@ function tableChairs(o){
 // imports it for geometry validation).
 function statusTag(o,state,mode){
  if(mode!=='operations'||!o.statusText)return '';
- const label=String(o.statusText).slice(0,24),width=Math.max(104,label.length*12+40);
- return `<g class="table-status-tag" transform="translate(0 ${-o.height/2-32})"><rect x="${-width/2}" y="-19" width="${width}" height="38" rx="19"/><text text-anchor="middle" dominant-baseline="central" y="1">${escapeHtml(label)}</text></g>`;
+ const label=String(o.statusText).slice(0,24),width=Math.max(96,label.length*12+26);
+ // Chairs on the top edge sit at -h/2-21 and their seat reaches -h/2-29, so the
+ // pill is lifted clear of them instead of being drawn across the seat backs.
+ return `<g class="table-status-tag" transform="translate(0 ${-o.height/2-52})"><rect x="${-width/2}" y="-17" width="${width}" height="34" rx="17"/><text text-anchor="middle" dominant-baseline="central" y="1">${escapeHtml(label)}</text></g>`;
 }
 function tableDrawing(o,mode){
  const e=escapeHtml,w=o.width,h=o.height,state=stateName(o.state),round=o.shape==='round',icon=statusIcons[state]||statusIcons.available;

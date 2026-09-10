@@ -36,7 +36,7 @@ function tableState(t){
  const orders=(data.orders||[]).filter(o=>o.visitId===v.id&&o.status!=='cancelled'),bill=v.bill||{};
  if(orders.some(o=>o.status==='ready'))return {state:'ready',text:tr('Food ready','الطلب جاهز')};
  if(orders.some(o=>['received','preparing'].includes(o.status)))return {state:'preparing',text:tr('In the kitchen','في المطبخ')};
- if(bill.total>0&&bill.due===0)return {state:'paid',text:tr('Paid · ready to close','مدفوعة · للإنهاء')};
+ if(bill.total>0&&bill.due===0)return {state:'paid',text:tr('Paid','مدفوعة')};
  if(v.locked||(data.requests||[]).some(r=>r.visitId===v.id&&r.type==='bill'&&r.status==='open'))return {state:'payment',text:tr('Paying','جارٍ الدفع')};
  if(bill.paid>0)return {state:'partially-paid',text:tr('Part paid','مدفوعة جزئياً')};
  if(!orders.length)return {state:'ordering',text:tr('Seated','جلس الضيوف')};
