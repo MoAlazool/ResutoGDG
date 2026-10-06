@@ -12,7 +12,7 @@
     { "source": "/qr/:token", "destination": "/data/qr.svg" }
   ],
   "redirects": [
-    { "source": "/:page(restaurant|reserve|menu|pricing|account|kitchen|host|order)", "destination": "https://resutogdg.onrender.com/:page", "permanent": false },
+    { "source": "/:page(restaurant|reserve|menu|account|kitchen|host|order)", "destination": "https://resutogdg.onrender.com/:page", "permanent": false },
     { "source": "/:area(manager|burger|t|s)/:rest*", "destination": "https://resutogdg.onrender.com/:area/:rest*", "permanent": false },
     { "source": "/:area(manager|burger)", "destination": "https://resutogdg.onrender.com/:area", "permanent": false }
   ],
