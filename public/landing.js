@@ -4,6 +4,14 @@
 import {sceneSvg,escapeHtml as e} from './floor-shared.js';
 import {money,t,language,switcher} from './i18n.js';
 import logos from './company-logos.js';
+import marks from './brand-marks.js';
+import {importSection,mountImport} from './landing-import.js';
+import {kitchenSection,mountKitchen} from './landing-kitchen.js';
+import {managerSection,mountManager} from './landing-manager.js';
+import {billSection,mountBill} from './landing-bill.js';
+import {reserveSection,mountReserve} from './landing-reserve.js';
+import {pricingSection,mountPricing} from './landing-pricing.js';
+import {createTour} from './landing-stage.js';
 
 const payload=await Promise.all([
  fetch('/api/public').then(r=>r.json()),
@@ -71,7 +79,6 @@ const nav=()=>`<header class="lp-nav" id="lp-nav">
   <nav class="lp-nav-links" aria-label="${t('Sections')}">${navLinks.map(([href,label])=>`<a href="${href}"><span>${t(label)}</span></a>`).join('')}</nav>
   <div class="lp-nav-end">
    ${switcher()}
-   <a class="lp-quiet" href="/manager">${t('Staff login')}</a>
    <a class="lp-btn lp-btn-solid" href="/restaurant"><span class="lp-cta-long">${t('Open the live demo')}</span><span class="lp-cta-short">${t('Live demo')}</span></a>
    <button class="lp-burger" data-lp="drawer" data-arg="open" aria-expanded="false" aria-controls="lp-drawer" aria-label="${t('Menu')}"><i></i><i></i></button>
   </div>
@@ -79,7 +86,7 @@ const nav=()=>`<header class="lp-nav" id="lp-nav">
  <span class="lp-nav-line" aria-hidden="true"><i id="lp-progress"></i></span>
 </header>
 <div class="lp-drawer" id="lp-drawer" hidden>
- <nav>${navLinks.map(([href,label])=>`<a href="${href}" data-lp="drawer" data-arg="close">${t(label)}</a>`).join('')}<a href="/pricing" data-lp="drawer" data-arg="close">${t('Compare plans')}</a><a href="/manager" data-lp="drawer" data-arg="close">${t('Staff login')}</a></nav>
+ <nav>${navLinks.map(([href,label])=>`<a href="${href}" data-lp="drawer" data-arg="close">${t(label)}</a>`).join('')}<a href="/pricing" data-lp="drawer" data-arg="close">${t('Compare plans')}</a></nav>
  <a class="lp-btn lp-btn-solid" href="/restaurant" data-lp="drawer" data-arg="close">${t('Open the live demo')}</a>
 </div>`;
 
@@ -87,14 +94,14 @@ const nav=()=>`<header class="lp-nav" id="lp-nav">
 const heroCycle=['available','occupied','preparing','available','ready','reserved','available','occupied','payment','available','cleaning','available'];
 const heroStates=tables.map((_,i)=>heroCycle[i%heroCycle.length]);
 const feed=[
- {i:8,state:'payment',title:'Bill split four ways',meta:'EGP 1,200 · 2 shares settled'},
- {i:4,state:'ready',title:'Ready to serve',meta:'Cold kitchen · 04:21'},
+ {i:7,state:'ordering',title:'Ordering by QR',meta:'Menu opened in the browser'},
+ {i:5,state:'preparing',title:'Order sent to the kitchen',meta:'2 mains · order #042'},
+ {i:4,state:'ready',title:'Ready to serve',meta:'Order #041'},
+ {i:8,state:'payment',title:'Bill split four ways',meta:'2 of 4 shares paid'},
  {i:2,state:'reserved',title:'Reserved for 8:00 PM',meta:'Party of 6 · Terrace'},
- {i:10,state:'cleaning',title:'Turned and cleaned',meta:'11 min turn time'},
- {i:5,state:'preparing',title:'Fired to the grill',meta:'2 mains · ticket #042'},
- {i:1,state:'occupied',title:'Seated from the waitlist',meta:'Party of 2 · no wait'},
- {i:7,state:'ordering',title:'Ordering by QR',meta:'Menu opened · no app'},
- {i:11,state:'available',title:'Open for walk-ins',meta:'Main Room · 4 seats'}
+ {i:10,state:'cleaning',title:'Needs cleaning',meta:'Bill paid · guests left'},
+ {i:1,state:'occupied',title:'Guests seated',meta:'Party of 2 · walk-in'},
+ {i:11,state:'available',title:'Open again',meta:'Main Room · 4 seats'}
 ];
 
 function heroFloor(states){
@@ -102,26 +109,26 @@ function heroFloor(states){
  return `<svg class="lp-floor-svg" viewBox="${view}" role="img" aria-label="${t('Live floor plan of the restaurant')}">${localizeScene(sceneSvg({...plan,tables:tables.map((x,i)=>({...x,state:states[i]}))},{mode:'operations'}))}</svg>`;
 }
 
+// Every footer figure is counted from the table states on the floor above it.
 const heroMetrics=[
- ['covers','Covers tonight',()=>84,''],
- ['turn','Avg turn time',()=>62,' '+t('min')],
- ['tickets','Kitchen tickets',()=>31,''],
- ['split','Shared bills',()=>17,'']
+ ['Tables in service',s=>s.filter(x=>!['available','reserved','cleaning'].includes(x)).length],
+ ['In the kitchen',s=>s.filter(x=>x==='preparing').length],
+ ['Ready to serve',s=>s.filter(x=>x==='ready').length],
+ ['Bills open',s=>s.filter(x=>x==='payment').length]
 ];
 
 const hero=()=>`<section class="lp-hero">
  <div class="lp-hero-glow" aria-hidden="true"></div>
  <div class="lp-shell lp-hero-head">
-  <span class="lp-live" data-reveal><i></i>${t('Live service')} · ${e(data.settings.name)} · ${e(branchName)}</span>
-  <h1 data-reveal><span>${t('Run the room.')}</span><em>${t('Resuto runs everything else.')}</em></h1>
-  <p data-reveal>${t('One operating system for the whole restaurant: AI setup, a living floor plan, guest ordering, kitchen flow, split payments and an AI manager watching the service with you.')}</p>
-  <div class="lp-hero-cta" data-reveal>
+  <h1><span>${t('Run the room.')}</span><em>${t('Resuto runs everything else.')}</em></h1>
+  <p>${t('One system for the whole service: a floor plan your guests book from, QR ordering, the kitchen board, split bills and a manager view. In Arabic and English.')}</p>
+  <div class="lp-hero-cta">
    <a class="lp-btn lp-btn-solid lp-btn-lg" href="/restaurant">${t('Open the live demo')} ${arrow}</a>
    <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#studio">${t('See the Floor Studio')}</a>
   </div>
  </div>
  <div class="lp-shell">
-  <div class="lp-stage" id="hero-stage" data-reveal>
+  <div class="lp-stage" id="hero-stage">
    <header class="lp-stage-bar">
     <span class="lp-dots" aria-hidden="true"><i></i><i></i><i></i></span>
     <strong>${t('Service view')}</strong>
@@ -129,7 +136,7 @@ const hero=()=>`<section class="lp-hero">
     <span class="lp-stage-live"><i></i>${t('Live')}</span>
    </header>
    <div class="lp-stage-body">
-    <div class="lp-stage-floor" id="hero-floor">${heroFloor(heroStates)}</div>
+    <div class="lp-stage-floor"><div id="hero-floor">${heroFloor(heroStates)}</div><span class="lp-try">${t('Click any table')}</span></div>
     <aside class="lp-stage-side">
      <div class="lp-side-head"><span>${t('Service feed')}</span><small>${t('Auto-updating')}</small></div>
      <ul class="lp-feed" id="hero-feed"></ul>
@@ -137,25 +144,25 @@ const hero=()=>`<section class="lp-hero">
      <div class="lp-side-table" id="hero-table"></div>
     </aside>
    </div>
-   <footer class="lp-stage-metrics">${heroMetrics.map(([id,label,value,suffix])=>`<div><small>${t(label)}</small><strong data-count="${value()}" data-suffix="${suffix}">0${suffix}</strong></div>`).join('')}<div class="lp-stage-note">${t('Demo data from this installation')}</div></footer>
+   <footer class="lp-stage-metrics" id="hero-metrics">${heroMetrics.map(([label,count])=>`<div><small>${t(label)}</small><strong>${num(count(heroStates))}</strong></div>`).join('')}<div class="lp-stage-note">${t('Sample service data')}</div></footer>
   </div>
  </div>
 </section>`;
 
 /* ------------------------------------------------------- the system band */
 const systemNodes=[
- ['#setup','Setup','AI profile, menu and floor'],
- ['#studio','Floor Studio','One saved geometry'],
+ ['#studio','Floor Studio','One saved room'],
  ['#reserve','Reservations','Guests pick a real table'],
- ['#service','Guest service','QR menu and AI ordering'],
- ['#kitchen','Kitchen','Station routing and timing'],
- ['#payments','Payments','Split, settle, rate'],
- ['#operations','Intelligence','AI manager on duty']
+ ['#import','Menu import','PDF, photo or CSV'],
+ ['#service','Guest ordering','QR menu, no app'],
+ ['#kitchen','Kitchen','One board, station labels'],
+ ['#payments','Payments','Split, pay, rate'],
+ ['#operations','Manager view','Revenue, stock, load']
 ];
 
 const systemBand=()=>`<section class="lp-system" aria-label="${t('How Resuto fits together')}">
  <div class="lp-shell">
-  <div class="lp-system-head" data-reveal><h2>${t('Not seven tools. One current running through the service.')}</h2><p>${t('Every part writes to the same floor, the same catalog and the same bill. Nothing is re-entered and nothing is exported at midnight.')}</p></div>
+  <div class="lp-system-head" data-reveal><h2>${t('Not seven tools. One order, followed all the way through.')}</h2><p>${t('Every part works from the same floor, the same menu and the same bill, so nothing is typed in twice.')}</p></div>
   <div class="lp-system-rail" data-reveal>
    <svg class="lp-system-line" viewBox="0 0 1200 40" preserveAspectRatio="none" aria-hidden="true"><path class="lp-line-base" d="M0 20H1200"/><path class="lp-flow" d="M0 20H1200"/></svg>
    <ol>${systemNodes.map(([href,title,detail],i)=>`<li style="--i:${i}"><a href="${href}"><i aria-hidden="true"></i><strong>${t(title)}</strong><small>${t(detail)}</small></a></li>`).join('')}</ol>
@@ -163,238 +170,93 @@ const systemBand=()=>`<section class="lp-system" aria-label="${t('How Resuto fit
  </div>
 </section>`;
 
-/* ------------------------------------------- 01 · AI setup and AI floor  */
-const presets=[
- {id:'bistro',prompt:'A 60-seat modern bistro in Zamalek with a terrace',type:'Modern bistro',items:38,cols:4,rows:2,cap:4,shape:'square',terrace:4,bar:true},
- {id:'cafe',prompt:'A specialty coffee bar, 24 seats, counter service',type:'Coffee bar',items:22,cols:4,rows:2,cap:2,shape:'round',terrace:2,bar:true},
- {id:'fine',prompt:'A fine dining room for 40 guests with private booths',type:'Fine dining',items:26,cols:3,rows:2,cap:6,shape:'rect',terrace:0,bar:false}
-];
-
-function buildFloor(p){
- const W=1200,H=760,built=[],objects=[],zones=[];
- const mainH=p.terrace?450:600,mainY=40+mainH/2;
- zones.push({id:'z-main',type:'zone',label:t('Main Room'),x:W/2,y:mainY,width:W-90,height:mainH,rotation:0,color:'#e9e6dc'});
- if(p.terrace)zones.push({id:'z-terrace',type:'zone',label:t('Terrace'),x:W/2,y:H-115,width:W-90,height:190,rotation:0,color:'#e0e9d7'});
- if(p.bar)objects.push({id:'o-bar',type:'counter',label:t('Bar'),x:W-108,y:mainY,width:64,height:mainH-150,rotation:0});
- objects.push({id:'o-door',type:'door',label:t('Entrance'),x:58,y:H-115,width:120,height:28,rotation:90});
- const w=p.shape==='rect'?150:100,h=p.shape==='rect'?90:100;
- const left=160,right=p.bar?W-200:W-140,top=mainY-mainH/2+100,bottom=mainY+mainH/2-100;
- let n=0;
- for(let r=0;r<p.rows;r++)for(let c=0;c<p.cols;c++){
-  const cx=Math.round(left+(right-left)*(p.cols===1?.5:c/(p.cols-1)));
-  const cy=Math.round(top+(bottom-top)*(p.rows===1?.5:r/(p.rows-1)));
-  built.push({id:'g'+(++n),label:'T'+n,capacity:p.cap,zone:'Main Room',shape:p.shape,cx,cy,width:w,height:h,rotation:0,features:[],state:'available'});
- }
- for(let c=0;c<p.terrace;c++)built.push({id:'g'+(++n),label:'T'+n,capacity:2,zone:'Terrace',shape:'round',cx:Math.round(200+(W-460)*(p.terrace===1?.5:c/(p.terrace-1))),cy:H-118,width:88,height:88,rotation:0,features:[],state:'available'});
- return {schemaVersion:2,width:W,height:H,zones,objects,tables:built,background:null};
-}
-
-function setupFloorSvg(p){
- const f=buildFloor(p);
- return `<svg viewBox="${tightView(f,50)}" role="img" aria-label="${t('Generated floor plan')}">${localizeScene(sceneSvg(f,{mode:'reservation'}))}</svg>`;
-}
-
-const setupSteps=[['Profile','Name, cuisine, service hours, branch'],['Menu draft','Categories, prices, allergens, Arabic'],['Floor plan','Zones, tables, seats, QR identity']];
-
-const setupSection=()=>`<section class="lp-chapter lp-setup" id="setup">
- <div class="lp-shell lp-split">
-  <div class="lp-copy" data-reveal>
-   <span class="lp-chapter-tag">01 · ${t('Opening')}</span>
-   <h2>${t('Describe the restaurant. Watch it get built.')}</h2>
-   <p>${t('Resuto turns one sentence into a working draft: a profile, a bilingual menu skeleton and a real floor plan with seats and QR identity. You review every field before anything goes live.')}</p>
-   <div class="lp-picks" role="group" aria-label="${t('Example descriptions')}">
-    ${presets.map((p,i)=>`<button type="button" class="lp-pick${i?'':' is-on'}" data-lp="preset" data-arg="${p.id}">${t(p.prompt)}</button>`).join('')}
-   </div>
-   <ul class="lp-ticks">${['No blank screens on day one','Every generated field stays editable','Nothing is published without approval'].map(x=>`<li>${t(x)}</li>`).join('')}</ul>
-  </div>
-  <div class="lp-console" id="setup-console" data-reveal>
-   <div class="lp-console-bar"><span class="lp-spark" aria-hidden="true">✦</span>${t('Resuto setup')}<small id="setup-state">${t('Ready')}</small></div>
-   <div class="lp-console-prompt"><i aria-hidden="true">›</i><span id="setup-typed"></span><b class="lp-caret" aria-hidden="true"></b></div>
-   <div class="lp-console-out">
-    <ol class="lp-build" id="setup-build">${setupSteps.map(([title,detail],i)=>`<li style="--i:${i}"><span class="lp-build-dot" aria-hidden="true"></span><strong>${t(title)}</strong><small>${t(detail)}</small><em></em></li>`).join('')}</ol>
-    <div class="lp-build-floor" id="setup-floor">${setupFloorSvg(presets[0])}</div>
-   </div>
-   <div class="lp-console-foot"><span id="setup-summary"></span><a class="lp-inline" href="/manager">${t('Review the draft')} ${arrow}</a></div>
-  </div>
- </div>
-</section>`;
-
 /* ------------------------------------------------- 02 · Floor Studio     */
-const studio={mode:'design',sel:tables[1]?.id||tables[0]?.id,party:4,tick:0,pinned:0};
-const studioTables=tables.map(x=>({...x}));
-const studioModes=[['design','Design','Build the room'],['reserve','Reserve','Offer the right table'],['operate','Operate','Watch the service']];
-const opsCycle=['occupied','preparing','ready','payment','cleaning','available'];
-
-function studioState(x,i){
- if(studio.mode==='operate')return opsCycle[(i+studio.tick)%opsCycle.length];
- if(studio.mode==='reserve')return x.capacity<studio.party?'unavailable':x.id===studio.sel?'recommended':i%5===2?'reserved':'available';
- return 'available';
+const studio={sel:null,tool:'Select'};
+// The studio starts from an empty room: everything below is placed, one object at a time.
+const studioTables=[],studioDraft={zones:[],objects:[]};
+const draftTable=(n,shape,capacity,cx,cy,zone='Main Room',features=['Non-smoking','Center'])=>({id:'b-t'+n,label:'T'+n,capacity,zone,shape,cx,cy,width:shape==='rect'?160:100,height:shape==='rect'?90:100,rotation:0,features,reservable:true,premium:false,state:'available'});
+// The story: draw the room, place the tables, reshape one, give it more seats,
+// then save and every table gets its QR code.
+const studioRoom=[{id:'b-main',type:'zone',label:t('Main Room'),x:600,y:290,width:1080,height:470,rotation:0,color:'#e9e6dc'},{id:'b-wall',type:'wall',label:'North wall',x:600,y:46,width:1120,height:16,rotation:0},{id:'b-window',type:'window',label:'Window side',x:800,y:58,width:550,height:12,rotation:0},{id:'b-door',type:'door',label:t('Entrance'),x:110,y:742,width:110,height:35,rotation:0}];
+const studioSeats=[draftTable(1,'round',2,230,200),draftTable(2,'square',4,500,200),draftTable(3,'square',4,800,200),draftTable(4,'square',4,230,430),draftTable(5,'round',4,500,430)];
+const studioExtras=[{id:'b-bar',type:'counter',label:t('Bar'),x:1090,y:300,width:70,height:250,rotation:0},{id:'b-terrace',type:'zone',label:t('Terrace'),x:600,y:655,width:1080,height:200,rotation:0,color:'#e0e9d7'},draftTable(6,'round',4,500,655,'Terrace',['Smoking','Terrace']),draftTable(7,'square',4,800,655,'Terrace',['Smoking','Terrace'])];
+function studioAdd(o){
+ if(o.capacity!==undefined)studioTables.push({...o,features:[...o.features]});
+ else (o.type==='zone'?studioDraft.zones:studioDraft.objects).push({...o});
 }
-
+function studioClear(){studioTables.length=0;studioDraft.zones.length=0;studioDraft.objects.length=0;studio.sel=null}
+[...studioRoom,...studioSeats,...studioExtras].forEach(studioAdd);
 function studioSvg(){
- const editor=studio.mode==='design';
- const list=studioTables.map((x,i)=>({...x,state:studioState(x,i),disabled:studio.mode==='reserve'&&x.capacity<studio.party}));
- const view=narrow()?NARROW_VIEW:`0 0 ${plan.width} ${plan.height}`;
- return `<svg class="lp-floor-svg" viewBox="${view}" role="img" aria-label="${t('Restaurant floor plan')}">${localizeScene(sceneSvg({...plan,tables:list},{editor,grid:editor,selected:[studio.sel],mode:studio.mode==='operate'?'operations':studio.mode}))}</svg>`;
+ const list=studioTables.map(x=>({...x,state:'available'}));
+ // Always the whole room, so every placement and every QR code is in view on a phone too.
+ const view=`0 0 ${plan.width} ${plan.height}`;
+ return `<svg class="lp-floor-svg" viewBox="${view}" role="img" aria-label="${t('Restaurant floor plan')}">${localizeScene(sceneSvg({...plan,zones:studioDraft.zones,objects:studioDraft.objects,tables:list},{editor:true,grid:true,selected:[studio.sel],mode:'design'}))}</svg>`;
 }
 
 function studioPanel(){
- const x=studioTables.find(y=>y.id===studio.sel)||studioTables[0];
- if(!x)return '';
- const i=studioTables.indexOf(x);
- if(studio.mode==='design')return `<div class="lp-panel-head"><span>${t('Object')}</span><strong>${e(x.label)}</strong></div>
+ const x=studioTables.find(y=>y.id===studio.sel);
+ if(!x)return `<div class="lp-panel-head"><span>${t('Object')}</span><strong>—</strong></div><p class="lp-panel-note">${t('Pick a tool, then click the room to place it. Select a table to set its seats, shape and features.')}</p>`;
+ return `<div class="lp-panel-head"><span>${t('Object')}</span><strong>${e(x.label)}</strong></div>
   <div class="lp-field"><label for="lp-seats">${t('Seats')}</label><div class="lp-stepper"><button type="button" data-lp="seats" data-arg="-1" aria-label="${t('Fewer seats')}">−</button><output id="lp-seats">${num(x.capacity)}</output><button type="button" data-lp="seats" data-arg="1" aria-label="${t('More seats')}">+</button></div></div>
   <div class="lp-field"><span class="lp-field-label">${t('Shape')}</span><div class="lp-seg lp-seg-sm">${[['round','Round'],['square','Square'],['rect','Long']].map(([s,l])=>`<button type="button" class="${x.shape===s?'is-on':''}" data-lp="shape" data-arg="${s}">${t(l)}</button>`).join('')}</div></div>
   <div class="lp-field"><label for="lp-rot">${t('Rotation')}</label><input id="lp-rot" class="lp-range" type="range" min="0" max="345" step="15" value="${x.rotation||0}" data-lp="rotate"><span class="lp-field-value">${num(x.rotation||0)}°</span></div>
-  <p class="lp-panel-note">${t('Move a table and it keeps its QR code, its history and its reservations.')}</p>`;
- if(studio.mode==='reserve'){
-  const ok=x.capacity>=studio.party;
-  return `<div class="lp-panel-head"><span>${t('Availability')}</span><strong>${e(x.label)}</strong></div>
-  <div class="lp-field"><span class="lp-field-label">${t('Party size')}</span><div class="lp-seg lp-seg-sm">${[2,4,6,8].map(n=>`<button type="button" class="${studio.party===n?'is-on':''}" data-lp="party" data-arg="${n}">${num(n)}</button>`).join('')}</div></div>
-  <div class="lp-avail ${ok?'is-ok':'is-no'}"><strong>${ok?t('Fits this party'):t('Too small for this party')}</strong><small>${e(t(x.zone))} · ${num(x.capacity)} ${t('seats')}${x.features&&x.features.length?' · '+e(t(x.features[0])):''}</small></div>
-  <p class="lp-panel-note">${t('Guests choose a table they can see, not a time slot they have to trust.')}</p>`;
- }
- const s=studioState(x,i);
- const label={occupied:'Seated',preparing:'Kitchen preparing',ready:'Ready to serve',payment:'Bill in progress',cleaning:'Being turned',available:'Open'}[s]||'Open';
- return `<div class="lp-panel-head"><span>${t('Live state')}</span><strong>${e(x.label)}</strong></div>
-  <div class="lp-state-line lp-state-${s}"><i></i>${t(label)}</div>
-  <ul class="lp-panel-list"><li><span>${t('Guests')}</span><b>${num(Math.min(x.capacity,2+i%3))}</b></li><li><span>${t('Open ticket')}</span><b>${money(18500+i*4300)}</b></li><li><span>${t('Since seated')}</span><b>${num(18+i*4)} ${t('min')}</b></li></ul>
-  <p class="lp-panel-note">${t('The same map the floor team, the kitchen and the guest are all looking at.')}</p>`;
+  <div class="lp-field"><span class="lp-field-label">${t('Features')}</span><div class="lp-feats">${['Window side','Quiet area','Booth','Accessible'].map(f=>`<button type="button" class="${x.features.includes(f)?'is-on':''}" data-lp="feature" data-arg="${f}" aria-pressed="${x.features.includes(f)}">${t(f)}</button>`).join('')}<button type="button" class="${x.premium?'is-on':''}" data-lp="feature" data-arg="premium" aria-pressed="${!!x.premium}">${t('Premium')}</button></div></div>
+  <p class="lp-panel-note">${t('Each table gets its own QR code when the room is saved.')}</p>`;
 }
 
-const studioTools=[['Select','M4 3l14 7-6 2-2 6z'],['Table','M4 6h16v4H4zM8 10v8M16 10v8'],['Zone','M3 5h18v14H3z'],['Counter','M3 9h18v6H3zM7 15v4M17 15v4'],['Door','M6 4h12v16M6 4v16h6'],['Plant','M12 20v-8M12 12c0-4 3-6 6-6 0 4-3 6-6 6zm0 0c0-4-3-6-6-6 0 4 3 6 6 6z'],['Label','M5 6h14M12 6v12']];
+const studioTools=[['Select','M4 3l14 7-6 2-2 6z'],['Table','M4 6h16v4H4zM8 10v8M16 10v8'],['Zone','M3 5h18v14H3z'],['Wall','M3 12h18M3 9v6M21 9v6'],['Window','M3 12h18M8 9v6M16 9v6'],['Door','M6 4h12v16M6 4v16h6'],['Counter','M3 9h18v6H3zM7 15v4M17 15v4'],['Plant','M12 20v-8M12 12c0-4 3-6 6-6 0 4-3 6-6 6zm0 0c0-4-3-6-6-6 0 4 3 6 6 6z'],['Label','M5 6h14M12 6v12']];
 
 const studioSection=()=>`<section class="lp-studio" id="studio">
  <div class="lp-studio-track" id="studio-track">
   <div class="lp-studio-sticky">
    <div class="lp-shell">
     <div class="lp-studio-head">
-     <div data-reveal><span class="lp-chapter-tag is-dark">02 · ${t('Floor Studio')}</span><h2>${t('The floor plan is the product.')}</h2></div>
-     <p data-reveal>${t('Draw the room once. That geometry becomes the reservation map, the QR identity of every table and the live service board. There is no second layout to maintain.')}</p>
-     <div class="lp-seg lp-seg-lg" role="tablist" aria-label="${t('Floor modes')}">${studioModes.map(([id,label,detail])=>`<button type="button" role="tab" class="${studio.mode===id?'is-on':''}" data-lp="mode" data-arg="${id}" aria-selected="${studio.mode===id}"><strong>${t(label)}</strong><small>${t(detail)}</small></button>`).join('')}</div>
+     <div data-reveal><span class="lp-chapter-tag is-dark">${t('Floor Studio')}</span><h2>${t('Draw the room once. Use it everywhere.')}</h2></div>
+     <p data-reveal>${t('The plan you draw becomes the map guests book from, the QR identity of every table and the board your team runs service on. There is no second layout to maintain.')}</p>
+     <ul class="lp-studio-uses" data-reveal>${[['Reservation map','Guests pick a real table'],['Table QR codes','One for every table'],['Service board','The same room, live']].map(([a,b])=>`<li><b>${t(a)}</b><small>${t(b)}</small></li>`).join('')}</ul>
     </div>
     <div class="lp-studio-stage" data-reveal>
-     <div class="lp-tools" role="toolbar" aria-label="${t('Floor objects')}">${studioTools.map(([id,d],i)=>`<button type="button" class="${i?'':'is-on'}" data-lp="tool" data-arg="${id}" aria-label="${t(id)}" title="${t(id)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`).join('')}</div>
-     <div class="lp-studio-canvas" id="studio-canvas">${studioSvg()}</div>
+     <div class="lp-tools" role="toolbar" aria-label="${t('Floor objects')}">${studioTools.map(([id,d],i)=>`<button type="button" class="${i?'':'is-on'}" data-lp="tool" data-arg="${id}" aria-label="${t(id)}" title="${t(id)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg><span>${t(id)}</span></button>`).join('')}</div>
+     <div class="lp-studio-work"><div class="lp-studio-top"><div class="lp-studio-stats" id="studio-stats"></div><button type="button" class="lp-studio-save" data-lp="save-room">${t('Save room')}</button></div><div class="lp-studio-canvas" id="studio-canvas">${studioSvg()}</div></div>
      <aside class="lp-studio-panel" id="studio-panel">${studioPanel()}</aside>
     </div>
-    <div class="lp-studio-foot"><span id="studio-hint">${t('Select any table, then change its seats, shape and angle. The chairs redraw with it.')}</span><a class="lp-inline is-dark" href="/reserve">${t('Try the guest map')} ${arrow}</a></div>
+    <div class="lp-studio-foot"><div data-guide></div><a class="lp-inline is-dark" href="/reserve">${t('Try the guest map')} ${arrow}</a></div>
    </div>
   </div>
  </div>
 </section>`;
 
-/* --------------------------------------------- 03 · visual reservations */
-const slots=[['18:30',true],['19:00',false],['19:30',true],['20:00',true],['20:30',true]];
-const book={slot:'19:30',party:4,table:tables.find(x=>x.capacity>=4)?.id||tables[0]?.id,done:false};
-const partySizes=[...new Set(tables.map(x=>x.capacity))].sort((a,b)=>a-b).slice(0,4);
-const bookable=()=>tables.filter(x=>x.capacity>=book.party);
+/* Reservations live in landing-reserve.js. */
 
-function bookMap(){
- const picks=bookable().map(x=>x.id);
- const list=tables.map(x=>({...x,state:x.id===book.table?'recommended':picks.includes(x.id)?'available':'unavailable',disabled:!picks.includes(x.id)}));
- return `<svg class="lp-floor-svg" viewBox="${narrow()?NARROW_VIEW:tightView(plan,50)}" role="img" aria-label="${t('Tables available for this booking')}">${localizeScene(sceneSvg({...plan,tables:list},{mode:'reservation'}))}</svg>`;
-}
-
-function bookCard(){
- const x=tables.find(y=>y.id===book.table)||tables[0];
- if(!x)return '';
- if(book.done)return `<div class="lp-ticket" role="status">
-   <div class="lp-ticket-top"><span>${t('Table held')}</span><strong>${e(x.label)}</strong></div>
-   <dl><div><dt>${t('Guests')}</dt><dd>${num(book.party)}</dd></div><div><dt>${t('Time')}</dt><dd>${book.slot}</dd></div><div><dt>${t('Zone')}</dt><dd>${e(t(x.zone))}</dd></div><div><dt>${t('Held for')}</dt><dd>${num(data.settings.duration)} ${t('min')}</dd></div></dl>
-   <div class="lp-ticket-rip" aria-hidden="true"></div>
-   <div class="lp-ticket-foot"><span>${t('Test deposit')} <b>${money(data.settings.deposit)}</b></span><button type="button" class="lp-inline" data-lp="rebook">${t('Start over')}</button></div>
-  </div>`;
- return `<div class="lp-book">
-  <div class="lp-book-row"><span class="lp-field-label">${t('Service')}</span><div class="lp-chips">${slots.map(([s,open])=>`<button type="button" class="${book.slot===s?'is-on':''}" data-lp="slot" data-arg="${s}" ${open?'':'disabled aria-disabled="true"'}>${s}${open?'':`<i>${t('full')}</i>`}</button>`).join('')}</div></div>
-  <div class="lp-book-row"><span class="lp-field-label">${t('Guests')}</span><div class="lp-chips">${partySizes.map(n=>`<button type="button" class="${book.party===n?'is-on':''}" data-lp="bparty" data-arg="${n}">${num(n)}</button>`).join('')}</div><small class="lp-book-count">${num(bookable().length)} ${t('tables open for this party')}</small></div>
-  <div class="lp-book-table">
-   <div><strong>${e(x.label)}</strong><small>${e(t(x.zone))} · ${num(x.capacity)} ${t('seats')}</small></div>
-   <div class="lp-book-tags">${(x.features||[]).slice(0,2).map(f=>`<span>${e(t(f))}</span>`).join('')||`<span>${t('Center')}</span>`}</div>
-  </div>
-  <button type="button" class="lp-btn lp-btn-solid lp-btn-full" data-lp="hold">${t('Hold this table')} ${arrow}</button>
-  <small class="lp-book-note">${t('Demo booking. No card is charged and no message is sent.')}</small>
- </div>`;
-}
-
-const reserveSection=()=>`<section class="lp-reserve" id="reserve">
- <div class="lp-reserve-photo" aria-hidden="true"><img src="/assets/olive-interior.webp" alt="" loading="lazy" decoding="async" width="1600" height="900"></div>
- <div class="lp-shell lp-reserve-grid">
-  <div class="lp-copy is-light" data-reveal>
-   <span class="lp-chapter-tag is-dark">03 · ${t('Reservations')}</span>
-   <h2>${t('Guests book a table, not a time slot.')}</h2>
-   <p>${t('The same saved room appears on the guest side. Tables that cannot seat the party fall away, the recommended one is highlighted, and the hold is written straight onto the floor your team is watching.')}</p>
-   <ul class="lp-ticks is-light">${['Availability from live occupancy and turn time','Window, terrace and premium tables surfaced','Deposit optional and clearly labelled'].map(x=>`<li>${t(x)}</li>`).join('')}</ul>
-   <a class="lp-btn lp-btn-line" href="/reserve">${t('Open the booking page')} ${arrow}</a>
-  </div>
-  <div class="lp-reserve-panel" data-reveal>
-   <div class="lp-reserve-map" id="book-map">${bookMap()}</div>
-   <div class="lp-reserve-card" id="book-card">${bookCard()}</div>
-  </div>
- </div>
-</section>`;
-
-/* ------------------------------------------------- 04 · AI menu import   */
-const sources=[
- {id:'pdf',kind:'PDF',name:'summer-menu.pdf',meta:'4 pages'},
- {id:'photo',kind:'JPG',name:'chef-board-02.jpg',meta:'Wall board'},
- {id:'pos',kind:'POS',name:'Foodics catalogue',meta:'128 products'}
-];
-const stages=['Reading the source','Extracting dishes','Matching your catalogue','Ready for review'];
-const importState={source:'pdf',stage:0,rows:0};
-
-const importRow=(m,i)=>`<div class="lp-row" style="--i:${i}">
- <span class="lp-row-name"><b>${e(nameOf(m))}</b><small>${e(rtl?m.name:m.nameAr||m.name)}</small></span>
- <span class="lp-row-cat">${e(t(m.category))}</span>
- <span class="lp-row-price">${money(m.price)}</span>
- <span class="lp-row-flag ${i===1?'is-warn':''}">${i===1?t('Check the source'):t('High confidence')}</span>
-</div>`;
-
-const importSection=()=>`<section class="lp-chapter lp-import" id="import">
- <div class="lp-shell">
-  <div class="lp-head-row" data-reveal>
-   <div><span class="lp-chapter-tag">04 · ${t('Menu import')}</span><h2>${t('Your menu, wherever it lives now.')}</h2></div>
-   <p>${t('A PDF, a photo of the board or a POS catalogue becomes a structured draft with prices, categories, allergens and Arabic names. Resuto shows its confidence and waits for you.')}</p>
-  </div>
-  <div class="lp-workspace" data-reveal>
-   <div class="lp-sources">
-    ${sources.map((s,i)=>`<button type="button" class="lp-source${i?'':' is-on'}" data-lp="source" data-arg="${s.id}"><b>${s.kind}</b><span>${e(s.name)}</span><small>${t(s.meta)}</small></button>`).join('')}
-    <div class="lp-pipeline" id="import-pipeline">${stages.map((s,i)=>`<div class="lp-pipe-step" data-stage="${i}"><i></i>${t(s)}</div>`).join('')}</div>
-   </div>
-   <div class="lp-review">
-    <header><span>${t('Draft item')}</span><span>${t('Category')}</span><span>${t('Price')}</span><span>${t('Confidence')}</span></header>
-    <div class="lp-rows" id="import-rows"></div>
-    <footer><div class="lp-review-meta"><strong id="import-count">0</strong> ${t('items ready for review')} · <b>0</b> ${t('published automatically')}</div><button type="button" class="lp-btn lp-btn-solid lp-btn-sm" data-lp="replay-import">${t('Run it again')}</button></footer>
-   </div>
-  </div>
- </div>
-</section>`;
+/* The menu import demo lives in landing-import.js. */
 
 /* ------------------------------------- 05 · QR ordering and AI ordering  */
 const qrTable=data.tables.find(x=>x.qr)||data.tables[0]||{label:'T1',qr:''};
-const aiPick=[menu[0],menu[4]||menu[1]].filter(Boolean);
-const aiTotal=aiPick.reduce((n,m)=>n+m.price,0);
 const serviceSteps=[
- ['scan','Scan the table','No app, no account, no waiting for a menu.'],
- ['browse','Browse what is actually on','Sold-out dishes disappear the moment the kitchen says so.'],
- ['ask','Ask in your own words','Budget, diet, spice and allergens are read from the live catalogue.'],
- ['track','Follow the order','The guest sees the same progress the kitchen does.']
+ ['scan','Scan the table','No app and no account. The menu opens in the browser.'],
+ ['browse','Add from the live menu','Sold-out dishes are marked the moment the kitchen says so.'],
+ ['cart','Confirm the order','Prices and stock are checked again when it is sent.'],
+ ['track','Follow the order','The guest sees the status the kitchen sets.']
 ];
-const service={step:0};
+const pickable=menu.slice(0,3);
+const service={step:0,cart:new Set(),status:0};
+const cartLines=()=>pickable.filter(m=>service.cart.has(m.id));
+const cartTotal=()=>cartLines().reduce((n,m)=>n+m.price,0);
+const trackSteps=['Order received','Preparing','Ready','Served'];
 
 function phoneScreen(){
  const s=serviceSteps[service.step][0];
  if(s==='scan')return `<div class="lp-scr lp-scr-scan"><span class="lp-scr-eyebrow">${e(data.settings.name)}</span><strong>${e(qrTable.label)}</strong><div class="lp-qr"><img src="/qr/${e(qrTable.qr)}" alt="${t('Table QR code')}" loading="lazy" width="180" height="180"><span class="lp-qr-scan" aria-hidden="true"></span></div><p>${t('Scan to open the menu')}</p><small>${t('Opens in the browser. Nothing to install.')}</small></div>`;
- if(s==='browse')return `<div class="lp-scr lp-scr-menu"><div class="lp-scr-bar"><strong>${t('Menu')}</strong><span>${e(qrTable.label)}</span></div><div class="lp-scr-tabs">${['Starters','Mains','Desserts'].map((c,i)=>`<span class="${i?'':'is-on'}">${t(c)}</span>`).join('')}</div>${menu.slice(0,4).map(m=>`<article class="lp-scr-dish">${dish(m)}<div><b>${e(nameOf(m))}</b><small>${e(t(m.category))} · ${money(m.price)}</small></div><i aria-hidden="true">+</i></article>`).join('')}<div class="lp-scr-dock"><span>${num(2)} ${t('items')}</span><b>${money(menu.slice(0,2).reduce((n,m)=>n+m.price,0))}</b><em>${t('View order')}</em></div></div>`;
- if(s==='ask')return `<div class="lp-scr lp-scr-ai"><div class="lp-scr-bar"><strong>✦ ${t('Menu assistant')}</strong></div><p class="lp-ask">${t('Vegetarian, nothing spicy, under EGP 500 for two.')}</p><div class="lp-answer"><span>${t('From tonight’s menu')}</span>${aiPick.map(m=>`<article>${dish(m)}<div><b>${e(nameOf(m))}</b><small>${money(m.price)}</small></div></article>`).join('')}<footer><span>${t('Total')}</span><b>${money(aiTotal)}</b></footer></div><small class="lp-scr-note">${t('Listed allergens only. Ask the staff about cross-contact.')}</small><button type="button" class="lp-scr-cta">${t('Add both to the order')}</button></div>`;
- return `<div class="lp-scr lp-scr-track"><div class="lp-scr-bar"><strong>${t('Order')} #042</strong><span>${e(qrTable.label)}</span></div><ol class="lp-track">${[['Received','done'],['In the kitchen','done'],['Ready to serve','now'],['Served','']].map(([l,st])=>`<li class="${st}"><i></i>${t(l)}</li>`).join('')}</ol><div class="lp-track-card"><span>${t('Estimated')}</span><b>6 ${t('min')}</b></div><button type="button" class="lp-scr-cta">${t('View the bill')}</button></div>`;
+ if(s==='browse')return `<div class="lp-scr lp-scr-menu"><div class="lp-scr-bar"><strong>${t('Menu')}</strong><span>${e(qrTable.label)}</span></div><div class="lp-scr-tabs">${['Starters','Mains','Desserts'].map((c,i)=>`<span class="${i?'':'is-on'}">${t(c)}</span>`).join('')}</div><div class="lp-scr-list">${pickable.map(m=>`<article class="lp-scr-dish${service.cart.has(m.id)?' is-added':''}">${dish(m)}<div><b>${e(nameOf(m))}</b><small><bdi>${money(m.price)}</bdi></small></div><button type="button" data-lp="add" data-arg="${e(m.id)}" aria-pressed="${service.cart.has(m.id)}" aria-label="${t('Add')} ${e(nameOf(m))}"><span aria-hidden="true">${service.cart.has(m.id)?'✓':'+'}</span></button></article>`).join('')}</div><button type="button" class="lp-scr-dock" data-lp="cart"${service.cart.size?'':' disabled'}><span>${num(service.cart.size)} ${t('in your order')}</span><b>${money(cartTotal())}</b></button></div>`;
+ if(s==='cart')return `<div class="lp-scr lp-scr-cart"><div class="lp-scr-bar"><strong>${t('Your order')}</strong><span>${e(qrTable.label)}</span></div><div class="lp-scr-list">${cartLines().map(m=>`<article class="lp-scr-dish">${dish(m)}<div><b>${e(nameOf(m))}</b><small>${num(1)} × <bdi>${money(m.price)}</bdi></small></div></article>`).join('')||`<p class="lp-scr-empty">${t('Nothing added yet.')}</p>`}<div class="lp-scr-total"><span>${t('Total')}</span><b><bdi>${money(cartTotal())}</bdi></b></div></div><button type="button" class="lp-scr-cta" data-lp="confirm"${service.cart.size?'':' disabled'}>${t('Confirm order')}</button></div>`;
+ return `<div class="lp-scr lp-scr-track"><div class="lp-scr-bar"><strong>${t('Order status')}</strong><span><bdi dir="ltr">#${num(42)}</bdi> · ${e(qrTable.label)}</span></div><ol class="lp-track">${trackSteps.map((l,i)=>`<li class="${i<service.status?'done':i===service.status?'now':''}"><i></i>${t(l)}</li>`).join('')}</ol><ul class="lp-track-lines">${cartLines().map(m=>`<li>${num(1)} × ${e(nameOf(m))}</li>`).join('')}</ul></div>`;
 }
 
 const serviceSection=()=>`<section class="lp-service" id="service">
  <div class="lp-shell">
   <div class="lp-head-row" data-reveal>
-   <div><span class="lp-chapter-tag">05 · ${t('Guest service')}</span><h2>${t('The table becomes the waiter’s second pair of hands.')}</h2></div>
-   <p>${t('A guest scans the table, orders in Arabic or English, asks for a recommendation and follows the kitchen — while the floor team keeps working the room.')}</p>
+   <div><span class="lp-chapter-tag">${t('Guest service')}</span><h2>${t('The table becomes the waiter’s second pair of hands.')}</h2></div>
+   <p>${t('A guest scans the table, orders in Arabic or English and follows the kitchen, while the floor team keeps working the room.')}</p>
   </div>
   <div class="lp-service-stage" data-reveal>
    <ol class="lp-service-steps" id="service-steps">${serviceSteps.map(([id,title,detail],i)=>`<li class="${i?'':'is-on'}"><button type="button" data-lp="service" data-arg="${i}"><span>${num(i+1)}</span><strong>${t(title)}</strong><small>${t(detail)}</small></button></li>`).join('')}</ol>
@@ -403,7 +265,8 @@ const serviceSection=()=>`<section class="lp-service" id="service">
     <div class="lp-phone-glow" aria-hidden="true"></div>
    </div>
    <div class="lp-service-notes">
-    <article><strong>${t('Ordering that stays honest')}</strong><p>${t('Recommendations only use the live catalogue: availability, price, dietary tags and allergens. Safety is never guessed.')}</p></article>
+    <div data-guide></div>
+    <article><strong>${t('A menu assistant that stays honest')}</strong><p>${t('Guests can ask for a suggestion. It only proposes dishes from the live menu, lists stated allergens, and the guest still confirms the order.')}</p></article>
     <article><strong>${t('Every table has an identity')}</strong><p>${t('The QR belongs to the table, not to a printed page, so moving furniture never breaks a code.')}</p></article>
     <a class="lp-inline" href="/restaurant">${t('Open the guest experience')} ${arrow}</a>
    </div>
@@ -411,262 +274,27 @@ const serviceSection=()=>`<section class="lp-service" id="service">
  </div>
 </section>`;
 
-/* ------------------------------------------------------ 06 · the kitchen */
-const kdsColumns=[['new','Received'],['fire','On the pass'],['ready','Ready']];
-const kdsSeed=[
- {id:42,table:2,station:'Grill',items:['1 × Grilled chicken supreme','2 × Herb potatoes'],min:2,col:0},
- {id:43,table:5,station:'Cold kitchen',items:['1 × Burrata & heirloom tomato'],min:4,col:1},
- {id:44,table:8,station:'Hot kitchen',items:['2 × Roasted pumpkin soup'],min:6,col:1},
- {id:45,table:11,station:'Pastry',items:['2 × Pistachio basbousa'],min:9,col:2},
- {id:46,table:4,station:'Bar',items:['3 × Hibiscus cooler'],min:1,col:0}
-];
+/* The kitchen demo lives in landing-kitchen.js. */
 
-const kitchenSection=()=>`<section class="lp-kitchen" id="kitchen">
- <div class="lp-shell">
-  <div class="lp-head-row is-light" data-reveal>
-   <div><span class="lp-chapter-tag is-dark">06 · ${t('Kitchen')}</span><h2>${t('Tickets that route themselves.')}</h2></div>
-   <p>${t('Each line goes to the station that cooks it, with the table, the timer and the guest’s own progress attached. Nothing is shouted twice.')}</p>
-  </div>
-  <div class="lp-kds" data-reveal>
-   <header class="lp-kds-bar"><strong>${t('Kitchen display')}</strong><span id="kds-clock">${clock(19,42)}</span><span class="lp-kds-load">${t('Open tickets')} <b id="kds-open">5</b></span></header>
-   <div class="lp-kds-board" id="kds-board">${kdsColumns.map(([id,label])=>`<section data-col="${id}"><header>${t(label)}<i></i></header><div class="lp-kds-list" data-list="${id}"></div></section>`).join('')}</div>
-   <footer class="lp-kds-foot">${['Grill','Hot kitchen','Cold kitchen','Pastry','Bar'].map((s,i)=>`<div><span>${t(s)}</span><i style="--w:${[82,64,48,30,55][i]}%"></i></div>`).join('')}<a class="lp-inline is-dark" href="/kitchen">${t('Open the kitchen screen')} ${arrow}</a></footer>
-  </div>
- </div>
-</section>`;
+/* Bill splitting lives in landing-bill.js. */
 
-/* ------------------------------------------- 07 · split bill & payments  */
-const billTotal=120000;
-const party=[
- {name:'Ahmed',rail:'Card',share:42000,items:'Main + wine'},
- {name:'Mariam',rail:'Wallet',share:31500,items:'Starter + main'},
- {name:'Omar',rail:'InstaPay',share:28500,items:'Main'},
- {name:'Lina',rail:'Cash',share:18000,items:'Dessert + tea'}
-];
-const splitModes=[['equal','Split equally','Four equal shares'],['items','Split by item','Everyone pays what they ordered'],['custom','Custom amounts','Someone covers a little more'],['full','One person pays','A single guest settles it all']];
-const pay={mode:'items',settled:0,rated:false};
-const shareOf=i=>pay.mode==='equal'?billTotal/4:pay.mode==='full'?(i?0:billTotal):pay.mode==='custom'?[48000,30000,24000,18000][i]:party[i].share;
-const paidTotal=()=>party.reduce((n,_,i)=>n+(i<pay.settled?shareOf(i):0),0);
+/* The manager view demo lives in landing-manager.js. */
 
-function payStage(){
- const remaining=billTotal-paidTotal();
- const pct=Math.round(paidTotal()/billTotal*100);
- const active=pay.mode==='full'?1:4;
- return `<div class="lp-bill-top">
-   <div><span>${t('Table bill')} · ${t('The Olive Room')}</span><strong>${money(billTotal)}</strong></div>
-   <div class="lp-ring" style="--p:${pct}"><svg viewBox="0 0 72 72" aria-hidden="true"><circle class="lp-ring-bg" cx="36" cy="36" r="31"/><circle class="lp-ring-fg" cx="36" cy="36" r="31"/></svg><b>${num(pct)}%</b></div>
-  </div>
-  <ul class="lp-shares">${party.slice(0,active).map((p,i)=>{
-   const done=i<pay.settled;
-   return `<li class="${done?'is-paid':''}" style="--i:${i}"><span class="lp-avatar">${done?'✓':e(p.name.slice(0,1))}</span>
-    <span class="lp-share-who"><b>${t(p.name)}</b><small>${pay.mode==='items'?t(p.items):t('Private payment link')}</small></span>
-    <span class="lp-share-rail">${t(p.rail)}</span>
-    <span class="lp-share-amt">${money(shareOf(i))}</span>
-    <span class="lp-share-state">${done?t('Paid'):t('Waiting')}</span></li>`;
-  }).join('')}</ul>
-  <div class="lp-bill-foot">
-   <span>${remaining>0?`<b>${money(remaining)}</b> ${t('still open')}`:`<b>${t('Settled')}</b> · ${t('Table released')}`}</span>
-   ${remaining>0?`<button type="button" class="lp-btn lp-btn-solid lp-btn-sm" data-lp="settle">${t('Settle the next share')} ${arrow}</button>`:`<div class="lp-rate" role="group" aria-label="${t('Rate the meal')}">${[1,2,3,4,5].map(n=>`<button type="button" class="${pay.rated?'is-on':''}" data-lp="rate" data-arg="${n}" aria-label="${num(n)}">★</button>`).join('')}<button type="button" class="lp-inline" data-lp="replay-pay">${t('Replay')}</button></div>`}
-  </div>`;
-}
-
-const railLabel={card:'Card',wallet:'Mobile wallet',instapay:'InstaPay',cash:'Cash at the table'};
-const paymentsSection=()=>`<section class="lp-chapter lp-payments" id="payments">
- <div class="lp-shell lp-split is-wide">
-  <div class="lp-copy" data-reveal>
-   <span class="lp-chapter-tag">07 · ${t('Payments')}</span>
-   <h2>${t('The bill stops being the awkward part.')}</h2>
-   <p>${t('One table, four private links. Split equally, by item or by any amount — each guest pays on their own phone and everyone watches the balance fall in real time.')}</p>
-   <div class="lp-modes" role="group" aria-label="${t('Split methods')}">${splitModes.map(([id,label,detail])=>`<button type="button" class="lp-mode${pay.mode===id?' is-on':''}" data-lp="split" data-arg="${id}"><strong>${t(label)}</strong><small>${t(detail)}</small></button>`).join('')}</div>
-  </div>
-  <div class="lp-bill" id="pay-stage" data-reveal>${payStage()}</div>
- </div>
- <div class="lp-shell">
-  <div class="lp-rails" data-reveal>
-   <span class="lp-rails-label">${t('Payment rails')}</span>
-   ${(caps.payments||[]).map(m=>`<span class="lp-rail ${m.available?'is-on':''}"><i></i>${t(railLabel[m.id]||m.id)}<small>${m.available?t('Active here'):t('Ready when credentials are added')}</small></span>`).join('')}
-  </div>
- </div>
-</section>`;
-
-/* --------------------------------- 08 · live operations and AI manager   */
-const metrics=[
- ['Covers seated',()=>84,'+12%',[38,44,52,49,63,71,84]],
- ['Average turn',()=>62,'−7 min',[78,74,71,69,66,64,62]],
- ['Kitchen time',()=>14,'−2 min',[19,18,17,17,16,15,14]],
- ['Tonight’s revenue',()=>0,'+18%',[42,51,58,66,72,81,96]]
-];
-const spark=v=>{
- const max=Math.max(...v),min=Math.min(...v);
- const pts=v.map((y,i)=>`${i/(v.length-1)*100},${28-(y-min)/(max-min||1)*24}`).join(' ');
- return `<svg class="lp-spark-line" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polygon class="lp-spark-fill" points="0,30 ${pts} 100,30"/><polyline points="${pts}"/></svg>`;
-};
-const insights=[
- ['Terrace is turning 14 minutes slower than the main room.','Two servers are covering nine tables outside. Moving one from the bar restores the pace.','Rebalance the section'],
- ['Burrata will sell out in about 40 minutes at tonight’s pace.','Eleven portions left, four already on open tickets.','Mark it low in stock'],
- ['Three tables have been on the bill for over eight minutes.','T4, T7 and T9 opened a split and stopped. A gentle nudge usually closes it.','Send a payment reminder']
-];
-
-const opsSection=()=>`<section class="lp-ops" id="operations">
- <svg width="0" height="0" aria-hidden="true" focusable="false"><defs><linearGradient id="lp-spark-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E8875A"/><stop offset="1" stop-color="#E8875A" stop-opacity="0"/></linearGradient></defs></svg>
- <div class="lp-shell">
-  <div class="lp-head-row is-light" data-reveal>
-   <div><span class="lp-chapter-tag is-dark">08 · ${t('Intelligence')}</span><h2>${t('A manager who never leaves the pass.')}</h2></div>
-   <p>${t('Resuto watches the same service you do — covers, turn time, kitchen load, open bills — and says something only when it is worth saying.')}</p>
-  </div>
-  <div class="lp-ops-grid">
-   <div class="lp-metrics" data-reveal>${metrics.map(([label,value,delta,series],i)=>`<article><small>${t(label)}</small><strong ${i===3?`data-egp="42850"`:`data-count="${value()}"`}>0</strong><span class="lp-delta ${delta.startsWith('+')?'is-up':'is-down'}">${delta}</span>${spark(series)}</article>`).join('')}</div>
-   <div class="lp-insights" data-reveal>
-    <header><span class="lp-spark" aria-hidden="true">✦</span>${t('AI manager')}<small id="ops-state">${t('Watching service')}</small></header>
-    <ol id="insight-list">${insights.map(([title,body,action],i)=>`<li style="--i:${i}"><strong>${t(title)}</strong><p>${t(body)}</p><span class="lp-action">${t(action)}</span></li>`).join('')}</ol>
-    <footer>${t('Generated from this installation’s own operating data. A live model is used only when its key is configured.')}</footer>
-   </div>
-  </div>
- </div>
-</section>`;
-
-/* ------------------------------------------------ 09 · native or connect */
-/* A patch board rather than a logo wall: what you already run on the left,
-   Resuto in the middle, what it runs for you on the right. Pure HTML/CSS. */
-const nativeNodes=[
- ['Reservations','Floor-based booking'],
- ['QR ordering','Guest devices'],
- ['Kitchen display','Station routing'],
- ['Payments','Split and settle'],
- ['Menu & stock','Bilingual catalogue'],
- ['Analytics','Service history']
-];
-const connectNodes=[
- {id:'foodics',name:'Foodics',logo:logos.foodics,role:'POS catalogue',detail:'Import a menu draft for manager review. Orders are not pushed back in this release.'},
- {id:'odoo',name:'Odoo',logo:logos.odoo,role:'Back office',detail:'Pull products into a reviewed draft. Currency is confirmed before import.'},
- {id:'stripe',name:'Stripe',logo:logos.stripe,role:'Card payments',detail:'Hosted card checkout appears once server credentials are configured.'},
- {id:'paymob',name:'Paymob',logo:logos.paymob,role:'Cards and wallets',detail:'Cards and mobile wallets for Egypt, enabled from the manager settings.'},
- {id:'whatsapp',name:'WhatsApp',logo:logos.whatsapp,role:'Sharing',detail:'Guests can share a payment link. Automated messaging is not connected.'},
- {id:'instapay',name:'InstaPay',logo:null,role:'Bank transfer',detail:'Manual transfer with manager confirmation on the bill.'}
-];
-// What Resuto Native takes off the floor, rather than a second copy of the
-// module list — the two modes have to say different things.
-const replacedNodes=[
- ['POS terminal','Orders, bills and the day close'],
- ['Booking notebook','Phone reservations and no-shows'],
- ['Reprinted menus','Every price change, printed again'],
- ['Manual payment links','Sent by hand, chased by hand'],
- ['Shouted tickets','Repeated across the pass'],
- ['End-of-day spreadsheets','Typed a second time']
-];
-const connect={mode:'connect',kind:'provider',node:0};
-const railStatus=id=>{
- const pay=(caps.payments||[]).find(m=>m.id===(id==='stripe'||id==='paymob'?'card':id==='instapay'?'instapay':null));
- if(pay)return pay.available?['on','Active here']:['ready','Ready to configure'];
- if(id==='whatsapp')return ['on','Sharing works today'];
- return (caps.connectors||[]).includes(id)?['ready','Supported']:['ready','On request'];
-};
-
-function patchBoard(){
- const isNative=connect.mode==='native';
- const rows=isNative
-  ?replacedNodes.map(([name,role],i)=>({key:'r'+i,name,role,logo:null,status:['off','Retired'],pick:null}))
-  :connectNodes.map((x,i)=>({key:x.id,name:x.name,role:x.role,logo:x.logo,status:railStatus(x.id),pick:'p:'+i}));
- const modules=nativeNodes.map(([name,role])=>({name,role}));
- return `<div class="lp-board ${isNative?'is-native':'is-connect'}">
-  <div class="lp-board-col">
-   <h3 class="lp-board-head">${isNative?t('What Resuto replaces'):t('What you run today')}</h3>
-   <ul class="lp-board-list">${rows.map((r,i)=>{
-    const on=r.pick&&connect.kind==='provider'&&connect.node===i;
-    const inner=`<span class="lp-plug-face">${r.logo?`<img src="${r.logo}" alt="${e(r.name)}" loading="lazy">`:`<b>${e(t(r.name))}</b>`}</span>
-    <span class="lp-plug-role">${t(r.role)}</span>
-    <span class="lp-plug-state is-${r.status[0]}">${t(r.status[1])}</span>`;
-    return `<li style="--i:${i}">${r.pick
-     ?`<button type="button" class="lp-plug${on?' is-on':''}" data-lp="node" data-arg="${r.pick}">${inner}</button>`
-     :`<span class="lp-plug is-retired">${inner}</span>`}</li>`;
-   }).join('')}</ul>
-   <p class="lp-board-note">${isNative?t('One system takes all of it on. Nothing to reconcile at closing time.'):t('Connect what you keep. Resuto reads it, shows the real status, and never claims a link that is not configured.')}</p>
-  </div>
-  <div class="lp-board-core">
-   <div class="lp-bus lp-bus-in" aria-hidden="true"><i></i><i></i><i></i></div>
-   <div class="lp-core">
-    <span class="lp-core-mark" aria-hidden="true">r</span>
-    <strong>resuto</strong>
-    <small>${isNative?t('Native'):t('Connect')}</small>
-    <span class="lp-core-meta">${isNative?`${nativeNodes.length} ${t('modules')}`:`${connectNodes.length} ${t('sources')}`} · ${t('one floor, one bill')}</span>
-   </div>
-   <div class="lp-bus lp-bus-out" aria-hidden="true"><i></i><i></i><i></i></div>
-  </div>
-  <div class="lp-board-col">
-   <h3 class="lp-board-head">${t('Runs inside Resuto')}</h3>
-   <ul class="lp-board-list is-modules">${modules.map((m,i)=>`<li style="--i:${i}"><button type="button" class="lp-module${connect.kind==='module'&&connect.node===i?' is-on':''}" data-lp="node" data-arg="m:${i}"><b>${t(m.name)}</b><small>${t(m.role)}</small></button></li>`).join('')}</ul>
-  </div>
- </div>`;
-}
-
-const moduleDetail={
- 'Reservations':'Guests pick a real table on the saved floor. The hold lands on the same map the team is watching.',
- 'QR ordering':'Every table carries its own code. The guest orders from their own phone, in Arabic or English.',
- 'Kitchen display':'Each line routes to the station that cooks it, with the table and the timer attached.',
- 'Payments':'Pay in full, split equally, by item or by any amount — each share on its own private link.',
- 'Menu & stock':'One bilingual catalogue with allergens, modifiers and live availability.',
- 'Analytics':'Covers, turn time, kitchen time and ratings from the service you actually ran.'
-};
-function connectDetail(){
- if(connect.kind==='module'){
-  const [label,role]=nativeNodes[connect.node]||nativeNodes[0];
-  return `<span class="lp-detail-tag">${t('Resuto Native')} · ${t(role)}</span><h3>${t(label)}</h3><p>${t(moduleDetail[label])}</p><p class="lp-detail-note">${t('Everything runs inside Resuto. One login, one dataset, no nightly export.')}</p>`;
- }
- const node=connectNodes[connect.node]||connectNodes[0];
- return `<span class="lp-detail-tag">${t('Resuto Connect')} · ${t(railStatus(node.id)[1])}</span><h3>${e(node.name)}</h3><p>${t(node.detail)}</p><p class="lp-detail-note">${t('The manager screen always shows the real connection status. Marketing never claims a link that is not configured.')}</p>`;
-}
-
+/* ------------------------------------------------------- integrations */
+// Logos only. Names are kept for screen readers.
+const integrations=[['Stripe',marks.stripe],['Paymob',logos.paymob,'','is-word'],['Tap Payments',null,'tap'],['Foodics',logos.foodics,'','is-word'],['Odoo',marks.odoo],['WhatsApp',marks.whatsapp],['Meta',marks.meta],['Google Gemini',marks.googlegemini]];
 const connectSection=()=>`<section class="lp-chapter lp-connect" id="connect">
- <div class="lp-shell">
-  <div class="lp-head-row" data-reveal>
-   <div><span class="lp-chapter-tag">09 · ${t('Ecosystem')}</span><h2>${t('Run it all in Resuto, or keep what already works.')}</h2></div>
-   <p>${t('Resuto Native runs the whole service. Resuto Connect keeps your POS, payment provider and messaging in place and brings them onto the same floor.')}</p>
+ <div class="lp-shell itx">
+  <div class="itx-head" data-reveal>
+   <h2>${t('Runs on its own.')} ${t('Connects where it is ready.')}</h2>
+   <p>${t('Resuto works without any of these. Connect the ones you already use.')}</p>
   </div>
-  <div class="lp-connect-stage" data-reveal>
-   <div class="lp-seg lp-seg-pill" role="tablist" aria-label="${t('Deployment mode')}">
-    <button type="button" role="tab" class="${connect.mode==='native'?'is-on':''}" data-lp="cmode" data-arg="native" aria-selected="${connect.mode==='native'}">${t('Resuto Native')}</button>
-    <button type="button" role="tab" class="${connect.mode==='connect'?'is-on':''}" data-lp="cmode" data-arg="connect" aria-selected="${connect.mode==='connect'}">${t('Resuto Connect')}</button>
-   </div>
-   <div class="lp-board-wrap" id="orbit">${patchBoard()}</div>
-   <aside class="lp-detail" id="connect-detail">${connectDetail()}</aside>
-  </div>
+  <ul class="itx-row" data-reveal>${integrations.map(([name,logo,mark,kind=''],i)=>`<li class="${kind}" style="--i:${i}" title="${e(name)}">${logo?`<img src="${logo}" alt="${e(name)}" loading="lazy">`:`<b role="img" aria-label="${e(name)}">${mark}</b>`}</li>`).join('')}</ul>
  </div>
 </section>`;
 
-/* ---------------------------------------------------------- 10 · pricing */
-const planFeatures={
- starter:['QR menu and ordering','Floor plan and reservations','Pickup, ratings and basic analytics'],
- growth:['Everything in Starter','AI assistant and kitchen display','Split payments and integrations'],
- pro:['Everything in Growth','Up to three branches','AI operational insights'],
- business:['Negotiated branch limits','Dedicated onboarding and migration','SLA, API and white label']
-};
-const price={yearly:false};
+/* Pricing and the plan comparison live in landing-pricing.js. */
 
-function planCards(){
- return (pricing.plans||[]).map((p,i)=>`<article class="lp-plan${i===1?' is-featured':''}" style="--i:${i}">
-  ${i===1?`<span class="lp-plan-badge">${t('Most chosen')}</span>`:''}
-  <h3>${e(p.name)}</h3>
-  <div class="lp-plan-price">${p.monthly?`<b>${num(p.monthly*(price.yearly?10:1))}</b><small>${t('EGP')} / ${price.yearly?t('year'):t('month')}</small>`:`<b class="lp-plan-talk">${t('Let’s talk')}</b>`}</div>
-  <ul>${planFeatures[p.id].map(f=>`<li>${t(f)}</li>`).join('')}</ul>
-  <a class="lp-btn ${i===1?'lp-btn-solid':'lp-btn-line-ink'} lp-btn-full" href="${p.monthly?'/pricing':'/pricing#sales'}">${p.monthly?t('See what is included'):t('Talk to us')}</a>
- </article>`).join('');
-}
-
-const pricingSection=()=>`<section class="lp-chapter lp-pricing" id="pricing">
- <div class="lp-shell">
-  <div class="lp-pricing-head" data-reveal>
-   <div><span class="lp-chapter-tag">10 · ${t('Pricing')}</span><h2>${t('Egyptian pricing, from one room to three branches.')}</h2></div>
-   <div class="lp-seg lp-seg-pill">
-    <button type="button" class="${price.yearly?'':'is-on'}" data-lp="billing" data-arg="monthly">${t('Monthly')}</button>
-    <button type="button" class="${price.yearly?'is-on':''}" data-lp="billing" data-arg="yearly">${t('Yearly · 2 months free')}</button>
-   </div>
-  </div>
-  <div class="lp-plans" id="plan-grid">${planCards()}</div>
-  <p class="lp-pricing-note" data-reveal>${t('Launch pricing proposal. Subscription billing and self-service signup are not enabled yet — the working demo is open to everyone today.')}</p>
- </div>
-</section>`;
-
-/* ------------------------------------------------------- close and foot  */
 const ctaSection=()=>`<section class="lp-cta">
  <div class="lp-cta-floor" aria-hidden="true"><svg viewBox="0 0 ${plan.width} ${plan.height}">${localizeScene(sceneSvg({...plan,tables:tables.map((x,i)=>({...x,state:heroStates[i]}))},{mode:'operations'}))}</svg></div>
  <div class="lp-shell lp-cta-inner" data-reveal>
@@ -688,7 +316,6 @@ const footer=()=>`<footer class="lp-foot">
    <nav aria-label="${t('Ecosystem')}"><h4>${t('Ecosystem')}</h4><a href="#connect">${t('Resuto Native')}</a><a href="#connect">${t('Resuto Connect')}</a><a href="#operations">${t('AI manager')}</a><a href="#pricing">${t('Pricing')}</a></nav>
    <nav aria-label="${t('Try it')}"><h4>${t('Try it')}</h4><a href="/restaurant">${t('Restaurant demo')}</a><a href="/reserve">${t('Reserve a table')}</a><a href="/menu">${t('Menu')}</a><a href="/manager">${t('Staff login')}</a></nav>
   </div>
-  <p class="lp-foot-note">${t('This installation runs one demo restaurant. Payment, AI and connector features are active only where credentials are configured, and the interface says so honestly.')}</p>
   <small>© ${new Date().getFullYear()} Resuto</small>
  </div>
 </footer>`;
@@ -696,9 +323,9 @@ const footer=()=>`<footer class="lp-foot">
 /* ===================================================================== */
 /* mount                                                                 */
 /* ===================================================================== */
-document.title=rtl?'ريسوتو · نظام تشغيل المطاعم':'Resuto · The restaurant operating system';
+document.title=rtl?'ريسوتو: حجوزات المطاعم وطلبات QR وشاشة المطبخ وتقسيم الفاتورة':'Resuto: restaurant reservations, QR ordering, kitchen display and split bills';
 root.className='lp';
-root.innerHTML=nav()+`<main class="lp-main">${hero()}${systemBand()}${setupSection()}${studioSection()}${reserveSection()}${importSection()}${serviceSection()}${kitchenSection()}${paymentsSection()}${opsSection()}${connectSection()}${pricingSection()}${ctaSection()}</main>`+footer();
+root.innerHTML=nav()+`<main class="lp-main">${hero()}${systemBand()}${studioSection()}${reserveSection({t,num,e,arrow,tables,restaurant:data.settings.name,branch:branchName})}${importSection({t,money,rtl,e})}${serviceSection()}${kitchenSection({t,arrow})}${billSection({t,money,e,arrow})}${managerSection({t,arrow})}${connectSection()}${pricingSection({t})}${ctaSection()}</main>`+footer();
 
 const $=s=>root.querySelector(s);
 const $$=s=>[...root.querySelectorAll(s)];
@@ -761,7 +388,6 @@ function onScroll(){
  let active='';
  for(const s of spy)if(s.el&&s.el.getBoundingClientRect().top<innerHeight*.45)active=s.href;
  $$('.lp-nav-links a').forEach(a=>a.classList.toggle('is-here',a.getAttribute('href')===active));
- studioScroll();
  ticking=false;
 }
 addEventListener('scroll',()=>{if(!ticking){ticking=true;requestAnimationFrame(onScroll)}},{passive:true});
@@ -782,7 +408,7 @@ function paintTable(i,state,pulse){
  g.setAttribute('class',`floor-object svg-table state-${state}`);
  if(pulse&&motion()){g.classList.add('is-pulse');setTimeout(()=>g.classList.remove('is-pulse'),1500);}
 }
-const stateWord={available:'Open',occupied:'Seated',ordering:'Ordering',preparing:'Preparing',ready:'Ready',payment:'Paying',reserved:'Reserved',cleaning:'Turning'};
+const stateWord={available:'Open',occupied:'Seated',ordering:'Ordering',preparing:'Preparing',ready:'Ready',payment:'Paying',reserved:'Reserved',cleaning:'Cleaning'};
 function heroDetail(i){
  const x=tables[i];if(!x)return;
  const s=heroStates[i];
@@ -805,9 +431,15 @@ function heroTick(){
  $('#hero-clock').textContent=clock(heroMinute<42?20:19,heroMinute);
  heroDetail(at);
  renderLegend();
+ [...$('#hero-metrics').querySelectorAll('strong')].forEach((el,i)=>{
+  const v=num(heroMetrics[i][1](heroStates));
+  if(el.textContent===v)return;
+  el.textContent=v;
+  if(motion())el.animate([{transform:'translateY(6px)',opacity:.2},{transform:'none',opacity:1}],{duration:360,easing:'cubic-bezier(.25,1,.5,1)'});
+ });
 }
 const legendEl=$('#hero-legend');
-const legendOrder=[['available','Open'],['occupied','Seated'],['preparing','Preparing'],['ready','Ready'],['payment','Paying'],['cleaning','Turning']];
+const legendOrder=[['available','Open'],['occupied','Seated'],['preparing','Preparing'],['ready','Ready'],['payment','Paying'],['cleaning','Cleaning']];
 function renderLegend(){
  legendEl.innerHTML=legendOrder.map(([state,label])=>{
   const n=heroStates.filter(s=>s===state||(state==='occupied'&&s==='ordering')||(state==='available'&&s==='reserved')).length;
@@ -822,150 +454,155 @@ feed.slice(0,4).reverse().forEach(ev=>{
 });
 renderLegend();
 heroDetail(seatIndex(8));
-loop($('#hero-stage'),3400,heroTick);
-
-/* ------------------------------------------------------- 01 setup console */
-const typedEl=$('#setup-typed'),buildEl=$('#setup-build'),setupFloorEl=$('#setup-floor');
-let setupRun=0;
-function drawFloor(el){
- el.querySelectorAll('.svg-table').forEach((g,i)=>g.style.setProperty('--i',i));
- if(motion()){el.classList.remove('is-drawn');void el.offsetWidth;el.classList.add('is-drawn');}
- else el.classList.add('is-drawn');
-}
-async function runSetup(id){
- const p=presets.find(x=>x.id===id)||presets[0];
- const run=++setupRun;
- const wait=ms=>new Promise(r=>setTimeout(r,motion()?ms:0));
- $$('.lp-pick').forEach(b=>b.classList.toggle('is-on',b.dataset.arg===p.id));
- buildEl.querySelectorAll('li').forEach(li=>{li.className='';li.querySelector('em').textContent=''});
- $('#setup-summary').textContent='';
- $('#setup-state').textContent=t('Thinking');
- typedEl.textContent='';
- const text=t(p.prompt);
- if(motion()){
-  for(const ch of text){if(run!==setupRun)return;typedEl.textContent+=ch;await wait(18);}
- }else typedEl.textContent=text;
- await wait(320);if(run!==setupRun)return;
- const built=buildFloor(p);
- const results=[t(p.type)+' · '+e(branchName),num(p.items)+' '+t('draft items'),num(built.tables.length)+' '+t('tables')+' · '+num(built.tables.reduce((n,x)=>n+x.capacity,0))+' '+t('seats')];
- const items=[...buildEl.querySelectorAll('li')];
- for(let i=0;i<items.length;i++){
-  if(run!==setupRun)return;
-  items[i].className='is-working';
-  await wait(560);
-  if(run!==setupRun)return;
-  items[i].className='is-done';
-  items[i].querySelector('em').textContent=results[i];
-  if(i===2){setupFloorEl.innerHTML=setupFloorSvg(p);drawFloor(setupFloorEl);}
- }
- $('#setup-state').textContent=t('Draft ready');
- $('#setup-summary').textContent=t('Draft saved locally. Nothing is published yet.');
-}
-scene($('#setup-console'),()=>{if(!setupRun)runSetup('bistro')});
+loop($('#hero-stage'),2300,heroTick);
 
 /* --------------------------------------------------------- 02 floor studio */
 const canvasEl=$('#studio-canvas'),panelEl=$('#studio-panel'),trackEl=$('#studio-track');
 function renderStudio(full){
  if(full)canvasEl.innerHTML=studioSvg();
- else studioTables.forEach((x,i)=>{
-  const g=canvasEl.querySelector(`[data-object-id="${CSS.escape(x.id)}"]`);
-  if(g)g.setAttribute('class',`floor-object svg-table state-${studioState(x,i)}`);
- });
  panelEl.innerHTML=studioPanel();
+ $('#studio-stats').innerHTML=[[studioDraft.zones.length,'zones'],[studioTables.length,'tables'],[studioTables.reduce((n,x)=>n+x.capacity,0),'seats'],[studioDraft.objects.length,'objects']].map(([n,l])=>`<span><b>${num(n)}</b> ${t(l)}</span>`).join('');
 }
-function setMode(mode){
- if(studio.mode===mode)return;
- studio.mode=mode;
- $$('[data-lp="mode"]').forEach(b=>{const on=b.dataset.arg===mode;b.classList.toggle('is-on',on);b.setAttribute('aria-selected',String(on))});
- $('#studio-hint').textContent=t(mode==='design'?'Select any table, then change its seats, shape and angle. The chairs redraw with it.':mode==='reserve'?'Pick a party size. Tables that cannot seat it step back automatically.':'This is the live board: seated, cooking, ready, paying, being turned.');
+// Where a point on the plan sits on screen, relative to the tour's host.
+function studioPoint(x,y){
+ const svg=canvasEl.querySelector('svg'),vb=svg.viewBox.baseVal,r=svg.getBoundingClientRect(),h=$('#studio .lp-shell').getBoundingClientRect();
+ const k=Math.min(r.width/vb.width,r.height/vb.height),ox=r.left+(r.width-vb.width*k)/2,oy=r.top+(r.height-vb.height*k)/2;
+ return {x:Math.min(r.right-12,Math.max(r.left+12,ox+(x-vb.x)*k))-h.left,y:Math.min(r.bottom-12,Math.max(r.top+12,oy+(y-vb.y)*k))-h.top};
+}
+function studioPlace(o){
+ studioAdd(o);
+ if(o.capacity!==undefined)studio.sel=o.id;
  renderStudio(true);
+ canvasEl.querySelector(`[data-object-id="${CSS.escape(o.id)}"]`)?.classList.add('is-placed');
 }
-function studioScroll(){
- if(!trackEl||narrow()||!motion()||Date.now()<studio.pinned)return;
- const r=trackEl.getBoundingClientRect(),span=trackEl.offsetHeight-innerHeight;
- if(r.top>0||span<=0)return;
- const p=Math.min(1,-r.top/span);
- setMode(studioModes[p<.34?0:p<.68?1:2][0]);
+// A visitor can place things too: pick a tool, click the room.
+let placed=0;
+canvasEl.addEventListener('click',ev=>{
+ if(!ev.isTrusted||ev.target.closest('.svg-table'))return;
+ const svg=canvasEl.querySelector('svg'),p=new DOMPoint(ev.clientX,ev.clientY).matrixTransform(svg.getScreenCTM().inverse()),x=Math.round(p.x),y=Math.round(p.y),id='v-'+(++placed);
+ const made={Table:()=>({...draftTable(studioTables.length+1,'square',4,x,y),id}),Plant:()=>({id,type:'plant',label:'Plant',x,y,width:46,height:46,rotation:0}),Door:()=>({id,type:'door',label:t('Entrance'),x,y,width:110,height:35,rotation:0}),Counter:()=>({id,type:'counter',label:t('Bar'),x,y,width:70,height:200,rotation:0})}[studio.tool];
+ if(made)studioPlace(made());
+});
+renderStudio(false);
+
+const tourOpts={t,reduced:reduced.matches};
+// Saving the room gives every table its own QR code.
+function studioCodes(on){
+ canvasEl.querySelectorAll('.lp-qr-chip').forEach(x=>x.remove());
+ canvasEl.classList.toggle('is-saved',on);
+ if(!on)return;
+ const host=$('#studio .lp-shell').getBoundingClientRect(),box=canvasEl.getBoundingClientRect();
+ studioTables.forEach((x,i)=>{
+  const p=studioPoint(x.cx,x.cy),chip=document.createElement('span');
+  chip.className='lp-qr-chip';chip.style.cssText=`left:${p.x+host.left-box.left}px;top:${p.y+host.top-box.top}px;--i:${i}`;
+  chip.innerHTML=`<i aria-hidden="true"></i><b>${e(x.label)}</b>`;
+  canvasEl.append(chip);
+ });
 }
-loop($('.lp-studio-stage'),2800,()=>{if(studio.mode==='operate'){studio.tick++;renderStudio(false)}});
+createTour($('#studio .lp-shell'),{...tourOpts,pointer:'cursor',hold:3600,
+ manualHint:'Pick Table, Plant, Door or Counter, then click the room. Click a table to change its shape and seats.',
+ onTakeover:()=>studioCodes(false),
+ script:async({c,tap,say,cursor})=>{
+  canvasEl.classList.add('is-swap');
+  await c.wait(320);
+  studioCodes(false);studioClear();renderStudio(true);
+  canvasEl.classList.remove('is-swap');
+  say('Draw the room');
+  await tap(c,'[data-lp="tool"][data-arg="Zone"]',{ms:440,wait:120});
+  await cursor.move(c,studioPoint(600,290),480);await cursor.press(c);
+  studioRoom.forEach(studioPlace);
+  await c.wait(800);
+  say('Place the tables');
+  await tap(c,'[data-lp="tool"][data-arg="Table"]',{ms:440,wait:120});
+  await cursor.move(c,studioPoint(230,200),460);await cursor.press(c);
+  for(const o of studioSeats){studioPlace(o);await c.wait(170)}
+  await c.wait(500);
+  say('Change a table’s shape');
+  await tap(c,'[data-lp="tool"][data-arg="Select"]',{ms:400,wait:100});
+  await cursor.move(c,studioPoint(800,200),440);await cursor.press(c);
+  studio.sel='b-t3';renderStudio(true);
+  await c.wait(350);
+  await tap(c,'[data-lp="shape"][data-arg="rect"]',{ms:520,wait:900});
+  say('Give it more seats');
+  await tap(c,'[data-lp="seats"][data-arg="1"]',{ms:420,wait:260});
+  await tap(c,'[data-lp="seats"][data-arg="1"]',{ms:120,wait:900});
+  say('Save: every table gets its own QR code');
+  studioExtras.forEach(studioAdd);studio.sel=null;renderStudio(true);
+  await tap(c,'[data-lp="save-room"]',{ms:520,wait:200});
+  await cursor.hide(c,200);
+ }
+});
 
 /* ------------------------------------------------------- 03 reservations  */
-const bookMapEl=$('#book-map'),bookCardEl=$('#book-card');
-function renderBook(){bookMapEl.innerHTML=bookMap();bookCardEl.innerHTML=bookCard();}
+mountReserve(root,{t,num,e,tables,reduced:reduced.matches});
 
 /* --------------------------------------------------------- 04 menu import */
-const rowsEl=$('#import-rows'),pipeEl=$('#import-pipeline');
-let importRun=0;
-async function runImport(id){
- const run=++importRun;
- const wait=ms=>new Promise(r=>setTimeout(r,motion()?ms:0));
- if(id)importState.source=id;
- $$('.lp-source').forEach(b=>b.classList.toggle('is-on',b.dataset.arg===importState.source));
- rowsEl.innerHTML=menu.map((_,i)=>`<div class="lp-row is-skeleton" style="--i:${i}"><span></span><span></span><span></span><span></span></div>`).join('');
- $('#import-count').textContent='0';
- const stageEls=[...pipeEl.children];
- stageEls.forEach(s=>s.className='lp-pipe-step');
- for(let i=0;i<stageEls.length;i++){
-  if(run!==importRun)return;
-  stageEls[i].className='lp-pipe-step is-active';
-  await wait(260);
-  if(run!==importRun)return;
-  stageEls[i].className='lp-pipe-step is-done';
- }
- rowsEl.innerHTML='';
- for(let i=0;i<menu.length;i++){
-  if(run!==importRun)return;
-  rowsEl.insertAdjacentHTML('beforeend',importRow(menu[i],i));
-  $('#import-count').textContent=num(i+1);
-  await wait(55);
- }
-}
-scene($('.lp-workspace'),()=>{if(!importRun)runImport()});
+mountImport(root,{t,money,num,reduced:reduced.matches});
 
 /* --------------------------------------------------------- 05 guest phone */
 const screenEl=$('#phone-screen');
-function setService(i,manual){
+const slide=el=>{if(motion())el.animate([{opacity:0,transform:`translateX(${rtl?-22:22}px)`},{opacity:1,transform:'none'}],{duration:420,easing:'cubic-bezier(.32,.72,0,1)'})};
+let trackTimer=0;
+function setService(i){
  service.step=(i+serviceSteps.length)%serviceSteps.length;
  $$('#service-steps li').forEach((li,n)=>li.classList.toggle('is-on',n===service.step));
- screenEl.classList.add('is-swap');
+ // On a phone the steps are a sideways strip: keep the current one in view without moving the page.
+ const strip=$('#service-steps'),cur=strip.children[service.step];
+ if(strip.scrollWidth>strip.clientWidth)strip.scrollTo({left:cur.offsetLeft-strip.offsetLeft-16,behavior:motion()?'smooth':'auto'});
  screenEl.innerHTML=phoneScreen();
- requestAnimationFrame(()=>screenEl.classList.remove('is-swap'));
- if(manual)service.pinned=Date.now()+12000;
+ slide(screenEl.firstElementChild);
+ // On the status screen the kitchen's progress arrives on its own.
+ clearInterval(trackTimer);
+ if(service.step===3&&motion()){
+  service.status=0;
+  trackTimer=setInterval(()=>{if(document.hidden)return;if(++service.status>=3)clearInterval(trackTimer);syncTrack()},1500);
+ }else if(service.step===3)service.status=1;
 }
-loop($('.lp-service-stage'),5200,()=>{if(!(Date.now()<(service.pinned||0)))setService(service.step+1)});
+// Status moves on in place, so the line fills rather than the screen redrawing.
+function syncTrack(){
+ screenEl.querySelectorAll('.lp-track li').forEach((li,i)=>li.className=i<service.status?'done':i===service.status?'now':'');
+}
+// Adding a dish changes that row and the order bar; nothing else is redrawn.
+function syncMenu(){
+ screenEl.querySelectorAll('[data-lp="add"]').forEach(b=>{
+  const on=service.cart.has(b.dataset.arg);
+  b.closest('.lp-scr-dish').classList.toggle('is-added',on);
+  b.setAttribute('aria-pressed',String(on));
+  b.firstElementChild.textContent=on?'✓':'+';
+ });
+ const dock=screenEl.querySelector('.lp-scr-dock');
+ if(!dock)return;
+ dock.disabled=!service.cart.size;
+ dock.firstElementChild.textContent=`${num(service.cart.size)} ${t('in your order')}`;
+ dock.lastElementChild.textContent=money(cartTotal());
+ if(motion())dock.animate([{transform:'scale(1)'},{transform:'scale(1.035)'},{transform:'scale(1)'}],{duration:320,easing:'cubic-bezier(.25,1,.5,1)'});
+}
+createTour($('.lp-service-stage'),{...tourOpts,pointer:'touch',hold:1800,
+ manualHint:'Click a step, add a dish, then confirm the order.',
+ script:async({c,tap,say,cursor})=>{
+  // Only taps a guest would make are shown, and only inside the phone.
+  await cursor.hide(c,1);
+  say('Scan the QR on the table');
+  setService(0);
+  await c.wait(2200);
+  say('The menu opens: add what you want');
+  setService(1);
+  await c.wait(1100);
+  cursor.set(screenEl,.5,.82);await cursor.show(c,260);
+  await tap(c,`[data-lp="add"][data-arg="${CSS.escape(pickable[0].id)}"]`,{ms:640,wait:750});
+  if(pickable[2])await tap(c,`[data-lp="add"][data-arg="${CSS.escape(pickable[2].id)}"]`,{ms:560,wait:950});
+  say('Review the order');
+  await tap(c,'[data-lp="cart"]',{ms:620,wait:1700});
+  say('Confirm: it goes straight to the kitchen');
+  await tap(c,'[data-lp="confirm"]',{ms:600,wait:500});
+  await cursor.hide(c,200);
+  say('Then follow the status the kitchen sets');
+  await c.wait(5200);
+ },
+ rewind:async()=>{service.cart.clear();service.status=0},
+ onTakeover:()=>clearInterval(trackTimer)
+});
 scene($('.lp-service-stage'),()=>root.classList.add('lp-media-on'));
-
-/* -------------------------------------------------------------07 payments */
-const payEl=$('#pay-stage');
-function renderPay(){payEl.innerHTML=payStage()}
-let payHold=0;
-loop($('.lp-payments'),2400,()=>{
- const max=pay.mode==='full'?1:4;
- if(pay.settled<max){pay.settled++;payHold=0;return renderPay()}
- // Hold the settled table for a beat, then run it again so a visitor who
- // arrives late still sees the bill close itself.
- if(++payHold>=3){payHold=0;pay.settled=0;pay.rated=false;renderPay()}
-});
-
-/* ------------------------------------------------------ 08 ai manager     */
-const insightEl=$('#insight-list');
-scene($('.lp-insights'),()=>{
- if(insightEl.dataset.done)return;
- insightEl.dataset.done='1';
- const states=['Reading kitchen load','Comparing to last Friday','3 signals worth raising'];
- [...insightEl.children].forEach((li,i)=>setTimeout(()=>li.classList.add('is-in'),motion()?260*i+200:0));
- if(motion())states.forEach((s,i)=>setTimeout(()=>{$('#ops-state').textContent=t(s)},700*(i+1)));
-});
-
-/* ----------------------------------------------------------- 09 connect   */
-const orbitEl=$('#orbit'),detailEl=$('#connect-detail');
-function renderConnect(){orbitEl.innerHTML=patchBoard();detailEl.innerHTML=connectDetail();}
-
-/* ------------------------------------------------------------ 10 pricing  */
-function renderPlans(){
- $('#plan-grid').innerHTML=planCards();
- $$('[data-lp="billing"]').forEach(b=>b.classList.toggle('is-on',(b.dataset.arg==='yearly')===price.yearly));
-}
 
 /* ===================================================================== */
 /* one delegated interaction handler                                     */
@@ -976,9 +613,15 @@ root.addEventListener('click',ev=>{
   const arg=el.dataset.arg;
   switch(el.dataset.lp){
    case 'drawer':return setDrawer(arg==='open');
-   case 'preset':return void runSetup(arg);
-   case 'mode':studio.pinned=Date.now()+10000;return setMode(arg);
-   case 'tool':return $$('[data-lp="tool"]').forEach(b=>b.classList.toggle('is-on',b===el));
+   case 'save-room':studio.sel=null;renderStudio(true);return studioCodes(true);
+   case 'tool':studio.tool=arg;return $$('[data-lp="tool"]').forEach(b=>b.classList.toggle('is-on',b===el));
+   case 'feature':{
+    const x=studioTables.find(y=>y.id===studio.sel);
+    if(!x)return;
+    if(arg==='premium')x.premium=!x.premium;
+    else x.features=x.features.includes(arg)?x.features.filter(f=>f!==arg):[...x.features,arg];
+    return renderStudio(true);
+   }
    case 'seats':{
     const x=studioTables.find(y=>y.id===studio.sel);
     x.capacity=Math.min(12,Math.max(1,x.capacity+Number(arg)));
@@ -991,25 +634,10 @@ root.addEventListener('click',ev=>{
     if(arg==='rect'){x.width=160;x.height=90}else{const s=Math.min(150,80+x.capacity*7);x.width=s;x.height=s}
     return renderStudio(true);
    }
-   case 'party':studio.party=Number(arg);return renderStudio(true);
-   case 'slot':book.slot=arg;book.done=false;return renderBook();
-   case 'bparty':{
-    book.party=Number(arg);book.done=false;
-    if(!bookable().some(x=>x.id===book.table))book.table=bookable()[0]?.id||book.table;
-    return renderBook();
-   }
-   case 'hold':book.done=true;return renderBook();
-   case 'rebook':book.done=false;return renderBook();
-   case 'source':return void runImport(arg);
-   case 'replay-import':return void runImport();
-   case 'service':return setService(Number(arg),true);
-   case 'split':pay.mode=arg;pay.settled=0;pay.rated=false;$$('.lp-mode').forEach(b=>b.classList.toggle('is-on',b.dataset.arg===arg));return renderPay();
-   case 'settle':pay.settled=Math.min(pay.mode==='full'?1:4,pay.settled+1);return renderPay();
-   case 'rate':pay.rated=true;return renderPay();
-   case 'replay-pay':pay.settled=0;pay.rated=false;return renderPay();
-   case 'cmode':connect.mode=arg;connect.kind=arg==='native'?'module':'provider';connect.node=0;$$('[data-lp="cmode"]').forEach(b=>{const on=b.dataset.arg===arg;b.classList.toggle('is-on',on);b.setAttribute('aria-selected',String(on))});return renderConnect();
-   case 'node':{const [kind,index]=arg.split(':');connect.kind=kind==='m'?'module':'provider';connect.node=Number(index);return renderConnect();}
-   case 'billing':price.yearly=arg==='yearly';return renderPlans();
+   case 'service':return setService(Number(arg));
+   case 'add':service.cart.has(arg)?service.cart.delete(arg):service.cart.add(arg);return syncMenu();
+   case 'cart':return service.cart.size?setService(2):undefined;
+   case 'confirm':return service.cart.size?setService(3):undefined;
   }
   return;
  }
@@ -1017,8 +645,7 @@ root.addEventListener('click',ev=>{
  if(!tableEl2)return;
  const id=tableEl2.dataset.objectId;
  if(tableEl2.closest('#hero-floor')){const i=heroIds.indexOf(id);if(i>=0)heroDetail(i);return}
- if(tableEl2.closest('#studio-canvas')){studio.sel=id;studio.pinned=Date.now()+10000;return renderStudio(true)}
- if(tableEl2.closest('#book-map')){if(bookable().some(x=>x.id===id)){book.table=id;book.done=false;renderBook()}}
+ if(tableEl2.closest('#studio-canvas')){studio.sel=id;return renderStudio(true)}
 });
 root.addEventListener('input',ev=>{
  if(ev.target.dataset.lp!=='rotate')return;
@@ -1033,34 +660,11 @@ root.addEventListener('keydown',ev=>{
  if(g&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();g.dispatchEvent(new MouseEvent('click',{bubbles:true}))}
 });
 
-/* ------------------------------------------------------------- 06 kitchen */
-const board=$('#kds-board');
-let ticketSeq=47;
-const ticketEl=t2=>`<article class="lp-ticket-card" data-id="${t2.id}" data-min="${t2.min}"><header><b>#${num(t2.id)}</b><span>${t('Table')} ${num(t2.table)}</span><time>${String(t2.min).padStart(2,'0')}:00</time></header><span class="lp-station">${t(t2.station)}</span><ul>${t2.items.map(x=>`<li>${t(x)}</li>`).join('')}</ul></article>`;
-kdsSeed.forEach(x=>board.querySelector(`[data-list="${kdsColumns[x.col][0]}"]`).insertAdjacentHTML('beforeend',ticketEl(x)));
-function kdsAdvance(){
- const cols=kdsColumns.map(([id])=>board.querySelector(`[data-list="${id}"]`));
- const done=cols[2].firstElementChild;
- if(done){done.classList.add('is-out');setTimeout(()=>done.remove(),420)}
- for(let i=2;i>0;i--){
-  const card=cols[i-1].firstElementChild;
-  if(card){card.classList.add('is-move');cols[i].append(card);setTimeout(()=>card.classList.remove('is-move'),60)}
- }
- const seedRow=kdsSeed[ticketSeq%kdsSeed.length];
- cols[0].insertAdjacentHTML('beforeend',ticketEl({...seedRow,id:++ticketSeq,min:0}));
- $('#kds-open').textContent=num(board.querySelectorAll('.lp-ticket-card').length);
-}
-function kdsClock(){
- board.querySelectorAll('.lp-ticket-card').forEach(card=>{
-  const m=Number(card.dataset.min),s=(Number(card.dataset.sec||0)+7)%60;
-  card.dataset.sec=s;
-  if(!s)card.dataset.min=m+1;
-  card.querySelector('time').textContent=`${String(card.dataset.min).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  card.classList.toggle('is-late',Number(card.dataset.min)>=8);
- });
-}
-loop($('.lp-kds'),3600,kdsAdvance);
-loop($('.lp-kds-board'),1000,kdsClock);
+/* ------------------------------------------------- kitchen, manager, pricing */
+mountKitchen(root,{t,num,e,reduced:reduced.matches});
+mountManager(root,{t,num,money,reduced:reduced.matches});
+mountBill(root,{t,money,num,reduced:reduced.matches});
+mountPricing(root,{t,num,e,plans:pricing.plans||[],reduced:reduced.matches});
 
 /* ------------------------------------------------------------- resize     */
 let wide=!narrow(),rt;
