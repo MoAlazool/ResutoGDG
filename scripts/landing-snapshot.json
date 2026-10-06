@@ -1,0 +1,1458 @@
+{
+ "public": {
+  "payments": {
+   "mode": "test",
+   "providers": [],
+   "methods": [
+    {
+     "id": "cash",
+     "kind": "request",
+     "available": true,
+     "confirmation": "restaurant"
+    },
+    {
+     "id": "card",
+     "kind": "online",
+     "available": false,
+     "providers": []
+    },
+    {
+     "id": "wallet",
+     "kind": "online",
+     "available": false,
+     "providers": []
+    },
+    {
+     "id": "instapay",
+     "kind": "manual",
+     "available": false,
+     "confirmation": "manager"
+    }
+   ],
+   "instapayAddress": null
+  },
+  "settings": {
+   "deliveryFee": 3500,
+   "duration": 90,
+   "branch": "Zamalek, Cairo",
+   "deposit": 20000,
+   "serviceMode": "tables",
+   "reservationsEnabled": true,
+   "deliveryEnabled": true,
+   "buffer": 15,
+   "background": null,
+   "name": "The Olive Room"
+  },
+  "brand": {
+   "name": "The Olive Room",
+   "logo": null
+  },
+  "branches": [
+   {
+    "name": "Zamalek, Cairo",
+    "deliveryAreas": [
+     "Zamalek",
+     "الزمالك"
+    ],
+    "paymentProvider": "auto",
+    "reservations": true,
+    "delivery": true,
+    "nameAr": "الزمالك، القاهرة",
+    "pickup": true,
+    "active": true,
+    "id": "main"
+   },
+   {
+    "id": "burger",
+    "reservations": false,
+    "name": "Smash & Co",
+    "deliveryAreas": [
+     "Downtown",
+     "وسط البلد"
+    ],
+    "delivery": true,
+    "nameAr": "سماش آند كو",
+    "pickup": true,
+    "active": true,
+    "paymentProvider": "auto"
+   }
+  ],
+  "menu": [
+   {
+    "addons": [],
+    "category": "Starters",
+    "stock": 12,
+    "variants": [],
+    "spice": 0,
+    "imageMediaKey": "menu-m0-3f59e32dd2c1.webp",
+    "descriptionAr": "بوراتا كريمية وطماطم ناضجة وريحان طازج.",
+    "version": 38,
+    "dietary": [
+     "vegetarian"
+    ],
+    "vegetarian": true,
+    "imageUrl": "/media/menu-m0-3f59e32dd2c1.webp",
+    "branchIds": [
+     "main"
+    ],
+    "price": 14500,
+    "modifiers": [],
+    "available": true,
+    "description": "Creamy burrata, ripe tomatoes and fresh basil.",
+    "id": "m0",
+    "imageIndex": 0,
+    "name": "Burrata & heirloom tomato",
+    "nameAr": "بوراتا مع الطماطم",
+    "ingredients": [],
+    "allergens": [
+     "milk"
+    ],
+    "station": "Cold kitchen",
+    "prepMinutes": null
+   },
+   {
+    "descriptionAr": "شوربة قرع مشوي ناعمة بتتبيلة خفيفة.",
+    "stock": 15,
+    "spice": 0,
+    "branchIds": [
+     "main"
+    ],
+    "price": 9500,
+    "addons": [],
+    "imageIndex": 1,
+    "name": "Roasted pumpkin soup",
+    "version": 10,
+    "prepMinutes": null,
+    "id": "m1",
+    "station": "Hot kitchen",
+    "modifiers": [],
+    "available": true,
+    "dietary": [
+     "vegetarian"
+    ],
+    "ingredients": [],
+    "variants": [],
+    "description": "Silky roasted pumpkin, gently seasoned.",
+    "nameAr": "شوربة القرع المشوي",
+    "category": "Starters",
+    "allergens": [],
+    "vegetarian": true
+   },
+   {
+    "variants": [],
+    "ingredients": [],
+    "imageIndex": 2,
+    "name": "Grilled chicken supreme",
+    "version": 8,
+    "addons": [],
+    "category": "Mains",
+    "dietary": [],
+    "modifiers": [],
+    "available": true,
+    "station": "Grill",
+    "prepMinutes": null,
+    "description": "Grilled chicken with seasonal vegetables.",
+    "allergens": [],
+    "descriptionAr": "دجاج مشوي مع خضروات موسمية.",
+    "vegetarian": false,
+    "branchIds": [
+     "main"
+    ],
+    "nameAr": "دجاج مشوي مع الخضروات",
+    "stock": 11,
+    "id": "m2",
+    "price": 28500,
+    "spice": 0
+   },
+   {
+    "id": "m3",
+    "spice": 0,
+    "price": 24500,
+    "ingredients": [],
+    "imageIndex": 3,
+    "prepMinutes": null,
+    "stock": 15,
+    "version": 3,
+    "category": "Mains",
+    "variants": [],
+    "station": "Hot kitchen",
+    "branchIds": [
+     "main"
+    ],
+    "descriptionAr": "أرز كريمي مع تشكيلة من الفطر.",
+    "nameAr": "ريزوتو الفطر",
+    "description": "Creamy rice with wild mushrooms.",
+    "dietary": [
+     "vegetarian"
+    ],
+    "allergens": [
+     "milk"
+    ],
+    "addons": [],
+    "vegetarian": true,
+    "name": "Wild mushroom risotto",
+    "modifiers": [],
+    "available": true
+   },
+   {
+    "imageIndex": 4,
+    "ingredients": [],
+    "prepMinutes": null,
+    "allergens": [
+     "fish",
+     "milk"
+    ],
+    "dietary": [],
+    "stock": 12,
+    "station": "Grill",
+    "addons": [],
+    "price": 34500,
+    "version": 0,
+    "description": "Seabass with lemon butter and greens.",
+    "spice": 0,
+    "available": true,
+    "modifiers": [],
+    "nameAr": "قاروص بزبدة الليمون",
+    "category": "Mains",
+    "variants": [],
+    "vegetarian": false,
+    "name": "Seabass with lemon butter",
+    "descriptionAr": "قاروص مع زبدة الليمون والخضروات.",
+    "id": "m4",
+    "branchIds": [
+     "main"
+    ]
+   },
+   {
+    "name": "Garden harvest bowl",
+    "allergens": [],
+    "nameAr": "سلطة الحديقة",
+    "modifiers": [],
+    "available": true,
+    "imageIndex": 5,
+    "description": "A colorful bowl of seasonal vegetables.",
+    "descriptionAr": "تشكيلة ملونة من الخضروات الموسمية.",
+    "addons": [],
+    "category": "Mains",
+    "id": "m5",
+    "vegetarian": true,
+    "branchIds": [
+     "main"
+    ],
+    "stock": 17,
+    "prepMinutes": null,
+    "version": 3,
+    "variants": [],
+    "price": 18500,
+    "dietary": [
+     "vegetarian"
+    ],
+    "spice": 0,
+    "ingredients": [],
+    "station": "Cold kitchen"
+   },
+   {
+    "vegetarian": true,
+    "ingredients": [],
+    "allergens": [
+     "milk",
+     "eggs",
+     "wheat"
+    ],
+    "id": "m6",
+    "descriptionAr": "كيك شوكولاتة دافئ بقلب ناعم.",
+    "prepMinutes": null,
+    "station": "Pastry",
+    "category": "Desserts",
+    "modifiers": [],
+    "available": true,
+    "dietary": [
+     "vegetarian"
+    ],
+    "description": "Warm chocolate cake with a soft center.",
+    "version": 4,
+    "addons": [],
+    "variants": [],
+    "spice": 0,
+    "price": 12500,
+    "imageIndex": 6,
+    "stock": 10,
+    "nameAr": "فون دان الشوكولاتة",
+    "branchIds": [
+     "main"
+    ],
+    "name": "Chocolate fondant"
+   },
+   {
+    "addons": [],
+    "imageIndex": 7,
+    "id": "m7",
+    "stock": 26,
+    "branchIds": [
+     "main"
+    ],
+    "descriptionAr": "كركديه بارد يقدم مع الثلج.",
+    "spice": 0,
+    "price": 6500,
+    "description": "Chilled hibiscus, served over ice.",
+    "vegetarian": true,
+    "allergens": [],
+    "name": "Hibiscus cooler",
+    "nameAr": "كركديه مثلج",
+    "category": "Drinks",
+    "available": true,
+    "modifiers": [],
+    "prepMinutes": null,
+    "version": 6,
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "ingredients": [],
+    "station": "Bar"
+   },
+   {
+    "addons": [],
+    "allergens": [
+     "wheat",
+     "milk"
+    ],
+    "descriptionAr": "قطعتا لحم مسحوق، جبنة، مخلل، وصوص البيت.",
+    "id": "b0",
+    "modifiers": [
+     {
+      "available": true,
+      "required": false,
+      "name": "Extra cheese",
+      "id": "extra-cheese",
+      "price": 1500,
+      "nameAr": "جبنة إضافية"
+     },
+     {
+      "nameAr": "إضافة بيكون",
+      "price": 2500,
+      "required": false,
+      "name": "Add bacon",
+      "available": true,
+      "id": "bacon"
+     },
+     {
+      "name": "Make it spicy",
+      "available": true,
+      "nameAr": "زودها حرارة",
+      "id": "spicy",
+      "required": false,
+      "price": 0
+     }
+    ],
+    "available": true,
+    "category": "Burgers",
+    "spice": 0,
+    "version": 0,
+    "price": 13500,
+    "variants": [],
+    "dietary": [],
+    "stock": 40,
+    "imageIndex": -1,
+    "station": "Grill",
+    "ingredients": [],
+    "prepMinutes": null,
+    "branchIds": [
+     "burger"
+    ],
+    "nameAr": "برجر سماش كلاسيك",
+    "vegetarian": false,
+    "name": "Classic Smash",
+    "description": "Two smashed patties, cheese, pickles, house sauce."
+   },
+   {
+    "name": "Double Smash",
+    "description": "Four patties for a serious appetite.",
+    "category": "Burgers",
+    "nameAr": "دوبل سماش",
+    "allergens": [
+     "wheat",
+     "milk"
+    ],
+    "id": "b1",
+    "variants": [],
+    "station": "Grill",
+    "prepMinutes": null,
+    "dietary": [],
+    "imageIndex": -1,
+    "version": 0,
+    "ingredients": [],
+    "modifiers": [
+     {
+      "price": 1500,
+      "available": true,
+      "name": "Extra cheese",
+      "required": false,
+      "id": "extra-cheese",
+      "nameAr": "جبنة إضافية"
+     },
+     {
+      "id": "bacon",
+      "nameAr": "إضافة بيكون",
+      "name": "Add bacon",
+      "available": true,
+      "price": 2500,
+      "required": false
+     },
+     {
+      "name": "Make it spicy",
+      "nameAr": "زودها حرارة",
+      "required": false,
+      "available": true,
+      "price": 0,
+      "id": "spicy"
+     }
+    ],
+    "available": true,
+    "stock": 30,
+    "spice": 0,
+    "price": 18500,
+    "descriptionAr": "أربع قطع لحم لمن يريد وجبة دسمة.",
+    "vegetarian": false,
+    "branchIds": [
+     "burger"
+    ],
+    "addons": []
+   },
+   {
+    "id": "b2",
+    "name": "Crispy Chicken",
+    "branchIds": [
+     "burger"
+    ],
+    "ingredients": [],
+    "addons": [],
+    "prepMinutes": null,
+    "variants": [],
+    "stock": 35,
+    "spice": 0,
+    "imageIndex": -1,
+    "category": "Burgers",
+    "description": "Buttermilk chicken, slaw, spicy mayo.",
+    "price": 14500,
+    "available": true,
+    "modifiers": [
+     {
+      "required": false,
+      "nameAr": "جبنة إضافية",
+      "price": 1500,
+      "name": "Extra cheese",
+      "id": "extra-cheese",
+      "available": true
+     },
+     {
+      "required": false,
+      "available": true,
+      "nameAr": "إضافة بيكون",
+      "name": "Add bacon",
+      "id": "bacon",
+      "price": 2500
+     },
+     {
+      "price": 0,
+      "id": "spicy",
+      "name": "Make it spicy",
+      "available": true,
+      "nameAr": "زودها حرارة",
+      "required": false
+     }
+    ],
+    "version": 0,
+    "dietary": [],
+    "station": "Fryer",
+    "descriptionAr": "دجاج متبّل مقرمش مع سلطة كول سلو ومايونيز حار.",
+    "nameAr": "برجر دجاج مقرمش",
+    "allergens": [
+     "wheat"
+    ],
+    "vegetarian": false
+   },
+   {
+    "id": "b3",
+    "prepMinutes": null,
+    "ingredients": [],
+    "description": "Charred mushroom patty, smoked cheese.",
+    "vegetarian": true,
+    "branchIds": [
+     "burger"
+    ],
+    "category": "Burgers",
+    "addons": [],
+    "variants": [],
+    "stock": 20,
+    "allergens": [
+     "wheat"
+    ],
+    "nameAr": "برجر نباتي",
+    "name": "Veggie Smash",
+    "descriptionAr": "قرص فطر مشوي مع جبنة مدخّنة.",
+    "spice": 0,
+    "price": 12500,
+    "station": "Grill",
+    "dietary": [
+     "vegetarian"
+    ],
+    "modifiers": [
+     {
+      "id": "extra-cheese",
+      "name": "Extra cheese",
+      "available": true,
+      "price": 1500,
+      "nameAr": "جبنة إضافية",
+      "required": false
+     },
+     {
+      "nameAr": "إضافة بيكون",
+      "required": false,
+      "id": "bacon",
+      "price": 2500,
+      "available": true,
+      "name": "Add bacon"
+     },
+     {
+      "available": true,
+      "id": "spicy",
+      "required": false,
+      "nameAr": "زودها حرارة",
+      "name": "Make it spicy",
+      "price": 0
+     }
+    ],
+    "available": true,
+    "imageIndex": -1,
+    "version": 0
+   },
+   {
+    "nameAr": "بطاطس محمّلة",
+    "branchIds": [
+     "burger"
+    ],
+    "id": "b4",
+    "variants": [],
+    "descriptionAr": "بطاطس تحت صوص الجبنة والهالابينو.",
+    "category": "Sides",
+    "imageIndex": -1,
+    "dietary": [
+     "vegetarian"
+    ],
+    "description": "Fries under cheese sauce and jalapeños.",
+    "station": "Fryer",
+    "name": "Loaded Fries",
+    "modifiers": [
+     {
+      "name": "Cheese sauce",
+      "required": false,
+      "id": "cheese-sauce",
+      "nameAr": "صوص جبنة",
+      "price": 1200,
+      "available": true
+     }
+    ],
+    "available": true,
+    "version": 0,
+    "stock": 45,
+    "addons": [],
+    "prepMinutes": null,
+    "vegetarian": true,
+    "ingredients": [],
+    "spice": 0,
+    "price": 8500,
+    "allergens": [
+     "milk"
+    ]
+   },
+   {
+    "version": 0,
+    "stock": 60,
+    "vegetarian": true,
+    "station": "Fryer",
+    "branchIds": [
+     "burger"
+    ],
+    "name": "Classic Fries",
+    "dietary": [
+     "vegetarian"
+    ],
+    "spice": 0,
+    "price": 5500,
+    "id": "b5",
+    "nameAr": "بطاطس مقلية",
+    "ingredients": [],
+    "variants": [],
+    "available": true,
+    "modifiers": [
+     {
+      "price": 1200,
+      "required": false,
+      "id": "cheese-sauce",
+      "nameAr": "صوص جبنة",
+      "available": true,
+      "name": "Cheese sauce"
+     }
+    ],
+    "category": "Sides",
+    "addons": [],
+    "imageIndex": -1,
+    "prepMinutes": null,
+    "descriptionAr": "مقرمشة بقشرها، مملّحة، من المقلاة مباشرة.",
+    "allergens": [],
+    "description": "Skin-on, salted, straight from the fryer."
+   },
+   {
+    "category": "Sides",
+    "branchIds": [
+     "burger"
+    ],
+    "ingredients": [],
+    "prepMinutes": null,
+    "id": "b6",
+    "vegetarian": true,
+    "variants": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "addons": [],
+    "station": "Fryer",
+    "description": "Thick-cut rings in a crisp batter.",
+    "descriptionAr": "حلقات سميكة بعجينة مقرمشة.",
+    "version": 0,
+    "imageIndex": -1,
+    "nameAr": "حلقات بصل",
+    "available": true,
+    "modifiers": [
+     {
+      "available": true,
+      "price": 1200,
+      "nameAr": "صوص جبنة",
+      "name": "Cheese sauce",
+      "required": false,
+      "id": "cheese-sauce"
+     }
+    ],
+    "name": "Onion Rings",
+    "stock": 30,
+    "allergens": [
+     "wheat"
+    ],
+    "spice": 0,
+    "price": 6500
+   },
+   {
+    "id": "b7",
+    "spice": 0,
+    "vegetarian": true,
+    "price": 7500,
+    "ingredients": [],
+    "category": "Shakes",
+    "allergens": [
+     "milk"
+    ],
+    "variants": [],
+    "prepMinutes": null,
+    "stock": 25,
+    "available": true,
+    "modifiers": [],
+    "description": "Thick shake, real chocolate.",
+    "nameAr": "ميلك شيك شوكولاتة",
+    "imageIndex": -1,
+    "descriptionAr": "ميلك شيك كثيف بشوكولاتة حقيقية.",
+    "addons": [],
+    "version": 0,
+    "name": "Chocolate Shake",
+    "branchIds": [
+     "burger"
+    ],
+    "station": "Bar",
+    "dietary": [
+     "vegetarian"
+    ]
+   },
+   {
+    "allergens": [],
+    "nameAr": "كولا",
+    "description": "Served over ice.",
+    "id": "b8",
+    "prepMinutes": null,
+    "modifiers": [],
+    "available": true,
+    "vegetarian": true,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "station": "Bar",
+    "name": "Cola",
+    "version": 0,
+    "descriptionAr": "تُقدَّم مع الثلج.",
+    "branchIds": [
+     "burger"
+    ],
+    "stock": 80,
+    "imageIndex": -1,
+    "variants": [],
+    "addons": [],
+    "category": "Drinks",
+    "spice": 0,
+    "price": 3500
+   }
+  ],
+  "floor": {
+   "width": 1200,
+   "objects": [
+    {
+     "y": 40,
+     "locked": false,
+     "width": 1120,
+     "hidden": false,
+     "material": "stone",
+     "label": "North wall",
+     "x": 600,
+     "id": "demo-wall",
+     "rotation": 0,
+     "height": 16,
+     "type": "wall"
+    },
+    {
+     "hidden": false,
+     "type": "window",
+     "material": "stone",
+     "locked": false,
+     "y": 52,
+     "id": "demo-window",
+     "rotation": 0,
+     "label": "Window side",
+     "x": 800,
+     "width": 550,
+     "height": 12
+    },
+    {
+     "height": 35,
+     "y": 740,
+     "id": "demo-entry",
+     "type": "door",
+     "label": "Entrance",
+     "x": 110,
+     "locked": false,
+     "hidden": false,
+     "width": 110,
+     "rotation": 0,
+     "material": "stone"
+    },
+    {
+     "rotation": 0,
+     "hidden": false,
+     "x": 1090,
+     "locked": false,
+     "label": "Bar",
+     "material": "stone",
+     "y": 300,
+     "height": 250,
+     "type": "counter",
+     "width": 70,
+     "id": "demo-bar"
+    },
+    {
+     "material": "stone",
+     "label": "Plant",
+     "hidden": false,
+     "locked": false,
+     "id": "demo-plant-0",
+     "rotation": 0,
+     "x": 180,
+     "type": "plant",
+     "height": 42,
+     "width": 42,
+     "y": 495
+    },
+    {
+     "x": 600,
+     "height": 42,
+     "width": 42,
+     "y": 495,
+     "label": "Plant",
+     "material": "stone",
+     "rotation": 0,
+     "locked": false,
+     "hidden": false,
+     "id": "demo-plant-1",
+     "type": "plant"
+    },
+    {
+     "height": 42,
+     "label": "Plant",
+     "x": 1020,
+     "id": "demo-plant-2",
+     "y": 495,
+     "type": "plant",
+     "hidden": false,
+     "locked": false,
+     "rotation": 0,
+     "width": 42,
+     "material": "stone"
+    }
+   ],
+   "background": {
+    "width": 1200,
+    "opacity": 0.4,
+    "locked": true,
+    "image": null,
+    "y": 0,
+    "height": 800,
+    "x": 0
+   },
+   "revision": 7,
+   "schemaVersion": 2,
+   "zones": [
+    {
+     "color": "#e9e6dc",
+     "width": 1080,
+     "x": 600,
+     "locked": false,
+     "type": "zone",
+     "hidden": false,
+     "id": "demo-main",
+     "y": 280,
+     "material": "stone",
+     "label": "Main Room",
+     "height": 450,
+     "rotation": 0
+    },
+    {
+     "locked": false,
+     "hidden": false,
+     "label": "Terrace",
+     "type": "zone",
+     "y": 625,
+     "id": "demo-terrace",
+     "color": "#e0e9d7",
+     "rotation": 0,
+     "height": 220,
+     "width": 1080,
+     "x": 600,
+     "material": "stone"
+    }
+   ],
+   "height": 800,
+   "tables": [
+    {
+     "id": "9ae38957146571c8bafee3c0d83598a7",
+     "label": "T1",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "round",
+     "cx": 230,
+     "cy": 160,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Center"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "0b86ce1f053ec4151b1787485373de52",
+     "label": "T2",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "square",
+     "cx": 460,
+     "cy": 160,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Center"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "741924ed7e684a43ad841388ec824a29",
+     "label": "T3",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "square",
+     "cx": 460,
+     "cy": 380,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Center"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "dbd2af5408d4047c53b7b181e119abd5",
+     "label": "T4",
+     "capacity": 6,
+     "zone": "Terrace",
+     "shape": "round",
+     "cx": 920,
+     "cy": 600,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Smoking",
+      "Terrace"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "e78919a21459d6da3caadd41e1b63adc",
+     "label": "T5",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "square",
+     "cx": 230,
+     "cy": 380,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Center"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "1ddefdc597edc49f921081cf1bffa324",
+     "label": "T6",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "square",
+     "cx": 690,
+     "cy": 160,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Window side"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": true
+    },
+    {
+     "id": "7b9e4f20eab8a834172ce37c237b727b",
+     "label": "T7",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "round",
+     "cx": 690,
+     "cy": 380,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Center"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "e119bb8159cad9260c95d29bd5d5927d",
+     "label": "T8",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "square",
+     "cx": 920,
+     "cy": 380,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Center"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "a85d7cdca8fa519e2de7afa34d54db50",
+     "label": "T9",
+     "capacity": 4,
+     "zone": "Terrace",
+     "shape": "square",
+     "cx": 690,
+     "cy": 600,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Smoking",
+      "Quiet area",
+      "Far from entrance",
+      "Terrace"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "732bf1ef466d462a5a314ff2bc31e2bb",
+     "label": "T10",
+     "capacity": 4,
+     "zone": "Terrace",
+     "shape": "round",
+     "cx": 460,
+     "cy": 600,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Smoking",
+      "Terrace"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "d9197ab20b6e6250191254e8f30f867c",
+     "label": "T11",
+     "capacity": 4,
+     "zone": "Terrace",
+     "shape": "square",
+     "cx": 230,
+     "cy": 600,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Smoking",
+      "Terrace"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    },
+    {
+     "id": "825cd0f0aca345c8ddb14e9555880c08",
+     "label": "T12",
+     "capacity": 4,
+     "zone": "Main Room",
+     "shape": "square",
+     "cx": 920,
+     "cy": 160,
+     "width": 100,
+     "height": 100,
+     "rotation": 0,
+     "features": [
+      "Non-smoking",
+      "Center"
+     ],
+     "reservable": true,
+     "branchId": "main",
+     "minimumSpend": 0,
+     "premium": false
+    }
+   ]
+  },
+  "tables": [
+   {
+    "id": "9ae38957146571c8bafee3c0d83598a7",
+    "cy": 160,
+    "height": 100,
+    "y": 20,
+    "active": true,
+    "zone": "Main Room",
+    "features": [
+     "Non-smoking",
+     "Center"
+    ],
+    "version": 0,
+    "shape": "round",
+    "x": 19.166666666666668,
+    "cleaning": false,
+    "minimumSpend": 0,
+    "width": 100,
+    "label": "T1",
+    "capacity": 4,
+    "reservable": true,
+    "rotation": 0,
+    "branchId": "main",
+    "cx": 230,
+    "qr": "demo",
+    "size": 100,
+    "premium": false,
+    "available": false
+   },
+   {
+    "reservable": true,
+    "size": 100,
+    "x": 38.333333333333336,
+    "features": [
+     "Non-smoking",
+     "Center"
+    ],
+    "premium": false,
+    "shape": "square",
+    "active": true,
+    "y": 20,
+    "id": "0b86ce1f053ec4151b1787485373de52",
+    "height": 100,
+    "cy": 160,
+    "cx": 460,
+    "cleaning": false,
+    "qr": "demo",
+    "minimumSpend": 0,
+    "width": 100,
+    "rotation": 0,
+    "version": 0,
+    "branchId": "main",
+    "capacity": 4,
+    "zone": "Main Room",
+    "label": "T2",
+    "available": true
+   },
+   {
+    "size": 100,
+    "shape": "square",
+    "cleaning": false,
+    "y": 47.5,
+    "cx": 460,
+    "qr": "demo",
+    "premium": false,
+    "branchId": "main",
+    "rotation": 0,
+    "capacity": 4,
+    "reservable": true,
+    "x": 38.333333333333336,
+    "label": "T3",
+    "features": [
+     "Non-smoking",
+     "Center"
+    ],
+    "zone": "Main Room",
+    "width": 100,
+    "id": "741924ed7e684a43ad841388ec824a29",
+    "active": true,
+    "cy": 380,
+    "version": 0,
+    "height": 100,
+    "minimumSpend": 0,
+    "available": true
+   },
+   {
+    "height": 100,
+    "reservable": true,
+    "version": 0,
+    "active": true,
+    "cx": 920,
+    "qr": "demo",
+    "size": 100,
+    "shape": "round",
+    "features": [
+     "Smoking",
+     "Terrace"
+    ],
+    "zone": "Terrace",
+    "cleaning": false,
+    "width": 100,
+    "id": "dbd2af5408d4047c53b7b181e119abd5",
+    "cy": 600,
+    "minimumSpend": 0,
+    "x": 76.66666666666667,
+    "premium": false,
+    "label": "T4",
+    "y": 75,
+    "capacity": 6,
+    "rotation": 0,
+    "branchId": "main",
+    "available": true
+   },
+   {
+    "zone": "Main Room",
+    "height": 100,
+    "active": true,
+    "label": "T5",
+    "cleaning": false,
+    "version": 0,
+    "minimumSpend": 0,
+    "cy": 380,
+    "width": 100,
+    "capacity": 4,
+    "id": "e78919a21459d6da3caadd41e1b63adc",
+    "branchId": "main",
+    "rotation": 0,
+    "reservable": true,
+    "qr": "demo",
+    "x": 19.166666666666668,
+    "cx": 230,
+    "shape": "square",
+    "premium": false,
+    "size": 100,
+    "y": 47.5,
+    "features": [
+     "Non-smoking",
+     "Center"
+    ],
+    "available": true
+   },
+   {
+    "active": true,
+    "shape": "square",
+    "height": 100,
+    "features": [
+     "Non-smoking",
+     "Window side"
+    ],
+    "y": 20,
+    "size": 100,
+    "minimumSpend": 0,
+    "x": 57.5,
+    "qr": "demo",
+    "version": 0,
+    "cx": 690,
+    "capacity": 4,
+    "cy": 160,
+    "branchId": "main",
+    "id": "1ddefdc597edc49f921081cf1bffa324",
+    "reservable": true,
+    "rotation": 0,
+    "label": "T6",
+    "cleaning": false,
+    "width": 100,
+    "premium": true,
+    "zone": "Main Room",
+    "available": true
+   },
+   {
+    "size": 100,
+    "y": 47.5,
+    "capacity": 4,
+    "label": "T7",
+    "version": 0,
+    "branchId": "main",
+    "rotation": 0,
+    "minimumSpend": 0,
+    "id": "7b9e4f20eab8a834172ce37c237b727b",
+    "cy": 380,
+    "width": 100,
+    "cleaning": false,
+    "x": 57.5,
+    "active": true,
+    "height": 100,
+    "shape": "round",
+    "cx": 690,
+    "premium": false,
+    "reservable": true,
+    "qr": "demo",
+    "features": [
+     "Non-smoking",
+     "Center"
+    ],
+    "zone": "Main Room",
+    "available": true
+   },
+   {
+    "label": "T8",
+    "version": 0,
+    "zone": "Main Room",
+    "cleaning": false,
+    "cx": 920,
+    "qr": "demo",
+    "branchId": "main",
+    "rotation": 0,
+    "width": 100,
+    "capacity": 4,
+    "premium": false,
+    "x": 76.66666666666667,
+    "id": "e119bb8159cad9260c95d29bd5d5927d",
+    "reservable": true,
+    "minimumSpend": 0,
+    "shape": "square",
+    "cy": 380,
+    "height": 100,
+    "active": true,
+    "features": [
+     "Non-smoking",
+     "Center"
+    ],
+    "y": 47.5,
+    "size": 100,
+    "available": true
+   },
+   {
+    "cx": 690,
+    "rotation": 0,
+    "size": 100,
+    "branchId": "main",
+    "qr": "demo",
+    "capacity": 4,
+    "version": 0,
+    "minimumSpend": 0,
+    "shape": "square",
+    "cleaning": false,
+    "features": [
+     "Smoking",
+     "Quiet area",
+     "Far from entrance",
+     "Terrace"
+    ],
+    "width": 100,
+    "x": 57.5,
+    "zone": "Terrace",
+    "premium": false,
+    "id": "a85d7cdca8fa519e2de7afa34d54db50",
+    "y": 75,
+    "active": true,
+    "cy": 600,
+    "reservable": true,
+    "height": 100,
+    "label": "T9",
+    "available": true
+   },
+   {
+    "x": 38.333333333333336,
+    "premium": false,
+    "label": "T10",
+    "y": 75,
+    "minimumSpend": 0,
+    "width": 100,
+    "cy": 600,
+    "zone": "Terrace",
+    "features": [
+     "Smoking",
+     "Terrace"
+    ],
+    "id": "732bf1ef466d462a5a314ff2bc31e2bb",
+    "qr": "demo",
+    "active": true,
+    "reservable": true,
+    "cx": 460,
+    "height": 100,
+    "shape": "round",
+    "size": 100,
+    "cleaning": false,
+    "version": 0,
+    "capacity": 4,
+    "branchId": "main",
+    "rotation": 0,
+    "available": true
+   },
+   {
+    "shape": "square",
+    "cleaning": false,
+    "size": 100,
+    "reservable": true,
+    "active": true,
+    "premium": false,
+    "minimumSpend": 0,
+    "branchId": "main",
+    "id": "d9197ab20b6e6250191254e8f30f867c",
+    "rotation": 0,
+    "cy": 600,
+    "height": 100,
+    "capacity": 4,
+    "cx": 230,
+    "y": 75,
+    "label": "T11",
+    "qr": "demo",
+    "features": [
+     "Smoking",
+     "Terrace"
+    ],
+    "version": 0,
+    "width": 100,
+    "zone": "Terrace",
+    "x": 19.166666666666668,
+    "available": true
+   },
+   {
+    "active": true,
+    "capacity": 4,
+    "branchId": "main",
+    "height": 100,
+    "rotation": 0,
+    "size": 100,
+    "cx": 920,
+    "label": "T12",
+    "reservable": true,
+    "qr": "demo",
+    "cleaning": false,
+    "width": 100,
+    "version": 0,
+    "features": [
+     "Non-smoking",
+     "Center"
+    ],
+    "shape": "square",
+    "y": 20,
+    "minimumSpend": 0,
+    "id": "825cd0f0aca345c8ddb14e9555880c08",
+    "cy": 160,
+    "premium": false,
+    "x": 76.66666666666667,
+    "zone": "Main Room",
+    "available": true
+   }
+  ]
+ },
+ "plans": {
+  "plans": [
+   {
+    "id": "starter",
+    "name": "Starter",
+    "monthly": 799,
+    "branches": 1,
+    "staff": 2
+   },
+   {
+    "id": "growth",
+    "name": "Growth",
+    "monthly": 1499,
+    "branches": 1,
+    "staff": 10
+   },
+   {
+    "id": "pro",
+    "name": "Pro",
+    "monthly": 2999,
+    "branches": 3
+   },
+   {
+    "id": "business",
+    "name": "Business",
+    "monthly": null
+   }
+  ],
+  "billingEnabled": false
+ },
+ "qr": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 33 33\" shape-rendering=\"crispEdges\"><path fill=\"#ffffff\" d=\"M0 0h33v33H0z\"/><path stroke=\"#000000\" d=\"M2 2.5h7m3 0h2m1 0h1m4 0h1m3 0h7M2 3.5h1m5 0h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h1m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m1 0h4m2 0h2m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h1m2 0h2m2 0h1m1 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m2 0h3m2 0h1m1 0h1m1 0h3m1 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m2 0h1m1 0h1m1 0h1m8 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M10 9.5h2m1 0h2m3 0h1m1 0h2M2 10.5h1m5 0h1m1 0h1m2 0h7m2 0h3m2 0h3M2 11.5h1m4 0h1m2 0h1m1 0h2m2 0h2m2 0h2m1 0h1m1 0h2m1 0h2M3 12.5h4m1 0h1m2 0h1m5 0h2m6 0h2M2 13.5h2m2 0h2m1 0h3m1 0h1m2 0h2m3 0h2m2 0h3M3 14.5h1m1 0h6m6 0h1m4 0h1m1 0h1m5 0h1M4 15.5h1m4 0h1m1 0h2m1 0h2m1 0h2m2 0h2m1 0h3m2 0h2M3 16.5h1m1 0h1m1 0h2m1 0h3m2 0h6m1 0h1m1 0h2m1 0h2M2 17.5h1m2 0h1m1 0h1m4 0h2m2 0h1m3 0h2m1 0h1m2 0h1m1 0h1m1 0h1M2 18.5h1m4 0h2m2 0h1m2 0h4m1 0h3m3 0h1m1 0h2M2 19.5h1m1 0h4m2 0h1m2 0h2m1 0h7m1 0h3m1 0h3M2 20.5h3m1 0h1m1 0h1m2 0h2m2 0h1m1 0h2m2 0h2m1 0h1m1 0h2m2 0h1M2 21.5h1m2 0h1m4 0h1m2 0h1m3 0h1m2 0h7M2 22.5h1m2 0h2m1 0h1m1 0h3m4 0h3m1 0h6m1 0h3M10 23.5h1m2 0h5m2 0h1m1 0h1m3 0h2M2 24.5h7m6 0h8m1 0h1m1 0h3M2 25.5h1m5 0h1m3 0h4m1 0h2m3 0h1m3 0h1m2 0h1M2 26.5h1m1 0h3m1 0h1m3 0h1m1 0h2m2 0h1m2 0h7m1 0h1M2 27.5h1m1 0h3m1 0h1m8 0h1m1 0h5m3 0h2m1 0h1M2 28.5h1m1 0h3m1 0h1m3 0h1m1 0h2m1 0h3m1 0h1m1 0h7M2 29.5h1m5 0h1m2 0h1m4 0h1m6 0h2m2 0h2m1 0h1M2 30.5h7m1 0h1m5 0h1m2 0h1m1 0h1m1 0h1m2 0h3\"/></svg>\n"
+}
