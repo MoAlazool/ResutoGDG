@@ -2,7 +2,8 @@
 
    The landing page normally asks the Resuto server for the demo restaurant.
    Here that data comes from a saved snapshot, so the page needs no server.
-   Every other route (demo restaurant, booking, staff, pricing) is redirected
+   The pricing page is included too. Every other route (demo restaurant,
+   booking, staff, accounts) is redirected
    to the running app by vercel.json.
 
      node scripts/build-static-landing.mjs              build into dist-landing/
@@ -40,8 +41,8 @@ const scripts=new Set();
  const src=readFileSync(path.join(pub,file),'utf8');
  for(const m of src.matchAll(/(?:from|import)\s*\(?\s*'(\.\/[^']+\.js)'/g)){
   const next=path.posix.join(path.posix.dirname(file),m[1]);
-  // entry.js routes to other pages' modules; the static site only serves the landing page.
-  if(file==='entry.js'&&!['i18n.js','landing.js'].includes(next))continue;
+  // entry.js routes to other pages' modules; the static site only serves the landing and pricing pages.
+  if(file==='entry.js'&&!['i18n.js','landing.js','pricing.js'].includes(next))continue;
   walk(next);
  }
 })('entry.js');
@@ -57,11 +58,14 @@ readdirSync(path.join(pub,'assets')).filter(f=>used.includes('/assets/'+f)).forE
 
 mkdirSync(path.join(out,'data'));
 writeFileSync(path.join(out,'data','public.json'),JSON.stringify(snap.public));
-writeFileSync(path.join(out,'data','plans.json'),JSON.stringify(snap.plans));
+// With no server to receive the sales form, the pricing page links to the app's form instead.
+writeFileSync(path.join(out,'data','plans.json'),JSON.stringify({...snap.plans,salesUrl:APP+'/pricing#sales'}));
 writeFileSync(path.join(out,'data','capabilities.json'),JSON.stringify({native:true,connectors:[],payments:[]}));
 writeFileSync(path.join(out,'data','qr.svg'),snap.qr);
 
-writeFileSync(path.join(out,'index.html'),renderShell(readFileSync(path.join(pub,'index.html'),'utf8'),new URL(SITE+'/'),SITE));
+const shell=readFileSync(path.join(pub,'index.html'),'utf8');
+writeFileSync(path.join(out,'index.html'),renderShell(shell,new URL(SITE+'/'),SITE));
+writeFileSync(path.join(out,'pricing.html'),renderShell(shell,new URL(SITE+'/pricing'),SITE));
 writeFileSync(path.join(out,'robots.txt'),`User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap.xml\n`);
-writeFileSync(path.join(out,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n <url><loc>${SITE}/</loc><xhtml:link rel="alternate" hreflang="en" href="${SITE}/"/><xhtml:link rel="alternate" hreflang="ar" href="${SITE}/?lang=ar"/></url>\n</urlset>\n`);
+writeFileSync(path.join(out,'sitemap.xml'),`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n <url><loc>${SITE}/</loc><xhtml:link rel="alternate" hreflang="en" href="${SITE}/"/><xhtml:link rel="alternate" hreflang="ar" href="${SITE}/?lang=ar"/></url>\n <url><loc>${SITE}/pricing</loc><xhtml:link rel="alternate" hreflang="en" href="${SITE}/pricing"/><xhtml:link rel="alternate" hreflang="ar" href="${SITE}/pricing?lang=ar"/></url>\n</urlset>\n`);
 console.log(`built dist-landing: ${scripts.size} scripts, ${readdirSync(path.join(out,'assets')).length} images, site ${SITE}, app ${APP}`);

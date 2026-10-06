@@ -6,7 +6,8 @@ import {t,language,switcher} from './i18n.js';
 import {planLists,faq} from './plan-comparison.js';
 import {comparisonTable,countTo} from './landing-pricing.js';
 
-const {plans}=await api('plans');
+// `salesUrl` is set only on the static build, where there is no server to receive the form.
+const {plans,salesUrl}=await api('plans');
 const rtl=language==='ar',arrow=rtl?'←':'→';
 const num=n=>new Intl.NumberFormat(rtl?'ar-EG':'en-US').format(n);
 const wanted=new URLSearchParams(location.search).get('plan');
@@ -63,13 +64,13 @@ function render(){
  </div></section>
  <section class="pr-sales sales-panel" id="sales"><div class="lp-shell pr-sales-in">
   <div><h2>${c('Let’s shape your setup.','لنصمم ما يناسبك.')}</h2><p>${c('Tell us what you need. Your request is saved to this installation’s private manager inbox. Email notifications are not enabled.','أخبرنا بما تحتاجه. يُحفظ طلبك في صندوق المدير الخاص بهذه النسخة. إشعارات البريد غير مفعّلة.')}</p></div>
-  <form id="sales-form" class="pr-form">
+  ${salesUrl?`<div class="pr-form"><a class="lp-btn lp-btn-solid" href="${e(salesUrl)}">${c('Open the inquiry form','افتح نموذج الطلب')} ${arrow}</a></div>`:`<form id="sales-form" class="pr-form">
    <label>${c('Restaurant / company','المطعم / الشركة')}<input name="restaurant" required maxlength="120" autocomplete="organization"></label>
    <label>${c('Email','البريد الإلكتروني')}<input name="email" type="email" required autocomplete="email" dir="ltr"></label>
    <label>${c('Branches','الفروع')}<input name="branches" type="number" min="1" max="500" value="1" required></label>
    <label class="is-wide">${c('What do you need?','ماذا تحتاج؟')}<textarea name="requirements" required maxlength="1000" rows="3"></textarea></label>
    <button class="lp-btn lp-btn-solid" type="submit">${c('Send inquiry','إرسال الطلب')} ${arrow}</button>
-  </form>
+  </form>`}
  </div></section>
  </main>
  <footer class="pr-foot"><div class="lp-shell"><a href="/">${c('Resuto home','الرئيسية')}</a><a href="/restaurant">${c('Restaurant demo','تجربة المطعم')}</a><a href="/reserve">${c('Reserve a table','احجز طاولة')}</a><a href="/menu">${c('Menu','القائمة')}</a><small>© ${new Date().getFullYear()} Resuto</small></div></footer>`;
