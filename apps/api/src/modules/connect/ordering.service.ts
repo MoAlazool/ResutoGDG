@@ -272,7 +272,7 @@ export class OrderingService {
         const money = (m: number) => formatMoney(m, q.currency as 'EGP' | 'SAR', l);
         const lines = q.lines.map((x) => `${x.quantity} × ${l === 'ar' && x.nameAr ? x.nameAr : x.name}${x.modifiers.length ? ` (${x.modifiers.map((m) => (l === 'ar' && m.optionAr) || m.option).join(', ')})` : ''} — ${money(x.lineTotalMinor)}`).join('\n');
         const buttons = [
-          ...(this.checkoutPort ? [{ id: 'pay:online', title: copy(l, 'payOnline') }] : []),
+          ...((await this.onlineAvailable(conv.org_id)) ? [{ id: 'pay:online', title: copy(l, 'payOnline') }] : []),
           { id: 'pay:cod', title: copy(l, s.fulfillment === 'delivery' ? 'payCod' : 'payAtPickup') },
         ];
         await this.send(tx, conv, { type: 'buttons', body: copy(l, 'review', { lines, subtotal: money(q.subtotalMinor), total: money(q.totalMinor),
@@ -360,6 +360,11 @@ export class OrderingService {
     }, `ordering_session:${ref.id}`);
   }
 
+  /** Online payment needs ResutoPay deployed (port bound) AND this restaurant entitled to the pay module. */
+  private async onlineAvailable(orgId: string): Promise<boolean> {
+    return !!this.checkoutPort && (await this.entitlements.isEnabled(orgId, 'pay'));
+  }
+
   private async publicView(tx: Tx, s: SessionRow, conv: ConversationRow | null) {
     const org = await tx.one<any>(`select name, name_ar, currency, slug from organizations where id = $1`, [s.org_id]);
     const branch = s.branch_id ? await tx.maybeOne<any>(`select id, name, name_ar, address, delivery_fee_minor, min_order_minor from branches where id = $1`, [s.branch_id]) : null;
@@ -369,7 +374,7 @@ export class OrderingService {
       org: { name: org.name, nameAr: org.name_ar, currency: org.currency, slug: org.slug },
       branch: branch ? { id: branch.id, name: branch.name, nameAr: branch.name_ar, address: branch.address, deliveryFeeMinor: Number(branch.delivery_fee_minor), minOrderMinor: Number(branch.min_order_minor) } : null,
       fulfillment: s.state.fulfillment ?? null, customerName: s.state.customerName ?? null, address: s.state.address ?? null,
-      marketingConsent: s.state.marketingConsent ?? false, paymentOnlineAvailable: !!this.checkoutPort,
+      marketingConsent: s.state.marketingConsent ?? false, paymentOnlineAvailable: await this.onlineAvailable(s.org_id),
       cart: s.state.cart ?? [], quote: s.state.quote ?? null, order: s.state.order ?? null,
       paymentMethod: s.state.paymentMethod ?? null, checkoutUrl: s.step === 'awaiting_payment' ? s.state.checkout?.url ?? null : null,
     };

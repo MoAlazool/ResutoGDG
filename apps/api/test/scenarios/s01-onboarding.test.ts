@@ -1,6 +1,6 @@
 // S01 — Restaurant onboarding, in the order a new owner does it, through HTTP only.
 // signup → restaurant (EG) → second branch → bilingual menu with modifiers →
-// (website: no Studio API in this tree yet) → floor layout with tables → QR print sheet.
+// website published → floor layout with tables → QR print sheet.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addMember, auth, bootTestApp, sql, unique, type TestApp, type TestTenant, type TestUser } from '../helpers';
 import { qrTokenFor, saveFloor, table } from '../ops-fixtures';
@@ -90,11 +90,19 @@ describe('S01 restaurant onboarding', () => {
     expect(zamalek.body.categories.flatMap((c: any) => c.products).map((p: any) => p.id)).toContain(menu.burger);
   });
 
-  it('5. website: the Studio API has no controller in this tree, so only the seeded website row is checked', async () => {
-    // apps/api/src/modules/studio/studio.module.ts declares `controllers: []` (Agent F is still finishing it).
-    // Onboarding seeds the website and its sections atomically; that is all that can be checked today.
-    const [site] = await sql(`select count(*)::int as n from websites where org_id = $1`, [tenant.orgId]);
-    expect(site.n).toBe(1);
+  it('5. publishes the restaurant website with menu highlights; drafts stay private until then', async () => {
+    const studio = `/v1/o/${tenant.orgId}/studio`;
+    expect((await t.http.get(`/v1/public/sites/${tenant.slug}`)).status).toBe(404);
+    const site = (await t.http.get(`${studio}/website`).set(auth(owner))).body;
+    const highlights = site.sections.find((x: any) => x.kind === 'menu_highlights');
+    expect((await t.http.patch(`${studio}/website/sections/${highlights.id}`).set(auth(owner))
+      .send({ content: { headline: { en: 'Favourites', ar: 'المفضلة' }, productIds: [menu.burger, menu.fries] } })).status).toBe(200);
+    const pub = await t.http.post(`${studio}/website/publish`).set(auth(owner)).send({ key: unique('publish') });
+    expect(pub.status).toBe(201);
+    const pubSite = await t.http.get(`/v1/public/sites/${tenant.slug}`);
+    expect(pubSite.status).toBe(200);
+    expect(pubSite.body.menuHighlights.map((p: any) => p.priceMinor)).toEqual([PRICES.burger, PRICES.fries]);
+    expect(JSON.stringify(pubSite.body)).not.toMatch(/costMinor|qrToken|qr_token/);
   });
 
   it('6. lays out the floor with tables; operational status starts available', async () => {

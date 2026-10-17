@@ -91,8 +91,8 @@ describe('S10 entitlements: Free → 402, upgrade → unlocked, past due beyond 
     expect((await sql(`select count(*)::int as n from checkout_sessions where org_id = $1`, [free.orgId]))[0].n).toBe(0);
   });
 
-  // DEFECT: G-02 The public web-ordering menu offers online payment to a restaurant without ResutoPay; checkout then fails with 402.
-  it.fails('4. the public ordering page does not offer online payment without ResutoPay', async () => {
+  // Regression for fixed defect G-02: The public web-ordering menu offers online payment to a restaurant without ResutoPay; checkout then fails with 402.
+  it('4. the public ordering page does not offer online payment without ResutoPay', async () => {
     const page = await t.http.get(`/v1/public/order/${free.slug}`);
     expect(page.status).toBe(200);
     expect(page.body.payment.online).toBe(false);

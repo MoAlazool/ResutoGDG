@@ -4,6 +4,7 @@ import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
+import { EntitlementsService } from '../../common/entitlements/entitlements.service';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
 import { PricingService, type Quote } from '../kernel/pricing.service';
@@ -40,6 +41,7 @@ export class GuestService {
     private readonly pricing: PricingService,
     private readonly menu: MenuService,
     private readonly idempotency: IdempotencyService,
+    private readonly entitlements: EntitlementsService,
     @Optional() @Inject(CHECKOUT_PORT) private readonly checkout?: CheckoutPort,
   ) {}
 
@@ -123,12 +125,15 @@ export class GuestService {
 
   async webMenu(slug: string, branchCode?: string) {
     const menu = await this.menu.publicMenu(slug, branchCode);
+    const org = await this.menu.resolveOrgBySlug(slug);
+    // Offer online payment only when ResutoPay is deployed and this restaurant's plan includes it.
+    const online = !!this.checkout && (await this.entitlements.isEnabled(org.id, 'pay'));
     return {
       ...menu,
       payment: {
         payAtPickup: menu.branch.acceptsPickup,
         cashOnDelivery: menu.branch.acceptsDelivery,
-        online: !!this.checkout,
+        online,
       },
     };
   }
@@ -158,7 +163,7 @@ export class GuestService {
       const { returnUrl: _r, ...payload } = body;
       const order = await this.idempotency.run(tx, ctx.orgId, 'web-order', key, payload, async () => {
         // Tracking links (Marketing) append rcid=<campaignId>; only this restaurant's campaigns count.
-        const rcid = body.attribution?.campaignId;
+        const rcid = body.attribution?.campaignId ?? body.attribution?.rcid;
         const campaign = rcid && /^[0-9a-f-]{36}$/i.test(rcid)
           ? await tx.maybeOne<{ id: string }>('select id from campaigns where id = $1 and org_id = $2', [rcid, ctx.orgId]) : null;
         const placed = await this.kernel.place(tx, ctx, {

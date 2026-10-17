@@ -32,7 +32,7 @@ S07 needs the AI service virtualenv (`apps/ai-service/.venv`) and starts it on p
 
 | # | Scenario | File | Steps | Result |
 |---|---|---|---|---|
-| S01 | Restaurant onboarding | `s01-onboarding.test.ts` | 8 | ✅ pass (website step limited: no Studio API) |
+| S01 | Restaurant onboarding | `s01-onboarding.test.ts` | 8 | ✅ pass |
 | S02 | Dine-in, split bill | `s02-dine-in.test.ts` | 10 | ✅ pass |
 | S03 | WhatsApp structured ordering | `s03-whatsapp-ordering.test.ts` | 6 | ✅ pass |
 | S04 | Delivery | `s04-delivery.test.ts` | 8 | ✅ pass |
@@ -59,7 +59,7 @@ defect steps, which vitest counts as passed because they fail as expected.
    and Size (required) and Extras modifier groups.
    - The public menu shows the Arabic names, groups and options, and no costs.
    - The second branch serves the same menu.
-5. Website: **the Studio module has no controller in this tree**, so only the seeded `websites` row is checked.
+5. Website: menu highlights set, published through the Studio API; the draft is private until publish and the public site exposes no costs or QR tokens.
 6. Floor layout with three tables (`PUT /floor/:branchId`), all `available`. The live floor shows no visits.
 7. QR print sheet (`GET /floor/:branchId/qr`): three unique `/t/<token>` URLs with SVGs.
    - The tokens appear in no other response: the public floor, public menu, web ordering page, staff floor,

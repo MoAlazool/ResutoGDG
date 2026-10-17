@@ -16,6 +16,8 @@ Module code was not changed. The suspected files and fixes below are suggestions
 
 ## G-01: Web orders placed from a tracking link are never attributed to the campaign
 
+**Status: fixed (lead, integration).** `/order/[slug]` forwards `utm_*`/`rcid`/`rsid`; `GuestService.webOrder` links the order to the campaign (raw `rcid` or `campaignId`) only when it belongs to the same restaurant. Regression: `s05` step 8, `test/web-attribution.test.ts`.
+
 - **Endpoint:** `POST /v1/public/order/:slug/orders` (web pickup/delivery ordering).
 - **Reproduction** (`apps/api/test/scenarios/s05-marketing.test.ts`, steps 6 and 8):
   1. Create a campaign and a tracking link with `POST /v1/o/:orgId/marketing/links` and
@@ -42,6 +44,8 @@ Module code was not changed. The suspected files and fixes below are suggestions
   query parameters from the web ordering page.
 
 ## G-02: The public ordering page offers online payment to restaurants without ResutoPay
+
+**Status: fixed (lead, integration).** Online payment is offered only when the checkout port is bound **and** the restaurant is entitled to `pay` — on the website ordering menu and in the WhatsApp/hosted ordering flow, which had the same flaw. Regression: `s10` step 4.
 
 - **Endpoint:** `GET /v1/public/order/:slug`, field `payment.online`.
 - **Reproduction** (`apps/api/test/scenarios/s10-entitlements.test.ts`, steps 3 and 4):

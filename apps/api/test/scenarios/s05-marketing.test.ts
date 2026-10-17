@@ -160,8 +160,8 @@ describe('S05 marketing: segment → approved campaign → send → click → at
     expect(report.body.disclaimer).toMatch(/not incremental/);
   });
 
-  // DEFECT: G-01 A web order placed from a tracking-link destination (/order/<slug>?rcid=…&rsid=…) is never attributed to the campaign.
-  it.fails('8. a web order placed from the link destination (rcid/rsid forwarded) is attributed to the campaign', async () => {
+  // Regression for fixed defect G-01: A web order placed from a tracking-link destination (/order/<slug>?rcid=…&rsid=…) is never attributed to the campaign.
+  it('8. a web order placed from the link destination (rcid/rsid forwarded) is attributed to the campaign', async () => {
     const attribution = Object.fromEntries([...destination.searchParams.entries()]);
     const web = await t.http.post(`/v1/public/order/${tenant.slug}/orders`).set('Idempotency-Key', key('web-attr')).send({
       branchId: tenant.branchId, fulfillment: 'pickup', payment: 'pay_at_pickup', lines: [{ productId: menu.soda, quantity: 2 }],
