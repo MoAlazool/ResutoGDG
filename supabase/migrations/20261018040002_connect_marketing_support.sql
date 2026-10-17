@@ -1,5 +1,11 @@
 -- Connect + Marketing (Agent C): bilingual bot replies, job indexes.
 
+-- Fix: the original check used '^[a-z0-9_]{1,512}$', which PostgreSQL cannot
+-- compile (regex repetition counts are limited to 255), so every insert failed.
+alter table public.message_templates drop constraint message_templates_name_check;
+alter table public.message_templates add constraint message_templates_name_check
+  check (name ~ '^[a-z0-9_]+$' and length(name) <= 512);
+
 -- Language the bot answers in (detected from the customer's messages).
 alter table public.conversations add column locale text not null default 'en' check (locale in ('en', 'ar'));
 
