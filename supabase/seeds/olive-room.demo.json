@@ -1,0 +1,21 @@
+{
+  "_note": "DEMO DATA for local development and demos. The Olive Room is a demo restaurant built from the legacy demo seed (tools/legacy-migration/fixtures). Its fictional orders, payments and guests are labelled '(synthetic)'. The Pro subscription is complimentary demo access: no payment is collected and no billing provider is involved.",
+  "fixture": "tools/legacy-migration/fixtures/olive-room.legacy-state.json",
+  "restaurantId": "olive-room-demo",
+  "slug": "the-olive-room",
+  "planId": "pro",
+  "subscriptionStatus": "active",
+  "owner": { "email": "owner@olive-room.demo.test", "fullName": "Demo Owner — The Olive Room" },
+  "platformAdmin": { "email": "platform-admin@resuto.demo.test", "fullName": "Local platform admin (demo)", "role": "superadmin" },
+  "photos": {
+    "_source": "Cropped from apps/web/public/brand/menu-photography.webp (the legacy menu photo sprite); tile i belongs to legacy menu item m<i>.",
+    "m0": "media/olive-room/m0.webp",
+    "m1": "media/olive-room/m1.webp",
+    "m2": "media/olive-room/m2.webp",
+    "m3": "media/olive-room/m3.webp",
+    "m4": "media/olive-room/m4.webp",
+    "m5": "media/olive-room/m5.webp",
+    "m6": "media/olive-room/m6.webp",
+    "m7": "media/olive-room/m7.webp"
+  }
+}

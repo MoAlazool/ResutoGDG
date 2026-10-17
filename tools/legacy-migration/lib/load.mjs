@@ -29,7 +29,6 @@ export async function loadPlan(client, plan, { dryRun = false, ownerUserId = nul
     const existed = (await client.query('select 1 from organizations where id = $1', [plan.orgId])).rowCount > 0;
     if (ownerUserId) {
       await client.query(`insert into profiles(id, email) values ($1, $2) on conflict (id) do nothing`, [ownerUserId, ownerEmail]);
-      await client.query(`update profiles set last_org_id = coalesce(last_org_id, $2) where id = $1`, [ownerUserId, plan.orgId]).catch(() => undefined);
     }
 
     const inserted = new Set();
@@ -52,6 +51,7 @@ export async function loadPlan(client, plan, { dryRun = false, ownerUserId = nul
     }
     if (plan.rows.organizations?.length && !inserted.has(plan.orgId) && !existed) throw new Error('organization row was not written');
     for (const u of plan.after) await client.query(u.sql, u.params);
+    if (ownerUserId) await client.query(`update profiles set last_org_id = coalesce(last_org_id, $2) where id = $1`, [ownerUserId, plan.orgId]);
     let mapped = 0;
     for (const m of plan.idMap) {
       const r = await client.query(
