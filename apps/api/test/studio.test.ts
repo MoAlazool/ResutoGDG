@@ -110,6 +110,9 @@ describe('publishing and the public website', () => {
     const menu = await seedMenu(tenant);
     expect((await t.http.get(`/v1/public/sites/${tenant.slug}`)).status).toBe(404);
 
+    const products = await t.http.get(`${base(tenant)}/products?q=smash`).set(auth(tenant.owner));
+    expect(products.body.items).toEqual([expect.objectContaining({ id: menu.products.burger, name: 'Smash burger', priceMinor: 18500 })]);
+    expect(products.body.items[0]).not.toHaveProperty('costMinor');
     const site = (await t.http.get(`${base(tenant)}/website`).set(auth(tenant.owner))).body;
     const highlights = site.sections.find((s: any) => s.kind === 'menu_highlights');
     await t.http.patch(`${base(tenant)}/website/sections/${highlights.id}`).set(auth(tenant.owner))

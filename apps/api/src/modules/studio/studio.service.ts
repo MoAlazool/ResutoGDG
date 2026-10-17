@@ -29,8 +29,9 @@ export class StudioService {
   async update(ctx: TenantContext, patch: UpdateWebsite) {
     return this.db.scoped(ctx, async (tx) => {
       const site = await this.site(tx, ctx, true);
-      const theme = patch.theme ? { ...site.theme, ...patch.theme } : site.theme;
-      const seo = patch.seo ? { ...site.seo, ...patch.seo } : site.seo;
+      // theme and seo are replaced as whole documents (omitted keys fall back to template defaults).
+      const theme = patch.theme ?? site.theme;
+      const seo = patch.seo ?? site.seo;
       await this.assertMedia(tx, ctx, [theme.logoMediaId, theme.heroMediaId, seo.ogMediaId]);
       await tx.query(
         `update websites set template = $2, theme = $3, seo = $4, draft_revision = draft_revision + 1 where id = $1`,
@@ -207,6 +208,22 @@ export class StudioService {
       await tx.query('delete from media_assets where id = $1', [mediaId]);
       await this.audit.record(tx, ctx, { action: 'media.deleted', entityType: 'media_asset', entityId: mediaId });
       return { deleted: true };
+    });
+  }
+
+  /** Active menu items (read model) for choosing website highlights. */
+  async products(ctx: TenantContext, search?: string) {
+    return this.db.scoped(ctx, async (tx) => {
+      const rows = await tx.query<any>(
+        `select p.id, p.name, p.name_ar, p.price_minor, p.currency, p.image_url, ma.path as image_path, c.name as category
+           from products p join menu_categories c on c.id = p.category_id left join media_assets ma on ma.id = p.image_media_id
+          where p.org_id = $1 and p.is_active and ($2::text is null or p.name ilike '%' || $2 || '%' or p.name_ar ilike '%' || $2 || '%')
+          order by c.sort_order, p.sort_order, p.name limit 200`, [ctx.orgId, search?.trim() || null]);
+      const items = await Promise.all(rows.map(async (r) => ({
+        id: r.id, name: r.name, nameAr: r.name_ar, category: r.category, priceMinor: Number(r.price_minor), currency: r.currency,
+        imageUrl: r.image_path ? await this.storage.signedUrl(r.image_path, 3600) : r.image_url,
+      })));
+      return { items, nextCursor: null };
     });
   }
 

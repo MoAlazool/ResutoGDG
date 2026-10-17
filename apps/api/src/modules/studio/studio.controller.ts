@@ -80,6 +80,12 @@ export class StudioController {
     return this.studio.restore(ctx, revision);
   }
 
+  @Get('products')
+  @RequirePermission('studio:read')
+  products(@Tenant() ctx: TenantContext, @Query('q') q?: string) {
+    return this.studio.products(ctx, typeof q === 'string' ? q.slice(0, 80) : undefined);
+  }
+
   // --- Media library ---------------------------------------------------------------
   @Get('media')
   @RequirePermission('studio:read')
