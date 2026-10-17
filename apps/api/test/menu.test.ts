@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { TenantContext } from '../src/common/auth/context';
+import { DbService } from '../src/common/db/db.service';
 import { addMember, auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant, type TestUser } from './helpers';
 
 let t: TestApp;
@@ -125,6 +127,31 @@ describe('menu CRUD', () => {
     expect(cross.status).toBe(404);
     const [row] = await sql('select name from products where id = $1', [p.body.id]);
     expect(row.name).toBe('Hawawshi');
+  });
+});
+
+describe('MENU_AVAILABILITY_PORT (ResutoMCP)', () => {
+  it('is bound to Symbol.for token and enforces tenant, branch scope, audit and outbox', async () => {
+    const port = t.app.get<any>(Symbol.for('resuto.MENU_AVAILABILITY_PORT'));
+    const db = t.app.get(DbService);
+    const p = await t.http.post(`${base()}/products`).set(auth(tenant.owner)).send({ categoryId, name: 'Sobia', priceMinor: 3000 });
+    const mcp = new TenantContext(tenant.orgId, 'manager', null, null, 'mcp_client', 'client-1', 'mcp');
+    const r = await db.scoped(mcp, (tx) => port.setAvailability(tx, mcp, { productId: p.body.id, branchId: tenant.branchId, available: false, reason: 'Out of dates', source: 'mcp' }));
+    expect(r).toEqual({ productId: p.body.id, branchId: tenant.branchId, available: false });
+    const [s] = await sql('select is_available from product_branch_settings where product_id = $1 and branch_id = $2', [p.body.id, tenant.branchId]);
+    expect(s.is_available).toBe(false);
+    const [audit] = await sql(`select actor_type, source, metadata from audit_logs where entity_id = $1 and action = 'menu.product.unavailable'`, [p.body.id]);
+    expect(audit).toMatchObject({ actor_type: 'mcp_client', source: 'mcp', metadata: { source: 'mcp', reason: 'Out of dates' } });
+    const [evt] = await sql(`select event_type from outbox_events where aggregate_id = $1 order by created_at desc limit 1`, [p.body.id]);
+    expect(evt.event_type).toBe('menu.updated');
+
+    const other = await createTenant(t);
+    const otherCtx = new TenantContext(other.orgId, 'manager', null, null, 'mcp_client', 'client-2', 'mcp');
+    await expect(db.scoped(otherCtx, (tx) => port.setAvailability(tx, otherCtx, { productId: p.body.id, branchId: other.branchId, available: true, source: 'mcp' })))
+      .rejects.toMatchObject({ code: 'not_found' });
+    const scoped = new TenantContext(tenant.orgId, 'manager', [other.branchId], null, 'mcp_client', 'client-3', 'mcp');
+    await expect(db.scoped(scoped, (tx) => port.setAvailability(tx, scoped, { productId: p.body.id, branchId: tenant.branchId, available: true, source: 'mcp' })))
+      .rejects.toMatchObject({ code: 'forbidden' });
   });
 });
 

@@ -11,6 +11,10 @@ import { OutboxService } from '../../common/platform/outbox.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { csvToRows, previewRows } from './menu-import';
 
+/** Cross-module port for ResutoMCP; the lead's kernel/ports.ts declares the same Symbol.for token. */
+export const MENU_AVAILABILITY_PORT = Symbol.for('resuto.MENU_AVAILABILITY_PORT');
+export interface MenuAvailabilityInput { productId: string; branchId: string; available: boolean; reason?: string | null; source: 'staff' | 'mcp' | 'ai' }
+
 const PRODUCT_COLUMNS: Record<string, string> = {
   categoryId: 'category_id', name: 'name', nameAr: 'name_ar', description: 'description', descriptionAr: 'description_ar',
   priceMinor: 'price_minor', costMinor: 'cost_minor', station: 'station', prepMinutes: 'prep_minutes', spiceLevel: 'spice_level',
@@ -268,15 +272,24 @@ export class MenuService {
   /** Quick 86 / un-86 from the kitchen or floor (`menu:availability`). */
   async toggleAvailability(ctx: TenantContext, productId: string, branchId: string, available: boolean) {
     ctx.assertBranch(branchId);
-    return this.db.scoped(ctx, async (tx) => {
-      if (!(await tx.maybeOne('select 1 from products where id = $1', [productId]))) throw notFound('Product');
-      if (!(await tx.maybeOne('select 1 from branches where id = $1', [branchId]))) throw notFound('Branch');
-      await tx.query(
-        `insert into product_branch_settings(org_id, product_id, branch_id, is_available) values ($1, $2, $3, $4)
-         on conflict (product_id, branch_id) do update set is_available = $4, updated_at = now()`, [ctx.orgId, productId, branchId, available]);
-      await this.changed(tx, ctx, available ? 'menu.product.available' : 'menu.product.unavailable', 'product', productId, { branchId, available });
-      return { productId, branchId, available };
-    });
+    return this.db.scoped(ctx, (tx) => this.setAvailability(tx, ctx, { productId, branchId, available, source: 'staff' }));
+  }
+
+  /**
+   * MENU_AVAILABILITY_PORT implementation (ResutoMCP, AI flows): marks a product
+   * available/unavailable at one branch inside the caller's tenant transaction.
+   */
+  async setAvailability(tx: Tx, ctx: TenantContext, input: MenuAvailabilityInput): Promise<{ productId: string; branchId: string; available: boolean }> {
+    ctx.assertBranch(input.branchId);
+    if (!(await tx.maybeOne('select 1 from products where id = $1 and org_id = $2', [input.productId, ctx.orgId]))) throw notFound('Product');
+    if (!(await tx.maybeOne('select 1 from branches where id = $1 and org_id = $2', [input.branchId, ctx.orgId]))) throw notFound('Branch');
+    await tx.query(
+      `insert into product_branch_settings(org_id, product_id, branch_id, is_available) values ($1, $2, $3, $4)
+       on conflict (product_id, branch_id) do update set is_available = $4, updated_at = now()`,
+      [ctx.orgId, input.productId, input.branchId, input.available]);
+    await this.changed(tx, ctx, input.available ? 'menu.product.available' : 'menu.product.unavailable', 'product', input.productId,
+      { branchId: input.branchId, available: input.available, source: input.source, reason: input.reason ?? null });
+    return { productId: input.productId, branchId: input.branchId, available: input.available };
   }
 
   // ---------------------------------------------------------------------------

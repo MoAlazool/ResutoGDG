@@ -56,7 +56,7 @@ const en: Record<string, string> = {
   'core.web.payOnDelivery': 'To pay on delivery', 'core.web.payAtPickup': 'To pay at pickup',
   // Reservations (guest)
   'core.res.title': 'Reserve a table', 'core.res.subtitle': 'Choose when you are coming, pick your table on the floor plan, and hold it for 5 minutes while you confirm.',
-  'core.res.when': 'Date & time', 'core.res.date': 'Date', 'core.res.party': 'Guests', 'core.res.guests': '{n} guests', 'core.res.time': 'Time',
+  'core.res.when': 'Date & time', 'core.res.noSlotsToday': 'Today’s sittings have passed. Choose another day.', 'core.res.date': 'Date', 'core.res.party': 'Guests', 'core.res.guests': '{n} guests', 'core.res.time': 'Time',
   'core.res.preferences': 'Table preferences', 'core.res.findTable': 'Find a table', 'core.res.yourTable': 'Your table', 'core.res.noneFree': 'No table fits at this time. Try:',
   'core.res.mapLabel': 'Floor plan — choose a table', 'core.res.seats': '{n} seats', 'core.res.legend.available': 'Available', 'core.res.legend.recommended': 'Best fit',
   'core.res.legend.unavailable': 'Unavailable', 'core.res.minSpend': 'Minimum spend {amount}', 'core.res.details': 'Your details', 'core.res.notes': 'Notes (occasion, allergies…)',
@@ -162,7 +162,7 @@ const ar: Record<string, string> = {
   'core.web.backToMenu': 'القائمة', 'core.web.awaitingPayment': 'ننتظر تأكيد الدفع قبل أن يبدأ المطبخ.',
   'core.web.payOnDelivery': 'يُدفع عند التوصيل', 'core.web.payAtPickup': 'يُدفع عند الاستلام',
   'core.res.title': 'احجز طاولة', 'core.res.subtitle': 'اختر موعدك وطاولتك على مخطط الصالة، ونحجزها لك 5 دقائق حتى تؤكد.',
-  'core.res.when': 'التاريخ والوقت', 'core.res.date': 'التاريخ', 'core.res.party': 'الضيوف', 'core.res.guests': '{n} ضيوف', 'core.res.time': 'الوقت',
+  'core.res.when': 'التاريخ والوقت', 'core.res.noSlotsToday': 'انتهت مواعيد اليوم. اختر يومًا آخر.', 'core.res.date': 'التاريخ', 'core.res.party': 'الضيوف', 'core.res.guests': '{n} ضيوف', 'core.res.time': 'الوقت',
   'core.res.preferences': 'تفضيلات الطاولة', 'core.res.findTable': 'ابحث عن طاولة', 'core.res.yourTable': 'طاولتك', 'core.res.noneFree': 'لا توجد طاولة مناسبة في هذا الوقت. جرّب:',
   'core.res.mapLabel': 'مخطط الصالة — اختر طاولة', 'core.res.seats': '{n} مقاعد', 'core.res.legend.available': 'متاحة', 'core.res.legend.recommended': 'الأنسب',
   'core.res.legend.unavailable': 'غير متاحة', 'core.res.minSpend': 'حد أدنى للإنفاق {amount}', 'core.res.details': 'بياناتك', 'core.res.notes': 'ملاحظات (مناسبة، حساسية…)',

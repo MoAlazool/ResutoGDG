@@ -33,6 +33,14 @@ export default function ReservePage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const holdKey = useRef(newIdempotencyKey());
+  // Today only offers times that have not passed yet (legacy: earlier sittings are hidden).
+  const slots = useMemo(() => {
+    if (date !== isoDay(new Date())) return SLOTS;
+    const d = new Date();
+    const now = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return SLOTS.filter((s) => s > now);
+  }, [date]);
+  useEffect(() => { if (slots.length && !slots.includes(slot)) setSlot(slots[0]!); }, [slots, slot]);
 
   useEffect(() => {
     api<PublicMenu>(`/public/menu/${encodeURIComponent(slug)}`).then((m) => {
@@ -164,8 +172,9 @@ export default function ReservePage() {
                 </span>
               </div>
               <div className="overline" style={{ marginTop: 10 }}>{t('core.res.time')}</div>
+              {!slots.length && <p className="fine">{t('core.res.noSlotsToday')}</p>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 8, margin: '8px 0 12px' }}>
-                {SLOTS.map((s) => (
+                {slots.map((s) => (
                   <button key={s} type="button" className={`btn btn-sm ${slot === s ? 'btn-primary' : ''}`} aria-pressed={slot === s} onClick={() => setSlot(s)}>{s}</button>
                 ))}
               </div>
