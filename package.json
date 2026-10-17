@@ -4,7 +4,9 @@
   "private": true,
   "description": "Resuto 2.0 — AI-native restaurant operating system (modular monolith monorepo)",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
@@ -22,6 +24,8 @@
     "e2e": "playwright test -c tests/e2e/playwright.config.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.56.1",
     "@types/node": "22.18.0",
     "pg": "8.16.3",
     "turbo": "2.5.8",
