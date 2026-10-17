@@ -116,6 +116,7 @@ create trigger branches_updated before update on public.branches for each row ex
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
+  email citext,              -- copy of auth.users.email (auth schema is not readable by app roles)
   phone text,
   locale text not null default 'en' check (locale in ('en', 'ar')),
   avatar_url text,

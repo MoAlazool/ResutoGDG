@@ -1,0 +1,44 @@
+{
+  "name": "@resuto/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Resuto 2.0 NestJS modular monolith API",
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js",
+    "dev": "tsc -p tsconfig.build.json && node --watch dist/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.1.29",
+    "@nestjs/core": "11.1.29",
+    "@nestjs/platform-express": "11.1.29",
+    "@resuto/contracts": "workspace:*",
+    "@resuto/integrations": "workspace:*",
+    "express": "5.1.0",
+    "ioredis": "5.8.2",
+    "jose": "5.10.0",
+    "pg": "8.16.3",
+    "qrcode": "1.5.4",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "zod": "4.1.13"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "11.1.29",
+    "@swc/core": "1.13.21",
+    "@types/express": "5.0.6",
+    "@types/node": "22.18.0",
+    "@types/pg": "8.15.6",
+    "@types/qrcode": "1.5.6",
+    "@types/supertest": "6.0.3",
+    "supertest": "7.1.4",
+    "typescript": "5.9.3",
+    "unplugin-swc": "1.5.11",
+    "vitest": "3.2.4"
+  }
+}

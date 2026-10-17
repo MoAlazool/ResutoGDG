@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "outDir": "dist",
+    "rootDir": ".",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "declaration": false,
+    "noUncheckedIndexedAccess": false,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src", "test"]
+}
