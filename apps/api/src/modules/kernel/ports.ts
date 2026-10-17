@@ -17,6 +17,9 @@ export const MESSAGING_PORT = Symbol('MESSAGING_PORT');
 export const SEGMENTS_PORT = Symbol('SEGMENTS_PORT');
 export const CAMPAIGNS_PORT = Symbol('CAMPAIGNS_PORT');
 export const ORDERS_QUERY_PORT = Symbol('ORDERS_QUERY_PORT');
+// Symbol.for keeps identity stable for modules that declared these before they moved here.
+export const MENU_AVAILABILITY_PORT = Symbol.for('resuto.MENU_AVAILABILITY_PORT');
+export const CAMPAIGN_SEND_PORT = Symbol.for('resuto.CAMPAIGN_SEND_PORT');
 
 export interface CheckoutSessionRequest {
   purpose: 'order' | 'visit_bill' | 'bill_share' | 'reservation_deposit' | 'payment_link';
@@ -76,6 +79,24 @@ export interface CampaignsPort {
 export interface OrdersQueryPort {
   list(tx: Tx, ctx: TenantContext, filters: { branchId?: string; status?: string[]; from?: string; to?: string; limit?: number; cursor?: string }): Promise<{ items: unknown[]; nextCursor: string | null }>;
   get(tx: Tx, ctx: TenantContext, orderId: string): Promise<unknown>;
+}
+
+/** Menu (B1): per-branch product availability (the only writer of product_branch_settings.is_available). */
+export interface MenuAvailabilityPort {
+  setAvailability(tx: Tx, ctx: TenantContext, input: {
+    productId: string; branchId: string; available: boolean; reason?: string | null; source: 'staff' | 'mcp' | 'ai';
+  }): Promise<{ productId: string; branchId: string; available: boolean }>;
+}
+
+/**
+ * Marketing (C): move a draft campaign to scheduled/sending under Marketing's own
+ * rules (approval, consent, templates). Called only after a human approved the
+ * request; the acting role must hold marketing:approve.
+ */
+export interface CampaignSendPort {
+  requestSend(tx: Tx, ctx: TenantContext, input: {
+    campaignId: string; scheduledAt?: string | null; approvedBy: string | null; source: 'mcp';
+  }): Promise<{ campaignId: string; status: string; scheduledAt: string | null }>;
 }
 
 export function requirePort<T>(port: T | null | undefined, name: string): T {

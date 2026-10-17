@@ -50,7 +50,7 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
             </select>
           ) : <div style={{ padding: '0 8px', fontWeight: 650, color: '#fff' }}>{locale === 'ar' && org.nameAr ? org.nameAr : org.name}</div>}
           {NAV.map((group) => {
-            const items = group.items.filter((i) => !i.permission || roleCan(org.role, i.permission));
+            const items = group.items.filter((i) => (i.anyPermission ? i.anyPermission.some((p) => roleCan(org.role, p)) : !i.permission || roleCan(org.role, i.permission)));
             if (!items.length) return null;
             return (
               <nav key={group.group}>
@@ -76,7 +76,7 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
             </button>
           </div>
         </aside>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div className="topbar-mobile">
             <button className="btn btn-sm btn-ghost" style={{ color: '#fff' }} onClick={() => setOpen(!open)} aria-expanded={open} aria-label="Menu">☰</button>
             <strong>{org.name}</strong>

@@ -6,6 +6,8 @@ export interface NavItem {
   icon: string;
   module: ModuleKey;
   permission?: Permission;
+  /** Visible when the role has any of these (used instead of `permission`). */
+  anyPermission?: Permission[];
 }
 
 /** Dashboard navigation. Each entry's page directory is owned by one agent (MODULE_CONTRACTS.md). */
@@ -34,7 +36,7 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
   { group: 'nav.group.intelligence', items: [
     { href: '/analytics', label: 'nav.analytics', icon: '📈', module: 'core', permission: 'analytics:read' },
     { href: '/intelligence', label: 'nav.intelligence', icon: '✦', module: 'intelligence', permission: 'ai:use' },
-    { href: '/mcp', label: 'nav.mcp', icon: '⇄', module: 'mcp', permission: 'mcp:manage' },
+    { href: '/mcp', label: 'nav.mcp', icon: '⇄', module: 'mcp', anyPermission: ['mcp:manage', 'mcp:approve'] },
   ] },
   { group: 'nav.group.settings', items: [
     { href: '/settings', label: 'nav.settings', icon: '⚙', module: 'core', permission: 'org:manage' },

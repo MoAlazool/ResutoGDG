@@ -61,8 +61,8 @@ services:
 
   mcp-server:
     build: { context: ., dockerfile: apps/mcp-server/Dockerfile }
-    environment: { RESUTO_API_URL: http://api:4000, MCP_HOST: 0.0.0.0, MCP_PORT: '7000' }
-    ports: ['7000:7000']
+    environment: { RESUTO_API_URL: http://api:4000, MCP_HOST: 0.0.0.0, MCP_PORT: '7100', MCP_PUBLIC_URL: 'http://localhost:7100' }
+    ports: ['7100:7100']
     depends_on: [api]
 
 volumes:
