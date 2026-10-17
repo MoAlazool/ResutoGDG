@@ -1,0 +1,40 @@
+/* Small accessible SVG/HTML charts (Agent B2). Colors come from --chart-1..4.
+   Pairing rule (validated): magnitude = --chart-1 alone; two-series comparison =
+   --chart-1 (current) + --chart-4 (comparison). --chart-2/--chart-3 are never adjacent. */
+.figure { margin: 0; display: grid; gap: 10px; }
+.figure figcaption { font-size: 13px; color: var(--muted); }
+.svgWrap { position: relative; width: 100%; }
+.svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grid { stroke: var(--line-soft); stroke-width: 1; }
+.axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.area { opacity: .1; }
+.dot { stroke: var(--card); stroke-width: 2; }
+.crosshair { stroke: var(--line); stroke-width: 1; }
+.tooltip {
+  position: absolute; top: 0; pointer-events: none; background: var(--card); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px; font-size: 12px; box-shadow: var(--shadow-float); white-space: nowrap; z-index: 2;
+  transform: translateX(-50%);
+}
+.tooltip strong { display: block; color: var(--ink); margin-block-end: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text); }
+.legendItem { display: inline-flex; align-items: center; gap: 6px; }
+.key { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.barList { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.barRow { display: grid; grid-template-columns: minmax(90px, 30%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
+.barLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.barTrack { height: 12px; display: flex; }
+.bar { height: 12px; border-start-end-radius: 4px; border-end-end-radius: 4px; background: var(--chart-1); min-width: 2px; }
+.barValue { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 650; text-align: end; }
+
+.heat { display: grid; grid-template-columns: 34px repeat(24, minmax(10px, 1fr)); gap: 2px; font-size: 10px; color: var(--muted); }
+.heatCell { aspect-ratio: 1; border-radius: 3px; background: var(--line-soft); position: relative; }
+.heatCell:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.heatScroll { overflow-x: auto; padding-block-end: 4px; }
+.heatInner { min-width: 520px; }
+
+.tableToggle { font-size: 13px; }
+.tableToggle summary { cursor: pointer; color: var(--muted); }
+.tableToggle table { margin-block-start: 8px; }
