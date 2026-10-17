@@ -1,0 +1,5 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+# legacy/ is intentionally NOT a workspace package: it keeps its own npm lockfile
+# so the original application stays runnable exactly as it was.

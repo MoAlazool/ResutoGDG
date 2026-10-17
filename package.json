@@ -1,35 +1,30 @@
 {
   "name": "resuto",
-  "version": "0.1.0",
+  "version": "2.0.0-alpha.0",
   "private": true,
-  "type": "module",
+  "description": "Resuto 2.0 — AI-native restaurant operating system (modular monolith monorepo)",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22.12" },
   "scripts": {
-    "start": "node --env-file-if-exists=.env server.js",
-    "dev": "node --watch --env-file-if-exists=.env server.js",
-    "test": "node --test tests/*.test.js",
-    "test:firebase": "firebase emulators:exec --only auth,firestore --project resuto-cf8f5 \"node --test tests/firebase-tenancy.test.js\"",
-    "build:client": "node scripts/build-client.mjs",
-    "build": "npm run build:client && node scripts/check-source.mjs",
-    "test:browser": "python scripts/premium_smoke.py",
-    "test:experience": "python scripts/experience_smoke.py",
-    "test:editor": "python scripts/editor_smoke.py",
-    "test:data": "python scripts/data_guest_smoke.py",
-    "test:browser:legacy": "python scripts/browser_smoke.py",
-    "test:owner-ai": "python scripts/owner_ai_smoke.py",
-    "deploy": "firebase deploy"
-  },
-  "engines": {
-    "node": ">=24"
-  },
-  "dependencies": {
-    "firebase": "^12.18.0",
-    "firebase-admin": "^14.3.0",
-    "qrcode": "^1.5.4"
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:up": "bash scripts/db/local-up.sh",
+    "db:down": "bash scripts/db/local-down.sh",
+    "db:migrate": "node scripts/db/migrate.mjs",
+    "db:reset": "node scripts/db/migrate.mjs --reset && node scripts/db/seed.mjs",
+    "db:seed": "node scripts/db/seed.mjs",
+    "db:test": "node --test supabase/tests/*.test.mjs",
+    "legacy:start": "npm --prefix legacy start",
+    "legacy:test": "npm --prefix legacy test",
+    "e2e": "playwright test -c tests/e2e/playwright.config.ts"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
-  },
-  "overrides": {
-    "toml": "^4.2.0"
+    "@types/node": "22.18.0",
+    "pg": "8.16.3",
+    "turbo": "2.5.8",
+    "typescript": "5.9.3"
   }
 }
