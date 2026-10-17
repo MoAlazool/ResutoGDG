@@ -168,6 +168,8 @@ export const fiscalDocumentQuery = z.object({
 export const issueFiscalDocument = z.object({ orderId: uuid });
 
 export interface FiscalLine {
+  /** Internal item code (product id) — used as the ETA internalCode / item code suffix. */
+  code: string | null;
   name: string;
   nameAr: string | null;
   kind: 'item' | 'delivery_fee' | 'service_charge' | 'adjustment';

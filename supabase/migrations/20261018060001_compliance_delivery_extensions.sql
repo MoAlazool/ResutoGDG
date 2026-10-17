@@ -8,7 +8,11 @@
 --   ZATCA: authority_ref = invoice hash (Base64 SHA-256 of the UBL body), chained as PIH
 --   ETA:   authority_ref = receipt UUID (SHA-256 hex of the serialised receipt), chained as previousUUID
 -- payment_id ties a credit note to the refunded payment so refunds are credited exactly once.
+-- seller/meta snapshot what the document was issued with (seller identity, payment
+-- means, VAT rate, correction reason), so payloads can be rebuilt and hashes re-verified.
 alter table public.fiscal_documents add column authority text check (authority in ('zatca', 'eta'));
+alter table public.fiscal_documents add column seller jsonb not null default '{}'::jsonb;
+alter table public.fiscal_documents add column meta jsonb not null default '{}'::jsonb;
 alter table public.fiscal_documents add column authority_ref text;
 alter table public.fiscal_documents add column previous_authority_ref text;
 alter table public.fiscal_documents add column payment_id uuid references public.payments(id);
@@ -29,12 +33,12 @@ begin
   if (new.org_id, new.branch_id, new.order_id, new.kind, new.series, new.number, new.counter_value, new.document_uuid,
       new.previous_hash, new.document_hash, new.qr_payload, new.currency, new.subtotal_minor, new.tax_minor, new.total_minor,
       new.buyer, new.lines, new.issued_at, new.references_document_id, new.payment_id, new.authority, new.authority_ref,
-      new.previous_authority_ref)
+      new.previous_authority_ref, new.seller, new.meta)
      is distinct from
      (old.org_id, old.branch_id, old.order_id, old.kind, old.series, old.number, old.counter_value, old.document_uuid,
       old.previous_hash, old.document_hash, old.qr_payload, old.currency, old.subtotal_minor, old.tax_minor, old.total_minor,
       old.buyer, old.lines, old.issued_at, old.references_document_id, old.payment_id, old.authority, old.authority_ref,
-      old.previous_authority_ref) then
+      old.previous_authority_ref, old.seller, old.meta) then
     raise exception 'issued fiscal documents are immutable';
   end if;
   return new;
