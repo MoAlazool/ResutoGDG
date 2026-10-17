@@ -71,6 +71,10 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
     try {
       const res = await session.call<{ revision: number }>(`/o/${orgId}/studio/website/publish`, { body: { key: publishKey.current.key } });
       toast.show({ message: t('studio.publish.done', { n: res.revision }), tone: 'ok' });
+      // Refresh the cached public page now (best effort; it also expires within 30 s).
+      await fetch(`${site.data!.publicPath}/revalidate`, {
+        method: 'POST', headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId }),
+      }).catch(() => undefined);
       await site.reload();
     } catch (e) {
       toast.show({ message: (e as Error).message, tone: 'danger' });

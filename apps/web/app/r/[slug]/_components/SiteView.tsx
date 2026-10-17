@@ -48,7 +48,7 @@ export function SiteView({ site, locale, t, preview = false, hostLinks }: {
       <header className="consumer-header">
         <a className="olive-logo" href={ctx.links.home}>
           {site.theme.logoUrl && <img src={site.theme.logoUrl} alt="" className="site-logo-img" />}
-          <span>{name}<small>{loc(site.sections.find((s) => s.kind === 'hero')?.content.eyebrow, locale) || site.branches[0]?.city || ''}</small></span>
+          <span>{name}<small>{site.branches[0]?.city || ''}</small></span>
         </a>
         <nav aria-label={t('studio.site.nav')}>
           {acceptsOrders(site) && <a href={ctx.links.order}>{t('studio.site.menu')}</a>}
