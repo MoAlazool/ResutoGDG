@@ -15,7 +15,7 @@ export interface PlannedTable {
   clientId: string | null;
   current: CurrentTable | null;
   values: {
-    label: string; capacity: number; zone: string; shape: string; cx: number; cy: number; width: number; height: number; rotation: number;
+    label: string; capacity: number; zone: string | null; shape: string; cx: number; cy: number; width: number; height: number; rotation: number;
     features: string[]; reservable: boolean; minSpendMinor: number | null; premium: boolean; internalNotes: string | null;
   };
 }
@@ -70,7 +70,7 @@ export function planFloorSave(layout: FloorSaveInput['layout'], currentTables: C
       clientId: t.id ?? null,
       current,
       values: {
-        label: t.label.trim(), capacity: t.capacity, zone: t.zone.trim(), shape: t.shape, cx: t.cx, cy: t.cy, width: t.width, height: t.height,
+        label: t.label.trim(), capacity: t.capacity, zone: t.zone ?? null, shape: t.shape, cx: t.cx, cy: t.cy, width: t.width, height: t.height,
         rotation: t.rotation,
         features: t.features ?? current?.features ?? [],
         reservable: t.reservable ?? current?.is_reservable ?? true,

@@ -72,7 +72,8 @@ export const floorTableInput = z.object({
   id: z.string().min(1).max(100).optional(),
   label: z.string().trim().min(1).max(20),
   capacity: z.number().int().min(1).max(50),
-  zone: z.string().trim().min(1).max(40),
+  /** Optional: a new branch has no zones yet (DB column is nullable). Blank → null. */
+  zone: z.string().trim().max(40).nullable().optional().transform((v) => (v ? v : null)),
   shape: z.enum([...TABLE_SHAPES, 'rectangle']).transform((s) => (s === 'rectangle' ? 'rect' : s) as TableShape),
   cx: num, cy: num,
   width: num.min(40).max(500),

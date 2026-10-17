@@ -4,7 +4,7 @@ import { Badge, Field, Modal, Notice, Skeleton } from '@resuto/ui';
 import { api, ApiRequestError } from '@/lib/api';
 import { money, pick } from '@/lib/format';
 import { LocaleProvider, useT } from '@/lib/i18n/client';
-import type { Locale } from '@/lib/i18n';
+import { LOCALE_COOKIE, type Locale } from '@/lib/i18n';
 
 // ---------------------------------------------------------------------------
 // Types (API: /v1/public/connect/ordering/:token; menu follows MODULE_CONTRACTS §8)
@@ -52,16 +52,26 @@ function readAttribution(token: string) {
   }
 }
 
+function cookieLocale(): Locale | null {
+  const m = document.cookie.match(new RegExp(`(?:^|; )${LOCALE_COOKIE}=(en|ar)(?:;|$)`));
+  return m ? (m[1] as Locale) : null;
+}
+
 export function OrderingClient({ token }: { token: string }) {
   const [view, setView] = useState<View | null>(null);
   const [error, setError] = useState<ApiRequestError | null>(null);
-  const [locale, setLocale] = useState<Locale | null>(null);
+  const [locale, setLocaleState] = useState<Locale | null>(null);
+  // The visitor's saved language wins; otherwise the page starts in the conversation's language.
+  const setLocale = useCallback((l: Locale) => {
+    document.cookie = `${LOCALE_COOKIE}=${l}; path=/; max-age=31536000; samesite=lax`;
+    setLocaleState(l);
+  }, []);
 
   const load = useCallback(async () => {
     try {
       const v = await api<View>(`/public/connect/ordering/${encodeURIComponent(token)}`);
       setView(v);
-      setLocale((l) => l ?? v.locale);
+      setLocaleState((l) => l ?? cookieLocale() ?? v.locale);
       setError(null);
     } catch (e) {
       setError(e instanceof ApiRequestError ? e : new ApiRequestError(0, 'unknown', String(e)));

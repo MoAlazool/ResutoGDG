@@ -43,6 +43,8 @@ export class KitchenService {
       `select o.id, o.number, o.status, o.fulfillment, o.channel, o.customer_name, o.placed_at, o.accepted_at, o.notes, o.version, t.label as table_label
          from orders o left join dining_tables t on t.id = o.table_id
         where o.branch_id = $1 and o.status in ${ACTIVE}
+          and not (o.status = 'ready' and o.fulfillment = 'delivery' and not exists (
+            select 1 from order_lines l where l.order_id = o.id and l.kitchen_status not in ('served', 'cancelled')))
           and ($2::text is null or exists (select 1 from order_lines l where l.order_id = o.id and l.station = $2))
         order by o.placed_at, o.id limit 300`, [branchId, station ?? null]);
     if (!orders.length) return [];
@@ -68,6 +70,10 @@ export class KitchenService {
     return this.db.scoped(ctx, async (tx) => {
       const o = await tx.maybeOne<{ branch_id: string; status: string }>('select branch_id, status from orders where id = $1', [orderId]);
       if (!o || !ctx.canAccessBranch(o.branch_id)) throw notFound('Order');
+      if (to === 'delivered') {
+        const handOff = await this.handToDriver(tx, ctx, orderId, version);
+        if (handOff) return handOff;
+      }
       const r = await this.kernel.transition(tx, ctx, orderId, to, { expectedVersion: version });
       if (to === 'preparing') await tx.query(`update order_lines set kitchen_started_at = coalesce(kitchen_started_at, now()) where order_id = $1 and kitchen_status <> 'cancelled'`, [orderId]);
       if (to === 'ready') {
@@ -77,6 +83,24 @@ export class KitchenService {
       }
       return r;
     });
+  }
+
+  /**
+   * "Out for delivery" on a ticket that has an open driver job: the bag leaves the
+   * kitchen (lines served, ticket off the board) but the order stays `ready` —
+   * only the driver's delivery marks it delivered (and settles cash on delivery).
+   */
+  private async handToDriver(tx: Tx, ctx: TenantContext, orderId: string, version?: number) {
+    const o = await tx.one<{ status: string; version: number }>('select status, version from orders where id = $1 for update', [orderId]);
+    const job = await tx.maybeOne<{ id: string; status: string }>(
+      `select id, status from delivery_jobs where order_id = $1 and status not in ('delivered', 'failed', 'cancelled') order by created_at desc limit 1`, [orderId]);
+    if (!job) return null;
+    if (version !== undefined && o.version !== version) throw conflict('stale_order', 'This order changed. Refresh and try again.', { version: o.version });
+    if (o.status !== 'ready') throw conflict('invalid_transition', `Cannot hand an order to the driver from ${o.status}`, { from: o.status, to: 'delivered' });
+    await tx.query(`update order_lines set kitchen_status = 'served' where order_id = $1 and kitchen_status <> 'cancelled'`, [orderId]);
+    const row = await tx.one<{ version: number }>('update orders set version = version + 1 where id = $1 returning version', [orderId]);
+    await this.kernel.event(tx, ctx, orderId, 'handed_to_driver', 'ready', 'ready', { deliveryJobId: job.id, jobStatus: job.status });
+    return { id: orderId, status: 'ready' as OrderStatus, version: row.version, changed: true, handedToDriver: true };
   }
 
   /** Line-level status (start, ready, recall). May advance the order; never moves it backwards. */

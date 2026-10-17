@@ -2,11 +2,23 @@
 
 Found by the real-API Playwright specs in `tests/e2e/real-*.spec.ts` and
 `tests/e2e/scenario-*.spec.ts` (no interception of Resuto APIs). Each spec that
-covers a defect still asserts the **correct** behaviour and is marked
-`test.fail()` with a `// DEFECT: H-<n>` comment, so it turns into an
-"unexpectedly passed" failure once the defect is fixed — then drop the `.fail`.
+covered a defect asserts the **correct** behaviour. While open they were marked `test.fail()`;
+all seven are now **fixed** and the specs run as ordinary regression tests
+(`// Regression for H-<n> (fixed)`). Run: see `docs/qa/BROWSER_E2E.md`.
 
-Application code was not changed. Run: see `docs/qa/BROWSER_E2E.md`.
+## Status
+
+| Id | Status | Fix |
+|---|---|---|
+| H-1 | Fixed | `floorTableInput.zone` is nullable/optional (blank → `null`); floor rules store `null`. API test `floor.test.ts` › "accepts tables without a zone" |
+| H-2 | Fixed | `close` defaults `needsCleaning` to `true`; §8 documents the flag |
+| H-3 | Fixed | `/t/<qr>`: a saved visit that returns 401 shows "session ended" instead of opening a new visit |
+| H-4 | Fixed | `/t/<qr>`: tracking polls only while the sheet is open for that order (ref guard); closing clears it |
+| H-5 | Fixed | Hosted ordering page starts in the `resuto_locale` cookie language; its toggle writes the cookie |
+| H-6 | Fixed | KDS "Out for delivery" on an order with an open driver job hands the bag over (lines served, ticket leaves the board, event `handed_to_driver`) and keeps the order `ready`; only the driver's delivery marks it delivered and settles COD. API test `delivery.test.ts` › "kitchen hand-over" |
+| H-7 | Fixed | Dashboard shell loads the org and its entitlements together and renders only once module gates are known |
+
+The sections below are the original reports, kept for the record.
 
 | Id | Severity | Area | One line |
 |---|---|---|---|

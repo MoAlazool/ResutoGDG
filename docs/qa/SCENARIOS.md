@@ -36,16 +36,15 @@ S07 needs the AI service virtualenv (`apps/ai-service/.venv`) and starts it on p
 | S02 | Dine-in, split bill | `s02-dine-in.test.ts` | 10 | ✅ pass |
 | S03 | WhatsApp structured ordering | `s03-whatsapp-ordering.test.ts` | 6 | ✅ pass |
 | S04 | Delivery | `s04-delivery.test.ts` | 8 | ✅ pass |
-| S05 | Marketing | `s05-marketing.test.ts` | 8 | ✅ 7 pass, 1 documented defect (G-01) |
+| S05 | Marketing | `s05-marketing.test.ts` | 8 | ✅ pass (G-01 fixed; step 8 is now a regression) |
 | S06 | Finance | `s06-finance.test.ts` | 9 | ✅ pass |
 | S07 | AI | `s07-ai.test.ts` | 4 | ✅ pass |
 | S08 | MCP | `s08-mcp.test.ts` | 7 | ✅ pass |
 | S09 | Multi-tenancy | `s09-multi-tenancy.test.ts` | 8 | ✅ pass |
-| S10 | Entitlements | `s10-entitlements.test.ts` | 9 | ✅ 8 pass, 1 documented defect (G-02) |
+| S10 | Entitlements | `s10-entitlements.test.ts` | 9 | ✅ pass (G-02 fixed; step 4 is now a regression) |
 
-Full API suite on 2026-10-17 (`cd apps/api && npx vitest run`, `TEST_DATABASE_URL=…/resuto_test_g`):
-**34 files, 345 tests, all passed**. That is the 268 pre-existing tests plus 77 scenario steps. The 77 include the two `it.fails`
-defect steps, which vitest counts as passed because they fail as expected.
+Full API suite after integration and the defect fixes (`cd apps/api && npx vitest run`):
+**37 files, 365 tests, all passed**, including the 77 scenario steps. No step is marked `it.fails` any more.
 
 ## Steps per scenario
 

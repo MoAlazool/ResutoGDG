@@ -34,6 +34,15 @@ describe('floor layout (§8)', () => {
     expect(saved.body.zones[0]).toMatchObject({ id: 'zone-main', color: '#e9efe5' });
   });
 
+  it('accepts tables without a zone (a fresh branch has none yet)', async () => {
+    const other = await createTenant(t);
+    const res = await t.http.put(`/v1/o/${other.orgId}/floor/${other.branchId}`).set(auth(other.owner)).send({
+      baseRevision: 0, key: key('floor'), layout: layout([table('A1', 200, 200, { zone: null }), table('A2', 400, 200, { zone: '  ' })]),
+    });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.tables.map((x: any) => x.zone)).toEqual([null, null]);
+  });
+
   it('rejects stale revisions and invalid geometry, and keeps QR tokens stable across saves', async () => {
     const current = (await t.http.get(floorUrl()).set(auth(tenant.owner))).body;
     const t1 = current.tables.find((x: any) => x.label === 'T1');

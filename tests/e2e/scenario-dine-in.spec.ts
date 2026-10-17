@@ -149,8 +149,8 @@ test('QR order with a modifier → KDS ready → served → equal split paid by 
   }
 });
 
-// DEFECT: H-3 after staff close the visit, reloading /t/<qr> silently opens a NEW visit on the (now available) table instead of telling the guest the session ended.
-test.fail('after staff close the visit, reloading the guest page shows the session ended', async ({ browser, request }) => {
+// Regression for H-3 (fixed): after staff close the visit, reloading /t/<qr> must tell the guest the session ended, not silently open a new visit.
+test('after staff close the visit, reloading the guest page shows the session ended', async ({ browser, request }) => {
   const { tenant, qr, tableId } = await setup(request);
   const guest = await newContext(browser, { mobile: true });
   try {
@@ -166,8 +166,8 @@ test.fail('after staff close the visit, reloading the guest page shows the sessi
   }
 });
 
-// DEFECT: H-4 while the order-tracking sheet is open the guest page re-polls in a tight loop (refresh → setTracking → new refresh → effect re-runs), and closing the sheet does not stick.
-test.fail('the order-tracking sheet polls at the 2.5 s cadence and stays closed when dismissed', async ({ browser, request }) => {
+// Regression for H-4 (fixed): the order-tracking sheet polls at its cadence (no tight refresh loop) and closing it sticks.
+test('the order-tracking sheet polls at the 2.5 s cadence and stays closed when dismissed', async ({ browser, request }) => {
   const { qr } = await setup(request);
   const guest = await newContext(browser, { mobile: true });
   try {

@@ -135,8 +135,8 @@ test('a free-plan owner sees the upgrade prompt on paid module pages (en/ar) and
   }
 });
 
-// DEFECT: H-7 while the org's module list loads, hasModule() treats every module as enabled, so gated pages mount and fire module API calls that 402 (console errors) before the upgrade prompt replaces them.
-test.fail('a gated (unentitled) page makes no module API calls and logs no errors', async ({ browser }) => {
+// Regression for H-7 (fixed): the shell waits for the org's module list, so gated pages never mount and fire module API calls that 402.
+test('a gated (unentitled) page makes no module API calls and logs no errors', async ({ browser }) => {
   const request = await playwrightRequest.newContext();
   const free = await apiCreateTenant(request, { planId: 'free' });
   await request.dispose();

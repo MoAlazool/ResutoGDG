@@ -295,7 +295,8 @@ export class VisitsService {
           throw conflict('visit_not_settled', 'Settle the bill and fulfil all orders before closing.', { dueMinor: totals.dueMinor, openOrders: open.map((o) => o.number) });
         }
       }
-      const closed = await this.settle(tx, ctx, v, body.force ? 'force' : 'manual', body.needsCleaning ?? false);
+      // Guests just left: the table needs cleaning unless staff say it is already clean.
+      const closed = await this.settle(tx, ctx, v, body.force ? 'force' : 'manual', body.needsCleaning ?? true);
       await this.audit.record(tx, ctx, {
         action: body.force ? 'visit.force_closed' : 'visit.closed', entityType: 'visit', entityId: visitId, branchId: v.branch_id,
         metadata: { dueMinor: totals.dueMinor, openOrders: open.map((o) => o.number), reason: body.reason ?? null, unusedCreditMinor: closed.unusedCreditMinor },

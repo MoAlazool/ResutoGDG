@@ -22,8 +22,8 @@ async function guestOrder(request: import('@playwright/test').APIRequestContext,
 }
 
 test.describe('Floor Studio against the real floor API', () => {
-  // DEFECT: H-1 a new branch has no zones; Studio sends `zone: null` for the first table and the API rejects it (zone is required).
-  test.fail('the first table on a fresh branch (no zones yet) can be added and saved', async ({ page, request }) => {
+  // Regression for H-1 (fixed): a new branch has no zones, so Studio sends `zone: null` for the first table; the API must accept it.
+  test('the first table on a fresh branch (no zones yet) can be added and saved', async ({ page, request }) => {
     const tenant = await apiCreateTenant(request);
     await signIn(page, tenant.owner);
     await page.goto(floorUrl(tenant, 'studio'));
@@ -206,8 +206,8 @@ test.describe('Live floor against the real visits API', () => {
     expect(errors).toEqual([]);
   });
 
-  // DEFECT: H-2 closing from the live floor sends `{}` and the API defaults needsCleaning=false, so the table goes straight to Available and "Mark clean" is unreachable.
-  test.fail('after closing, the table needs cleaning and "Mark clean" returns it to Available', async ({ page, request }) => {
+  // Regression for H-2 (fixed): closing from the live floor sends `{}`; the table must then need cleaning so "Mark clean" is reachable.
+  test('after closing, the table needs cleaning and "Mark clean" returns it to Available', async ({ page, request }) => {
     const tenant = await apiCreateTenant(request);
     await apiSaveFloor(request, tenant);
     await signIn(page, tenant.owner);
@@ -217,7 +217,7 @@ test.describe('Live floor against the real visits API', () => {
     await expect(page.getByText('T1 seated.')).toBeVisible();
     await page.getByRole('button', { name: 'Close table' }).click();
     await expect(page.getByText('T1 closed.')).toBeVisible();
-    await expect(page.locator('.live-panel .badge').first()).toHaveText('Cleaning', { timeout: 5_000 });
+    await expect(page.locator('.live-panel .badge').first()).toHaveText('Needs cleaning', { timeout: 5_000 });
     await page.getByRole('button', { name: 'Mark clean' }).click();
     await expect(page.getByText('T1 is ready for guests.')).toBeVisible();
     await expect(page.locator('.live-panel .badge').first()).toHaveText('Available');

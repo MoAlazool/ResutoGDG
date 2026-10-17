@@ -128,8 +128,8 @@ test('delivery order → dispatcher assigns an invited driver → driver deliver
   }
 });
 
-// DEFECT: H-6 the KDS "Out for delivery" button on a ready delivery ticket transitions the order straight to `delivered` (COD unpaid, driver job still `accepted`).
-test.fail('the KDS hand-over of a driver-dispatched delivery ticket does not mark the order delivered behind the driver', async ({ browser, request }) => {
+// Regression for H-6 (fixed): the KDS hand-over gives the bag to the driver; only the driver's delivery marks the order delivered.
+test('the KDS hand-over of a driver-dispatched delivery ticket does not mark the order delivered behind the driver', async ({ browser, request }) => {
   const tenant = await apiCreateTenant(request);
   const menu = await apiSeedMenu(request, tenant);
   const { user: driverUser, token } = await apiInvite(request, tenant, 'driver', [tenant.branchId]);

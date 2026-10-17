@@ -56,11 +56,6 @@ for (const locale of ['en', 'ar'] as const) {
     try {
       await g.goto(path);
       const root = g.locator('div[dir]').first();
-      await expect(root).toHaveAttribute('dir', 'ltr');
-      if (locale === 'ar') {
-        // The page starts in the conversation's language (the cookie is ignored, H-5); switch with its toggle.
-        await g.getByRole('button', { name: 'العربية' }).click();
-      }
       await expect(root).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
       await expect(root).toHaveAttribute('lang', locale);
       await expect(g.getByText(s.burger)).toBeVisible();
@@ -128,8 +123,8 @@ for (const locale of ['en', 'ar'] as const) {
   });
 }
 
-// DEFECT: H-5 the hosted ordering page ignores the resuto_locale cookie and always starts in the conversation's language.
-test.fail('the hosted ordering page honours the Arabic locale cookie (dir=rtl, no overflow)', async ({ browser, request }) => {
+// Regression for H-5 (fixed): the hosted ordering page starts in the visitor's saved language.
+test('the hosted ordering page honours the Arabic locale cookie (dir=rtl, no overflow)', async ({ browser, request }) => {
   const tenant = await apiCreateTenant(request);
   await apiSeedMenu(request, tenant);
   const { path } = await walkToMenuLink(request, tenant);

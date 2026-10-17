@@ -56,18 +56,35 @@ export default function TablePage() {
     try { setOrg(JSON.parse(sessionStorage.getItem(`resuto.org.${qr}`) ?? 'null')); } catch { /* ignore */ }
     api<GuestVisitView>('/public/visits/current', { headers: visitHeaders(saved) })
       .then((v) => { setVisit(saved); setView(v); setPhase('ready'); })
-      .catch(() => { clearGuestVisit(qr); void startSession(); });
+      .catch((e) => {
+        // This tab's visit ended (staff closed the table): say so instead of silently
+        // opening a new visit. The ended visit stays saved (its token is no longer
+        // accepted) so a reload still says so; "Scan again" replaces it explicitly.
+        if ((e as ApiRequestError).status === 401) { setPhase('closed'); return; }
+        clearGuestVisit(qr);
+        void startSession();
+      });
   }, [qr, startSession]);
+
+  // The open tracking sheet's order id lives in a ref so polling does not restart
+  // (and loop) every time the tracked status changes, and a response that arrives
+  // after the guest closed the sheet cannot reopen it.
+  const trackingId = useRef<string | null>(null);
+  useEffect(() => { trackingId.current = tracking?.id ?? null; }, [tracking]);
 
   const refresh = useCallback(async () => {
     if (!visit) return;
     try {
       setView(await api<GuestVisitView>('/public/visits/current', { headers: visitHeaders(visit) }));
-      if (tracking) setTracking(await api<OrderStatusView>(`/public/visits/current/orders/${tracking.id}`, { headers: visitHeaders(visit) }));
+      const id = trackingId.current;
+      if (id) {
+        const status = await api<OrderStatusView>(`/public/visits/current/orders/${id}`, { headers: visitHeaders(visit) });
+        if (trackingId.current === id) setTracking(status);
+      }
     } catch (e) {
-      if ((e as ApiRequestError).status === 401) { clearGuestVisit(qr); setPhase('closed'); }
+      if ((e as ApiRequestError).status === 401) setPhase('closed');
     }
-  }, [visit, tracking, qr]);
+  }, [visit, qr]);
 
   useEffect(() => {
     if (phase !== 'ready' || !visit) return;
@@ -195,8 +212,8 @@ export default function TablePage() {
         </Sheet>
       )}
       {tracking && (
-        <Sheet title={t('core.guest.orderNumber', { n: tracking.number })} onClose={() => setTracking(null)}
-          footer={<button className="btn btn-block" onClick={() => setTracking(null)}>{t('core.guest.backToMenu')}</button>}>
+        <Sheet title={t('core.guest.orderNumber', { n: tracking.number })} onClose={() => { trackingId.current = null; setTracking(null); }}
+          footer={<button className="btn btn-block" onClick={() => { trackingId.current = null; setTracking(null); }}>{t('core.guest.backToMenu')}</button>}>
           <p className="muted">{t('core.guest.trackingHint')}</p>
           <StatusTimeline status={tracking.status} fulfillment={tracking.fulfillment} timeline={tracking.timeline} />
         </Sheet>

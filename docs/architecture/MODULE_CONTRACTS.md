@@ -180,15 +180,17 @@ JSON is camelCase; money in minor units.
 
 - `GET /v1/o/:orgId/floor/:branchId` (`floor:read`) →
   `{ branchId, revision, schemaVersion: 2, width, height, background, zones: Zone[], objects: FloorObject[], tables: Table[] }`
-  where `Table = { id, label, capacity, zone, shape: 'square'|'round'|'rect'|'booth'|'bar', cx, cy, width, height, rotation, features: string[], reservable, minSpendMinor, premium, internalNotes, status, version }`
+  where `Table = { id, label, capacity, zone: string | null, shape: 'square'|'round'|'rect'|'booth'|'bar', cx, cy, width, height, rotation, features: string[], reservable, minSpendMinor, premium, internalNotes, status, version }`
   and `Zone/FloorObject` keep the legacy schema-v2 shapes (`{ id, type, label, x, y, width, height, rotation, color? }`).
 - `PUT /v1/o/:orgId/floor/:branchId` (`floor:write`) body `{ baseRevision, key, layout: { width, height, background, zones, objects, tables: Array<Partial<Table> & { id?: string }> } }`
-  → `200` layout (as GET) · `409 stale_layout { currentRevision }` · `409 table_in_use { tableId }` (archiving a table with an open
+  → `200` layout (as GET) · `400 validation_failed { details[].path }` (body shape) · `409 stale_layout { currentRevision }` · `409 table_in_use { tableId }` (archiving a table with an open
   visit or future reservation) · `422 invalid_geometry { path }`. Tables without `id` are created (server issues id and QR token);
-  tables omitted from the list are archived. Operational status is never taken from the body.
+  tables omitted from the list are archived. `zone` is optional (blank or missing → `null`: a fresh branch has no zones).
+  Operational status is never taken from the body.
 - `GET /v1/o/:orgId/floor/:branchId/live` (`floor:read`) → `{ revision, tables: Array<Table & { visit: null | { id, partySize, openedAt, orderCount, dueMinor, paidMinor, requests: string[] }, nextReservation: null | { id, startsAt, guestName, partySize } }> }`
 - `POST /v1/o/:orgId/visits` `{ tableId, partySize?, reservationId? }` (`floor:seat`) → `{ id, tableId }`;
-  `POST /v1/o/:orgId/visits/:visitId/close` `{ force?: boolean }`; `POST /v1/o/:orgId/visits/:visitId/undo`;
+  `POST /v1/o/:orgId/visits/:visitId/close` `{ force?: boolean, needsCleaning?: boolean = true }` (the table goes to `cleaning`
+  unless staff say it is already clean); `POST /v1/o/:orgId/visits/:visitId/undo`;
   `POST /v1/o/:orgId/tables/:tableId/clean` (`floor:seat`).
 - `GET /v1/o/:orgId/floor/:branchId/qr` (`floor:write`) → `{ items: Array<{ tableId, label, url, svg }> }` (print sheet; the only
   place QR URLs appear). `url = ${APP_ORIGIN}/t/<qrToken>`.

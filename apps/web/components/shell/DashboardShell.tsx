@@ -21,9 +21,14 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
 
   const load = useCallback(async () => {
     try {
-      setOrg(await session.call<OrgInfo>(`/o/${orgId}`));
-      const ent = await session.call<EntitlementsView>(`/o/${orgId}/billing/entitlements`).catch(() => null);
+      // Load the org and its entitlements together: the shell only renders once module gates are known,
+      // so gated pages never mount (and call module APIs) before the upgrade prompt replaces them.
+      const [o, ent] = await Promise.all([
+        session.call<OrgInfo>(`/o/${orgId}`),
+        session.call<EntitlementsView>(`/o/${orgId}/billing/entitlements`).catch(() => null),
+      ]);
       setModules(ent ? Object.fromEntries(Object.entries(ent.modules).map(([k, v]) => [k, v.enabled])) : null);
+      setOrg(o);
     } catch (e) {
       setError((e as Error).message);
     }

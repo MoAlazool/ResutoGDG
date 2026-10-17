@@ -60,6 +60,44 @@ jobs:
       - name: Web build (type-checks every page)
         run: pnpm --filter @resuto/web build
 
+  browser:
+    name: Browser end-to-end (Playwright, real API)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_e2e
+      RESUTO_ALLOW_AUTH_SHIM: '1'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build shared packages
+        run: pnpm --filter @resuto/contracts build && pnpm --filter @resuto/integrations build
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      # Pixel baselines were recorded on the development container's fonts; CI checks behaviour only.
+      - name: Playwright (API, worker and built web app started by the config)
+        run: pnpm e2e --ignore-snapshots
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
   legacy:
     name: Legacy application
     runs-on: ubuntu-latest

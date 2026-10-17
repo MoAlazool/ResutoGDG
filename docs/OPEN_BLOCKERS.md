@@ -17,3 +17,10 @@ access, approval or money. Everything else continues in parallel.
 | B-10 | Production deployment and data cutover. | Nothing in this branch touches production (`main`, Render, Vercel production, Firebase). | Explicit owner approval, maintenance window, legacy data export. | Not started by design |
 | B-11 | Legacy production issues found in the audit (table QR tokens exposed by `/api/public`; `PAYMENT_MODE=test` in `render.yaml`). | Affects the live legacy app, not 2.0. | Owner decision; a separate task card was queued to fix the legacy app. | Reported |
 | B-12 | GitHub release downloads are blocked by this environment's egress policy. | Real Supabase Auth (GoTrue) could not be run locally; the API's JWT verification is tested with the dev issuer using Supabase's claim shape (HS256) — the JWKS path is untested. | Verify against a Supabase project (B-1) or `supabase start` with Docker (B-2). | Open |
+
+## Product decisions for the owner
+
+| # | Decision | Current behaviour | Options |
+|---|---|---|---|
+| D-1 | Should campaign approval require a second person ("four eyes")? | A member with `marketing:approve` may approve a campaign they submitted themselves (approval is recorded and audited). Small restaurants often have a single owner. | (a) keep as is; (b) require a different approver when the org has ≥2 members with `marketing:approve`; (c) always require a different approver. Option (b) is a small change in `apps/api/src/modules/marketing`. |
+| D-2 | Plan prices | Prices are configurable data (`plan_prices`, `module_prices`, price versions in platform admin); the seeded values are defaults carried over from the legacy pricing page, not a confirmed commercial offer. | Owner sets the launch prices per country/currency. |

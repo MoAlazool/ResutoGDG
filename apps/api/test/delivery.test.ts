@@ -322,6 +322,32 @@ describe('pickup, delivery, COD and settlement', () => {
   });
 });
 
+describe('kitchen hand-over (KDS "Out for delivery")', () => {
+  it('hands a driver-dispatched ticket to the driver without marking the order delivered', async () => {
+    const { order, job } = await freshJob();
+    await t.http.post(M(`/jobs/${job.id}/assign`)).set(auth(manager)).send({ driverId: did(d1) });
+    await t.http.post(D(`/jobs/${job.id}/accept`)).set(auth(d1)).send({});
+    const K = (path: string) => `/v1/o/${tenant.orgId}/kitchen${path}`;
+    const early = await t.http.post(K(`/orders/${order.id}/bump`)).set(auth(manager)).send({ to: 'delivered' });
+    expect(early.status).toBe(409);
+    await makeReady(order.id);
+    const version = (await sql(`select version from orders where id = $1`, [order.id]))[0].version;
+    const bump = await t.http.post(K(`/orders/${order.id}/bump`)).set(auth(manager)).send({ to: 'delivered', version });
+    expect(bump.status, JSON.stringify(bump.body)).toBe(201);
+    expect(bump.body).toMatchObject({ status: 'ready', handedToDriver: true });
+    const [o] = await sql(`select status, payment_status from orders where id = $1`, [order.id]);
+    expect(o).toMatchObject({ status: 'ready', payment_status: 'unpaid' });
+    const feed = await t.http.get(K(`/${tenant.branchId}`)).set(auth(manager));
+    expect(feed.body.tickets.map((x: any) => x.id)).not.toContain(order.id);
+    // The driver still picks up and delivers; delivery is what completes the order.
+    expect((await t.http.post(D(`/jobs/${job.id}/pickup`)).set(auth(d1)).send({})).body.status).toBe('picked_up');
+    const photo = await t.http.post(D(`/jobs/${job.id}/proof-photo`)).set(auth(d1)).attach('file', PNG, { filename: 'proof.png', contentType: 'image/png' });
+    const done = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d1)).send({ proofMediaId: photo.body.mediaId, cashCollectedMinor: order.totalMinor });
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect((await sql(`select status, payment_status from orders where id = $1`, [order.id]))[0]).toMatchObject({ status: 'delivered', payment_status: 'paid' });
+  });
+});
+
 describe('driver device and location ingest', () => {
   it('registers devices idempotently', async () => {
     const body = { platform: 'web', deviceId: 'browser-1234567', pushToken: 'web-push-token', appVersion: '1.0.0' };
