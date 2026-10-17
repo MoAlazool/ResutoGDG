@@ -174,13 +174,16 @@ export async function apiSeedMenu(request: APIRequestContext, t: Tenant): Promis
   const cat = await api.post(`${base}/categories`, { name: 'Mains', nameAr: 'الأطباق الرئيسية', defaultStation: 'Grill' });
   const burger = await api.post(`${base}/products`, { categoryId: cat.id, name: 'Smash burger', nameAr: 'برجر سماش', description: 'Double patty, pickles.', descriptionAr: 'قطعتان مع مخلل.', priceMinor: 18500, station: 'Grill' });
   const fries = await api.post(`${base}/products`, { categoryId: cat.id, name: 'Fries', nameAr: 'بطاطس', priceMinor: 4500, station: 'Grill' });
+  // Creating an option returns its whole group (with options).
+  const option = async (groupId: string, body: Record<string, unknown>) =>
+    ((await api.post(`${base}/modifier-groups/${groupId}/options`, body)).options as Array<{ id: string; name: string }>).find((o) => o.name === body.name)!.id;
   const size = await api.post(`${base}/modifier-groups`, { name: 'Size', nameAr: 'الحجم', minSelect: 1, maxSelect: 1 });
-  const regular = await api.post(`${base}/modifier-groups/${size.id}/options`, { name: 'Regular', nameAr: 'عادي', priceDeltaMinor: 0 });
-  const large = await api.post(`${base}/modifier-groups/${size.id}/options`, { name: 'Large', nameAr: 'كبير', priceDeltaMinor: 3000 });
+  const regular = await option(size.id, { name: 'Regular', nameAr: 'عادي', priceDeltaMinor: 0 });
+  const large = await option(size.id, { name: 'Large', nameAr: 'كبير', priceDeltaMinor: 3000 });
   const extras = await api.post(`${base}/modifier-groups`, { name: 'Extras', nameAr: 'إضافات', minSelect: 0, maxSelect: 2 });
-  const cheese = await api.post(`${base}/modifier-groups/${extras.id}/options`, { name: 'Cheese', nameAr: 'جبنة', priceDeltaMinor: 1500 });
+  const cheese = await option(extras.id, { name: 'Cheese', nameAr: 'جبنة', priceDeltaMinor: 1500 });
   await api.put(`${base}/products/${burger.id}/modifier-groups`, { groupIds: [size.id, extras.id] });
-  return { categoryId: cat.id, burger: burger.id, fries: fries.id, sizeGroup: size.id, regular: regular.id, large: large.id, extrasGroup: extras.id, cheese: cheese.id };
+  return { categoryId: cat.id, burger: burger.id, fries: fries.id, sizeGroup: size.id, regular, large, extrasGroup: extras.id, cheese };
 }
 
 export interface FloorTableSeed { label: string; capacity?: number; shape?: 'square' | 'round' | 'rect'; cx: number; cy: number; reservable?: boolean }
