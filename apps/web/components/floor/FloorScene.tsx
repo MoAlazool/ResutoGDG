@@ -31,6 +31,8 @@ export interface SceneOptions {
   selectAria?: (label: string) => string;
   /** Called when a guest/staff activates a table (click/Enter/Space) outside the editor. */
   onTableActivate?: (id: string) => void;
+  /** Extra class names per object id (e.g. landing-demo pulses). */
+  classOf?: (id: string) => string | undefined;
 }
 
 const STATUS_ICONS: Record<string, string> = {
@@ -176,7 +178,7 @@ function SceneObject({ o, selected, opts }: { o: SceneTable | FloorObject; selec
       }
     : editor ? { role: 'button', tabIndex: 0, 'aria-label': opts.selectAria ? opts.selectAria(opts.labelOf(o.label)) : o.label, 'aria-pressed': selected } : {};
   return (
-    <g className={`floor-object svg-${type} state-${state}${selected ? ' is-selected' : ''}${(o as FloorObject).hidden ? ' is-hidden' : ''}`}
+    <g className={`floor-object svg-${type} state-${state}${selected ? ' is-selected' : ''}${(o as FloorObject).hidden ? ' is-hidden' : ''}${opts.classOf?.(o.id) ? ` ${opts.classOf(o.id)}` : ''}`}
       data-object-id={o.id} transform={`translate(${x} ${y}) rotate(${o.rotation || 0})`} opacity={(o as FloorObject).hidden ? 0.35 : undefined} {...a11y}>
       {table ? <TableDrawing o={o as SceneTable} mode={mode} seatsLabel={opts.seatsLabel} /> : <ObjectDrawing o={o as FloorObject} labelOf={opts.labelOf} />}
       {selected && editor && !locked && (
