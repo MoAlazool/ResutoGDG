@@ -1,0 +1,203 @@
+{
+  "$description": "Design tokens extracted from the legacy Resuto CSS (legacy/public/*.css). Values are copied verbatim. Where a token is scoped to a selector rather than :root, the scope is noted. Several surfaces define their own palette; 'brand' is the warm landing/booking identity, 'workspace' is the staff/manager UI.",
+  "$extractedAt": "2026-10-17",
+  "color": {
+    "_source": "legacy/public/landing.css (.lp), legacy/public/booking.css (.bk), legacy/public/platform.css (:root), legacy/public/experience.css (:root), legacy/public/style.css (:root), legacy/public/pages.css (.saas-site), legacy/public/receipt.css (:root), legacy/public/burger.css (.bg-app), legacy/public/floor-system.css, legacy/public/landing-demos.css (.pb), legacy/public/index.html (theme-color)",
+    "brand": {
+      "_scope": ".lp (landing.css) and .bk (booking.css) define identical values",
+      "ink": "#0C2620",
+      "ink-2": "#061713",
+      "ink-3": "#123A31",
+      "paper": "#FCF9F3",
+      "sand": "#F3ECE0",
+      "card": "#FFFFFF",
+      "line": "#0c26201f",
+      "line-soft": "#0c262012",
+      "muted": "#57685F",
+      "muted-2": "#7F8E86",
+      "ember": "#C85E33",
+      "ember-2": "#E8875A",
+      "herb": "#6F9A4C",
+      "gold": "#B8893A",
+      "sky": "#5A8598"
+    },
+    "workspace": {
+      "_scope": ":root in platform.css (staff app, guest app); experience.css overrides --ink to #173f36",
+      "ink": "#163d34",
+      "ink-experience": "#173f36",
+      "paper": "#faf9f5",
+      "muted": "#747c74",
+      "warm": "#efe9df",
+      "surface-warm": "#f5f3ed",
+      "accent": "#f0b298",
+      "line": "#e1e5dd",
+      "theme-color-meta": "#173f36"
+    },
+    "legacy-base": {
+      "_scope": ":root in style.css (oldest layer, still loaded first)",
+      "text": "#25382f",
+      "background": "#f6f7f8",
+      "green": "#204f43",
+      "muted": "#7a847f",
+      "border": "#e5e9e6",
+      "lime": "#e6efce"
+    },
+    "saas-pages": {
+      "_scope": ".saas-site (pages.css)",
+      "ink": "#143d31",
+      "accent": "#ceef94"
+    },
+    "receipt": {
+      "_scope": ":root (receipt.css)",
+      "receipt-paper": "#fffefb",
+      "receipt-ink": "#233b31",
+      "receipt-line": "#e3e6df",
+      "receipt-faint": "#8e968f"
+    },
+    "burger-brand": {
+      "_scope": ".bg-app (burger.css), the 'Smash & Co' demo storefront",
+      "red": "#b51218",
+      "red-dark": "#8d080d",
+      "yellow": "#ffd52f",
+      "cream": "#fff8ed",
+      "paper": "#fffdf8",
+      "ink": "#17120f",
+      "muted": "#70665e",
+      "line": "#e9ddd1",
+      "green": "#2f9651"
+    },
+    "chart-palette": {
+      "_scope": ".pb (landing-demos.css)",
+      "p0": "#C85E33",
+      "p1": "#6F9A4C",
+      "p2": "#B8893A",
+      "p3": "#5A8598"
+    },
+    "floor-zones": {
+      "_source": "legacy/floor-domain.js (migrateFloor default zones), legacy/public/floor-model.js (demoFloor)",
+      "main-room": "#e9efe5",
+      "terrace": "#f2eadc",
+      "demo-main-room": "#e9e6dc",
+      "demo-terrace": "#e0e9d7"
+    },
+    "table-state": {
+      "_source": "legacy/public/floor-system.css (.svg-table.state-*) as surface fill / stroke",
+      "available-tag": {"fill": "#e6f2e2", "stroke": "#6f9c72", "text": "#2f6238"},
+      "occupied|ordering|eating": {"fill": "#dcebd7", "stroke": "#4d775e"},
+      "preparing": {"fill": "#f7e8bf", "stroke": "#b88831", "tagFill": "#fbedc9", "tagText": "#7d5a12"},
+      "ready": {"fill": "#d3eee4", "stroke": "#168565"},
+      "payment|bill-requested|partially-paid": {"fill": "#eadff3", "stroke": "#76528f"},
+      "paid": {"fill": "#d8ebe4", "stroke": "#2f8066"},
+      "cleaning": {"fill": "#dce8f2", "stroke": "#4e7897"},
+      "reserved|unavailable": {"fill": "#ede9e1", "stroke": "#a8a49c", "reservedTagFill": "#e6ecf7", "reservedTagStroke": "#5d7cae", "reservedTagText": "#2f4a76"},
+      "recommended": {"stroke": "#c3942f", "strokeWidth": 6}
+    },
+    "most-frequent-literals": {
+      "_note": "Top hex literals across all legacy/public/*.css by count (lower-cased)",
+      "#fff": 125,
+      "#f7f4ec": 27,
+      "#fcf8ef": 19,
+      "#0c2620": 19,
+      "#f2f5ec": 15,
+      "#173f36": 15,
+      "#fdfbf6": 14,
+      "#8fa79a": 12,
+      "#c9d6cc": 9,
+      "#e85a3e": 6
+    }
+  },
+  "font": {
+    "_source": "legacy/public/platform.css (@font-face Manrope, Plex Arabic 400, --font-* vars), legacy/public/brand-refinements.css (@font-face Plex Arabic 500/600/700-900, Arabic weight bumps), legacy/public/typography.css (--t-* scale), legacy/public/landing.css (heading scale), legacy/public/fonts/*",
+    "family": {
+      "body-en": "Manrope, system-ui, sans-serif",
+      "body-ar": "'Plex Arabic', sans-serif",
+      "display-en": "Manrope, sans-serif",
+      "display-ar": "'Plex Arabic', sans-serif",
+      "mono": "ui-monospace, SFMono-Regular, Menlo, monospace",
+      "serif-accent": "Georgia, serif",
+      "legacy-root": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif (style.css :root; Inter is not shipped, so Manrope from platform.css wins)"
+    },
+    "files": {
+      "Manrope": {"file": "legacy/public/fonts/manrope.ttf", "weight": "200 800 (variable)", "license": "legacy/public/fonts/manrope-license.txt"},
+      "Plex Arabic 400": {"file": "legacy/public/fonts/plex-arabic.ttf", "weight": 400},
+      "Plex Arabic 500": {"file": "legacy/public/fonts/plex-arabic-medium.ttf", "weight": 500},
+      "Plex Arabic 600": {"file": "legacy/public/fonts/plex-arabic-semibold.ttf", "weight": 600},
+      "Plex Arabic 700-900": {"file": "legacy/public/fonts/plex-arabic-bold.ttf", "weight": "700 900", "license": "legacy/public/fonts/plex-arabic-license.txt"}
+    },
+    "featureSettings": "\"ss01\", \"cv11\" (landing)",
+    "scale": {
+      "_scope": ":root / html[lang=ar] (typography.css). Arabic gets one step larger.",
+      "t-xs": {"en": "11.5px", "ar": "12.5px"},
+      "t-sm": {"en": "12.5px", "ar": "13.5px"},
+      "t-md": {"en": "13.5px", "ar": "14.5px"},
+      "t-lg": {"en": "15px", "ar": "16px"},
+      "t-field": {"en": "14.5px", "ar": "15.5px"}
+    },
+    "headings-landing": {
+      "h1": "clamp(48px, 7.6vw, 112px) / 600 / line-height .94 / letter-spacing -.052em (ar: clamp(40px,6.2vw,86px), 700, lh 1.22, ls 0)",
+      "h2": "clamp(29px, 3.9vw, 56px) / 600 / lh 1.04 / ls -.038em",
+      "h3": "clamp(19px, 1.6vw, 26px) / 650 / lh 1.2 / ls -.02em",
+      "h4-eyebrow": "12px / 750 / ls .12em / uppercase / color muted-2",
+      "p": "clamp(15px, 1.05vw, 17px) / lh 1.68 / max-width 62ch"
+    },
+    "headings-booking": {"h1": "clamp(27px, 5.4vw, 42px) / 600 / ls -.035em / lh 1.08"},
+    "weights-by-frequency": [650, 700, 600, 750, 500, 800, 900, 400, 550, 850],
+    "arabicWeightRule": "html[lang=ar]: body, p and inputs at 500; buttons, labels and small at 600; h1-h3, strong and overline at 700 (brand-refinements.css)",
+    "sizes-by-frequency-px": [12, 11, 13, 14, 12.5, 10, 11.5, 9, 16, 15]
+  },
+  "radius": {
+    "_source": "legacy/public/landing.css (.lp --rl/--rm/--rs), legacy/public/experience.css (--radius-card), frequency count across legacy/public/*.css",
+    "rs": "12px",
+    "rm": "18px",
+    "rl": "28px (20px under the landing mobile breakpoint)",
+    "card": "24px",
+    "pill": "99px",
+    "circle": "50%",
+    "common-literals": ["10px", "12px", "8px", "14px", "20px", "4px", "9px", "18px", "16px"]
+  },
+  "shadow": {
+    "_source": "legacy/public/experience.css (--shadow-soft), legacy/public/burger.css (--shadow), legacy/public/landing.css / landing-demos.css / booking.css literals",
+    "soft": "0 16px 48px #173f3610",
+    "burger": "0 16px 44px rgba(61,31,12,.12)",
+    "hairline": "0 0 0 1px var(--line)",
+    "hairline-soft": "0 0 0 1px var(--line-soft)",
+    "focus-ember": "0 0 0 4px #c85e3326",
+    "selected-ember": "0 0 0 2px var(--ember)",
+    "primary-button-dark": "0 1px 0 #ffffff2e inset, 0 14px 28px -18px #0c2620d9",
+    "hero-device": "0 50px 80px -60px #0c262080",
+    "floor-svg-filter": "feDropShadow dy 5 stdDeviation 4 flood #173f36 opacity .16 (legacy/public/floor-shared.js)",
+    "focus-ring": "outline 2.5px solid var(--herb); outline-offset 3px"
+  },
+  "space": {
+    "_source": "legacy/public/experience.css (:root --space-*), legacy/public/landing.css (.lp --shell/--gut), legacy/public/booking.css (.bk --gut, .bk-step-body --pad), legacy/public/platform.css (body padding)",
+    "space-1": ".5rem",
+    "space-2": "1rem",
+    "space-3": "1.5rem",
+    "space-4": "2rem",
+    "shell-max-width": "1220px",
+    "gutter-landing": "clamp(20px, 5vw, 48px)",
+    "gutter-booking": "clamp(16px, 4vw, 40px)",
+    "booking-step-pad": "18px (22px wide)",
+    "staff-sidebar-width": "250px (220px / 190px at narrower breakpoints, style.css)",
+    "min-touch-target": "44px (burger.css .sm min-height; nav buttons 42px)"
+  },
+  "motion": {
+    "_source": "legacy/public/landing.css, legacy/public/booking.css (--ease), legacy/public/experience.css (--motion-fast)",
+    "ease": "cubic-bezier(.22,1,.36,1)",
+    "fast": "180ms",
+    "common-transitions": ["opacity .3s", "opacity .35s var(--ease)", "border-color .2s, background .2s, transform .2s var(--ease)"],
+    "reducedMotion": "@media (prefers-reduced-motion: reduce) appears in 8 stylesheets (9 occurrences)"
+  },
+  "breakpoint": {
+    "_source": "@media queries across legacy/public/*.css (all max-width unless noted). There is no shared breakpoint system; values are per file.",
+    "xs": "430px (platform.css, receipt.css)",
+    "sm": "600px (landing.css, guest-chat.css, brand-refinements.css, owner-import.css)",
+    "md": "700px (style.css, platform.css, experience.css, typography.css, burger.css)",
+    "md-demo": "860px (landing-demos.css, most used: 10 occurrences)",
+    "lg": "900px (landing.css, booking.css, style.css)",
+    "lg-demo": "1080px (landing-demos.css)",
+    "xl": "1100px (style.css, platform.css, pages.css)",
+    "wide-min": "min-width 1600px (style.css, floor-editor.css)",
+    "other-one-offs": ["340px", "520px", "640px", "720px", "750px", "760px", "768px", "800px", "850px", "899px", "950px", "1000px", "1020px", "1024px", "1150px", "1180px", "1200px"]
+  }
+}
