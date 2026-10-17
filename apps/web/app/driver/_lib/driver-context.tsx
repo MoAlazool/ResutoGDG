@@ -48,6 +48,13 @@ export function DriverShell({ children }: { children: ReactNode }) {
   const memberships = useMemo(() => (session.me?.memberships ?? []).filter((m) => m.role === 'driver'), [session.me]);
   const [orgId, setOrgId] = useState<string | null>(null);
 
+  // A token without a profile happens right after sign-in (the post-login refresh can
+  // run with the previous token); load the profile once more with the current token.
+  const { ready, token, me, refreshMe } = session;
+  useEffect(() => {
+    if (ready && token && !me) void refreshMe();
+  }, [ready, token, me, refreshMe]);
+
   useEffect(() => {
     if (!session.ready) return;
     if (!session.token) { router.replace(`/login?next=${encodeURIComponent(pathname || '/driver')}`); return; }
