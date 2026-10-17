@@ -17,3 +17,7 @@ ui-debug.log
 # Office lock files
 ~$*
 dist-landing/
+.DS_Store
+.codex-build/
+.codex-finalizer/
+tmp/
