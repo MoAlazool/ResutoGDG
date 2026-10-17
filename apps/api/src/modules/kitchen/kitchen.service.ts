@@ -49,7 +49,7 @@ export class KitchenService {
     const lines = await tx.query<any>(
       `select l.id, l.order_id, l.name, l.name_ar, l.quantity, l.station, l.kitchen_status, l.notes, l.modifiers, p.prep_minutes
          from order_lines l left join products p on p.id = l.product_id
-        where l.order_id = any($1::uuid[]) and ($2::text is null or l.station = $2) order by l.created_at, l.id`,
+        where l.order_id = any($1::uuid[]) and ($2::text is null or l.station = $2) order by l.line_seq`,
       [orders.map((o) => o.id), station ?? null]);
     return orders.map((o) => ({
       id: o.id, number: o.number, status: o.status, fulfillment: o.fulfillment, channel: o.channel, tableLabel: o.table_label,

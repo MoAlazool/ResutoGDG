@@ -99,7 +99,7 @@ export class GuestService {
   }
 
   private async publicOrder(tx: Tx, o: any) {
-    const lines = await tx.query<any>('select name, name_ar, quantity, line_total_minor, kitchen_status, modifiers, notes from order_lines where order_id = $1 order by created_at', [o.id]);
+    const lines = await tx.query<any>('select name, name_ar, quantity, line_total_minor, kitchen_status, modifiers, notes from order_lines where order_id = $1 order by line_seq', [o.id]);
     const events = await tx.query<any>(`select to_status, created_at from order_events where order_id = $1 and to_status is not null order by id`, [o.id]);
     return {
       id: o.id, number: o.number, publicRef: o.public_ref, status: o.status, paymentStatus: o.payment_status, fulfillment: o.fulfillment,

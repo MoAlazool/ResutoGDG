@@ -210,7 +210,7 @@ export class VisitsService {
     const org = await tx.one<{ currency: string }>('select currency from organizations where id = $1', [visit.org_id]);
     const orders = await tx.query<any>('select id, number, status, total_minor, placed_at from orders where visit_id = $1 order by placed_at', [visit.id]);
     const lines = orders.length
-      ? await tx.query<any>('select order_id, name, name_ar, quantity, line_total_minor, kitchen_status, modifiers from order_lines where order_id = any($1::uuid[]) order by created_at', [orders.map((o) => o.id)])
+      ? await tx.query<any>('select order_id, name, name_ar, quantity, line_total_minor, kitchen_status, modifiers from order_lines where order_id = any($1::uuid[]) order by line_seq', [orders.map((o) => o.id)])
       : [];
     const requests = await tx.query<any>(`select kind, status, created_at from service_requests where visit_id = $1 and status <> 'resolved' order by created_at`, [visit.id]);
     const totals = await this.totals(tx, visit.id);

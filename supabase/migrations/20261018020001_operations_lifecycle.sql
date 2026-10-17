@@ -16,6 +16,8 @@ create index visits_open_org_idx on public.visits(org_id) where status = 'open';
 alter table public.order_lines add column kitchen_started_at timestamptz;
 alter table public.order_lines add column kitchen_ready_at timestamptz;
 alter table public.order_lines add column recall_count integer not null default 0 check (recall_count >= 0);
+-- Stable insertion order for display (lines of one order share created_at).
+alter table public.order_lines add column line_seq bigint generated always as identity;
 create index orders_branch_updated_idx on public.orders(branch_id, updated_at desc);
 
 -- Reservations: cancellation bookkeeping and check-in time.

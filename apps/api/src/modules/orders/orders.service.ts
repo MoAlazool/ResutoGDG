@@ -86,7 +86,7 @@ export class OrdersService implements OrdersQueryPort {
       `select o.*, t.label as table_label, (select coalesce(sum(quantity), 0) from order_lines l where l.order_id = o.id) as item_count
          from orders o left join dining_tables t on t.id = o.table_id where o.id = $1`, [orderId]);
     if (!o || !ctx.canAccessBranch(o.branch_id)) throw notFound('Order');
-    const lines = await tx.query<any>('select * from order_lines where order_id = $1 order by created_at, id', [orderId]);
+    const lines = await tx.query<any>('select * from order_lines where order_id = $1 order by line_seq', [orderId]);
     const events = await tx.query<any>('select * from order_events where order_id = $1 order by id', [orderId]);
     const payments = await tx.query<any>(
       `select distinct p.* from payments p left join payment_allocations a on a.payment_id = p.id
