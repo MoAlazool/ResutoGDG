@@ -4,6 +4,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { OutboxService } from '../../common/platform/outbox.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { SiteBuilderService } from './site-builder.service';
@@ -19,6 +20,7 @@ export class StudioService {
     private readonly idempotency: IdempotencyService,
     private readonly storage: StorageService,
     private readonly builder: SiteBuilderService,
+    private readonly outbox: OutboxService,
   ) {}
 
   // --- Website ---------------------------------------------------------------
@@ -114,6 +116,7 @@ export class StudioService {
         const row = await tx.one(
           `update websites set status = 'published', published_revision = $2, published_at = now() where id = $1 returning published_at`, [site.id, revision]);
         await this.audit.record(tx, ctx, { action: 'website.published', entityType: 'website', entityId: site.id, metadata: { revision } });
+        await this.outbox.publish(tx, ctx.orgId, { type: 'website.published', aggregateType: 'website', aggregateId: site.id, payload: { revision } });
         return { revision, publishedAt: new Date(row.published_at).toISOString() };
       });
     });

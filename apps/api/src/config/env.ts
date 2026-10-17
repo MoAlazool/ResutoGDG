@@ -33,6 +33,14 @@ export const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  // ResutoStudio custom domains (read by the studio module's domain provider).
+  DOMAIN_PROVIDER: z.enum(['manual', 'vercel']).default('manual'),
+  VERCEL_TOKEN: z.string().optional(),
+  VERCEL_PROJECT_ID: z.string().optional(),
+  VERCEL_TEAM_ID: z.string().optional(),
+  DOMAIN_CNAME_TARGET: z.string().optional(),
+  DOMAIN_A_RECORD: z.string().optional(),
+  RESERVED_HOST_SUFFIXES: z.string().optional(),
   // Platform-level ad app credentials for merchant OAuth (each restaurant connects its own ad account).
   META_APP_ID: z.string().optional(),
   META_APP_SECRET: z.string().optional(),
@@ -46,6 +54,9 @@ export const envSchema = z.object({
   }
   if (!env.SUPABASE_JWT_SECRET && !env.SUPABASE_URL) {
     ctx.addIssue({ code: 'custom', path: ['SUPABASE_JWT_SECRET'], message: 'Configure SUPABASE_JWT_SECRET or SUPABASE_URL (JWKS)' });
+  }
+  if (env.DOMAIN_PROVIDER === 'vercel' && (!env.VERCEL_TOKEN || !env.VERCEL_PROJECT_ID)) {
+    ctx.addIssue({ code: 'custom', path: ['DOMAIN_PROVIDER'], message: 'DOMAIN_PROVIDER=vercel needs VERCEL_TOKEN and VERCEL_PROJECT_ID' });
   }
   if (env.NODE_ENV === 'production' && !env.CREDENTIALS_KEYS) {
     ctx.addIssue({ code: 'custom', path: ['CREDENTIALS_KEYS'], message: 'CREDENTIALS_KEYS is required in production' });
