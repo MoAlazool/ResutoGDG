@@ -140,7 +140,8 @@ class HistGBM:
     name = "hist_gbm"
     min_train = GBM_MIN_TRAIN
 
-    def __init__(self, seed: int = 42, max_iter: int = 200, learning_rate: float = 0.05):
+    # Defaults chosen on the research validation split (research/forecasting, "selectedGbmParams").
+    def __init__(self, seed: int = 42, max_iter: int = 300, learning_rate: float = 0.03):
         self.seed = seed
         self.max_iter = max_iter
         self.learning_rate = learning_rate

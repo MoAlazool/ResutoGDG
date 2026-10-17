@@ -25,7 +25,7 @@ from typing import Iterable, Sequence
 
 # Chosen by grid search on the validation split (second-to-last basket) of the synthetic
 # research dataset — research/recommendations/results/<run-id>/metrics.json, "selectedWeights".
-DEFAULT_WEIGHTS = {"personal": 0.6, "assoc": 0.3, "pop": 0.1}
+DEFAULT_WEIGHTS = {"personal": 0.4, "assoc": 0.1, "pop": 0.0}
 
 
 class CooccurrenceModel:
