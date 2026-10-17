@@ -1,3 +1,6 @@
+/* Page wrapper: a minmax(0,1fr) track so wide tables scroll inside their own wrapper instead of widening the page at 390px. */
+.page { display: grid; grid-template-columns: minmax(0, 1fr); }
+
 /* Small accessible SVG/HTML charts (Agent B2). Colors come from --chart-1..4.
    Pairing rule (validated): magnitude = --chart-1 alone; two-series comparison =
    --chart-1 (current) + --chart-4 (comparison). --chart-2/--chart-3 are never adjacent. */
@@ -24,7 +27,8 @@
 
 .barList { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .barRow { display: grid; grid-template-columns: minmax(90px, 30%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
-.barLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.barLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); display: grid; }
+.barHint { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .barTrack { height: 12px; display: flex; }
 .bar { height: 12px; border-start-end-radius: 4px; border-end-end-radius: 4px; background: var(--chart-1); min-width: 2px; }
 .barValue { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 650; text-align: end; }

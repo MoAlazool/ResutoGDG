@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, testDb, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
-import { addBranch, placeOrder } from './insights-fixtures';
+import { DbService } from '../src/common/db/db.service';
+import { OrdersKernelService } from '../src/modules/kernel/orders-kernel.service';
+import { addBranch, ownerCtx, placeOrder } from './insights-fixtures';
 
 let t: TestApp;
 let tenant: TestTenant;
@@ -27,9 +29,6 @@ beforeAll(async () => {
   const s = await placeOrder(t, tenant, { channel: 'web', fulfillment: 'pickup', lines: fries(3), customer: { name: 'Sara N', email: 'Sara@Example.test' } });
   sara = s.customerId!;
   const cancelled = await placeOrder(t, tenant, { channel: 'web', fulfillment: 'pickup', lines: fries(5), customer: { email: 'sara@example.test' } });
-  const { DbService } = await import('../src/common/db/db.service');
-  const { OrdersKernelService } = await import('../src/modules/kernel/orders-kernel.service');
-  const { ownerCtx } = await import('./insights-fixtures');
   const ctx = ownerCtx(tenant);
   await t.app.get(DbService).scoped(ctx, (tx) => t.app.get(OrdersKernelService).transition(tx, ctx, cancelled.id, 'cancelled', { reason: 'test' }));
   zed = (await placeOrder(t, tenant, { branchId: northBranch, channel: 'web', fulfillment: 'pickup', lines: fries(1), customer: { name: 'Zed North', phone: '+201009999999' } })).customerId!;

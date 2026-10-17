@@ -1,6 +1,7 @@
 'use client';
 // Shared building blocks for the overview, analytics, inventory and customers pages (Agent B2).
 import { useCallback, type ReactNode } from 'react';
+import s from './charts.module.css';
 import type { AnalyticsMeta } from '@resuto/contracts';
 import { Badge, Notice } from '@resuto/ui';
 import type { ApiRequestError } from '@/lib/api';
@@ -147,6 +148,11 @@ export function LoadError({ error, retry }: { error: ApiRequestError | null; ret
       <div className="spread"><span>{error.message || t('state.error')}</span>{retry && <button className="btn btn-sm" onClick={retry}>{t('action.retry')}</button>}</div>
     </Notice>
   );
+}
+
+/** Root wrapper for B2 pages: keeps wide tables from widening the page on phones. */
+export function InsightsPage({ children }: { children: ReactNode }) {
+  return <div className={s.page}>{children}</div>;
 }
 
 export function Section({ title, actions, children }: { title: ReactNode; actions?: ReactNode; children: ReactNode }) {

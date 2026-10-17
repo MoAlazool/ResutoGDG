@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import type { AnalyticsMeta, Permission } from '@resuto/contracts';
 import { Badge, Notice, PageHeader, Skeleton, Stat } from '@resuto/ui';
 import { LineChart } from '@/components/charts';
-import { BranchSelect, Delta, LoadError, MetaPanel, qs, Section, useBranchName, useFormat } from '@/components/charts/insights';
+import { BranchSelect, Delta, InsightsPage, LoadError, MetaPanel, qs, Section, useBranchName, useFormat } from '@/components/charts/insights';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
@@ -85,7 +85,7 @@ export default function OverviewPage() {
 
   const oldestMinutes = data?.live.oldestOpenOrderAt ? Math.round((Date.now() - Date.parse(data.live.oldestOpenOrderAt)) / 60000) : null;
   return (
-    <>
+    <InsightsPage>
       <PageHeader overline={t('nav.overview')} title={title}
         subtitle={data ? t('insights.overview.asOf', { date: f.date(data.date), time: data.localTime, tz: data.meta.timezone }) : t('state.loading')}
         actions={<BranchSelect value={branchId} onChange={setBranchId} />} />
@@ -145,6 +145,6 @@ export default function OverviewPage() {
           <MetaPanel meta={data.meta} />
         </div>
       )}
-    </>
+    </InsightsPage>
   );
 }

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { PageHeader, Tabs } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
-import { BranchSelect, PeriodPicker, presetPeriod, type Period } from '@/components/charts/insights';
+import { BranchSelect, PeriodPicker, presetPeriod, type Period, InsightsPage } from '@/components/charts/insights';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { CustomersPanel, MarketingPanel, OperationsPanel, ProductsPanel, SalesPanel, SustainabilityPanel } from './_parts/panels';
@@ -19,7 +19,7 @@ export default function AnalyticsPage() {
   const [branchId, setBranchId] = useState('');
   const props = { period, branchId };
   return (
-    <ModuleGate module="core" permission="analytics:read">
+    <ModuleGate module="core" permission="analytics:read"><InsightsPage>
       <PageHeader overline={t('nav.analytics')} title={t('insights.analytics.title')} subtitle={t('insights.analytics.subtitle')}
         actions={tab !== 'roi' ? <><PeriodPicker value={period} onChange={setPeriod} /><BranchSelect value={branchId} onChange={setBranchId} /></> : <BranchSelect value={branchId} onChange={setBranchId} />} />
       <div style={{ overflowX: 'auto' }}>
@@ -32,6 +32,6 @@ export default function AnalyticsPage() {
       {tab === 'operations' && <OperationsPanel {...props} />}
       {tab === 'sustainability' && <SustainabilityPanel {...props} />}
       {tab === 'roi' && <RoiCalculator branchId={branchId} />}
-    </ModuleGate>
+    </InsightsPage></ModuleGate>
   );
 }

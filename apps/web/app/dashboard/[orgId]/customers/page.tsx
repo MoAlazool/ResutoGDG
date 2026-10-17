@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import type { CustomerSummary } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, useAction } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
-import { BranchSelect, LoadError, qs, useFormat } from '@/components/charts/insights';
+import { BranchSelect, LoadError, qs, useFormat, InsightsPage } from '@/components/charts/insights';
 import { API_URL, ApiRequestError } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -55,7 +55,7 @@ export default function CustomersPage() {
   const filtered = JSON.stringify(filters) !== JSON.stringify(EMPTY);
 
   return (
-    <ModuleGate module="core" permission="customers:read">
+    <ModuleGate module="core" permission="customers:read"><InsightsPage>
       <PageHeader overline={t('nav.customers')} title={t('insights.customers.title')}
         subtitle={data ? t('insights.customers.count', { count: data.total }) : t('state.loading')}
         actions={can('customers:export') ? (
@@ -109,6 +109,6 @@ export default function CustomersPage() {
           </div>
         </>
       )}
-    </ModuleGate>
+    </InsightsPage></ModuleGate>
   );
 }

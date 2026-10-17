@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { CONSENT_SOURCES, type CustomerProfile, type CustomerSummary } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, TextareaField, useAction } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
-import { LoadError, qs, Section, useBranchName, useFormat } from '@/components/charts/insights';
+import { LoadError, qs, Section, useBranchName, useFormat, InsightsPage } from '@/components/charts/insights';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -59,7 +59,7 @@ export default function CustomerProfilePage() {
     return <Notice>{t('insights.profile.merged')} {into && <Link href={`/dashboard/${org.id}/customers/${into}`}>{t('insights.profile.openSurvivor')}</Link>}</Notice>;
   }
   return (
-    <ModuleGate module="core" permission="customers:read">
+    <ModuleGate module="core" permission="customers:read"><InsightsPage>
       <p><Link href={`/dashboard/${org.id}/customers`} className="fine">← {t('insights.customers.title')}</Link></p>
       <LoadError error={error} retry={reload} />
       {!c && !error && <div className="card"><Skeleton lines={6} /></div>}
@@ -202,6 +202,6 @@ export default function CustomerProfilePage() {
           </Modal>
         </>
       )}
-    </ModuleGate>
+    </InsightsPage></ModuleGate>
   );
 }

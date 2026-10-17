@@ -3,7 +3,7 @@
 // - Colors: --chart-1 for a single magnitude; --chart-1 + --chart-4 for current vs comparison.
 // - Every chart has a hover/focus tooltip, a legend for 2+ series, and a data-table fallback.
 // - RTL: time runs right-to-left and the value axis sits on the right.
-import { useId, useMemo, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import s from './charts.module.css';
 
 export const CHART_COLORS = { current: 'var(--chart-1)', comparison: 'var(--chart-4)' } as const;
@@ -54,7 +54,17 @@ export function LineChart({ title, labels, series, format, compactFormat, rtl = 
 }) {
   const id = useId();
   const [active, setActive] = useState<number | null>(null);
-  const W = 640, H = height, padAxis = 56, padEdge = 14, padTop = 12, padBottom = 28;
+  // Draw at the container's real pixel width so axis text keeps its true size on phones and in narrow cards.
+  const wrap = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(640);
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => { const w = Math.round(entry!.contentRect.width); if (w > 0) setW(w); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = height, padAxis = 56, padEdge = 14, padTop = 12, padBottom = 28;
   const plotW = W - padAxis - padEdge;
   const plotH = H - padTop - padBottom;
   const max = Math.max(0, ...series.flatMap((se) => se.values));
@@ -69,7 +79,7 @@ export function LineChart({ title, labels, series, format, compactFormat, rtl = 
   };
   const y = (v: number) => padTop + plotH - (Math.max(v, 0) / top) * plotH;
   const colored = series.slice(0, 2).map((se, i) => ({ ...se, color: se.color ?? (i ? CHART_COLORS.comparison : CHART_COLORS.current) }));
-  const every = Math.max(1, Math.ceil(n / 8));
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(plotW / 70))));
 
   const onMove = (e: PointerEvent<SVGRectElement>) => {
     const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect();
@@ -90,8 +100,8 @@ export function LineChart({ title, labels, series, format, compactFormat, rtl = 
   return (
     <figure className={s.figure}>
       <Legend series={colored} />
-      <div className={s.svgWrap}>
-        <svg className={s.svg} viewBox={`0 0 ${W} ${H}`} role="img" aria-labelledby={`${id}-t`} tabIndex={0} onKeyDown={onKey} onBlur={() => setActive(null)}>
+      <div className={s.svgWrap} ref={wrap}>
+        <svg className={s.svg} viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-labelledby={`${id}-t`} tabIndex={0} onKeyDown={onKey} onBlur={() => setActive(null)}>
           <title id={`${id}-t`}>{title}</title>
           {ticks.map((tv) => (
             <g key={tv}>
@@ -99,7 +109,7 @@ export function LineChart({ title, labels, series, format, compactFormat, rtl = 
               <text className={s.axis} x={rtl ? plotEnd + 8 : plotStart - 8} y={y(tv) + 4} textAnchor={rtl ? 'start' : 'end'}>{(compactFormat ?? format)(tv)}</text>
             </g>
           ))}
-          {labels.map((l, i) => (i % every === 0 || i === n - 1) && (
+          {labels.map((l, i) => ((i % every === 0 && n - 1 - i >= every / 2) || i === n - 1) && (
             <text key={l + i} className={s.axis} x={x(i)} y={H - 8} textAnchor="middle">{l}</text>
           ))}
           {colored.map((se, si) => {
@@ -140,7 +150,7 @@ export function BarList({ items, format, empty }: { items: Array<{ key: string; 
     <ul className={s.barList}>
       {items.map((it) => (
         <li key={it.key} className={s.barRow} title={`${typeof it.label === 'string' ? it.label : ''} ${format(it.value)}`}>
-          <span className={s.barLabel}>{it.label}{it.hint && <span className="fine"> · {it.hint}</span>}</span>
+          <span className={s.barLabel}>{it.label}{it.hint && <span className={s.barHint}>{it.hint}</span>}</span>
           <span className={s.barTrack} aria-hidden><span className={s.bar} style={{ width: `${max > 0 ? Math.max(1, (Math.max(it.value, 0) / max) * 100) : 0}%` }} /></span>
           <span className={s.barValue}>{format(it.value)}</span>
         </li>

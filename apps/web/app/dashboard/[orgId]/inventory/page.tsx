@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { PageHeader, Tabs } from '@resuto/ui';
+import { InsightsPage } from '@/components/charts/insights';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -20,7 +21,7 @@ export default function InventoryPage() {
   const writable = can('inventory:write');
   const visible = TABS.filter((k) => writable || k !== 'movement');
   return (
-    <ModuleGate module="core" permission="inventory:read">
+    <ModuleGate module="core" permission="inventory:read"><InsightsPage>
       <PageHeader overline={t('nav.inventory')} title={t('insights.inventory.title')} subtitle={t('insights.inventory.subtitle')} />
       <div style={{ overflowX: 'auto' }}>
         <Tabs tabs={visible.map((k) => ({ key: k, label: t(`insights.inventory.tab.${k}`) }))} value={tab} onChange={setTab} />
@@ -32,6 +33,6 @@ export default function InventoryPage() {
       {tab === 'alerts' && <AlertsTab />}
       {tab === 'waste' && <ValueWasteTab />}
       {tab === 'history' && <HistoryTab />}
-    </ModuleGate>
+    </InsightsPage></ModuleGate>
   );
 }
