@@ -9,10 +9,10 @@ import { sha256 } from '../src/common/crypto/hash';
 import { DbService } from '../src/common/db/db.service';
 import { EntitlementsService } from '../src/common/entitlements/entitlements.service';
 import { OrdersKernelService } from '../src/modules/kernel/orders-kernel.service';
-import { CHECKOUT_PORT, SEGMENTS_PORT, type CheckoutPort, type SegmentsPort } from '../src/modules/kernel/ports';
+import { CAMPAIGN_SEND_PORT, CAMPAIGNS_PORT, CHECKOUT_PORT, SEGMENTS_PORT, type CheckoutPort, type SegmentsPort } from '../src/modules/kernel/ports';
 import { McpJobs } from '../src/modules/mcp/mcp.jobs';
 import { MENU_AVAILABILITY_PORT, type MenuAvailabilityPort } from '../src/modules/mcp/mcp.ports';
-import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant } from './helpers';
+import { addMember, auth, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant } from './helpers';
 
 // ---------------------------------------------------------------------------
 // Two apps on the same database:
@@ -42,16 +42,23 @@ const fakeAvailability: MenuAvailabilityPort = {
   },
 };
 
+const PORT_TOKENS = [CHECKOUT_PORT, SEGMENTS_PORT, CAMPAIGNS_PORT, CAMPAIGN_SEND_PORT, MENU_AVAILABILITY_PORT];
+
+/** Registers every port token so overrides apply even before the owning module is merged. */
 @Global()
-@Module({
-  providers: [
-    { provide: CHECKOUT_PORT, useValue: fakeCheckout },
-    { provide: SEGMENTS_PORT, useValue: fakeSegments },
-    { provide: MENU_AVAILABILITY_PORT, useValue: fakeAvailability },
-  ],
-  exports: [CHECKOUT_PORT, SEGMENTS_PORT, MENU_AVAILABILITY_PORT],
-})
+@Module({ providers: PORT_TOKENS.map((provide) => ({ provide, useValue: null })), exports: PORT_TOKENS })
 class TestPortsModule {}
+
+/** Boots AppModule with the cross-module ports replaced (null = "module not deployed"). */
+async function bootWithOverrides(values: Map<symbol, unknown>): Promise<TestApp> {
+  let builder = Test.createTestingModule({ imports: [AppModule, TestPortsModule] });
+  for (const token of PORT_TOKENS) builder = builder.overrideProvider(token).useValue(values.has(token) ? values.get(token) : null);
+  const ref = await builder.compile();
+  const app = ref.createNestApplication({ rawBody: true, logger: ['error'] });
+  app.setGlobalPrefix('v1');
+  await app.init();
+  return { app, http: request(app.getHttpServer()), close: () => app.close() };
+}
 
 let t: TestApp;
 let tp: TestApp;
@@ -63,11 +70,9 @@ let today: string;
 const orderIds: { main: string[]; second: string[]; cancelled: string } = { main: [], second: [], cancelled: '' };
 
 async function bootWithPorts(): Promise<TestApp> {
-  const ref = await Test.createTestingModule({ imports: [AppModule, TestPortsModule] }).compile();
-  const app = ref.createNestApplication({ rawBody: true, logger: ['error'] });
-  app.setGlobalPrefix('v1');
-  await app.init();
-  return { app, http: request(app.getHttpServer()), close: () => app.close() };
+  return bootWithOverrides(new Map<symbol, unknown>([
+    [CHECKOUT_PORT, fakeCheckout], [SEGMENTS_PORT, fakeSegments], [MENU_AVAILABILITY_PORT, fakeAvailability],
+  ]));
 }
 
 const ALL_TOOLS = [
@@ -88,7 +93,8 @@ const call = (app: TestApp, k: string, orgId: string, tool: string, input: unkno
   app.http.post(`/v1/o/${orgId}/mcp/tools/${tool}`).set(key(k)).send({ input });
 
 beforeAll(async () => {
-  t = await bootTestApp();
+  // `t`: every port unbound, as in a deployment without those modules.
+  t = await bootWithOverrides(new Map());
   tp = await bootWithPorts();
   a = await createTenant(t, { name: 'Nile Grill' });
   b = await createTenant(t, { name: 'Other Place' });

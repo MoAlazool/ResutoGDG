@@ -49,22 +49,21 @@ export class BillsService {
 
   /**
    * Applies unused reservation-deposit credit to the bill as a `deposit_credit`
-   * ledger payment. Available credit is derived from the visit's credit and the
-   * deposit-credit payments already recorded, so it can never be applied twice.
+   * ledger payment. The ledger consumes `visits.credit_used_minor` atomically, so
+   * credit can never be applied twice (here, at close, or concurrently).
    */
   async applyCredit(tx: Tx, ctx: TenantContext, visitId: string) {
-    const v = await tx.one<any>('select branch_id, credit_minor from visits where id = $1 for update', [visitId]);
-    if (!v.credit_minor) return 0;
-    const used = await tx.one<{ s: number }>(
-      `select coalesce(sum(amount_minor - refunded_minor), 0)::bigint as s from payments where visit_id = $1 and method = 'deposit_credit' and status in ('succeeded', 'partially_refunded')`, [visitId]);
+    const v = await tx.one<any>('select branch_id, credit_minor, credit_used_minor from visits where id = $1 for update', [visitId]);
+    const available = Number(v.credit_minor) - Number(v.credit_used_minor);
+    if (available < 1) return 0;
     const due = (await this.ledger.outstanding(tx, { visitId })).dueMinor;
     const pending = await tx.one<{ s: number }>(`select coalesce(sum(amount_minor), 0)::bigint as s from payments where visit_id = $1 and status in ('pending', 'requires_action', 'authorized')`, [visitId]);
-    const amount = Math.min(Number(v.credit_minor) - Number(used.s), due - Number(pending.s));
+    const amount = Math.min(available, due - Number(pending.s));
     if (amount < 1) return 0;
     const currency = (await tx.one<any>('select currency from organizations where id = $1', [ctx.orgId])).currency;
     await this.ledger.recordSucceeded(tx, ctx, {
       branchId: v.branch_id, visitId, method: 'deposit_credit', provider: 'manual', amountMinor: amount, currency,
-      idempotencyKey: `deposit-credit:${visitId}:${Number(used.s)}`, raw: { source: 'reservation_deposit_credit' },
+      idempotencyKey: `deposit-credit:${visitId}:${Number(v.credit_used_minor)}`, raw: { source: 'reservation_deposit_credit' },
     });
     return amount;
   }

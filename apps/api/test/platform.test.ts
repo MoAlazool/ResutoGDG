@@ -112,3 +112,15 @@ describe('tenant isolation and RBAC', () => {
     expect((await t.http.get(`/v1/o/${tenant.orgId}/audit`).set(auth(waiter))).status).toBe(403);
   });
 });
+
+describe('invitations', () => {
+  it('revokes a pending invitation so its token no longer works', async () => {
+    const tenant = await createTenant(t);
+    const invitee = await signup(t, 'invitee');
+    const inv = await t.http.post(`/v1/o/${tenant.orgId}/invitations`).set(auth(tenant.owner)).send({ email: invitee.email, role: 'waiter' });
+    const revoke = await t.http.delete(`/v1/o/${tenant.orgId}/invitations/${inv.body.id}`).set(auth(tenant.owner));
+    expect(revoke.body).toEqual({ id: inv.body.id, status: 'revoked' });
+    expect((await t.http.delete(`/v1/o/${tenant.orgId}/invitations/${inv.body.id}`).set(auth(tenant.owner))).status).toBe(409);
+    expect((await t.http.post('/v1/invitations/accept').set(auth(invitee)).send({ token: inv.body.token })).status).toBe(422);
+  });
+});

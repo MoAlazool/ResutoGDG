@@ -68,6 +68,7 @@ export class PaymentLedgerService {
     const existing = await this.byIdempotency(tx, ctx.orgId, input.idempotencyKey);
     if (existing) return existing;
     await this.assertApplicable(tx, input, input.amountMinor);
+    if (input.method === 'deposit_credit') await this.consumeVisitCredit(tx, input.visitId ?? null, input.amountMinor);
     const p = await this.insert(tx, ctx, input, 'succeeded');
     await this.apply(tx, ctx, p);
     return p;
@@ -143,6 +144,18 @@ export class PaymentLedgerService {
   }
 
   // ---------------------------------------------------------------------------
+
+  /**
+   * Reservation-deposit credit is consumed only here, atomically and bounded by
+   * the visit's credit, so no caller can apply the same deposit twice.
+   */
+  private async consumeVisitCredit(tx: Tx, visitId: string | null, amountMinor: number) {
+    if (!visitId) throw invalid('credit_requires_visit', 'Deposit credit applies to a table visit');
+    const row = await tx.maybeOne(
+      `update visits set credit_used_minor = credit_used_minor + $2
+        where id = $1 and credit_used_minor + $2 <= credit_minor returning id`, [visitId, amountMinor]);
+    if (!row) throw conflict('credit_unavailable', 'Not enough deposit credit left on this visit');
+  }
 
   private due(o: { total_minor: number; paid_minor: number; refunded_minor: number }) {
     return Math.max(0, o.total_minor - (o.paid_minor - o.refunded_minor));

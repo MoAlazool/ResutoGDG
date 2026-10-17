@@ -71,6 +71,12 @@ export class PlatformController {
     return this.orgs.invite(ctx, body);
   }
 
+  @Delete('o/:orgId/invitations/:invitationId')
+  @RequirePermission('members:manage')
+  revokeInvitation(@Tenant() ctx: TenantContext, @Param('invitationId', ParseUUIDPipe) id: string) {
+    return this.orgs.revokeInvitation(ctx, id);
+  }
+
   @Patch('o/:orgId/members/:membershipId')
   @RequirePermission('members:manage')
   updateMember(@Tenant() ctx: TenantContext, @Param('membershipId', ParseUUIDPipe) id: string, @Body(zod(updateMember)) body: z.infer<typeof updateMember>) {

@@ -1,17 +1,15 @@
-import { Module, RequestMethod, type MiddlewareConsumer, type NestModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
-import { SuspendedTenantMiddleware, TenantStatusService } from './tenant-status.service';
+import { TenantStatusService } from './tenant-status.service';
 
-/** admin module (platform administration). Owner: Agent A (docs/architecture/MODULE_CONTRACTS.md). */
+/**
+ * admin module (platform administration). Owner: Agent A (docs/architecture/MODULE_CONTRACTS.md).
+ * Suspended organizations are rejected by AccessGuard (404, same as unknown tenants).
+ */
 @Module({
   controllers: [AdminController],
-  providers: [AdminService, TenantStatusService, SuspendedTenantMiddleware],
+  providers: [AdminService, TenantStatusService],
   exports: [TenantStatusService],
 })
-export class AdminModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    // Suspended organizations look exactly like unknown ones on tenant routes.
-    consumer.apply(SuspendedTenantMiddleware).forRoutes({ path: 'o/*path', method: RequestMethod.ALL });
-  }
-}
+export class AdminModule {}

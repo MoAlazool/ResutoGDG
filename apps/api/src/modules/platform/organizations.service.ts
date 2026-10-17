@@ -279,6 +279,18 @@ export class OrganizationsService {
     });
   }
 
+  async revokeInvitation(ctx: TenantContext, invitationId: string) {
+    return this.db.scoped(ctx, async (tx) => {
+      const inv = await tx.maybeOne<{ role: Role; status: string }>('select role, status from invitations where id = $1 for update', [invitationId]);
+      if (!inv) throw notFound('Invitation');
+      if (!assignableRoles(ctx.role).includes(inv.role)) throw forbidden();
+      if (inv.status !== 'pending') throw conflict('invitation_not_pending', `This invitation is already ${inv.status}`);
+      await tx.query(`update invitations set status = 'revoked' where id = $1`, [invitationId]);
+      await this.audit.record(tx, ctx, { action: 'member.invitation_revoked', entityType: 'invitation', entityId: invitationId, metadata: { role: inv.role } });
+      return { id: invitationId, status: 'revoked' as const };
+    });
+  }
+
   async removeMember(ctx: TenantContext, membershipId: string) {
     return this.updateMember(ctx, membershipId, { status: 'removed' } as any);
   }

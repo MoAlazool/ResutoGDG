@@ -244,7 +244,8 @@ export class VisitsService {
       branchId: v.branch_id, visitId, method: 'deposit_credit', provider: 'reservation_deposit', amountMinor: amount, currency: org.currency,
       idempotencyKey: `visit-credit:${visitId}:${v.credit_used_minor}`,
     });
-    await tx.query('update visits set credit_used_minor = credit_used_minor + $2 where id = $1', [visitId, amount]);
+    // The ledger consumes visits.credit_used_minor for deposit_credit payments.
+
     return amount;
   }
 

@@ -1,44 +1,16 @@
 import 'reflect-metadata';
-import { Global, Injectable, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { TenantContext } from '../src/common/auth/context';
-import { newToken, sha256 } from '../src/common/crypto/hash';
-import { DbService, type Tx } from '../src/common/db/db.service';
+import { DbService } from '../src/common/db/db.service';
 import { PaymentLedgerService } from '../src/modules/kernel/payment-ledger.service';
-import { CHECKOUT_PORT, type CheckoutPort, type CheckoutSessionRequest } from '../src/modules/kernel/ports';
 import { ReservationsService } from '../src/modules/reservations/reservations.service';
 import { addMember, auth, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
 import { key, qrTokenFor, saveFloor, table } from './ops-fixtures';
 
-/**
- * Stand-in for ResutoPay's CheckoutService (Agent D1) so the deposit hand-off can
- * be exercised end to end: it records a checkout session like D1 does, and the
- * test settles it through the real PaymentLedgerService (as D1's verified webhook would).
- */
-@Injectable()
-class TestCheckout implements CheckoutPort {
-  calls: CheckoutSessionRequest[] = [];
-  async createSession(tx: Tx, ctx: TenantContext, input: CheckoutSessionRequest) {
-    this.calls.push(input);
-    const r = await tx.one<any>('select branch_id, deposit_minor from reservations where id = $1', [input.reservationId]);
-    const token = newToken();
-    const row = await tx.one<{ id: string; expires_at: Date }>(
-      `insert into checkout_sessions(org_id, branch_id, token_hash, purpose, reservation_id, amount_minor, currency, channel, expires_at)
-       values ($1, $2, $3, $4, $5, $6, 'EGP', $7, now() + interval '15 minutes') returning id, expires_at`,
-      [ctx.orgId, r.branch_id, sha256(token), input.purpose, input.reservationId, input.amountMinor ?? r.deposit_minor, input.channel]);
-    return { id: row.id, token, url: `http://app.test/pay/${token}`, amountMinor: input.amountMinor ?? r.deposit_minor, currency: 'EGP', expiresAt: row.expires_at.toISOString() };
-  }
-}
-
-@Global()
-@Module({ providers: [TestCheckout, { provide: CHECKOUT_PORT, useExisting: TestCheckout }], exports: [CHECKOUT_PORT, TestCheckout] })
-class TestCheckoutModule {}
-
-@Module({ imports: [AppModule, TestCheckoutModule] })
-class TestRoot {}
+// Deposits use the real ResutoPay CheckoutService (CHECKOUT_PORT, Agent D1).
 
 let t: TestApp;
 let tenant: TestTenant;
@@ -48,7 +20,7 @@ let waiter: TestUser;
 let tables: Record<string, string>;
 
 beforeAll(async () => {
-  const app = await NestFactory.create(TestRoot, { logger: ['error'] });
+  const app = await NestFactory.create(AppModule, { logger: ['error'], rawBody: true });
   app.setGlobalPrefix('v1');
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
   await app.init();
@@ -183,8 +155,8 @@ describe('deposits and check-in', () => {
     expect(c.body.reservation.status).toBe('pending_deposit');
     expect(c.body.checkout).toMatchObject({ amountMinor: 20000 });
     expect(c.body.checkout.url).toMatch(/^http:\/\/app\.test\/pay\//);
-    const checkout = t.app.get(TestCheckout);
-    expect(checkout.calls.at(-1)).toMatchObject({ purpose: 'reservation_deposit', reservationId: a.body.reservation.id, amountMinor: 20000 });
+    const [session] = await sql(`select purpose, amount_minor, status from checkout_sessions where reservation_id = $1`, [a.body.reservation.id]);
+    expect(session).toEqual({ purpose: 'reservation_deposit', amount_minor: 20000, status: 'open' });
 
     // Pending deposit cannot be checked in.
     const early = await t.http.post(`/v1/o/${tenant.orgId}/reservations/${a.body.reservation.id}/check-in`).set(auth(host)).send({});

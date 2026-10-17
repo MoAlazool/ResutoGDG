@@ -27,9 +27,13 @@ export class EventDispatcher implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap() {
+    // A service bound to a port with `useExisting` appears as two providers
+    // sharing one instance; register each instance's handlers once.
+    const seen = new Set<object>();
     for (const wrapper of this.discovery.getProviders()) {
       const instance = wrapper.instance as Record<string, any> | undefined;
-      if (!instance || typeof instance !== 'object') continue;
+      if (!instance || typeof instance !== 'object' || seen.has(instance)) continue;
+      seen.add(instance);
       const proto = Object.getPrototypeOf(instance);
       for (const method of this.scanner.getAllMethodNames(proto)) {
         const on = this.reflector.get<{ name: string; types: string[] }>(ON_EVENT, proto[method]);

@@ -182,7 +182,7 @@ describe('website pickup and delivery ordering', () => {
   it('places a pay-at-pickup order with customer details and tracks it publicly', async () => {
     const menuRes = await t.http.get(`/v1/public/order/${tenant.slug}`);
     expect(menuRes.status).toBe(200);
-    expect(menuRes.body.payment).toEqual({ payAtPickup: true, cashOnDelivery: true, online: false });
+    expect(menuRes.body.payment).toEqual({ payAtPickup: true, cashOnDelivery: true, online: true });
     const quote = await t.http.post(`/v1/public/order/${tenant.slug}/quote`).send({ branchId: tenant.branchId, fulfillment: 'pickup', lines: [{ productId: menu.products.soda, quantity: 3 }] });
     expect(quote.body.totalMinor).toBe(7500);
     const k = key('web');
@@ -220,10 +220,11 @@ describe('website pickup and delivery ordering', () => {
       .send({ ...base, fulfillment: 'delivery', payment: 'cod', deliveryAddress: { line1: '12 Tahrir St', area: 'Downtown', city: 'Cairo' } });
     expect(cod.status).toBe(201);
     expect(cod.body.order.totalMinor).toBe(18500 + 2500);
-    // ResutoPay (D1) is not bound in this deployment: online payment is a clear 503, not a silent fallback.
+    // Online payment hands off to ResutoPay: the order waits for verified payment before the kitchen sees it.
     const online = await t.http.post(`/v1/public/order/${tenant.slug}/orders`).set('Idempotency-Key', key()).send({ ...base, fulfillment: 'pickup', payment: 'online' });
-    expect(online.status).toBe(503);
-    expect(online.body.error.code).toBe('module_unavailable');
+    expect(online.status).toBe(201);
+    expect(online.body.order.status).toBe('awaiting_payment');
+    expect(JSON.stringify(online.body)).toMatch(/\/pay\//);
     const invalidPhone = await t.http.post(`/v1/public/order/${tenant.slug}/orders`).set('Idempotency-Key', key()).send({ ...base, customer: { name: 'X', phone: '0100' }, fulfillment: 'pickup', payment: 'pay_at_pickup' });
     expect(invalidPhone.status).toBe(400);
     expect((await t.http.get('/v1/public/order/unknown-place')).status).toBe(404);

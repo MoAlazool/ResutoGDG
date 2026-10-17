@@ -86,9 +86,11 @@ export class AccessGuard implements CanActivate {
 
   private async resolveMcp(token: string): Promise<AuthPrincipal> {
     const client = await this.db.withPlatform((tx) => tx.maybeOne<any>(
-      `update mcp_clients set last_used_at = now()
-        where key_hash = $1 and status = 'active' and (expires_at is null or expires_at > now())
-        returning id, org_id, acting_role, branch_ids, allowed_tools, rate_limit_per_min`, [sha256(token)]));
+      `update mcp_clients c set last_used_at = now()
+         from organizations o
+        where c.key_hash = $1 and c.status = 'active' and (c.expires_at is null or c.expires_at > now())
+          and o.id = c.org_id and o.status not in ('closed', 'suspended')
+        returning c.id, c.org_id, c.acting_role, c.branch_ids, c.allowed_tools, c.rate_limit_per_min`, [sha256(token)]));
     if (!client) throw unauthorized();
     return {
       kind: 'mcp', clientId: client.id, orgId: client.org_id, role: client.acting_role as Role,
@@ -104,7 +106,7 @@ export class AccessGuard implements CanActivate {
     }
     const m = await this.db.withPlatform((tx) => tx.maybeOne<{ role: Role; branch_ids: string[] | null }>(
       `select m.role, m.branch_ids from memberships m join organizations o on o.id = m.org_id
-        where m.org_id = $1 and m.user_id = $2 and m.status = 'active' and o.status <> 'closed'`, [orgId, principal.userId]));
+        where m.org_id = $1 and m.user_id = $2 and m.status = 'active' and o.status not in ('closed', 'suspended')`, [orgId, principal.userId]));
     if (!m) throw new DomainError('not_found', 'Restaurant not found', 404);
     return new TenantContext(orgId, m.role, m.branch_ids, principal.userId, 'user', principal.userId);
   }

@@ -36,7 +36,7 @@ export class AuthController {
          returning full_name, locale`, [principal.userId, principal.email]);
       const memberships = await tx.query<any>(
         `select m.org_id, o.slug, o.name, m.role, m.branch_ids from memberships m join organizations o on o.id = m.org_id
-          where m.user_id = $1 and m.status = 'active' and o.status <> 'closed' order by o.name`, [principal.userId]);
+          where m.user_id = $1 and m.status = 'active' and o.status not in ('closed', 'suspended') order by o.name`, [principal.userId]);
       const admin = await tx.maybeOne<{ role: string }>('select role from platform_admins where user_id = $1', [principal.userId]);
       return {
         user: { id: principal.userId, email: principal.email, fullName: profile?.full_name ?? null, locale: profile?.locale ?? 'en' },

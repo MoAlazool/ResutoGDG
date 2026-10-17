@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { canTransitionOrder, type Fulfillment, type OrderStatus } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError, invalid, notFound } from '../../common/errors/domain-error';
 import { OutboxService } from '../../common/platform/outbox.service';
+import { PlanLimitsService } from '../billing/plan-limits.service';
 import { PricingService, type CartLineInput, type Quote } from './pricing.service';
 
 export type OrderChannel = 'qr' | 'web' | 'whatsapp' | 'staff' | 'pos' | 'mcp' | 'phone';
@@ -52,10 +53,16 @@ const TIMESTAMP_FOR: Partial<Record<OrderStatus, string>> = {
  */
 @Injectable()
 export class OrdersKernelService {
-  constructor(private readonly pricing: PricingService, private readonly outbox: OutboxService) {}
+  constructor(
+    private readonly pricing: PricingService,
+    private readonly outbox: OutboxService,
+    /** Billing (Agent A) enforces plan order caps; optional so the kernel stays usable in isolation. */
+    @Optional() private readonly planLimits?: PlanLimitsService,
+  ) {}
 
   async place(tx: Tx, ctx: TenantContext, input: PlaceOrderInput): Promise<PlacedOrder> {
     ctx.assertBranch(input.branchId);
+    await this.planLimits?.assertCanPlaceOrder(tx, ctx.orgId);
     if (input.fulfillment === 'dine_in' && !input.tableId) throw invalid('table_required', 'Dine-in orders need a table');
     if (input.fulfillment === 'delivery' && !input.deliveryAddress?.line1) throw invalid('address_required', 'Delivery orders need an address');
     if (input.fulfillment === 'delivery' && !input.customer?.phone && !input.customerId) throw invalid('phone_required', 'Delivery orders need a phone number');
