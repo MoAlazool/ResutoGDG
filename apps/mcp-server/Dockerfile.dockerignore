@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+.git
+.local
+.claude
+legacy
+docs
+tests
+apps/web
+apps/api
+apps/ai-service
+supabase
+.env
+.env.*
