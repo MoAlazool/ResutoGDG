@@ -165,7 +165,7 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
       <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'grid', gap: 8, maxHeight: 520, alignContent: 'start' }}>
         {d.messages.map((msg) => (
           <div key={msg.id} style={{ justifySelf: msg.direction === 'outbound' ? 'end' : 'start', maxWidth: '82%' }}>
-            <div style={{ padding: '8px 12px', borderRadius: 14, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            <div dir="auto" style={{ padding: '8px 12px', borderRadius: 14, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
               background: msg.direction === 'outbound' ? (msg.automated ? 'var(--info-bg)' : 'var(--leaf-bg)') : '#fff', border: '1px solid var(--line-soft)' }}>
               {msg.body ?? <em className="muted">{t('connect.inbox.unsupported')}</em>}
               {msg.interactive?.buttons && <div className="row" style={{ gap: 4, marginBlockStart: 6 }}>{msg.interactive.buttons.map((b: any) => <Badge key={b.id}>{b.title}</Badge>)}</div>}
