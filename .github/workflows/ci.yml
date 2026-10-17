@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'claude/**', 'feat/**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  platform:
+    name: Database, API and web
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build shared packages
+        run: pnpm --filter @resuto/contracts build && pnpm --filter @resuto/integrations build
+      - name: Contracts tests
+        run: pnpm --filter @resuto/contracts test
+      - name: Database security tests (RLS, constraints)
+        run: node --test supabase/tests/*.test.mjs
+      - name: API typecheck
+        run: pnpm --filter @resuto/api typecheck
+      - name: API integration tests
+        run: pnpm --filter @resuto/api test
+      - name: Web build (type-checks every page)
+        run: pnpm --filter @resuto/web build
+
+  legacy:
+    name: Legacy application
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: legacy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm test

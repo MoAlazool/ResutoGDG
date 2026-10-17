@@ -29,7 +29,11 @@ export async function migrate({ url = process.env.DATABASE_URL || defaultUrl, re
     }
     const hasAuth = (await client.query(`select 1 from information_schema.schemata where schema_name='auth'`)).rowCount > 0;
     if (!hasAuth) {
-      if (!isLocal(url)) throw new Error('auth schema missing on a non-local database: is this really a Supabase project?');
+      // Docker Compose / CI databases are not on localhost but are still disposable;
+      // they opt in explicitly. Never set this for a Supabase project.
+      if (!isLocal(url) && process.env.RESUTO_ALLOW_AUTH_SHIM !== '1') {
+        throw new Error('auth schema missing on a non-local database: is this really a Supabase project?');
+      }
       log('auth schema missing — applying local Supabase auth shim (development only)');
       await client.query(readFileSync(path.join(root, 'supabase/local/auth-shim.sql'), 'utf8'));
     }

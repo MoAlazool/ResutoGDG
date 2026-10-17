@@ -1,0 +1,69 @@
+# Full local/self-hosted stack. Plain Postgres + the Supabase auth shim and the
+# API's dev auth issuer — for Supabase-managed environments point DATABASE_URL and
+# SUPABASE_* at the project instead and set AUTH_DEV_MODE=false.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: resuto
+    ports: ['54329:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      retries: 20
+
+  migrate:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    command: ['node', 'scripts/db/migrate.mjs']
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/resuto
+      RESUTO_ALLOW_AUTH_SHIM: '1'
+    depends_on: { postgres: { condition: service_healthy } }
+
+  api: &api
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    environment: &apienv
+      NODE_ENV: development
+      PORT: '4000'
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/resuto
+      APP_ORIGIN: http://localhost:3000
+      API_ORIGIN: http://localhost:4000
+      CORS_ORIGINS: http://localhost:3000
+      SUPABASE_JWT_SECRET: compose-dev-jwt-secret-change-me-32chars
+      AUTH_DEV_MODE: 'true'
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: /tmp/resuto-storage
+      PAYMENT_MODE: sandbox
+      AI_SERVICE_URL: http://ai-service:8000
+      AI_SERVICE_TOKEN: compose-ai-token
+    ports: ['4000:4000']
+    depends_on: { migrate: { condition: service_completed_successfully } }
+
+  worker:
+    <<: *api
+    command: ['node', 'dist/worker.js']
+    ports: []
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args: { NEXT_PUBLIC_API_URL: 'http://localhost:4000' }
+    ports: ['3000:3000']
+    depends_on: [api]
+
+  ai-service:
+    build: { context: apps/ai-service }
+    environment: { AI_SERVICE_TOKEN: compose-ai-token }
+    ports: ['8000:8000']
+
+  mcp-server:
+    build: { context: ., dockerfile: apps/mcp-server/Dockerfile }
+    environment: { RESUTO_API_URL: http://api:4000, MCP_HOST: 0.0.0.0, MCP_PORT: '7000' }
+    ports: ['7000:7000']
+    depends_on: [api]
+
+volumes:
+  pgdata:
