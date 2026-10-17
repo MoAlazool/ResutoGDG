@@ -1,6 +1,6 @@
 'use client';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MeResponse } from '@resuto/contracts';
 import { api, type ApiOptions } from './api';
 
@@ -41,6 +41,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [me, setMe] = useState<MeResponse | null>(null);
   const [ready, setReady] = useState(false);
+  // Always the latest token: callbacks created before sign-in (e.g. refreshMe called
+  // right after signIn) must not read a stale null token from their closure.
+  const tokenRef = useRef<string | null>(null);
+  const applyToken = useCallback((t: string | null) => { tokenRef.current = t; setToken(t); }, []);
 
   const loadMe = useCallback(async (t: string | null) => {
     if (!t) { setMe(null); return null; }
@@ -60,11 +64,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (AUTH_MODE === 'supabase') {
         const { data } = await sb().auth.getSession();
         t = data.session?.access_token ?? null;
-        sb().auth.onAuthStateChange((_e, s) => { setToken(s?.access_token ?? null); });
+        sb().auth.onAuthStateChange((_e, s) => { applyToken(s?.access_token ?? null); });
       } else {
         t = readStored()?.accessToken ?? null;
       }
-      setToken(t);
+      applyToken(t);
       await loadMe(t);
       setReady(true);
     })();
@@ -83,7 +87,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ accessToken: r.accessToken, expiresAt: Date.now() + r.expiresIn * 1000, email }));
         t = r.accessToken;
       }
-      setToken(t);
+      applyToken(t);
       await loadMe(t);
     },
     async signUp(email, password, fullName) {
@@ -91,24 +95,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const { data, error } = await sb().auth.signUp({ email, password, options: { data: { full_name: fullName } } });
         if (error) throw new Error(error.message);
         if (!data.session) throw new Error('Check your email to confirm your account, then sign in.');
-        setToken(data.session.access_token);
+        applyToken(data.session.access_token);
         await loadMe(data.session.access_token);
         return;
       }
       const r = await api<{ accessToken: string; expiresIn: number }>('/auth/dev/signup', { body: { email, password, fullName } });
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ accessToken: r.accessToken, expiresAt: Date.now() + r.expiresIn * 1000, email }));
-      setToken(r.accessToken);
+      applyToken(r.accessToken);
       await loadMe(r.accessToken);
     },
     async signOut() {
       if (AUTH_MODE === 'supabase') await sb().auth.signOut();
       localStorage.removeItem(STORAGE_KEY);
-      setToken(null);
+      applyToken(null);
       setMe(null);
     },
-    refreshMe: () => loadMe(token),
-    call: (path, opts) => api(path, { ...opts, token }),
-  }), [ready, token, me, loadMe]);
+    refreshMe: () => loadMe(tokenRef.current),
+    call: (path, opts) => api(path, { ...opts, token: tokenRef.current }),
+  }), [ready, token, me, loadMe, applyToken]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

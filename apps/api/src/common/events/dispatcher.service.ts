@@ -61,6 +61,8 @@ export class EventDispatcher implements OnApplicationBootstrap {
         where id in (select id from outbox_events where published_at is null and available_at <= now()
                      order by created_at limit $1 for update skip locked)
         returning id, org_id, event_type, aggregate_type, aggregate_id, payload, created_at`, [batch]));
+    // UPDATE ... RETURNING has no defined order; handle events in creation order.
+    events.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     for (const row of events) {
       const event: OutboxEvent = { id: row.id, orgId: row.org_id, type: row.event_type, aggregateType: row.aggregate_type,
         aggregateId: row.aggregate_id, payload: row.payload, createdAt: row.created_at };
