@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CommonModule } from './common/common.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { KernelModule } from './modules/kernel/kernel.module';
 import { PlatformModule } from './modules/platform/platform.module';
 import { SystemModule } from './modules/system/system.module';
 import { DOMAIN_MODULES } from './modules/domain-modules';
@@ -11,6 +12,6 @@ import { DOMAIN_MODULES } from './modules/domain-modules';
  * modules/domain-modules.ts.
  */
 @Module({
-  imports: [CommonModule, SystemModule, AuthModule, PlatformModule, ...DOMAIN_MODULES],
+  imports: [CommonModule, KernelModule, SystemModule, AuthModule, PlatformModule, ...DOMAIN_MODULES],
 })
 export class AppModule {}

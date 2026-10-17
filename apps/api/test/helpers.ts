@@ -51,3 +51,51 @@ export async function addMember(t: TestApp, tenant: TestTenant, role: string, br
 }
 
 export const auth = (u: { token: string }) => ({ Authorization: `Bearer ${u.token}` });
+
+// ---------------------------------------------------------------------------
+// Direct database fixtures (platform connection). Use only to arrange data that
+// another module's API would normally create; assert through the API.
+// ---------------------------------------------------------------------------
+import pg from 'pg';
+let pool: pg.Pool | null = null;
+export const testDb = () => (pool ??= new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3 }));
+export async function sql<T = any>(text: string, params: unknown[] = []): Promise<T[]> {
+  return (await testDb().query(text, params as any[])).rows;
+}
+
+export interface SeededMenu {
+  menuId: string; categoryId: string;
+  products: { burger: string; fries: string; soda: string; limited: string };
+  groups: { size: string; extras: string };
+  options: { regular: string; large: string; cheese: string; bacon: string };
+  tableId: string; qrToken: string;
+}
+
+/** Minimal menu + table for order/payment tests. Prices in minor units. */
+export async function seedMenu(tenant: TestTenant): Promise<SeededMenu> {
+  const { orgId, branchId } = tenant;
+  const [menu] = await sql(`select id from menus where org_id = $1 limit 1`, [orgId]);
+  const [cat] = await sql(`insert into menu_categories(org_id, menu_id, name) values ($1, $2, 'Mains') returning id`, [orgId, menu.id]);
+  const currency = (await sql(`select currency from organizations where id = $1`, [orgId]))[0].currency;
+  const product = async (name: string, price: number, extra = '') =>
+    (await sql(`insert into products(org_id, category_id, name, price_minor, cost_minor, currency, station${extra ? ', track_stock' : ''})
+                values ($1, $2, $3, $4, $5, $6, 'Grill'${extra ? ', true' : ''}) returning id`, [orgId, cat.id, name, price, Math.round(price * 0.3), currency]))[0].id;
+  const burger = await product('Smash burger', 18500);
+  const fries = await product('Fries', 4500);
+  const soda = await product('Soda', 2500);
+  const limited = await product('Limited special', 30000, 'stock');
+  await sql(`insert into product_branch_settings(org_id, product_id, branch_id, stock_qty) values ($1, $2, $3, 2)`, [orgId, limited, branchId]);
+  const [size] = await sql(`insert into modifier_groups(org_id, name, min_select, max_select) values ($1, 'Size', 1, 1) returning id`, [orgId]);
+  const [extras] = await sql(`insert into modifier_groups(org_id, name, min_select, max_select) values ($1, 'Extras', 0, 2) returning id`, [orgId]);
+  const opt = async (g: string, name: string, delta: number) =>
+    (await sql(`insert into modifier_options(org_id, group_id, name, price_delta_minor) values ($1, $2, $3, $4) returning id`, [orgId, g, name, delta]))[0].id;
+  const regular = await opt(size.id, 'Regular', 0);
+  const large = await opt(size.id, 'Large', 3000);
+  const cheese = await opt(extras.id, 'Cheese', 1500);
+  const bacon = await opt(extras.id, 'Bacon', 2500);
+  await sql(`insert into product_modifier_groups(org_id, product_id, group_id) values ($1, $2, $3), ($1, $2, $4)`, [orgId, burger, size.id, extras.id]);
+  const qrToken = `qr-${unique('t')}`.padEnd(20, 'x');
+  const [table] = await sql(`insert into dining_tables(org_id, branch_id, label, capacity, qr_token) values ($1, $2, 'T1', 4, $3) returning id`, [orgId, branchId, qrToken]);
+  return { menuId: menu.id, categoryId: cat.id, products: { burger, fries, soda, limited }, groups: { size: size.id, extras: extras.id },
+    options: { regular, large, cheese, bacon }, tableId: table.id, qrToken };
+}
