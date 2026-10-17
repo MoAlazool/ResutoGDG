@@ -5,6 +5,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { migrate } from '../../scripts/db/migrate.mjs';
+import { ensureDatabase } from '../../scripts/db/ensure-db.mjs';
 
 const url = process.env.TEST_DATABASE_URL || 'postgres://postgres@127.0.0.1:54329/resuto_test';
 const pool = new pg.Pool({ connectionString: url, max: 4 });
@@ -26,6 +27,7 @@ async function as(role, { user, org } = {}, fn) {
 }
 
 before(async () => {
+  await ensureDatabase(url);
   await migrate({ url, reset: true, log: () => {} });
   const q = (sql, params) => pool.query(sql, params).then((r) => r.rows);
   for (const k of ['A', 'B']) {

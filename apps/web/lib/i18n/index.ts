@@ -4,6 +4,7 @@ import { connect } from './dict/connect';
 import { core } from './dict/core';
 import { driver } from './dict/driver';
 import { finance } from './dict/finance';
+import { insights } from './dict/insights';
 import { intelligence } from './dict/intelligence';
 import { marketing } from './dict/marketing';
 import { mcp } from './dict/mcp';
@@ -15,7 +16,7 @@ export type Locale = 'en' | 'ar';
 export const LOCALE_COOKIE = 'resuto_locale';
 export const isRtl = (l: Locale) => l === 'ar';
 
-const parts = [common, core, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp];
+const parts = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp];
 const merged: Record<Locale, Record<string, string>> = { en: {}, ar: {} };
 for (const p of parts) {
   Object.assign(merged.en, p.en);
