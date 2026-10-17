@@ -13,7 +13,7 @@ import { OutboxService } from '../../common/platform/outbox.service';
 
 const BRANCH_COLUMNS: Record<keyof BranchInput | 'isActive', string> = {
   code: 'code', name: 'name', nameAr: 'name_ar', address: 'address', city: 'city', phone: 'phone',
-  latitude: 'latitude', longitude: 'longitude', acceptsDineIn: 'accepts_dine_in', acceptsPickup: 'accepts_pickup',
+  latitude: 'latitude', longitude: 'longitude', timezone: 'timezone', acceptsDineIn: 'accepts_dine_in', acceptsPickup: 'accepts_pickup',
   acceptsDelivery: 'accepts_delivery', acceptsReservations: 'accepts_reservations', deliveryFeeMinor: 'delivery_fee_minor',
   deliveryRadiusM: 'delivery_radius_m', minOrderMinor: 'min_order_minor', reservationDurationMin: 'reservation_duration_min',
   reservationBufferMin: 'reservation_buffer_min', reservationDepositMinor: 'reservation_deposit_minor', openingHours: 'opening_hours',
@@ -28,7 +28,7 @@ export const toOrg = (r: any): OrganizationSummary => ({
 export const toBranch = (r: any) => ({
   id: r.id, orgId: r.org_id, code: r.code, name: r.name, nameAr: r.name_ar, address: r.address, city: r.city, phone: r.phone,
   latitude: r.latitude === null ? null : Number(r.latitude), longitude: r.longitude === null ? null : Number(r.longitude),
-  isActive: r.is_active, acceptsDineIn: r.accepts_dine_in, acceptsPickup: r.accepts_pickup, acceptsDelivery: r.accepts_delivery,
+  timezone: r.timezone, isActive: r.is_active, acceptsDineIn: r.accepts_dine_in, acceptsPickup: r.accepts_pickup, acceptsDelivery: r.accepts_delivery,
   acceptsReservations: r.accepts_reservations, deliveryFeeMinor: r.delivery_fee_minor, deliveryRadiusM: r.delivery_radius_m,
   minOrderMinor: r.min_order_minor, reservationDurationMin: r.reservation_duration_min, reservationBufferMin: r.reservation_buffer_min,
   reservationDepositMinor: r.reservation_deposit_minor, openingHours: r.opening_hours,
@@ -171,15 +171,15 @@ export class OrganizationsService {
     const branch = await tx.one<any>(
       `insert into branches(org_id, code, name, name_ar, address, city, phone, latitude, longitude,
           accepts_dine_in, accepts_pickup, accepts_delivery, accepts_reservations, delivery_fee_minor, delivery_radius_m,
-          min_order_minor, reservation_duration_min, reservation_buffer_min, reservation_deposit_minor, opening_hours)
+          min_order_minor, reservation_duration_min, reservation_buffer_min, reservation_deposit_minor, opening_hours, timezone)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, coalesce($10, true), coalesce($11, true), coalesce($12, false), coalesce($13, true),
-          coalesce($14, 0), $15, coalesce($16, 0), coalesce($17, 90), coalesce($18, 15), coalesce($19, 0), coalesce($20, '[]'::jsonb))
+          coalesce($14, 0), $15, coalesce($16, 0), coalesce($17, 90), coalesce($18, 15), coalesce($19, 0), coalesce($20, '[]'::jsonb), $21)
        returning *`,
       [orgId, code, input.name, input.nameAr ?? null, input.address ?? null, input.city ?? null, input.phone ?? null,
         input.latitude ?? null, input.longitude ?? null, input.acceptsDineIn ?? null, input.acceptsPickup ?? null,
         input.acceptsDelivery ?? null, input.acceptsReservations ?? null, input.deliveryFeeMinor ?? null, input.deliveryRadiusM ?? null,
         input.minOrderMinor ?? null, input.reservationDurationMin ?? null, input.reservationBufferMin ?? null,
-        input.reservationDepositMinor ?? null, input.openingHours ? JSON.stringify(input.openingHours) : null]);
+        input.reservationDepositMinor ?? null, input.openingHours ? JSON.stringify(input.openingHours) : null, input.timezone ?? null]);
     await tx.query(`insert into floor_layouts(org_id, branch_id) values ($1, $2)`, [orgId, branch.id]);
     await tx.query(`insert into order_counters(branch_id, org_id) values ($1, $2)`, [branch.id, orgId]);
     return branch;

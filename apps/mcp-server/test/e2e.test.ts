@@ -181,7 +181,7 @@ describe('ResutoMCP over Streamable HTTP', () => {
     await client.close();
   });
 
-  it('maps validation, permission and unavailable-module failures to isError tool results', async () => {
+  it('maps validation and permission failures to isError results and sensitive actions to approvals', async () => {
     const { client, ready } = connect(key);
     await ready;
     const bad = await client.callTool({ name: 'list_orders', arguments: { limit: 1000 } });
@@ -190,15 +190,15 @@ describe('ResutoMCP over Streamable HTTP', () => {
     const notAllowed = await client.callTool({ name: 'search_customers', arguments: { query: 'mona' } });
     expect(notAllowed.isError).toBe(true);
     expect((notAllowed.content as any)[0].text).toContain('tool_not_allowed');
-    // ResutoPay's checkout port is not bound in this build → clear 503, no approval created.
+    // Payment links are sensitive: with ResutoPay deployed the call waits for a human approval (not an error).
     const pay = await client.callTool({ name: 'create_payment_link', arguments: { amountMinor: 5000, description: 'Deposit' } });
-    expect(pay.isError).toBe(true);
-    expect((pay.content as any)[0].text).toContain('module_unavailable');
+    expect(pay.isError).toBeFalsy();
+    expect((pay.structuredContent as any).approvalId).toEqual(expect.any(String));
     await client.close();
 
     const calls = (await pool.query(`select tool, outcome from mcp_tool_calls where client_id = $1 order by id`, [clientId])).rows;
     expect(calls.slice(-3).map((c) => `${c.tool}:${c.outcome}`)).toEqual(
-      ['list_orders:invalid_input', 'search_customers:denied', 'create_payment_link:error']);
+      ['list_orders:invalid_input', 'search_customers:denied', 'create_payment_link:approval_required']);
   });
 
   it('rejects missing, malformed and unknown keys, foreign origins and session hijacking', async () => {

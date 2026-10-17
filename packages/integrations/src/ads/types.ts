@@ -62,7 +62,7 @@ export function decimalToMinor(value: unknown, decimals = 2): number {
   return m[1] ? -minor : minor;
 }
 
-export const minorToDecimal = (minor: number, decimals = 2) => (minor / 10 ** decimals).toFixed(decimals);
+export const adsMinorToDecimal = (minor: number, decimals = 2) => (minor / 10 ** decimals).toFixed(decimals);
 
 export const toInt = (v: unknown) => {
   const n = Number(v ?? 0);

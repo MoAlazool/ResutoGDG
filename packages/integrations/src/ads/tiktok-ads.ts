@@ -3,7 +3,7 @@
 //       Reporting /report/integrated/get/). TikTok returns HTTP 200 with a non-zero "code" on errors.
 // Readiness: implemented_unverified (no TikTok developer app or advertiser account available).
 import { providerRequest, ProviderError, type ProviderDescriptor } from '../core';
-import { decimalToMinor, minorToDecimal, requireConfig, requireCred, toInt, type AdInsightRow, type AdsAdapter, type AdsObjective } from './types';
+import { decimalToMinor, adsMinorToDecimal, requireConfig, requireCred, toInt, type AdInsightRow, type AdsAdapter, type AdsObjective } from './types';
 
 const API = 'https://business-api.tiktok.com/open_api/v1.3';
 
@@ -70,7 +70,7 @@ export const tiktokAdsAdapter: AdsAdapter = {
       operation_status: 'DISABLE',
       budget_mode: input.dailyBudgetMinor ? 'BUDGET_MODE_DAY' : 'BUDGET_MODE_INFINITE',
     };
-    if (input.dailyBudgetMinor) body.budget = Number(minorToDecimal(input.dailyBudgetMinor)); // major units
+    if (input.dailyBudgetMinor) body.budget = Number(adsMinorToDecimal(input.dailyBudgetMinor)); // major units
     const res = await providerRequest<TikTokEnvelope<{ campaign_id?: string }>>('tiktok_ads', ctx, `${API}/campaign/create/`, {
       method: 'POST', headers: { 'Access-Token': token, 'Content-Type': 'application/json' }, body: JSON.stringify(body), retries: 0,
     });

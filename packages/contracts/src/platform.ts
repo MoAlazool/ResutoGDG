@@ -11,6 +11,8 @@ export const branchInput = z.object({
   phone: optionalText(30),
   latitude: z.number().min(-90).max(90).optional().nullable(),
   longitude: z.number().min(-180).max(180).optional().nullable(),
+  /** IANA zone; null = the organization's timezone. */
+  timezone: z.string().regex(/^[A-Za-z_]+(?:\/[A-Za-z_+-]+){0,2}$/).max(60).optional().nullable(),
   acceptsDineIn: z.boolean().optional(),
   acceptsPickup: z.boolean().optional(),
   acceptsDelivery: z.boolean().optional(),

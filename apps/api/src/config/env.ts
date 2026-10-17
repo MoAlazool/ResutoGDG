@@ -33,6 +33,13 @@ export const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
+  // Platform-level ad app credentials for merchant OAuth (each restaurant connects its own ad account).
+  META_APP_ID: z.string().optional(),
+  META_APP_SECRET: z.string().optional(),
+  TIKTOK_APP_ID: z.string().optional(),
+  TIKTOK_APP_SECRET: z.string().optional(),
+  SNAPCHAT_CLIENT_ID: z.string().optional(),
+  SNAPCHAT_CLIENT_SECRET: z.string().optional(),
 }).superRefine((env, ctx) => {
   if (env.AUTH_DEV_MODE && env.NODE_ENV === 'production') {
     ctx.addIssue({ code: 'custom', path: ['AUTH_DEV_MODE'], message: 'AUTH_DEV_MODE must never be enabled in production' });

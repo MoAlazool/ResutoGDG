@@ -18,5 +18,6 @@ export const DOMAIN_EVENTS = [
   'compliance.document_expiring',
   'fiscal_document.issued',
   'mcp.approval_requested',
+  'customer.merged', 'customer.anonymised',
 ] as const;
 export type DomainEventType = (typeof DOMAIN_EVENTS)[number];

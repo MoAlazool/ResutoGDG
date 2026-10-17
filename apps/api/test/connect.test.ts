@@ -8,7 +8,7 @@ import { OrderingService } from '../src/modules/connect/ordering.service';
 import { ProviderHttp } from '../src/modules/integrations/provider-http';
 import { PaymentLedgerService } from '../src/modules/kernel/payment-ledger.service';
 import { MESSAGING_PORT, type MessagingPort } from '../src/modules/kernel/ports';
-import { bootWithCheckout, fakeCheckout, inbound, lastOutbound, outbound, sandboxChannel, walkToMenu, scriptedFetch } from './growth-helpers';
+import { bootWithCheckout, bootWithoutCheckout, fakeCheckout, inbound, lastOutbound, outbound, sandboxChannel, walkToMenu, scriptedFetch } from './growth-helpers';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant } from './helpers';
 
 const APP_SECRET = 'test-whatsapp-app-secret';
@@ -82,7 +82,7 @@ describe('structured WhatsApp ordering (sandbox)', () => {
     expect(cart.body.quote).toMatchObject({ subtotalMinor: 47500, deliveryFeeMinor: 2500, totalMinor: 50000, currency: 'EGP' });
     expect(cart.body.step).toBe('review');
     const review = await lastOutbound(conversationId);
-    expect(review.payload.buttons.map((b: any) => b.id)).toEqual(['pay:cod']); // no CHECKOUT_PORT in this app → online not offered
+    expect(review.payload.buttons.map((b: any) => b.id)).toEqual(['pay:online', 'pay:cod']); // ResutoPay is deployed → online offered
     expect(review.body).toMatch(/Total EGP\s500/);
 
     await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: true }).expect(201);
@@ -107,12 +107,14 @@ describe('structured WhatsApp ordering (sandbox)', () => {
   });
 
   it('(b) online payment needs CHECKOUT_PORT: clear 503 and nothing is placed when it is absent', async () => {
+    const noPay = await bootWithoutCheckout();
     const from = nextPhone();
-    const { conversationId, token } = await walkToMenu(t, tenant, channelId, from);
-    const v = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
-    const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v.version, lines: [burger(menu)] });
+    const { conversationId, token } = await walkToMenu(noPay, tenant, channelId, from);
+    const v = (await noPay.http.get(`/v1/public/connect/ordering/${token}`)).body;
+    const cart = await noPay.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v.version, lines: [burger(menu)] });
     expect(cart.body.paymentOnlineAvailable).toBe(false);
-    const res = await t.http.post(`/v1/public/connect/ordering/${token}/checkout`).send({ version: cart.body.version, paymentMethod: 'online', expectedTotalMinor: cart.body.quote.totalMinor });
+    const res = await noPay.http.post(`/v1/public/connect/ordering/${token}/checkout`).send({ version: cart.body.version, paymentMethod: 'online', expectedTotalMinor: cart.body.quote.totalMinor });
+    await noPay.close();
     expect(res.status).toBe(503);
     expect(res.body.error.code).toBe('module_unavailable');
     expect((await sql(`select count(*)::int as n from orders where conversation_id = $1`, [conversationId]))[0].n).toBe(0);

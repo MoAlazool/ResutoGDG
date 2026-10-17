@@ -35,7 +35,7 @@ export interface AccountingAdapter {
 }
 
 /** Integer minor units → "123.45" without floating point. */
-export function minorToDecimal(minor: number): string {
+export function accountingMinorToDecimal(minor: number): string {
   if (!Number.isSafeInteger(minor)) throw new RangeError('amount must be an integer');
   const sign = minor < 0 ? '-' : '';
   const abs = Math.abs(minor);
@@ -88,7 +88,7 @@ export const wafeqAdapter: AccountingAdapter = {
       method: 'POST', headers: wafeqAuth(ctx), retries: 0,
       body: JSON.stringify({
         date: entry.date, reference: entry.reference, notes: entry.memo, currency: entry.currency,
-        line_items: entry.lines.map((l) => ({ account: account(ctx, 'wafeq', l.role), description: l.description, debit: minorToDecimal(l.debitMinor), credit: minorToDecimal(l.creditMinor) })),
+        line_items: entry.lines.map((l) => ({ account: account(ctx, 'wafeq', l.role), description: l.description, debit: accountingMinorToDecimal(l.debitMinor), credit: accountingMinorToDecimal(l.creditMinor) })),
       }),
     });
     return { externalId: String(r.id) };
@@ -99,7 +99,7 @@ export const wafeqAdapter: AccountingAdapter = {
       body: JSON.stringify({
         contact: ctx.config.customerContactId, currency: inv.currency, invoice_date: inv.date, invoice_due_date: inv.date,
         invoice_number: inv.reference, tax_amount_type: inv.taxInclusive ? 'TAX_INCLUSIVE' : 'TAX_EXCLUSIVE',
-        line_items: inv.lines.map((l) => ({ account: account(ctx, 'wafeq', 'sales'), description: l.description, quantity: l.quantity, unit_amount: minorToDecimal(l.unitPriceMinor), tax_rate: ctx.config.taxRateId })),
+        line_items: inv.lines.map((l) => ({ account: account(ctx, 'wafeq', 'sales'), description: l.description, quantity: l.quantity, unit_amount: accountingMinorToDecimal(l.unitPriceMinor), tax_rate: ctx.config.taxRateId })),
       }),
     });
     return { externalId: String(r.id) };
@@ -131,7 +131,7 @@ export const qoyodAdapter: AccountingAdapter = {
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
     const side = (pick: (l: JournalLine) => number) => entry.lines.filter((l) => pick(l) > 0)
-      .map((l) => ({ account_id: Number(account(ctx, 'qoyod', l.role)) || account(ctx, 'qoyod', l.role), amount: minorToDecimal(pick(l)) }));
+      .map((l) => ({ account_id: Number(account(ctx, 'qoyod', l.role)) || account(ctx, 'qoyod', l.role), amount: accountingMinorToDecimal(pick(l)) }));
     const r = await providerRequest<any>('qoyod', ctx, `${QOYOD_API}/journal_entries`, {
       method: 'POST', headers: qoyodAuth(ctx), retries: 0,
       body: JSON.stringify({ journal_entry: { date: entry.date, description: `${entry.reference} — ${entry.memo}`, debit_amounts: side((l) => l.debitMinor), credit_amounts: side((l) => l.creditMinor) } }),
@@ -144,7 +144,7 @@ export const qoyodAdapter: AccountingAdapter = {
       body: JSON.stringify({ invoice: {
         contact_id: ctx.config.contactId, reference: inv.reference, issue_date: inv.date, due_date: inv.date, status: 'Approved',
         inventory_id: ctx.config.inventoryId, tax_inclusive: inv.taxInclusive,
-        line_items: inv.lines.map((l) => ({ product_id: ctx.config.productId, description: l.description, quantity: l.quantity, unit_price: minorToDecimal(l.unitPriceMinor), tax_percent: (l.taxRateBp / 100).toFixed(2) })),
+        line_items: inv.lines.map((l) => ({ product_id: ctx.config.productId, description: l.description, quantity: l.quantity, unit_price: accountingMinorToDecimal(l.unitPriceMinor), tax_percent: (l.taxRateBp / 100).toFixed(2) })),
       } }),
     });
     return { externalId: String(r.invoice?.id ?? r.id) };
@@ -155,8 +155,8 @@ export const qoyodAdapter: AccountingAdapter = {
 // Odoo (any hosted/on-prem instance) — JSON-RPC external API
 // https://www.odoo.com/documentation/17.0/developer/reference/external_api.html
 // ---------------------------------------------------------------------------
-export const odooDescriptor: ProviderDescriptor = {
-  id: 'odoo', name: 'Odoo Accounting', category: 'accounting', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
+export const odooAccountingDescriptor: ProviderDescriptor = {
+  id: 'odoo_accounting', name: 'Odoo Accounting', category: 'accounting', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://www.odoo.com/documentation/17.0/developer/reference/external_api.html',
   activation: [
     'In Odoo: Preferences → Account security → New API key for an accounting user; store "url" (https://<company>.odoo.com), "db", "login" and "apiKey".',
@@ -168,25 +168,25 @@ export const odooDescriptor: ProviderDescriptor = {
 };
 async function odooCall(ctx: AdapterContext, service: string, method: string, args: unknown[]) {
   const url = String(ctx.credentials.url ?? '').replace(/\/$/, '');
-  if (!/^https:\/\//.test(url)) throw new ProviderError('odoo', 'Set the Odoo "url" (https://…)', false);
-  const r = await providerRequest<any>('odoo', ctx, `${url}/jsonrpc`, {
+  if (!/^https:\/\//.test(url)) throw new ProviderError('odoo_accounting', 'Set the Odoo "url" (https://…)', false);
+  const r = await providerRequest<any>('odoo_accounting', ctx, `${url}/jsonrpc`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, retries: 0,
     body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args }, id: Date.now() }),
   });
-  if (r.error) throw new ProviderError('odoo', String(r.error.data?.message ?? r.error.message ?? 'rpc error').slice(0, 300), false);
+  if (r.error) throw new ProviderError('odoo_accounting', String(r.error.data?.message ?? r.error.message ?? 'rpc error').slice(0, 300), false);
   return r.result;
 }
 async function odooUid(ctx: AdapterContext): Promise<number> {
   if (ctx.config.uid) return Number(ctx.config.uid);
   const { db, login, apiKey } = ctx.credentials;
-  if (!db || !login || !apiKey) throw new ProviderError('odoo', 'db, login and apiKey are required', false);
+  if (!db || !login || !apiKey) throw new ProviderError('odoo_accounting', 'db, login and apiKey are required', false);
   const uid = await odooCall(ctx, 'common', 'authenticate', [db, login, apiKey, {}]);
-  if (!uid) throw new ProviderError('odoo', 'Authentication failed', false);
+  if (!uid) throw new ProviderError('odoo_accounting', 'Authentication failed', false);
   return Number(uid);
 }
-const odooAmount = (minor: number) => Number(minorToDecimal(minor));
-export const odooAdapter: AccountingAdapter = {
-  descriptor: odooDescriptor,
+const odooAmount = (minor: number) => Number(accountingMinorToDecimal(minor));
+export const odooAccountingAdapter: AccountingAdapter = {
+  descriptor: odooAccountingDescriptor,
   requiredCredentials: ['url', 'db', 'login', 'apiKey'],
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
@@ -207,6 +207,6 @@ export const odooAdapter: AccountingAdapter = {
   },
 };
 
-export const accountingAdapters = [wafeqAdapter, qoyodAdapter, odooAdapter] as const;
+export const accountingAdapters = [wafeqAdapter, qoyodAdapter, odooAccountingAdapter] as const;
 export const ACCOUNTING_ADAPTERS: Readonly<Record<string, AccountingAdapter>> = Object.fromEntries(accountingAdapters.map((a) => [a.descriptor.id, a]));
 export const accountingAdapter = (provider: string): AccountingAdapter | null => ACCOUNTING_ADAPTERS[provider] ?? null;

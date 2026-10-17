@@ -75,7 +75,7 @@ export const accountingPush = z.object({
 // Response shapes
 // ---------------------------------------------------------------------------
 
-export interface RevenueTotals {
+export interface FinanceRevenueTotals {
   orderCount: number;
   grossMinor: number;
   discountsMinor: number;
@@ -89,9 +89,9 @@ export interface RevenueTotals {
 export interface RevenueOverview {
   period: { from: string; to: string; branchId: string | null };
   currency: string;
-  totals: RevenueTotals;
-  byDay: Array<{ date: string } & RevenueTotals>;
-  byBranch: Array<{ branchId: string; name: string } & RevenueTotals>;
+  totals: FinanceRevenueTotals;
+  byDay: Array<{ date: string } & FinanceRevenueTotals>;
+  byBranch: Array<{ branchId: string; name: string } & FinanceRevenueTotals>;
   byMethod: Array<{ method: string; collectedMinor: number; refundedMinor: number; count: number }>;
   warnings: string[];
 }

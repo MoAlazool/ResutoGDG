@@ -293,7 +293,8 @@ describe('pickup, delivery, COD and settlement', () => {
     const j = await jobFor(order.id);
     const otp = await t.http.post(M(`/jobs/${j.id}/otp`)).set(auth(manager));
     expect(otp.body.code).toMatch(/^\d{4}$/);
-    expect(otp.body.messaging.status).toBe('unavailable');
+    // Connect is deployed; this tenant has no messaging channel, so the code is not sent (and says why).
+    expect(otp.body.messaging).toEqual({ status: 'skipped', reason: 'no_channel' });
     await t.http.post(M(`/jobs/${j.id}/assign`)).set(auth(manager)).send({ driverId: did(d2) });
     await t.http.post(D(`/jobs/${j.id}/accept`)).set(auth(d2)).send({});
     await makeReady(order.id);

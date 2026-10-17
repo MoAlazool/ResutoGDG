@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AdapterContext } from '../core';
-import { assertBalanced, minorToDecimal, odooAdapter, qoyodAdapter, wafeqAdapter, type JournalEntry } from './index';
+import { assertBalanced, accountingMinorToDecimal, odooAccountingAdapter, qoyodAdapter, wafeqAdapter, type JournalEntry } from './index';
 
 function fakeFetch(responses: unknown[]) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
@@ -23,9 +23,9 @@ const entry: JournalEntry = {
 
 describe('accounting adapters', () => {
   it('formats minor units without floating point and rejects unbalanced journals', () => {
-    expect(minorToDecimal(1)).toBe('0.01');
-    expect(minorToDecimal(123456)).toBe('1234.56');
-    expect(minorToDecimal(-5)).toBe('-0.05');
+    expect(accountingMinorToDecimal(1)).toBe('0.01');
+    expect(accountingMinorToDecimal(123456)).toBe('1234.56');
+    expect(accountingMinorToDecimal(-5)).toBe('-0.05');
     expect(() => assertBalanced({ ...entry, lines: entry.lines.slice(1) })).toThrow(/not balanced/);
     expect(() => assertBalanced({ ...entry, lines: [...entry.lines, { role: 'cash', description: 'x', debitMinor: 1, creditMinor: 1 }] })).toThrow();
   });
@@ -55,7 +55,7 @@ describe('accounting adapters', () => {
     const f = fakeFetch([{ result: 7 }, { result: 901 }]);
     const ctx: AdapterContext = { environment: 'live', credentials: { url: 'https://acme.odoo.com', db: 'acme', login: 'acc@acme', apiKey: 'ok' },
       config: { journalId: 3, accounts: { cash: 10, card_clearing: 11, sales: 20, vat_output: 30 } }, fetch: f.fn };
-    expect(await odooAdapter.pushJournalEntry(ctx, entry)).toEqual({ externalId: '901' });
+    expect(await odooAccountingAdapter.pushJournalEntry(ctx, entry)).toEqual({ externalId: '901' });
     expect(JSON.parse(String(f.calls[0]!.init.body)).params).toEqual({ service: 'common', method: 'authenticate', args: ['acme', 'acc@acme', 'ok', {}] });
     const create = JSON.parse(String(f.calls[1]!.init.body)).params;
     expect(create.args.slice(0, 5)).toEqual(['acme', 7, 'ok', 'account.move', 'create']);

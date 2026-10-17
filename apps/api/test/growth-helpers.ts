@@ -1,5 +1,5 @@
 // Shared fixtures for the Connect / Marketing / Integrations test files (Agent C).
-import { Global, Module, type INestApplication } from '@nestjs/common';
+import { type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -64,18 +64,17 @@ export class FakeCheckout implements CheckoutPort {
 
 export const fakeCheckout = new FakeCheckout();
 
-@Global()
-@Module({ providers: [{ provide: CHECKOUT_PORT, useValue: fakeCheckout }], exports: [CHECKOUT_PORT] })
-class FakeCheckoutModule {}
-
-/** Boots the full app plus a CHECKOUT_PORT stand-in (same prefix/raw-body config as createApp). */
-export async function bootWithCheckout(): Promise<TestApp> {
-  const mod = await Test.createTestingModule({ imports: [AppModule, FakeCheckoutModule] }).compile();
+/** Boots the full app with CHECKOUT_PORT replaced (stand-in, or null = ResutoPay not deployed). */
+async function bootWithCheckoutValue(value: unknown): Promise<TestApp> {
+  const mod = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(CHECKOUT_PORT).useValue(value).compile();
   const app: INestApplication = mod.createNestApplication({ rawBody: true, logger: ['error'] });
   app.setGlobalPrefix('v1');
   await app.init();
   return { app, http: request(app.getHttpServer()), close: () => app.close() };
 }
+
+export const bootWithCheckout = () => bootWithCheckoutValue(fakeCheckout);
+export const bootWithoutCheckout = () => bootWithCheckoutValue(null);
 
 // Scripted fetch for provider adapters (mirrors packages/integrations/src/messaging/testing/scripted-fetch.ts).
 export interface RecordedRequest { url: string; method: string; headers: Record<string, string>; body: string | null }

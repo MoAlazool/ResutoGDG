@@ -207,7 +207,7 @@ table.data tr:last-child td { border-block-end: 0; }
 .topbar-mobile { display: none; }
 
 @media (max-width: 900px) {
-  .app-shell { grid-template-columns: 1fr; }
+  .app-shell { grid-template-columns: minmax(0, 1fr); }
   .sidebar { position: fixed; inset-block: 0; inset-inline-start: 0; width: 280px; z-index: 40; transform: translateX(-100%); transition: transform .25s var(--ease); }
   [dir='rtl'] .sidebar { transform: translateX(100%); }
   .sidebar[data-open='true'] { transform: none; }

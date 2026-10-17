@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { CreateExport } from '@resuto/contracts';
-import { minorToDecimal } from '@resuto/integrations';
+import { accountingMinorToDecimal } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
@@ -15,7 +15,7 @@ export function csvCell(v: unknown, numeric = false): string {
   if (!numeric && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
-const amt = (m: number | null | undefined) => (m === null || m === undefined ? '' : minorToDecimal(Number(m)));
+const amt = (m: number | null | undefined) => (m === null || m === undefined ? '' : accountingMinorToDecimal(Number(m)));
 
 interface Sheet { header: string[]; rows: Array<Array<{ v: unknown; n?: boolean }>> }
 const toCsv = (s: Sheet) => [s.header.map((h) => csvCell(h)).join(','), ...s.rows.map((r) => r.map((c) => csvCell(c.v, c.n)).join(','))].join('\r\n') + '\r\n';

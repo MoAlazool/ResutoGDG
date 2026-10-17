@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { FinancePeriod, ProfitAndLoss, RevenueOverview, RevenueTotals } from '@resuto/contracts';
+import type { FinancePeriod, ProfitAndLoss, RevenueOverview, FinanceRevenueTotals } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 
@@ -12,7 +12,7 @@ export function roundDiv(n: number, d: number): number {
 }
 const bp = (part: number, whole: number) => (whole > 0 ? roundDiv(part * 10_000, whole) : null);
 
-const zero = (): RevenueTotals => ({ orderCount: 0, grossMinor: 0, discountsMinor: 0, refundsMinor: 0, netMinor: 0, vatMinor: 0, netExVatMinor: 0, collectedMinor: 0 });
+const zero = (): FinanceRevenueTotals => ({ orderCount: 0, grossMinor: 0, discountsMinor: 0, refundsMinor: 0, netMinor: 0, vatMinor: 0, netExVatMinor: 0, collectedMinor: 0 });
 
 interface OrderRow { id: string; branch_id: string; d: string; total_minor: number; discount_minor: number; refunded_minor: number; tax_minor: number; paid_minor: number }
 
@@ -42,7 +42,7 @@ export class FinanceService {
           and ($3::uuid is null or branch_id = $3) order by business_date, placed_at`, [p.from, p.to, p.branchId ?? null]);
   }
 
-  private add(t: RevenueTotals, o: OrderRow) {
+  private add(t: FinanceRevenueTotals, o: OrderRow) {
     const refundVat = o.total_minor > 0 ? roundDiv(o.tax_minor * o.refunded_minor, o.total_minor) : 0;
     const vat = o.tax_minor - refundVat;
     const net = o.total_minor - o.refunded_minor;
@@ -69,8 +69,8 @@ export class FinanceService {
     const org = await tx.one<any>('select currency from organizations where id = app.current_org_id()');
     const rows = await this.orders(tx, p);
     const totals = zero();
-    const byDay = new Map<string, RevenueTotals>();
-    const byBranch = new Map<string, RevenueTotals>();
+    const byDay = new Map<string, FinanceRevenueTotals>();
+    const byBranch = new Map<string, FinanceRevenueTotals>();
     for (const o of rows) {
       this.add(totals, o);
       this.add(byDay.get(o.d) ?? byDay.set(o.d, zero()).get(o.d)!, o);
