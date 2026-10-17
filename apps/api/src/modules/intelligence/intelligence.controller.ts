@@ -76,6 +76,21 @@ export class IntelligenceController {
     return this.intelligence.recommendations(ctx, q);
   }
 
+  /** Drivers with open delivery jobs at a branch (read model over D2's tables, for the route planner). */
+  @Get('routes/drivers')
+  @RequirePermission('ai:use', 'delivery:dispatch')
+  drivers(@Tenant() ctx: TenantContext, @Query('branchId', ParseUUIDPipe) branchId: string) {
+    ctx.assertBranch(branchId);
+    return this.db.scoped(ctx, async (tx) => ({
+      items: (await tx.query<any>(
+        `select d.id, d.display_name, d.availability, count(j.id)::int as open_jobs from drivers d
+           join delivery_jobs j on j.driver_id = d.id and j.branch_id = $2 and j.status in ('assigned', 'accepted', 'picked_up', 'en_route')
+          where d.org_id = $1 group by d.id order by count(j.id) desc, d.display_name limit 100`, [ctx.orgId, branchId]))
+        .map((d) => ({ id: d.id, displayName: d.display_name, availability: d.availability, openJobs: d.open_jobs })),
+      nextCursor: null,
+    }));
+  }
+
   @Post('routes/plan')
   @RequirePermission('ai:use', 'delivery:dispatch')
   routePlan(@Tenant() ctx: TenantContext, @Body(zod(routePlanInput)) body: RoutePlanInput) {
