@@ -124,6 +124,20 @@ re-read state inside their own transaction.
   `reservations.deposit_status/status (pending_deposit→confirmed)`, `checkout_sessions.status`.
 - `OrganizationsService.create` seeds rows in billing, compliance (`tax_profiles`),
   catalog (`menus`), studio (`websites`, `website_sections`), finance (`expense_categories`), floor (`floor_layouts`).
+- The ledger (kernel) is the only writer of `visits.credit_used_minor`: every `deposit_credit` payment consumes
+  visit credit atomically (bounded by `credit_minor`).
+- ResutoPay (D1) refunds unused/cancelled reservation deposits from `visit.closed` / `reservation.cancelled`
+  and may set `reservations.deposit_status = 'refunded'`.
+- Customers (B2) merge re-points `customer_id` on `orders`, `visits`, `reservations`; anonymise nulls/redacts
+  `orders.customer_name/customer_phone/delivery_address` and `reservations.guest_*`/`notes`. Other modules'
+  references stay on the merged tombstone; consumers follow `customers.merged_into_id`.
+- The legacy migration tool and the demo seed (A) write every tenant table directly as the database owner, in one
+  transaction per tenant, mirroring the ledger's arithmetic; they never run against non-local databases without
+  an explicit flag.
+- Checkout and bill-share link tokens are stored as sha256 (lookups) **and** sealed with `SecretBox` (so staff and
+  table guests can re-display a link/QR); the sealed column is not selectable by member sessions.
+- Organization/branch deletion is blocked once fiscal documents exist (immutability trigger) — by design;
+  platform tooling suspends or closes tenants instead of deleting them.
 - E1 may insert `usage_events` rows with metric `ai_requests`; E2 may insert `usage_events` with metric `mcp_calls`.
 - E2 (MCP) may insert **drafts** into `segments`/`campaigns` with `source='mcp'` through C's services once merged.
 - B1 sets `dining_tables.status` and owns `visits`; D1 may set `visits.credit_used_minor` only through the ledger (`deposit_credit` payments).

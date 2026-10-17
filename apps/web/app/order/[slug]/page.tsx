@@ -130,7 +130,7 @@ function CheckoutSheet({ slug, menu, fulfillment, cart, products, onClose, onDon
       const res = await api<{ order: { publicRef: string }; checkout: { url: string } | null }>(`/public/order/${slug}/orders`, {
         idempotencyKey: intent.current,
         body: {
-          branchId: menu.branch.id, fulfillment, lines: cart.lines(), payment, expectedTotalMinor: quote.totalMinor,
+          branchId: menu.branch.id, fulfillment, lines: cart.lines(), payment, expectedTotalMinor: quote.totalMinor, attribution: attributionFromUrl(),
           customer: { name: String(f.get('name')), phone: String(f.get('phone')).replace(/[\s-]/g, ''), email: (f.get('email') as string) || null, marketingConsent: f.get('consent') === 'on' },
           deliveryAddress: fulfillment === 'delivery' ? { line1: String(f.get('line1')), area: (f.get('area') as string) || null, city: (f.get('city') as string) || null, notes: (f.get('addrNotes') as string) || null } : null,
           notes: (f.get('notes') as string) || null,
@@ -186,4 +186,16 @@ function CheckoutSheet({ slug, menu, fulfillment, cart, products, onClose, onDon
       </form>
     </Sheet>
   );
+}
+
+/** utm_* plus Marketing's rcid (campaign) / rsid (click session) from a tracking link, forwarded as order attribution. */
+function attributionFromUrl(): Record<string, string> {
+  const q = new URLSearchParams(window.location.search);
+  const out: Record<string, string> = {};
+  for (const [k, v] of q) if (/^utm_[a-z]{1,20}$/.test(k) && v) out[k] = v.slice(0, 300);
+  const rcid = q.get('rcid');
+  const rsid = q.get('rsid');
+  if (rcid && /^[0-9a-f-]{36}$/i.test(rcid)) out.campaignId = rcid;
+  if (rsid && /^[A-Za-z0-9_-]{8,64}$/.test(rsid)) out.sessionKey = rsid;
+  return out;
 }

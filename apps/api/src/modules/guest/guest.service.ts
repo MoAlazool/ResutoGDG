@@ -157,7 +157,12 @@ export class GuestService {
       await this.assertBranch(tx, ctx.orgId, body.branchId);
       const { returnUrl: _r, ...payload } = body;
       const order = await this.idempotency.run(tx, ctx.orgId, 'web-order', key, payload, async () => {
+        // Tracking links (Marketing) append rcid=<campaignId>; only this restaurant's campaigns count.
+        const rcid = body.attribution?.campaignId;
+        const campaign = rcid && /^[0-9a-f-]{36}$/i.test(rcid)
+          ? await tx.maybeOne<{ id: string }>('select id from campaigns where id = $1 and org_id = $2', [rcid, ctx.orgId]) : null;
         const placed = await this.kernel.place(tx, ctx, {
+          campaignId: campaign?.id ?? null,
           branchId: body.branchId, channel: 'web', fulfillment: body.fulfillment, lines: cartLines(body.lines),
           customer: { name: body.customer.name, phone: body.customer.phone, email: body.customer.email ?? null, marketingConsent: body.customer.marketingConsent },
           deliveryAddress: body.deliveryAddress ?? null, notes: body.notes ?? null, promotionCode: body.promotionCode ?? null,
