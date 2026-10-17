@@ -211,6 +211,7 @@ export class DeliveryService {
     return {
       ...toJobView(r),
       proofNote: r.proof_note,
+      proofMediaId: r.proof_media_id,
       proofPhotoUrl,
       events: events.map(toEventView),
       offers: offers.map((f) => ({ id: f.id, driverId: f.driver_id, driverName: f.display_name, status: f.status, expiresAt: f.expires_at, respondedAt: f.responded_at, createdAt: f.created_at })),
