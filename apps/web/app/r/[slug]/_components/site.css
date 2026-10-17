@@ -123,7 +123,7 @@
 .bg-btn{border:0;min-height:52px;border-radius:9px;padding:0 24px;display:inline-flex;align-items:center;justify-content:center;gap:18px;background:var(--yellow);color:var(--ink);font:900 14px/1 Manrope,'Plex Arabic',sans-serif;box-shadow:0 8px 20px rgba(54,9,5,.18);transition:transform .16s,box-shadow .16s}
 .bg-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(54,9,5,.24)}
 .bg-btn.ghost{background:#f5ece4;color:var(--ink);box-shadow:none}
-.bg-hero-art{height:500px;position:relative;align-self:end}
+.bg-hero-art{height:500px;position:relative;align-self:flex-end}
 .bg-hero-art img{width:100%;height:100%;display:block;object-fit:cover;object-position:center 58%;clip-path:polygon(3% 4%,100% 0,100% 100%,0 100%);border-radius:44% 0 0 0}
 [dir=rtl] .bg-hero-art img{border-radius:0 44% 0 0;clip-path:polygon(0 0,97% 4%,100% 100%,0 100%)}
 .bg-hero-art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,var(--red) 0,transparent 22%);pointer-events:none}
@@ -131,7 +131,7 @@
 .bg-hero-art span{position:absolute;z-index:2;inset-inline-end:20px;bottom:24px;max-width:170px;transform:rotate(-5deg);color:#fff;font-size:20px;font-weight:900;text-align:center;line-height:1.05;text-transform:uppercase;text-shadow:0 2px 14px rgba(0,0,0,.45)}
 .bg-main{max-width:1240px;margin:auto;padding:0 22px 40px}
 .bg-menu-group{margin-top:62px}
-.bg-section-head{display:flex;align-items:end;justify-content:space-between;gap:30px;margin-bottom:22px}
+.bg-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:22px}
 .bg-section-head small{display:block;color:var(--red);font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px}
 .bg-section-title{font-size:clamp(34px,4vw,52px);font-weight:900}
 .bg-section-head>p{max-width:32ch;margin:0 2px 4px;color:var(--muted);font-size:13px;line-height:1.5}
