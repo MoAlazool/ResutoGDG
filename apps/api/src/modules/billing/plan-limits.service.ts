@@ -1,0 +1,49 @@
+import { Injectable } from '@nestjs/common';
+import type { DowngradeViolation } from '@resuto/contracts';
+import type { Tx } from '../../common/db/db.service';
+import { DomainError } from '../../common/errors/domain-error';
+import { UsageService } from './usage.service';
+
+/**
+ * Synchronous plan-limit checks. Exported (BillingModule is global) so the
+ * kernel can call `assertCanPlaceOrder` inside the order transaction.
+ */
+@Injectable()
+export class PlanLimitsService {
+  constructor(private readonly usage: UsageService) {}
+
+  async current(tx: Tx, orgId: string): Promise<{ planId: string | null; status: string | null; limits: Record<string, number>; periodStart: Date | null }> {
+    const row = await tx.maybeOne<{ plan_id: string; status: string; limits: Record<string, number>; current_period_start: Date }>(
+      `select s.plan_id, s.status, p.limits, s.current_period_start
+         from subscriptions s join plans p on p.id = s.plan_id where s.org_id = $1 and s.status <> 'canceled'`, [orgId]);
+    return { planId: row?.plan_id ?? null, status: row?.status ?? null, limits: row?.limits ?? {}, periodStart: row?.current_period_start ?? null };
+  }
+
+  /**
+   * Free-plan style monthly order cap (`plans.limits.orders_per_month`) for the
+   * current billing period. Throws 402 `plan_limit_reached` when the next order
+   * would exceed it. Plans without the limit are unlimited.
+   */
+  async assertCanPlaceOrder(tx: Tx, orgId: string): Promise<void> {
+    const { limits, periodStart } = await this.current(tx, orgId);
+    const cap = limits.orders_per_month;
+    if (cap === undefined || cap === null || !periodStart) return;
+    const { n } = await tx.one<{ n: number }>(
+      `select count(*)::int as n from orders where org_id = $1 and placed_at >= $2`, [orgId, periodStart]);
+    if (n >= cap) {
+      throw new DomainError('plan_limit_reached', `This restaurant's plan allows ${cap} orders per month. Upgrade to keep taking orders.`, 402,
+        { limit: 'orders_per_month', current: n, allowed: cap });
+    }
+  }
+
+  /** Usage that would exceed `targetLimits` (used to refuse downgrades). Monthly counters reset with the period and are not checked. */
+  async violations(tx: Tx, orgId: string, targetLimits: Record<string, number>): Promise<DowngradeViolation[]> {
+    const snap = await this.usage.snapshot(tx, orgId);
+    const out: DowngradeViolation[] = [];
+    for (const key of ['branches', 'staff'] as const) {
+      const allowed = targetLimits[key];
+      if (allowed !== undefined && snap.usage[key] > allowed) out.push({ limit: key, current: snap.usage[key], allowed });
+    }
+    return out;
+  }
+}

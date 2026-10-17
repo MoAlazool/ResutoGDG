@@ -1,0 +1,1473 @@
+{
+ "_fixture": {
+  "restaurantId": "olive-room-demo",
+  "slug": "the-olive-room",
+  "description": "Sanitized legacy state for The Olive Room demo tenant, generated from the legacy seed (legacy/server.js createApp seed + migrateFloor + migratePlatform).",
+  "sanitized": [
+   "credentials",
+   "sessions",
+   "idem",
+   "audit (seed entries)"
+  ],
+  "synthetic": "Every visit, order, payment, reservation, request and audit entry whose id starts with \"fx-\" is FICTIONAL test data. The people named \"(synthetic)\" do not exist and no money moved.",
+  "generatedBy": "tools/legacy-migration/build-fixture.mjs"
+ },
+ "state": {
+  "demo": true,
+  "tables": [
+   {
+    "id": "t1",
+    "qr": "f6806da92906f51d0d0b37ef239ae5f0",
+    "label": "T1",
+    "capacity": 2,
+    "zone": "Main room",
+    "x": 20,
+    "y": 30,
+    "shape": "round",
+    "size": 72,
+    "cleaning": false,
+    "active": true,
+    "version": 0,
+    "cx": 240,
+    "cy": 240,
+    "width": 110,
+    "height": 110,
+    "rotation": 0,
+    "branchId": "main",
+    "features": [],
+    "reservable": true
+   },
+   {
+    "id": "t2",
+    "qr": "44808a2e7c4fbeae56d46ddabab8b21f",
+    "label": "T2",
+    "capacity": 4,
+    "zone": "Main room",
+    "x": 50,
+    "y": 30,
+    "shape": "square",
+    "size": 72,
+    "cleaning": false,
+    "active": true,
+    "version": 0,
+    "cx": 600,
+    "cy": 240,
+    "width": 110,
+    "height": 110,
+    "rotation": 0,
+    "branchId": "main",
+    "features": [],
+    "reservable": true
+   },
+   {
+    "id": "t3",
+    "qr": "439c2f545c47cf9832b7c653a5dd9258",
+    "label": "T3",
+    "capacity": 4,
+    "zone": "Main room",
+    "x": 78,
+    "y": 30,
+    "shape": "square",
+    "size": 72,
+    "cleaning": false,
+    "active": true,
+    "version": 0,
+    "cx": 936,
+    "cy": 240,
+    "width": 110,
+    "height": 110,
+    "rotation": 0,
+    "branchId": "main",
+    "features": [],
+    "reservable": true
+   },
+   {
+    "id": "t4",
+    "qr": "7babe92dbc08c8627814e0dbb312f664",
+    "label": "T4",
+    "capacity": 6,
+    "zone": "Main room",
+    "x": 22,
+    "y": 70,
+    "shape": "round",
+    "size": 72,
+    "cleaning": false,
+    "active": true,
+    "version": 0,
+    "cx": 264,
+    "cy": 560,
+    "width": 110,
+    "height": 110,
+    "rotation": 0,
+    "branchId": "main",
+    "features": [],
+    "reservable": true
+   },
+   {
+    "id": "t5",
+    "qr": "9be9b1ab2c45a6caef71790f17281b25",
+    "label": "T5",
+    "capacity": 2,
+    "zone": "Terrace",
+    "x": 52,
+    "y": 70,
+    "shape": "square",
+    "size": 72,
+    "cleaning": false,
+    "active": true,
+    "version": 0,
+    "cx": 624,
+    "cy": 560,
+    "width": 110,
+    "height": 110,
+    "rotation": 0,
+    "branchId": "main",
+    "features": [],
+    "reservable": true
+   },
+   {
+    "id": "t6",
+    "qr": "e21bfd78a8121249363e60e73e0bb19e",
+    "label": "T6",
+    "capacity": 6,
+    "zone": "Terrace",
+    "x": 80,
+    "y": 70,
+    "shape": "square",
+    "size": 72,
+    "cleaning": false,
+    "active": true,
+    "version": 0,
+    "cx": 960,
+    "cy": 560,
+    "width": 110,
+    "height": 110,
+    "rotation": 0,
+    "branchId": "main",
+    "features": [],
+    "reservable": true
+   }
+  ],
+  "menu": [
+   {
+    "id": "m0",
+    "name": "Burrata & heirloom tomato",
+    "category": "Starters",
+    "price": 14500,
+    "station": "Cold kitchen",
+    "stock": 18,
+    "allergens": [
+     "milk"
+    ],
+    "vegetarian": true,
+    "available": true,
+    "version": 0,
+    "nameAr": "بوراتا مع الطماطم",
+    "description": "Creamy burrata, ripe tomatoes and fresh basil.",
+    "descriptionAr": "بوراتا كريمية وطماطم ناضجة وريحان طازج.",
+    "imageIndex": 0,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "m1",
+    "name": "Roasted pumpkin soup",
+    "category": "Starters",
+    "price": 9500,
+    "station": "Hot kitchen",
+    "stock": 24,
+    "allergens": [],
+    "vegetarian": true,
+    "available": true,
+    "version": 0,
+    "nameAr": "شوربة القرع المشوي",
+    "description": "Silky roasted pumpkin, gently seasoned.",
+    "descriptionAr": "شوربة قرع مشوي ناعمة بتتبيلة خفيفة.",
+    "imageIndex": 1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "m2",
+    "name": "Grilled chicken supreme",
+    "category": "Mains",
+    "price": 28500,
+    "station": "Grill",
+    "stock": 22,
+    "allergens": [],
+    "vegetarian": false,
+    "available": true,
+    "version": 0,
+    "nameAr": "دجاج مشوي مع الخضروات",
+    "description": "Grilled chicken with seasonal vegetables.",
+    "descriptionAr": "دجاج مشوي مع خضروات موسمية.",
+    "imageIndex": 2,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "m3",
+    "name": "Wild mushroom risotto",
+    "category": "Mains",
+    "price": 24500,
+    "station": "Hot kitchen",
+    "stock": 16,
+    "allergens": [
+     "milk"
+    ],
+    "vegetarian": true,
+    "available": true,
+    "version": 0,
+    "nameAr": "ريزوتو الفطر",
+    "description": "Creamy rice with wild mushrooms.",
+    "descriptionAr": "أرز كريمي مع تشكيلة من الفطر.",
+    "imageIndex": 3,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "m4",
+    "name": "Seabass with lemon butter",
+    "category": "Mains",
+    "price": 34500,
+    "station": "Grill",
+    "stock": 12,
+    "allergens": [
+     "fish",
+     "milk"
+    ],
+    "vegetarian": false,
+    "available": true,
+    "version": 0,
+    "nameAr": "قاروص بزبدة الليمون",
+    "description": "Seabass with lemon butter and greens.",
+    "descriptionAr": "قاروص مع زبدة الليمون والخضروات.",
+    "imageIndex": 4,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "m5",
+    "name": "Garden harvest bowl",
+    "category": "Mains",
+    "price": 18500,
+    "station": "Cold kitchen",
+    "stock": 20,
+    "allergens": [],
+    "vegetarian": true,
+    "available": true,
+    "version": 0,
+    "nameAr": "سلطة الحديقة",
+    "description": "A colorful bowl of seasonal vegetables.",
+    "descriptionAr": "تشكيلة ملونة من الخضروات الموسمية.",
+    "imageIndex": 5,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "m6",
+    "name": "Chocolate fondant",
+    "category": "Desserts",
+    "price": 12500,
+    "station": "Pastry",
+    "stock": 14,
+    "allergens": [
+     "milk",
+     "eggs",
+     "wheat"
+    ],
+    "vegetarian": true,
+    "available": true,
+    "version": 0,
+    "nameAr": "فون دان الشوكولاتة",
+    "description": "Warm chocolate cake with a soft center.",
+    "descriptionAr": "كيك شوكولاتة دافئ بقلب ناعم.",
+    "imageIndex": 6,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "m7",
+    "name": "Hibiscus cooler",
+    "category": "Drinks",
+    "price": 6500,
+    "station": "Bar",
+    "stock": 32,
+    "allergens": [],
+    "vegetarian": true,
+    "available": true,
+    "version": 0,
+    "nameAr": "كركديه مثلج",
+    "description": "Chilled hibiscus, served over ice.",
+    "descriptionAr": "كركديه بارد يقدم مع الثلج.",
+    "imageIndex": 7,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "modifiers": [],
+    "addons": [],
+    "branchIds": [
+     "main"
+    ],
+    "internalNotes": ""
+   },
+   {
+    "id": "b0",
+    "name": "Classic Smash",
+    "nameAr": "برجر سماش كلاسيك",
+    "category": "Burgers",
+    "price": 13500,
+    "station": "Grill",
+    "stock": 40,
+    "allergens": [
+     "wheat",
+     "milk"
+    ],
+    "vegetarian": false,
+    "description": "Two smashed patties, cheese, pickles, house sauce.",
+    "descriptionAr": "قطعتا لحم مسحوق، جبنة، مخلل، وصوص البيت.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": [
+     {
+      "id": "extra-cheese",
+      "name": "Extra cheese",
+      "nameAr": "جبنة إضافية",
+      "price": 1500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "bacon",
+      "name": "Add bacon",
+      "nameAr": "إضافة بيكون",
+      "price": 2500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "spicy",
+      "name": "Make it spicy",
+      "nameAr": "زودها حرارة",
+      "price": 0,
+      "available": true,
+      "required": false
+     }
+    ]
+   },
+   {
+    "id": "b1",
+    "name": "Double Smash",
+    "nameAr": "دوبل سماش",
+    "category": "Burgers",
+    "price": 18500,
+    "station": "Grill",
+    "stock": 30,
+    "allergens": [
+     "wheat",
+     "milk"
+    ],
+    "vegetarian": false,
+    "description": "Four patties for a serious appetite.",
+    "descriptionAr": "أربع قطع لحم لمن يريد وجبة دسمة.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": [
+     {
+      "id": "extra-cheese",
+      "name": "Extra cheese",
+      "nameAr": "جبنة إضافية",
+      "price": 1500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "bacon",
+      "name": "Add bacon",
+      "nameAr": "إضافة بيكون",
+      "price": 2500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "spicy",
+      "name": "Make it spicy",
+      "nameAr": "زودها حرارة",
+      "price": 0,
+      "available": true,
+      "required": false
+     }
+    ]
+   },
+   {
+    "id": "b2",
+    "name": "Crispy Chicken",
+    "nameAr": "برجر دجاج مقرمش",
+    "category": "Burgers",
+    "price": 14500,
+    "station": "Fryer",
+    "stock": 35,
+    "allergens": [
+     "wheat"
+    ],
+    "vegetarian": false,
+    "description": "Buttermilk chicken, slaw, spicy mayo.",
+    "descriptionAr": "دجاج متبّل مقرمش مع سلطة كول سلو ومايونيز حار.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": [
+     {
+      "id": "extra-cheese",
+      "name": "Extra cheese",
+      "nameAr": "جبنة إضافية",
+      "price": 1500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "bacon",
+      "name": "Add bacon",
+      "nameAr": "إضافة بيكون",
+      "price": 2500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "spicy",
+      "name": "Make it spicy",
+      "nameAr": "زودها حرارة",
+      "price": 0,
+      "available": true,
+      "required": false
+     }
+    ]
+   },
+   {
+    "id": "b3",
+    "name": "Veggie Smash",
+    "nameAr": "برجر نباتي",
+    "category": "Burgers",
+    "price": 12500,
+    "station": "Grill",
+    "stock": 20,
+    "allergens": [
+     "wheat"
+    ],
+    "vegetarian": true,
+    "description": "Charred mushroom patty, smoked cheese.",
+    "descriptionAr": "قرص فطر مشوي مع جبنة مدخّنة.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": [
+     {
+      "id": "extra-cheese",
+      "name": "Extra cheese",
+      "nameAr": "جبنة إضافية",
+      "price": 1500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "bacon",
+      "name": "Add bacon",
+      "nameAr": "إضافة بيكون",
+      "price": 2500,
+      "available": true,
+      "required": false
+     },
+     {
+      "id": "spicy",
+      "name": "Make it spicy",
+      "nameAr": "زودها حرارة",
+      "price": 0,
+      "available": true,
+      "required": false
+     }
+    ]
+   },
+   {
+    "id": "b4",
+    "name": "Loaded Fries",
+    "nameAr": "بطاطس محمّلة",
+    "category": "Sides",
+    "price": 8500,
+    "station": "Fryer",
+    "stock": 45,
+    "allergens": [
+     "milk"
+    ],
+    "vegetarian": true,
+    "description": "Fries under cheese sauce and jalapeños.",
+    "descriptionAr": "بطاطس تحت صوص الجبنة والهالابينو.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": [
+     {
+      "id": "cheese-sauce",
+      "name": "Cheese sauce",
+      "nameAr": "صوص جبنة",
+      "price": 1200,
+      "available": true,
+      "required": false
+     }
+    ]
+   },
+   {
+    "id": "b5",
+    "name": "Classic Fries",
+    "nameAr": "بطاطس مقلية",
+    "category": "Sides",
+    "price": 5500,
+    "station": "Fryer",
+    "stock": 60,
+    "allergens": [],
+    "vegetarian": true,
+    "description": "Skin-on, salted, straight from the fryer.",
+    "descriptionAr": "مقرمشة بقشرها، مملّحة، من المقلاة مباشرة.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": [
+     {
+      "id": "cheese-sauce",
+      "name": "Cheese sauce",
+      "nameAr": "صوص جبنة",
+      "price": 1200,
+      "available": true,
+      "required": false
+     }
+    ]
+   },
+   {
+    "id": "b6",
+    "name": "Onion Rings",
+    "nameAr": "حلقات بصل",
+    "category": "Sides",
+    "price": 6500,
+    "station": "Fryer",
+    "stock": 30,
+    "allergens": [
+     "wheat"
+    ],
+    "vegetarian": true,
+    "description": "Thick-cut rings in a crisp batter.",
+    "descriptionAr": "حلقات سميكة بعجينة مقرمشة.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": [
+     {
+      "id": "cheese-sauce",
+      "name": "Cheese sauce",
+      "nameAr": "صوص جبنة",
+      "price": 1200,
+      "available": true,
+      "required": false
+     }
+    ]
+   },
+   {
+    "id": "b7",
+    "name": "Chocolate Shake",
+    "nameAr": "ميلك شيك شوكولاتة",
+    "category": "Shakes",
+    "price": 7500,
+    "station": "Bar",
+    "stock": 25,
+    "allergens": [
+     "milk"
+    ],
+    "vegetarian": true,
+    "description": "Thick shake, real chocolate.",
+    "descriptionAr": "ميلك شيك كثيف بشوكولاتة حقيقية.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": []
+   },
+   {
+    "id": "b8",
+    "name": "Cola",
+    "nameAr": "كولا",
+    "category": "Drinks",
+    "price": 3500,
+    "station": "Bar",
+    "stock": 80,
+    "allergens": [],
+    "vegetarian": true,
+    "description": "Served over ice.",
+    "descriptionAr": "تُقدَّم مع الثلج.",
+    "available": true,
+    "version": 0,
+    "branchIds": [
+     "burger"
+    ],
+    "imageIndex": -1,
+    "spice": 0,
+    "prepMinutes": null,
+    "ingredients": [],
+    "dietary": [
+     "vegetarian"
+    ],
+    "variants": [],
+    "addons": [],
+    "internalNotes": "",
+    "modifiers": []
+   }
+  ],
+  "reservations": [
+   {
+    "id": "fx-res-1",
+    "token": "fxrestoken00000000000000000000b01",
+    "tableId": "t4",
+    "name": "Fictional guest — Omar (synthetic)",
+    "contact": "+201000000101",
+    "party": 4,
+    "start": 1789923600000,
+    "end": 1789929900000,
+    "expires": 1789725900000,
+    "status": "completed",
+    "deposit": 20000
+   },
+   {
+    "id": "fx-res-2",
+    "token": "fxrestoken00000000000000000000f01",
+    "tableId": "t3",
+    "name": "Fictional guest — Hana (synthetic)",
+    "contact": "hana.synthetic@example.test",
+    "party": 2,
+    "start": 1802628000000,
+    "end": 1802634300000,
+    "expires": 1791626700000,
+    "status": "confirmed",
+    "deposit": 20000
+   },
+   {
+    "id": "fx-res-3",
+    "token": "fxrestoken00000000000000000000g01",
+    "tableId": "t2",
+    "name": "Fictional guest — Youssef (synthetic)",
+    "contact": "+201000000103",
+    "party": 3,
+    "start": 1790960400000,
+    "end": 1790966700000,
+    "expires": 1790845500000,
+    "status": "expired",
+    "deposit": 20000
+   },
+   {
+    "id": "fx-res-4",
+    "token": "fxrestoken00000000000000000000h01",
+    "tableId": "t6",
+    "name": "Fictional guest — Salma (synthetic)",
+    "contact": "01000000104",
+    "party": 2,
+    "start": 1790611200000,
+    "end": 1790617500000,
+    "expires": 1790499900000,
+    "status": "completed",
+    "deposit": 20000
+   }
+  ],
+  "visits": [
+   {
+    "id": "fx-visit-a",
+    "token": "fxtoken000000000000000000000000a1",
+    "pin": "482913",
+    "type": "dine-in",
+    "tableId": "t1",
+    "branchId": "main",
+    "name": "Fictional guest — Laila (synthetic)",
+    "status": "closed",
+    "locked": false,
+    "credit": 0,
+    "fee": 0,
+    "created": 1789236300000,
+    "closedAt": 1789242000000
+   },
+   {
+    "id": "fx-visit-b",
+    "token": "fxtoken000000000000000000000000b1",
+    "pin": "771204",
+    "type": "dine-in",
+    "tableId": "t4",
+    "branchId": "main",
+    "reservationId": "fx-res-1",
+    "name": "Fictional guest — Omar (synthetic)",
+    "status": "closed",
+    "locked": false,
+    "credit": 20000,
+    "fee": 0,
+    "created": 1789923720000,
+    "closedAt": 1789929000000
+   },
+   {
+    "id": "fx-visit-c",
+    "token": "fxtoken000000000000000000000000c1",
+    "type": "pickup",
+    "tableId": null,
+    "branchId": "burger",
+    "name": "Fictional guest — Nour (synthetic)",
+    "contact": "nour.synthetic@example.test",
+    "address": "",
+    "status": "closed",
+    "locked": true,
+    "credit": 0,
+    "fee": 0,
+    "created": 1790337600000,
+    "closedAt": 1790340000000
+   },
+   {
+    "id": "fx-visit-d",
+    "token": "fxtoken000000000000000000000000d1",
+    "type": "delivery",
+    "tableId": null,
+    "branchId": "main",
+    "name": "Fictional guest — Karim (synthetic)",
+    "contact": "+201000000102",
+    "address": "12 Synthetic St, Zamalek (fictional)",
+    "status": "open",
+    "locked": true,
+    "credit": 0,
+    "fee": 3500,
+    "created": 1790859600000
+   },
+   {
+    "id": "fx-visit-e",
+    "token": "fxtoken000000000000000000000000e1",
+    "pin": "120934",
+    "type": "dine-in",
+    "tableId": "t1",
+    "branchId": "main",
+    "name": "Fictional guest — Table 1 (synthetic)",
+    "status": "open",
+    "locked": false,
+    "credit": 0,
+    "fee": 0,
+    "created": 1791226800000
+   },
+   {
+    "id": "fx-visit-h",
+    "token": "fxtoken000000000000000000000000h1",
+    "pin": "553017",
+    "type": "dine-in",
+    "tableId": "t6",
+    "branchId": "main",
+    "reservationId": "fx-res-4",
+    "name": "Fictional guest — Salma (synthetic)",
+    "status": "closed",
+    "locked": false,
+    "credit": 20000,
+    "fee": 0,
+    "created": 1790611260000,
+    "closedAt": 1790614800000
+   }
+  ],
+  "orders": [
+   {
+    "notes": "",
+    "version": 0,
+    "id": "fx-order-1",
+    "number": 1,
+    "visitId": "fx-visit-a",
+    "tableId": "t1",
+    "branchId": "main",
+    "type": "dine-in",
+    "name": "Fictional guest — Laila (synthetic)",
+    "lines": [
+     {
+      "id": "m0",
+      "name": "Burrata & heirloom tomato",
+      "nameAr": "بوراتا مع الطماطم",
+      "qty": 1,
+      "price": 14500,
+      "station": "Cold kitchen",
+      "options": []
+     },
+     {
+      "id": "m3",
+      "name": "Wild mushroom risotto",
+      "nameAr": "ريزوتو الفطر",
+      "qty": 2,
+      "price": 24500,
+      "station": "Hot kitchen",
+      "options": []
+     }
+    ],
+    "status": "served",
+    "created": 1789236600000,
+    "fulfilledAt": 1789238520000,
+    "total": 63500
+   },
+   {
+    "notes": "Synthetic note: no ice",
+    "version": 0,
+    "id": "fx-order-2",
+    "number": 2,
+    "visitId": "fx-visit-a",
+    "tableId": "t1",
+    "branchId": "main",
+    "type": "dine-in",
+    "name": "Fictional guest — Laila (synthetic)",
+    "lines": [
+     {
+      "id": "m6",
+      "name": "Chocolate fondant",
+      "nameAr": "فون دان الشوكولاتة",
+      "qty": 2,
+      "price": 12500,
+      "station": "Pastry",
+      "options": []
+     },
+     {
+      "id": "m7",
+      "name": "Hibiscus cooler",
+      "nameAr": "كركديه مثلج",
+      "qty": 2,
+      "price": 6500,
+      "station": "Bar",
+      "options": []
+     }
+    ],
+    "status": "served",
+    "created": 1789239720000,
+    "fulfilledAt": 1789240500000,
+    "total": 38000
+   },
+   {
+    "notes": "",
+    "version": 0,
+    "id": "fx-order-3",
+    "number": 3,
+    "visitId": "fx-visit-b",
+    "tableId": "t4",
+    "branchId": "main",
+    "type": "dine-in",
+    "name": "Fictional guest — Omar (synthetic)",
+    "lines": [
+     {
+      "id": "m1",
+      "name": "Roasted pumpkin soup",
+      "nameAr": "شوربة القرع المشوي",
+      "qty": 2,
+      "price": 9500,
+      "station": "Hot kitchen",
+      "options": []
+     },
+     {
+      "id": "m4",
+      "name": "Seabass with lemon butter",
+      "nameAr": "قاروص بزبدة الليمون",
+      "qty": 1,
+      "price": 34500,
+      "station": "Grill",
+      "options": []
+     },
+     {
+      "id": "m2",
+      "name": "Grilled chicken supreme",
+      "nameAr": "دجاج مشوي مع الخضروات",
+      "qty": 1,
+      "price": 28500,
+      "station": "Grill",
+      "options": []
+     }
+    ],
+    "status": "served",
+    "created": 1789924200000,
+    "fulfilledAt": 1789926600000,
+    "total": 82000
+   },
+   {
+    "notes": "",
+    "version": 0,
+    "id": "fx-order-4",
+    "number": 4,
+    "visitId": "fx-visit-b",
+    "tableId": "t4",
+    "branchId": "main",
+    "type": "dine-in",
+    "name": "Fictional guest — Omar (synthetic)",
+    "lines": [
+     {
+      "id": "m5",
+      "name": "Garden harvest bowl",
+      "nameAr": "سلطة الحديقة",
+      "qty": 1,
+      "price": 18500,
+      "station": "Cold kitchen",
+      "options": []
+     }
+    ],
+    "status": "cancelled",
+    "created": 1789924800000,
+    "total": 18500
+   },
+   {
+    "notes": "",
+    "version": 0,
+    "id": "fx-order-5",
+    "number": 5,
+    "visitId": "fx-visit-c",
+    "branchId": "burger",
+    "type": "pickup",
+    "name": "Fictional guest — Nour (synthetic)",
+    "lines": [
+     {
+      "id": "b0",
+      "name": "Classic Smash",
+      "nameAr": "برجر سماش كلاسيك",
+      "qty": 2,
+      "price": 15000,
+      "station": "Grill",
+      "options": [
+       {
+        "id": "extra-cheese",
+        "name": "Extra cheese",
+        "price": 1500
+       }
+      ]
+     }
+    ],
+    "status": "picked_up",
+    "created": 1790337660000,
+    "fulfilledAt": 1790339400000,
+    "total": 30000
+   },
+   {
+    "notes": "",
+    "version": 0,
+    "id": "fx-order-6",
+    "number": 6,
+    "visitId": "fx-visit-d",
+    "branchId": "main",
+    "type": "delivery",
+    "name": "Fictional guest — Karim (synthetic)",
+    "lines": [
+     {
+      "id": "m2",
+      "name": "Grilled chicken supreme",
+      "nameAr": "دجاج مشوي مع الخضروات",
+      "qty": 1,
+      "price": 28500,
+      "station": "Grill",
+      "options": []
+     },
+     {
+      "id": "m5",
+      "name": "Garden harvest bowl",
+      "nameAr": "سلطة الحديقة",
+      "qty": 1,
+      "price": 18500,
+      "station": "Cold kitchen",
+      "options": []
+     }
+    ],
+    "status": "out_for_delivery",
+    "created": 1790859660000,
+    "total": 47000
+   },
+   {
+    "notes": "",
+    "version": 0,
+    "id": "fx-order-7",
+    "number": 7,
+    "visitId": "fx-visit-e",
+    "tableId": "t1",
+    "branchId": "main",
+    "type": "dine-in",
+    "name": "Fictional guest — Table 1 (synthetic)",
+    "lines": [
+     {
+      "id": "m0",
+      "name": "Burrata & heirloom tomato",
+      "nameAr": "بوراتا مع الطماطم",
+      "qty": 1,
+      "price": 14500,
+      "station": "Cold kitchen",
+      "options": []
+     },
+     {
+      "id": "m7",
+      "name": "Hibiscus cooler",
+      "nameAr": "كركديه مثلج",
+      "qty": 1,
+      "price": 6500,
+      "station": "Bar",
+      "options": []
+     }
+    ],
+    "status": "preparing",
+    "created": 1791227100000,
+    "total": 21000
+   },
+   {
+    "notes": "",
+    "version": 0,
+    "id": "fx-order-8",
+    "number": 8,
+    "visitId": "fx-visit-h",
+    "tableId": "t6",
+    "branchId": "main",
+    "type": "dine-in",
+    "name": "Fictional guest — Salma (synthetic)",
+    "lines": [
+     {
+      "id": "m1",
+      "name": "Roasted pumpkin soup",
+      "nameAr": "شوربة القرع المشوي",
+      "qty": 1,
+      "price": 9500,
+      "station": "Hot kitchen",
+      "options": []
+     }
+    ],
+    "status": "served",
+    "created": 1790611500000,
+    "fulfilledAt": 1790612400000,
+    "total": 9500
+   }
+  ],
+  "payments": [
+   {
+    "id": "fx-pay-1",
+    "visitId": "fx-visit-a",
+    "kind": "bill",
+    "amount": 20000,
+    "at": 1789241400000
+   },
+   {
+    "id": "fx-pay-2",
+    "visitId": "fx-visit-a",
+    "kind": "bill",
+    "amount": 81500,
+    "at": 1789241700000
+   },
+   {
+    "id": "fx-pay-3",
+    "reservationId": "fx-res-1",
+    "kind": "deposit",
+    "amount": 20000,
+    "at": 1789725660000
+   },
+   {
+    "id": "fx-pay-4",
+    "visitId": "fx-visit-b",
+    "kind": "bill",
+    "amount": 62000,
+    "at": 1789928400000
+   },
+   {
+    "id": "fx-pay-5",
+    "visitId": "fx-visit-c",
+    "kind": "bill",
+    "amount": 30000,
+    "provider": "stripe",
+    "providerId": "evt_fictional_000001",
+    "at": 1790337690000
+   },
+   {
+    "id": "fx-pay-6",
+    "visitId": "fx-visit-d",
+    "kind": "bill",
+    "amount": 50500,
+    "provider": "paymob",
+    "providerId": "paymob_txn_fictional_000002",
+    "at": 1790859720000
+   },
+   {
+    "id": "fx-pay-7",
+    "reservationId": "fx-res-2",
+    "kind": "deposit",
+    "amount": 20000,
+    "at": 1791626460000
+   },
+   {
+    "id": "fx-pay-8",
+    "reservationId": "fx-res-4",
+    "kind": "deposit",
+    "amount": 20000,
+    "at": 1790499660000
+   },
+   {
+    "id": "fx-pay-9",
+    "visitId": "fx-visit-h",
+    "kind": "test-refund",
+    "amount": 10500,
+    "at": 1790614800000
+   }
+  ],
+  "requests": [
+   {
+    "id": "fx-req-1",
+    "visitId": "fx-visit-a",
+    "tableId": "t1",
+    "type": "bill",
+    "status": "resolved",
+    "created": 1789240800000
+   },
+   {
+    "id": "fx-req-2",
+    "visitId": "fx-visit-e",
+    "tableId": "t1",
+    "type": "waiter",
+    "status": "open",
+    "created": 1791227400000
+   }
+  ],
+  "audit": [
+   {
+    "id": "fx-audit-1",
+    "type": "Order received",
+    "entity": "fx-order-1",
+    "at": 1789236600000
+   },
+   {
+    "id": "fx-audit-2",
+    "type": "Order received",
+    "entity": "fx-order-2",
+    "at": 1789239720000
+   },
+   {
+    "id": "fx-audit-3",
+    "type": "Visit opened",
+    "entity": "fx-visit-a",
+    "at": 1789236300000
+   }
+  ],
+  "idem": {},
+  "sessions": [],
+  "settings": {
+   "name": "The Olive Room",
+   "branch": "Zamalek, Cairo",
+   "duration": 90,
+   "buffer": 15,
+   "deposit": 20000,
+   "deliveryFee": 3500,
+   "deliveryEnabled": true,
+   "serviceMode": "tables",
+   "reservationsEnabled": true,
+   "venueQr": "bb758a4d52e41deab24a41bc81ba7947"
+  },
+  "credentials": {},
+  "floor": {
+   "schemaVersion": 2,
+   "revision": 0,
+   "width": 1200,
+   "height": 800,
+   "background": {
+    "image": null,
+    "opacity": 0.45,
+    "locked": true,
+    "x": 0,
+    "y": 0,
+    "width": 1200,
+    "height": 800
+   },
+   "zones": [
+    {
+     "id": "zone-main",
+     "type": "zone",
+     "label": "Main room",
+     "x": 600,
+     "y": 285,
+     "width": 1080,
+     "height": 450,
+     "rotation": 0,
+     "color": "#e9efe5"
+    },
+    {
+     "id": "zone-terrace",
+     "type": "zone",
+     "label": "Terrace",
+     "x": 600,
+     "y": 630,
+     "width": 1080,
+     "height": 220,
+     "rotation": 0,
+     "color": "#f2eadc"
+    }
+   ],
+   "objects": [
+    {
+     "id": "wall-top",
+     "type": "wall",
+     "label": "North wall",
+     "x": 600,
+     "y": 55,
+     "width": 1100,
+     "height": 10,
+     "rotation": 0
+    },
+    {
+     "id": "wall-left",
+     "type": "wall",
+     "label": "West wall",
+     "x": 50,
+     "y": 395,
+     "width": 10,
+     "height": 690,
+     "rotation": 0
+    },
+    {
+     "id": "wall-right",
+     "type": "wall",
+     "label": "East wall",
+     "x": 1150,
+     "y": 395,
+     "width": 10,
+     "height": 690,
+     "rotation": 0
+    },
+    {
+     "id": "wall-bottom",
+     "type": "wall",
+     "label": "South wall",
+     "x": 600,
+     "y": 740,
+     "width": 1100,
+     "height": 10,
+     "rotation": 0
+    },
+    {
+     "id": "window-north",
+     "type": "window",
+     "label": "Windows",
+     "x": 600,
+     "y": 55,
+     "width": 440,
+     "height": 12,
+     "rotation": 0
+    },
+    {
+     "id": "door-entry",
+     "type": "door",
+     "label": "Entrance",
+     "x": 275,
+     "y": 740,
+     "width": 90,
+     "height": 30,
+     "rotation": 0
+    },
+    {
+     "id": "counter-bar",
+     "type": "counter",
+     "label": "Service & bar",
+     "x": 1110,
+     "y": 360,
+     "width": 50,
+     "height": 240,
+     "rotation": 0
+    }
+   ]
+  },
+  "branches": [
+   {
+    "id": "main",
+    "name": "Zamalek, Cairo",
+    "nameAr": "الزمالك، القاهرة",
+    "active": true,
+    "pickup": true,
+    "delivery": true,
+    "deliveryAreas": [
+     "Zamalek",
+     "الزمالك"
+    ],
+    "paymentProvider": "auto",
+    "reservations": true
+   },
+   {
+    "id": "burger",
+    "name": "Smash & Co",
+    "nameAr": "سماش آند كو",
+    "active": true,
+    "pickup": true,
+    "delivery": true,
+    "deliveryAreas": [
+     "Downtown",
+     "وسط البلد"
+    ],
+    "paymentProvider": "auto",
+    "reservations": false
+   }
+  ],
+  "splits": [],
+  "shares": [],
+  "ratings": [],
+  "integrations": {},
+  "revision": 0,
+  "platformVersion": 4
+ }
+}
