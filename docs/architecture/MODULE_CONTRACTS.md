@@ -47,6 +47,7 @@ the same change.
 | `EntitlementsService` | `common/entitlements` | `isEnabled/assert(orgId, module)`, `invalidate(orgId)` |
 | `StorageService.put(tx, ctx, {...}) / signedUrl(path)` | `common/storage` | tenant media under `<org_id>/` |
 | `SecretBox.sealJson/openJson` | `common/crypto/secret-box` | provider credentials (AES-256-GCM) |
+| `WebhookInboxService.store / markProcessed / pending` | `common/platform/webhook-inbox.service` | dedupe + persist every provider webhook (after signature check) |
 | `RateLimiter.hit(key, limit, windowMs)` | `common/http/rate-limiter` | per-IP / per-client limits on public endpoints |
 | `@OnDomainEvent(name, ...types)`, `@Scheduled(name, seconds)` | `common/events/events` | worker-side reactions and periodic jobs |
 | `PricingService.quote(tx, orgId, input)` | `modules/kernel` | the only pricing implementation |
@@ -123,6 +124,7 @@ re-read state inside their own transaction.
   `reservations.deposit_status/status (pending_deposit→confirmed)`, `checkout_sessions.status`.
 - `OrganizationsService.create` seeds rows in billing, compliance (`tax_profiles`),
   catalog (`menus`), studio (`websites`, `website_sections`), finance (`expense_categories`), floor (`floor_layouts`).
+- E1 may insert `usage_events` rows with metric `ai_requests`; E2 may insert `usage_events` with metric `mcp_calls`.
 - E2 (MCP) may insert **drafts** into `segments`/`campaigns` with `source='mcp'` through C's services once merged.
 - B1 sets `dining_tables.status` and owns `visits`; D1 may set `visits.credit_used_minor` only through the ledger (`deposit_credit` payments).
 

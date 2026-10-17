@@ -13,9 +13,10 @@ import { RateLimiter } from './http/rate-limiter';
 import { AuditService } from './platform/audit.service';
 import { IdempotencyService } from './platform/idempotency.service';
 import { OutboxService } from './platform/outbox.service';
+import { WebhookInboxService } from './platform/webhook-inbox.service';
 import { StorageService } from './storage/storage.service';
 
-const shared = [EventDispatcher, DbService, JwtService, EntitlementsService, RateLimiter, AuditService, OutboxService, IdempotencyService, SecretBox, StorageService];
+const shared = [EventDispatcher, DbService, JwtService, EntitlementsService, RateLimiter, AuditService, OutboxService, IdempotencyService, SecretBox, StorageService, WebhookInboxService];
 
 @Global()
 @Module({
