@@ -17,10 +17,7 @@ await migrate({ url, reset: true, log: () => {} });
 const build = spawnSync('npx', ['tsc', '-p', 'tsconfig.build.json'], { cwd: path.join(root, 'apps/api'), stdio: 'inherit' });
 if (build.status !== 0) process.exit(build.status ?? 1);
 
-const child = spawn(process.execPath, ['dist/main.js'], {
-  cwd: path.join(root, 'apps/api'),
-  stdio: 'inherit',
-  env: {
+const env = {
     ...process.env,
     NODE_ENV: 'development',
     PORT: port,
@@ -29,10 +26,14 @@ const child = spawn(process.execPath, ['dist/main.js'], {
     SUPABASE_JWT_SECRET: 'e2e-jwt-secret-that-is-at-least-32-characters-long',
     API_ORIGIN: `http://localhost:${port}`,
     APP_ORIGIN: web,
-    CORS_ORIGINS: `${web},http://127.0.0.1:3109`,
+    CORS_ORIGINS: `${web},${web.replace('localhost', '127.0.0.1')}`,
     STORAGE_LOCAL_DIR: path.join(root, '.local/e2e-storage'),
     PAYMENT_MODE: 'sandbox',
-  },
-});
-for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { child.kill(sig); process.exit(0); });
-child.on('exit', (code) => process.exit(code ?? 0));
+};
+const child = spawn(process.execPath, ['dist/main.js'], { cwd: path.join(root, 'apps/api'), stdio: 'inherit', env });
+// The outbox worker (event handlers: delivery jobs, WhatsApp confirmations, fiscal
+// documents …) runs beside the API unless E2E_WORKER=0.
+const worker = process.env.E2E_WORKER === '0' ? null
+  : spawn(process.execPath, ['dist/worker.js'], { cwd: path.join(root, 'apps/api'), stdio: 'inherit', env });
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { child.kill(sig); worker?.kill(sig); process.exit(0); });
+child.on('exit', (code) => { worker?.kill('SIGTERM'); process.exit(code ?? 0); });

@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { collectErrors, expect, expectNoHorizontalOverflow, setLocale, test } from './fixtures';
+import { collectErrors, expect, expectNoHorizontalOverflow, setLocale, test, WEB_URL } from './fixtures';
 
 // The pricing teaser asks the billing module for public prices; that endpoint is
 // owned by another agent, so a 404 from it is expected in this worktree.
@@ -34,7 +34,7 @@ test('landing has SEO metadata, structured data, robots and sitemap', async ({ p
   await expect(page).toHaveTitle(/Resuto/);
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /restaurant operating system/i);
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-resuto\.png/);
-  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /localhost:3109\/?$/);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', new RegExp(`${WEB_URL.replace(/^https?:\/\//, '')}/?$`));
   const ld = JSON.parse(await page.locator('script[type="application/ld+json"]').first().textContent() ?? '{}');
   expect(ld['@type']).toBe('SoftwareApplication');
   const robots = await (await request.get('/robots.txt')).text();
