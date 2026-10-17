@@ -8,8 +8,7 @@ import { OrderingService } from '../src/modules/connect/ordering.service';
 import { ProviderHttp } from '../src/modules/integrations/provider-http';
 import { PaymentLedgerService } from '../src/modules/kernel/payment-ledger.service';
 import { MESSAGING_PORT, type MessagingPort } from '../src/modules/kernel/ports';
-import { scriptedFetch } from '../../../packages/integrations/src/messaging/testing/scripted-fetch';
-import { bootWithCheckout, fakeCheckout, inbound, lastOutbound, outbound, sandboxChannel, walkToMenu } from './growth-helpers';
+import { bootWithCheckout, fakeCheckout, inbound, lastOutbound, outbound, sandboxChannel, walkToMenu, scriptedFetch } from './growth-helpers';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant } from './helpers';
 
 const APP_SECRET = 'test-whatsapp-app-secret';

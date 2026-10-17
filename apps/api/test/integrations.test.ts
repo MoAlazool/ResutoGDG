@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SecretBox } from '../src/common/crypto/secret-box';
 import { DbService } from '../src/common/db/db.service';
 import { ProviderHttp } from '../src/modules/integrations/provider-http';
-import { scriptedFetch } from '../../../packages/integrations/src/messaging/testing/scripted-fetch';
+import { scriptedFetch } from './growth-helpers';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant } from './helpers';
 
 let t: TestApp;
