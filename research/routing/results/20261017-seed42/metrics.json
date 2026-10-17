@@ -1,0 +1,323 @@
+{
+  "notice": "SYNTHETIC DATA: all metrics in this file were computed on the seeded synthetic dataset 'resuto-synth-v1' (research/data/generate_synthetic.py). They show that the pipeline runs and how the baselines compare on simulated patterns; they are NOT evidence of real-world performance.",
+  "isSyntheticData": true,
+  "track": "routing",
+  "runId": "20261017-seed42",
+  "seed": 42,
+  "dataset": {
+    "name": "resuto-synth-v1",
+    "kind": "synthetic",
+    "isSyntheticData": true,
+    "files": {
+      "items.csv": {
+        "rows": 28,
+        "sha256": "b591dcf631f6901dfd2c4206418c75f7fc18db87312d51cde5a90887c13886ac"
+      },
+      "branches.csv": {
+        "rows": 2,
+        "sha256": "f808df4d1ccf530559efbf2a50af45b2cf81b6ba0e60b0bbecd290d504e6f6f1"
+      },
+      "customers.csv": {
+        "rows": 4600,
+        "sha256": "4ec9bd21fcdda579c450fad85b4de2335fd58fd916b726d625f61f014005da07"
+      },
+      "orders.csv": {
+        "rows": 114727,
+        "sha256": "4d791b6f71fefc4e680342b1baf3a327e39b4c94685dd5e66111deb4d2a5bfc3"
+      },
+      "order_lines.csv": {
+        "rows": 425300,
+        "sha256": "c0b4b2b65b4773e7fe821fed767e150cbf4b93d22f15c252b5c447b032e766b1"
+      }
+    },
+    "generatorSeed": 2026
+  },
+  "protocol": {
+    "dispatchWindowMinutes": 20,
+    "promiseMinutes": 45,
+    "prepMinutes": 10,
+    "speedKmh": 25.0,
+    "roadFactor": 1.3,
+    "distance": "haversine x road factor",
+    "availableDispatchBatches": {
+      "3-5": 3801,
+      "6-8": 234,
+      "9-12": 72
+    },
+    "sampledPerBucket": 60,
+    "scaleSizes": [
+      15,
+      25,
+      40
+    ],
+    "scaleInstances": 20,
+    "exactBaseline": "enumeration for instances with <= 8 stops"
+  },
+  "dispatch": {
+    "3-5": {
+      "exact_distance": {
+        "instances": 60,
+        "meanDistanceKm": 14.068164999999999,
+        "meanDurationMin": 44.06399999999999,
+        "meanViolations": 1.3833333333333333,
+        "meanLatenessMin": 23.925500000000003,
+        "meanComputationMs": 0.03843198329983958,
+        "p95ComputationMs": 0.08971649986051483,
+        "meanDistanceSavingVsNaivePct": 22.806464888782884,
+        "meanGapToOptimalPct": 0.0,
+        "maxGapToOptimalPct": 0.0
+      },
+      "naive": {
+        "instances": 60,
+        "meanDistanceKm": 18.84098333333333,
+        "meanDurationMin": 55.517333333333326,
+        "meanViolations": 1.85,
+        "meanLatenessMin": 40.1385,
+        "meanComputationMs": 0.0,
+        "p95ComputationMs": 0.0,
+        "meanDistanceSavingVsNaivePct": 0.0,
+        "meanGapToOptimalPct": 35.08107156366921,
+        "maxGapToOptimalPct": 89.42182384539586
+      },
+      "nearest_neighbour": {
+        "instances": 60,
+        "meanDistanceKm": 14.71669666666667,
+        "meanDurationMin": 45.62116666666666,
+        "meanViolations": 1.2833333333333334,
+        "meanLatenessMin": 24.049166666666668,
+        "meanComputationMs": 0.007935000076031429,
+        "p95ComputationMs": 0.013478149548973304,
+        "meanDistanceSavingVsNaivePct": 20.16116439137471,
+        "meanGapToOptimalPct": 3.5111270080375374,
+        "maxGapToOptimalPct": 24.572744798577897
+      },
+      "nn_2opt_distance": {
+        "instances": 60,
+        "meanDistanceKm": 14.239028333333332,
+        "meanDurationMin": 44.474333333333334,
+        "meanViolations": 1.35,
+        "meanLatenessMin": 23.915000000000003,
+        "meanComputationMs": 0.016511883313796716,
+        "p95ComputationMs": 0.03161304930472395,
+        "meanDistanceSavingVsNaivePct": 22.15332429006388,
+        "meanGapToOptimalPct": 0.8322132883624339,
+        "maxGapToOptimalPct": 24.572744798577897
+      },
+      "nn_2opt_lateness": {
+        "instances": 60,
+        "meanDistanceKm": 14.64576,
+        "meanDurationMin": 45.4505,
+        "meanViolations": 1.2666666666666666,
+        "meanLatenessMin": 22.026666666666667,
+        "meanComputationMs": 0.1765534166982737,
+        "p95ComputationMs": 0.6076177004160851,
+        "meanDistanceSavingVsNaivePct": 20.096120998234564,
+        "meanGapToOptimalPct": 3.769964626752105,
+        "maxGapToOptimalPct": 41.922316564975596
+      }
+    },
+    "6-8": {
+      "exact_distance": {
+        "instances": 60,
+        "meanDistanceKm": 22.243906666666668,
+        "meanDurationMin": 73.08483333333334,
+        "meanViolations": 3.8833333333333333,
+        "meanLatenessMin": 102.41833333333334,
+        "meanComputationMs": 4.293595266699413,
+        "p95ComputationMs": 24.111904949450036,
+        "meanDistanceSavingVsNaivePct": 36.648745650612256,
+        "meanGapToOptimalPct": 0.0,
+        "maxGapToOptimalPct": 0.0
+      },
+      "naive": {
+        "instances": 60,
+        "meanDistanceKm": 36.00645999999999,
+        "meanDurationMin": 106.11566666666668,
+        "meanViolations": 5.233333333333333,
+        "meanLatenessMin": 222.69666666666666,
+        "meanComputationMs": 0.0,
+        "p95ComputationMs": 0.0,
+        "meanDistanceSavingVsNaivePct": 0.0,
+        "meanGapToOptimalPct": 62.28947876120591,
+        "maxGapToOptimalPct": 118.78879947014576
+      },
+      "nearest_neighbour": {
+        "instances": 60,
+        "meanDistanceKm": 24.041075,
+        "meanDurationMin": 77.39866666666667,
+        "meanViolations": 3.5833333333333335,
+        "meanLatenessMin": 101.30250000000001,
+        "meanComputationMs": 0.010296100011449502,
+        "p95ComputationMs": 0.015349400473496644,
+        "meanDistanceSavingVsNaivePct": 31.645128120729588,
+        "meanGapToOptimalPct": 7.763393940726938,
+        "maxGapToOptimalPct": 29.24036972739644
+      },
+      "nn_2opt_distance": {
+        "instances": 60,
+        "meanDistanceKm": 22.382785,
+        "meanDurationMin": 73.41800000000002,
+        "meanViolations": 3.966666666666667,
+        "meanLatenessMin": 103.43083333333333,
+        "meanComputationMs": 0.07483369998529572,
+        "p95ComputationMs": 0.1382505999117708,
+        "meanDistanceSavingVsNaivePct": 36.27967385539148,
+        "meanGapToOptimalPct": 0.5592342448084756,
+        "maxGapToOptimalPct": 8.527353475540004
+      },
+      "nn_2opt_lateness": {
+        "instances": 60,
+        "meanDistanceKm": 23.588665,
+        "meanDurationMin": 76.31233333333333,
+        "meanViolations": 3.55,
+        "meanLatenessMin": 95.85866666666666,
+        "meanComputationMs": 1.3188231332605937,
+        "p95ComputationMs": 3.4296393005206482,
+        "meanDistanceSavingVsNaivePct": 32.96377471452679,
+        "meanGapToOptimalPct": 5.797490575602226,
+        "maxGapToOptimalPct": 29.24036972739644
+      }
+    },
+    "9-12": {
+      "naive": {
+        "instances": 60,
+        "meanDistanceKm": 56.36441833333333,
+        "meanDurationMin": 165.67466666666664,
+        "meanViolations": 8.833333333333334,
+        "meanLatenessMin": 643.8541666666667,
+        "meanComputationMs": 0.0,
+        "p95ComputationMs": 0.0,
+        "meanDistanceSavingVsNaivePct": 0.0
+      },
+      "nearest_neighbour": {
+        "instances": 60,
+        "meanDistanceKm": 35.561216666666674,
+        "meanDurationMin": 115.74683333333336,
+        "meanViolations": 6.833333333333333,
+        "meanLatenessMin": 271.45816666666667,
+        "meanComputationMs": 0.01566443329465983,
+        "p95ComputationMs": 0.02511809939278464,
+        "meanDistanceSavingVsNaivePct": 36.52734608807012
+      },
+      "nn_2opt_distance": {
+        "instances": 60,
+        "meanDistanceKm": 31.796653333333328,
+        "meanDurationMin": 106.71166666666667,
+        "meanViolations": 7.066666666666666,
+        "meanLatenessMin": 296.61249999999995,
+        "meanComputationMs": 0.1803230334038138,
+        "p95ComputationMs": 0.3001053004481946,
+        "meanDistanceSavingVsNaivePct": 43.21275451625958
+      },
+      "nn_2opt_lateness": {
+        "instances": 60,
+        "meanDistanceKm": 34.46995833333333,
+        "meanDurationMin": 113.1275,
+        "meanViolations": 6.816666666666666,
+        "meanLatenessMin": 260.1085,
+        "meanComputationMs": 4.9421584999739325,
+        "p95ComputationMs": 8.953671900053445,
+        "meanDistanceSavingVsNaivePct": 38.55538711910258
+      }
+    }
+  },
+  "scale": {
+    "15": {
+      "naive": {
+        "instances": 20,
+        "meanDistanceKm": 86.710375,
+        "meanDurationMin": 253.1065,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 0.0,
+        "p95ComputationMs": 0.0,
+        "meanDistanceSavingVsNaivePct": 0.0
+      },
+      "nearest_neighbour": {
+        "instances": 20,
+        "meanDistanceKm": 44.04382,
+        "meanDurationMin": 150.7055,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 0.029927699870313518,
+        "p95ComputationMs": 0.050491149522713386,
+        "meanDistanceSavingVsNaivePct": 48.41310404312145
+      },
+      "nn_2opt_distance": {
+        "instances": 20,
+        "meanDistanceKm": 41.01151,
+        "meanDurationMin": 143.42800000000003,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 0.8059889000378462,
+        "p95ComputationMs": 1.722488749874177,
+        "meanDistanceSavingVsNaivePct": 52.36577099387658
+      }
+    },
+    "25": {
+      "naive": {
+        "instances": 20,
+        "meanDistanceKm": 141.89606,
+        "meanDurationMin": 415.55,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 0.0,
+        "p95ComputationMs": 0.0,
+        "meanDistanceSavingVsNaivePct": 0.0
+      },
+      "nearest_neighbour": {
+        "instances": 20,
+        "meanDistanceKm": 65.28317,
+        "meanDurationMin": 231.67950000000002,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 0.05905705006625794,
+        "p95ComputationMs": 0.07964434935274767,
+        "meanDistanceSavingVsNaivePct": 54.25802806996867
+      },
+      "nn_2opt_distance": {
+        "instances": 20,
+        "meanDistanceKm": 57.77291,
+        "meanDurationMin": 213.65550000000002,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 2.4034488498728024,
+        "p95ComputationMs": 3.6943435000921454,
+        "meanDistanceSavingVsNaivePct": 59.36197758841878
+      }
+    },
+    "40": {
+      "naive": {
+        "instances": 20,
+        "meanDistanceKm": 241.174345,
+        "meanDurationMin": 698.818,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 0.0,
+        "p95ComputationMs": 0.0,
+        "meanDistanceSavingVsNaivePct": 0.0
+      },
+      "nearest_neighbour": {
+        "instances": 20,
+        "meanDistanceKm": 85.09544,
+        "meanDurationMin": 324.2285,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 0.12703774991678074,
+        "p95ComputationMs": 0.18179739931838412,
+        "meanDistanceSavingVsNaivePct": 64.74398921988195
+      },
+      "nn_2opt_distance": {
+        "instances": 20,
+        "meanDistanceKm": 74.68711,
+        "meanDurationMin": 299.24899999999997,
+        "meanViolations": 0.0,
+        "meanLatenessMin": 0.0,
+        "meanComputationMs": 11.236689200086403,
+        "p95ComputationMs": 18.14801429927684,
+        "meanDistanceSavingVsNaivePct": 69.04104720033361
+      }
+    }
+  },
+  "runtimeSeconds": 5.6
+}

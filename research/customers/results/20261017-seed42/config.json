@@ -1,0 +1,74 @@
+{
+  "seed": 42,
+  "dataSeed": 2026,
+  "churnReferenceDate": "2025-04-30T23:59:59+00:00",
+  "churnWindowDays": 60,
+  "ks": [
+    3,
+    5
+  ],
+  "grid": {
+    "personal": [
+      0.0,
+      0.2,
+      0.4,
+      0.6,
+      0.8,
+      1.0
+    ],
+    "assoc": [
+      0.0,
+      0.1,
+      0.3,
+      0.5,
+      1.0
+    ],
+    "pop": [
+      0.0,
+      0.1,
+      0.3
+    ]
+  },
+  "serviceDefaultWeights": {
+    "personal": 0.4,
+    "assoc": 0.1,
+    "pop": 0.0
+  },
+  "dataset": {
+    "name": "resuto-synth-v1",
+    "kind": "synthetic",
+    "isSyntheticData": true,
+    "files": {
+      "items.csv": {
+        "rows": 28,
+        "sha256": "b591dcf631f6901dfd2c4206418c75f7fc18db87312d51cde5a90887c13886ac"
+      },
+      "branches.csv": {
+        "rows": 2,
+        "sha256": "f808df4d1ccf530559efbf2a50af45b2cf81b6ba0e60b0bbecd290d504e6f6f1"
+      },
+      "customers.csv": {
+        "rows": 4600,
+        "sha256": "4ec9bd21fcdda579c450fad85b4de2335fd58fd916b726d625f61f014005da07"
+      },
+      "orders.csv": {
+        "rows": 114727,
+        "sha256": "4d791b6f71fefc4e680342b1baf3a327e39b4c94685dd5e66111deb4d2a5bfc3"
+      },
+      "order_lines.csv": {
+        "rows": 425300,
+        "sha256": "c0b4b2b65b4773e7fe821fed767e150cbf4b93d22f15c252b5c447b032e766b1"
+      }
+    },
+    "generatorSeed": 2026
+  },
+  "gitRevision": "d579207",
+  "environment": {
+    "python": "3.13.16",
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "scikitLearn": "1.9.1",
+    "platform": "Linux-6.18.44-fc-v139-x86_64-with-glibc2.39",
+    "cpuCount": 4
+  }
+}
