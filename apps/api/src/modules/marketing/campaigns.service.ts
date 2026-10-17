@@ -223,6 +223,39 @@ export class CampaignsService implements CampaignsPort {
     return { recipients: members.length, ...counts };
   }
 
+  /**
+   * CAMPAIGN_SEND_PORT (used by ResutoMCP after a human approved the MCP request).
+   * Same rules as the dashboard: org-owned draft/approved messaging campaign, the
+   * acting context must hold marketing:approve, consent is filtered at send time and
+   * sandbox channels are labelled. With scheduledAt → 'scheduled' (sent by the
+   * dispatcher job); without → dispatched immediately (sending → 'sent').
+   */
+  async requestSend(tx: Tx, ctx: TenantContext, input: { campaignId: string; scheduledAt?: string | null; approvedBy: string | null; source: 'mcp' }) {
+    ctx.require('marketing:approve');
+    const r = await this.row(tx, ctx, input.campaignId, true);
+    if (!['draft', 'pending_approval', 'approved'].includes(r.status)) {
+      throw new DomainError('invalid_campaign_transition', `Cannot send a ${r.status} campaign`, 409, { status: r.status });
+    }
+    if (r.channel !== 'whatsapp') throw invalid('channel_unavailable', 'Only WhatsApp campaigns can be sent through this port');
+    if (!r.segment_id) throw invalid('segment_required', 'Choose a segment before sending');
+    if (!r.content?.text && !r.content?.templateName) throw invalid('content_required', 'Add a message or an approved template');
+    if (input.scheduledAt && new Date(input.scheduledAt).getTime() < Date.now() - 60_000) throw invalid('schedule_in_past', 'Choose a time in the future');
+    if (r.status !== 'approved') {
+      await tx.query(`update campaigns set status = 'approved', approved_by = $2, approved_at = now() where id = $1`, [r.id, input.approvedBy]);
+      await this.outbox.publish(tx, ctx.orgId, { type: 'campaign.approved', aggregateType: 'campaign', aggregateId: r.id, payload: { approvedBy: input.approvedBy, source: input.source } });
+    }
+    await this.audit.record(tx, ctx, { action: 'marketing.campaign_send_requested', entityType: 'campaign', entityId: r.id,
+      metadata: { source: input.source, approvedBy: input.approvedBy, scheduledAt: input.scheduledAt ?? null } });
+    if (input.scheduledAt) {
+      await tx.query(`update campaigns set status = 'scheduled', scheduled_at = $2 where id = $1`, [r.id, input.scheduledAt]);
+      await this.outbox.publish(tx, ctx.orgId, { type: 'campaign.scheduled', aggregateType: 'campaign', aggregateId: r.id, payload: { scheduledAt: input.scheduledAt, source: input.source } });
+    } else {
+      await this.dispatch(tx, ctx, r.id);
+    }
+    const after = await tx.one<{ status: string; scheduled_at: Date | null }>(`select status, scheduled_at from campaigns where id = $1`, [r.id]);
+    return { campaignId: r.id as string, status: after.status, scheduledAt: iso(after.scheduled_at) };
+  }
+
   @Scheduled('marketing.campaign-dispatch', 30)
   async dispatchDue() {
     const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string }>(

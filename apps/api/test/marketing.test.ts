@@ -165,6 +165,30 @@ describe('campaigns', () => {
     expect((await sql(`select source from campaigns where id = $1`, [d.id]))[0].source).toBe('mcp');
   });
 
+  it('CAMPAIGN_SEND_PORT (MCP after human approval) applies approval, consent and scheduling rules', async () => {
+    const send = t.app.get<any>(Symbol.for('resuto.CAMPAIGN_SEND_PORT'));
+    const mcpCtx = (role: 'marketing' | 'cashier') => new TenantContext(tenant.orgId, role, null, null, 'mcp_client', 'mcp-client-1', 'mcp');
+    const mk = async (name: string) => (await t.http.post(m('/campaigns')).set(auth(tenant.owner)).send({ name, channel: 'whatsapp', segmentId, content: { text: `Hi from ${name}` } })).body.id as string;
+    const id = await mk('MCP now');
+    await expect(db.withTenant(tenant.orgId, (tx) => send.requestSend(tx, mcpCtx('cashier'), { campaignId: id, approvedBy: tenant.owner.userId, source: 'mcp' })))
+      .rejects.toMatchObject({ code: 'forbidden' });
+    const now = await db.withTenant(tenant.orgId, (tx) => send.requestSend(tx, mcpCtx('marketing'), { campaignId: id, approvedBy: tenant.owner.userId, source: 'mcp' }));
+    expect(now).toEqual({ campaignId: id, status: 'sent', scheduledAt: null });
+    const deliveries = await sql(`select customer_id, status from campaign_deliveries where campaign_id = $1`, [id]);
+    expect(deliveries.find((d: any) => d.customer_id === ids.b).status).toBe('skipped_no_consent');
+    expect((await sql(`select approved_by, is_sandbox from campaigns where id = $1`, [id]))[0]).toEqual({ approved_by: tenant.owner.userId, is_sandbox: true });
+    expect((await sql(`select count(*)::int as n from audit_logs where entity_id = $1 and action = 'marketing.campaign_send_requested'`, [id]))[0].n).toBe(1);
+    await expect(db.withTenant(tenant.orgId, (tx) => send.requestSend(tx, mcpCtx('marketing'), { campaignId: id, approvedBy: null, source: 'mcp' })))
+      .rejects.toMatchObject({ code: 'invalid_campaign_transition' });
+    const later = await mk('MCP later');
+    const at = new Date(Date.now() + 7200_000).toISOString();
+    const sched = await db.withTenant(tenant.orgId, (tx) => send.requestSend(tx, mcpCtx('marketing'), { campaignId: later, scheduledAt: at, approvedBy: tenant.owner.userId, source: 'mcp' }));
+    expect(sched).toEqual({ campaignId: later, status: 'scheduled', scheduledAt: at });
+    const other = await createTenant(t);
+    await expect(db.withTenant(other.orgId, (tx) => send.requestSend(tx, new TenantContext(other.orgId, 'marketing', null, null, 'mcp_client', 'x', 'mcp'), { campaignId: later, approvedBy: null, source: 'mcp' })))
+      .rejects.toMatchObject({ code: 'not_found' });
+  });
+
   it('launches ad campaigns only when approved and connected; sandbox rows never count as cost', async () => {
     const make = async (name: string) => {
       const c = (await t.http.post(m('/campaigns')).set(auth(tenant.owner)).send({ name, channel: 'meta_ads', objective: 'acquisition', budgetMinor: 50000 })).body;
