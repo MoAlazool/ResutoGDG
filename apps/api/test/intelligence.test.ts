@@ -240,6 +240,13 @@ describe('route planning', () => {
     expect(p).toMatchObject({ kind: 'route_plan', subject_id: driverId });
   });
 
+  it('lists drivers with open jobs for the planner', async () => {
+    const res = await t.http.get(`${base()}/routes/drivers`).query({ branchId: A.branchId }).set(auth(A.owner));
+    expect(res.status).toBe(200);
+    expect(res.body.items).toEqual([{ id: driverId, displayName: 'Driver One', availability: 'busy', openJobs: 3 }]);
+    expect((await t.http.get(`${base()}/routes/drivers`).query({ branchId: A.branchId }).set(auth(marketing))).status).toBe(403);
+  });
+
   it('requires delivery:dispatch and a driver of this tenant', async () => {
     expect((await t.http.post(`${base()}/routes/plan`).set(auth(marketing)).send({ branchId: A.branchId, driverId })).status).toBe(403);
     expect((await t.http.post(`/v1/o/${B.orgId}/intelligence/routes/plan`).set(auth(B.owner)).send({ branchId: B.branchId, driverId })).status).toBe(404);
