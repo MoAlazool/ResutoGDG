@@ -83,6 +83,13 @@ every dashboard page; use `useOrg()`, `useApi()`, `useSession()`, `useT()` and
 
 ## 4. Cross-module interfaces
 
+Exported services are bound to injection tokens in `apps/api/src/modules/kernel/ports.ts`
+(`CHECKOUT_PORT`, `MESSAGING_PORT`, `SEGMENTS_PORT`, `CAMPAIGNS_PORT`, `ORDERS_QUERY_PORT`).
+The owner implements the interface, makes its module `@Global()` and provides
+`{ provide: TOKEN, useExisting: Service }` + exports the token. Consumers inject
+`@Optional() @Inject(TOKEN)` and call `requirePort(port, 'Name')`. Do not import
+another agent's service file directly.
+
 Exported services (owner implements exactly this signature; consumers call it):
 
 | Exporter | Signature | Consumers |
