@@ -32,12 +32,23 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: AI service environment (used by the intelligence API tests)
+        run: cd apps/ai-service && python -m venv .venv && .venv/bin/pip install -q -r requirements.txt
+      - name: AI service tests (pytest)
+        run: cd apps/ai-service && .venv/bin/python -m pytest -q
       - name: Build shared packages
         run: pnpm --filter @resuto/contracts build && pnpm --filter @resuto/integrations build
-      - name: Contracts tests
-        run: pnpm --filter @resuto/contracts test
+      - name: Contracts and integration adapter tests
+        run: pnpm --filter @resuto/contracts test && pnpm --filter @resuto/integrations test
       - name: Database security tests (RLS, constraints)
         run: node --test supabase/tests/*.test.mjs
+      - name: Legacy data migration tool tests
+        env:
+          LEGACY_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test_legacy
+        run: node --test tools/legacy-migration/test/*.test.mjs
       - name: API typecheck
         run: pnpm --filter @resuto/api typecheck
       - name: API integration tests
