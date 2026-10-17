@@ -1,0 +1,48 @@
+// Platform admin console strings (owner: Agent A).
+const en = {
+  console: 'Resuto admin', tenants: 'Restaurants', prices: 'Prices', operations: 'Operations', signOut: 'Sign out', role: 'Role: {role}',
+  onlyAdmins: 'Platform administrators only.', backToApp: 'Back to Resuto',
+  readOnly: 'Your role is read-only here.',
+  search: 'Search by name, slug or id', status: 'Status', plan: 'Plan', country: 'Country', any: 'Any', created: 'Created', lastOrder: 'Last order',
+  subscription: 'Subscription', counts: 'Branches · members · orders (30 d)', noTenants: 'No restaurants match.', more: 'Load more',
+  st_onboarding: 'Onboarding', st_active: 'Active', st_suspended: 'Suspended', st_closed: 'Closed',
+  overview: 'Overview', branches: 'Branches', modules: 'Modules', overrides: 'Module grants and blocks', integrations: 'Integrations', recentAudit: 'Recent activity',
+  billingHidden: 'Billing details are visible to superadmin and finance roles.', period: 'Period', trialEnds: 'Trial ends', graceUntil: 'Grace until',
+  cancelAtEnd: 'Cancels at period end', pending: 'Scheduled plan', addons: 'Add-ons', invoices: 'Invoices', none: 'None',
+  suspend: 'Suspend restaurant', reactivate: 'Reactivate restaurant', reason: 'Reason (required, recorded in the audit log)',
+  suspendBody: 'Members will get “not found” on every restaurant screen until it is reactivated. Guests and data are untouched.',
+  confirm: 'Confirm', cancel: 'Cancel', grant: 'Grant or block a module', module: 'Module', enable: 'Enable', disable: 'Block', expiresAt: 'Expires at',
+  save: 'Save', revoke: 'Revoke', active: 'Active', expired: 'Ended', enabled: 'Enabled', blocked: 'Blocked', noOverrides: 'No overrides.',
+  noIntegrations: 'No integrations connected.', credentialsNote: 'Status and health only — credentials are never shown.',
+  priceTitle: 'Plan and module prices', priceSub: 'Prices are append-only: a change adds a new row that applies from its start time. History is kept.',
+  addPrice: 'Add a price', kind: 'Applies to', planKind: 'Plan', moduleKind: 'Module', interval: 'Interval', month: 'Monthly', year: 'Yearly',
+  amount: 'Amount ({currency})', validFrom: 'Starts (empty = now)', current: 'Current', scheduled: 'Scheduled', superseded: 'Superseded', added: 'Price added.',
+  opsTitle: 'Operations', outbox: 'Outbox', unpublished: 'unpublished', oldest: 'oldest', retrying: 'retrying', handlers: 'Event handlers', failed: 'failed', dead: 'dead',
+  webhooks: 'Webhooks', rejected: 'rejected', jobs: 'Scheduled jobs', usage: 'Usage (30 days)', tenantsCol: 'restaurants', refresh: 'Refresh', allGood: 'Nothing failing.',
+  loadError: 'Could not load.', retry: 'Retry', open: 'Open',
+};
+type S = typeof en;
+const ar: S = {
+  console: 'إدارة ريزوتو', tenants: 'المطاعم', prices: 'الأسعار', operations: 'التشغيل', signOut: 'تسجيل الخروج', role: 'الدور: {role}',
+  onlyAdmins: 'لمسؤولي المنصة فقط.', backToApp: 'العودة إلى ريزوتو',
+  readOnly: 'دورك هنا للقراءة فقط.',
+  search: 'ابحث بالاسم أو الرابط أو المعرّف', status: 'الحالة', plan: 'الخطة', country: 'الدولة', any: 'الكل', created: 'تاريخ الإنشاء', lastOrder: 'آخر طلب',
+  subscription: 'الاشتراك', counts: 'الفروع · الأعضاء · الطلبات (30 يومًا)', noTenants: 'لا توجد مطاعم مطابقة.', more: 'تحميل المزيد',
+  st_onboarding: 'قيد الإعداد', st_active: 'نشط', st_suspended: 'موقوف', st_closed: 'مغلق',
+  overview: 'نظرة عامة', branches: 'الفروع', modules: 'الوحدات', overrides: 'منح الوحدات وحظرها', integrations: 'التكاملات', recentAudit: 'آخر النشاط',
+  billingHidden: 'تفاصيل الفوترة متاحة لأدوار المسؤول الأعلى والمالية.', period: 'الفترة', trialEnds: 'نهاية التجربة', graceUntil: 'المهلة حتى',
+  cancelAtEnd: 'يُلغى في نهاية الفترة', pending: 'خطة مجدولة', addons: 'الإضافات', invoices: 'الفواتير', none: 'لا يوجد',
+  suspend: 'إيقاف المطعم', reactivate: 'إعادة تفعيل المطعم', reason: 'السبب (إلزامي، يُسجّل في سجل النشاط)',
+  suspendBody: 'سيحصل الأعضاء على «غير موجود» في كل شاشات المطعم حتى إعادة التفعيل. لا تتأثر البيانات.',
+  confirm: 'تأكيد', cancel: 'إلغاء', grant: 'منح وحدة أو حظرها', module: 'الوحدة', enable: 'تفعيل', disable: 'حظر', expiresAt: 'ينتهي في',
+  save: 'حفظ', revoke: 'سحب', active: 'سارية', expired: 'منتهية', enabled: 'مفعّلة', blocked: 'محظورة', noOverrides: 'لا توجد استثناءات.',
+  noIntegrations: 'لا توجد تكاملات متصلة.', credentialsNote: 'الحالة والصحة فقط — بيانات الاعتماد لا تُعرض أبدًا.',
+  priceTitle: 'أسعار الخطط والوحدات', priceSub: 'الأسعار تُضاف ولا تُعدّل: كل تغيير صف جديد يسري من وقت بدايته، ويُحتفظ بالسجل.',
+  addPrice: 'إضافة سعر', kind: 'ينطبق على', planKind: 'خطة', moduleKind: 'وحدة', interval: 'المدة', month: 'شهري', year: 'سنوي',
+  amount: 'المبلغ ({currency})', validFrom: 'يبدأ (فارغ = الآن)', current: 'حالي', scheduled: 'مجدول', superseded: 'سابق', added: 'تمت إضافة السعر.',
+  opsTitle: 'التشغيل', outbox: 'صندوق الأحداث', unpublished: 'غير منشورة', oldest: 'الأقدم', retrying: 'قيد الإعادة', handlers: 'معالجات الأحداث', failed: 'فاشلة', dead: 'متوقفة',
+  webhooks: 'الويب هوك', rejected: 'مرفوضة', jobs: 'المهام المجدولة', usage: 'الاستخدام (30 يومًا)', tenantsCol: 'مطاعم', refresh: 'تحديث', allGood: 'لا يوجد ما يفشل.',
+  loadError: 'تعذّر التحميل.', retry: 'إعادة المحاولة', open: 'فتح',
+};
+export const ADMIN_STRINGS = { en, ar };
+export type AdminStrings = S;
