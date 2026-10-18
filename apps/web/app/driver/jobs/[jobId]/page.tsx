@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { DELIVERY_FAILURE_REASONS, parseMajor, type Currency, type DeliveryJobView } from '@resuto/contracts';
 import { Badge, Field, Notice, SelectField, Skeleton, TextareaField, useAction } from '@resuto/ui';
 import { newIdempotencyKey } from '@/lib/api';
-import { dateTime, money, time } from '@/lib/format';
+import { dateTime, isolate, money, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useApi } from '@/lib/use-api';
 import { LocationPill, useDriver } from '../../_lib/driver-context';
@@ -60,20 +60,20 @@ export default function DriverJobPage() {
 
       <section className={s.detailBlock} aria-label={t('driver.customer')}>
         <span className={s.label}>{t('driver.customer')}</span>
-        <span className={s.value}>{j.dropoff.customerName ?? '—'}</span>
+        <span className={s.value}><bdi>{j.dropoff.customerName ?? '—'}</bdi></span>
         {phone && <a className={s.linkBtn} href={`tel:${phone}`}>📞 {t('driver.call')} <span dir="ltr">{phone}</span></a>}
       </section>
 
       <section className={s.detailBlock} aria-label={t('driver.address')}>
         <span className={s.label}>{t('driver.address')}</span>
-        <span className={s.value}>{addressLine(j) || '—'}</span>
-        {j.dropoff.notes && <span>📝 {j.dropoff.notes}</span>}
+        <span className={s.value}><bdi>{addressLine(j) || '—'}</bdi></span>
+        {j.dropoff.notes && <span>📝 <bdi>{j.dropoff.notes}</bdi></span>}
         <div className={s.meta}>
           {j.distanceM !== null && <span>{t('driver.distance', { km: km(j.distanceM)! })}</span>}
           {j.etaAt && <span>{t('driver.eta', { t: time(j.etaAt, locale) })}</span>}
         </div>
         {j.navigationUrl && <a className={`btn btn-leaf ${s.bigBtn}`} href={j.navigationUrl} target="_blank" rel="noopener noreferrer">🗺 {t('driver.openMaps')}</a>}
-        {j.pickup.address && <span className="fine">{t('driver.pickupFrom', { place: j.branchName ?? '', address: j.pickup.address })}</span>}
+        {j.pickup.address && <span className="fine">{t('driver.pickupFrom', { place: isolate(j.branchName ?? ''), address: isolate(j.pickup.address) })}</span>}
       </section>
 
       <section className={s.detailBlock}>
@@ -90,7 +90,7 @@ export default function DriverJobPage() {
       <section className={s.detailBlock}>
         <span className={s.label}>{t('driver.items')}</span>
         <ul className={s.items}>
-          {j.items.map((i, idx) => <li key={idx}>{i.quantity} × {locale === 'ar' && i.nameAr ? i.nameAr : i.name}{i.notes ? ` — ${i.notes}` : ''}</li>)}
+          {j.items.map((i, idx) => <li key={idx}>{i.quantity} × <bdi>{locale === 'ar' && i.nameAr ? i.nameAr : i.name}</bdi>{i.notes ? <> — <bdi>{i.notes}</bdi></> : ''}</li>)}
         </ul>
         <span className="fine">{t('driver.orderStatus', { s: t(`driver.orderState.${j.orderStatus}`) })}</span>
       </section>

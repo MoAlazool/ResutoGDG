@@ -22,9 +22,9 @@ export function JobCard({ job, offer, sequence, children }: { job: DeliveryJobVi
           <span className={s.jobNumber}>{sequence ? `${sequence}. ` : ''}{t('driver.order', { n: job.orderNumber })}</span>
           <Badge tone={STATUS_TONE[job.status]}>{t(`driver.status.${job.status}`)}</Badge>
         </div>
-        <div className={s.address}>{addressLine(job) || '—'}</div>
+        <div className={s.address}><bdi>{addressLine(job) || '—'}</bdi></div>
         <div className={s.meta}>
-          {job.dropoff.customerName && <span>👤 {job.dropoff.customerName}</span>}
+          {job.dropoff.customerName && <span>👤 <bdi>{job.dropoff.customerName}</bdi></span>}
           {job.distanceM !== null && <span>📍 {t('driver.distance', { km: km(job.distanceM)! })}</span>}
           {job.etaAt && <span>⏱ {t('driver.eta', { t: time(job.etaAt, locale) })}</span>}
           {job.codAmountMinor > 0 && job.cashStatus !== 'none'

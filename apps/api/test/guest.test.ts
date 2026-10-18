@@ -1,4 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { DbService } from '../src/common/db/db.service';
+import { readPublicMenu } from '../src/modules/connect/menu-read-model';
 import { VisitsService } from '../src/modules/orders/visits.service';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
 import { key, qrTokenFor, saveFloor, table } from './ops-fixtures';
@@ -215,5 +217,34 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
     expect((await t.http.post('/v1/public/tables/<script>/session')).status).toBe(404);
     expect((await t.http.get('/v1/public/visits/current')).status).toBe(401);
     expect((await t.http.get('/v1/public/visits/current').set(visitHeader('x'.repeat(40)))).status).toBe(401);
+  });
+});
+
+describe('branch menus: not offered vs sold out', () => {
+  it('omits products a branch does not offer and shows sold out only when tracked stock is 0, on every public menu', async () => {
+    const shop = await createTenant(t, { country: 'EG' });
+    const m = await seedMenu(shop);
+    const [east] = await sql(`insert into branches(org_id, code, name) values ($1, 'east', 'East') returning id, code`, [shop.orgId]);
+    // Soda is not offered at the main branch, fries are not offered at East; the limited special sold out at the main branch.
+    await sql(`insert into product_branch_settings(org_id, product_id, branch_id, is_available) values ($1, $2, $3, false), ($1, $4, $5, false)`,
+      [shop.orgId, m.products.soda, shop.branchId, m.products.fries, east.id]);
+    await sql(`update product_branch_settings set stock_qty = 0 where product_id = $1 and branch_id = $2`, [m.products.limited, shop.branchId]);
+    const shown = (body: any) => Object.fromEntries(body.categories.flatMap((c: any) => c.products).map((p: any) => [p.name, p.available]));
+    const main = { 'Smash burger': true, Fries: true, 'Limited special': false };
+    const eastMenu = { 'Smash burger': true, Soda: true, 'Limited special': true };
+
+    expect(shown((await t.http.get(`/v1/public/menu/${shop.slug}`)).body)).toEqual(main);
+    expect(shown((await t.http.get(`/v1/public/menu/${shop.slug}`).query({ branch: east.code })).body)).toEqual(eastMenu);
+    // Online ordering (/order/[slug]) uses the same menu.
+    expect(shown((await t.http.get(`/v1/public/order/${shop.slug}`)).body)).toEqual(main);
+    expect(shown((await t.http.get(`/v1/public/order/${shop.slug}`).query({ branch: east.code })).body)).toEqual(eastMenu);
+    // QR table menu (/t/[qr]).
+    const f = await saveFloor(t, shop, [table('Q1', 150, 300)]);
+    const scan = await t.http.post(`/v1/public/tables/${await qrTokenFor(t, shop, f.tables[0].id)}/session`);
+    expect(shown((await t.http.get('/v1/public/visits/current/menu').set(visitHeader(scan.body.token))).body)).toEqual(main);
+    // WhatsApp hosted ordering page (connect read model).
+    const db = t.app.get(DbService);
+    expect(shown(await db.withTenant(shop.orgId, (tx) => readPublicMenu(tx, shop.orgId, shop.branchId)))).toEqual(main);
+    expect(shown(await db.withTenant(shop.orgId, (tx) => readPublicMenu(tx, shop.orgId, east.id)))).toEqual(eastMenu);
   });
 });

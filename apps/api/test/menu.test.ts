@@ -65,9 +65,10 @@ describe('menu CRUD', () => {
     const off = await t.http.post(`${base()}/products/${p.body.id}/availability`).set(auth(kitchen)).send({ branchId: tenant.branchId, available: false });
     expect(off.status).toBe(201);
     expect(off.body).toMatchObject({ available: false });
+    // Not offered at this branch → not listed (sold out is reserved for tracked stock at 0).
     const pub = await t.http.get(`/v1/public/menu/${tenant.slug}`);
     const item = pub.body.categories.flatMap((c: any) => c.products).find((x: any) => x.id === p.body.id);
-    expect(item.available).toBe(false);
+    expect(item).toBeUndefined();
     const edit = await t.http.patch(`${base()}/products/${p.body.id}`).set(auth(kitchen)).send({ version: 0, priceMinor: 1 });
     expect(edit.status).toBe(403);
     const create = await t.http.post(`${base()}/products`).set(auth(kitchen)).send({ categoryId, name: 'X', priceMinor: 1 });

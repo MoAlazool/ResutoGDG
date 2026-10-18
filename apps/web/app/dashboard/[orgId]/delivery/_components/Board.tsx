@@ -40,9 +40,9 @@ export function Board({ branchId }: { branchId: string }) {
           <span className="fine">{t('driver.dispatch.age', { m: ageMin(j.createdAt) })}</span>
         </div>
       </div>
-      <div style={{ fontSize: 14 }}>{addressOf(j) || '—'}</div>
+      <div style={{ fontSize: 14 }}><bdi>{addressOf(j) || '—'}</bdi></div>
       <div className="row fine" style={{ gap: 10 }}>
-        {j.driverName && <span>🛵 {j.driverName}</span>}
+        {j.driverName && <span>🛵 <bdi>{j.driverName}</bdi></span>}
         {j.offer && <span>{t('driver.dispatch.offerExpires', { t: time(j.offer.expiresAt, locale) })}</span>}
         {j.etaAt && <span>⏱ {t('driver.eta', { t: time(j.etaAt, locale) })}</span>}
         <span>{j.codAmountMinor > 0 && j.cashStatus !== 'none' ? `💵 ${money(j.codAmountMinor, j.currency, locale)}` : t('driver.prepaid')}</span>

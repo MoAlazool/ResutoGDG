@@ -25,6 +25,9 @@ export const RULES = {
   demandShiftPct: 30, modelRunEveryHours: 20,
 } as const;
 
+/** Deterministic stock rules whose open insights are closed once the condition clears. */
+const STOCK_RULES: string[] = ['inventory_below_reorder_level', 'stock_cover_vs_14d_average'];
+
 const pct = (a: number, b: number) => (b === 0 ? 0 : ((a - b) / b) * 100);
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -110,7 +113,7 @@ export class InsightsService {
       if (branches.length) candidates.push(...await this.inactiveValuable(tx, ctx, branches[0]!.today, branches[0]!.currency));
     });
 
-    const stats = { deterministic: candidates.length, model: 0, modelSkipped: null as string | null, created: 0 };
+    const stats = { deterministic: candidates.length, model: 0, modelSkipped: null as string | null, created: 0, resolved: 0 };
     const due = opts.forceModel || !(await this.db.scoped(ctx, (tx) => tx.maybeOne(
       `select 1 from ai_predictions where org_id = $1 and kind = 'demand_forecast' and payload->>'source' = 'insights'
           and created_at > now() - make_interval(hours => $2) limit 1`, [ctx.orgId, RULES.modelRunEveryHours])));
@@ -138,7 +141,26 @@ export class InsightsService {
       }
       return n;
     });
+    stats.resolved = await this.db.scoped(ctx, (tx) => this.resolveStockInsights(tx, ctx, branches.map((b) => b.id), candidates));
     return stats;
+  }
+
+  /**
+   * Closes open stock insights whose condition no longer holds (restocked, reorder
+   * level lowered, item deactivated): the stock rules ran for these branches just
+   * now and no longer flag that item, so the stale quantity is not left on the feed.
+   */
+  private async resolveStockInsights(tx: Tx, ctx: TenantContext, branchIds: string[], candidates: Candidate[]) {
+    if (!branchIds.length) return 0;
+    const live = candidates.filter((c) => STOCK_RULES.includes(c.evidence.rule as string))
+      .map((c) => `${c.branchId}:${c.evidence.itemId ?? c.evidence.productId}`);
+    const rows = await tx.query(
+      `update ai_insights set status = 'acted', status_changed_at = now(), status_changed_by = null
+        where org_id = $1 and branch_id = any($2::uuid[]) and status in ('new', 'seen') and method = 'deterministic'
+          and evidence->>'rule' = any($3::text[])
+          and not (branch_id::text || ':' || coalesce(evidence->>'itemId', evidence->>'productId') = any($4::text[]))
+        returning id`, [ctx.orgId, branchIds, STOCK_RULES, live]);
+    return rows.length;
   }
 
   /** Yesterday's revenue vs the same weekday in the previous four weeks. */

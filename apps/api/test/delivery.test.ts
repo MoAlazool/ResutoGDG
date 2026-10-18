@@ -346,6 +346,27 @@ describe('kitchen hand-over (KDS "Out for delivery")', () => {
     expect(done.status, JSON.stringify(done.body)).toBe(200);
     expect((await sql(`select status, payment_status from orders where id = $1`, [order.id]))[0]).toMatchObject({ status: 'delivered', payment_status: 'paid' });
   });
+
+  it('takes the ticket off the board when the driver picks up without a kitchen hand-over', async () => {
+    const { order, job } = await freshJob();
+    await t.http.post(M(`/jobs/${job.id}/assign`)).set(auth(manager)).send({ driverId: did(d1) });
+    await t.http.post(D(`/jobs/${job.id}/accept`)).set(auth(d1)).send({});
+    await makeReady(order.id);
+    const K = (path: string) => `/v1/o/${tenant.orgId}/kitchen${path}`;
+    const before = await t.http.get(K(`/${tenant.branchId}`)).set(auth(manager));
+    expect(before.body.tickets.map((x: any) => x.id)).toContain(order.id);
+    const picked = await t.http.post(D(`/jobs/${job.id}/pickup`)).set(auth(d1)).send({});
+    expect(picked.status, JSON.stringify(picked.body)).toBe(200);
+    expect(picked.body.status).toBe('picked_up');
+    expect((await sql(`select status from orders where id = $1`, [order.id]))[0].status).toBe('ready');
+    const lines = await sql(`select distinct kitchen_status from order_lines where order_id = $1`, [order.id]);
+    expect(lines.map((l) => l.kitchen_status)).toEqual(['served']);
+    const events = await sql(`select details from order_events where order_id = $1 and event_type = 'picked_up_by_driver'`, [order.id]);
+    expect(events).toHaveLength(1);
+    expect(events[0].details).toMatchObject({ deliveryJobId: job.id, linesServed: 1 });
+    const after = await t.http.get(K(`/${tenant.branchId}`)).set(auth(manager));
+    expect(after.body.tickets.map((x: any) => x.id)).not.toContain(order.id);
+  });
 });
 
 describe('driver device and location ingest', () => {

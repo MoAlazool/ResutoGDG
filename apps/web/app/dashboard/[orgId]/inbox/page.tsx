@@ -78,10 +78,10 @@ function Conversations() {
               <button type="button" onClick={() => setSelected(c.id)} className="btn btn-ghost" aria-current={selected === c.id}
                 style={{ width: '100%', justifyContent: 'space-between', textAlign: 'start', minHeight: 60, padding: '8px 10px', background: selected === c.id ? 'var(--leaf-bg)' : undefined, whiteSpace: 'normal' }}>
                 <span style={{ minWidth: 0, display: 'grid', gap: 2 }}>
-                  <span className="row" style={{ gap: 6 }}><strong>{c.name ?? c.contact}</strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
+                  <span className="row" style={{ gap: 6 }}><strong><bdi>{c.name ?? c.contact}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
                     <Badge tone={statusTone(c.status)}>{t(`connect.status.${c.status}`)}</Badge></span>
                   <span className="fine" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
-                    {c.lastMessage ? `${c.lastMessage.direction === 'outbound' ? '↩ ' : ''}${c.lastMessage.body ?? ''}` : ''}</span>
+                    {c.lastMessage ? <>{c.lastMessage.direction === 'outbound' ? '↩ ' : ''}<bdi>{c.lastMessage.body ?? ''}</bdi></> : ''}</span>
                 </span>
                 <span style={{ display: 'grid', justifyItems: 'end', gap: 4 }}>
                   <span className="fine">{time(c.lastMessageAt, locale)}</span>
@@ -136,7 +136,7 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
     <section className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 520, minWidth: 0 }} aria-label={d.contactName ?? d.contact}>
       <header style={{ padding: 14, borderBlockEnd: '1px solid var(--line-soft)' }} className="spread">
         <div>
-          <div className="row" style={{ gap: 6 }}><strong>{d.customer?.name ?? d.contactName ?? d.contact}</strong>
+          <div className="row" style={{ gap: 6 }}><strong><bdi>{d.customer?.name ?? d.contactName ?? d.contact}</bdi></strong>
             <span className="fine" dir="ltr">{d.contact}</span>
             {d.channel.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             <Badge tone={statusTone(d.status)}>{t(`connect.status.${d.status}`)}</Badge>

@@ -11,3 +11,6 @@ export const time = (iso: string | null | undefined, locale: Locale = 'en', time
   iso ? new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { timeStyle: 'short', timeZone }).format(new Date(iso)) : '—';
 
 export const pick = (locale: Locale, en: string | null | undefined, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en ?? ar ?? '');
+
+/** Wraps user-entered text in first-strong isolates (FSI…PDI) so it keeps its own direction inside an interpolated sentence. */
+export const isolate = (text: string) => `⁨${text}⁩`;

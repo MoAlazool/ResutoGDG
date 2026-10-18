@@ -13,7 +13,7 @@ export const intelligence = {
     'intelligence.branch': 'Branch',
     'intelligence.serviceDown': 'The intelligence service is unavailable right now. Deterministic insights still work; model results will return when it is back.',
     'intelligence.notConfigured': 'The intelligence service is not configured on this server.',
-    'intelligence.computedFrom': 'Computed from your orders. Real data, not synthetic.',
+    'intelligence.computedFrom': 'Computed from this restaurant’s recorded orders.',
 
     'intelligence.insights.refresh': 'Check now',
     'intelligence.insights.refreshed': '{n} new insights',
@@ -142,7 +142,7 @@ export const intelligence = {
     'intelligence.branch': 'الفرع',
     'intelligence.serviceDown': 'خدمة الذكاء غير متاحة الآن. الرؤى المبنية على القواعد تعمل، ونتائج النماذج ستعود عند عودة الخدمة.',
     'intelligence.notConfigured': 'خدمة الذكاء غير مُعدّة على هذا الخادم.',
-    'intelligence.computedFrom': 'محسوبة من طلباتك. بيانات حقيقية وليست اصطناعية.',
+    'intelligence.computedFrom': 'محسوبة من الطلبات المسجّلة لهذا المطعم.',
 
     'intelligence.insights.refresh': 'افحص الآن',
     'intelligence.insights.refreshed': '{n} رؤى جديدة',

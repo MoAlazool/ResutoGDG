@@ -93,7 +93,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations }: { orgId: 
                     </div>
                     <div className="kds-where">
                       {tk.tableLabel ? t('core.kds.table', { label: tk.tableLabel }) : t(`core.web.${tk.fulfillment}`)}
-                      {tk.customerName ? ` · ${tk.customerName}` : ''} · {t(`core.channel.${tk.channel}`)}
+                      {tk.customerName ? <> · <bdi>{tk.customerName}</bdi></> : ''} · {t(`core.channel.${tk.channel}`)}
                     </div>
                     {tk.lines.map((l) => {
                       const next = l.kitchenStatus === 'queued' ? 'preparing' : l.kitchenStatus === 'preparing' ? 'ready' : 'preparing';
@@ -105,13 +105,13 @@ export function KitchenBoard({ orgId, branchId, station, onStations }: { orgId: 
                           <span>
                             <span className="kds-name">{pick(locale, l.name, l.nameAr)}</span>
                             {l.modifiers.length > 0 && <small>{l.modifiers.join(' · ')}</small>}
-                            {l.notes && <small className="kds-note">“{l.notes}”</small>}
+                            {l.notes && <small className="kds-note">“<bdi>{l.notes}</bdi>”</small>}
                             {!station && <small>{l.station}</small>}
                           </span>
                         </button>
                       );
                     })}
-                    {tk.notes && <div className="kds-ticket-note">{tk.notes}</div>}
+                    {tk.notes && <div className="kds-ticket-note"><bdi>{tk.notes}</bdi></div>}
                     <div className="kds-actions">
                       {tk.status === 'placed' && <button className="btn" disabled={busy === tk.id} onClick={() => void bump(tk, 'accepted')}>{t('core.kds.accept')}</button>}
                       {(tk.status === 'placed' || tk.status === 'accepted') && <button className="btn btn-primary" disabled={busy === tk.id} onClick={() => void bump(tk, 'preparing')}>{t('core.kds.start')}</button>}

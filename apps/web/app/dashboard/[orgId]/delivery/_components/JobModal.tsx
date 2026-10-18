@@ -35,8 +35,8 @@ export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose
         <div className="stack">
           <div className="spread"><JobStatus status={j.status} /><span className="muted">{j.branchName}</span></div>
           <div className="grid grid-2" style={{ gap: 10 }}>
-            <div><div className="fine">{t('driver.customer')}</div><strong>{j.dropoff.customerName ?? '—'}</strong>{j.dropoff.customerPhone && <div dir="ltr" style={{ textAlign: 'start' }}>{j.dropoff.customerPhone}</div>}</div>
-            <div><div className="fine">{t('driver.address')}</div><strong>{addressOf(j) || '—'}</strong>{j.dropoff.notes && <div className="fine">{j.dropoff.notes}</div>}</div>
+            <div><div className="fine">{t('driver.customer')}</div><strong><bdi>{j.dropoff.customerName ?? '—'}</bdi></strong>{j.dropoff.customerPhone && <div dir="ltr" style={{ textAlign: 'start' }}>{j.dropoff.customerPhone}</div>}</div>
+            <div><div className="fine">{t('driver.address')}</div><strong><bdi>{addressOf(j) || '—'}</bdi></strong>{j.dropoff.notes && <div className="fine"><bdi>{j.dropoff.notes}</bdi></div>}</div>
             <div><div className="fine">{t('driver.dispatch.driver')}</div><strong>{j.driverName ?? '—'}</strong></div>
             <div><div className="fine">{t('driver.payment')}</div><strong>{j.codAmountMinor > 0 && j.cashStatus !== 'none' ? `${money(j.codAmountMinor, j.currency, locale)} · ${t(`driver.dispatch.cash.${j.cashStatus}`)}` : t('driver.prepaid')}</strong></div>
           </div>
@@ -49,8 +49,8 @@ export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose
           {(j.proofPhotoUrl || j.proofRecipient) && (
             <div className="card card-warm" style={{ padding: 14 }}>
               <strong>{t('driver.proof.title')}</strong>
-              {j.proofRecipient && <div>{t('driver.proof.recipient')}: {j.proofRecipient}</div>}
-              {j.proofNote && <div className="fine">{j.proofNote}</div>}
+              {j.proofRecipient && <div>{t('driver.proof.recipient')}: <bdi>{j.proofRecipient}</bdi></div>}
+              {j.proofNote && <div className="fine"><bdi>{j.proofNote}</bdi></div>}
               {j.proofPhotoUrl && <img src={j.proofPhotoUrl} alt={t('driver.proof.title')} style={{ marginBlockStart: 8, maxHeight: 220, borderRadius: 10 }} />}
             </div>
           )}

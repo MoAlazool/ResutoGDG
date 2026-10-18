@@ -490,14 +490,16 @@ export class MenuService {
       `select c.id, c.name, c.name_ar from menu_categories c join menus m on m.id = c.menu_id
         where c.org_id = $1 and c.is_active and m.is_active and (m.branch_id is null or m.branch_id = $2) order by m.sort_order, c.sort_order, c.created_at`,
       [orgId, branch.id]);
+    // Products the branch does not offer (is_available = false) are not listed;
+    // `available: false` means sold out (tracked stock reached 0).
     const products = await tx.query<any>(
       `select p.id, p.category_id, p.name, p.name_ar, p.description, p.description_ar, coalesce(s.price_override_minor, p.price_minor) as price_minor,
               p.image_url, m.path as media_path, p.allergens, p.dietary, p.spice_level, p.prep_minutes,
-              (coalesce(s.is_available, true) and (not p.track_stock or s.stock_qty is null or s.stock_qty > 0)) as available
+              (not p.track_stock or s.stock_qty is null or s.stock_qty > 0) as available
          from products p
          left join product_branch_settings s on s.product_id = p.id and s.branch_id = $2
          left join media_assets m on m.id = p.image_media_id
-        where p.org_id = $1 and p.is_active and p.category_id = any($3::uuid[]) order by p.sort_order, p.created_at`,
+        where p.org_id = $1 and p.is_active and coalesce(s.is_available, true) and p.category_id = any($3::uuid[]) order by p.sort_order, p.created_at`,
       [orgId, branch.id, categories.map((c) => c.id)]);
     const links = products.length
       ? await tx.query<any>('select product_id, group_id from product_modifier_groups where product_id = any($1::uuid[]) order by sort_order', [products.map((p) => p.id)])

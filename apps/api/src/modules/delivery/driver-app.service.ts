@@ -243,19 +243,25 @@ export class DriverAppService {
   /**
    * Pickup rule: the driver can only confirm pickup once the kitchen has marked
    * the order `ready` (order state machine), so food never leaves unfinished
-   * and order/delivery states stay consistent.
+   * and order/delivery states stay consistent. Pickup also serves the lines (as
+   * the KDS "Out for delivery" hand-over does) so the ticket leaves the board;
+   * the order stays `ready` until the driver delivers it.
    */
   async pickup(ctx: TenantContext, jobId: string, at: Coordinates) {
     return this.db.scoped(ctx, async (tx) => {
       const d = await this.me(tx, ctx);
       const job = await this.ownJob(tx, ctx, d, jobId);
       this.delivery.assertTransition(job.status, 'picked_up');
-      const order = await tx.one<{ status: string }>('select status from orders where id = $1', [job.order_id]);
+      const order = await tx.one<{ status: string }>('select status from orders where id = $1 for update', [job.order_id]);
       if (order.status !== 'ready') {
         throw new DomainError('order_not_ready', 'The kitchen has not marked this order ready yet', 409, { orderStatus: order.status });
       }
       const pickupPoint = n(job.pickup_latitude) !== null ? { latitude: n(job.pickup_latitude)!, longitude: n(job.pickup_longitude)! } : null;
       await this.delivery.move(tx, ctx.orgId, job, 'picked_up', this.actor(d), { picked_up_at: new Date(), eta_at: this.delivery.etaFrom(job, pickupPoint, d.vehicle_type) }, {}, at);
+      const served = await tx.query<{ id: string }>(
+        `update order_lines set kitchen_status = 'served' where order_id = $1 and kitchen_status not in ('served', 'cancelled') returning id`, [job.order_id]);
+      if (served.length) await tx.query('update orders set version = version + 1 where id = $1', [job.order_id]);
+      await this.orders.event(tx, ctx, job.order_id, 'picked_up_by_driver', 'ready', 'ready', { deliveryJobId: job.id, driverId: d.id, linesServed: served.length });
       return this.delivery.viewOf(tx, job.id);
     });
   }

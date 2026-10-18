@@ -298,6 +298,32 @@ describe('insights', () => {
     expect(dismissed.body.items.map((i: any) => i.id)).toEqual([insightId]);
     expect((await t.http.patch(`/v1/o/${B.orgId}/intelligence/insights/${insightId}`).set(auth(B.owner)).send({ status: 'acted' })).status).toBe(404);
   });
+
+  it('closes open stock insights on refresh once the item is restocked', async () => {
+    const items = await sql(`insert into inventory_items(org_id, name, unit, reorder_level) values ($1, 'Rice', 'kg', 5), ($1, 'Oil', 'l', 3) returning id, name`, [A.orgId]);
+    const id = (name: string) => items.find((i) => i.name === name).id;
+    await sql(`insert into stock_levels(org_id, branch_id, item_id, quantity) values ($1, $2, $3, -2), ($1, $2, $4, 1)`, [A.orgId, A.branchId, id('Rice'), id('Oil')]);
+    await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
+    const status = async (rule: string, key: string, subject: string) => (await sql(
+      `select status from ai_insights where org_id = $1 and evidence->>'rule' = $2 and evidence->>$3 = $4`, [A.orgId, rule, key, subject])).map((r) => r.status);
+    expect(await status('inventory_below_reorder_level', 'itemId', id('Rice'))).toEqual(['new']);
+    expect(await status('inventory_below_reorder_level', 'itemId', id('Oil'))).toEqual(['new']);
+    const stockout = await status('stock_cover_vs_14d_average', 'productId', menu.products.limited);
+    expect(stockout.length).toBe(1);
+
+    await sql(`update stock_levels set quantity = 20 where item_id = $1`, [id('Rice')]);
+    await sql(`update product_branch_settings set stock_qty = 100000 where product_id = $1`, [menu.products.limited]);
+    const res = await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ created: 0 });
+    expect(res.body.resolved).toBe(stockout[0] === 'dismissed' ? 1 : 2);
+    expect(await status('inventory_below_reorder_level', 'itemId', id('Rice'))).toEqual(['acted']);
+    expect(await status('inventory_below_reorder_level', 'itemId', id('Oil'))).toEqual(['new']);
+    expect(await status('stock_cover_vs_14d_average', 'productId', menu.products.limited)).toEqual([stockout[0] === 'dismissed' ? 'dismissed' : 'acted']);
+    const open = await t.http.get(`${base()}/insights`).query({ status: 'new' }).set(auth(A.owner));
+    expect(open.body.items.some((i: any) => i.evidence.itemId === id('Rice'))).toBe(false);
+    await sql(`update product_branch_settings set stock_qty = 3 where product_id = $1`, [menu.products.limited]);
+  });
 });
 
 describe('owner assistant (rules mode, no GEMINI_API_KEY)', () => {
