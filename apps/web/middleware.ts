@@ -8,6 +8,9 @@ import { NextResponse, type NextRequest } from 'next/server';
  */
 const API = (process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 const APP_HOSTS = new Set((process.env.APP_HOSTS ?? 'localhost,127.0.0.1').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean));
+/** Entries starting with "." match every subdomain (e.g. ".vercel.app" for preview deployment URLs). */
+const APP_HOST_SUFFIXES = [...APP_HOSTS].filter((h) => h.startsWith('.'));
+const isAppHost = (host: string) => APP_HOSTS.has(host) || APP_HOST_SUFFIXES.some((s) => host.endsWith(s));
 const HIT_TTL = 60_000;
 const MISS_TTL = 30_000;
 const cache = new Map<string, { slug: string | null; at: number }>();
@@ -32,7 +35,7 @@ async function resolveHost(host: string): Promise<string | null> {
 
 export async function middleware(req: NextRequest) {
   const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0]!.trim().toLowerCase().replace(/:\d+$/, '');
-  if (!host || APP_HOSTS.has(host)) return NextResponse.next();
+  if (!host || isAppHost(host)) return NextResponse.next();
   const { pathname } = req.nextUrl;
   if (PASS_THROUGH.test(pathname)) return NextResponse.next();
 
