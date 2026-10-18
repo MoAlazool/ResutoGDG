@@ -16,9 +16,14 @@ export class JwtService {
     if (env.SUPABASE_URL) this.jwks = createRemoteJWKSet(new URL('/auth/v1/.well-known/jwks.json', env.SUPABASE_URL));
   }
 
+  /** Supabase Auth issues tokens as `<project URL>/auth/v1`; the dev issuer uses its own name. */
+  private get issuer(): string {
+    return this.env.SUPABASE_URL ? `${this.env.SUPABASE_URL.replace(/\/$/, '')}/auth/v1` : 'resuto-dev-auth';
+  }
+
   async verify(token: string): Promise<JWTPayload & { sub: string; email?: string }> {
     const header = JSON.parse(Buffer.from(token.split('.')[0] ?? '', 'base64url').toString() || '{}');
-    const options = { audience: this.env.SUPABASE_JWT_AUDIENCE };
+    const options = { audience: this.env.SUPABASE_JWT_AUDIENCE, issuer: this.issuer };
     const { payload } = header.alg === 'HS256' && this.secret
       ? await jwtVerify(token, this.secret, { ...options, algorithms: ['HS256'] })
       : this.jwks
@@ -35,7 +40,7 @@ export class JwtService {
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       .setSubject(userId)
       .setAudience(this.env.SUPABASE_JWT_AUDIENCE)
-      .setIssuer(this.env.SUPABASE_URL ? `${this.env.SUPABASE_URL}/auth/v1` : 'resuto-dev-auth')
+      .setIssuer(this.issuer)
       .setIssuedAt()
       .setExpirationTime(`${ttlSeconds}s`)
       .sign(this.secret);

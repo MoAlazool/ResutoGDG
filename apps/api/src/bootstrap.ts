@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { loadEnv } from './config/env';
+import { runWorkerLoop } from './worker-loop';
 
 export async function createApp(): Promise<INestApplication> {
   const env = loadEnv();
@@ -29,4 +30,11 @@ export async function main() {
   const app = await createApp();
   await app.listen(env.PORT, '0.0.0.0');
   new Logger('Resuto').log(`API listening on :${env.PORT} (${env.NODE_ENV})`);
+  if (env.RUN_WORKER_IN_PROCESS) {
+    // Single-service hosting (e.g. a free web service): the outbox/job loop shares this process.
+    let stopping = false;
+    process.once('SIGTERM', () => { stopping = true; });
+    process.once('SIGINT', () => { stopping = true; });
+    void runWorkerLoop(app, () => stopping, 'InProcessWorker');
+  }
 }

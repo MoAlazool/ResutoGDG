@@ -64,7 +64,7 @@ export class StorageService {
     if (this.env.STORAGE_DRIVER === 'supabase') {
       const res = await fetch(`${this.env.SUPABASE_URL}/storage/v1/object/sign/${this.bucket}/${objectPath}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${this.env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
+        headers: { ...this.serviceAuth(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ expiresIn: ttlSeconds }),
         signal: AbortSignal.timeout(10_000),
       });
@@ -86,6 +86,12 @@ export class StorageService {
     return readFile(path.join(this.env.STORAGE_LOCAL_DIR, this.bucket, objectPath)).catch(() => null);
   }
 
+  /** Legacy service_role keys are JWTs (Authorization); new `sb_secret_` keys go in the apikey header only. */
+  private serviceAuth(): Record<string, string> {
+    const key = this.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+    return key.split('.').length === 3 ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key };
+  }
+
   private sign(value: string) {
     return createHmac('sha256', this.signingKey).update(value).digest('base64url');
   }
@@ -94,7 +100,7 @@ export class StorageService {
     if (this.env.STORAGE_DRIVER === 'supabase') {
       const res = await fetch(`${this.env.SUPABASE_URL}/storage/v1/object/${this.bucket}/${objectPath}`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${this.env.SUPABASE_SERVICE_ROLE_KEY}`, 'Content-Type': contentType, 'x-upsert': 'false' },
+        headers: { ...this.serviceAuth(), 'Content-Type': contentType, 'x-upsert': 'false' },
         body: new Uint8Array(bytes),
         signal: AbortSignal.timeout(30_000),
       });

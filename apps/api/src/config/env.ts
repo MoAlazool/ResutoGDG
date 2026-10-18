@@ -27,6 +27,8 @@ export const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   PAYMENT_MODE: z.enum(['sandbox', 'live']).default('sandbox'),
+  /** Runs the outbox/job loop inside the API process (single-service hosting without a separate worker). */
+  RUN_WORKER_IN_PROCESS: bool.default(false),
   MCP_INTERNAL_TOKEN: z.string().min(24).optional(),
   STORAGE_DRIVER: z.enum(['local', 'supabase']).default('local'),
   STORAGE_LOCAL_DIR: z.string().default('.local/storage'),
@@ -49,8 +51,13 @@ export const envSchema = z.object({
   SNAPCHAT_CLIENT_ID: z.string().optional(),
   SNAPCHAT_CLIENT_SECRET: z.string().optional(),
 }).superRefine((env, ctx) => {
-  if (env.AUTH_DEV_MODE && env.NODE_ENV === 'production') {
-    ctx.addIssue({ code: 'custom', path: ['AUTH_DEV_MODE'], message: 'AUTH_DEV_MODE must never be enabled in production' });
+  // Deployed environments (staging included) only trust Supabase Auth.
+  const deployed = env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';
+  if (env.AUTH_DEV_MODE && deployed) {
+    ctx.addIssue({ code: 'custom', path: ['AUTH_DEV_MODE'], message: `AUTH_DEV_MODE must never be enabled in ${env.NODE_ENV}` });
+  }
+  if (deployed && !env.SUPABASE_URL) {
+    ctx.addIssue({ code: 'custom', path: ['SUPABASE_URL'], message: `SUPABASE_URL is required in ${env.NODE_ENV}` });
   }
   if (!env.SUPABASE_JWT_SECRET && !env.SUPABASE_URL) {
     ctx.addIssue({ code: 'custom', path: ['SUPABASE_JWT_SECRET'], message: 'Configure SUPABASE_JWT_SECRET or SUPABASE_URL (JWKS)' });
@@ -58,8 +65,11 @@ export const envSchema = z.object({
   if (env.DOMAIN_PROVIDER === 'vercel' && (!env.VERCEL_TOKEN || !env.VERCEL_PROJECT_ID)) {
     ctx.addIssue({ code: 'custom', path: ['DOMAIN_PROVIDER'], message: 'DOMAIN_PROVIDER=vercel needs VERCEL_TOKEN and VERCEL_PROJECT_ID' });
   }
-  if (env.NODE_ENV === 'production' && !env.CREDENTIALS_KEYS) {
-    ctx.addIssue({ code: 'custom', path: ['CREDENTIALS_KEYS'], message: 'CREDENTIALS_KEYS is required in production' });
+  if (deployed && !env.CREDENTIALS_KEYS) {
+    ctx.addIssue({ code: 'custom', path: ['CREDENTIALS_KEYS'], message: `CREDENTIALS_KEYS is required in ${env.NODE_ENV}` });
+  }
+  if (deployed && env.STORAGE_DRIVER === 'supabase' && !env.SUPABASE_SERVICE_ROLE_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['SUPABASE_SERVICE_ROLE_KEY'], message: 'STORAGE_DRIVER=supabase needs SUPABASE_SERVICE_ROLE_KEY' });
   }
 });
 export type Env = z.infer<typeof envSchema>;

@@ -18,8 +18,16 @@ WORKDIR /app
 COPY --from=build /out ./
 COPY supabase/migrations ./supabase/migrations
 COPY scripts/db ./scripts/db
+COPY scripts/deploy ./scripts/deploy
+# Demo data (staging/local only; the loader refuses production) and the assets it uploads.
+COPY scripts/demo ./scripts/demo
+COPY tools/legacy-migration/fixtures/olive-room.legacy-state.json ./tools/legacy-migration/fixtures/olive-room.legacy-state.json
+COPY supabase/seeds/olive-room.demo.json ./supabase/seeds/olive-room.demo.json
+COPY supabase/seeds/media ./supabase/seeds/media
+COPY apps/web/public/brand/olive-interior.webp ./apps/web/public/brand/olive-interior.webp
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 # API: default. Worker: `node dist/worker.js`. Migrations: `node scripts/db/migrate.mjs`.
+# Hosted staging: `node scripts/deploy/start-api.mjs` (migrations, then the API; optional demo data).
 CMD ["node", "dist/main.js"]
