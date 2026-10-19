@@ -3,7 +3,7 @@
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 
 export class ApiRequestError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string, readonly details?: unknown) {
+  constructor(readonly status: number, readonly code: string, message: string, readonly details?: unknown, readonly requestId?: string) {
     super(message);
   }
 }
@@ -38,7 +38,7 @@ export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise
   const data = text ? JSON.parse(text) : null;
   if (!res.ok) {
     const e = data?.error ?? {};
-    throw new ApiRequestError(res.status, e.code ?? 'http_error', e.message ?? res.statusText, e.details);
+    throw new ApiRequestError(res.status, e.code ?? 'http_error', e.message ?? res.statusText, e.details, e.requestId ?? res.headers.get('x-request-id') ?? undefined);
   }
   return data as T;
 }

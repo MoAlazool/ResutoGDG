@@ -37,7 +37,7 @@ const T = {
 } as const;
 
 /** The parts of an API error the states need (ApiRequestError satisfies it). */
-export interface UiError { status: number; code?: string; message: string; details?: unknown }
+export interface UiError { status: number; code?: string; message: string; details?: unknown; requestId?: string }
 
 export type FailureKind = 'offline' | 'session' | 'forbidden' | 'plan' | 'notFound' | 'conflict' | 'validation' | 'rate' | 'server';
 
@@ -55,7 +55,7 @@ export function failureKind(e: UiError): FailureKind {
 
 const requestIdOf = (e: UiError) => {
   const d = e.details as { requestId?: string } | undefined;
-  return typeof d?.requestId === 'string' ? d.requestId : null;
+  return e.requestId ?? (typeof d?.requestId === 'string' ? d.requestId : null);
 };
 
 // --- Skeletons -------------------------------------------------------------------------------------

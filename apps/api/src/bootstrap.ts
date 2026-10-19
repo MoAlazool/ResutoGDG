@@ -10,12 +10,14 @@ export async function createApp(): Promise<INestApplication> {
   const env = loadEnv();
   const app = await NestFactory.create(AppModule, { rawBody: true, logger: env.NODE_ENV === 'test' ? ['error'] : undefined });
   app.setGlobalPrefix('v1');
-  app.enableCors({ origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: false, maxAge: 600 });
+  app.enableCors({ origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: false, maxAge: 600, exposedHeaders: ['X-Request-Id'] });
   const http = app.getHttpAdapter().getInstance();
   http.disable('x-powered-by');
   http.set('trust proxy', 1);
   app.use((req: Request & { id?: string }, res: Response, next: NextFunction) => {
-    req.id = (req.headers['x-request-id'] as string)?.slice(0, 64) || randomUUID();
+    // Accept a caller's correlation id only in a safe shape (it is echoed and logged).
+    const given = req.headers['x-request-id'];
+    req.id = typeof given === 'string' && /^[A-Za-z0-9._:-]{8,64}$/.test(given) ? given : randomUUID();
     res.setHeader('X-Request-Id', req.id);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
