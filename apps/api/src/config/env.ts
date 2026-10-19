@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { unverifiedDatabaseTls } from '../common/db/pg-tls';
 
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
 
@@ -10,6 +11,8 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
   DATABASE_URL: z.string().default('postgres://postgres@127.0.0.1:54329/resuto'),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+  /** CA for verified database TLS: a PEM file path or PEM text (Supabase: scripts/db/certs/supabase-prod-ca-2021.crt). */
+  DATABASE_SSL_CA: z.string().optional(),
   REDIS_URL: z.string().optional(),
 
   // Supabase Auth. HS256 projects use SUPABASE_JWT_SECRET; asymmetric (JWKS)
@@ -64,6 +67,10 @@ export const envSchema = z.object({
   }
   if (env.DOMAIN_PROVIDER === 'vercel' && (!env.VERCEL_TOKEN || !env.VERCEL_PROJECT_ID)) {
     ctx.addIssue({ code: 'custom', path: ['DOMAIN_PROVIDER'], message: 'DOMAIN_PROVIDER=vercel needs VERCEL_TOKEN and VERCEL_PROJECT_ID' });
+  }
+  const tls = deployed ? unverifiedDatabaseTls(env.DATABASE_URL, env.DATABASE_SSL_CA) : null;
+  if (tls) {
+    ctx.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: `${env.NODE_ENV}: ${tls}` });
   }
   if (deployed && !env.CREDENTIALS_KEYS) {
     ctx.addIssue({ code: 'custom', path: ['CREDENTIALS_KEYS'], message: `CREDENTIALS_KEYS is required in ${env.NODE_ENV}` });

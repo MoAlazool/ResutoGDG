@@ -32,6 +32,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { pgClientConfig } from '../db/pg-tls.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const env = process.env;
@@ -52,7 +53,7 @@ for (const k of ['DEMO_OWNER_PASSWORD', 'DEMO_ADMIN_PASSWORD', 'DEMO_STAFF_PASSW
 }
 if (SUPABASE && !SUPABASE.key) fail('SUPABASE_PUBLISHABLE_KEY is required with SUPABASE_URL');
 
-const db = new pg.Pool({ connectionString: env.DATABASE_URL, max: 3 });
+const db = new pg.Pool({ ...pgClientConfig(env.DATABASE_URL), max: 3 });
 const q = async (text, params = []) => (await db.query(text, params)).rows;
 const log = (...a) => console.log('•', ...a);
 

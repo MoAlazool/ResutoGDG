@@ -2,6 +2,7 @@ import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import pg from 'pg';
 import { ENV, type Env } from '../../config/env';
 import type { TenantContext } from '../auth/context';
+import { pgClientConfig } from './pg-tls';
 
 // int8 (bigint) columns hold money in minor units; values stay far below 2^53,
 // so parse them as numbers and fail loudly if one ever is not safe.
@@ -66,7 +67,7 @@ export class DbService implements OnModuleDestroy {
   readonly pool: pg.Pool;
 
   constructor(@Inject(ENV) env: Env) {
-    this.pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX, application_name: 'resuto-api' });
+    this.pool = new pg.Pool({ ...pgClientConfig(env.DATABASE_URL, env.DATABASE_SSL_CA), max: env.DATABASE_POOL_MAX, application_name: 'resuto-api' });
   }
 
   async onModuleDestroy() {

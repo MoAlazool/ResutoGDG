@@ -11,6 +11,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { pgClientConfig } from './pg-tls.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const defaultUrl = 'postgres://postgres@127.0.0.1:54329/resuto';
@@ -18,7 +19,7 @@ export const defaultUrl = 'postgres://postgres@127.0.0.1:54329/resuto';
 const isLocal = (url) => ['127.0.0.1', 'localhost', '::1'].includes(new URL(url).hostname);
 
 export async function migrate({ url = process.env.DATABASE_URL || defaultUrl, reset = false, log = console.log } = {}) {
-  const client = new pg.Client({ connectionString: url });
+  const client = new pg.Client(pgClientConfig(url));
   await client.connect();
   try {
     if (reset) {
