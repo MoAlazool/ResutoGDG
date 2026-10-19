@@ -12,7 +12,7 @@ legacy deployments are untouched). Nothing has been deployed.
 | C/D — Module MVPs | ✅ Done | Nine module agents (A, B1, B2, C, D1, D2, E1, E2, F) merged per `docs/architecture/MODULE_CONTRACTS.md`; status per module in `MODULE_STATUS.md`. |
 | E — AI & MCP | ✅ Done | FastAPI AI service (forecasting, segments, churn, recommendations, routing; synthetic-data evaluation only), owner assistant (rules mode), ResutoMCP (17 tools, approvals, scoping) + MCP server tested with the official SDK client. |
 | F — End-to-end scenarios | ✅ Done | 10 API-level business scenarios (`docs/qa/SCENARIOS.md`), browser journeys against the real API (`docs/qa/BROWSER_E2E.md`), load smoke (`docs/qa/LOAD_SMOKE.md`). All 9 defects found (G-01, G-02, H-1…H-7) fixed with regression tests. |
-| G — QA & staging | 🟡 Local QA done; staging blocked | CI green on GitHub; staging/production blocked on B-1 (no Supabase project) and owner approval — see `OPEN_BLOCKERS.md`, `DEPLOYMENT_READINESS.md`. |
+| G — QA & staging | ✅ Private staging live | Vercel + Render + Supabase staging verified against the live URLs (`docs/STAGING_DEPLOYMENT.md`, `docs/TEST_RESULTS.md`). Production needs owner approval (B-10). |
 
 Current test counts: `docs/TEST_RESULTS.md`.
 
@@ -24,3 +24,5 @@ Current test counts: `docs/TEST_RESULTS.md`.
 - 2026-10-17 — Module agents merged one by one; integration fixes (port wiring, name collisions, deposit-credit ledger ownership, deposit refunds, web attribution, plan limits on order placement).
 - 2026-10-17 — Scenario QA (Agent G): 10 scenarios, defects G-01/G-02 fixed. Load smoke passed.
 - 2026-10-17 — Browser QA (Agent H): 60 real-API browser tests; defects H-1…H-7 fixed by the lead; all specs now plain regression tests.
+- 2026-10-18 — Staging: Supabase `resuto-staging`, Render API/AI/MCP (free), Vercel `resuto-2-staging-web` (private). Staging hardening (Supabase-only auth, issuer check, in-process worker), repo demo loader, five review defects fixed with tests.
+- 2026-10-19 — Owner added the database URL and storage key in Render; migrations applied on boot; demo data loaded through real Supabase Auth; staging smoke 40/40, MCP 7/7, browser check across all modules (see TEST_RESULTS).

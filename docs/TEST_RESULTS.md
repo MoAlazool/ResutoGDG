@@ -31,8 +31,27 @@ was skipped before this work too.
 
 - No real provider was called: payments, WhatsApp, ads, ZATCA/ETA, accounting, POS and Gemini all ran in
   sandbox or rules mode (`OPEN_BLOCKERS.md` B-3…B-8).
-- Supabase Auth (GoTrue) and the JWKS path are untested. Auth used the dev issuer with Supabase's claim
-  shape (B-1, B-12).
+- The local runs above use the dev issuer with Supabase's claim shape. Real Supabase Auth (GoTrue, ES256
+  JWKS) is covered by the staging runs below.
 - AI metrics come from synthetic data only (`research/`).
 - In CI the Playwright job runs with `--ignore-snapshots`, because the pixel baselines were recorded on
   this container's fonts.
+
+## Staging (deployed services, 2026-10-19)
+
+Run against the live staging environment (`docs/STAGING_DEPLOYMENT.md`): Vercel `resuto-2-staging-web`,
+Render `resuto-2-staging-api` / `-ai` / `-mcp`, Supabase project `resuto-staging`. Real Supabase Auth,
+Supabase Storage and Postgres; payments and WhatsApp in sandbox mode. Synthetic demo tenant only.
+
+| Check | Command | Result |
+|---|---|---|
+| Migrations on Supabase | API boot (`scripts/deploy/start-api.mjs`) | 22 / 22 applied; 115 `public` tables, all with RLS; bucket `tenant-media` present |
+| Demo data load | API boot with `DEMO_SEED_ON_BOOT=1` | ✅ exit 0; 409 orders, staff, menu photos in Supabase Storage, deliveries, marketing, finance, Studio site |
+| Service smoke | `node scripts/staging/smoke.mjs` | **40 / 40**: health (API, worker, AI, MCP); Supabase sign-in, wrong password, ES256 + issuer, refresh, tampered and missing tokens, dev login disabled, sign-out; role boundaries; public pages leak no private fields; signed storage URLs; payment link → sandbox checkout → server-side confirmation; unsigned webhook refused (401); AI forecast; CORS; Vercel redirects anonymous visitors to login |
+| MCP over HTTPS | `node scripts/staging/mcp-check.mjs` | **7 / 7**: scoped key, initialize, `tools/list` limited to the key, allowed call, other tool refused, revoke, revoked key refused |
+| Browser (real login form, EN/AR, desktop/mobile) | `node scripts/staging/browser-check.mjs` | **102 pages, 0 API errors, 0 broken pages**. Owner, platform admin and both drivers signed in through the form. 7 pages logged a Vercel **502 on a static JS chunk** (the page rendered, but that chunk did not run until reload); re-checking those pages gave 13 / 15 clean, then 13 / 13. See `OPEN_BLOCKERS.md` B-13 |
+| API suite after the staging fixes | `cd apps/api && npx vitest run` (local) | **373 / 373** (adds deployment-config and agent-fix tests) |
+| Supabase advisors | dashboard / MCP | no errors; warnings tracked as B-14 and B-15 |
+
+Not covered on staging: real payment, WhatsApp, ads or tax providers (sandbox only); email confirmation
+and password reset (Supabase SMTP is not configured, B-14); load testing (free plans).

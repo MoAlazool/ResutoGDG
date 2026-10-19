@@ -6,14 +6,14 @@ Status legend: ✅ verified here · 🟡 prepared, not executed here · ⛔ bloc
 
 | | Development | Staging | Production |
 |---|---|---|---|
-| Database / Auth / Storage | Local Postgres 16 + auth shim ✅, or `supabase start` 🟡 | Supabase project `resuto-staging` ⛔ B-1 | Supabase project `resuto-prod` ⛔ B-1 |
-| API + worker | `node dist/main.js`, `node dist/worker.js` ✅ | Container (`apps/api/Dockerfile`) on a managed platform (Render / Fly.io / Railway / Cloud Run) 🟡 | same, ≥2 instances 🟡 |
-| Web | `next dev` / `next start` ✅ | Vercel project for `apps/web` (separate from the legacy `resuto` project) or container 🟡 | same 🟡 |
-| AI service | uvicorn | container (`apps/ai-service/Dockerfile`) 🟡 | same 🟡 |
-| MCP server | node | container, HTTPS only 🟡 | same 🟡 |
+| Database / Auth / Storage | Local Postgres 16 + auth shim ✅, or `supabase start` 🟡 | Supabase `resuto-staging` (free): 22 migrations, real Supabase Auth (ES256/JWKS), private Storage ✅ | Supabase project `resuto-prod` ⛔ B-10 (owner approval) |
+| API + worker | `node dist/main.js`, `node dist/worker.js` ✅ | Render `resuto-2-staging-api` (free; worker loop in-process) ✅ | separate API and background worker, ≥2 instances 🟡 |
+| Web | `next dev` / `next start` ✅ | Vercel `resuto-2-staging-web` (private: Vercel Authentication on all URLs) ✅ | same 🟡 |
+| AI service | uvicorn | Render `resuto-2-staging-ai` (free) ✅ | same 🟡 |
+| MCP server | node | Render `resuto-2-staging-mcp` (free, HTTPS, key required) ✅ | same 🟡 |
 | Payments | `PAYMENT_MODE=sandbox` ✅ | provider sandboxes ⛔ B-3 | merchant live accounts ⛔ B-3 |
 
-Nothing in this branch deploys anything. The legacy production app (Render +
+Staging is live and documented in `docs/STAGING_DEPLOYMENT.md` (verification in `docs/TEST_RESULTS.md`). Nothing deploys to production. The legacy production app (Render +
 Vercel `resuto` project + Firebase) is untouched and still deploys from `main`.
 
 ## Provisioning a Supabase environment (staging first)

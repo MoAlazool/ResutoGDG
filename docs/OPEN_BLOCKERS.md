@@ -5,7 +5,7 @@ access, approval or money. Everything else continues in parallel.
 
 | # | Blocker | Impact | What is needed | Status |
 |---|---|---|---|---|
-| B-1 | No Supabase project exists for Resuto (the connected account has only unrelated projects). | Staging/production database, Auth and Storage cannot be provisioned; local work uses plain Postgres 16 + an auth shim. | Owner approval to create `resuto-staging` and `resuto-prod` Supabase projects (paid plan recommended for production: PITR backups), or credentials for existing ones. | Open — not created (creating projects may incur cost). |
+| B-1 | ~~No Supabase project for Resuto.~~ | Resolved 2026-10-18: `resuto-staging` (free) created; staging runs on it. A production project still needs owner approval (B-10). | — | Resolved (staging) |
 | B-2 | No Docker daemon in the build environment. | `supabase start`, container builds and the compose stack were not executed here. | Run `docker compose up` / `supabase start` on a machine with Docker; CI can add an image build job. | Open |
 | B-3 | No payment-provider credentials (Paymob, Stripe, Moyasar). | Real adapters are implemented against public docs and tested with signature vectors; never exercised against provider sandboxes. | Merchant (or Resuto test) sandbox accounts + webhook secrets per provider. | Open |
 | B-4 | No Meta WhatsApp Cloud API app / test number. | WhatsApp runs through the sandbox transport; Meta adapter unverified. | Meta developer app, WABA, test phone number, app secret, verify token; template approvals. | Open |
@@ -16,11 +16,17 @@ access, approval or money. Everything else continues in parallel.
 | B-9 | Custom domain activation needs a hosting provider integration (Vercel domains API token). | Domains can be added and DNS-verified; SSL/routing activation is a manual provider step. | Vercel project + token for the 2.0 web app. | Open |
 | B-10 | Production deployment and data cutover. | Nothing in this branch touches production (`main`, Render, Vercel production, Firebase). | Explicit owner approval, maintenance window, legacy data export. | Not started by design |
 | B-11 | Legacy production issues found in the audit (table QR tokens exposed by `/api/public`; `PAYMENT_MODE=test` in `render.yaml`). | Affects the live legacy app, not 2.0. | Owner decision; a separate task card was queued to fix the legacy app. | Reported |
-| B-12 | GitHub release downloads are blocked by this environment's egress policy. | Real Supabase Auth (GoTrue) could not be run locally; the API's JWT verification is tested with the dev issuer using Supabase's claim shape (HS256) — the JWKS path is untested. | Verify against a Supabase project (B-1) or `supabase start` with Docker (B-2). | Open |
+| B-12 | ~~Real Supabase Auth untested.~~ | Resolved 2026-10-19: staging signs in through Supabase Auth (ES256 tokens verified via JWKS with issuer check); dev auth is refused in staging. | — | Resolved |
+
+| B-13 | Staging runs on free plans. | Render free services sleep after 15 min idle (about 1 min cold start); the worker loop runs inside the API and only works while it is awake; Vercel showed intermittent edge 502s on static chunks during the first browser run. | Paid Render plans (separate background worker, always on) when the owner approves the cost. | Accepted for staging |
+| B-14 | Supabase dashboard-only settings. | Self sign-up confirmation emails need an SMTP sender and the Site URL (`https://resuto-2-staging-web.vercel.app`); leaked-password protection is off. | Owner sets them in Supabase → Authentication. | Open |
+| B-15 | Database hardening from the Supabase advisors (warnings, no errors). | 11 `app.*` functions without a fixed `search_path`; `btree_gist`, `citext`, `pg_trgm` installed in `public`. | A follow-up migration (`set search_path` on the functions; move extensions) tested locally first. | Open |
+| B-16 | Database TLS verification. | Staging uses `sslmode=no-verify` (encrypted, certificate not verified). | Pin Supabase's CA certificate before production. | Open |
 
 ## Product decisions for the owner
 
 | # | Decision | Current behaviour | Options |
 |---|---|---|---|
 | D-1 | Should campaign approval require a second person ("four eyes")? | A member with `marketing:approve` may approve a campaign they submitted themselves (approval is recorded and audited). Small restaurants often have a single owner. | (a) keep as is; (b) require a different approver when the org has ≥2 members with `marketing:approve`; (c) always require a different approver. Option (b) is a small change in `apps/api/src/modules/marketing`. |
+| D-3 | Hide unavailable dishes | Since the staging fixes, a dish marked unavailable at a branch is hidden from public menus (one flag covers "not on this branch's menu" and "86'd today"). | Keep, or add a separate "86'd" flag that shows the dish as sold out. |
 | D-2 | Plan prices | Prices are configurable data (`plan_prices`, `module_prices`, price versions in platform admin); the seeded values are defaults carried over from the legacy pricing page, not a confirmed commercial offer. | Owner sets the launch prices per country/currency. |
