@@ -1,4 +1,5 @@
 'use client';
+import { normalizeNumericInput } from '@resuto/contracts';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
@@ -64,11 +65,30 @@ export function Skeleton({ lines = 3 }: { lines?: number }) {
 }
 
 interface FieldProps { label: ReactNode; hint?: ReactNode; error?: string | null }
+const NUMERIC_MODES = new Set(['decimal', 'numeric', 'tel']);
+/**
+ * Numeric text inputs (inputMode decimal/numeric/tel) accept Arabic-Indic digits from Arabic keyboards and store
+ * Western digits 0-9, so amounts, quantities and phone numbers parse the same in both languages.
+ * Free text, identifiers and secrets are never rewritten (only these input modes are touched).
+ */
+export function normalizeNumericEvent(e: { currentTarget: HTMLInputElement }) {
+  const el = e.currentTarget;
+  const next = normalizeNumericInput(el.value);
+  if (next === el.value) return;
+  const pos = el.selectionStart;
+  el.value = next;
+  if (pos !== null) { try { el.setSelectionRange(pos, pos); } catch { /* some input types have no selection */ } }
+}
+
 export function Field({ label, hint, error, ...input }: FieldProps & InputHTMLAttributes<HTMLInputElement>) {
+  const numeric = typeof input.inputMode === 'string' && NUMERIC_MODES.has(input.inputMode);
+  const { onChange, onInput } = input;
   return (
     <label className="field">
       <span>{label}</span>
-      <input className="input" aria-invalid={!!error || undefined} {...input} />
+      <input className="input" aria-invalid={!!error || undefined} {...input}
+        onInput={numeric ? (e) => { normalizeNumericEvent(e); onInput?.(e); } : onInput}
+        onChange={numeric && onChange ? (e) => { normalizeNumericEvent(e); onChange(e); } : onChange} />
       {hint && <small>{hint}</small>}
       {error && <span className="field-error">{error}</span>}
     </label>
