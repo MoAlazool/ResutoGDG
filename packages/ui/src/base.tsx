@@ -169,7 +169,11 @@ export function Tabs<K extends string>({ tabs, value, onChange, label }: { tabs:
 export function useAction<A extends unknown[], R>(fn: (...args: A) => Promise<R>) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Guards against a double click or Enter submitting the same intent twice while it is in flight.
+  const busy = useRef(false);
   const run = async (...args: A): Promise<R | undefined> => {
+    if (busy.current) return undefined;
+    busy.current = true;
     setPending(true);
     setError(null);
     try {
@@ -178,6 +182,7 @@ export function useAction<A extends unknown[], R>(fn: (...args: A) => Promise<R>
       setError((e as Error).message);
       return undefined;
     } finally {
+      busy.current = false;
       setPending(false);
     }
   };

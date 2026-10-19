@@ -178,6 +178,11 @@ table.data tr:last-child td { border-block-end: 0; }
 .notice-danger { background: var(--danger-bg); color: var(--danger); }
 .notice-ok { background: var(--ok-bg); color: var(--ok); }
 
+.freshness { font-size: 12px; min-height: 1em; }
+.freshness[data-refreshing] { color: var(--muted); }
+.error-state { gap: 8px; }
+.stale-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 .skeleton { background: linear-gradient(90deg, #eef0ea 25%, #f6f7f3 50%, #eef0ea 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; min-height: 16px; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

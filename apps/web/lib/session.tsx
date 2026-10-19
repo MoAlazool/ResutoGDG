@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MeResponse } from '@resuto/contracts';
 import { api, type ApiOptions } from './api';
+import { queryCache, tenantPrefix } from './query-cache';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -27,6 +28,16 @@ interface SessionValue {
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
+
+/**
+ * After a successful mutation, refresh what it may have changed. Orders touch inventory, availability, customers,
+ * finance, analytics and insights, so the whole tenant's queries are invalidated (mounted ones refetch; the rest
+ * refetch when next shown). Non-tenant writes invalidate their top-level resource (e.g. `/admin`, `/me`).
+ */
+function invalidateAfterMutation(path: string) {
+  const prefix = tenantPrefix(path) ?? `/${path.split(/[/?]/)[1] ?? ''}`;
+  queryCache.invalidate((p) => p.startsWith(prefix));
+}
 
 function readStored(): StoredSession | null {
   try {
@@ -64,7 +75,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (AUTH_MODE === 'supabase') {
         const { data } = await sb().auth.getSession();
         t = data.session?.access_token ?? null;
-        sb().auth.onAuthStateChange((_e, s) => { applyToken(s?.access_token ?? null); });
+        sb().auth.onAuthStateChange((e, s) => {
+          if (e === 'SIGNED_OUT' || !s) queryCache.clear();
+          applyToken(s?.access_token ?? null);
+        });
       } else {
         t = readStored()?.accessToken ?? null;
       }
@@ -107,11 +121,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async signOut() {
       if (AUTH_MODE === 'supabase') await sb().auth.signOut();
       localStorage.removeItem(STORAGE_KEY);
+      queryCache.clear();
       applyToken(null);
       setMe(null);
     },
     refreshMe: () => loadMe(tokenRef.current),
-    call: (path, opts) => api(path, { ...opts, token: tokenRef.current }),
+    call: async (path, opts) => {
+      const result = await api(path, { ...opts, token: tokenRef.current });
+      const method = opts?.method ?? (opts?.body !== undefined ? 'POST' : 'GET');
+      if (method !== 'GET') invalidateAfterMutation(path);
+      return result;
+    },
   }), [ready, token, me, loadMe, applyToken]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
