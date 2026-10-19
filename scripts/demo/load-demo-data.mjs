@@ -113,11 +113,13 @@ async function account(localPart, fullName, password) {
          values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', lower($1), extensions.crypt($2, extensions.gen_salt('bf')), now(),
                  '{"provider":"email","providers":["email"]}', $3, now(), now(), '', '', '', '') returning id`,
         [email, password, { full_name: fullName, demo: true }]);
-      await q(`insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-               values ($1::text, $1, $2, 'email', now(), now(), now())`, [id, { sub: id, email, email_verified: true }]);
     } else {
       await q(`update auth.users set encrypted_password = extensions.crypt($2, extensions.gen_salt('bf')), email_confirmed_at = coalesce(email_confirmed_at, now()) where id = $1`, [id, password]);
     }
+    // Email sign-in needs an identity row (also repairs a user left without one by an interrupted run).
+    await q(`insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+             select $1::text, $1::uuid, $2, 'email', now(), now(), now()
+             where not exists (select 1 from auth.identities where user_id = $1::uuid and provider = 'email')`, [id, { sub: id, email, email_verified: true }]);
     await q(`insert into profiles(id, full_name, email) values ($1, $2, $3) on conflict (id) do update set full_name = excluded.full_name`, [id, fullName, email]);
   }
   const token = await signIn(email, password);
