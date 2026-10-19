@@ -6,3 +6,4 @@ export * from './ads';
 export * from './pos';
 export * from './tax';
 export * from './maps';
+export * from './acceptance';
