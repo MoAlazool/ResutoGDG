@@ -18,7 +18,8 @@ API_URL=http://127.0.0.1:4000 DATABASE_URL=postgres://postgres@127.0.0.1:54329/r
 DEMO_OWNER_PASSWORD=… DEMO_ADMIN_PASSWORD=… DEMO_STAFF_PASSWORD=… node scripts/demo/load-demo-data.mjs
 
 # Staging (real Supabase Auth): runs inside the API container at boot with DEMO_SEED_ON_BOOT=1,
-# DEMO_TARGET=staging, SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (see docs/STAGING_DEPLOYMENT.md).
+# DEMO_TARGET=staging, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and SUPABASE_SERVICE_ROLE_KEY (see docs/STAGING_DEPLOYMENT.md).
+# Accounts are created and re-passworded through the Supabase Admin Auth API (no direct writes to auth tables).
 ```
 
 ## Accounts

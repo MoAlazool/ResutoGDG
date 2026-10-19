@@ -8,8 +8,8 @@
 // every payment goes through the SIMULATED provider; nothing leaves the system.
 //
 // Direct SQL is limited to what no API offers, and is listed here:
-//   1. creating Supabase Auth users (auth.users/auth.identities, bcrypt via pgcrypto) or,
-//      in dev-auth mode, nothing (the API's dev issuer is used);
+//   1. nothing for accounts: Supabase Auth users are created through the Supabase Admin Auth API
+//      (service-role key, server side only); in dev-auth mode the API's dev issuer is used;
 //   2. granting the demo platform-admin row (there is deliberately no API for the first admin);
 //   3. marking the demo subscription active ("complimentary demo access, nothing charged");
 //   4. BACK-DATING historical orders (and their lines, payments, events and stock movements)
@@ -19,7 +19,7 @@
 // Environment (see scripts/demo/README.md):
 //   API_URL                    e.g. http://127.0.0.1:4000 (no /v1)
 //   DATABASE_URL               the same database the API uses
-//   SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY   real Supabase Auth (staging); omit for dev auth
+//   SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY + SUPABASE_SERVICE_ROLE_KEY   real Supabase Auth (staging); omit for dev auth
 //   DEMO_OWNER_PASSWORD, DEMO_ADMIN_PASSWORD, DEMO_STAFF_PASSWORD   required, never printed
 //   DEMO_TARGET=staging        required for any non-local database
 //   DEMO_EMAIL_DOMAIN          default olive-room.demo.test
@@ -39,7 +39,7 @@ const env = process.env;
 const API = `${(env.API_URL ?? 'http://127.0.0.1:4000').replace(/\/$/, '')}/v1`;
 const SLUG = 'the-olive-room';
 const DOMAIN = env.DEMO_EMAIL_DOMAIN ?? 'olive-room.demo.test';
-const SUPABASE = env.SUPABASE_URL ? { url: env.SUPABASE_URL.replace(/\/$/, ''), key: env.SUPABASE_PUBLISHABLE_KEY } : null;
+const SUPABASE = env.SUPABASE_URL ? { url: env.SUPABASE_URL.replace(/\/$/, ''), key: env.SUPABASE_PUBLISHABLE_KEY, admin: env.SUPABASE_SERVICE_ROLE_KEY } : null;
 const DAYS = Number(env.DEMO_HISTORY_DAYS ?? 56);
 
 function fail(message) { console.error(`demo loader: ${message}`); process.exit(1); }
@@ -52,6 +52,7 @@ for (const k of ['DEMO_OWNER_PASSWORD', 'DEMO_ADMIN_PASSWORD', 'DEMO_STAFF_PASSW
   if (!env[k] || env[k].length < 12) fail(`${k} must be set (at least 12 characters)`);
 }
 if (SUPABASE && !SUPABASE.key) fail('SUPABASE_PUBLISHABLE_KEY is required with SUPABASE_URL');
+if (SUPABASE && !SUPABASE.admin) fail('SUPABASE_SERVICE_ROLE_KEY is required with SUPABASE_URL (accounts are created through the Admin Auth API)');
 
 const db = new pg.Pool({ ...pgClientConfig(env.DATABASE_URL), max: 3 });
 const q = async (text, params = []) => (await db.query(text, params)).rows;
@@ -98,6 +99,41 @@ async function signIn(email, password) {
   if (!res.ok) throw new Error(`Supabase sign-in for ${email} failed: ${res.status} ${body.error_description ?? body.msg ?? ''}`);
   return body.access_token;
 }
+// Supabase Admin Auth API (GoTrue /admin/users). The secret key goes in `apikey`; a legacy JWT service-role key
+// is also sent as a bearer token. Server side only: the key is never printed or sent anywhere else.
+async function admin(method, path, body) {
+  const headers = { apikey: SUPABASE.admin, 'Content-Type': 'application/json' };
+  if (SUPABASE.admin.startsWith('eyJ')) headers.Authorization = `Bearer ${SUPABASE.admin}`;
+  const res = await fetch(`${SUPABASE.url}/auth/v1${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  return { status: res.status, data };
+}
+async function adminFindUser(email) {
+  for (let page = 1; page <= 20; page++) {
+    const r = await admin('GET', `/admin/users?page=${page}&per_page=200`);
+    if (r.status !== 200) throw new Error(`Supabase admin list users failed: ${r.status} ${r.data?.msg ?? r.data?.error_code ?? ''}`);
+    const users = r.data.users ?? [];
+    const hit = users.find((u) => (u.email ?? '').toLowerCase() === email.toLowerCase());
+    if (hit) return hit;
+    if (users.length < 200) return null;
+  }
+  return null;
+}
+/** Creates a confirmed email/password user, or resets the password of the existing one; returns the user id. */
+async function adminUpsertUser(email, password, fullName) {
+  const user = await adminFindUser(email);
+  if (user) {
+    const updated = await admin('PUT', `/admin/users/${user.id}`, { password, email_confirm: true });
+    if (updated.status !== 200) throw new Error(`Supabase admin update user ${email} failed: ${updated.status} ${updated.data?.msg ?? updated.data?.error_code ?? ''}`);
+    return user.id;
+  }
+  const created = await admin('POST', '/admin/users', { email, password, email_confirm: true, user_metadata: { full_name: fullName, demo: true } });
+  if (created.status !== 200 && created.status !== 201) {
+    throw new Error(`Supabase admin create user ${email} failed: ${created.status} ${created.data?.msg ?? created.data?.error_code ?? ''}`);
+  }
+  return created.data.id;
+}
+
 /** Creates (or re-passwords) a confirmed account and returns { email, userId, token }. */
 async function account(localPart, fullName, password) {
   const email = `${localPart}@${DOMAIN}`;
@@ -105,22 +141,7 @@ async function account(localPart, fullName, password) {
     const r = await call('POST', '/auth/dev/signup', { body: { email, password, fullName } });
     if (r.status >= 300 && r.status !== 409) throw new Error(`dev signup ${email}: ${r.status}`);
   } else {
-    const [existing] = await q('select id from auth.users where lower(email) = lower($1)', [email]);
-    let id = existing?.id;
-    if (!id) {
-      [{ id }] = await q(
-        `insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-                                 created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change)
-         values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', lower($1), extensions.crypt($2, extensions.gen_salt('bf')), now(),
-                 '{"provider":"email","providers":["email"]}', $3, now(), now(), '', '', '', '') returning id`,
-        [email, password, { full_name: fullName, demo: true }]);
-    } else {
-      await q(`update auth.users set encrypted_password = extensions.crypt($2, extensions.gen_salt('bf')), email_confirmed_at = coalesce(email_confirmed_at, now()) where id = $1`, [id, password]);
-    }
-    // Email sign-in needs an identity row (also repairs a user left without one by an interrupted run).
-    await q(`insert into auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
-             select $1::text, $1::uuid, $2, 'email', now(), now(), now()
-             where not exists (select 1 from auth.identities where user_id = $1::uuid and provider = 'email')`, [id, { sub: id, email, email_verified: true }]);
+    const id = await adminUpsertUser(email, password, fullName);
     await q(`insert into profiles(id, full_name, email) values ($1, $2, $3) on conflict (id) do update set full_name = excluded.full_name`, [id, fullName, email]);
   }
   const token = await signIn(email, password);
