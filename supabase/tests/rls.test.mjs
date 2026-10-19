@@ -167,3 +167,10 @@ test('module entitlements follow plan, status, add-ons and overrides', async () 
   await pool.query(`insert into entitlement_overrides(org_id, module, enabled, reason) values ($1, 'pay', true, 'support credit')`, [org]);
   assert.equal(await enabled('pay'), true, 'override');
 });
+
+test('every function in the app schema runs with a fixed search_path', async () => {
+  const rows = (await pool.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'app' and p.prokind = 'f'
+      and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')`)).rows;
+  assert.deepEqual(rows.map((r) => r.proname), []);
+});
