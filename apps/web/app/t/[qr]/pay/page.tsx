@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import QRCode from 'qrcode';
@@ -121,7 +122,7 @@ export default function TableBillPage() {
           <div className="receipt-list">
             {bill.receipts.map((r) => (
               <button key={r.paymentId} type="button" className="receipt-list-item" onClick={() => showReceipt(r.paymentId)}>
-                <span><strong>{t(`pay.method.${r.method}`)}</strong><small>{r.at ? new Date(r.at).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-GB') : ''}</small></span>
+                <span><strong>{t(`pay.method.${r.method}`)}</strong><small>{r.at ? new Date(r.at).toLocaleString(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB') : ''}</small></span>
                 <b dir="ltr">{m(r.amountMinor)}</b>
               </button>
             ))}

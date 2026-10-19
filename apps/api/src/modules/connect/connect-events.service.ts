@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { formatMoney } from '@resuto/contracts';
+import { formatMoney, INTL_LOCALE } from '@resuto/contracts';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { OnDomainEvent, type OutboxEvent } from '../../common/events/events';
@@ -102,7 +102,7 @@ export class ConnectEventsService {
         `select locale from conversations where org_id = $1 and (($2::uuid is not null and customer_id = $2) or ($3::text is not null and external_contact = $3))
           order by last_inbound_at desc nulls last limit 1`, [orgId, r.customer_id, r.guest_phone?.replace(/^\+/, '') ?? null]);
       if (!conv) return { skipped: 'no_channel' };
-      const when = new Intl.DateTimeFormat(conv.locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: r.tz }).format(new Date(r.starts_at));
+      const when = new Intl.DateTimeFormat(conv.locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: r.tz }).format(new Date(r.starts_at));
       const text = copy(conv.locale, 'reservationConfirmed', { party: r.party_size, when, code: r.code });
       return this.messaging.enqueueToCustomer(tx, TenantContext.system(orgId, 'connect.notifications'), {
         customerId: r.customer_id, phone: r.guest_phone, text, templateName: RESERVATION_TEMPLATE, variables: { '1': when, '2': r.code }, reason: 'reservation.confirmed' });

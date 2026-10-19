@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 import Link from 'next/link';
 import type { AdminOperations } from '@resuto/contracts';
 import { Badge, Card, DataTable, EmptyState, Notice, PageHeader, Skeleton, Stat } from '@resuto/ui';
@@ -61,7 +62,7 @@ export default function AdminOperationsPage() {
         <Card title={s.usage}>
           {d.usage30d.length ? <DataTable rows={d.usage30d} rowKey={(u) => u.metric} columns={[
             { key: 'm', header: s.usage, render: (u) => u.metric },
-            { key: 'q', header: '', align: 'end', render: (u) => <span className="num">{u.quantity.toLocaleString(locale === 'ar' ? 'ar-EG' : 'en')}</span> },
+            { key: 'q', header: '', align: 'end', render: (u) => <span className="num">{u.quantity.toLocaleString(locale === 'ar' ? INTL_LOCALE.ar : 'en')}</span> },
             { key: 't', header: '', align: 'end', render: (u) => <span className="fine">{u.tenants} {s.tenantsCol}</span> },
           ]} /> : <EmptyState title={s.none} />}
         </Card>

@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 // "Kitchen" chapter (port of legacy/public/landing-kitchen.js): one order list drives
 // the board, every counter, station load and the guest's status preview.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -37,7 +38,7 @@ export function KitchenDemo({ L }: { L: Landing }) {
   const [routing, setRouting] = useState<number | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef(state); stateRef.current = state;
-  const clock = (m: number) => new Date(2024, 0, 1, 19, m).toLocaleTimeString(rtl ? 'ar-EG' : 'en-US', { hour: 'numeric', minute: '2-digit' });
+  const clock = (m: number) => new Date(2024, 0, 1, 19, m).toLocaleTimeString(rtl ? INTL_LOCALE.ar : 'en-US', { hour: 'numeric', minute: '2-digit' });
   const label = (n: number) => `#${num(n).padStart(3, num(0))}`;
 
   const advance = (n: number) => setState((s) => {

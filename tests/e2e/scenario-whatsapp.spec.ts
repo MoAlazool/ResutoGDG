@@ -68,13 +68,13 @@ for (const locale of ['en', 'ar'] as const) {
       await sheet.locator('label').filter({ hasText: s.large }).click();
       await sheet.getByRole('button', { name: s.add }).click();
       await g.locator('article').filter({ hasText: s.fries }).getByRole('button', { name: s.add }).click();
-      await expect(g.getByText(locale === 'ar' ? /^(2|٢) صنف$/ : /^2 item\(s\)$/)).toBeVisible();
+      await expect(g.getByText(locale === 'ar' ? /^2 صنف$/ : /^2 item\(s\)$/)).toBeVisible();
       await g.getByRole('button', { name: s.review }).click();
       await expect(g.getByRole('heading', { name: s.reviewTitle })).toBeVisible();
       await expectNoHorizontalOverflow(g);
       const [session] = await sql(`select step, state from ordering_sessions where conversation_id = $1`, [conversationId]);
       expect(session.step).toBe('review');
-      await expect(g.getByText(locale === 'ar' ? /260|٢٦٠/ : 'EGP 260').first()).toBeVisible(); // (18500 + 3000) + 4500
+      await expect(g.getByText(locale === 'ar' ? /260/ : 'EGP 260').first()).toBeVisible(); // (18500 + 3000) + 4500
 
       // Online payment → hosted checkout → sandbox provider → receipt.
       await g.getByRole('button', { name: s.payOnline }).click();

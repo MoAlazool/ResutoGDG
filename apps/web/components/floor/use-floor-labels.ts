@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 import { useMemo } from 'react';
 import { useT } from '@/lib/i18n/client';
 
@@ -6,7 +7,7 @@ import { useT } from '@/lib/i18n/client';
 export function useFloorLabels() {
   const { t, locale } = useT();
   return useMemo(() => {
-    const nf = new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US');
+    const nf = new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-US');
     const labelOf = (label: string) => {
       const key = `studio.floor.label.${label}`;
       const v = t(key);

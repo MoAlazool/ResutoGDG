@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 // Shared building blocks for the overview, analytics, inventory and customers pages (Agent B2).
 import { useCallback, type ReactNode } from 'react';
 import s from './charts.module.css';
@@ -24,15 +25,15 @@ export function addDays(date: string, days: number): string {
 export function useFormat() {
   const { locale } = useT();
   const { org } = useOrg();
-  const nf = new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { maximumFractionDigits: 2 });
-  const compact = new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { notation: 'compact', maximumFractionDigits: 1 });
+  const nf = new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { maximumFractionDigits: 2 });
+  const compact = new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { notation: 'compact', maximumFractionDigits: 1 });
   return {
     money: useCallback((minor: number | null | undefined) => fmtMoney(minor, org.currency, locale), [org.currency, locale]),
     compactMoney: (minor: number) => compact.format(minor / 100),
     num: (n: number | null | undefined) => (n === null || n === undefined ? '—' : nf.format(n)),
     pct: (n: number | null | undefined) => (n === null || n === undefined ? '—' : `${nf.format(n)}%`),
     minutes: (n: number | null | undefined) => (n === null || n === undefined ? '—' : `${nf.format(n)} ${locale === 'ar' ? 'د' : 'min'}`),
-    date: (iso: string) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)),
+    date: (iso: string) => new Intl.DateTimeFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)),
   };
 }
 

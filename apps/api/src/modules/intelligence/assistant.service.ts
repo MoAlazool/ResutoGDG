@@ -57,8 +57,8 @@ export function routeIntent(message: string): { tool: string; args: Record<strin
 
 /** Numbers in free text (Arabic-Indic digits normalised; list markers ignored). */
 export function numbersIn(s: string): number[] {
-  const ascii = s.replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/٫/g, '.').replace(/٬/g, ',').replace(/^\s*\d{1,2}[.)]\s/gm, ' ');
+  const ascii = s.replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x6f0))
+    .replace(/\u066B/g, '.').replace(/\u066C/g, ',').replace(/^\s*\d{1,2}[.)]\s/gm, ' ');
   return (ascii.match(/\d+(?:[.,]\d+)*/g) ?? []).map((t) => Number(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(t) ? t.replace(/,/g, '') : t.replace(/,/g, '.')))
     .filter((n) => Number.isFinite(n));
 }

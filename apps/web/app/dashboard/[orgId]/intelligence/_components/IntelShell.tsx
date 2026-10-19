@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -99,6 +100,6 @@ export function Empty({ title, body }: { title: string; body?: string }) {
 }
 
 export const fmtNum = (n: number | null | undefined, locale: string, digits = 1) =>
-  n === null || n === undefined ? '—' : new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { maximumFractionDigits: digits }).format(n);
+  n === null || n === undefined ? '—' : new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { maximumFractionDigits: digits }).format(n);
 export const fmtPct = (n: number | null | undefined, locale: string) =>
-  n === null || n === undefined ? '—' : new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { style: 'percent', maximumFractionDigits: 1 }).format(n);
+  n === null || n === undefined ? '—' : new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { style: 'percent', maximumFractionDigits: 1 }).format(n);

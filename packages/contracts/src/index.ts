@@ -1,5 +1,6 @@
 export * from './common';
 export * from './money';
+export * from './locale-format';
 export * from './modules';
 export * from './permissions';
 export * from './state-machines';

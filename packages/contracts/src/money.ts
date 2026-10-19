@@ -1,3 +1,4 @@
+import { moneyNumberFormat } from './locale-format';
 // Integer minor-unit money helpers. All amounts are integers (piastres/halalas);
 // floating point never touches persisted money.
 import type { z } from 'zod';
@@ -26,7 +27,7 @@ export function parseMajor(value: string | number, currency: Currency): number {
 
 export function formatMoney(amountMinor: number, currency: Currency, locale: 'en' | 'ar' = 'en'): string {
   const digits = MINOR_DIGITS[currency];
-  return new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-EG', {
+  return moneyNumberFormat(locale, {
     style: 'currency',
     currency,
     minimumFractionDigits: amountMinor % 10 ** digits === 0 ? 0 : digits,

@@ -2,8 +2,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   MODULE_INFO, MODULE_KEYS, USAGE_LIMIT_FOR,
-  type ChangePlanResult, type DowngradeViolation, type EntitlementsView, type ModuleKey, type PriceQuote, type PublicPlansResponse, type SubscriptionView,
-} from '@resuto/contracts';
+  type ChangePlanResult, type DowngradeViolation, type EntitlementsView, type ModuleKey, type PriceQuote, type PublicPlansResponse, type SubscriptionView, INTL_LOCALE } from '@resuto/contracts';
 import { Badge, Card, EmptyState, Modal, Notice, PageHeader, Skeleton, TextareaField, type Tone } from '@resuto/ui';
 import { ApiRequestError } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
@@ -19,7 +18,7 @@ const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
 
 const STATUS_TONE: Record<string, Tone> = { trialing: 'info', active: 'ok', past_due: 'warn', unpaid: 'danger', canceled: 'neutral', paused: 'neutral' };
 const day = (iso: string | null | undefined, locale: 'en' | 'ar') =>
-  iso ? new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium' }).format(new Date(iso)) : '—';
+  iso ? new Intl.DateTimeFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { dateStyle: 'medium' }).format(new Date(iso)) : '—';
 
 export default function BillingPage() {
   const { locale } = useT();
@@ -80,7 +79,7 @@ export default function BillingPage() {
                 <div key={k}>
                   <div className="spread" style={{ fontSize: 13 }}>
                     <span>{s[`u_${k}` as keyof BillingStrings]}</span>
-                    <span className="num muted">{used.toLocaleString(locale === 'ar' ? 'ar-EG' : 'en')} {limit !== undefined ? `${s.of} ${limit.toLocaleString(locale === 'ar' ? 'ar-EG' : 'en')}` : `· ${s.unlimited}`}</span>
+                    <span className="num muted">{used.toLocaleString(locale === 'ar' ? INTL_LOCALE.ar : 'en')} {limit !== undefined ? `${s.of} ${limit.toLocaleString(locale === 'ar' ? INTL_LOCALE.ar : 'en')}` : `· ${s.unlimited}`}</span>
                   </div>
                   {limit !== undefined && (
                     <div style={{ height: 8, borderRadius: 99, background: 'var(--line-soft)', marginTop: 6 }} role="progressbar" aria-valuenow={used} aria-valuemax={limit}>

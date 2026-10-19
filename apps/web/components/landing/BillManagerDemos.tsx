@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 // "Payments" (legacy/public/landing-bill.js) and "Manager view"
 // (legacy/public/landing-manager.js) chapters. Sample data only.
 import { useEffect, useRef, useState } from 'react';
@@ -106,7 +107,7 @@ export function ManagerDemo({ L }: { L: Landing }) {
   const [isLive, setLive] = useState(false);
   const [swap, setSwap] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const fmt = new Intl.NumberFormat(rtl ? 'ar-EG' : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const fmt = new Intl.NumberFormat(rtl ? INTL_LOCALE.ar : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
   useEffect(() => {
     if (reduced || !box.current) return;

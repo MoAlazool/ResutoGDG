@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { assignableRoles, type Role } from '@resuto/contracts';
+import { assignableRoles, type Role, INTL_LOCALE } from '@resuto/contracts';
 import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton } from '@resuto/ui';
 import { ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
@@ -17,7 +17,7 @@ const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
 interface Member { id: string; userId: string; role: Role; branchIds: string[] | null; status: string; fullName: string | null; email: string | null }
 interface Invitation { id: string; email: string | null; phone: string | null; role: Role; branchIds: string[] | null; expiresAt: string }
 
-const day = (iso: string, locale: 'en' | 'ar') => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium' }).format(new Date(iso));
+const day = (iso: string, locale: 'en' | 'ar') => new Intl.DateTimeFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { dateStyle: 'medium' }).format(new Date(iso));
 
 function BranchPicker({ value, onChange, branches, s, locale }: {
   value: string[] | null; onChange: (v: string[] | null) => void; branches: Array<{ id: string; name: string; nameAr: string | null }>;

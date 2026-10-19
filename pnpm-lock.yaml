@@ -201,6 +201,10 @@ importers:
         version: 3.2.4(@types/node@22.18.0)
 
   packages/ui:
+    dependencies:
+      '@resuto/contracts':
+        specifier: workspace:*
+        version: link:../contracts
     devDependencies:
       '@types/react':
         specifier: 19.2.18

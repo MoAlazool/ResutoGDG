@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 import { useEffect, useMemo, useState } from 'react';
 import { dictionaries } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/client';
@@ -11,11 +12,11 @@ export function useLanding() {
   return useMemo(() => {
     const dict = dictionaries[locale];
     const l = (s: string) => dict[`platform.lp.${s}`] ?? s;
-    const nf = new Intl.NumberFormat(rtl ? 'ar-EG' : 'en-US');
+    const nf = new Intl.NumberFormat(rtl ? INTL_LOCALE.ar : 'en-US');
     const num = (n: number) => nf.format(n);
-    const mf = new Intl.NumberFormat(rtl ? 'ar-EG' : 'en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 2 });
+    const mf = new Intl.NumberFormat(rtl ? INTL_LOCALE.ar : 'en-EG', { style: 'currency', currency: 'EGP', maximumFractionDigits: 2 });
     const money = (minor: number) => mf.format(minor / 100);
-    const clock = (h: number, m: number) => new Date(2024, 0, 1, h, m).toLocaleTimeString(rtl ? 'ar-EG' : 'en-US', { hour: 'numeric', minute: '2-digit' });
+    const clock = (h: number, m: number) => new Date(2024, 0, 1, h, m).toLocaleTimeString(rtl ? INTL_LOCALE.ar : 'en-US', { hour: 'numeric', minute: '2-digit' });
     return { locale, rtl, l, num, money, clock, arrow: rtl ? '←' : '→', reduced };
   }, [locale, rtl, reduced]);
 }

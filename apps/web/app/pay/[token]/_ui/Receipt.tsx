@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 // Digital receipt — React port of legacy/public/receipt.js. Rendered only from
 // a ReceiptView the API builds from a settled payment row.
 import { useState, type ReactNode } from 'react';
@@ -35,7 +36,7 @@ export function Receipt({ r, actions }: { r: ReceiptView; actions?: ReactNode })
   const { t, locale, dir } = useT();
   const [copied, setCopied] = useState(false);
   const m = (v: number) => money(v, r.currency, locale);
-  const loc = locale === 'ar' ? 'ar-EG' : 'en-GB';
+  const loc = locale === 'ar' ? INTL_LOCALE.ar : 'en-GB';
   const at = r.reservation ? new Date(r.reservation.startsAt) : new Date(r.at);
   const date = new Intl.DateTimeFormat(loc, { day: 'numeric', month: 'short', year: 'numeric' }).format(at);
   const time = new Intl.DateTimeFormat(loc, { hour: 'numeric', minute: '2-digit' }).format(at);

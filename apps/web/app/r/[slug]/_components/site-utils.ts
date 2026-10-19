@@ -1,4 +1,4 @@
-import { formatMoney, type Currency, type PublicSite } from '@resuto/contracts';
+import { formatMoney, type Currency, type PublicSite, INTL_LOCALE } from '@resuto/contracts';
 
 export type SiteLocale = 'en' | 'ar';
 export type T = (key: string, vars?: Record<string, string | number>) => string;
@@ -18,7 +18,7 @@ export function openingHours(raw: unknown): Hours[] {
 }
 export const clock = (hhmm: string, locale: SiteLocale) => {
   const [h, m] = hhmm.split(':').map(Number);
-  return new Date(Date.UTC(2024, 0, 1, h, m)).toLocaleTimeString(locale === 'ar' ? 'ar-EG' : 'en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+  return new Date(Date.UTC(2024, 0, 1, h, m)).toLocaleTimeString(locale === 'ar' ? INTL_LOCALE.ar : 'en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
 };
 
 export const acceptsOrders = (site: PublicSite) => site.branches.some((b) => b.acceptsPickup || b.acceptsDelivery);

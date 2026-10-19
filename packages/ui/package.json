@@ -5,7 +5,18 @@
   "description": "Resuto design-system React components (styles live in apps/web/app/globals.css tokens).",
   "main": "src/index.tsx",
   "types": "src/index.tsx",
-  "scripts": { "typecheck": "tsc --noEmit" },
-  "peerDependencies": { "react": "^19.0.0" },
-  "devDependencies": { "@types/react": "19.2.18", "react": "19.2.9", "typescript": "5.9.3" }
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@resuto/contracts": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "react": "19.2.9",
+    "typescript": "5.9.3"
+  }
 }

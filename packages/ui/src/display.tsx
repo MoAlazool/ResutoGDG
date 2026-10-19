@@ -1,4 +1,5 @@
 'use client';
+import { INTL_LOCALE } from '@resuto/contracts';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Badge, type Tone } from './base';
 import { UiStyles } from './styles';
@@ -7,7 +8,7 @@ import type { UiLocale } from './overlays';
 // --- Locale-aware numbers and money --------------------------------------------
 /** Minor-unit exponent per currency (EGP/SAR/USD use 2). */
 const MINOR_DIGITS: Record<string, number> = { EGP: 2, SAR: 2, USD: 2, KWD: 3, BHD: 3, JPY: 0 };
-const intlLocale = (locale: UiLocale) => (locale === 'ar' ? 'ar-EG' : 'en-EG');
+const intlLocale = (locale: UiLocale) => (locale === 'ar' ? INTL_LOCALE.ar : 'en-EG');
 
 /** Formats integer minor units like @resuto/contracts formatMoney (no float maths on totals; display only). */
 export function formatMinor(minor: number, currency: string, locale: UiLocale = 'en'): string {
@@ -25,7 +26,7 @@ export function useMoneyFormat(locale: UiLocale, currency: string) {
 export function useNumberFormat(locale: UiLocale, options?: Intl.NumberFormatOptions) {
   const key = JSON.stringify(options ?? {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const nf = useMemo(() => new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US', options), [locale, key]);
+  const nf = useMemo(() => new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-US', options), [locale, key]);
   return (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : nf.format(n));
 }
 

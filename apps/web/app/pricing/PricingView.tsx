@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MODULE_KEYS, type ModuleKey, type PriceQuote, type PublicPlan, type PublicPlansResponse } from '@resuto/contracts';
+import { MODULE_KEYS, type ModuleKey, type PriceQuote, type PublicPlan, type PublicPlansResponse, INTL_LOCALE } from '@resuto/contracts';
 import { api } from '@/lib/api';
 import { money } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
@@ -12,7 +12,7 @@ type Country = 'EG' | 'SA';
 type Interval = 'month' | 'year';
 const FEATURED = 'growth';
 const fill = (s: string, vars: Record<string, string | number>) => Object.entries(vars).reduce((a, [k, v]) => a.replaceAll(`{${k}}`, String(v)), s);
-const num = (n: number, locale: 'en' | 'ar') => new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-EG').format(n);
+const num = (n: number, locale: 'en' | 'ar') => new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-EG').format(n);
 
 export function PricingView() {
   const { locale } = useT();

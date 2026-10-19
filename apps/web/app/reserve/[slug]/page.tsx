@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { TABLE_FEATURES, type AvailabilityResult, type PublicFloor, type PublicMenu, type ReservationHoldResult, type ReservationView } from '@resuto/contracts';
+import { TABLE_FEATURES, type AvailabilityResult, type PublicFloor, type PublicMenu, type ReservationHoldResult, type ReservationView, INTL_LOCALE } from '@resuto/contracts';
 import { Notice, Skeleton } from '@resuto/ui';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { dateTime, money, pick } from '@/lib/format';
@@ -157,7 +157,7 @@ export default function ReservePage() {
                   const v = isoDay(d);
                   return (
                     <button key={v} type="button" aria-pressed={date === v} onClick={() => setDate(v)} style={{ minHeight: 64, borderRadius: 14, border: '1px solid var(--line)', display: 'grid' }}>
-                      <small>{new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', { weekday: 'short' }).format(d)}</small>
+                      <small>{new Intl.DateTimeFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { weekday: 'short' }).format(d)}</small>
                       <strong>{d.getDate()}</strong>
                     </button>
                   );

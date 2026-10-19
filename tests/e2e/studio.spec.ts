@@ -65,7 +65,7 @@ test('restaurant website renders in Arabic (RTL) and at 390 px', async ({ page, 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('طعام طيب. وأحاديث طويلة.');
   await expect(page).toHaveTitle('غرفة الزيتون · الزمالك');
   await expect(page.locator('.dish-card h3').first()).toHaveText('بوراتا مع الطماطم');
-  await expect(page.locator('.dish-card strong').first()).toContainText('١٤٥');
+  await expect(page.locator('.dish-card strong').first()).toContainText('145');
   await page.mouse.wheel(0, 6000);
   await expectNoHorizontalOverflow(page);
   expect(errors).toEqual([]);
