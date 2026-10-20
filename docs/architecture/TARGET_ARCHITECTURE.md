@@ -30,7 +30,7 @@ Customer web (Next.js)      Owner dashboard        Kitchen display      Driver w
         ┌───────────────────────────┼─────────────────────────────┐
    ai-service (FastAPI)      provider adapters             mcp-server (MCP SDK)
    forecasting, segments,    payments, WhatsApp, ads,      authenticates rmcp_ keys,
-   recommendations, routing  accounting, POS, tax          calls API @AllowMcp routes
+   recommendations, routing  accounting, POS, tax          calls the API MCP runtime
 ```
 
 ## Decisions

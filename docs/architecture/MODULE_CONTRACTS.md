@@ -25,8 +25,9 @@ the same change.
 5. **Validate every input with a Zod schema from `@resuto/contracts`** (`@Body(zod(schema))`).
 6. **Authorization is declarative**: `@RequirePermission(...)` on every tenant
    route (path contains `:orgId`), `@RequiresModule(...)` for paid modules,
-   `ctx.assertBranch(branchId)` for branch-scoped resources, `@AllowMcp()` only
-   on routes MCP clients may call, `@Public()` only for guest/webhook routes.
+   `ctx.assertBranch(branchId)` for branch-scoped resources, `@Public()` only for
+   guest/webhook routes. MCP keys reach only the MCP runtime (`@McpRuntime()`); expose
+   anything an AI client needs as an MCP tool, never as an MCP-callable REST route.
 7. **Mutations that clients may retry take an idempotency key** (`IdempotencyService.run`).
 8. **State changes emit audit logs and/or outbox events in the same transaction.**
 9. **Never fabricate.** Sandbox adapters are labelled `sandbox`/`simulated`;

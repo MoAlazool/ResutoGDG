@@ -181,7 +181,7 @@ Full API suite after integration and the defect fixes (`cd apps/api && npx vites
      contains the formatted amount, cited.
    - "sales in the last 7 days" → period today−6…today, with revenue and count equal to SQL.
 
-### S08 MCP (API `@AllowMcp` routes with an `rmcp_` key)
+### S08 MCP (API MCP runtime routes with an `rmcp_` key)
 1. The owner creates a client.
    - The key (`rmcp_…`) is returned once; only its sha256 is stored, and the list never shows it.
    - `whoami` resolves the tenant and the acting role.

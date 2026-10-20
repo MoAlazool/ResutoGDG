@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Res, UseFilters } from '@nestjs/com
 import type { McpWhoAmI } from '@resuto/contracts';
 import type { Response } from 'express';
 import type { AuthPrincipal, TenantContext } from '../../common/auth/context';
-import { AllowMcp, Principal, RequiresModule, Tenant } from '../../common/auth/decorators';
+import { McpRuntime, Principal, RequiresModule, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { EntitlementsService } from '../../common/entitlements/entitlements.service';
 import { DomainError } from '../../common/errors/domain-error';
@@ -17,16 +17,17 @@ const mcpOnly = (p: AuthPrincipal | undefined) => {
 /**
  * Endpoints called by the Resuto MCP server on behalf of an external AI client,
  * authenticated with the client's `rmcp_` key. Permissions are per tool (the
- * registry), so these routes carry @AllowMcp + @RequiresModule('mcp') and each
- * tool call is authorized inside McpExecutionService.
+ * registry), so this controller carries @McpRuntime (the only routes an MCP key
+ * may reach) + @RequiresModule('mcp') and each tool call is authorized inside
+ * McpExecutionService.
  */
 @Controller()
+@McpRuntime()
 @UseFilters(McpCallFilter)
 export class McpRuntimeController {
   constructor(private readonly exec: McpExecutionService, private readonly db: DbService, private readonly entitlements: EntitlementsService) {}
 
   @Get('mcp/whoami')
-  @AllowMcp()
   async whoami(@Principal() principal: AuthPrincipal): Promise<McpWhoAmI> {
     const p = mcpOnly(principal);
     await this.entitlements.assert(p.orgId, 'mcp');
@@ -38,7 +39,6 @@ export class McpRuntimeController {
   }
 
   @Get('o/:orgId/mcp/tools')
-  @AllowMcp()
   @RequiresModule('mcp')
   async tools(@Tenant() ctx: TenantContext, @Principal() principal: AuthPrincipal) {
     const p = mcpOnly(principal);
@@ -46,7 +46,6 @@ export class McpRuntimeController {
   }
 
   @Post('o/:orgId/mcp/tools/:tool')
-  @AllowMcp()
   @RequiresModule('mcp')
   async call(@Tenant() ctx: TenantContext, @Principal() principal: AuthPrincipal, @Param('tool') tool: string,
     @Body() body: { input?: unknown } | undefined, @Res({ passthrough: true }) res: Response) {

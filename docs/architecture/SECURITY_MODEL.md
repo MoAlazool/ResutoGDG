@@ -6,7 +6,7 @@
 |---|---|---|---|
 | Staff user (owner…driver) | Supabase Auth access token (JWT; HS256 secret or JWKS) | `AccessGuard` → `JwtService.verify` | `TenantContext` with membership role and branch scope |
 | Platform admin | Supabase JWT + row in `platform_admins` | `@PlatformAdmin()` routes only | platform context, every action audited |
-| MCP client | `rmcp_…` key (sha256 stored), scoped to one org, a non-owner acting role, optional branch list and tool allow-list | `AccessGuard.resolveMcp` | `TenantContext` (`actorType = mcp_client`), only `@AllowMcp()` routes, per-client rate limit |
+| MCP client | `rmcp_…` key (sha256 stored), scoped to one org, a non-owner acting role, optional branch list and tool allow-list | `AccessGuard.resolveMcp` | `TenantContext` (`actorType = mcp_client`), only the MCP runtime (`@McpRuntime()`: whoami, tool list, tool calls), so every action passes the tool allow-list, approvals, limits and audit; per-client rate limit |
 | Guest | random bearer tokens for a visit, bill share, ordering session, checkout session or reservation (sha256 stored) | each public endpoint | tenant context resolved from the token |
 | Provider webhook | provider signature (HMAC / provider scheme) | webhook controller before parsing | tenant resolved from provider ids, `TenantContext.system` |
 | Worker job | none (in-process) | — | `TenantContext.system(orgId)` per tenant |
