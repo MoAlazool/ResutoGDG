@@ -82,7 +82,7 @@ export default function OrdersPage() {
       </div>
       {list.error && <Notice tone="danger">{list.error.message}</Notice>}
       {list.loading && !list.data ? <Skeleton lines={6} /> : (
-        <DataTable rows={list.data?.items ?? []} rowKey={(o) => o.id} onRowClick={(o) => setSelected(o.id)}
+        <DataTable rows={list.data?.items ?? []} rowKey={(o) => o.id} onRowClick={(o) => setSelected(o.id)} busy={list.pending}
           empty={<EmptyState title={t('core.orders.empty')}>{t('core.orders.emptyHint')}</EmptyState>}
           columns={[
             { key: 'n', header: '#', render: (o) => <strong>#{o.number}</strong> },

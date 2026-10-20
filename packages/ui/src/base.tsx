@@ -146,12 +146,14 @@ export function TextareaField({ label, hint, error, ...ta }: FieldProps & Textar
 }
 
 export interface Column<T> { key: string; header: ReactNode; render: (row: T) => ReactNode; align?: 'start' | 'end' }
-export function DataTable<T>({ rows, columns, rowKey, empty, onRowClick }: {
+export function DataTable<T>({ rows, columns, rowKey, empty, onRowClick, busy }: {
   rows: T[]; columns: Column<T>[]; rowKey: (row: T) => string; empty?: ReactNode; onRowClick?: (row: T) => void;
+  /** The rows belong to the previous filter/page while the new result loads (useApi().pending): dimmed + aria-busy. */
+  busy?: boolean;
 }) {
-  if (!rows.length) return <div className="card">{empty ?? <EmptyState title="Nothing here yet" />}</div>;
+  if (!rows.length) return <div className="card" aria-busy={busy || undefined}>{empty ?? <EmptyState title="Nothing here yet" />}</div>;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" aria-busy={busy || undefined} data-busy={busy || undefined}>
       <table className="data">
         <thead><tr>{columns.map((c) => <th key={c.key} style={{ textAlign: c.align === 'end' ? 'end' : 'start' }}>{c.header}</th>)}</tr></thead>
         <tbody>

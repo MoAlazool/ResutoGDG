@@ -13,6 +13,7 @@
 //  signOutClears    – per-user localStorage keys after sign-out
 //  notFound         – /no-such-page status, language and branding in Arabic
 //  chromeFirst      – time until the sidebar is visible vs. until page data rendered (API delayed 600 ms)
+//  filterPending    – orders filter change with the API delayed 1.5 s: are the previous rows marked busy?
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -155,6 +156,26 @@ if (want('chromeFirst')) {
   const sidebar = await page.locator('aside nav a').first().waitFor({ timeout: 15000 }).then(() => Date.now() - t0, () => null);
   const table = await page.locator('main table, main [data-loaded]').first().waitFor({ timeout: 15000 }).then(() => Date.now() - t0, () => null);
   res.chromeFirst = { sidebarVisibleMs: sidebar, pageDataMs: table };
+  await ctx.close();
+}
+
+if (want('filterPending')) {
+  const ctx = await ctxWith(TOKEN);
+  const page = await ctx.newPage();
+  await page.goto(WEB + D + '/orders', { waitUntil: 'networkidle' });
+  await page.locator('main table').first().waitFor({ timeout: 15000 }).catch(() => {});
+  const rowsBefore = await page.locator('main table tbody tr').count();
+  await page.route(/\/v1\/o\/[^/]+\/orders\?/, async (route) => { await new Promise((r2) => setTimeout(r2, 1500)); return route.continue(); });
+  const t0 = Date.now();
+  await page.locator('main select').filter({ has: page.locator('option[value="active"]') }).first().selectOption('');
+  await page.waitForTimeout(300);
+  const busyDuring = await page.locator('main .table-wrap[aria-busy="true"]').count();
+  const dimmed = await page.locator('main .table-wrap[data-busy] tbody').evaluate((el) => getComputedStyle(el).opacity).catch(() => null);
+  await page.locator('main .table-wrap[aria-busy="true"]').first().waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+  const settledMs = Date.now() - t0;
+  const busyAfter = await page.locator('main .table-wrap[aria-busy="true"]').count();
+  const rowsAfter = await page.locator('main table tbody tr').count();
+  res.filterPending = { rowsBefore, busyDuring, tbodyOpacityDuring: dimmed, settledMs, busyAfter, rowsAfter };
   await ctx.close();
 }
 

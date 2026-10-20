@@ -11,6 +11,11 @@ export interface ApiState<T> {
   loading: boolean;
   /** True while a background refresh runs and the current data stays visible. */
   refreshing: boolean;
+  /**
+   * True while the PREVIOUS filter's or page's result is shown because the new one is still loading: mark the list
+   * busy (DataTable `busy`) so stale rows are not mistaken for the new result. Background polls never set it.
+   */
+  pending: boolean;
   /** When `data` was fetched (ms epoch), 0 when unknown. */
   updatedAt: number;
   reload(): Promise<void>;
@@ -100,6 +105,7 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
     error,
     loading: !!path && data === undefined && !error,
     refreshing: data !== undefined && (inflight || (entry?.data === undefined && sameResource)),
+    pending: data !== undefined && entry?.data === undefined && sameResource,
     updatedAt: entry?.updatedAt ?? 0,
     reload: async () => { if (key) await queryCache.refetch(key, fetcher).then(() => undefined, () => undefined); },
     setData: (next: T) => { if (key) queryCache.set(key, next); },

@@ -34,7 +34,7 @@ export default function CustomersPage() {
     q: filters.q, tag: filters.tag.trim().toLowerCase(), consent: filters.consent, lastOrderBefore: filters.lastOrderBefore, lastOrderAfter: filters.lastOrderAfter,
     minOrders: filters.minOrders, minSpendMinor: filters.minSpend ? Math.round(Number(filters.minSpend) * 100) : undefined, branchId: filters.branchId, sort: filters.sort,
   };
-  const { data, error, loading, reload } = useApi<Page>(`/o/${org.id}/customers${qs({ ...params, limit: 50, cursor })}`);
+  const { data, error, loading, pending, reload } = useApi<Page>(`/o/${org.id}/customers${qs({ ...params, limit: 50, cursor })}`);
   const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) => setDraft({ ...draft, [k]: e.target.value });
   const exportCsv = useAction(async () => {
     const res = await fetch(`${API_URL}/v1/o/${org.id}/customers/export.csv${qs(params)}`, { headers: { Authorization: `Bearer ${session.token}` } });
@@ -92,7 +92,7 @@ export default function CustomersPage() {
       <LoadError error={error} retry={reload} />
       {loading && !data ? <div className="card"><Skeleton lines={6} /></div> : data && (
         <>
-          <DataTable rows={data.items} rowKey={(c) => c.id} onRowClick={(c) => router.push(`/dashboard/${org.id}/customers/${c.id}`)}
+          <DataTable rows={data.items} rowKey={(c) => c.id} onRowClick={(c) => router.push(`/dashboard/${org.id}/customers/${c.id}`)} busy={pending}
             empty={<EmptyState title={filtered ? t('insights.customers.noMatch') : t('insights.customers.none')}>{!filtered && t('insights.customers.noneHint')}</EmptyState>} columns={[
               { key: 'name', header: t('insights.customers.name'), render: (c) => (
                 <Link href={`/dashboard/${org.id}/customers/${c.id}`} onClick={(e) => e.stopPropagation()}>{c.displayName ? <UserText>{c.displayName}</UserText> : <span className="muted">{t('insights.customers.unnamed')}</span>}</Link>) },
