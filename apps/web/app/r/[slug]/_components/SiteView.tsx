@@ -6,7 +6,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { PublicSite, PublicSiteSection } from '@resuto/contracts';
 import { DishImage as PublicDishImage } from '@/components/public/DishImage';
 import { LanguageToggle } from '@/lib/i18n/client';
-import { acceptsOrders, acceptsReservations, clock, DAY_KEYS, loc, openingHours, pickName, price, type SiteLocale, type T } from './site-utils';
+import { acceptsOrders, acceptsReservations, clock, DAY_KEYS, heroCopy, loc, openingHours, pickName, price, showsDemoStory, type SiteLocale, type T } from './site-utils';
 import './site.css';
 
 type Section = PublicSiteSection;
@@ -123,27 +123,10 @@ function Ctas({ ctx, s, smash }: { ctx: Ctx; s: Section; smash?: boolean }) {
   );
 }
 
-/**
- * The olive template's own hero copy (legacy guest home), used until the owner writes a headline. A new restaurant's
- * hero starts with its name as the headline, which the template treats as "not written yet"; the name then shows as
- * the eyebrow, as on the legacy page.
- */
-function heroCopy(s: Section, ctx: Ctx) {
-  const { site, locale, t } = ctx;
-  const name = pickName(locale, site.org.name, site.org.nameAr);
-  const written = loc(s.content.headline, locale);
-  const isDefault = !written || [site.org.name, site.org.nameAr].filter(Boolean).includes(written);
-  return {
-    eyebrow: loc(s.content.eyebrow, locale) || name,
-    headline: isDefault && site.template === 'olive' ? t('studio.site.tpl.headline') : written || name,
-    body: loc(s.content.body, locale) || (isDefault && site.template === 'olive' ? t('studio.site.tpl.body') : ''),
-  };
-}
-
 function OliveHero({ s, ctx }: { s: Section; ctx: Ctx }) {
   const { site } = ctx;
   const img = s.content.media?.url ?? site.theme.heroUrl;
-  const copy = heroCopy(s, ctx);
+  const copy = heroCopy(s, ctx.site, ctx.locale, ctx.t);
   return (
     <section className={`restaurant-editorial${img ? '' : ' no-photo'}`} aria-labelledby={`h-${s.id}`}>
       {/* Without a photo the template draws its own backdrop (site.css .no-photo), never another restaurant's room. */}
@@ -203,8 +186,10 @@ function DishImage({ url, name, englishName }: { url: string | null; name: strin
 }
 
 /**
- * Menu highlights in the olive template, as the legacy guest home showed them: the "Dinner, without the back-and-forth."
- * story beside the first dish photo, then the dishes (photo, name, price). The minimal template keeps descriptions.
+ * Menu highlights in the olive template, as the legacy guest home showed them: the dishes (photo, name, price). The
+ * demo restaurant also gets the legacy "Dinner, without the back-and-forth." story beside the first dish photo; that
+ * is demo copy, not an owner-editable section, so other restaurants never see words they did not write. The minimal
+ * template keeps descriptions.
  */
 function OliveMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
   const { site, locale, t } = ctx;
@@ -213,7 +198,7 @@ function OliveMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
   const lead = site.menuHighlights.find((m) => m.imageUrl);
   return (
     <>
-      {olive && acceptsOrders(site) && lead && (
+      {olive && showsDemoStory(site) && lead && (
         <section className="consumer-main restaurant-introduction" aria-labelledby={`h-${s.id}-story`}>
           <div>
             <span className="overline">{pickName(locale, site.org.name, site.org.nameAr)}</span>
