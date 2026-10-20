@@ -39,9 +39,11 @@ const MANUAL_PROVIDERS: Record<string, PaymentMethodKey> = { instapay: 'instapay
  * Which providers and methods a branch can take, honouring PAYMENT_MODE:
  * sandbox → only the simulated provider and sandbox-environment connections;
  * live → only live connections (the simulated provider is disabled).
- * New checkouts use only ENABLED, healthy connections (INT-07); webhooks,
- * status checks and refunds for existing payments still resolve their own
- * connection while it is disabled, so money already in flight is accounted for.
+ * New checkouts use only ENABLED, healthy connections (INT-07). Webhooks,
+ * status checks and refunds for existing payments resolve their own connection
+ * whatever its health or enabled flag says — only revoked/missing credentials or
+ * the other environment stop them — so money already in flight is accounted for
+ * even while a health check failed or the provider had an outage.
  * Credentials are read in tenant context (member sessions cannot select them).
  */
 @Injectable()
@@ -140,6 +142,11 @@ export class PaymentProvidersService {
    * Integrations module with AAD "<orgId>:<provider>" (INT-04). Rows written by
    * an older fixture path without AAD are still readable once and are re-sealed
    * with the AAD in the same call, so they migrate on first use.
+   *
+   * Payments: health status never gates this. A transient health failure (or a
+   * pending re-check after "Edit settings") must not reject genuine signed
+   * webhooks, status queries or refunds of payments already taken; selecting
+   * connections for NEW checkouts is done by connections()/resolve() instead.
    */
   async credentials(orgId: string, connectionId: string | null): Promise<null | ConnectionCredentials> {
     if (!connectionId) return null;
@@ -147,11 +154,11 @@ export class PaymentProvidersService {
       const c = await tx.maybeOne<any>(
         `select id, org_id, provider, category, environment, status, enabled, credentials_encrypted, config from integration_connections
           where id = $1 and org_id = $2 and category in ('payments', 'accounting')`, [connectionId, orgId]);
-      if (!c || !c.credentials_encrypted || !['connected', 'sandbox'].includes(c.status)) return null;
+      if (!c || !c.credentials_encrypted || c.status === 'revoked') return null;
       if (c.category === 'payments' && (this.mode === 'sandbox') !== (c.environment === 'sandbox')) return null;
-      // INT-07: a disabled accounting connection pushes nothing. Disabled PAYMENT connections still verify webhooks,
-      // answer status queries and refund their existing payments (new checkouts never use them — see connections()).
-      if (c.category === 'accounting' && !c.enabled) return null;
+      // INT-07: a disabled or unverified accounting connection pushes nothing. Disabled PAYMENT connections still verify
+      // webhooks, answer status queries and refund their existing payments (new checkouts never use them — see connections()).
+      if (c.category === 'accounting' && (!c.enabled || !['connected', 'sandbox'].includes(c.status))) return null;
       const credentials = await this.open(tx, c);
       if (!credentials) return null;
       return { connectionId: c.id, provider: c.provider, category: c.category, environment: c.environment, status: c.status, enabled: c.enabled, credentials, config: c.config ?? {} };

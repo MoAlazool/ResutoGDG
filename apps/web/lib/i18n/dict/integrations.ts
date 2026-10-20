@@ -72,6 +72,7 @@ export const integrations = {
     'intg.diag.lastSuccess': 'Last successful check', 'intg.diag.lastFailure': 'Last failed check', 'intg.diag.lastWebhook': 'Last verified webhook',
     'intg.diag.never': 'Never', 'intg.diag.error': 'Last error', 'intg.diag.errorCode': 'Error code',
     'intg.diag.healthOk': 'Healthy', 'intg.diag.healthFailed': 'Failing', 'intg.diag.healthUnknown': 'Not checked yet',
+    'intg.diag.healthUnreachable': 'Provider unreachable at the last check (status unchanged; checked again automatically)',
     'intg.diag.settings': 'Settings',
     // Edit / reconnect (INT-06)
     'intg.action.updateCredentials': 'Update credentials',
@@ -151,6 +152,7 @@ export const integrations = {
     'intg.diag.lastSuccess': 'آخر فحص ناجح', 'intg.diag.lastFailure': 'آخر فحص فاشل', 'intg.diag.lastWebhook': 'آخر ويب هوك مُتحقق منه',
     'intg.diag.never': 'لم يحدث', 'intg.diag.error': 'آخر خطأ', 'intg.diag.errorCode': 'رمز الخطأ',
     'intg.diag.healthOk': 'سليم', 'intg.diag.healthFailed': 'يفشل', 'intg.diag.healthUnknown': 'لم يُفحص بعد',
+    'intg.diag.healthUnreachable': 'تعذّر الوصول إلى المزود في آخر فحص (لم تتغير الحالة؛ سيُعاد الفحص تلقائيًا)',
     'intg.diag.settings': 'الإعدادات',
     'intg.action.updateCredentials': 'تحديث بيانات الاعتماد',
     'intg.action.editSettings': 'تعديل الإعدادات',

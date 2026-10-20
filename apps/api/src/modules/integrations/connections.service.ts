@@ -23,8 +23,14 @@ export const SAFE_COLUMNS = `id, org_id, branch_id, provider, category, auth_typ
 /** AAD every connection's credentials are sealed with (INT-04: payments and accounting read them with the same AAD). */
 export const credentialsAad = (orgId: string, provider: string) => `${orgId}:${provider}`;
 
-/** Health checks run every 6 hours per connection; failing ones back off to 12 hours (FT-26, INT-17). */
-export const HEALTH_INTERVAL_HOURS = { ok: 6, failing: 12 } as const;
+/**
+ * Health checks run every 6 hours per connection; failing ones back off to 12 hours (FT-26, INT-17). Connections
+ * still waiting for their first successful check (pending, e.g. after a transient error right after setup) retry hourly.
+ */
+export const HEALTH_INTERVAL_HOURS = { ok: 6, failing: 12, pending: 1 } as const;
+
+/** A provider failure that says nothing about the credentials (network, timeout, 5xx, 429): it never changes a connection's status. */
+export const isTransientProviderFailure = (e: unknown) => e instanceof ProviderError && e.retryable;
 
 /**
  * Structured, redacted diagnostics from a provider failure (INT-17): HTTP status, retryability, a short message
@@ -298,6 +304,7 @@ export class IntegrationConnectionsService {
     let error: string | null = null;
     let account: Record<string, unknown> | null = null;
     let outcome: 'success' | 'failure' | null = null;
+    let keepError = false;
     if (!adapter?.healthCheck) {
       health = { ok: null, note: 'This provider has no health check yet' };
     } else {
@@ -316,50 +323,66 @@ export class IntegrationConnectionsService {
         outcome = ok ? 'success' : 'failure';
       } catch (e) {
         const d = redactedError(e);
-        error = d.message;
-        health = { ok: false, error: d };
-        status = 'error';
         outcome = 'failure';
+        if (isTransientProviderFailure(e)) {
+          // The provider could not answer (outage, timeout, rate limit). That is no evidence about the credentials:
+          // keep the status (and last_error) and record the failure in health and last_failure_at only. Payments in
+          // flight never depend on this anyway (PaymentProvidersService.credentials does not gate on health).
+          health = { ok: false, transient: true, error: d };
+          keepError = true;
+        } else {
+          error = d.message;
+          health = { ok: false, error: d };
+          status = 'error';
+        }
         if (e instanceof ProviderError && e.status === 429) await this.markRateLimited(orgId, id, e.retryAfterMs);
       }
     }
     return this.db.withTenant(orgId, async (tx) => {
       await tx.query(
-        `update integration_connections set health = $2, status = $3::integration_status, last_error = $4, last_health_check_at = now(),
+        `update integration_connections set health = $2, status = $3::integration_status,
+            last_error = case when $7 then last_error else $4 end, last_health_check_at = now(),
             last_success_at = case when $5 = 'success' then now() else last_success_at end,
             last_failure_at = case when $5 = 'failure' then now() else last_failure_at end,
             account_identity = case when $6::jsonb is not null then account_identity || $6::jsonb else account_identity end
           where id = $1`,
-        [id, { ...health, checkedAt: new Date().toISOString() }, status, error, outcome, account ? JSON.stringify(account) : null]);
-      await this.log(tx, orgId, id, error ? 'error' : 'info', error ? `Health check failed: ${error}` : 'Health check passed', { ...health, ...(account ? { account } : {}) });
+        [id, { ...health, checkedAt: new Date().toISOString() }, status, error, outcome, account ? JSON.stringify(account) : null, keepError]);
+      const failed = error !== null || keepError;
+      await this.log(tx, orgId, id, keepError ? 'warn' : failed ? 'error' : 'info',
+        keepError ? `Health check could not reach the provider (status kept): ${(health.error as { message: string }).message}`
+          : failed ? `Health check failed: ${error}` : 'Health check passed', { ...health, ...(account ? { account } : {}) });
       return this.view(await tx.one(`select ${SAFE_COLUMNS} from integration_connections where id = $1`, [id]));
     }, actor);
   }
 
   /**
-   * Worker: re-checks enabled connections every 6 h (12 h while failing), skipping rate-limited ones, so a revoked
-   * key or a suspended account shows up before a guest hits it (INT-17, FT-26).
+   * Worker: re-checks enabled connections every 6 h (12 h while failing, hourly while still pending), skipping
+   * rate-limited ones, so a revoked key or a suspended account shows up before a guest hits it, and a connection
+   * whose check hit a provider outage is verified again without anyone pressing "Check" (INT-17, FT-26).
    */
   @Scheduled('integrations.health', 900)
-  async scheduledHealth(now = new Date()) {
+  async scheduledHealth(now = new Date(), scope: { orgId?: string } = {}) {
     const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; provider: string }>(
       `select id, org_id, provider from integration_connections
-        where enabled and status in ('connected', 'error') and credentials_encrypted is not null
+        where enabled and status in ('connected', 'error', 'pending') and credentials_encrypted is not null
+          and ($5::uuid is null or org_id = $5::uuid)
           and (rate_limit->>'limitedUntil' is null or (rate_limit->>'limitedUntil')::timestamptz < $1)
-          and (last_health_check_at is null or last_health_check_at < $1::timestamptz - make_interval(hours => case when status = 'error' then $2 else $3 end))
-        order by last_health_check_at nulls first limit 50`, [now, HEALTH_INTERVAL_HOURS.failing, HEALTH_INTERVAL_HOURS.ok]));
-    let checked = 0, failed = 0;
+          and (last_health_check_at is null or last_health_check_at < $1::timestamptz - make_interval(hours => case status when 'error' then $2::int when 'pending' then $4::int else $3::int end))
+        order by last_health_check_at nulls first limit 50`,
+      [now, HEALTH_INTERVAL_HOURS.failing, HEALTH_INTERVAL_HOURS.ok, HEALTH_INTERVAL_HOURS.pending, scope.orgId ?? null]));
+    let checked = 0, failed = 0, unreachable = 0;
     for (const c of due) {
       if (!adapterFor(c.provider)?.healthCheck) continue;
       try {
         const v = await this.runHealth(c.org_id, c.id, 'integrations:health');
         checked++;
         if (v.status === 'error') failed++;
+        else if ((v.health as { transient?: boolean })?.transient) unreachable++;
       } catch (e) {
         this.logger.warn(`scheduled health ${c.id}: ${(e as Error).message}`);
       }
     }
-    return { checked, failed };
+    return { checked, failed, unreachable };
   }
 
   // ---------------------------------------------------------------------------

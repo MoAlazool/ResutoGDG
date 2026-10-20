@@ -391,7 +391,7 @@ function ConnectionDetail({ connection, spec, onClose }: { connection: Connectio
   const runs = useApi<{ items: Array<{ id: string; status: string; attempt: number; stats: any; error: string | null; startedAt: string }> }>(
     connection.category === 'pos' ? `/o/${org.id}/integrations/connections/${connection.id}/sync-runs` : null);
   const logs = useApi<{ items: Array<{ id: number; level: string; message: string; createdAt: string }> }>(`/o/${org.id}/integrations/connections/${connection.id}/logs?limit=30`);
-  const health = (connection.health ?? {}) as { ok?: boolean | null; error?: { code?: string; message?: string } | string };
+  const health = (connection.health ?? {}) as { ok?: boolean | null; transient?: boolean; error?: { code?: string; message?: string } | string };
   const when = (v: string | null | undefined) => (v ? dateTime(v, locale) : t('intg.diag.never'));
   const account = connection.account ?? null;
   const accountText = account ? [account.name, account.id, account.country].filter(Boolean).join(' · ') : null;
@@ -401,8 +401,8 @@ function ConnectionDetail({ connection, spec, onClose }: { connection: Connectio
       <div className="stack">
         <h3 style={{ margin: 0 }}>{t('intg.diag.title')}</h3>
         <KeyValueList items={[
-          { key: 'h', label: t('connect.int.health'), value: <Badge tone={health.ok === true ? 'ok' : health.ok === false ? 'danger' : 'neutral'}>
-            {health.ok === true ? t('intg.diag.healthOk') : health.ok === false ? t('intg.diag.healthFailed') : t('intg.diag.healthUnknown')}</Badge> },
+          { key: 'h', label: t('connect.int.health'), value: <Badge tone={health.ok === true ? 'ok' : health.ok === false ? (health.transient ? 'warn' : 'danger') : 'neutral'}>
+            {health.ok === true ? t('intg.diag.healthOk') : health.ok === false ? t(health.transient ? 'intg.diag.healthUnreachable' : 'intg.diag.healthFailed') : t('intg.diag.healthUnknown')}</Badge> },
           ...(accountText ? [{ key: 'acc', label: t('intg.diag.account'), value: <bdi dir="ltr">{accountText}</bdi> }] : []),
           ...(account?.webhookAccountName ? [{ key: 'wacc', label: t('intg.diag.accountWebhook'), value: <bdi>{account.webhookAccountName}</bdi> }] : []),
           { key: 'ls', label: t('intg.diag.lastSuccess'), value: when(connection.lastSuccessAt) },
