@@ -29,6 +29,19 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/*
+ * Caching (audit PCL-27). The HTML of this page, /pricing and /r/<slug> is rendered per request and sent
+ * `private, no-store`, deliberately:
+ *  - every response embeds the middleware's per-request CSP script nonce (PS-17, lib/csp.ts); a CDN copy would
+ *    replay one nonce to every visitor and so defeat the policy, and Next only applies nonces when rendering dynamically;
+ *  - the language comes from the resuto_locale cookie or ?lang (VP-16), read by the root layout, so one URL serves
+ *    two documents.
+ * What is expensive is cached instead: the plan list and the demo floor below (5 minutes) and the restaurant site
+ * (30 s, tag site:<slug>, purged on publish) come from Next's data cache, so a render costs no API round trip.
+ * Making the HTML itself shareable needs the locale in the path (/ar/...) and a hash-based CSP for these pages; that
+ * is a routing change across every public page, not part of this pass.
+ */
+
 /**
  * Public plan prices for the pricing teaser. Prices are data owned by the
  * billing module; if its public endpoint is unavailable the teaser links to
