@@ -44,8 +44,14 @@ const backoffSeconds = (attempt: number) => Math.min(30 * 2 ** (attempt - 1), 36
 const TRANSACTIONAL = /^(order|delivery|reservation|payment|ordering|bot|staff|handoff|system)/;
 /** Sender fairness (PCL-12): messages per organization per run; transactional (priority 0) before marketing (1). */
 export const SENDER_PER_ORG = 25;
-/** Lease on a claimed message; a send (15 s adapter timeout) always finishes well inside it. */
+/**
+ * Lease on a claimed message. The claim writes it into next_attempt_at, and the preparation step renews it (compare
+ * and set on the claimed value) immediately before the provider call, so the send (15 s adapter timeout, no retries
+ * inside the adapter) always runs inside a lease that is at least this long, however long the run took to reach it.
+ */
 const LEASE = `interval '2 minutes'`;
+/** Attempts to record a send the provider accepted before giving up (a failed record is never treated as a failed send). */
+const RECORD_ATTEMPTS = 3;
 
 /**
  * Next attempt delay in ms (PCL-12): the provider's Retry-After when it sent one, else exponential backoff; both get
@@ -61,9 +67,9 @@ const priorityOf = (reason?: string) => (reason && !TRANSACTIONAL.test(reason) ?
 
 type Prepared =
   | { kind: 'skip' }
-  | { kind: 'fail'; attempt: number; error: string; retryable: boolean; connectionId?: string; detail?: string }
-  | { kind: 'defer'; until: Date }
-  | { kind: 'send'; attempt: number; conv: ConversationRow; conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>; content: OutboundContent };
+  | { kind: 'fail'; lease: string; attempt: number; error: string; retryable: boolean; connectionId?: string; detail?: string }
+  | { kind: 'defer'; lease: string; until: Date }
+  | { kind: 'send'; lease: string; attempt: number; conv: ConversationRow; conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>; content: OutboundContent };
 
 export function windowState(lastInboundAt: Date | string | null | undefined) {
   const last = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
@@ -251,32 +257,41 @@ export class MessagingService implements MessagingPort {
   }
 
   /**
-   * One claimed message, in three steps (PCL-11): (1) a short transaction reads the message, conversation and
-   * credentials; (2) the provider call runs outside any transaction, holding no database connection; (3) a short
-   * transaction records the outcome, only if the message still carries this run's lease. A credential that is
-   * missing or cannot be decrypted fails the message for good (it used to retry every 2 minutes forever).
+   * One claimed message, in three steps (PCL-11): (1) a short transaction renews the lease and reads the message,
+   * conversation and credentials; (2) the provider call runs outside any transaction, holding no database
+   * connection; (3) a short transaction records the outcome, only if the message still carries the renewed lease.
+   * A credential that is missing or cannot be decrypted fails the message for good (it used to retry every 2
+   * minutes forever).
+   *
+   * The renewal is the fence against double sends: it is a compare-and-set on the value this run claimed. If the
+   * claim had already run out and another run re-claimed the message, the value differs and this run skips it; if
+   * this run renews first, next_attempt_at moves a full LEASE into the future and no other claim can take the
+   * message while the (time-bounded) provider call is in flight.
    */
-  private async sendOne(orgId: string, messageId: string, lease: string): Promise<'sent' | 'failed' | 'retry'> {
+  private async sendOne(orgId: string, messageId: string, claimed: string): Promise<'sent' | 'failed' | 'retry'> {
     const prep = await this.db.withTenant(orgId, async (tx): Promise<Prepared> => {
       const m = await tx.maybeOne<any>(
-        `select id, conversation_id, payload, attempts from messages where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz`,
-        [messageId, lease]);
+        `update messages set next_attempt_at = now() + ${LEASE}
+          where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz
+          returning id, conversation_id, payload, attempts, next_attempt_at::text as lease`,
+        [messageId, claimed]);
       if (!m) return { kind: 'skip' };
+      const lease: string = m.lease;
       const attempt = m.attempts + 1;
       const conv = await this.conversation(tx, m.conversation_id);
-      if (!conv?.connection_id || !conv.phone_number_id) return { kind: 'fail', attempt, error: 'channel has no WhatsApp connection', retryable: false };
+      if (!conv?.connection_id || !conv.phone_number_id) return { kind: 'fail', lease, attempt, error: 'channel has no WhatsApp connection', retryable: false };
       let conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>;
       try {
         conn = await this.connections.loadInTx(tx, conv.connection_id);
       } catch (e) {
-        return { kind: 'fail', attempt, error: 'whatsapp_connection_unavailable', retryable: false, connectionId: conv.connection_id, detail: (e as Error).message };
+        return { kind: 'fail', lease, attempt, error: 'whatsapp_connection_unavailable', retryable: false, connectionId: conv.connection_id, detail: (e as Error).message };
       }
-      if (!conn.enabled || conn.status === 'revoked') return { kind: 'fail', attempt, error: 'WhatsApp connection is disabled or revoked', retryable: false };
+      if (!conn.enabled || conn.status === 'revoked') return { kind: 'fail', lease, attempt, error: 'WhatsApp connection is disabled or revoked', retryable: false };
       const rl = await tx.maybeOne<{ until: Date | null }>(
         `select (rate_limit->>'limitedUntil')::timestamptz as until from integration_connections where id = $1`, [conn.id]);
-      if (rl?.until && new Date(rl.until).getTime() > Date.now()) return { kind: 'defer', until: new Date(rl.until) };
+      if (rl?.until && new Date(rl.until).getTime() > Date.now()) return { kind: 'defer', lease, until: new Date(rl.until) };
       const { sandbox: _s, reason: _r, ...content } = m.payload ?? {};
-      return { kind: 'send', attempt, conv, conn, content: content as OutboundContent };
+      return { kind: 'send', lease, attempt, conv, conn, content: content as OutboundContent };
     }, 'connect.sender');
 
     if (prep.kind === 'skip') return 'sent'; // already handled by another run
@@ -284,23 +299,16 @@ export class MessagingService implements MessagingPort {
       // The connection is paused after a 429: wait for it without spending an attempt.
       await this.db.withTenant(orgId, (tx) => tx.query(
         `update messages set next_attempt_at = $3 where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz`,
-        [messageId, lease, new Date(prep.until.getTime() + Math.round(Math.random() * 5000))]), 'connect.sender');
+        [messageId, prep.lease, new Date(prep.until.getTime() + Math.round(Math.random() * 5000))]), 'connect.sender');
       return 'retry';
     }
+    const lease = prep.lease;
     if (prep.kind === 'fail') return this.recordFailure(orgId, messageId, lease, prep.attempt, prep.error, prep.retryable, undefined, prep);
 
+    let res: { messageId: string };
     try {
-      const res = await whatsappCloudAdapter.send({ ...prep.conn.adapter, config: { ...prep.conn.adapter.config, phoneNumberId: prep.conv.phone_number_id } },
+      res = await whatsappCloudAdapter.send({ ...prep.conn.adapter, config: { ...prep.conn.adapter.config, phoneNumberId: prep.conv.phone_number_id } },
         this.providerPayload(prep.conv, prep.content));
-      const recorded = await this.db.withTenant(orgId, async (tx) => {
-        const row = await tx.maybeOne(
-          `update messages set status = 'sent', provider_message_id = $3, attempts = $4, error = null, next_attempt_at = null
-            where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz returning id`, [messageId, lease, res.messageId, prep.attempt]);
-        if (row) await tx.query(`update campaign_deliveries set status = 'sent', sent_at = now() where message_id = $1`, [messageId]);
-        return !!row;
-      }, 'connect.sender');
-      if (!recorded) this.logger.warn(`message ${messageId} was sent but its lease had moved on; status not recorded by this run`);
-      return 'sent';
     } catch (e) {
       if (e instanceof ProviderError) {
         if (e.status === 429) await this.connections.markRateLimited(orgId, prep.conn.id, e.retryAfterMs).catch(() => undefined);
@@ -308,6 +316,35 @@ export class MessagingService implements MessagingPort {
       }
       return this.recordFailure(orgId, messageId, lease, prep.attempt, `send failed: ${(e as Error).message}`, true);
     }
+    // The provider accepted the message. From here on nothing may classify it as a failed send (that would requeue
+    // and send it again): a failing record is retried, and if it still fails the lease is left in place and logged.
+    await this.recordSent(orgId, messageId, lease, res.messageId, prep.attempt);
+    return 'sent';
+  }
+
+  /** Step 3 for an accepted send. Returns whether the row was updated; never throws. */
+  async recordSent(orgId: string, messageId: string, lease: string, providerMessageId: string, attempt: number, attempts = RECORD_ATTEMPTS): Promise<boolean> {
+    for (let i = 1; i <= attempts; i++) {
+      try {
+        const recorded = await this.db.withTenant(orgId, async (tx) => {
+          const row = await tx.maybeOne(
+            `update messages set status = 'sent', provider_message_id = $3, attempts = $4, error = null, next_attempt_at = null
+              where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz returning id`, [messageId, lease, providerMessageId, attempt]);
+          if (row) await tx.query(`update campaign_deliveries set status = 'sent', sent_at = now() where message_id = $1`, [messageId]);
+          return !!row;
+        }, 'connect.sender');
+        if (!recorded) this.logger.warn(`message ${messageId} was sent (${providerMessageId}) but its lease had moved on; status not recorded by this run`);
+        return recorded;
+      } catch (e) {
+        if (i === attempts) {
+          this.logger.error(`message ${messageId} was sent (${providerMessageId}) but recording it failed ${attempts} times: ${(e as Error).message}. `
+            + 'The lease is left in place; the message may be sent again only if the database stays unavailable past it.');
+          return false;
+        }
+        await new Promise((r) => setTimeout(r, 200 * 2 ** (i - 1)));
+      }
+    }
+    return false;
   }
 
   private async recordFailure(orgId: string, messageId: string, lease: string, attempt: number, error: string, retryable: boolean,

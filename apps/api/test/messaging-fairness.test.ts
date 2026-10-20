@@ -3,9 +3,12 @@
 // - an unusable credential fails the message once (it used to retry every 2 minutes forever);
 // - retries honour Retry-After and are jittered;
 // - campaigns are dispatched in chunks of one transaction each; resumed or concurrent runs never message anyone twice.
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { whatsappCloudAdapter } from '@resuto/integrations';
+import { DbService } from '../src/common/db/db.service';
 import { CAMPAIGN_CHUNK, CampaignsService } from '../src/modules/marketing/campaigns.service';
 import { MessagingService, retryDelayMs } from '../src/modules/connect/messaging.service';
+import { IntegrationConnectionsService } from '../src/modules/integrations/connections.service';
 import { auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant } from './helpers';
 
 let t: TestApp;
@@ -80,6 +83,112 @@ describe('sender fairness and retries (PCL-12)', () => {
     expect(retryDelayMs(10, undefined, () => 0.5)).toBe(3600_000);
     expect(retryDelayMs(1, 120_000, () => 0)).toBe(120_000); // never earlier than the provider asked
     expect(retryDelayMs(1, 120_000, () => 1)).toBe(144_000);
+  });
+});
+
+describe('sender lease fence and record step (PCL-11 review)', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  /** A Cloud API conversation whose connection loads fine (credentials mocked), with one queued message. */
+  async function sendable(contact: string) {
+    const tenant = await createTenant(t); // one WhatsApp connection per organization
+    const c = await cloudConversation(tenant, contact);
+    vi.spyOn(t.app.get(IntegrationConnectionsService), 'loadInTx')
+      .mockImplementation(async () => ({ id: c.connectionId, enabled: true, status: 'connected', adapter: { config: {}, credentials: {} } } as any));
+    await sql(`delete from messages where org_id = $1 and status = 'queued'`, [tenant.orgId]);
+    const [m] = await sql(`insert into messages(org_id, conversation_id, direction, kind, body, payload, status, next_attempt_at, priority)
+       values ($1, $2, 'outbound', 'text', 'hi', '{"type":"text","body":"hi"}', 'queued', now() - interval '1 hour', 0) returning id`, [tenant.orgId, c.conversationId]);
+    return { id: m.id as string, orgId: tenant.orgId };
+  }
+  /** Provider mock counting the calls addressed to one contact (other tests' queued messages may share the run). */
+  function provider(contact: string, onCall?: (n: number) => Promise<void>) {
+    let calls = 0;
+    vi.spyOn(whatsappCloudAdapter, 'send').mockImplementation(async (_ctx, payload: any) => {
+      if (payload?.to !== contact) return { messageId: `wamid.other.${Math.random()}` };
+      calls++;
+      await onCall?.(calls);
+      return { messageId: `wamid.${contact}.${calls}` };
+    });
+    return () => calls;
+  }
+  async function claimOne(sender: MessagingService, id: string) {
+    const claim = (await sender.claimDue(200, 200)).find((c) => c.id === id);
+    expect(claim).toBeTruthy();
+    return claim!;
+  }
+  /** Moves a claimed message's lease into the past (the clock passing it while its run is still busy). */
+  const expireLease = async (id: string) =>
+    (await sql(`update messages set next_attempt_at = now() - interval '1 second' where id = $1 returning next_attempt_at::text as lease`, [id]))[0].lease as string;
+
+  it('a run that reaches a message after its lease ran out renews it first; a concurrent run cannot send it again', async () => {
+    const contact = '201000000931';
+    const { id, orgId } = await sendable(contact);
+    const sender = t.app.get(MessagingService);
+    await claimOne(sender, id);
+    const expired = await expireLease(id);
+    // While run A's provider call is in flight, the next scheduled sender run looks for due messages.
+    const calls = provider(contact, async (n) => { if (n === 1) await sender.runSender(200, 200); });
+    expect(await (sender as any).sendOne(orgId, id, expired)).toBe('sent');
+    expect(calls()).toBe(1);
+    const [row] = await sql(`select status, provider_message_id, attempts, next_attempt_at from messages where id = $1`, [id]);
+    expect(row).toMatchObject({ status: 'sent', provider_message_id: `wamid.${contact}.1`, attempts: 1, next_attempt_at: null });
+  });
+
+  it('a run whose expired lease was re-claimed by another run skips the message', async () => {
+    const contact = '201000000932';
+    const { id, orgId } = await sendable(contact);
+    const sender = t.app.get(MessagingService);
+    await claimOne(sender, id);
+    const expired = await expireLease(id);
+    const calls = provider(contact);
+    await sender.runSender(200, 200); // re-claims and sends it
+    expect(calls()).toBe(1);
+    expect(await (sender as any).sendOne(orgId, id, expired)).toBe('sent'); // 'sent' here means already handled
+    expect(calls()).toBe(1);
+    const [row] = await sql(`select status, provider_message_id from messages where id = $1`, [id]);
+    expect(row).toEqual({ status: 'sent', provider_message_id: `wamid.${contact}.1` });
+  });
+
+  it('a failure while recording an accepted send never requeues the message as a failed send', async () => {
+    const contact = '201000000933';
+    const { id, orgId } = await sendable(contact);
+    const sender = t.app.get(MessagingService);
+    const claim = await claimOne(sender, id);
+    const db = t.app.get(DbService);
+    const real = db.withTenant.bind(db);
+    let n = 0;
+    // Step 1 (lease renewal) works; every attempt at step 3 (record) fails, as on a lost connection.
+    const spy = vi.spyOn(db, 'withTenant').mockImplementation(((...args: Parameters<DbService['withTenant']>) => {
+      if (++n > 1) return Promise.reject(new Error('connection terminated unexpectedly'));
+      return real(...args);
+    }) as any);
+    const calls = provider(contact);
+    expect(await (sender as any).sendOne(orgId, id, claim.lease)).toBe('sent');
+    expect(n).toBe(4); // renewal + 3 record attempts
+    spy.mockRestore();
+    const [row] = await sql(`select status, attempts, error, next_attempt_at > now() as leased from messages where id = $1`, [id]);
+    // Not recorded as a failure: still under the renewed lease, no attempt spent, no error, so no run re-sends it now.
+    expect(row).toEqual({ status: 'queued', attempts: 0, error: null, leased: true });
+    await sender.runSender(200, 200);
+    expect(calls()).toBe(1);
+  });
+
+  it('a transient failure while recording is retried and the send is recorded', async () => {
+    const contact = '201000000934';
+    const { id, orgId } = await sendable(contact);
+    const sender = t.app.get(MessagingService);
+    const claim = await claimOne(sender, id);
+    const db = t.app.get(DbService);
+    const real = db.withTenant.bind(db);
+    let n = 0;
+    vi.spyOn(db, 'withTenant').mockImplementation(((...args: Parameters<DbService['withTenant']>) => {
+      if (++n === 2) return Promise.reject(new Error('could not serialize access'));
+      return real(...args);
+    }) as any);
+    provider(contact);
+    expect(await (sender as any).sendOne(orgId, id, claim.lease)).toBe('sent');
+    const [row] = await sql(`select status, provider_message_id, attempts from messages where id = $1`, [id]);
+    expect(row).toEqual({ status: 'sent', provider_message_id: `wamid.${contact}.1`, attempts: 1 });
   });
 });
 
