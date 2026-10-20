@@ -1,19 +1,34 @@
 // WhatsApp Business Platform — Cloud API adapter (Meta Graph API).
 //
-// Written against Meta's official documentation:
+// Written against Meta's official documentation (checked 2026-10-20):
 //   - Webhooks + X-Hub-Signature-256: https://developers.facebook.com/docs/graph-api/webhooks/getting-started
 //   - Webhook payloads (messages, statuses): https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks/components
 //   - Send messages: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
 //   - Interactive messages (buttons, lists, CTA URL, location request):
 //     https://developers.facebook.com/docs/whatsapp/cloud-api/messages/interactive-reply-buttons-messages (and siblings)
 //   - Message templates: https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates
+//   - Phone numbers of a WABA (GET /<WABA_ID>/phone_numbers, GET /<PHONE_NUMBER_ID>):
+//     https://developers.facebook.com/documentation/business-messaging/whatsapp/business-phone-numbers/phone-numbers
+//   - Embedded Signup v4 + Tech Provider onboarding (code -> business token, POST /<WABA_ID>/subscribed_apps,
+//     POST /<PHONE_NUMBER_ID>/register): https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/overview,
+//     https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-customers-as-a-tech-provider,
+//     https://developers.facebook.com/documentation/business-messaging/whatsapp/solution-providers/manage-webhooks
 //
-// Readiness: implemented_unverified. No Meta credentials exist for this
-// codebase; it is tested with constructed fixtures and HMAC vectors only.
-import { constantTimeEqual, hmacHex, providerRequest, ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
+// Onboarding model (audit INT-13, docs/INTEGRATION_READINESS.md "WhatsApp onboarding model"): Resuto is a Meta
+// Tech Provider and restaurants connect through Embedded Signup with Resuto's platform app, so every webhook is signed
+// with the platform app secret. A restaurant may instead connect a Meta app it owns: its connection then carries that
+// app's secret and receives webhooks on its own callback URL (/v1/webhooks/whatsapp/c/<connection id>), verified with
+// that secret. A phone number is only ever attached to a channel after the connection's token proved, through the
+// Graph API, that the number belongs to the WABA (audit INT-03).
+//
+// Readiness: implemented_unverified. No Meta credentials exist for this codebase; it is tested with constructed
+// fixtures and HMAC vectors only. Acceptance checks: packages/integrations/src/acceptance/meta.ts.
+import { ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
+import { graphList, graphRequest, MetaApiError, META_GRAPH_VERSION, verifyMetaSignature, verifyMetaSubscription } from '../meta/graph';
+import { metaExchangeCode, type MetaApp } from '../meta/oauth';
 
-export const WHATSAPP_GRAPH_VERSION = 'v23.0';
-const GRAPH = 'https://graph.facebook.com';
+/** Kept for existing imports; the single pinned version lives in ../meta/graph.ts (INT-12). */
+export const WHATSAPP_GRAPH_VERSION = META_GRAPH_VERSION;
 
 export const whatsappCloudDescriptor: ProviderDescriptor = {
   id: 'whatsapp_cloud',
@@ -23,14 +38,13 @@ export const whatsappCloudDescriptor: ProviderDescriptor = {
   authType: 'api_key',
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api',
-  capabilities: ['inbound_messages', 'interactive_buttons', 'interactive_lists', 'cta_url', 'location_request', 'templates', 'status_callbacks', 'template_submission'],
+  capabilities: ['embedded_signup', 'phone_ownership_check', 'inbound_messages', 'interactive_buttons', 'interactive_lists', 'cta_url', 'location_request',
+    'templates', 'status_callbacks', 'template_submission', 'webhook_subscription'],
   activation: [
-    'Create a Meta Business account and a Meta app with the WhatsApp product (developers.facebook.com).',
-    'Complete Meta business verification and register the restaurant phone number on a WhatsApp Business Account (WABA).',
-    'Create a System User in Business Settings, assign the app and the WABA, and generate a permanent access token with whatsapp_business_messaging and whatsapp_business_management permissions.',
-    'Set WHATSAPP_APP_SECRET (the app secret) and WHATSAPP_VERIFY_TOKEN on the Resuto API server.',
-    'In the app\'s WhatsApp > Configuration, set the callback URL to https://<api-host>/v1/webhooks/whatsapp with the same verify token and subscribe to the "messages" and "message_template_status_update" fields.',
-    'In Resuto > Integrations, connect "WhatsApp Business (Cloud API)" with the access token, phone number id and WABA id, then add a WhatsApp channel in Inbox > Channels.',
+    'Recommended: in Inbox > Channels choose "Connect WhatsApp with Meta" and finish Meta\'s Embedded Signup with the restaurant\'s business portfolio and phone number. Resuto verifies the number, subscribes to its webhooks and registers it.',
+    'The restaurant adds a payment method to its WhatsApp account in WhatsApp Manager before business-initiated messages can be sent.',
+    'Alternative (a Meta app the restaurant owns): create a System User token with whatsapp_business_messaging and whatsapp_business_management, then connect "WhatsApp Business (Cloud API)" in Integrations with the token, phone number id, WABA id and the app secret.',
+    'For an own app, set the callback URL shown on the connection (https://<api-host>/v1/webhooks/whatsapp/c/<connection id>) and its verify token in the app\'s WhatsApp > Configuration, and subscribe to "messages" and "message_template_status_update".',
     'Submit utility templates (e.g. order_update) for approval; messages outside the 24-hour window can only use approved templates.',
   ],
 };
@@ -48,26 +62,11 @@ export interface WhatsAppConfig {
 // Webhook signature + parsing
 // ---------------------------------------------------------------------------
 
-/**
- * Verifies `X-Hub-Signature-256: sha256=<hex>` — HMAC-SHA256 of the exact raw
- * request body keyed with the app secret. Must run before JSON parsing.
- */
-export function verifyWhatsAppSignature(rawBody: Buffer | string | undefined | null, header: string | string[] | undefined | null, appSecret: string | undefined | null): boolean {
-  if (!rawBody || !appSecret) return false;
-  const value = Array.isArray(header) ? header[0] : header;
-  if (!value || !value.startsWith('sha256=')) return false;
-  const expected = `sha256=${hmacHex('sha256', appSecret, rawBody)}`;
-  return constantTimeEqual(expected, value.trim().toLowerCase());
-}
+/** X-Hub-Signature-256 over the raw body with the app secret (shared Meta scheme, ../meta/graph.ts). Run before parsing. */
+export const verifyWhatsAppSignature = verifyMetaSignature;
 
 /** Answers Meta's GET verification handshake; returns the challenge or null. */
-export function verifyWebhookSubscription(query: Record<string, unknown>, verifyToken: string | undefined | null): string | null {
-  const mode = query['hub.mode'];
-  const token = query['hub.verify_token'];
-  const challenge = query['hub.challenge'];
-  if (!verifyToken || mode !== 'subscribe' || typeof token !== 'string' || typeof challenge !== 'string') return null;
-  return constantTimeEqual(token, verifyToken) ? challenge : null;
-}
+export const verifyWebhookSubscription = verifyMetaSubscription;
 
 export type WhatsAppInbound =
   | {
@@ -255,39 +254,83 @@ export function renderTemplateBody(body: string, values: string[]): string {
 // Client
 // ---------------------------------------------------------------------------
 
-function graphUrl(cfg: WhatsAppConfig, path: string) {
-  return `${GRAPH}/${cfg.graphVersion ?? WHATSAPP_GRAPH_VERSION}/${path}`;
-}
-
-function creds(ctx: AdapterContext): { token: string; cfg: WhatsAppConfig } {
+function creds(ctx: AdapterContext): { token: string; appSecret: string | null; cfg: WhatsAppConfig } {
   const token = ctx.credentials.accessToken;
   const cfg = ctx.config as unknown as WhatsAppConfig;
   if (!token) throw new ProviderError('whatsapp_cloud', 'missing access token', false);
   if (!cfg?.phoneNumberId) throw new ProviderError('whatsapp_cloud', 'missing phone number id', false);
-  return { token, cfg };
+  return { token, appSecret: ctx.credentials.appSecret || null, cfg };
 }
+
+const tokenOnly = (ctx: AdapterContext) => {
+  const token = ctx.credentials.accessToken;
+  if (!token) throw new ProviderError('whatsapp_cloud', 'missing access token', false);
+  return { token, appSecret: ctx.credentials.appSecret || null };
+};
+
+export interface WhatsAppPhoneNumber { id: string; displayPhoneNumber: string | null; verifiedName: string | null; qualityRating: string | null }
+
+export type PhoneOwnership =
+  | { owned: true; phone: WhatsAppPhoneNumber }
+  /** not_in_waba: the WABA answered but does not list the number; no_access: the token cannot read the WABA. */
+  | { owned: false; reason: 'not_in_waba' | 'no_access'; detail?: string };
+
+const PHONE_FIELDS = 'id,display_phone_number,verified_name,quality_rating';
+const toPhone = (p: { id?: string; display_phone_number?: string; verified_name?: string; quality_rating?: string }): WhatsAppPhoneNumber => ({
+  id: String(p.id), displayPhoneNumber: p.display_phone_number ?? null, verifiedName: p.verified_name ?? null, qualityRating: p.quality_rating ?? null,
+});
 
 export const whatsappCloudAdapter = {
   descriptor: whatsappCloudDescriptor,
 
   /** Sends a prepared payload; returns the WhatsApp message id (wamid…). */
   async send(ctx: AdapterContext, payload: Record<string, unknown>, opts: { retries?: number } = {}): Promise<{ messageId: string }> {
-    const { token, cfg } = creds(ctx);
-    const res = await providerRequest<{ messages?: Array<{ id?: string }> }>('whatsapp_cloud', ctx, graphUrl(cfg, `${encodeURIComponent(cfg.phoneNumberId)}/messages`), {
-      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload), retries: opts.retries ?? 0,
+    const { token, appSecret, cfg } = creds(ctx);
+    const res = await graphRequest<{ messages?: Array<{ id?: string }> }>('whatsapp_cloud', ctx, `${encodeURIComponent(cfg.phoneNumberId)}/messages`, {
+      method: 'POST', token, appSecret, json: payload, retries: opts.retries ?? 0, version: cfg.graphVersion,
     });
     const id = res.messages?.[0]?.id;
     if (!id) throw new ProviderError('whatsapp_cloud', 'response did not include a message id', false);
     return { messageId: id };
   },
 
-  /** Reads the phone number object; proves the token and phone number id work together. */
+  /**
+   * INT-03: proves with the connection's own token that `phoneNumberId` is a number of `wabaId`
+   * (GET /<WABA_ID>/phone_numbers, every page). A token that cannot read the WABA, or a WABA that does not list the
+   * number, means "not owned". Network errors, throttling and 5xx are thrown: ownership is never assumed.
+   */
+  async verifyPhoneOwnership(ctx: AdapterContext, ids: { wabaId: string; phoneNumberId: string }): Promise<PhoneOwnership> {
+    const { token, appSecret } = tokenOnly(ctx);
+    let numbers: Array<{ id?: string; display_phone_number?: string; verified_name?: string; quality_rating?: string }>;
+    try {
+      numbers = await graphList('whatsapp_cloud', ctx, `${encodeURIComponent(ids.wabaId)}/phone_numbers`,
+        { token, appSecret, query: { fields: PHONE_FIELDS, limit: 100 }, retries: 1, maxPages: 20 });
+    } catch (e) {
+      if (e instanceof MetaApiError && !e.retryable && !e.tokenInvalid && (e.noAccess || e.status === 400 || e.status === 403 || e.status === 404)) {
+        return { owned: false, reason: 'no_access', detail: e.code !== null ? `code ${e.code}` : `HTTP ${e.status}` };
+      }
+      throw e;
+    }
+    const match = numbers.find((n) => String(n.id) === ids.phoneNumberId);
+    return match ? { owned: true, phone: toPhone(match) } : { owned: false, reason: 'not_in_waba' };
+  },
+
+  /**
+   * Reads the phone number object and, when the WABA is configured, re-proves the number belongs to it, so a health
+   * check fails when the number moved or the token lost access to the WABA.
+   */
   async healthCheck(ctx: AdapterContext) {
-    const { token, cfg } = creds(ctx);
-    const res = await providerRequest<{ id?: string; display_phone_number?: string; verified_name?: string; quality_rating?: string }>('whatsapp_cloud', ctx,
-      graphUrl(cfg, `${encodeURIComponent(cfg.phoneNumberId)}?fields=display_phone_number,verified_name,quality_rating`),
-      { headers: { Authorization: `Bearer ${token}` }, retries: 1 });
-    return { ok: res.id === cfg.phoneNumberId, details: { displayPhoneNumber: res.display_phone_number ?? null, verifiedName: res.verified_name ?? null, qualityRating: res.quality_rating ?? null } };
+    const { token, appSecret, cfg } = creds(ctx);
+    const res = await graphRequest<{ id?: string; display_phone_number?: string; verified_name?: string; quality_rating?: string }>('whatsapp_cloud', ctx,
+      encodeURIComponent(cfg.phoneNumberId), { token, appSecret, query: { fields: 'display_phone_number,verified_name,quality_rating' }, retries: 1, version: cfg.graphVersion });
+    const details: Record<string, unknown> = { displayPhoneNumber: res.display_phone_number ?? null, verifiedName: res.verified_name ?? null, qualityRating: res.quality_rating ?? null };
+    let ok = res.id === cfg.phoneNumberId;
+    if (ok && cfg.wabaId) {
+      const own = await whatsappCloudAdapter.verifyPhoneOwnership(ctx, { wabaId: cfg.wabaId, phoneNumberId: cfg.phoneNumberId });
+      details.ownership = own.owned ? 'verified' : own.reason;
+      ok = own.owned;
+    }
+    return { ok, details, account: { id: cfg.wabaId ?? null, name: res.verified_name ?? null } };
   },
 
   /** Submits a template for Meta review (POST /{waba-id}/message_templates). */
@@ -297,11 +340,69 @@ export const whatsappCloudAdapter = {
     if (!token || !cfg?.wabaId) throw new ProviderError('whatsapp_cloud', 'missing access token or WABA id', false);
     const component: Record<string, unknown> = { type: 'BODY', text: t.body };
     if (t.examples.length) component.example = { body_text: [t.examples] };
-    const res = await providerRequest<{ id?: string; status?: string; category?: string }>('whatsapp_cloud', ctx, graphUrl(cfg, `${encodeURIComponent(cfg.wabaId)}/message_templates`), {
-      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: t.name, language: t.language, category: t.category.toUpperCase(), components: [component] }), retries: 1,
+    const res = await graphRequest<{ id?: string; status?: string; category?: string }>('whatsapp_cloud', ctx, `${encodeURIComponent(cfg.wabaId)}/message_templates`, {
+      method: 'POST', token, appSecret: ctx.credentials.appSecret || null, retries: 1, version: cfg.graphVersion,
+      json: { name: t.name, language: t.language, category: t.category.toUpperCase(), components: [component] },
     });
     if (!res.id) throw new ProviderError('whatsapp_cloud', 'template submission returned no id', false);
     return { templateId: res.id, status: (res.status ?? 'PENDING').toUpperCase() };
+  },
+
+  // ---- Embedded Signup / Tech Provider onboarding --------------------------------------------------------------
+
+  /** Embedded Signup: exchanges the 30-second token code for the customer's business token (no redirect_uri). */
+  exchangeSignupCode(ctx: Pick<AdapterContext, 'fetch'>, app: MetaApp, code: string) {
+    return metaExchangeCode('whatsapp_cloud', ctx, app, code, { withRedirect: false });
+  },
+
+  /** POST /<WABA_ID>/subscribed_apps: subscribes the token's app to the WABA's webhooks. */
+  async subscribeApp(ctx: AdapterContext, wabaId: string) {
+    const { token, appSecret } = tokenOnly(ctx);
+    const res = await graphRequest<{ success?: boolean }>('whatsapp_cloud', ctx, `${encodeURIComponent(wabaId)}/subscribed_apps`, { method: 'POST', token, appSecret, retries: 1 });
+    if (res.success !== true) throw new ProviderError('whatsapp_cloud', 'webhook subscription was not confirmed', false);
+    return { subscribed: true as const };
+  },
+
+  /** GET /<WABA_ID>/subscribed_apps: ids of the apps subscribed to the WABA's webhooks. */
+  async subscribedApps(ctx: AdapterContext, wabaId: string): Promise<string[]> {
+    const { token, appSecret } = tokenOnly(ctx);
+    const rows = await graphList<{ whatsapp_business_api_data?: { id?: string }; id?: string }>('whatsapp_cloud', ctx, `${encodeURIComponent(wabaId)}/subscribed_apps`,
+      { token, appSecret, retries: 1 });
+    return rows.map((r) => String(r.whatsapp_business_api_data?.id ?? r.id ?? '')).filter(Boolean);
+  },
+
+  /** DELETE /<WABA_ID>/subscribed_apps: stops this app's webhooks for the WABA (used on disconnect). */
+  async unsubscribeApp(ctx: AdapterContext, wabaId: string) {
+    const { token, appSecret } = tokenOnly(ctx);
+    const res = await graphRequest<{ success?: boolean }>('whatsapp_cloud', ctx, `${encodeURIComponent(wabaId)}/subscribed_apps`, { method: 'DELETE', token, appSecret });
+    return res.success === true;
+  },
+
+  /**
+   * Disconnect: stops webhooks for the WABA (DELETE /<WABA_ID>/subscribed_apps). Meta documents no API that revokes
+   * a business token; the business removes the app in Business Settings.
+   */
+  async revokeAccess(ctx: AdapterContext): Promise<{ attempted: boolean; revoked: boolean; note: string }> {
+    const cfg = ctx.config as unknown as WhatsAppConfig;
+    if (!cfg?.wabaId || !ctx.credentials.accessToken) return { attempted: false, revoked: false, note: 'Remove the app in Meta Business Settings > Integrations > Connected apps.' };
+    try {
+      const ok = await whatsappCloudAdapter.unsubscribeApp(ctx, cfg.wabaId);
+      return { attempted: true, revoked: ok, note: ok ? 'Webhooks for this WhatsApp account were unsubscribed. Remove the app in Meta Business Settings to revoke its token.'
+        : 'Meta did not confirm the webhook unsubscription.' };
+    } catch (e) {
+      if (e instanceof MetaApiError && (e.tokenInvalid || e.noAccess)) return { attempted: true, revoked: true, note: 'The token no longer has access to this WhatsApp account.' };
+      throw e;
+    }
+  },
+
+  /** POST /<PHONE_NUMBER_ID>/register with a 6-digit two-step verification PIN (required within 14 days of Embedded Signup). */
+  async registerPhone(ctx: AdapterContext, phoneNumberId: string, pin: string) {
+    if (!/^\d{6}$/.test(pin)) throw new ProviderError('whatsapp_cloud', 'the registration PIN must be 6 digits', false);
+    const { token, appSecret } = tokenOnly(ctx);
+    const res = await graphRequest<{ success?: boolean }>('whatsapp_cloud', ctx, `${encodeURIComponent(phoneNumberId)}/register`, {
+      method: 'POST', token, appSecret, json: { messaging_product: 'whatsapp', pin },
+    });
+    if (res.success !== true) throw new ProviderError('whatsapp_cloud', 'phone registration was not confirmed', false);
+    return { registered: true as const };
   },
 };

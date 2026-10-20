@@ -3,6 +3,7 @@ export * from './payments';
 export * from './accounting';
 export * from './messaging';
 export * from './ads';
+export * from './meta';
 export * from './pos';
 export * from './tax';
 export * from './maps';

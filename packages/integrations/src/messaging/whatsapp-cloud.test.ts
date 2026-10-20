@@ -137,16 +137,75 @@ describe('send payloads', () => {
     const ctx = { environment: 'live' as const, credentials: { accessToken: 'EAAG-token' }, config: { phoneNumberId: '106540352242922' }, fetch: f.fetch };
     const res = await whatsappCloudAdapter.send(ctx, buildTextMessage('201001234567', 'Hi'));
     expect(res).toEqual({ messageId: 'wamid.SENT1' });
-    expect(f.calls[0]).toMatchObject({ url: 'https://graph.facebook.com/v23.0/106540352242922/messages', method: 'POST' });
+    expect(f.calls[0]).toMatchObject({ url: 'https://graph.facebook.com/v26.0/106540352242922/messages', method: 'POST' });
     expect(f.calls[0]!.headers.authorization).toBe('Bearer EAAG-token');
     expect(JSON.parse(f.calls[0]!.body!)).toMatchObject({ to: '201001234567', type: 'text' });
   });
 
-  it('surfaces provider errors as retryable only for 429/5xx', async () => {
-    const ctx = (status: number) => ({ environment: 'live' as const, credentials: { accessToken: 't' }, config: { phoneNumberId: '1' },
-      fetch: scriptedFetch([{ status, body: { error: { message: 'x', code: 131056 } } }]).fetch });
-    await expect(whatsappCloudAdapter.send(ctx(429), buildTextMessage('1', 'x'))).rejects.toMatchObject({ retryable: true, status: 429 });
-    await expect(whatsappCloudAdapter.send(ctx(400), buildTextMessage('1', 'x'))).rejects.toMatchObject({ retryable: false, status: 400 });
+  it('surfaces provider errors as retryable for 429/5xx and for WhatsApp throttling codes, not for other 4xx', async () => {
+    // WhatsApp returns throttling as HTTP 400 with code 131056 (pair rate limit, "wait and retry") or 130429; the
+    // previous version of this test expected 400/131056 to be final, which would drop a message Meta asks us to retry
+    // (https://developers.facebook.com/documentation/business-messaging/whatsapp/support/error-codes).
+    const ctx = (status: number, code: number) => ({ environment: 'live' as const, credentials: { accessToken: 't' }, config: { phoneNumberId: '1' },
+      fetch: scriptedFetch([{ status, body: { error: { message: 'x', code } } }]).fetch });
+    await expect(whatsappCloudAdapter.send(ctx(429, 4), buildTextMessage('1', 'x'))).rejects.toMatchObject({ retryable: true, status: 429 });
+    await expect(whatsappCloudAdapter.send(ctx(400, 131056), buildTextMessage('1', 'x'))).rejects.toMatchObject({ retryable: true, status: 429, code: 131056 });
+    await expect(whatsappCloudAdapter.send(ctx(400, 131047), buildTextMessage('1', 'x'))).rejects.toMatchObject({ retryable: false, status: 400, code: 131047 });
+    await expect(whatsappCloudAdapter.send(ctx(400, 131048), buildTextMessage('1', 'x'))).rejects.toMatchObject({ retryable: false });
+    await expect(whatsappCloudAdapter.send(ctx(503, 2), buildTextMessage('1', 'x'))).rejects.toMatchObject({ retryable: true, status: 503 });
+  });
+
+  it('INT-03: proves a phone number belongs to the WABA with the connection token (all pages), never assumes it', async () => {
+    const ctx = (fetch: typeof globalThis.fetch) => ({ environment: 'live' as const, credentials: { accessToken: 'EAAG-t' }, config: { phoneNumberId: '1065' }, fetch });
+    const paged = scriptedFetch([
+      { body: { data: [{ id: '9990', display_phone_number: '+20 100 000 0000', verified_name: 'Other', quality_rating: 'GREEN' }],
+        paging: { next: 'https://graph.facebook.com/v26.0/1022/phone_numbers?after=cur1' } } },
+      { body: { data: [{ id: '1065', display_phone_number: '+20 100 555 0001', verified_name: 'The Olive Room', quality_rating: 'GREEN' }] } },
+    ]);
+    expect(await whatsappCloudAdapter.verifyPhoneOwnership(ctx(paged.fetch), { wabaId: '1022', phoneNumberId: '1065' }))
+      .toEqual({ owned: true, phone: { id: '1065', displayPhoneNumber: '+20 100 555 0001', verifiedName: 'The Olive Room', qualityRating: 'GREEN' } });
+    const first = new URL(paged.calls[0]!.url);
+    expect(first.pathname).toBe('/v26.0/1022/phone_numbers');
+    expect(paged.calls[0]!.headers.authorization).toBe('Bearer EAAG-t');
+    expect(paged.calls[1]!.url).toContain('after=cur1');
+
+    const notListed = scriptedFetch([{ body: { data: [{ id: '9990' }] } }]);
+    expect(await whatsappCloudAdapter.verifyPhoneOwnership(ctx(notListed.fetch), { wabaId: '1022', phoneNumberId: '1065' })).toEqual({ owned: false, reason: 'not_in_waba' });
+    const foreign = scriptedFetch([{ status: 400, body: { error: { message: 'Unsupported get request. Object with ID does not exist, cannot be loaded due to missing permissions', code: 100, error_subcode: 33 } } }]);
+    expect(await whatsappCloudAdapter.verifyPhoneOwnership(ctx(foreign.fetch), { wabaId: '1022', phoneNumberId: '1065' })).toMatchObject({ owned: false, reason: 'no_access' });
+    // Expired token or a Meta outage: an error, not a verdict.
+    const expired = scriptedFetch([{ status: 400, body: { error: { message: 'Session has expired', code: 190 } } }]);
+    await expect(whatsappCloudAdapter.verifyPhoneOwnership(ctx(expired.fetch), { wabaId: '1022', phoneNumberId: '1065' })).rejects.toMatchObject({ status: 401 });
+    const down = scriptedFetch([{ status: 500, body: { error: { message: 'An unknown error occurred', code: 1 } } }]);
+    await expect(whatsappCloudAdapter.verifyPhoneOwnership(ctx(down.fetch), { wabaId: '1022', phoneNumberId: '1065' })).rejects.toMatchObject({ retryable: true });
+  });
+
+  it('health check re-proves WABA ownership and reports the account', async () => {
+    const f = scriptedFetch([
+      { body: { id: '1065', display_phone_number: '+20 100 555 0001', verified_name: 'The Olive Room', quality_rating: 'GREEN' } },
+      { body: { data: [{ id: '7777' }] } },
+    ]);
+    const res = await whatsappCloudAdapter.healthCheck({ environment: 'live', credentials: { accessToken: 't' }, config: { phoneNumberId: '1065', wabaId: '1022' }, fetch: f.fetch });
+    expect(res).toMatchObject({ ok: false, details: { ownership: 'not_in_waba' }, account: { id: '1022', name: 'The Olive Room' } });
+  });
+
+  it('Embedded Signup: exchanges the code without redirect_uri, subscribes the app, registers the number with a 6-digit PIN', async () => {
+    const f = scriptedFetch([{ body: { access_token: 'EAAG-business' } }, { body: { success: true } }, { body: { data: [{ whatsapp_business_api_data: { id: 'app-1', name: 'Resuto' } }] } },
+      { body: { success: true } }, { body: { success: true } }]);
+    const app = { clientId: 'app-1', clientSecret: 'sec-1', redirectUri: 'https://unused' };
+    expect(await whatsappCloudAdapter.exchangeSignupCode({ fetch: f.fetch }, app, 'es-code')).toMatchObject({ accessToken: 'EAAG-business' });
+    expect(Object.fromEntries(new URL(f.calls[0]!.url).searchParams)).toEqual({ client_id: 'app-1', client_secret: 'sec-1', code: 'es-code' });
+    const ctx = { environment: 'live' as const, credentials: { accessToken: 'EAAG-business', appSecret: 'sec-1' }, config: {}, fetch: f.fetch };
+    expect(await whatsappCloudAdapter.subscribeApp(ctx, '1022')).toEqual({ subscribed: true });
+    expect(f.calls[1]).toMatchObject({ method: 'POST' });
+    expect(new URL(f.calls[1]!.url).pathname).toBe('/v26.0/1022/subscribed_apps');
+    expect(new URL(f.calls[1]!.url).searchParams.get('appsecret_proof')).toMatch(/^[0-9a-f]{64}$/);
+    expect(await whatsappCloudAdapter.subscribedApps(ctx, '1022')).toEqual(['app-1']);
+    expect(await whatsappCloudAdapter.registerPhone(ctx, '1065', '482913')).toEqual({ registered: true });
+    expect(JSON.parse(f.calls[3]!.body!)).toEqual({ messaging_product: 'whatsapp', pin: '482913' });
+    await expect(whatsappCloudAdapter.registerPhone(ctx, '1065', '12')).rejects.toThrow(/6 digits/);
+    expect(await whatsappCloudAdapter.unsubscribeApp(ctx, '1022')).toBe(true);
+    expect(f.calls[4]).toMatchObject({ method: 'DELETE' });
   });
 
   it('submits templates to /{waba-id}/message_templates', async () => {
@@ -154,7 +213,7 @@ describe('send payloads', () => {
     const ctx = { environment: 'live' as const, credentials: { accessToken: 't' }, config: { phoneNumberId: '1', wabaId: '102290129340398' }, fetch: f.fetch };
     const res = await whatsappCloudAdapter.submitTemplate(ctx, { name: 'order_update', language: 'en', category: 'utility', body: 'Order {{1}} is {{2}}', examples: ['#12', 'ready'] });
     expect(res).toEqual({ templateId: '594425479261596', status: 'PENDING' });
-    expect(f.calls[0]!.url).toBe('https://graph.facebook.com/v23.0/102290129340398/message_templates');
+    expect(f.calls[0]!.url).toBe('https://graph.facebook.com/v26.0/102290129340398/message_templates');
     expect(JSON.parse(f.calls[0]!.body!)).toEqual({ name: 'order_update', language: 'en', category: 'UTILITY',
       components: [{ type: 'BODY', text: 'Order {{1}} is {{2}}', example: { body_text: [['#12', 'ready']] } }] });
   });

@@ -3,9 +3,22 @@
 //       Reporting /report/integrated/get/). TikTok returns HTTP 200 with a non-zero "code" on errors.
 // Readiness: implemented_unverified (no TikTok developer app or advertiser account available).
 import { providerRequest, ProviderError, type ProviderDescriptor } from '../core';
-import { decimalToMinor, adsMinorToDecimal, requireConfig, requireCred, toInt, type AdInsightRow, type AdsAdapter, type AdsObjective } from './types';
+import {
+  campaignNameWithToken, decimalToMinor, adsMinorToDecimal, requireConfig, requireCred, toInt, type AdAccountChoice, type AdInsightRow, type AdsAdapter, type AdsObjective,
+  type OAuthAppConfig,
+} from './types';
 
 const API = 'https://business-api.tiktok.com/open_api/v1.3';
+
+/** GET /oauth2/advertiser/get/ (app_id, secret, Access-Token): the advertisers that authorised the app. */
+async function advertisers(ctx: { fetch: typeof fetch }, app: OAuthAppConfig, token: string): Promise<AdAccountChoice[]> {
+  const u = new URL(`${API}/oauth2/advertiser/get/`);
+  u.searchParams.set('app_id', app.clientId);
+  u.searchParams.set('secret', app.clientSecret ?? '');
+  const data = unwrapTikTok(await providerRequest<TikTokEnvelope<{ list?: Array<{ advertiser_id?: string | number; advertiser_name?: string }> }>>('tiktok_ads', ctx, u.toString(),
+    { headers: { 'Access-Token': token }, retries: 1 }));
+  return (data?.list ?? []).filter((a) => a.advertiser_id != null).map((a) => ({ id: String(a.advertiser_id), name: a.advertiser_name ?? null, currency: null, status: null }));
+}
 
 export const tiktokAdsDescriptor: ProviderDescriptor = {
   id: 'tiktok_ads',
@@ -15,7 +28,7 @@ export const tiktokAdsDescriptor: ProviderDescriptor = {
   authType: 'oauth',
   readiness: 'implemented_unverified',
   docsUrl: 'https://business-api.tiktok.com/portal/docs',
-  capabilities: ['oauth', 'campaign_create_disabled', 'daily_reports'],
+  capabilities: ['oauth', 'oauth_state_bound', 'advertiser_picker', 'provider_revoke', 'campaign_create_disabled', 'launch_idempotency', 'daily_reports'],
   activation: [
     'Register a TikTok for Business developer app and request the Ads Management and Reporting scopes (app review).',
     'Set TIKTOK_APP_ID, TIKTOK_APP_SECRET and the redirect https://<api-host>/v1/public/integrations/oauth/tiktok_ads/callback on the Resuto API server.',
@@ -57,7 +70,36 @@ export const tiktokAdsAdapter: AdsAdapter = {
     });
     const data = unwrapTikTok(res);
     if (!data?.access_token) throw new ProviderError('tiktok_ads', 'no access token in response', false);
-    return { accessToken: data.access_token, accountIds: data.advertiser_ids ?? [] };
+    const ids = (data.advertiser_ids ?? []).map(String);
+    // Names for the picker; the ids from the token response stay authoritative if the listing fails.
+    let accounts = ids.map((id) => ({ id, name: null, currency: null, status: null } as AdAccountChoice));
+    try {
+      const listed = await advertisers({ fetch: ctx.fetch }, app, data.access_token);
+      if (listed.length) accounts = ids.map((id) => listed.find((a) => a.id === id) ?? { id, name: null, currency: null, status: null });
+    } catch { /* keep the bare ids */ }
+    return { accessToken: data.access_token, accountIds: ids, accounts, tokenKind: 'advertiser' };
+  },
+
+  async listAccounts(ctx, app) {
+    if (!app) throw new ProviderError('tiktok_ads', 'app credentials not configured', false);
+    return advertisers(ctx, app, requireCred('tiktok_ads', ctx, 'accessToken'));
+  },
+
+  /**
+   * POST /oauth2/revoke_token/ with the Access-Token header. The endpoint exists (an unauthenticated probe on
+   * 2026-10-20 answered code 40105 "Access token is incorrect or has been revoked"); the body follows the
+   * access_token exchange (app_id, secret, access_token) and is confirmed by the acceptance check tiktok_ads.revoke.
+   */
+  async revokeAccess(ctx, app) {
+    if (!app?.clientSecret) return { attempted: false, revoked: false, note: 'TikTok app credentials are not configured on this server; remove Resuto in TikTok Business Center > Apps.' };
+    const token = requireCred('tiktok_ads', ctx, 'accessToken');
+    const res = await providerRequest<TikTokEnvelope<unknown>>('tiktok_ads', ctx, `${API}/oauth2/revoke_token/`, {
+      method: 'POST', headers: { 'Access-Token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ app_id: app.clientId, secret: app.clientSecret, access_token: token }), retries: 0,
+    });
+    if (res.code === 0) return { attempted: true, revoked: true, note: 'TikTok confirmed the token was revoked.' };
+    if (res.code === 40105) return { attempted: true, revoked: true, note: 'The token was already invalid at TikTok.' };
+    return { attempted: true, revoked: false, note: `TikTok did not confirm the revocation (code ${res.code ?? '?'}).` };
   },
 
   async createCampaign(ctx, input) {
@@ -65,7 +107,7 @@ export const tiktokAdsAdapter: AdsAdapter = {
     const advertiserId = requireConfig('tiktok_ads', ctx, 'advertiserId');
     const body: Record<string, unknown> = {
       advertiser_id: advertiserId,
-      campaign_name: input.name.slice(0, 512),
+      campaign_name: campaignNameWithToken(input.name, input.idempotencyToken, 512),
       objective_type: OBJECTIVE[input.objective],
       operation_status: 'DISABLE',
       budget_mode: input.dailyBudgetMinor ? 'BUDGET_MODE_DAY' : 'BUDGET_MODE_INFINITE',

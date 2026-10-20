@@ -228,7 +228,7 @@ describe('campaigns', () => {
       http.fetch = f.fetch;
       const live = await t.http.post(m(`/campaigns/${liveId}/launch`)).set(auth(tenant.owner));
       expect(live.body).toMatchObject({ isSandbox: false, externalCampaignId: '120210000000777' });
-      expect(f.calls[0]!.url).toBe('https://graph.facebook.com/v23.0/act_1234567890/campaigns');
+      expect(f.calls[0]!.url).toBe('https://graph.facebook.com/v26.0/act_1234567890/campaigns');
       http.fetch = scriptedFetch([{ body: { data: [{ campaign_id: '120210000000777', impressions: '1000', clicks: '40', spend: '200.00', date_start: '2026-10-01' }] } }]).fetch;
       await t.http.post(m(`/campaigns/${liveId}/insights/sync`)).set(auth(tenant.owner)).send({ since: '2026-10-01', until: '2026-10-01' }).expect(201);
       expect((await t.http.get(m(`/campaigns/${liveId}/report`)).set(auth(tenant.owner))).body).toMatchObject({ costMinor: 20000, sandboxRowsExcluded: 0, revenueMinor: 0, roas: 0 });

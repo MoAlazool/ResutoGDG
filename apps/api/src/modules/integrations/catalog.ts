@@ -60,10 +60,15 @@ export interface FieldSpec {
  */
 export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; config: FieldSpec[] }> = {
   whatsapp_cloud: {
-    credentials: [{ key: 'accessToken', label: 'System user access token', secret: true, required: true }],
+    credentials: [
+      { key: 'accessToken', label: 'System user access token', secret: true, required: true },
+      // INT-13: set only for a Meta app the restaurant owns; its webhooks are verified with this secret.
+      { key: 'appSecret', label: 'App secret (only for your own Meta app)', labelKey: 'intg.field.whatsappAppSecret', secret: true, required: false,
+        hint: 'Leave empty when the number was connected through Resuto (Embedded Signup).', hintKey: 'intg.field.whatsappAppSecretHint' },
+    ],
     config: [
-      { key: 'phoneNumberId', label: 'Phone number id', secret: false, required: true },
-      { key: 'wabaId', label: 'WhatsApp Business Account id', secret: false, required: true },
+      { key: 'phoneNumberId', label: 'Phone number id', secret: false, required: true, pattern: '^\\d{5,30}$' },
+      { key: 'wabaId', label: 'WhatsApp Business Account id', secret: false, required: true, pattern: '^\\d{5,30}$' },
     ],
   },
   foodics: { credentials: [{ key: 'accessToken', label: 'Foodics access token', secret: true, required: true }], config: [] },
@@ -99,7 +104,17 @@ export const fieldsFor = (provider: string) =>
   CONNECTION_FIELDS[provider] ?? setupFields(provider) ?? { credentials: [{ key: 'apiKey', label: 'API key', secret: true, required: false }], config: [] };
 
 /** Where the merchant points the provider's webhooks for one connection, and which events to subscribe (CR-09). */
-export function webhookFor(provider: string, connectionId: string, apiOrigin: string) {
+export function webhookFor(provider: string, connectionId: string, apiOrigin: string, config: Record<string, unknown> = {}) {
+  if (provider === 'whatsapp_cloud') {
+    // INT-13: only a merchant-owned Meta app registers a callback; platform (Embedded Signup) numbers use Resuto's app.
+    if (config.appMode !== 'own_app') return null;
+    return {
+      url: `${apiOrigin.replace(/\/$/, '')}/v1/webhooks/whatsapp/c/${connectionId}`,
+      events: ['messages', 'message_template_status_update'],
+      registeredByMerchant: true,
+      verifyToken: typeof config.webhookVerifyToken === 'string' ? config.webhookVerifyToken : null,
+    };
+  }
   const a = adapterFor(provider);
   if (a?.descriptor.category !== 'payments' || a.descriptor.readiness === 'simulated') return null;
   return {

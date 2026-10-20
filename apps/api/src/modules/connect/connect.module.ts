@@ -10,6 +10,7 @@ import { MessagingService } from './messaging.service';
 import { OrderingService } from './ordering.service';
 import { PublicOrderingController } from './public-ordering.controller';
 import { WhatsAppWebhookController } from './webhook.controller';
+import { WhatsAppSignupService } from './whatsapp-signup.service';
 import { WhatsAppWebhookService } from './whatsapp-webhook.service';
 
 /**
@@ -23,7 +24,7 @@ import { WhatsAppWebhookService } from './whatsapp-webhook.service';
   imports: [IntegrationsModule],
   controllers: [ConnectController, PublicOrderingController, WhatsAppWebhookController],
   providers: [
-    MessagingService, HandoffService, OrderingService, ConversationsService, ChannelsService, WhatsAppWebhookService, ConnectEventsService,
+    MessagingService, HandoffService, OrderingService, ConversationsService, ChannelsService, WhatsAppWebhookService, WhatsAppSignupService, ConnectEventsService,
     { provide: MESSAGING_PORT, useExisting: MessagingService },
   ],
   exports: [MESSAGING_PORT, MessagingService],

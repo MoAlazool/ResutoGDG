@@ -13,9 +13,29 @@ export interface OAuthTokens {
   accessToken: string;
   refreshToken?: string | null;
   expiresIn?: number | null;
+  /** Seconds until the refresh token expires, when the provider says. */
+  refreshExpiresIn?: number | null;
   /** Ad accounts / advertisers granted to the app, when the provider returns them. */
   accountIds?: string[];
+  /** Same accounts with what the owner needs to pick one (name, currency, status), when the provider returns them. */
+  accounts?: AdAccountChoice[];
+  /** Provider-side identity of the token (used to revoke it on disconnect). */
+  identity?: { userId?: string | null; businessId?: string | null } | null;
+  /** 'user' tokens expire (Meta long-lived ≈ 60 days); 'system_user' business integration tokens do not. */
+  tokenKind?: 'user' | 'system_user' | 'advertiser';
 }
+
+/** An ad account the authorising person can grant (shown in the account picker). */
+export interface AdAccountChoice { id: string; name: string | null; currency: string | null; status: string | null }
+
+/** Options of the authorisation URL (no provider in scope documents PKCE; state is bound to the browser and user instead). */
+export interface AuthUrlOptions {
+  /** Meta: Facebook Login for Business configuration id (business integration system user token). */
+  configId?: string | null;
+}
+
+/** Result of revoking a token at the provider on disconnect. */
+export interface ProviderRevocation { attempted: boolean; revoked: boolean; note: string }
 
 export interface CreateAdCampaignInput {
   name: string;
@@ -25,6 +45,15 @@ export interface CreateAdCampaignInput {
   currency: string;
   /** ISO start time (required by some providers). */
   startTime?: string;
+  /** Launch idempotency token (PS-14), appended to the provider-side campaign name as "[rs:<token>]". */
+  idempotencyToken?: string | null;
+}
+
+/** The provider-side campaign name carrying the launch token, within the provider's name limit. */
+export function campaignNameWithToken(name: string, token: string | null | undefined, max: number): string {
+  if (!token) return name.slice(0, max);
+  const tag = ` [rs:${token}]`;
+  return `${name.slice(0, Math.max(1, max - tag.length))}${tag}`;
 }
 
 export interface AdInsightRow {
@@ -40,9 +69,21 @@ export interface AdInsightRow {
 
 export interface AdsAdapter {
   descriptor: ProviderDescriptor;
-  buildAuthUrl(app: OAuthAppConfig, state: string): string;
-  exchangeCode(ctx: Pick<AdapterContext, 'fetch'>, app: OAuthAppConfig, code: string): Promise<OAuthTokens>;
+  buildAuthUrl(app: OAuthAppConfig, state: string, opts?: AuthUrlOptions): string;
+  exchangeCode(ctx: Pick<AdapterContext, 'fetch'>, app: OAuthAppConfig, code: string, opts?: AuthUrlOptions): Promise<OAuthTokens>;
+  /** Re-lists the ad accounts this connection's token can use (account picker). */
+  listAccounts?(ctx: AdapterContext, app: OAuthAppConfig | null): Promise<AdAccountChoice[]>;
+  /** Exchanges a refresh token for a new access token (providers with short-lived access tokens). */
+  refreshAccessToken?(ctx: Pick<AdapterContext, 'fetch'>, app: OAuthAppConfig, refreshToken: string): Promise<OAuthTokens>;
+  /** Revokes the connection's token at the provider (disconnect). Never throws for "already revoked". */
+  revokeAccess?(ctx: AdapterContext, app: OAuthAppConfig | null): Promise<ProviderRevocation>;
+  /**
+   * Creates the campaign PAUSED/disabled. `idempotencyName` is a stable token derived from the launch attempt that
+   * the adapter puts into the provider-side name, so an operator can match (and a retry can find) the campaign.
+   */
   createCampaign(ctx: AdapterContext, input: CreateAdCampaignInput): Promise<{ externalId: string; status: string }>;
+  /** Finds a campaign created by an earlier attempt of the same launch (by the idempotency token in its name). */
+  findCampaignByToken?(ctx: AdapterContext, token: string): Promise<{ externalId: string; status: string } | null>;
   fetchInsights(ctx: AdapterContext, input: { externalCampaignId: string; since: string; until: string; currency: string }): Promise<AdInsightRow[]>;
   healthCheck(ctx: AdapterContext): Promise<{ ok: boolean; details: Record<string, unknown> }>;
 }

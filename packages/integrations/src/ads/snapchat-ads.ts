@@ -2,11 +2,12 @@
 // Docs: https://developers.snap.com/api/marketing-api/Ads-API/authentication
 //       https://developers.snap.com/api/marketing-api/Ads-API/campaigns
 //       https://developers.snap.com/api/marketing-api/Ads-API/measurement
-// Spend is reported in micro-currency (1e-6). Access tokens live ~30 minutes and
-// are refreshed with the refresh token.
+//       https://developers.snap.com/api/marketing-api/Ads-API/organizations (ad accounts for the picker)
+// Spend is reported in micro-currency (1e-6). Access tokens live 3600 s (authentication page) and are refreshed with
+// the refresh token. Snap documents neither PKCE nor a revocation endpoint for this OAuth flow.
 // Readiness: implemented_unverified (no Snap Business app or ad account available).
 import { providerRequest, ProviderError, type ProviderDescriptor } from '../core';
-import { requireConfig, requireCred, toInt, type AdInsightRow, type AdsAdapter, type AdsObjective, type OAuthAppConfig } from './types';
+import { campaignNameWithToken, requireConfig, requireCred, toInt, type AdAccountChoice, type AdInsightRow, type AdsAdapter, type AdsObjective, type OAuthAppConfig } from './types';
 
 const API = 'https://adsapi.snapchat.com/v1';
 const AUTH = 'https://accounts.snapchat.com/login/oauth2';
@@ -19,7 +20,7 @@ export const snapchatAdsDescriptor: ProviderDescriptor = {
   authType: 'oauth',
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.snap.com/api/marketing-api/Ads-API/introduction',
-  capabilities: ['oauth', 'campaign_create_paused', 'daily_stats'],
+  capabilities: ['oauth', 'oauth_state_bound', 'token_refresh', 'ad_account_picker', 'campaign_create_paused', 'launch_idempotency', 'daily_stats'],
   activation: [
     'Create an OAuth app in Snapchat Business Manager (Business Details > OAuth Apps) with the snapchat-marketing-api scope.',
     'Set SNAPCHAT_CLIENT_ID, SNAPCHAT_CLIENT_SECRET and the redirect https://<api-host>/v1/public/integrations/oauth/snapchat_ads/callback on the Resuto API server.',
@@ -45,6 +46,14 @@ async function tokenRequest(ctx: { fetch: typeof fetch }, app: OAuthAppConfig, p
   return { accessToken: res.access_token, refreshToken: res.refresh_token ?? null, expiresIn: res.expires_in ?? null };
 }
 
+/** GET /me/organizations?with_ad_accounts=true: every ad account the person can use, for the picker. */
+async function snapAccounts(ctx: { fetch: typeof fetch }, token: string): Promise<AdAccountChoice[]> {
+  const res = await providerRequest<{ organizations?: Array<{ organization?: { ad_accounts?: Array<{ id?: string; name?: string; currency?: string; status?: string }> } }> }>(
+    'snapchat_ads', ctx, `${API}/me/organizations?with_ad_accounts=true`, { headers: { Authorization: `Bearer ${token}` }, retries: 1 });
+  return (res.organizations ?? []).flatMap((o) => o.organization?.ad_accounts ?? []).filter((a) => a.id)
+    .map((a) => ({ id: String(a.id), name: a.name ?? null, currency: a.currency ?? null, status: a.status ?? null }));
+}
+
 export const snapchatAdsAdapter: AdsAdapter & { refreshAccessToken(ctx: { fetch: typeof fetch }, app: OAuthAppConfig, refreshToken: string): ReturnType<typeof tokenRequest> } = {
   descriptor: snapchatAdsDescriptor,
 
@@ -58,19 +67,32 @@ export const snapchatAdsAdapter: AdsAdapter & { refreshAccessToken(ctx: { fetch:
     return u.toString();
   },
 
-  exchangeCode(ctx, app, code) {
-    return tokenRequest(ctx, app, { grant_type: 'authorization_code', code, redirect_uri: app.redirectUri });
+  async exchangeCode(ctx, app, code) {
+    const tokens = await tokenRequest(ctx, app, { grant_type: 'authorization_code', code, redirect_uri: app.redirectUri });
+    let accounts: AdAccountChoice[] = [];
+    try { accounts = await snapAccounts(ctx, tokens.accessToken); } catch { /* the owner can list them again from the connection */ }
+    return { ...tokens, accounts, accountIds: accounts.map((a) => a.id), tokenKind: 'user' as const };
   },
 
+  /** Access tokens last 3600 s; refreshed with the refresh token (before expiry, on 401 and by the scheduled job). */
   refreshAccessToken(ctx, app, refreshToken) {
     return tokenRequest(ctx, app, { grant_type: 'refresh_token', refresh_token: refreshToken });
+  },
+
+  async listAccounts(ctx) {
+    return snapAccounts(ctx, requireCred('snapchat_ads', ctx, 'accessToken'));
+  },
+
+  /** Snap documents no token-revocation endpoint: the business removes the app in Snapchat Business Manager. */
+  async revokeAccess() {
+    return { attempted: false, revoked: false, note: 'Snapchat has no API to revoke this token: remove the Resuto app in Snapchat Business Manager > Business Details > Connected Apps.' };
   },
 
   async createCampaign(ctx, input) {
     const token = requireCred('snapchat_ads', ctx, 'accessToken');
     const adAccountId = requireConfig('snapchat_ads', ctx, 'adAccountId');
     const campaign: Record<string, unknown> = {
-      name: input.name.slice(0, 375),
+      name: campaignNameWithToken(input.name, input.idempotencyToken, 375),
       ad_account_id: adAccountId,
       status: 'PAUSED',
       start_time: input.startTime ?? new Date().toISOString(),

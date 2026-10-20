@@ -32,6 +32,26 @@ export const createMessagingChannel = z.discriminatedUnion('transport', [
 ]);
 export type CreateMessagingChannel = z.infer<typeof createMessagingChannel>;
 
+const metaId = (what: string) => z.string().regex(/^\d{3,30}$/, `${what} (digits)`);
+
+/**
+ * WhatsApp Embedded Signup completion (INT-13). The browser received `code` (valid 30 seconds) and the WABA / phone
+ * number ids from Meta's popup; the server exchanges the code for the business token, proves ownership, subscribes to
+ * webhooks and registers the number. `event` is Meta's session event: the WhatsApp Business app coexistence flow
+ * skips registration (the number is already registered).
+ */
+export const whatsappEmbeddedSignup = z.object({
+  code: z.string().trim().min(8).max(2000),
+  wabaId: metaId('WhatsApp Business Account id'),
+  phoneNumberId: metaId('Phone number id'),
+  businessId: metaId('Business portfolio id').optional().nullable(),
+  event: z.enum(['FINISH', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING']).default('FINISH'),
+  displayName: text(80),
+  branchId: uuid.nullable().optional(),
+  orderingEnabled: z.boolean().default(true),
+}).strict();
+export type WhatsAppEmbeddedSignup = z.infer<typeof whatsappEmbeddedSignup>;
+
 export const updateMessagingChannel = z.object({
   displayName: text(80).optional(),
   orderingEnabled: z.boolean().optional(),

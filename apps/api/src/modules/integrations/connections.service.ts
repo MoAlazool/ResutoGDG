@@ -14,6 +14,26 @@ import { AuditService } from '../../common/platform/audit.service';
 import { adapterFor, catalogEntries, credentialsHint, fieldsFor, webhookFor } from './catalog';
 import { providerReadiness, type VerificationRow } from './readiness';
 import { ProviderHttp } from './provider-http';
+import { platformProofSecret } from './meta-platform';
+import { oauthApp } from './oauth-apps';
+import { newToken } from '../../common/crypto/hash';
+
+/**
+ * WhatsApp onboarding model (INT-13): a connection whose credentials include the app secret is a merchant-owned Meta
+ * app ('own_app'): its webhooks arrive on /v1/webhooks/whatsapp/c/<id>, signed with that secret, with a generated
+ * verify token. Without it the token belongs to Resuto's platform app ('platform'; Embedded Signup), whose webhooks
+ * arrive on /v1/webhooks/whatsapp signed with WHATSAPP_APP_SECRET.
+ */
+export function whatsappConnectionConfig(credentials: Record<string, string> | null, config: Record<string, unknown>, previous: Record<string, unknown> = {}) {
+  const next: Record<string, unknown> = { ...config };
+  // Server-owned keys are never taken from the request.
+  for (const k of ['appMode', 'webhookVerifyToken', 'tokenSource', 'onboarding']) delete next[k];
+  const ownApp = credentials ? !!credentials.appSecret : previous.appMode === 'own_app';
+  next.appMode = ownApp ? 'own_app' : 'platform';
+  if (ownApp) next.webhookVerifyToken = typeof previous.webhookVerifyToken === 'string' ? previous.webhookVerifyToken : newToken(24);
+  if (!credentials) for (const k of ['tokenSource', 'onboarding']) if (previous[k] !== undefined) next[k] = previous[k];
+  return next;
+}
 
 /** Columns member sessions may read (credentials_encrypted is not among them). */
 export const SAFE_COLUMNS = `id, org_id, branch_id, provider, category, auth_type, environment, status, enabled, credentials_hint, config, scopes,
@@ -77,7 +97,7 @@ export function toView(r: any): IntegrationConnectionView {
 /** Diagnostics and activation details for one connection (INT-17, CR-09): exact webhook URL and events, last success/webhook, account. */
 export function diagnostics(r: any, apiOrigin: string) {
   return {
-    webhook: webhookFor(r.provider, r.id, apiOrigin),
+    webhook: webhookFor(r.provider, r.id, apiOrigin, r.config ?? {}),
     lastSuccessAt: iso(r.last_success_at), lastFailureAt: iso(r.last_failure_at), lastWebhookAt: iso(r.last_webhook_at),
     account: r.account_identity && Object.keys(r.account_identity).length ? r.account_identity : null,
   };
@@ -159,6 +179,7 @@ export class IntegrationConnectionsService {
     const hasCreds = Object.keys(input.credentials).length > 0;
     const status = simulated ? 'sandbox' : hasCreds ? 'pending' : 'not_configured';
     const sot = this.sourceOfTruth(input.sourceOfTruth);
+    if (input.provider === 'whatsapp_cloud') input = { ...input, config: whatsappConnectionConfig(input.credentials, input.config) as CreateIntegrationConnection['config'] };
     return this.db.scoped(ctx, async (tx) => {
       const exists = await tx.maybeOne(`select id from integration_connections where org_id = $1 and provider = $2 and branch_id is not distinct from $3`,
         [ctx.orgId, input.provider, input.branchId ?? null]);
@@ -192,6 +213,9 @@ export class IntegrationConnectionsService {
       const sets: string[] = [];
       const params: unknown[] = [id];
       const set = (sql: string, v: unknown) => { params.push(v); sets.push(sql.replace('?', `$${params.length}`)); };
+      if (r.provider === 'whatsapp_cloud' && (input.config || input.credentials)) {
+        input = { ...input, config: whatsappConnectionConfig(input.credentials ?? null, input.config ?? r.config ?? {}, r.config ?? {}) as UpdateIntegrationConnection['config'] };
+      }
       if (input.environment && !simulated) set('environment = ?', input.environment);
       if (input.config) set('config = ?', input.config);
       if (input.config && !input.credentials && !simulated && adapterFor(r.provider)?.descriptor.category === 'payments' && r.status === 'connected') {
@@ -225,15 +249,32 @@ export class IntegrationConnectionsService {
     });
   }
 
-  /** Destroys the stored credentials (they cannot be recovered) and switches the connection off. */
+  /**
+   * Destroys the stored credentials (they cannot be recovered) and switches the connection off. Providers with a
+   * documented revocation (Meta user tokens, TikTok, WhatsApp webhook subscription) are asked to revoke the token
+   * first (INT-11); the outcome is reported honestly — local credentials are deleted either way.
+   */
   async revoke(ctx: TenantContext, id: string) {
+    const before = await this.get(ctx, id);
+    let providerRevocation: { attempted: boolean; revoked: boolean; note: string } | null = null;
+    const revokeAccess = adapterFor(before.provider)?.revokeAccess as
+      ((c: AdapterContext, app: ReturnType<typeof oauthApp>) => Promise<{ attempted: boolean; revoked: boolean; note: string }>) | undefined;
+    if (before.status !== 'revoked' && typeof revokeAccess === 'function') {
+      try {
+        const conn = await this.load(ctx.orgId, { id });
+        if (Object.keys(conn.adapter.credentials).length) providerRevocation = await revokeAccess(conn.adapter, oauthApp(conn.provider, this.env.API_ORIGIN));
+      } catch (e) {
+        providerRevocation = { attempted: true, revoked: false, note: `The provider did not confirm the revocation: ${redactedError(e).message}` };
+      }
+    }
     return this.db.scoped(ctx, async (tx) => {
       const r = await this.row(tx, ctx, id);
       await tx.query(`update integration_connections set credentials_encrypted = null, credentials_hint = null, status = 'revoked', enabled = false,
           health = '{}'::jsonb where id = $1`, [id]);
-      await this.log(tx, ctx.orgId, id, 'warn', 'Connection revoked; credentials deleted');
-      await this.audit.record(tx, ctx, { action: 'integration.revoked', entityType: 'integration_connection', entityId: id, branchId: r.branch_id, metadata: { provider: r.provider } });
-      return this.view(await this.row(tx, ctx, id));
+      await this.log(tx, ctx.orgId, id, 'warn', 'Connection revoked; credentials deleted', providerRevocation ? { providerRevocation } : {});
+      await this.audit.record(tx, ctx, { action: 'integration.revoked', entityType: 'integration_connection', entityId: id, branchId: r.branch_id,
+        metadata: { provider: r.provider, ...(providerRevocation ? { providerRevoked: providerRevocation.revoked, providerAttempted: providerRevocation.attempted } : {}) } });
+      return { ...this.view(await this.row(tx, ctx, id)), providerRevocation };
     });
   }
 
@@ -277,6 +318,9 @@ export class IntegrationConnectionsService {
 
   private materialise(r: any): LoadedConnection {
     const credentials = r.credentials_encrypted ? this.box.openJson<Record<string, string>>(r.credentials_encrypted, credentialsAad(r.org_id, r.provider)) : {};
+    // appsecret_proof for Meta tokens issued to Resuto's platform app (never stored; own-app connections store theirs).
+    const proof = platformProofSecret(r.provider, r.config);
+    if (proof && !credentials.appSecret) credentials.appSecret = proof;
     return {
       id: r.id, orgId: r.org_id, provider: r.provider, category: r.category, environment: r.environment, status: r.status, enabled: r.enabled,
       config: r.config ?? {}, sourceOfTruth: { ...DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, ...(r.source_of_truth ?? {}), orders: 'resuto' },
