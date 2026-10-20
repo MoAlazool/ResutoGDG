@@ -52,10 +52,12 @@ export const productUpdate = productInput.partial().extend({ version: z.number()
 export type ProductUpdate = z.infer<typeof productUpdate>;
 
 export const productBranchSetting = z.object({
+  /** Offered at this branch (branch assignment; false hides the dish there). The temporary 86 is POST …/availability. */
   isAvailable: z.boolean().optional(),
   priceOverrideMinor: priceMinor.nullable().optional(),
   stockQty: z.number().int().min(0).max(1_000_000).nullable().optional(),
 });
+/** Quick 86 / restore (sold out today). The full request with `until` and `reason` is soldOutRequest (operations.ts). */
 export const availabilityToggle = z.object({ branchId: uuid, available: z.boolean() });
 
 export const modifierGroupInput = z.object({
@@ -167,7 +169,14 @@ export const toCsv = (rows: Array<Record<string, unknown>>) => {
 // ---------------------------------------------------------------------------
 export interface ModifierOption { id: string; groupId: string; name: string; nameAr: string | null; priceDeltaMinor: number; isDefault: boolean; isAvailable: boolean; sortOrder: number }
 export interface ModifierGroup { id: string; name: string; nameAr: string | null; minSelect: number; maxSelect: number; isActive: boolean; options: ModifierOption[] }
-export interface ProductBranchSettingView { branchId: string; isAvailable: boolean; priceOverrideMinor: number | null; stockQty: number | null }
+export interface ProductBranchSettingView {
+  branchId: string;
+  /** Offered at this branch. */
+  isAvailable: boolean;
+  priceOverrideMinor: number | null; stockQty: number | null;
+  /** Temporarily sold out (86), effective now. */
+  soldOut?: boolean; soldOutUntil?: string | null; soldOutReason?: string | null;
+}
 export interface Product {
   id: string; categoryId: string; name: string; nameAr: string | null; description: string | null; descriptionAr: string | null;
   priceMinor: number; costMinor: number | null; currency: string; station: string; prepMinutes: number | null; spiceLevel: number;
@@ -195,7 +204,12 @@ export interface PublicMenuProduct {
   imageSrcSet?: string | null;
   /** Original dimensions, for reserving the image box (no layout shift). */
   imageWidth?: number | null; imageHeight?: number | null;
-  allergens: string[]; dietary: string[]; spiceLevel: number; available: boolean; prepMinutes: number | null;
+  allergens: string[]; dietary: string[]; spiceLevel: number;
+  /** false = shown as sold out (86 or tracked stock at 0); see SOLD_OUT_DISPLAY. */
+  available: boolean;
+  /** Why it is unavailable: 'sold_out' (86) or 'out_of_stock'. */
+  unavailableReason?: 'sold_out' | 'out_of_stock' | null;
+  prepMinutes: number | null;
   modifierGroups: PublicMenuGroup[];
 }
 export interface PublicBranch {

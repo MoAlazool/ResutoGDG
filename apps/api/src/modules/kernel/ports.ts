@@ -81,7 +81,7 @@ export interface OrdersQueryPort {
   get(tx: Tx, ctx: TenantContext, orderId: string): Promise<unknown>;
 }
 
-/** Menu (B1): per-branch product availability (the only writer of product_branch_settings.is_available). */
+/** Menu (B1): per-branch temporary availability, the 86 (sold out; product_branch_settings.sold_out). Branch assignment is separate. */
 export interface MenuAvailabilityPort {
   setAvailability(tx: Tx, ctx: TenantContext, input: {
     productId: string; branchId: string; available: boolean; reason?: string | null; source: 'staff' | 'mcp' | 'ai';

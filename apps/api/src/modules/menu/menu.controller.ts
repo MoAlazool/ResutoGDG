@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Headers, Param, ParseUUIDPipe, Patch, Po
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
-  availabilityToggle, categoryInput, categoryReorder, categoryUpdate, menuImportRequest, modifierGroupInput, modifierGroupUpdate,
+  soldOutRequest, categoryInput, categoryReorder, categoryUpdate, menuImportRequest, modifierGroupInput, modifierGroupUpdate,
   modifierOptionInput, modifierOptionUpdate, productBranchSetting, productInput, productModifierAssignment, productUpdate, toCsv,
   type MenuImportRequest, type ProductInput, type ProductUpdate,
 } from '@resuto/contracts';
@@ -97,11 +97,14 @@ export class MenuController {
     return this.menu.setBranchSetting(ctx, id, branchId, body);
   }
 
-  /** Quick availability ("86") toggle for kitchen, waiters and cashiers. */
+  /**
+   * Quick "86" (sold out) / restore for kitchen, waiters and cashiers. The dish stays on guest menus as sold out;
+   * `until` brings it back automatically. Whether the branch offers the dish is the PUT …/branches/:branchId setting.
+   */
   @Post('o/:orgId/menu/products/:id/availability')
   @RequirePermission('menu:availability')
-  availability(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(availabilityToggle)) body: { branchId: string; available: boolean }) {
-    return this.menu.toggleAvailability(ctx, id, body.branchId, body.available);
+  availability(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(soldOutRequest)) body: z.infer<typeof soldOutRequest>) {
+    return this.menu.toggleAvailability(ctx, id, body.branchId, body.available, { until: body.until ?? null, reason: body.reason ?? null });
   }
 
   @Put('o/:orgId/menu/products/:id/modifier-groups')
