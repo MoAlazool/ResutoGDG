@@ -130,7 +130,7 @@ Raw results: `docs/perf-results/2026-10-20-after-*.json`, `…-control-ttf-web.j
 | PCL-17 | `customer_stats` / `customer_branch_stats` read models kept exact by triggers, keyset cursors, daily drift reconcile |
 | PCL-26 | Exact daily analytics rollups (stale flag set by triggers, live window today − 3, minute refresh, daily reconcile); the summary is one statement over the grain |
 | PCL-28 | Explicit columns on the polled order list/detail, overview base, public branches |
-| PCL-11 / PCL-12 | WhatsApp sends: claim → send outside any transaction → record under the same lease; unusable credentials fail once; Retry-After + jitter; per-tenant fairness with priorities; campaigns in 200-recipient transactions |
+| PCL-11 / PCL-12 | WhatsApp sends: claim → renew the lease (compare-and-set) → send outside any transaction → record under the renewed lease (a failed record is retried, never treated as a failed send); unusable credentials fail once; Retry-After + jitter; per-tenant fairness with priorities; campaigns in 200-recipient transactions over an audience snapshotted at start (`campaign_recipients`, migration `20261020080008`) |
 | PCL-14 / PS-18 / CR-12 | Window-stable signed URLs, one batched signing call per response after commit, WebP derivatives (320/640/1280) with dimensions, media cache headers until expiry |
 | PCL-15 | Versioned ETag + public caching on `/public/menu` and `/public/order`, 304 on revalidation, bounded built-menu cache |
 | PCL-24 | Brotli/gzip for compressible bodies ≥ 1 kB |

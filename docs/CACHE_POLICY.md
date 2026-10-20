@@ -41,6 +41,11 @@ The image URL window (one UTC day for menu images) is part of the tag, because t
 over once a day. A response-shape constant is part of the tag so a deploy that changes the payload never revalidates
 an older cached copy.
 
+The tag is not a hash of the body, so it is only given to a **complete** menu. When some image URLs could not be
+signed (a transient storage failure; those images come back as `null`), the menu is not put in the built-menu cache,
+carries no versioned ETag and is sent with `Cache-Control: no-store`, so neither a browser nor a CDN keeps an
+image-less menu for the rest of the version and URL window; the next request rebuilds it.
+
 **Observable staleness:** a guest (or CDN) may show a menu up to 15 s (30 s at a shared cache) old, plus up to 60 s
 while it revalidates in the background, and up to 10 min only when the API is failing. Price and availability are
 always re-checked server side when an order is quoted and placed, so a stale menu can never sell at a stale price.
@@ -70,12 +75,16 @@ unchanged.
 - **One signing call per response.** `MediaUrls` collects every image of a response and signs them in one batch
   (`POST /storage/v1/object/sign/<bucket>` with all paths) **after the database transaction has committed**. Signed
   Supabase URLs are cached per instance per window (bounded, 20k entries, dropped a minute before they expire). A
-  failed batch leaves images out of that response instead of failing the page.
+  failed batch leaves images out of that response instead of failing the page, and `resolve()` reports it so the
+  public menu is not cached (section 1). Helpers that run inside a transaction (menu `loadProducts`/`publicMenuFor`,
+  site `prepare`/`mediaMap`, the studio editor view) only collect URLs; `test/side-effects-guard.test.ts` checks
+  transaction callbacks and every function with a `tx: Tx` parameter for signing, uploads and provider calls.
 - **Derivatives (CR-12).** Menu and studio uploads store WebP copies at 320/640/1280 px (never wider than the
   original). The public menu's `imageUrl` is the smallest copy at least 640 px wide (the original when none is),
   `imageSrcSet` lists all copies and
   `imageWidth`/`imageHeight` give the original's size for reserving space. The `media.derivatives` job backfills
-  media recorded without copies. Guest pages adopting `srcset`/`width`/`height` is web work (follow-up).
+  media recorded without copies; an object that is missing (404) is marked checked, one whose read fails transiently
+  (5xx, 429, timeout) stays unchecked and is retried after a 30-minute cool-down. Guest pages adopting `srcset`/`width`/`height` is web work (follow-up).
 
 ## 4. In-process caches (API)
 
