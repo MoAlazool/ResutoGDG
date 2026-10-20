@@ -113,9 +113,10 @@ Repeat visits re-download every menu photo (signed URL changes every second) and
 For reference, the audit baseline at `c1a2501` (before this programme's earlier waves) measured guest QR LCP 5.75 s /
 CLS 0.156, Orders CLS 0.381, KDS tickets 245 ms (498 ms with JIT) and customers 409 ms on the same kind of data.
 
-## After (commit `50ed79b`, 2026-10-20)
+## After (commit `50ed79b` + `ed4501d`, 2026-10-20)
 
-Same machine, same data (`resuto_ws6_scale`, migrated to `20261020080007`, rollups built, demo photos backfilled with
+The API build measured is `50ed79b` with the derivative-selection fix committed as `ed4501d` (the harness labels
+results with the HEAD of the moment, `50ed79b`). Same machine, same data (`resuto_ws6_scale`, migrated to `20261020080007`, rollups built, demo photos backfilled with
 derivatives), same harness and settings as the baseline. The machine was shared with other workstreams' test runs
 during both measurements; web timings in particular move by a few hundred ms between runs (see the control below).
 Raw results: `docs/perf-results/2026-10-20-after-*.json`, `…-control-ttf-web.json`.
