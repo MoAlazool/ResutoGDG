@@ -60,4 +60,22 @@ describe('guest tokens use the guest-token purpose key ring', () => {
     // ...but they are never minted any more.
     expect(new GuestTokens(env({ CREDENTIALS_KEYS: K1 })).reservationToken(RES)).not.toBe(oldLink);
   });
+
+  it('pre-ring links survive the first rotation too (K1 no longer first), and adding CREDENTIALS_KEYS after the JWT secret', () => {
+    const oldLink = legacyToken(K1, 'reservation', RES);
+    const oldVisit = legacyToken(K1, 'visit', VISIT);
+    const rotated = new GuestTokens(env({ CREDENTIALS_KEYS: `${K2},${K1}` }));
+    expect(rotated.reservationToken(RES, sha256(oldLink))).toBe(oldLink);
+    expect(rotated.visitTokenMatching(VISIT, sha256(oldVisit))).toBe(oldVisit);
+    expect(new GuestTokens(env({ SIGNING_KEY: S1, CREDENTIALS_KEYS: ` ${K2} , ${K1} ` })).reservationToken(RES, sha256(oldLink))).toBe(oldLink);
+    // Retiring K1 retires its pre-ring links as well.
+    expect(new GuestTokens(env({ CREDENTIALS_KEYS: K2 })).reservationToken(RES, sha256(oldLink))).toBeNull();
+    // A deployment that ran on the JWT secret alone and then set CREDENTIALS_KEYS keeps those links.
+    const jwt = 'jwt-secret-that-is-at-least-32-characters-long';
+    const jwtLink = legacyToken(jwt, 'reservation', RES);
+    expect(new GuestTokens(env({ CREDENTIALS_KEYS: K1, SUPABASE_JWT_SECRET: jwt })).reservationToken(RES, sha256(jwtLink))).toBe(jwtLink);
+    // The public development key is never accepted once real key material exists.
+    const devLink = legacyToken('resuto-dev-guest-token-key-not-for-production', 'reservation', RES);
+    expect(new GuestTokens(env({ CREDENTIALS_KEYS: K1, SUPABASE_JWT_SECRET: jwt })).reservationToken(RES, sha256(devLink))).toBeNull();
+  });
 });

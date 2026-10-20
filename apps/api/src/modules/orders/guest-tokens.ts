@@ -28,9 +28,11 @@ import type { Env } from '../../config/env';
  * Keys (audit PS-25): the key is the `guest-token` purpose key (common/crypto/keys.ts), a ring derived from
  * SIGNING_KEY then CREDENTIALS_KEYS. New tokens use the newest key; a token is re-issued with whichever ring key
  * produced the hash already stored, so rotating either setting the documented way (prepend the new key) keeps every
- * table session and every reservation link that was already handed out working. The pre-ring derivation (first
- * CREDENTIALS_KEYS entry, else the JWT secret) stays in the ring as its last, verify-only member so links issued
- * before this change also survive; it is never used for new tokens and can be dropped once those reservations are past.
+ * table session and every reservation link that was already handed out working. The pre-ring derivation (then the
+ * first CREDENTIALS_KEYS entry, else the JWT secret) stays in the ring as verify-only members so links issued before
+ * this change also survive: one for EVERY CREDENTIALS_KEYS entry and one for the JWT secret, because after the first
+ * rotation (prepend K2) the entry those links were made with is no longer first. They are never used for new tokens
+ * and can be dropped once those reservations are past.
  */
 export class GuestTokens {
   private readonly active: Buffer;
@@ -38,10 +40,13 @@ export class GuestTokens {
 
   constructor(env: Env) {
     const keys = purposeKeys(env, 'guest-token');
-    const legacyMaterial = env.CREDENTIALS_KEYS?.split(',')[0]?.trim() || env.SUPABASE_JWT_SECRET || 'resuto-dev-guest-token-key-not-for-production';
-    const legacy = createHmac('sha256', 'resuto:guest-token-key:v1').update(legacyMaterial).digest();
+    const credentials = (env.CREDENTIALS_KEYS ?? '').split(',').map((k) => k.trim()).filter(Boolean);
+    const legacyMaterial = [...credentials, ...(env.SUPABASE_JWT_SECRET ? [env.SUPABASE_JWT_SECRET] : [])];
+    // The fixed development key only ever applied when neither setting existed; it is never trusted otherwise.
+    if (!legacyMaterial.length) legacyMaterial.push('resuto-dev-guest-token-key-not-for-production');
+    const legacy = [...new Set(legacyMaterial)].map((m) => createHmac('sha256', 'resuto:guest-token-key:v1').update(m).digest());
     this.active = keys.active;
-    this.ring = [...keys.all, legacy];
+    this.ring = [...keys.all, ...legacy];
   }
 
   /** The visit token under the active key (new visits, or a visit whose stored hash no ring key reproduces). */
