@@ -25,7 +25,15 @@ const config: NextConfig = {
     return config;
   },
   async headers() {
-    return [{
+    // Static files from public/ (PCL-22, docs/CACHE_POLICY.md). Fonts carry a content hash in their name
+    // (scripts/perf/fonts/convert-woff2.py), so they are immutable for a year. Brand and landing images keep stable
+    // names that pages reference directly: a day fresh, then revalidated in the background for a week.
+    const staticCache = [
+      { source: '/fonts/:file*', value: 'public, max-age=31536000, immutable' },
+      { source: '/brand/:file*', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+      { source: '/landing/:file*', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+    ].map(({ source, value }) => ({ source, headers: [{ key: 'Cache-Control', value }] }));
+    return [...staticCache, {
       source: '/:path*',
       headers: [
         { key: 'X-Content-Type-Options', value: 'nosniff' },
