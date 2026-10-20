@@ -9,7 +9,10 @@ import { envSchema, type Env } from '../src/config/env';
 
 const base = {
   NODE_ENV: 'staging', SUPABASE_URL: 'https://example-ref.supabase.co', CREDENTIALS_KEYS: 'k1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-  AUTH_DEV_MODE: 'false', STORAGE_DRIVER: 'local',
+  AUTH_DEV_MODE: 'false', STORAGE_DRIVER: 'local', PAYMENT_MODE: 'sandbox',
+};
+const production = {
+  ...base, NODE_ENV: 'production', PAYMENT_MODE: 'live', STORAGE_DRIVER: 'supabase', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test',
 };
 const issues = (env: Record<string, string>) => {
   const r = envSchema.safeParse(env);
@@ -34,6 +37,25 @@ describe('deployed environment validation', () => {
     expect(issues(noKeys)).toContain('CREDENTIALS_KEYS');
     expect(issues({ ...base, STORAGE_DRIVER: 'supabase' })).toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(issues({ ...base, STORAGE_DRIVER: 'supabase', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test' })).toEqual([]);
+  });
+
+  // Audit PS-05 / INT-01 / PAY-03: a production deploy that forgot PAYMENT_MODE ran the simulated provider, so any
+  // payment-link holder could settle real orders with no money moving; local storage was also allowed.
+  it('refuses simulated payments and local storage in production; staging opts into sandbox explicitly', () => {
+    expect(issues(production)).toEqual([]);
+    const { PAYMENT_MODE: _p, ...noMode } = production;
+    expect(issues(noMode)).toContain('PAYMENT_MODE');
+    expect(issues({ ...production, PAYMENT_MODE: 'sandbox' })).toContain('PAYMENT_MODE');
+    expect(issues({ ...production, STORAGE_DRIVER: 'local' })).toContain('STORAGE_DRIVER');
+    const { STORAGE_DRIVER: _s, ...noDriver } = production;
+    expect(issues(noDriver)).toContain('STORAGE_DRIVER');
+    // staging: sandbox + Supabase storage is the reference configuration and stays valid
+    expect(issues({ ...base, STORAGE_DRIVER: 'supabase', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test' })).toEqual([]);
+    const { PAYMENT_MODE: _q, ...stagingNoMode } = base;
+    expect(issues(stagingNoMode)).toContain('PAYMENT_MODE');
+    // local development keeps its defaults
+    const dev = envSchema.parse({ SUPABASE_JWT_SECRET: 'x'.repeat(40) });
+    expect([dev.PAYMENT_MODE, dev.STORAGE_DRIVER]).toEqual(['sandbox', 'local']);
   });
 
   it('parses the in-process worker flag', () => {

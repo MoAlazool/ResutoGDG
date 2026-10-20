@@ -35,11 +35,13 @@ export const envSchema = z.object({
   AI_SERVICE_TOKEN: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
-  PAYMENT_MODE: z.enum(['sandbox', 'live']).default('sandbox'),
+  /** Required in staging/production; production must be `live` (sandbox = simulated provider, guests settle for free). */
+  PAYMENT_MODE: z.enum(['sandbox', 'live']).optional(),
   /** Runs the outbox/job loop inside the API process (single-service hosting without a separate worker). */
   RUN_WORKER_IN_PROCESS: bool.default(false),
   MCP_INTERNAL_TOKEN: z.string().min(24).optional(),
-  STORAGE_DRIVER: z.enum(['local', 'supabase']).default('local'),
+  /** Required in staging/production; production must be `supabase` (local disk is ephemeral and not shared). */
+  STORAGE_DRIVER: z.enum(['local', 'supabase']).optional(),
   STORAGE_LOCAL_DIR: z.string().default('.local/storage'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
@@ -84,8 +86,25 @@ export const envSchema = z.object({
   if (deployed && env.STORAGE_DRIVER === 'supabase' && !env.SUPABASE_SERVICE_ROLE_KEY) {
     ctx.addIssue({ code: 'custom', path: ['SUPABASE_SERVICE_ROLE_KEY'], message: 'STORAGE_DRIVER=supabase needs SUPABASE_SERVICE_ROLE_KEY' });
   }
-});
-export type Env = z.infer<typeof envSchema>;
+  // Deployed environments choose payment and storage modes explicitly; the development defaults never apply there.
+  if (deployed && !env.PAYMENT_MODE) {
+    ctx.addIssue({ code: 'custom', path: ['PAYMENT_MODE'], message: `PAYMENT_MODE must be set explicitly in ${env.NODE_ENV} (live, or sandbox for staging)` });
+  }
+  if (env.NODE_ENV === 'production' && env.PAYMENT_MODE === 'sandbox') {
+    ctx.addIssue({ code: 'custom', path: ['PAYMENT_MODE'], message: 'PAYMENT_MODE=sandbox (simulated payments) is refused in production; use live' });
+  }
+  if (deployed && !env.STORAGE_DRIVER) {
+    ctx.addIssue({ code: 'custom', path: ['STORAGE_DRIVER'], message: `STORAGE_DRIVER must be set explicitly in ${env.NODE_ENV}` });
+  }
+  if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'local') {
+    ctx.addIssue({ code: 'custom', path: ['STORAGE_DRIVER'], message: 'STORAGE_DRIVER=local is refused in production; use supabase' });
+  }
+}).transform((env) => ({
+  ...env,
+  PAYMENT_MODE: env.PAYMENT_MODE ?? ('sandbox' as const),
+  STORAGE_DRIVER: env.STORAGE_DRIVER ?? ('local' as const),
+}));
+export type Env = z.output<typeof envSchema>;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = envSchema.safeParse(source);

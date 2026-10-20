@@ -31,7 +31,7 @@ export async function main() {
   const env = loadEnv();
   const app = await createApp();
   await app.listen(env.PORT, '0.0.0.0');
-  new Logger('Resuto').log(`API listening on :${env.PORT} (${env.NODE_ENV})`);
+  new Logger('Resuto').log(`API listening on :${env.PORT} (${env.NODE_ENV}; payments ${env.PAYMENT_MODE}, storage ${env.STORAGE_DRIVER})`);
   if (env.RUN_WORKER_IN_PROCESS) {
     // Single-service hosting (e.g. a free web service): the outbox/job loop shares this process.
     let stopping = false;
