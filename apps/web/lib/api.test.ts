@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiRequestError, errorKind } from './api';
+import { api, apiCacheMode, ApiRequestError, errorKind, noteServerCachePolicy, resetServerCachePolicy } from './api';
 
 const respond = (status: number, body: string, contentType?: string) =>
   vi.fn(async (_url: string, _init?: RequestInit) => new Response(body, { status, headers: contentType ? { 'content-type': contentType, 'x-request-id': 'req-1' } : { 'x-request-id': 'req-1' } }));
@@ -47,13 +47,57 @@ describe('api()', () => {
     expect(await api('/x', { method: 'DELETE' })).toBeNull();
   });
 
-  it('uses the default cache mode so the browser can reuse CORS preflights (no cache: no-store)', async () => {
+  it("starts in 'no-store' mode and sends the bearer token", async () => {
+    resetServerCachePolicy();
     const f = respond(200, '{}', 'application/json');
     vi.stubGlobal('fetch', f);
     await api('/x', { token: 't' });
     const init = f.mock.calls[0]![1]!;
-    expect(init.cache).toBeUndefined();
+    expect(init.cache).toBe('no-store');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer t');
+  });
+});
+
+describe('HTTP cache policy (PCL-03 without leaking tenant data into the disk cache)', () => {
+  const withCacheControl = (cc: string | null) => vi.fn(async (_url: string, _init?: RequestInit) =>
+    new Response('{}', { status: 200, headers: { 'content-type': 'application/json', ...(cc ? { 'cache-control': cc } : {}) } }));
+  const modes = (f: ReturnType<typeof withCacheControl>) => f.mock.calls.map((c) => c[1]!.cache);
+  afterEach(() => resetServerCachePolicy());
+
+  it("keeps 'no-store' while the API declares no policy (this branch without PCL-04)", async () => {
+    resetServerCachePolicy();
+    const f = withCacheControl(null);
+    vi.stubGlobal('fetch', f);
+    for (let i = 0; i < 3; i++) await api('/o/1/orders', { token: 't' });
+    expect(modes(f)).toEqual(['no-store', 'no-store', 'no-store']);
+  });
+
+  it('switches to the default mode once the API sends private, no-store, so preflights are cached', async () => {
+    resetServerCachePolicy();
+    const f = withCacheControl('private, no-store');
+    vi.stubGlobal('fetch', f);
+    for (let i = 0; i < 3; i++) await api('/o/1/orders', { token: 't' });
+    expect(modes(f)).toEqual(['no-store', undefined, undefined]);
+  });
+
+  it('falls back to no-store for the rest of the page load when a response has no Cache-Control', async () => {
+    resetServerCachePolicy();
+    noteServerCachePolicy('private, no-store');
+    expect(apiCacheMode()).toBeUndefined();
+    noteServerCachePolicy(null);
+    expect(apiCacheMode()).toBe('no-store');
+    noteServerCachePolicy('private, no-store');
+    expect(apiCacheMode()).toBe('no-store');
+  });
+
+  it('does not treat a cacheable public policy as a no-store declaration', () => {
+    resetServerCachePolicy();
+    noteServerCachePolicy('public, max-age=30, stale-while-revalidate=120');
+    expect(apiCacheMode()).toBe('no-store');
+    noteServerCachePolicy('no-store-ish');
+    expect(apiCacheMode()).toBe('no-store');
+    noteServerCachePolicy('No-Store');
+    expect(apiCacheMode()).toBeUndefined();
   });
 });
 

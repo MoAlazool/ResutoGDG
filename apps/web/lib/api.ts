@@ -64,11 +64,30 @@ export interface ApiOptions {
 const isJson = (contentType: string | null) => !!contentType && /\bjson\b/i.test(contentType);
 
 /**
- * Freshness: requests use the browser's default cache mode. Authenticated API responses are sent with
- * `Cache-Control: private, no-store` (server side), so they are never reused from the HTTP cache, while the default
- * mode lets Chromium keep its CORS preflight cache (Access-Control-Max-Age) instead of sending an OPTIONS request
- * before every call, which `cache: 'no-store'` disabled.
+ * HTTP cache policy (PCL-03, depends on the API's PCL-04 header). `cache: 'no-store'` keeps API responses out of the
+ * browser's HTTP (disk) cache, but Chromium then also skips its CORS preflight cache, so every credentialed call and
+ * every poll pays an extra OPTIONS round trip. The default mode, which keeps preflights cached
+ * (Access-Control-Max-Age), is therefore used only once the API has shown that it declares its own policy: a
+ * response carrying `Cache-Control: … no-store …` (the hardening middleware sends `private, no-store` on every
+ * response that sets no policy of its own). As soon as one response arrives with no Cache-Control header at all, the
+ * API is treated as not declaring a policy for the rest of this page load and every request uses 'no-store', so
+ * tenant JSON and guest data never reach the disk cache, where they would outlive sign-out.
  */
+type ServerCachePolicy = 'unknown' | 'declared' | 'absent';
+let serverCachePolicy: ServerCachePolicy = 'unknown';
+
+/** The fetch cache mode for the next API request (exported for tests and probes). */
+export const apiCacheMode = (): RequestCache | undefined => (serverCachePolicy === 'declared' ? undefined : 'no-store');
+
+/** Learns the API's cache policy from a response. 'absent' is sticky for the page load; it only fails safe. */
+export function noteServerCachePolicy(cacheControl: string | null): void {
+  if (!cacheControl) serverCachePolicy = 'absent';
+  else if (serverCachePolicy === 'unknown' && /(^|[\s,])no-store([\s,;]|$)/i.test(cacheControl)) serverCachePolicy = 'declared';
+}
+
+/** Test hook: forget what was learned (a new page load). */
+export const resetServerCachePolicy = () => { serverCachePolicy = 'unknown'; };
+
 export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers };
   if (opts.body !== undefined && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
@@ -81,6 +100,7 @@ export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise
       headers,
       body: opts.body === undefined ? undefined : opts.body instanceof FormData ? opts.body : JSON.stringify(opts.body),
       signal: opts.signal,
+      cache: apiCacheMode(),
     });
   } catch (e) {
     if (opts.signal?.aborted || (e as Error)?.name === 'AbortError') throw new ApiRequestError(0, 'aborted', copy('aborted'));
@@ -89,6 +109,7 @@ export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise
   }
   // Topbar connection status: a gateway/server outage means "reconnecting"; any other answer means the API is reachable.
   reportConnection(!(res.status === 502 || res.status === 503 || res.status === 504));
+  noteServerCachePolicy(res.headers.get('cache-control'));
   const requestId = res.headers.get('x-request-id') ?? undefined;
   const text = await res.text().catch(() => '');
   let data: any = null;
