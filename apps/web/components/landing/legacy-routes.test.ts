@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { langAlternates, langParam, legacyRedirect } from './legacy-routes';
 
 describe('legacy page URLs (VP-15)', () => {
-  it('sends the legacy public pages to the demo restaurant’s pages', () => {
-    expect(legacyRedirect('/restaurant')).toEqual({ to: '/r/the-olive-room', permanent: true });
-    expect(legacyRedirect('/menu')).toEqual({ to: '/order/the-olive-room', permanent: true });
-    expect(legacyRedirect('/order')).toEqual({ to: '/order/the-olive-room', permanent: true });
-    expect(legacyRedirect('/reserve/')).toEqual({ to: '/reserve/the-olive-room', permanent: true });
-    expect(legacyRedirect('/burger')).toEqual({ to: '/r/the-olive-room/smash-and-co', permanent: true });
+  it('sends the legacy public pages to the demo restaurant’s pages, temporarily (a cached 308 would outlive a renamed demo tenant)', () => {
+    expect(legacyRedirect('/restaurant')).toEqual({ to: '/r/the-olive-room', permanent: false });
+    expect(legacyRedirect('/menu')).toEqual({ to: '/order/the-olive-room', permanent: false });
+    expect(legacyRedirect('/order')).toEqual({ to: '/order/the-olive-room', permanent: false });
+    expect(legacyRedirect('/reserve/')).toEqual({ to: '/reserve/the-olive-room', permanent: false });
+    expect(legacyRedirect('/burger')).toEqual({ to: '/r/the-olive-room/smash-and-co', permanent: false });
   });
 
   it('sends the legacy staff screens through sign-in to the right screen, not permanently', () => {

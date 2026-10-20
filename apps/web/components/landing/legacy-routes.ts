@@ -32,7 +32,9 @@ const STAFF: Record<string, string> = {
 /** Where a legacy page URL lives now, or null when the path is not a legacy page. */
 export function legacyRedirect(pathname: string): LegacyRedirect | null {
   const p = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
-  if (Object.hasOwn(PUBLIC, p)) return { to: PUBLIC[p]!, permanent: true };
+  // Temporary on purpose: browsers cache a 308 indefinitely, and these targets depend on the demo tenant
+  // (NEXT_PUBLIC_DEMO_SLUG) existing in the environment, which a later deploy may rename or remove.
+  if (Object.hasOwn(PUBLIC, p)) return { to: PUBLIC[p]!, permanent: false };
   if (Object.hasOwn(STAFF, p)) return { to: STAFF[p]!, permanent: false };
   return null;
 }
