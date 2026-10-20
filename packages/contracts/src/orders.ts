@@ -7,7 +7,8 @@ import { ORDER_STATUSES } from './state-machines';
 
 export const ordersContractsVersion = 2 as const;
 
-export const ORDER_CHANNELS = ['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone'] as const;
+// messenger / instagram: orders placed in Connect conversations on those channels (INT-21 / FT-05).
+export const ORDER_CHANNELS = ['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone', 'messenger', 'instagram'] as const;
 export const FULFILLMENTS = ['dine_in', 'pickup', 'delivery'] as const;
 export const KITCHEN_STATUSES = ['queued', 'preparing', 'ready', 'served', 'cancelled'] as const;
 /** Orders the kitchen display shows. */

@@ -29,6 +29,18 @@ export const createMessagingChannel = z.discriminatedUnion('transport', [
     branchId: uuid.nullable().optional(),
     orderingEnabled: z.boolean().default(true),
   }).strict(),
+  /**
+   * Messenger / Instagram Direct (INT-21 / FT-05): the Page (and linked Instagram account) come from the connection
+   * (provider meta_pages), never from this request, and are proven through the Graph API before the channel exists.
+   */
+  z.object({
+    transport: z.literal('meta_page'),
+    kind: z.enum(['messenger', 'instagram']),
+    displayName: text(80),
+    connectionId: uuid,
+    branchId: uuid.nullable().optional(),
+    orderingEnabled: z.boolean().default(true),
+  }).strict(),
 ]);
 export type CreateMessagingChannel = z.infer<typeof createMessagingChannel>;
 
@@ -155,6 +167,8 @@ export const orderingDetailsInput = z.object({
     line1: text(300), area: optionalText(120), city: optionalText(80), notes: optionalText(300),
   }).strict().optional(),
   marketingConsent: z.boolean().optional(),
+  /** Messenger / Instagram conversations carry no phone number; delivery orders from them ask for one (INT-21). */
+  phone: phoneE164.optional(),
 }).strict();
 export type OrderingDetailsInput = z.infer<typeof orderingDetailsInput>;
 

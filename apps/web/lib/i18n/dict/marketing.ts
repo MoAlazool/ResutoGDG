@@ -14,7 +14,7 @@ const en: Record<string, string> = {
   'marketing.rule.inactive_days_gte': 'Inactive for at least', 'marketing.rule.orders_gte': 'Placed at least', 'marketing.rule.spent_gte': 'Spent at least',
   'marketing.rule.has_tag': 'Has tag', 'marketing.rule.consent': 'Marketing consent', 'marketing.rule.branch': 'Ordered at branch',
   'marketing.rule.purchased_product': 'Bought product', 'marketing.rule.channel': 'Ordered through',
-  'marketing.orderChannel.qr': 'Table QR', 'marketing.orderChannel.web': 'Website', 'marketing.orderChannel.whatsapp': 'WhatsApp', 'marketing.orderChannel.staff': 'Staff',
+  'marketing.orderChannel.qr': 'Table QR', 'marketing.orderChannel.web': 'Website', 'marketing.orderChannel.whatsapp': 'WhatsApp', 'marketing.orderChannel.messenger': 'Messenger', 'marketing.orderChannel.instagram': 'Instagram', 'marketing.orderChannel.staff': 'Staff',
   'marketing.orderChannel.pos': 'POS', 'marketing.orderChannel.mcp': 'AI client', 'marketing.orderChannel.phone': 'Phone',
   'marketing.source.manual': 'Manual', 'marketing.source.ai': 'Suggested', 'marketing.source.mcp': 'AI client', 'marketing.source.system': 'Recommendation',
   // Campaigns
@@ -114,7 +114,7 @@ const ar: Record<string, string> = {
   'marketing.rule.inactive_days_gte': 'غير نشط منذ', 'marketing.rule.orders_gte': 'طلب على الأقل', 'marketing.rule.spent_gte': 'أنفق على الأقل',
   'marketing.rule.has_tag': 'لديه وسم', 'marketing.rule.consent': 'الموافقة التسويقية', 'marketing.rule.branch': 'طلب من فرع',
   'marketing.rule.purchased_product': 'اشترى منتجًا', 'marketing.rule.channel': 'طلب عبر',
-  'marketing.orderChannel.qr': 'رمز الطاولة', 'marketing.orderChannel.web': 'الموقع', 'marketing.orderChannel.whatsapp': 'واتساب', 'marketing.orderChannel.staff': 'الموظفون',
+  'marketing.orderChannel.qr': 'رمز الطاولة', 'marketing.orderChannel.web': 'الموقع', 'marketing.orderChannel.whatsapp': 'واتساب', 'marketing.orderChannel.messenger': 'ماسنجر', 'marketing.orderChannel.instagram': 'إنستغرام', 'marketing.orderChannel.staff': 'الموظفون',
   'marketing.orderChannel.pos': 'نقطة البيع', 'marketing.orderChannel.mcp': 'عميل ذكاء اصطناعي', 'marketing.orderChannel.phone': 'الهاتف',
   'marketing.source.manual': 'يدوي', 'marketing.source.ai': 'مقترح', 'marketing.source.mcp': 'عميل ذكاء اصطناعي', 'marketing.source.system': 'توصية',
   'marketing.camp.flow': 'كل حملة تبقى مسودة حتى يعتمدها شخص لديه صلاحية الاعتماد. لا يُراسل إلا العملاء الذين وافقوا على التسويق.',

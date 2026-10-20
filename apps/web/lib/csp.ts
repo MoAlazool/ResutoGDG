@@ -27,7 +27,14 @@ export interface CspOptions {
    * Staff pages never get this.
    */
   metaPixel?: boolean;
+  /**
+   * Inbox > Channels (INT-13): WhatsApp Embedded Signup runs Meta's JavaScript SDK (loaded by trusted code), whose
+   * login dialog talks to www.facebook.com through a hidden frame. Only that page gets these hosts.
+   */
+  metaSdk?: boolean;
 }
+
+export const META_SDK_HOSTS = ['https://www.facebook.com', 'https://web.facebook.com', 'https://connect.facebook.net'];
 
 export const META_PIXEL_CONNECT = ['https://www.facebook.com', 'https://connect.facebook.net'];
 
@@ -51,11 +58,11 @@ export function buildCsp(o: CspOptions): string {
     "style-src 'self' 'unsafe-inline'",
     list("img-src 'self' data: blob: https:", api, supabase),
     "font-src 'self' data:",
-    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : [])),
+    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : []), ...(o.metaSdk ? META_SDK_HOSTS : [])),
     list("media-src 'self' blob: https:", api),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
-    "frame-src 'none'",
+    o.metaSdk ? list('frame-src', ...META_SDK_HOSTS) : "frame-src 'none'",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

@@ -25,6 +25,8 @@ interface View {
   fulfillment: 'pickup' | 'delivery' | null; customerName: string | null;
   address: { line1: string; area?: string | null; city?: string | null; notes?: string | null } | null;
   marketingConsent: boolean; paymentOnlineAvailable: boolean;
+  /** Messenger / Instagram delivery: the conversation has no phone number, so the guest types one. */
+  needsPhone?: boolean; customerPhone?: string | null;
   quote: { currency: string; subtotalMinor: number; discountMinor: number; deliveryFeeMinor: number; serviceChargeMinor: number; taxMinor: number;
     taxInclusive: boolean; totalMinor: number; lines: QuoteLine[] } | null;
   order: { id: string; number: string; status: string; totalMinor: number; currency: string } | null;
@@ -100,6 +102,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
   const [name, setName] = useState('');
   const [address, setAddress] = useState({ line1: '', area: '', city: '', notes: '' });
   const [consent, setConsent] = useState(false);
+  const [phone, setPhone] = useState('');
   const [activeCat, setActiveCat] = useState<string | null>(null);
 
   useEffect(() => {
@@ -107,6 +110,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
     setName((n) => n || view.customerName || '');
     if (view.address) setAddress((a) => (a.line1 ? a : { line1: view.address!.line1, area: view.address!.area ?? '', city: view.address!.city ?? '', notes: view.address!.notes ?? '' }));
     setConsent(view.marketingConsent);
+    setPhone((p) => p || view.customerPhone || '');
     if (view.step === 'review' && view.quote && cart.length === 0) {
       setCart(view.quote.lines.map((l, i) => ({ key: `q${i}`, productId: l.productId, quantity: l.quantity, modifiers: (l as any).modifiers.map((m: any) => ({ groupId: m.groupId, optionId: m.optionId })) })));
       setStage('review');
@@ -146,12 +150,15 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
   const checkout = (paymentMethod: 'online' | 'cod') => run(async () => {
     let v = view!;
     const addressChanged = v.fulfillment === 'delivery' && address.line1.trim() && address.line1.trim() !== v.address?.line1;
-    if ((name.trim() && name.trim() !== v.customerName) || addressChanged || consent !== v.marketingConsent) {
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+    const phoneChanged = !!v.needsPhone && !!cleanPhone && cleanPhone !== v.customerPhone;
+    if ((name.trim() && name.trim() !== v.customerName) || addressChanged || consent !== v.marketingConsent || phoneChanged) {
       v = { ...(await api<View>(`/public/connect/ordering/${token}/details`, { body: {
         version: v.version,
         ...(name.trim() && name.trim() !== v.customerName ? { customerName: name.trim() } : {}),
         ...(addressChanged ? { address: { line1: address.line1.trim(), area: address.area.trim() || null, city: address.city.trim() || null, notes: address.notes.trim() || null } } : {}),
         marketingConsent: consent,
+        ...(phoneChanged ? { phone: cleanPhone } : {}),
       } })), menu: v.menu };
     }
     const done = await api<View>(`/public/connect/ordering/${token}/checkout`, {
@@ -244,6 +251,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
               <Field label={t('connect.order.city')} value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} maxLength={80} />
             </div>
             <Field label={t('connect.order.addressNotes')} value={address.notes} onChange={(e) => setAddress({ ...address, notes: e.target.value })} maxLength={300} />
+            {view.needsPhone && <Field label={t('connect.order.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" dir="ltr" placeholder="+201001234567" pattern="\+[1-9][0-9 \-]{6,18}" required />}
           </>}
           {view.fulfillment === 'pickup' && view.branch?.address && <p className="muted">{t('connect.order.pickupAt', { address: view.branch.address })}</p>}
           <label className="check"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> {t('connect.order.consent')}</label>
@@ -251,8 +259,8 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
         <div className="card stack">
           <h2 style={{ margin: 0 }}>{t('connect.order.payment')}</h2>
           {actionError && <Notice tone="danger">{actionError}</Notice>}
-          {view.paymentOnlineAvailable && <button className="btn btn-primary btn-block" disabled={busy || !name.trim()} onClick={() => checkout('online')}>{t('connect.order.payOnline')}</button>}
-          <button className={`btn btn-block ${view.paymentOnlineAvailable ? '' : 'btn-primary'}`} disabled={busy || !name.trim() || (view.fulfillment === 'delivery' && address.line1.trim().length < 5)}
+          {view.paymentOnlineAvailable && <button className="btn btn-primary btn-block" disabled={busy || !name.trim() || (!!view.needsPhone && !/^\+[1-9][0-9]{6,14}$/.test(phone.replace(/[\s-]/g, '')))} onClick={() => checkout('online')}>{t('connect.order.payOnline')}</button>}
+          <button className={`btn btn-block ${view.paymentOnlineAvailable ? '' : 'btn-primary'}`} disabled={busy || !name.trim() || (view.fulfillment === 'delivery' && address.line1.trim().length < 5) || (!!view.needsPhone && !/^\+[1-9][0-9]{6,14}$/.test(phone.replace(/[\s-]/g, '')))}
             onClick={() => checkout('cod')}>{t(view.fulfillment === 'delivery' ? 'connect.order.payCod' : 'connect.order.payAtPickup')}</button>
           {!view.paymentOnlineAvailable && <p className="fine">{t('connect.order.onlineUnavailable')}</p>}
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={cancel}>{t('connect.order.cancel')}</button>

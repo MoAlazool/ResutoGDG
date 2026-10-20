@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CreateMessagingChannel, MessageTemplateInput } from '@resuto/contracts';
-import { ProviderError, whatsappCloudAdapter, type WhatsAppPhoneNumber } from '@resuto/integrations';
+import { metaPagesAdapter, ProviderError, whatsappCloudAdapter, type WhatsAppPhoneNumber } from '@resuto/integrations';
 import { z } from 'zod';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
@@ -58,6 +58,7 @@ export class ChannelsService {
   async create(ctx: TenantContext, input: CreateMessagingChannel) {
     ctx.assertBranch(input.branchId ?? null);
     if (input.transport === 'meta_cloud') return this.createWhatsApp(ctx, input);
+    if (input.transport === 'meta_page') return this.createPageChannel(ctx, input);
     assertConnectSandbox(this.env);
     return this.db.scoped(ctx, async (tx) => {
       await this.assertBranchExists(tx, ctx, input.branchId ?? null);
@@ -92,6 +93,80 @@ export class ChannelsService {
     await this.assertNotClaimed(ctx.orgId, input.phoneNumberId);
     const verification = await this.verifyWhatsApp(ctx.orgId, conn.id, { wabaId: input.wabaId, phoneNumberId: input.phoneNumberId });
     return this.attachVerifiedWhatsApp(ctx, conn.id, { ...input, displayPhone: input.displayPhone ?? verification.phone.displayPhoneNumber }, verification);
+  }
+
+  /**
+   * INT-21 / FT-05: a Messenger or Instagram channel for the Page (and linked Instagram account) saved on a meta_pages
+   * connection. The connection's token must prove it is that Page's token (and that the Instagram account is the one
+   * linked to the Page); the Page is subscribed to message webhooks; only then is the channel stored, verified.
+   */
+  private async createPageChannel(ctx: TenantContext, input: Extract<CreateMessagingChannel, { transport: 'meta_page' }>) {
+    const conn = await this.db.scoped(ctx, async (tx) => {
+      await this.assertBranchExists(tx, ctx, input.branchId ?? null);
+      return tx.maybeOne<{ id: string; provider: string; status: string; enabled: boolean; config: Record<string, unknown>; branch_id: string | null }>(
+        `select id, provider, status, enabled, config, branch_id from integration_connections where id = $1 and org_id = $2`, [input.connectionId, ctx.orgId]);
+    });
+    if (!conn || conn.provider !== 'meta_pages') throw invalid('connection_required', 'Choose a Facebook Messenger & Instagram connection');
+    ctx.assertBranch(conn.branch_id);
+    if (conn.status === 'revoked' || !conn.enabled) throw conflict('connection_unavailable', 'This connection is revoked or switched off');
+    const ids = this.pageIds(conn.config, input.kind);
+    const taken = await this.db.withPlatform((p) => p.maybeOne<{ org_id: string }>(
+      `select org_id from messaging_channels where kind = $1 and external_account_id = $2`, [input.kind, ids.externalId]));
+    if (taken) throw conflict(taken.org_id === ctx.orgId ? 'channel_exists' : 'account_in_use',
+      taken.org_id === ctx.orgId ? 'This account already has a channel' : 'This account is already connected to Resuto');
+    const verification = await this.verifyPage(ctx.orgId, conn.id, input.kind, ids);
+    return this.db.scoped(ctx, async (tx) => {
+      let row;
+      try {
+        row = await tx.one(
+          `insert into messaging_channels(org_id, branch_id, kind, transport, connection_id, display_name, page_id, external_account_id, status, ordering_enabled,
+              verified_at, verification)
+           values ($1, $2, $3, 'meta_page', $4, $5, $6, $7, 'pending', $8, now(), $9) returning *`,
+          [ctx.orgId, input.branchId ?? null, input.kind, conn.id, input.displayName, ids.pageId, ids.externalId, input.orderingEnabled, verification]);
+      } catch (e) {
+        if ((e as { code?: string }).code === '23505') throw conflict('account_in_use', 'This account is already connected to Resuto');
+        throw e;
+      }
+      row.connection_status = conn.status;
+      await this.audit.record(tx, ctx, { action: 'connect.meta_page_connected', entityType: 'messaging_channel', entityId: row.id, branchId: row.branch_id,
+        metadata: { kind: input.kind, pageId: ids.pageId, subscribedApp: verification.subscribedApp } });
+      return channelView(row);
+    });
+  }
+
+  private pageIds(config: Record<string, unknown>, kind: 'messenger' | 'instagram') {
+    const pageId = String(config.pageId ?? '');
+    const ig = typeof config.instagramAccountId === 'string' && config.instagramAccountId ? config.instagramAccountId : null;
+    if (!/^\d{3,30}$/.test(pageId)) throw invalid('connection_incomplete', 'The connection has no Facebook Page id');
+    if (kind === 'instagram' && !ig) throw invalid('instagram_account_required', 'Add the Instagram professional account id to the connection first');
+    return { pageId, instagramAccountId: kind === 'instagram' ? ig : null, externalId: kind === 'instagram' ? ig! : pageId };
+  }
+
+  /** Graph proof for a Page / Instagram channel; Meta being unreachable stores nothing. */
+  async verifyPage(orgId: string, connectionId: string, kind: 'messenger' | 'instagram', ids: { pageId: string; instagramAccountId: string | null }) {
+    const conn = await this.connections.load(orgId, { id: connectionId });
+    const logIt = (level: 'info' | 'warn' | 'error', message: string, details: Record<string, unknown>) =>
+      this.db.withTenant(orgId, (tx) => this.connections.log(tx, orgId, connectionId, level, message, details), 'connect.verify');
+    let own;
+    try {
+      own = await metaPagesAdapter.verifyOwnership(conn.adapter, { pageId: ids.pageId, instagramAccountId: ids.instagramAccountId });
+    } catch (e) {
+      const d = redactedError(e);
+      await logIt('error', `Could not verify the Page: ${d.message}`, { ...ids, error: d });
+      if (e instanceof ProviderError && e.status === 401) throw new DomainError('connection_token_invalid', 'Meta rejected the Page token. Generate a new one, then try again.', 422);
+      throw new DomainError('verification_unavailable', 'Meta could not be reached to verify the Page. Nothing was saved; try again.', 502, { retryable: d.retryable });
+    }
+    if (!own.owned) {
+      await logIt('warn', 'Page ownership was not proven', { ...ids, reason: own.reason });
+      throw invalid('page_not_verified', own.reason === 'instagram_not_linked' ? 'That Instagram account is not the one linked to this Facebook Page'
+        : own.reason === 'token_not_for_page' ? 'The token is not this Page\'s access token' : 'The token cannot access this Page', { reason: own.reason });
+    }
+    let subscribedApp = false;
+    let subscribeError: string | null = null;
+    try { await metaPagesAdapter.subscribeApp(conn.adapter, ids.pageId); subscribedApp = true; }
+    catch (e) { subscribeError = redactedError(e).message; }
+    await logIt(subscribedApp ? 'info' : 'warn', subscribedApp ? `${kind} channel verified; Page subscribed to messages` : `${kind} channel verified; subscription failed: ${subscribeError}`, { ...ids });
+    return { method: 'graph_page_token', kind, pageId: ids.pageId, page: own.page, instagram: own.instagram, subscribedApp, subscribeError, checkedAt: new Date().toISOString() };
   }
 
   /** The channel's ids must be the ones the connection was set up for (a channel cannot borrow another number's token). */
@@ -191,7 +266,8 @@ export class ChannelsService {
     const ch = await this.db.scoped(ctx, (tx) => tx.maybeOne<any>(`select * from messaging_channels where id = $1 and org_id = $2`, [id, ctx.orgId]));
     if (!ch) throw notFound('Channel');
     ctx.assertBranch(ch.branch_id);
-    if (ch.transport !== 'meta_cloud') throw conflict('not_verifiable', 'Only WhatsApp Cloud API channels are verified here');
+    if (ch.transport === 'meta_page') return this.reverifyPage(ctx, ch);
+    if (ch.transport !== 'meta_cloud') throw conflict('not_verifiable', 'Sandbox channels need no verification');
     if (!ch.connection_id || !ch.phone_number_id || !ch.waba_id) throw conflict('channel_incomplete', 'This channel has no WhatsApp connection or number');
     const conn = await this.db.scoped(ctx, (tx) => tx.one<{ config: Record<string, unknown>; status: string; enabled: boolean }>(
       `select config, status, enabled from integration_connections where id = $1`, [ch.connection_id]));
@@ -213,6 +289,34 @@ export class ChannelsService {
           [id, { failedAt: new Date().toISOString(), failure: failure!.code }]);
       await this.audit.record(tx, ctx, { action: verification ? 'connect.channel_verified' : 'connect.channel_verification_failed', entityType: 'messaging_channel',
         entityId: id, branchId: row.branch_id, metadata: verification ? { subscribedApp: verification.subscribedApp } : { code: failure!.code } });
+      row.connection_status = conn.status;
+      return channelView(row);
+    });
+    if (failure) throw new DomainError(failure.code, failure.message, failure.status, { ...(failure.details as object ?? {}), channel: view });
+    return view;
+  }
+
+  private async reverifyPage(ctx: TenantContext, ch: any) {
+    const conn = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ config: Record<string, unknown>; status: string; enabled: boolean }>(
+      `select config, status, enabled from integration_connections where id = $1`, [ch.connection_id]));
+    if (!conn || conn.status === 'revoked' || !conn.enabled) throw conflict('connection_unavailable', 'This connection is revoked or switched off');
+    let verification: Record<string, unknown> | null = null;
+    let failure: DomainError | null = null;
+    try {
+      const ids = this.pageIds(conn.config, ch.kind);
+      if (ids.externalId !== ch.external_account_id || ids.pageId !== ch.page_id) throw invalid('channel_connection_mismatch', 'The connection now points to another Page or account');
+      verification = await this.verifyPage(ctx.orgId, ch.connection_id, ch.kind, ids);
+    } catch (e) {
+      if (!(e instanceof DomainError) || e.status >= 500) throw e;
+      failure = e;
+    }
+    const view = await this.db.scoped(ctx, async (tx) => {
+      const row = verification
+        ? await tx.one(`update messaging_channels set verified_at = now(), verification = $2 where id = $1 returning *`, [ch.id, verification])
+        : await tx.one(`update messaging_channels set verified_at = null, verification = verification || $2 where id = $1 returning *`,
+          [ch.id, { failedAt: new Date().toISOString(), failure: failure!.code }]);
+      await this.audit.record(tx, ctx, { action: verification ? 'connect.channel_verified' : 'connect.channel_verification_failed', entityType: 'messaging_channel',
+        entityId: ch.id, branchId: row.branch_id, metadata: verification ? { subscribedApp: verification.subscribedApp } : { code: failure!.code } });
       row.connection_status = conn.status;
       return channelView(row);
     });

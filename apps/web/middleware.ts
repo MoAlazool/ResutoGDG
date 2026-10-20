@@ -20,6 +20,8 @@ const cache = new Map<string, { slug: string | null; at: number }>();
 const PASS_THROUGH = /^\/(reserve|order|t|pay|s|o|l)\/[^/]+/;
 /** Restaurant website, web ordering and booking pages: the only places the Meta Pixel can run. */
 const GUEST_SITE = /^\/(r|order|reserve)\/[^/]+/;
+/** Inbox > Channels runs Meta's SDK for WhatsApp Embedded Signup (INT-13). */
+const META_SDK_PAGE = /^\/dashboard\/[^/]+\/inbox\/?$/;
 
 async function resolveHost(host: string): Promise<string | null> {
   const hit = cache.get(host);
@@ -46,7 +48,8 @@ export async function middleware(req: NextRequest) {
   const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0]!.trim().toLowerCase().replace(/:\d+$/, '');
   // Restaurant website pages (and custom domains) may run the consented Meta Pixel (INT-20); staff pages never.
   const metaPixel = GUEST_SITE.test(req.nextUrl.pathname) || (!!host && !isAppHost(host) && !/^\/(pay|s|t|o)\//.test(req.nextUrl.pathname));
-  const csp = buildCsp({ nonce, dev: CSP_DEV, apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, metaPixel });
+  const csp = buildCsp({ nonce, dev: CSP_DEV, apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, metaPixel,
+    metaSdk: META_SDK_PAGE.test(req.nextUrl.pathname) });
   const headers = new Headers(req.headers);
   headers.set('content-security-policy', csp);
   const secure = (res: NextResponse) => { res.headers.set('Content-Security-Policy', csp); return res; };

@@ -71,6 +71,15 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
       { key: 'wabaId', label: 'WhatsApp Business Account id', secret: false, required: true, pattern: '^\\d{5,30}$' },
     ],
   },
+  // INT-21 / FT-05: Messenger and Instagram Direct through a Page access token (system user of the restaurant's business).
+  meta_pages: {
+    credentials: [{ key: 'accessToken', label: 'Page access token', labelKey: 'intg.field.pageToken', secret: true, required: true }],
+    config: [
+      { key: 'pageId', label: 'Facebook Page id', labelKey: 'intg.field.pageId', secret: false, required: true, pattern: '^\\d{3,30}$' },
+      { key: 'instagramAccountId', label: 'Instagram professional account id (for Instagram Direct)', labelKey: 'intg.field.instagramAccountId', secret: false,
+        required: false, pattern: '^\\d{3,30}$' },
+    ],
+  },
   foodics: { credentials: [{ key: 'accessToken', label: 'Foodics access token', secret: true, required: true }], config: [] },
   odoo: {
     credentials: [{ key: 'apiKey', label: 'Odoo API key', secret: true, required: true }],

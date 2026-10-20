@@ -11,7 +11,7 @@ export const marketingContractsVersion = 1 as const;
 // values are always bound parameters, never interpolated.
 // ---------------------------------------------------------------------------
 const withinDays = z.number().int().min(1).max(3650).optional();
-export const SEGMENT_ORDER_CHANNELS = ['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone'] as const;
+export const SEGMENT_ORDER_CHANNELS = ['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone', 'messenger', 'instagram'] as const;
 
 export const segmentRule = z.discriminatedUnion('type', [
   /** No (non-cancelled) order and no visit for at least N days. */
@@ -79,7 +79,7 @@ const promotionBase = z.object({
   maxDiscountMinor: minor.nullable().optional(),
   minOrderMinor: minor.default(0),
   branchIds: z.array(uuid).max(100).nullable().optional(),
-  channels: z.array(z.enum(SEGMENT_ORDER_CHANNELS)).max(7).nullable().optional(),
+  channels: z.array(z.enum(SEGMENT_ORDER_CHANNELS)).max(9).nullable().optional(),
   startsAt: isoDateTime.nullable().optional(),
   endsAt: isoDateTime.nullable().optional(),
   maxRedemptions: z.number().int().min(1).max(1e7).nullable().optional(),

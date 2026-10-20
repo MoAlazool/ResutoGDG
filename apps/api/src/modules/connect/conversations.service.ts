@@ -13,7 +13,7 @@ import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { hasArabic, textCommand } from './bot-copy';
 import { HandoffService } from './handoff.service';
 import { assertConnectSandbox } from './sandbox-gate';
-import { MessagingService, windowState, type ConversationRow } from './messaging.service';
+import { HUMAN_AGENT_WINDOW_MS, MessagingService, windowState, type ConversationRow } from './messaging.service';
 import { OrderingService, type InboundMessage } from './ordering.service';
 
 export interface InboundEnvelope extends InboundMessage {
@@ -49,8 +49,8 @@ export class ConversationsService {
   async receiveInTx(tx: Tx, ctx: TenantContext, channelId: string, m: InboundEnvelope) {
     const dup = await tx.maybeOne<{ id: string; conversation_id: string }>(`select id, conversation_id from messages where provider_message_id = $1`, [m.providerMessageId]);
     if (dup) return { conversationId: dup.conversation_id, messageId: dup.id, duplicate: true };
-    const channel = await tx.one<{ branch_id: string | null; ordering_enabled: boolean; transport: string }>(
-      `select branch_id, ordering_enabled, transport from messaging_channels where id = $1`, [channelId]);
+    const channel = await tx.one<{ branch_id: string | null; ordering_enabled: boolean; transport: string; kind: string }>(
+      `select branch_id, ordering_enabled, transport, kind from messaging_channels where id = $1`, [channelId]);
     const contact = m.from.replace(/^\+/, '');
     // Reply language: Arabic text switches to Arabic; an English start command switches back.
     const lang = hasArabic(m.text) ? 'ar' : m.text && /[a-z]/i.test(m.text) && textCommand(m.text) ? 'en' : null;
@@ -64,7 +64,8 @@ export class ConversationsService {
          locale = coalesce($8, conversations.locale)
        returning id, customer_id`,
       [ctx.orgId, channel.branch_id, channelId, contact, m.contactName, channel.ordering_enabled ? 'bot' : 'open', lang ?? 'en', lang]);
-    if (!conv.customer_id && /^[1-9][0-9]{6,14}$/.test(contact)) {
+    // Only a WhatsApp id is a phone number; Messenger / Instagram ids (PSID / IGSID) are page-scoped and never a phone.
+    if (!conv.customer_id && channel.kind === 'whatsapp' && /^[1-9][0-9]{6,14}$/.test(contact)) {
       const customerId = await this.kernel.resolveCustomer(tx, ctx.orgId, { name: m.contactName, phone: `+${contact}` }, 'whatsapp');
       if (customerId) await tx.query(`update conversations set customer_id = $2 where id = $1`, [conv.id, customerId]);
     }
@@ -114,7 +115,7 @@ export class ConversationsService {
       const [cursorAt, cursorId] = f.cursor ? f.cursor.split('|') : [null, null];
       const rows = await tx.query(
         `select c.id, c.channel_id, c.customer_id, c.external_contact, c.contact_name, c.status, c.assigned_to, c.last_message_at, c.last_inbound_at,
-                c.unread_count, c.branch_id, c.locale, ch.display_name as channel_name, ch.transport, cu.display_name as customer_name,
+                c.unread_count, c.branch_id, c.locale, ch.display_name as channel_name, ch.transport, ch.kind as channel_kind, cu.display_name as customer_name,
                 lm.body as last_body, lm.direction as last_direction, lm.kind as last_kind,
                 exists(select 1 from handoffs h where h.conversation_id = c.id and h.status <> 'resolved') as handoff_open
            from conversations c join messaging_channels ch on ch.id = c.channel_id
@@ -131,7 +132,7 @@ export class ConversationsService {
         [ctx.orgId, f.status ?? null, f.unread ?? null, f.assigned ?? null, ctx.userId, f.channelId ?? null,
           f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, f.limit]);
       const items = rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => ({
-        id: r.id, channelId: r.channel_id, channelName: r.channel_name, sandbox: r.transport === 'sandbox', customerId: r.customer_id,
+        id: r.id, channelId: r.channel_id, channelName: r.channel_name, channelKind: r.channel_kind, sandbox: r.transport === 'sandbox', customerId: r.customer_id,
         contact: `+${r.external_contact}`, name: r.customer_name ?? r.contact_name, status: r.status, assignedTo: r.assigned_to,
         unreadCount: r.unread_count, lastMessageAt: iso(r.last_message_at), lastMessage: r.last_body ? { body: r.last_body, direction: r.last_direction, kind: r.last_kind } : null,
         window: windowState(r.last_inbound_at), handoffOpen: r.handoff_open, locale: r.locale,
@@ -159,10 +160,12 @@ export class ConversationsService {
            from messages where conversation_id = $1 order by created_at desc limit 200) x order by created_at`, [id]);
       const handoff = await tx.maybeOne(`select id, reason, status, requested_at, accepted_by, accepted_at from handoffs where conversation_id = $1 and status <> 'resolved'`, [id]);
       return {
-        id, status: c.status, channel: { id: c.channel_id, name: extra.display_name, transport: c.transport, sandbox: c.transport === 'sandbox' },
+        id, status: c.status, channel: { id: c.channel_id, name: extra.display_name, transport: c.transport, kind: c.channel_kind, sandbox: c.transport === 'sandbox' },
         contact: `+${c.external_contact}`, contactName: c.contact_name, locale: c.locale, assignedTo: extra.assigned_to, unreadCount: extra.unread_count,
         customer: c.customer_id ? { id: c.customer_id, name: extra.customer_name, phone: extra.phone_e164, marketingConsent: extra.marketing_consent } : null,
         window: windowState(c.last_inbound_at), botActive: c.status === 'bot' && !handoff,
+        // Messenger / Instagram: after 24 hours staff can still reply (HUMAN_AGENT tag) until this time; templates do not exist there.
+        humanReplyUntil: c.transport === 'meta_page' && c.last_inbound_at ? new Date(new Date(c.last_inbound_at).getTime() + HUMAN_AGENT_WINDOW_MS).toISOString() : null,
         handoff: handoff ? { id: handoff.id, reason: handoff.reason, status: handoff.status, requestedAt: iso(handoff.requested_at), acceptedBy: handoff.accepted_by } : null,
         orderingSession: await this.ordering.staffSummary(tx, id),
         messages: messages.map((m) => ({
@@ -188,6 +191,9 @@ export class ConversationsService {
       return this.idempotency.run(tx, ctx.orgId, `connect.reply:${id}`, input.key, input, async () => {
         const conv = (await this.messaging.conversation(tx, id))!;
         let res;
+        if (input.templateName && conv.transport === 'meta_page') {
+          throw new DomainError('template_not_supported', 'Messenger and Instagram have no message templates: reply within 24 hours, or as a person within 7 days.', 409);
+        }
         if (input.templateName) {
           const t = await tx.maybeOne<{ name: string; language: string; body: string; variables: string[] }>(
             `select name, language, body, variables from message_templates where org_id = $1 and name = $2 order by (language = $3) desc limit 1`,

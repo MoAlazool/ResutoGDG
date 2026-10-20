@@ -62,6 +62,15 @@ describe('CSP', () => {
     expect(directive(site, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://www.facebook.com https://connect.facebook.net");
     expect(directive(staff, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app");
     expect(directive(site, 'script-src')).toBe("script-src 'self' 'nonce-n1' 'strict-dynamic'");
+    expect(directive(site, 'frame-src')).toBe("frame-src 'none'");
+  });
+  it('only Inbox > Channels may frame and call Meta (WhatsApp Embedded Signup SDK); other staff pages keep frame-src none', () => {
+    const inbox = buildCsp({ nonce: 'n1', dev: false, apiUrl: 'https://api.resuto.app', metaSdk: true });
+    expect(directive(inbox, 'frame-src')).toBe('frame-src https://www.facebook.com https://web.facebook.com https://connect.facebook.net');
+    expect(directive(inbox, 'connect-src')).toContain('https://www.facebook.com');
+    expect(directive(inbox, 'frame-ancestors')).toBe("frame-ancestors 'none'");
+    const staff = buildCsp({ nonce: 'n1', dev: false, apiUrl: 'https://api.resuto.app' });
+    expect(directive(staff, 'frame-src')).toBe("frame-src 'none'");
   });
 });
 
