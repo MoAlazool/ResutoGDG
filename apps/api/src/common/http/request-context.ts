@@ -50,8 +50,8 @@ let outboundInstalled = false;
  * Adds X-Request-Id to every outbound fetch made while a request context is active (provider adapters, the AI service,
  * Supabase Storage), unless the caller set one. Installed once per process by the API and worker entrypoints.
  */
-export function installOutboundRequestId(): void {
-  if (outboundInstalled || typeof globalThis.fetch !== 'function') return;
+export function installOutboundRequestId(options: { force?: boolean } = {}): void {
+  if ((outboundInstalled && !options.force) || typeof globalThis.fetch !== 'function') return;
   outboundInstalled = true;
   const original = globalThis.fetch.bind(globalThis);
   globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) => {

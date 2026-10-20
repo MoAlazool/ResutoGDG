@@ -196,9 +196,14 @@ describe('ResutoMCP over Streamable HTTP', () => {
     expect((pay.structuredContent as any).approvalId).toEqual(expect.any(String));
     await client.close();
 
-    const calls = (await pool.query(`select tool, outcome from mcp_tool_calls where client_id = $1 order by id`, [clientId])).rows;
+    const calls = (await pool.query(`select tool, outcome, request_id from mcp_tool_calls where client_id = $1 order by id`, [clientId])).rows;
     expect(calls.slice(-3).map((c) => `${c.tool}:${c.outcome}`)).toEqual(
       ['list_orders:invalid_input', 'search_customers:denied', 'create_payment_link:approval_required']);
+    // Each tool call carries the MCP server's own X-Request-Id (PS-15), distinct per call and logged on both sides.
+    const ids = calls.slice(-3).map((c) => c.request_id);
+    expect(ids.every((id) => /^mcp-[0-9a-f-]{36}$/.test(id))).toBe(true);
+    expect(new Set(ids).size).toBe(3);
+    expect(output.join('')).toContain(ids[2]);
   });
 
   it('rejects missing, malformed and unknown keys, foreign origins and session hijacking', async () => {

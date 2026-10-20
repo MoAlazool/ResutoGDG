@@ -42,6 +42,12 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (exception instanceof DomainError) {
       const retry = retryAfterSeconds(exception.details);
       if (retry !== undefined && (exception.status === 429 || exception.status === 503)) res.setHeader('Retry-After', String(retry));
+      const limit = (exception.details as { limit?: unknown } | undefined)?.limit;
+      if (exception.status === 429 && typeof limit === 'number') {
+        res.setHeader('RateLimit-Limit', String(limit));
+        res.setHeader('RateLimit-Remaining', '0');
+        if (retry !== undefined) res.setHeader('RateLimit-Reset', String(retry));
+      }
       return send(exception.status, exception.code, exception.message, exception.details);
     }
     if (exception instanceof ZodError) {

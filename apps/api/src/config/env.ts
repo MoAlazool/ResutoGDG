@@ -19,7 +19,11 @@ export const envSchema = z.object({
   DATABASE_IDLE_TX_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600_000).default(30_000),
   /** CA for verified database TLS: a PEM file path or PEM text (Supabase: scripts/db/certs/supabase-prod-ca-2021.crt). */
   DATABASE_SSL_CA: z.string().optional(),
-  REDIS_URL: z.string().optional(),
+  /**
+   * Express `trust proxy` (which X-Forwarded-For hop is the client): "false", a hop count or proxy addresses/CIDRs.
+   * Unset: 1 in staging/production (Render's load balancer), loopback locally. See common/http/http-hardening.ts.
+   */
+  TRUST_PROXY: z.string().max(500).optional(),
 
   // Supabase Auth. HS256 projects use SUPABASE_JWT_SECRET; asymmetric (JWKS)
   // projects use SUPABASE_URL/auth/v1/.well-known/jwks.json.

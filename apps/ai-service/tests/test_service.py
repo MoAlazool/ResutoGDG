@@ -112,3 +112,39 @@ def test_segment_churn_recommend_routing_endpoints(client, auth):
     r = client.post("/v1/routing/optimize", json={"start": {"lat": 30.0, "lng": 31.0},
                                                   "stops": [{**stops[0], "windowEnd": "2025-06-30T12:00:00Z"}]}, headers=auth)
     assert r.status_code == 422  # windows need departAt
+
+
+def test_request_id_is_kept_or_generated_and_logged(client, auth):
+    import logging
+    records = []
+
+    class Keep(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+
+    keep = Keep()
+    logging.getLogger("resuto.ai.access").addHandler(keep)
+    try:
+        _request_id_calls(client, auth)
+    finally:
+        logging.getLogger("resuto.ai.access").removeHandler(keep)
+    import json as _json
+    entries = [_json.loads(m) for m in records]
+    logged = {(e["requestId"], e["status"]) for e in entries}
+    assert ("evt:route-check-0001", 200) in logged
+    assert ("job:denied-0000001", 401) in logged
+    assert not any(e["path"] == "/v1/health" for e in entries)
+
+
+def _request_id_calls(client, auth):
+    r = client.get("/v1/health", headers={"X-Request-Id": "api-req-12345678"})
+    assert r.headers["x-request-id"] == "api-req-12345678"
+    r = client.get("/v1/health", headers={"X-Request-Id": "bad id <script>"})
+    assert r.headers["x-request-id"] != "bad id <script>"
+    assert len(r.headers["x-request-id"]) == 36
+    body = {"start": {"lat": 30, "lng": 31}, "stops": [{"id": "a", "lat": 30.01, "lng": 31}]}
+    r = client.post("/v1/routing/optimize", json=body, headers={**auth, "X-Request-Id": "evt:route-check-0001"})
+    assert r.status_code == 200
+    assert r.headers["x-request-id"] == "evt:route-check-0001"
+    denied = client.post("/v1/routing/optimize", json=body, headers={"X-Request-Id": "job:denied-0000001"})
+    assert denied.status_code == 401 and denied.headers["x-request-id"] == "job:denied-0000001"
