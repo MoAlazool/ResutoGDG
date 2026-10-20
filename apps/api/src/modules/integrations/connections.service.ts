@@ -28,6 +28,8 @@ export function whatsappConnectionConfig(credentials: Record<string, string> | n
   const next: Record<string, unknown> = { ...config };
   // Server-owned keys are never taken from the request.
   for (const k of ['appMode', 'webhookVerifyToken', 'tokenSource', 'onboarding']) delete next[k];
+  // INT-12: the Graph version is pinned in code (META_GRAPH_VERSION); a connection cannot choose another one.
+  delete next.graphVersion;
   const ownApp = credentials ? !!credentials.appSecret : previous.appMode === 'own_app';
   next.appMode = ownApp ? 'own_app' : 'platform';
   if (ownApp) next.webhookVerifyToken = typeof previous.webhookVerifyToken === 'string' ? previous.webhookVerifyToken : newToken(24);

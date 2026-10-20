@@ -55,7 +55,6 @@ export interface WhatsAppCredentials {
 export interface WhatsAppConfig {
   phoneNumberId: string;
   wabaId?: string;
-  graphVersion?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +286,7 @@ export const whatsappCloudAdapter = {
   async send(ctx: AdapterContext, payload: Record<string, unknown>, opts: { retries?: number } = {}): Promise<{ messageId: string }> {
     const { token, appSecret, cfg } = creds(ctx);
     const res = await graphRequest<{ messages?: Array<{ id?: string }> }>('whatsapp_cloud', ctx, `${encodeURIComponent(cfg.phoneNumberId)}/messages`, {
-      method: 'POST', token, appSecret, json: payload, retries: opts.retries ?? 0, version: cfg.graphVersion,
+      method: 'POST', token, appSecret, json: payload, retries: opts.retries ?? 0,
     });
     const id = res.messages?.[0]?.id;
     if (!id) throw new ProviderError('whatsapp_cloud', 'response did not include a message id', false);
@@ -322,7 +321,7 @@ export const whatsappCloudAdapter = {
   async healthCheck(ctx: AdapterContext) {
     const { token, appSecret, cfg } = creds(ctx);
     const res = await graphRequest<{ id?: string; display_phone_number?: string; verified_name?: string; quality_rating?: string }>('whatsapp_cloud', ctx,
-      encodeURIComponent(cfg.phoneNumberId), { token, appSecret, query: { fields: 'display_phone_number,verified_name,quality_rating' }, retries: 1, version: cfg.graphVersion });
+      encodeURIComponent(cfg.phoneNumberId), { token, appSecret, query: { fields: 'display_phone_number,verified_name,quality_rating' }, retries: 1 });
     const details: Record<string, unknown> = { displayPhoneNumber: res.display_phone_number ?? null, verifiedName: res.verified_name ?? null, qualityRating: res.quality_rating ?? null };
     let ok = res.id === cfg.phoneNumberId;
     if (ok && cfg.wabaId) {
@@ -341,7 +340,7 @@ export const whatsappCloudAdapter = {
     const component: Record<string, unknown> = { type: 'BODY', text: t.body };
     if (t.examples.length) component.example = { body_text: [t.examples] };
     const res = await graphRequest<{ id?: string; status?: string; category?: string }>('whatsapp_cloud', ctx, `${encodeURIComponent(cfg.wabaId)}/message_templates`, {
-      method: 'POST', token, appSecret: ctx.credentials.appSecret || null, retries: 1, version: cfg.graphVersion,
+      method: 'POST', token, appSecret: ctx.credentials.appSecret || null, retries: 1,
       json: { name: t.name, language: t.language, category: t.category.toUpperCase(), components: [component] },
     });
     if (!res.id) throw new ProviderError('whatsapp_cloud', 'template submission returned no id', false);

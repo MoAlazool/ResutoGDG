@@ -14,6 +14,18 @@ describe('INT-12: one pinned Meta Graph / Marketing API version', () => {
     expect(f.calls[0]!.url.startsWith('https://graph.facebook.com/v26.0/')).toBe(true);
   });
 
+  it('ignores a version stored in a connection config (send, health check, template submission)', async () => {
+    const config = { phoneNumberId: '1065', wabaId: '1022', graphVersion: 'v17.0' };
+    const f = scriptedFetch([{ body: { messages: [{ id: 'wamid.1' }] } }, { body: { id: '1065' } }, { body: { data: [{ id: '1065' }] } }, { body: { id: 'tpl' } }]);
+    const ctx = { environment: 'live' as const, credentials: { accessToken: 't' }, config, fetch: f.fetch };
+    await whatsappCloudAdapter.send(ctx, { to: '1' });
+    await whatsappCloudAdapter.healthCheck(ctx);
+    await whatsappCloudAdapter.submitTemplate(ctx, { name: 'x', language: 'en', category: 'utility', body: 'Hi', examples: [] });
+    expect(f.calls).toHaveLength(4);
+    for (const c of f.calls) expect(new URL(c.url).pathname.startsWith('/v26.0/')).toBe(true);
+    expect((graphUrl as (p: string, o: object) => URL)('me', { version: 'v17.0' }).pathname).toBe('/v26.0/me');
+  });
+
   it('fails 60 days before a pinned version expires (release gate); TBD dates pass until Meta publishes them', () => {
     // The real table: no known end-of-life inside the window today. This assertion is the CI gate.
     expect(metaVersionWarnings(new Date())).toEqual([]);

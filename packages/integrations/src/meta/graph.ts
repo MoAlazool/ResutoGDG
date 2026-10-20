@@ -99,7 +99,6 @@ export interface GraphRequestOptions {
   form?: Record<string, string>;
   retries?: number;
   timeoutMs?: number;
-  version?: string;
 }
 
 /**
@@ -113,8 +112,9 @@ export function scrubMetaMessage(message: string, token?: string | null): string
 }
 
 /** `path` relative to the pinned version ("123/messages"), or an absolute Graph URL (paging.next links). */
-export function graphUrl(path: string, opts: Pick<GraphRequestOptions, 'query' | 'version'> = {}): URL {
-  const u = /^https:\/\//.test(path) ? new URL(path) : new URL(`${GRAPH_HOST}/${opts.version ?? META_GRAPH_VERSION}/${path.replace(/^\//, '')}`);
+export function graphUrl(path: string, opts: Pick<GraphRequestOptions, 'query'> = {}): URL {
+  // INT-12: always the pinned version; no caller (or connection config) can choose another one.
+  const u = /^https:\/\//.test(path) ? new URL(path) : new URL(`${GRAPH_HOST}/${META_GRAPH_VERSION}/${path.replace(/^\//, '')}`);
   if (u.origin !== GRAPH_HOST) throw new ProviderError('meta', 'refusing a non-Graph URL', false);
   for (const [k, v] of Object.entries(opts.query ?? {})) if (v !== undefined && v !== null) u.searchParams.set(k, String(v));
   return u;
