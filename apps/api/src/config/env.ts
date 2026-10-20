@@ -11,6 +11,12 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
   DATABASE_URL: z.string().default('postgres://postgres@127.0.0.1:54329/resuto'),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+  /** How long a request waits for a pooled connection before failing with 503 (instead of queueing forever). */
+  DATABASE_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(100).max(60_000).default(5000),
+  /** Per-transaction statement timeout (SET LOCAL, so it also works through the Supabase pooler). */
+  DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).max(600_000).default(15_000),
+  /** Ends a transaction left idle (e.g. awaiting a slow external call) and releases its locks. */
+  DATABASE_IDLE_TX_TIMEOUT_MS: z.coerce.number().int().min(1000).max(600_000).default(30_000),
   /** CA for verified database TLS: a PEM file path or PEM text (Supabase: scripts/db/certs/supabase-prod-ca-2021.crt). */
   DATABASE_SSL_CA: z.string().optional(),
   REDIS_URL: z.string().optional(),

@@ -103,10 +103,11 @@ export class EventDispatcher implements OnApplicationBootstrap {
     for (const job of this.jobs) {
       if (!force && now - job.lastRun < job.everySeconds * 1000) continue;
       job.lastRun = now;
-      const client = await this.db.pool.connect();
-      try {
+      // withClient guards the checked-out client: a connection lost while the job runs neither crashes the process
+      // nor returns a session that may still hold the advisory lock to the pool.
+      await this.db.withClient(async (client) => {
         const { rows } = await client.query('select pg_try_advisory_lock(hashtext($1)) as locked', [`job:${job.name}`]);
-        if (!rows[0].locked) continue;
+        if (!rows[0].locked) return;
         const { rows: [run] } = await client.query(`insert into job_runs(job) values ($1) returning id`, [job.name]);
         try {
           const stats = await job.fn();
@@ -118,9 +119,7 @@ export class EventDispatcher implements OnApplicationBootstrap {
         } finally {
           await client.query('select pg_advisory_unlock(hashtext($1))', [`job:${job.name}`]);
         }
-      } finally {
-        client.release();
-      }
+      });
     }
     return ran;
   }

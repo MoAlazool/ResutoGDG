@@ -11,7 +11,22 @@ const PG_ERRORS: Record<string, [number, string, string]> = {
   '23P01': [409, 'overlap', 'This conflicts with an existing booking'],
   '22P02': [400, 'invalid_identifier', 'Invalid identifier'],
   '42501': [403, 'forbidden', 'Access denied'],
+  // statement / idle-in-transaction timeouts and an overloaded or restarting database: transient, retry shortly
+  '57014': [503, 'db_timeout', 'The request took too long. Please retry in a moment.'],
+  '25P03': [503, 'db_timeout', 'The request took too long. Please retry in a moment.'],
+  '53300': [503, 'db_unavailable', 'The service is busy. Please retry in a moment.'],
+  '57P01': [503, 'db_unavailable', 'The service is busy. Please retry in a moment.'],
+  '57P03': [503, 'db_unavailable', 'The service is busy. Please retry in a moment.'],
 };
+const TRANSIENT_RETRY_AFTER_S = 2;
+
+/** Seconds for a Retry-After header from a DomainError's details ({ retryAfterSeconds } or { retryAfterMs }). */
+function retryAfterSeconds(details: unknown): number | undefined {
+  const d = details as { retryAfterSeconds?: unknown; retryAfterMs?: unknown } | undefined;
+  if (typeof d?.retryAfterSeconds === 'number') return Math.max(1, Math.ceil(d.retryAfterSeconds));
+  if (typeof d?.retryAfterMs === 'number') return Math.max(1, Math.ceil(d.retryAfterMs / 1000));
+  return undefined;
+}
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
@@ -24,7 +39,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const send = (status: number, code: string, message: string, details?: unknown) =>
       res.status(status).json({ error: { code, message, ...(details !== undefined ? { details } : {}), requestId } });
 
-    if (exception instanceof DomainError) return send(exception.status, exception.code, exception.message, exception.details);
+    if (exception instanceof DomainError) {
+      const retry = retryAfterSeconds(exception.details);
+      if (retry !== undefined && (exception.status === 429 || exception.status === 503)) res.setHeader('Retry-After', String(retry));
+      return send(exception.status, exception.code, exception.message, exception.details);
+    }
     if (exception instanceof ZodError) {
       return send(400, 'validation_failed', 'The request is invalid',
         exception.issues.map((i) => ({ path: i.path.join('.'), message: i.message })));
@@ -37,6 +56,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const pgCode = (exception as any)?.code;
     if (typeof pgCode === 'string' && PG_ERRORS[pgCode]) {
       const [status, code, message] = PG_ERRORS[pgCode];
+      if (status === 503) {
+        this.logger.warn(`database ${pgCode} on request ${requestId}`);
+        res.setHeader('Retry-After', String(TRANSIENT_RETRY_AFTER_S));
+        return send(status, code, message);
+      }
       // RLS rejections surface as 42501 or "new row violates row-level security"
       return send(status, code, message, (exception as any)?.constraint ? { constraint: (exception as any).constraint } : undefined);
     }
