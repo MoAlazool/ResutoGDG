@@ -85,16 +85,53 @@ test('tenant system role is confined to app.org_id', async () => {
   assert.equal(none.rowCount, 0, 'no tenant context means no rows');
 });
 
-test('direct Supabase clients (authenticated) can read own tenant but never write', async () => {
-  const rows = await as('authenticated', { user: ids.A.user }, (c) => c.query('select org_id from orders'));
-  assert.ok(rows.rowCount > 0 && rows.rows.every((r) => r.org_id === ids.A.org));
+// Audit PS-01/PCL-02: direct Supabase clients (Data API, Realtime) used to read every branch's orders, messages,
+// reservations and QR tokens with any staff JWT. All tenant data is API-only now.
+test('direct Supabase clients (authenticated) can neither read nor write tenant data', async () => {
+  for (const table of ['orders', 'order_lines', 'messages', 'conversations', 'reservations', 'dining_tables', 'delivery_jobs',
+    'service_requests', 'branches', 'organizations', 'memberships', 'profiles', 'payments', 'plans']) {
+    await assert.rejects(as('authenticated', { user: ids.A.user }, (c) => c.query(`select * from ${table} limit 1`)),
+      /permission denied/, `authenticated must not read ${table}`);
+  }
+  // the branch-scoped kitchen account (a driver/kitchen JWT in the audit) gets nothing either
+  await assert.rejects(as('authenticated', { user: ids.kitchenA }, (c) => c.query('select count(*) from orders')), /permission denied/);
   await assert.rejects(
     as('authenticated', { user: ids.A.user }, (c) => c.query(`update orders set total_minor = 0, subtotal_minor = 0`)),
     /permission denied/);
   await assert.rejects(
     as('authenticated', { user: ids.A.user }, (c) => c.query(`update memberships set role = 'owner'`)),
     /permission denied/);
-  await assert.rejects(as('authenticated', { user: ids.A.user }, (c) => c.query('select * from payments')), /permission denied/);
+});
+
+test('client roles hold no privilege on any public relation and no policy admits them', async () => {
+  const grants = (await pool.query(`select c.relname, r.rolname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      cross join (values ('anon'), ('authenticated')) as r(rolname)
+     where n.nspname = 'public' and c.relkind in ('r', 'v', 'm', 'p', 'f')
+       and (has_table_privilege(r.rolname, c.oid, 'select') or has_table_privilege(r.rolname, c.oid, 'insert')
+         or has_table_privilege(r.rolname, c.oid, 'update') or has_table_privilege(r.rolname, c.oid, 'delete'))`)).rows;
+  assert.deepEqual(grants, []);
+  const policies = (await pool.query(`select tablename, policyname from pg_policies
+     where schemaname = 'public' and roles && array['anon', 'authenticated', 'public']::name[]`)).rows;
+  assert.deepEqual(policies, []);
+  const usage = (await pool.query(`select r from unnest(array['anon', 'authenticated']) r where has_schema_privilege(r, 'app', 'usage')`)).rows;
+  assert.deepEqual(usage, [], 'client roles cannot use the app schema');
+});
+
+test('enable_realtime_read can no longer open a table to clients; lockdown strips client reads from new tables', async () => {
+  await assert.rejects(pool.query(`select app.enable_realtime_read('public.orders')`), /direct client reads are disabled/);
+  const c = await pool.connect();
+  try {
+    await c.query('begin');
+    await c.query('create table public.ws_lockdown_probe (id int)');
+    await c.query('grant select on public.ws_lockdown_probe to authenticated, anon');
+    await c.query('select app.lockdown_public_grants()');
+    const { rows } = await c.query(`select has_table_privilege('authenticated', 'public.ws_lockdown_probe', 'select') as a,
+      has_table_privilege('anon', 'public.ws_lockdown_probe', 'select') as b`);
+    assert.deepEqual(rows[0], { a: false, b: false });
+  } finally {
+    await c.query('rollback');
+    c.release();
+  }
 });
 
 test('anon has no access', async () => {
@@ -168,9 +205,55 @@ test('module entitlements follow plan, status, add-ons and overrides', async () 
   assert.equal(await enabled('pay'), true, 'override');
 });
 
+// Audit PS-07: app functions were executable by PUBLIC. New app functions must `revoke execute ... from public`.
+test('no app function is executable by PUBLIC or client roles; DDL helpers are owner-only', async () => {
+  const open = (await pool.query(`select p.proname, r.rolname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      cross join (values ('anon'), ('authenticated')) as r(rolname)
+     where n.nspname = 'app' and (has_function_privilege(r.rolname, p.oid, 'execute')
+       or exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'))`)).rows;
+  assert.deepEqual(open, []);
+  for (const fn of ['app.enable_tenant_rls(regclass, text)', 'app.enable_realtime_read(regclass)', 'app.lockdown_public_grants()']) {
+    for (const role of ['resuto_member', 'resuto_tenant']) {
+      assert.equal((await pool.query(`select has_function_privilege($1, $2, 'execute') as x`, [role, fn])).rows[0].x, false, `${role} on ${fn}`);
+    }
+  }
+  for (const fn of ['app.is_member(uuid)', 'app.branch_scope()', 'app.member_org_ids()', 'app.current_org_id()', 'app.module_enabled(uuid, module_key, timestamptz)']) {
+    assert.equal((await pool.query(`select has_function_privilege('resuto_member', $1, 'execute') as x`, [fn])).rows[0].x, true, fn);
+  }
+});
+
 test('every function in the app schema runs with a fixed search_path', async () => {
   const rows = (await pool.query(`select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'app' and p.prokind = 'f'
       and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')`)).rows;
   assert.deepEqual(rows.map((r) => r.proname), []);
+});
+
+test('outbox side-effect records are tenant-isolated; job leases are worker-only; request ids come from the transaction', async () => {
+  const [e] = (await pool.query(`insert into outbox_events(org_id, aggregate_type, aggregate_id, event_type) values ($1, 'order', 'x', 'order.placed') returning id`, [ids.A.org])).rows;
+  await pool.query(`insert into event_effects(event_id, handler, effect, org_id) values ($1, 'connect.order-placed', 'customer-message', $2)`, [e.id, ids.A.org]);
+  await pool.query(`insert into job_leases(job) values ('rls.test') on conflict do nothing`);
+  const own = await as('resuto_member', { user: ids.A.user, org: ids.A.org }, (c) => c.query('select effect from event_effects where event_id = $1', [e.id]));
+  assert.equal(own.rowCount, 1);
+  const other = await as('resuto_member', { user: ids.B.user, org: ids.B.org }, (c) => c.query('select effect from event_effects where event_id = $1', [e.id]));
+  assert.equal(other.rowCount, 0);
+  const forged = await as('resuto_tenant', { org: ids.B.org }, (c) => c.query('select effect from event_effects where event_id = $1', [e.id]));
+  assert.equal(forged.rowCount, 0);
+  for (const role of ['resuto_member', 'resuto_tenant']) {
+    const leases = await as(role, { user: ids.A.user, org: ids.A.org }, (c) => c.query(`select job from job_leases`).catch((err) => ({ rowCount: 0, err })));
+    assert.equal(leases.rowCount, 0, `${role} reads job_leases`);
+  }
+  await assert.rejects(as('authenticated', { user: ids.A.user }, (c) => c.query('select * from event_effects')), /permission denied/);
+  // DbService sets app.request_id per transaction; outbox and audit rows pick it up by default.
+  const c = await pool.connect();
+  try {
+    await c.query('begin');
+    await c.query(`select set_config('app.request_id', 'req-rls-test-0001', true)`);
+    const [o] = (await c.query(`insert into outbox_events(org_id, aggregate_type, aggregate_id, event_type) values ($1, 'order', 'y', 'order.placed') returning request_id`, [ids.A.org])).rows;
+    const [a] = (await c.query(`insert into audit_logs(org_id, actor_type, actor_id, action) values ($1, 'system', 'test', 'rls.request_id') returning request_id`, [ids.A.org])).rows;
+    assert.deepEqual([o.request_id, a.request_id], ['req-rls-test-0001', 'req-rls-test-0001']);
+  } finally {
+    await c.query('rollback');
+    c.release();
+  }
 });

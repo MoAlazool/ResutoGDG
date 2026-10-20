@@ -9,7 +9,10 @@ import { envSchema, type Env } from '../src/config/env';
 
 const base = {
   NODE_ENV: 'staging', SUPABASE_URL: 'https://example-ref.supabase.co', CREDENTIALS_KEYS: 'k1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-  AUTH_DEV_MODE: 'false', STORAGE_DRIVER: 'local',
+  AUTH_DEV_MODE: 'false', STORAGE_DRIVER: 'local', PAYMENT_MODE: 'sandbox',
+};
+const production = {
+  ...base, NODE_ENV: 'production', PAYMENT_MODE: 'live', STORAGE_DRIVER: 'supabase', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test',
 };
 const issues = (env: Record<string, string>) => {
   const r = envSchema.safeParse(env);
@@ -34,6 +37,25 @@ describe('deployed environment validation', () => {
     expect(issues(noKeys)).toContain('CREDENTIALS_KEYS');
     expect(issues({ ...base, STORAGE_DRIVER: 'supabase' })).toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(issues({ ...base, STORAGE_DRIVER: 'supabase', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test' })).toEqual([]);
+  });
+
+  // Audit PS-05 / INT-01 / PAY-03: a production deploy that forgot PAYMENT_MODE ran the simulated provider, so any
+  // payment-link holder could settle real orders with no money moving; local storage was also allowed.
+  it('refuses simulated payments and local storage in production; staging opts into sandbox explicitly', () => {
+    expect(issues(production)).toEqual([]);
+    const { PAYMENT_MODE: _p, ...noMode } = production;
+    expect(issues(noMode)).toContain('PAYMENT_MODE');
+    expect(issues({ ...production, PAYMENT_MODE: 'sandbox' })).toContain('PAYMENT_MODE');
+    expect(issues({ ...production, STORAGE_DRIVER: 'local' })).toContain('STORAGE_DRIVER');
+    const { STORAGE_DRIVER: _s, ...noDriver } = production;
+    expect(issues(noDriver)).toContain('STORAGE_DRIVER');
+    // staging: sandbox + Supabase storage is the reference configuration and stays valid
+    expect(issues({ ...base, STORAGE_DRIVER: 'supabase', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test' })).toEqual([]);
+    const { PAYMENT_MODE: _q, ...stagingNoMode } = base;
+    expect(issues(stagingNoMode)).toContain('PAYMENT_MODE');
+    // local development keeps its defaults
+    const dev = envSchema.parse({ SUPABASE_JWT_SECRET: 'x'.repeat(40) });
+    expect([dev.PAYMENT_MODE, dev.STORAGE_DRIVER]).toEqual(['sandbox', 'local']);
   });
 
   it('parses the in-process worker flag', () => {
@@ -73,6 +95,22 @@ describe('access token verification (JWKS)', () => {
         .setIssuer(`${url}/auth/v1`).setAudience('authenticated').setExpirationTime('5m')
         .sign(new TextEncoder().encode('y'.repeat(40)));
       await expect(svc.verify(hs)).rejects.toThrow();
+      // Audit PS-25: anonymous Supabase sessions carry role "authenticated" too; they are refused.
+      const anon = await new SignJWT({ role: 'authenticated', is_anonymous: true })
+        .setProtectedHeader({ alg: 'ES256', kid: 'k1' }).setSubject('22222222-2222-4222-8222-222222222222')
+        .setIssuer(`${url}/auth/v1`).setAudience('authenticated').setIssuedAt().setExpirationTime('5m').sign(privateKey);
+      await expect(svc.verify(anon)).rejects.toThrow(/Anonymous/);
+
+      // Audit PS-25: with a JWKS project, a configured shared secret no longer mints sessions unless explicitly allowed.
+      const secret = 'z'.repeat(40);
+      const hsToken = await new SignJWT({ role: 'authenticated', email: 'a@example.test' }).setProtectedHeader({ alg: 'HS256' })
+        .setSubject('33333333-3333-4333-8333-333333333333').setIssuer(`${url}/auth/v1`).setAudience('authenticated')
+        .setIssuedAt().setExpirationTime('5m').sign(new TextEncoder().encode(secret));
+      const both = new JwtService(envSchema.parse({ ...base, SUPABASE_URL: url, SUPABASE_JWT_SECRET: secret }) as Env);
+      await expect(both.verify(hsToken)).rejects.toThrow();
+      await expect(both.verify(await sign({}))).resolves.toMatchObject({ sub: '11111111-1111-4111-8111-111111111111' });
+      const legacy = new JwtService(envSchema.parse({ ...base, SUPABASE_URL: url, SUPABASE_JWT_SECRET: secret, AUTH_ALLOW_HS256: 'true' }) as Env);
+      await expect(legacy.verify(hsToken)).resolves.toMatchObject({ sub: '33333333-3333-4333-8333-333333333333' });
     } finally {
       server.close();
     }

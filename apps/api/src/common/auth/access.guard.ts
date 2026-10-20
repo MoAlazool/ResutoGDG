@@ -7,7 +7,7 @@ import { EntitlementsService } from '../entitlements/entitlements.service';
 import { DomainError, forbidden } from '../errors/domain-error';
 import { RateLimiter } from '../http/rate-limiter';
 import { TenantContext, type AuthPrincipal, type ResutoRequest } from './context';
-import { ALLOW_MCP, IS_PUBLIC, MODULE, PERMISSION, PLATFORM_ROLE } from './decorators';
+import { IS_PUBLIC, MCP_RUNTIME, MODULE, PERMISSION, PLATFORM_ROLE } from './decorators';
 import { JwtService } from './jwt.service';
 
 const unauthorized = () => new DomainError('unauthorized', 'Sign in to continue', 401);
@@ -42,7 +42,10 @@ export class AccessGuard implements CanActivate {
     req.principal = principal;
 
     if (principal.kind === 'mcp') {
-      if (!meta<boolean>(ALLOW_MCP)) throw forbidden('This endpoint is not available to MCP clients');
+      // Keys reach only the MCP runtime, never REST routes (see McpRuntime in decorators.ts).
+      if (!this.reflector.get<boolean>(MCP_RUNTIME, context.getClass())) {
+        throw new DomainError('mcp_runtime_only', 'MCP client keys can only call Resuto MCP tools', 403);
+      }
       this.limiter.hit(`mcp:${principal.clientId}`, principal.rateLimitPerMin);
     }
 

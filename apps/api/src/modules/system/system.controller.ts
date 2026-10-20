@@ -1,19 +1,22 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { ENV, type Env } from '../../config/env';
 
 @Controller()
 export class SystemController {
-  constructor(private readonly db: DbService, private readonly storage: StorageService) {}
+  constructor(private readonly db: DbService, private readonly storage: StorageService, @Inject(ENV) private readonly env: Env) {}
 
   @Public()
   @Get('health')
   async health() {
     const started = Date.now();
     await this.db.withPlatform((tx) => tx.query('select 1'));
-    return { status: 'ok', db: { latencyMs: Date.now() - started }, version: process.env.npm_package_version ?? '0.1.0' };
+    // paymentMode lets operators (and the staff UI) see at a glance that a deployment runs simulated payments.
+    return { status: 'ok', db: { latencyMs: Date.now() - started }, version: process.env.npm_package_version ?? '0.1.0',
+      environment: this.env.NODE_ENV, paymentMode: this.env.PAYMENT_MODE };
   }
 
   /** Local storage driver only: serves objects behind short-lived HMAC-signed URLs. */

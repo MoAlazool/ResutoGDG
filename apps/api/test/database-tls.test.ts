@@ -13,7 +13,7 @@ import { envSchema } from '../src/config/env';
 
 const base = {
   NODE_ENV: 'staging', SUPABASE_URL: 'https://example-ref.supabase.co', CREDENTIALS_KEYS: 'k1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-  AUTH_DEV_MODE: 'false', STORAGE_DRIVER: 'local',
+  AUTH_DEV_MODE: 'false', STORAGE_DRIVER: 'local', PAYMENT_MODE: 'sandbox',
 };
 const REMOTE = 'postgres://u:p@aws-0-eu-central-1.pooler.supabase.com:5432/postgres';
 const SUPABASE_CA = join(__dirname, '../../../scripts/db/certs/supabase-prod-ca-2021.crt');

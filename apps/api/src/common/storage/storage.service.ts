@@ -5,6 +5,7 @@ import path from 'node:path';
 import { ENV, type Env } from '../../config/env';
 import type { TenantContext } from '../auth/context';
 import { safeEqual } from '../crypto/hash';
+import { purposeKeys, type PurposeKeys } from '../crypto/keys';
 import type { Tx } from '../db/db.service';
 import { invalid } from '../errors/domain-error';
 
@@ -34,10 +35,11 @@ export interface StoredMedia {
 @Injectable()
 export class StorageService {
   private readonly bucket = 'tenant-media';
-  private readonly signingKey: string;
+  /** Signs local-driver media URLs; its own derived key ring, never the JWT secret (audit PS-25). */
+  private readonly signingKeys: PurposeKeys;
 
   constructor(@Inject(ENV) private readonly env: Env) {
-    this.signingKey = env.SUPABASE_JWT_SECRET ?? 'resuto-local-media-signing-key-development-only';
+    this.signingKeys = purposeKeys(env, 'media-url');
     if (env.STORAGE_DRIVER === 'supabase' && (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY)) {
       throw new Error('STORAGE_DRIVER=supabase requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
     }
@@ -81,7 +83,7 @@ export class StorageService {
   async readSigned(objectPath: string, exp: number, sig: string): Promise<Buffer | null> {
     if (this.env.STORAGE_DRIVER !== 'local') return null;
     if (!Number.isFinite(exp) || exp < Date.now() / 1000) return null;
-    if (!safeEqual(this.sign(`${objectPath}:${exp}`), sig)) return null;
+    if (!this.signingKeys.all.reduce((ok, key) => safeEqual(this.sign(`${objectPath}:${exp}`, key), sig) || ok, false)) return null;
     if (objectPath.includes('..')) return null;
     return readFile(path.join(this.env.STORAGE_LOCAL_DIR, this.bucket, objectPath)).catch(() => null);
   }
@@ -92,8 +94,8 @@ export class StorageService {
     return key.split('.').length === 3 ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key };
   }
 
-  private sign(value: string) {
-    return createHmac('sha256', this.signingKey).update(value).digest('base64url');
+  private sign(value: string, key: Buffer = this.signingKeys.active) {
+    return createHmac('sha256', key).update(value).digest('base64url');
   }
 
   private async write(objectPath: string, bytes: Buffer, contentType: string) {

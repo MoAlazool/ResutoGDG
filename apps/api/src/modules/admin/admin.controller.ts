@@ -86,4 +86,13 @@ export class AdminController {
   operations() {
     return this.admin.operations();
   }
+
+  /** Dead-letter replay: re-queues one handler run of an outbox event (superadmins; audited). */
+  @Post('operations/handlings/:eventId/:handler/replay')
+  @HttpCode(200)
+  @PlatformAdmin('superadmin')
+  async replay(@Principal() p: AuthPrincipal, @Param('eventId') eventId: string, @Param('handler') handler: string,
+    @Body(zod(adminStatusChange)) body: { reason: string }) {
+    return this.admin.replayHandling(await this.admin.actor(p), eventId, handler, body.reason);
+  }
 }

@@ -247,11 +247,15 @@ export class AdminService {
                 min(created_at) filter (where published_at is null) as oldest,
                 count(*) filter (where published_at is null and attempts > 0)::int as retrying
            from outbox_events where published_at is null`);
-      const eh = await tx.one(`select count(*) filter (where status = 'failed')::int as failed, count(*) filter (where status = 'dead')::int as dead from event_handlings`);
+      const eh = await tx.one(`select count(*) filter (where status = 'failed')::int as failed, count(*) filter (where status = 'dead')::int as dead,
+          count(*) filter (where status = 'running' and lease_until < now())::int as stuck
+          from event_handlings where status in ('failed', 'dead', 'running')`);
+      // Dead letters, failures awaiting retry and runs whose worker stopped (lease expired); each can be replayed.
       const ehRecent = await tx.query(
         `select h.event_id, h.handler, h.status, h.attempts, h.last_error, h.updated_at, e.event_type, e.org_id
            from event_handlings h join outbox_events e on e.id = h.event_id
-          where h.status in ('failed', 'dead') order by h.updated_at desc limit 25`);
+          where h.status in ('failed', 'dead') or (h.status = 'running' and h.lease_until < now())
+          order by h.updated_at desc limit 25`);
       const wh = await tx.one(`select count(*) filter (where status = 'failed')::int as failed, count(*) filter (where status = 'rejected')::int as rejected from webhook_inbox`);
       // Payloads and headers are never returned: provider metadata only.
       const whRecent = await tx.query(
@@ -264,13 +268,45 @@ export class AdminService {
       return {
         generatedAt: new Date().toISOString(),
         outbox: { unpublished: outbox.unpublished, oldestUnpublishedAt: iso(outbox.oldest), retrying: outbox.retrying },
-        eventHandlings: { failed: eh.failed, dead: eh.dead, recent: ehRecent.map((r) => ({ eventId: r.event_id, handler: r.handler, status: r.status,
+        eventHandlings: { failed: eh.failed, dead: eh.dead, stuck: eh.stuck, recent: ehRecent.map((r) => ({ eventId: r.event_id, handler: r.handler, status: r.status,
           attempts: r.attempts, lastError: r.last_error, eventType: r.event_type, orgId: r.org_id, updatedAt: iso(r.updated_at)! })) },
         webhooks: { failed: wh.failed, rejected: wh.rejected, recent: whRecent.map((r) => ({ id: r.id, provider: r.provider, status: r.status,
           attempts: r.attempts, error: r.error, orgId: r.org_id, receivedAt: iso(r.received_at)! })) },
         jobs: jobs.map((j) => ({ id: Number(j.id), job: j.job, status: j.status, startedAt: iso(j.started_at)!, finishedAt: iso(j.finished_at), error: j.error, stats: j.stats })),
         usage30d: usage.map((u) => ({ metric: u.metric, quantity: Number(u.quantity), tenants: u.tenants })),
       };
+    });
+  }
+
+  /**
+   * Re-queues one handler run of an outbox event (dead letter, failed or stuck after its worker stopped) with a fresh
+   * retry budget. The dispatcher then runs it like any other delivery; the replay is audited (audit PCL-13).
+   */
+  async replayHandling(actor: PlatformAdminActor, eventId: string, handler: string, reason: string) {
+    if (!UUID.test(eventId) || !/^[A-Za-z0-9._:-]{1,120}$/.test(handler)) throw notFound('Handler run');
+    return this.db.withPlatform(async (tx) => {
+      const h = await tx.maybeOne<{ status: string; attempts: number; stuck: boolean; held_until: Date | null; org_id: string | null; event_type: string }>(
+        `select h.status, h.attempts, (h.status = 'running' and h.lease_until < now()) as stuck,
+                case when h.status in ('failed', 'dead') and h.lease_until > now() then h.lease_until end as held_until, e.org_id, e.event_type
+           from event_handlings h join outbox_events e on e.id = h.event_id
+          where h.event_id = $1 and h.handler = $2 for update of h`, [eventId, handler]);
+      if (!h) throw notFound('Handler run');
+      if (!(h.status === 'dead' || h.status === 'failed' || h.stuck)) {
+        throw conflict('not_replayable', 'Only dead-lettered, failed or stuck handler runs can be replayed');
+      }
+      // A run that timed out keeps its lease while it may still be working; replaying now would start a second copy
+      // next to it and lose its late success (recorded against the old claim token).
+      if (h.held_until) {
+        throw conflict('run_in_progress', `A timed-out run may still be in progress; retry after ${new Date(h.held_until).toISOString()}`,
+          { retryAfter: new Date(h.held_until).toISOString(), retryAfterSeconds: Math.max(1, Math.ceil((new Date(h.held_until).getTime() - Date.now()) / 1000)) });
+      }
+      await tx.query(
+        `update event_handlings set status = 'failed', attempts = 0, next_attempt_at = now(), lease_until = null, claim_token = null, updated_at = now()
+          where event_id = $1 and handler = $2`, [eventId, handler]);
+      await tx.query(`update outbox_events set published_at = null, available_at = now(), claim_token = null where id = $1`, [eventId]);
+      await this.audit(tx, actor, h.org_id, 'admin.event_handler_replayed', 'event_handling', `${eventId}:${handler}`,
+        { eventType: h.event_type, handler, previousStatus: h.stuck ? 'stuck' : h.status, previousAttempts: h.attempts, reason });
+      return { eventId, handler, status: 'queued' as const };
     });
   }
 

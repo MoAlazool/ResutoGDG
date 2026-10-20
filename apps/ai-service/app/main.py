@@ -8,8 +8,13 @@ database access and stores nothing. Every /v1 endpoint except /v1/health require
 from __future__ import annotations
 
 import hmac
+import json
+import logging
 import os
+import re
+import sys
 import time
+import uuid
 from datetime import timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -63,6 +68,51 @@ class _TooLarge(Exception):
     pass
 
 
+REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{8,64}$")
+_access = logging.getLogger("resuto.ai.access")
+if not _access.handlers:
+    _handler = logging.StreamHandler(sys.stderr)
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    _access.addHandler(_handler)
+    _access.setLevel(logging.INFO)
+    _access.propagate = False
+
+
+class RequestId:
+    """ASGI middleware: correlation id + structured access log (audit PS-15).
+
+    The Resuto API forwards its request id as X-Request-Id on every call (API request, outbox handler or job run);
+    a well-formed id is kept, anything else is replaced by a new UUID. The id is echoed on the response and written
+    with method, path, status and duration as one JSON line on stderr. Bodies are never logged.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        given = next((v.decode("latin-1") for k, v in scope.get("headers", []) if k == b"x-request-id"), "")
+        request_id = given if REQUEST_ID_PATTERN.match(given) else str(uuid.uuid4())
+        scope.setdefault("state", {})["request_id"] = request_id
+        started = time.perf_counter()
+        status = {"code": 500}
+
+        async def send_with_id(message):
+            if message["type"] == "http.response.start":
+                status["code"] = message["status"]
+                message = {**message, "headers": [*message.get("headers", []), (b"x-request-id", request_id.encode())]}
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_id)
+        finally:
+            path = scope.get("path", "")
+            if not (path == "/v1/health" and status["code"] < 400):
+                _access.info(json.dumps({"requestId": request_id, "method": scope.get("method"), "path": path,
+                                         "status": status["code"], "ms": round((time.perf_counter() - started) * 1000, 1)}))
+
+
 def create_app(token: str | None = None, allow_no_auth: bool | None = None) -> FastAPI:
     token = token if token is not None else os.environ.get("AI_SERVICE_TOKEN", "")
     allow = allow_no_auth if allow_no_auth is not None else os.environ.get("AI_SERVICE_ALLOW_NO_AUTH") == "1"
@@ -81,6 +131,7 @@ def create_app(token: str | None = None, allow_no_auth: bool | None = None) -> F
 
     app = FastAPI(title="Resuto Intelligence", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(BodyLimit, limit=MAX_BODY_BYTES)
+    app.add_middleware(RequestId)  # added last = outermost: also ids 413 and 401 responses
     auth = [Depends(require_token)]
 
     @app.get("/v1/health")

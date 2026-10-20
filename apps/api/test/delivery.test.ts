@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TenantContext } from '../src/common/auth/context';
 import { DbService } from '../src/common/db/db.service';
 import { EventDispatcher } from '../src/common/events/dispatcher.service';
+import { RateLimiter } from '../src/common/http/rate-limiter';
 import { DeliveryService } from '../src/modules/delivery/delivery.service';
 import { OrdersKernelService } from '../src/modules/kernel/orders-kernel.service';
 import { PaymentLedgerService } from '../src/modules/kernel/payment-ledger.service';
@@ -319,6 +320,55 @@ describe('pickup, delivery, COD and settlement', () => {
     // dispatch can put a failed job back in the pool and reassign it
     const back = await t.http.post(M(`/jobs/${f.job.id}/assign`)).set(auth(manager)).send({ driverId: did(d1) });
     expect(back.body).toMatchObject({ status: 'assigned', driverId: did(d1) });
+  });
+
+  // Audit PS-08: the stored code was sha256("delivery-otp:<job>:<code>") — 10,000 guesses reverse it offline — and
+  // wrong attempts were counted in one process's memory (reset by a restart, not shared between instances).
+  it('stores a keyed code hash and locks the code after 5 wrong attempts until a new one is issued', async () => {
+    const { order, job } = await freshJob();
+    await t.http.post(M(`/jobs/${job.id}/assign`)).set(auth(manager)).send({ driverId: did(d2) });
+    await t.http.post(D(`/jobs/${job.id}/accept`)).set(auth(d2)).send({});
+    await makeReady(order.id);
+    await t.http.post(D(`/jobs/${job.id}/pickup`)).set(auth(d2)).send({});
+    const first = (await t.http.post(M(`/jobs/${job.id}/otp`)).set(auth(manager))).body.code as string;
+    const [{ delivery_otp_hash: stored }] = await sql(`select delivery_otp_hash from delivery_jobs where id = $1`, [job.id]);
+    const { createHash } = await import('node:crypto');
+    const unkeyed = (c: string) => createHash('sha256').update(`delivery-otp:${job.id}:${c}`).digest('hex');
+    expect(stored).toMatch(/^h1:[0-9a-f]{64}$/);
+    // the offline brute force that used to work finds nothing
+    const found = Array.from({ length: 10_000 }, (_, i) => String(i).padStart(4, '0')).filter((c) => unkeyed(c) === stored || `h1:${unkeyed(c)}` === stored);
+    expect(found).toEqual([]);
+
+    const wrong = String((Number(first) + 1) % 10000).padStart(4, '0');
+    for (let i = 1; i <= 4; i++) {
+      const r = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d2)).send({ otp: wrong });
+      expect(r.body.error.code).toBe('otp_invalid');
+    }
+    // the counter is in the database (survives restarts, shared by instances)
+    expect((await sql(`select otp_failed_attempts from delivery_jobs where id = $1`, [job.id]))[0].otp_failed_attempts).toBe(4);
+    t.app.get(RateLimiter)['windows'].clear(); // a restart / another instance: no in-memory state
+    const fifth = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d2)).send({ otp: wrong });
+    expect([fifth.status, fifth.body.error.code]).toEqual([423, 'otp_locked']);
+    const right = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d2)).send({ otp: first });
+    expect([right.status, right.body.error.code]).toEqual([423, 'otp_locked']); // even the right code, once locked
+    expect((await sql(`select status from delivery_jobs where id = $1`, [job.id]))[0].status).toBe('picked_up');
+
+    const second = (await t.http.post(M(`/jobs/${job.id}/otp`)).set(auth(manager))).body.code as string;
+    expect((await sql(`select otp_failed_attempts, otp_locked_at from delivery_jobs where id = $1`, [job.id]))[0]).toEqual({ otp_failed_attempts: 0, otp_locked_at: null });
+    const ok = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d2)).send({ otp: second, cashCollectedMinor: order.totalMinor });
+    expect(ok.body).toMatchObject({ status: 'delivered' });
+  });
+
+  it('asks for a new code when the stored one predates keyed hashes', async () => {
+    const { order, job } = await freshJob();
+    await t.http.post(M(`/jobs/${job.id}/assign`)).set(auth(manager)).send({ driverId: did(d2) });
+    await t.http.post(D(`/jobs/${job.id}/accept`)).set(auth(d2)).send({});
+    await makeReady(order.id);
+    await t.http.post(D(`/jobs/${job.id}/pickup`)).set(auth(d2)).send({});
+    const { createHash } = await import('node:crypto');
+    await sql(`update delivery_jobs set delivery_otp_hash = $2 where id = $1`, [job.id, createHash('sha256').update(`delivery-otp:${job.id}:1234`).digest('hex')]);
+    const r = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d2)).send({ otp: '1234' });
+    expect(r.body.error.code).toBe('otp_reissue_required');
   });
 });
 

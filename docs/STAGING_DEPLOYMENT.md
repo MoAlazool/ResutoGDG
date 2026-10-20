@@ -40,12 +40,13 @@ All services deploy branch `claude/relaxed-mayer-omkl3f`.
 |---|---|
 | `NODE_ENV` | `staging` (refuses `AUTH_DEV_MODE`, requires `SUPABASE_URL` and `CREDENTIALS_KEYS`) |
 | `AUTH_DEV_MODE` | `false` |
-| `DATABASE_URL` | **secret, set by the owner in Render**: Supabase *session pooler* URI (port 5432) with `?sslmode=no-verify`. Session mode is required (scheduled jobs use session advisory locks). |
+| `DATABASE_URL` | **secret, set by the owner in Render**: Supabase *session pooler* URI (port 5432) with `?sslmode=no-verify`. The API holds no session state (per-transaction settings, scheduled jobs claimed through the `job_leases` table), so the transaction pooler (port 6543) also works. |
 | `SUPABASE_URL` | `https://skvnznyfxpxfuzvuipju.supabase.co` (tokens verified with the project JWKS, issuer `<url>/auth/v1`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **secret, set by the owner in Render** (Storage uploads and signed URLs) |
 | `SUPABASE_PUBLISHABLE_KEY` | publishable key (demo loader sign-in only) |
 | `STORAGE_DRIVER` | `supabase` (private bucket `tenant-media`, signed URLs) |
-| `CREDENTIALS_KEYS`, `AI_SERVICE_TOKEN`, `MCP_INTERNAL_TOKEN` | secrets generated for staging, stored only in Render |
+| `CREDENTIALS_KEYS`, `AI_SERVICE_TOKEN` | secrets generated for staging, stored only in Render (`MCP_INTERNAL_TOKEN` is no longer read; it can be deleted) |
+| `SIGNING_KEY` | optional secret (32+ characters; comma-separated, newest first) for delivery-code and media-URL HMACs. Unset: derived from `CREDENTIALS_KEYS`. Every listed key (and every `CREDENTIALS_KEYS` entry) still verifies, so setting or rotating it never invalidates outstanding delivery codes; drop an old entry only after its codes and URLs have expired (a day is plenty). |
 | `AI_SERVICE_URL` | `https://resuto-2-staging-ai.onrender.com` |
 | `RUN_WORKER_IN_PROCESS` | `true` |
 | `PAYMENT_MODE` | `sandbox` (simulated provider only) |
@@ -85,5 +86,8 @@ values reach the browser, and none of them is a secret. Build: `apps/web/vercel.
 - Render did not auto-deploy pushes to this branch during setup; deploys were triggered from the
   dashboard/API. Check the GitHub connection before relying on auto-deploy.
 - Supabase security advisors (19 Oct 2026): no errors; warnings for 11 `app.*` functions without a fixed
-  `search_path`, three extensions in `public`, and leaked-password protection disabled. Tracked in
-  `docs/OPEN_BLOCKERS.md`.
+  `search_path`, three extensions in `public`, and leaked-password protection disabled. The functions are fixed
+  (search_path and no PUBLIC execute, migrations `20261020010001`/`…020002`); the extensions stay in `public` on
+  purpose and leaked-password protection is an owner dashboard action (B-15 in `docs/OPEN_BLOCKERS.md`).
+- Client roles: the Data API and Realtime are not used; `anon`/`authenticated` hold no table privilege and there is
+  no member read policy on `storage.objects` (migration `20261020020001`, tests in `supabase/tests`).

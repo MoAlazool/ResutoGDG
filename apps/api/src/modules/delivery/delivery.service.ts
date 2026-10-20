@@ -1,15 +1,17 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { canTransitionDelivery, type AssignJob, type DeliveryStatus, type SettlementInput, type VehicleType } from '@resuto/contracts';
 import { estimateTravelSeconds, haversineMeters } from '@resuto/integrations';
-import { randomInt } from 'node:crypto';
+import { createHmac, randomInt } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
-import { sha256 } from '../../common/crypto/hash';
+import { safeEqual } from '../../common/crypto/hash';
+import { purposeKeys, type PurposeKeys } from '../../common/crypto/keys';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { ENV, type Env } from '../../config/env';
 import { MESSAGING_PORT, type MessagingPort } from '../kernel/ports';
 import { DRIVER_SELECT, JOB_SELECT, decodeCursor, encodeCursor, toDriverView, toEventView, toJobView } from './delivery.mappers';
 
@@ -19,6 +21,9 @@ export const actorOf = (ctx: TenantContext): Actor => ({ type: ctx.actorType ===
 export interface Coordinates { latitude?: number | null; longitude?: number | null }
 
 const ACTIVE = ['assigned', 'accepted', 'picked_up', 'en_route'];
+/** Wrong delivery codes accepted per issued code before it locks (a new code must then be issued). */
+export const OTP_MAX_ATTEMPTS = 5;
+const OTP_HASH_VERSION = 'h1:';
 const n = (v: unknown) => (v === null || v === undefined ? null : Number(v));
 
 /**
@@ -35,8 +40,14 @@ export class DeliveryService {
     private readonly outbox: OutboxService,
     private readonly idempotency: IdempotencyService,
     readonly storage: StorageService,
+    @Inject(ENV) env: Env,
     @Optional() @Inject(MESSAGING_PORT) private readonly messaging?: MessagingPort,
-  ) {}
+  ) {
+    this.otpKeys = purposeKeys(env, 'delivery-otp');
+  }
+
+  /** Active key signs new codes; every ring key verifies, so rotating keys keeps outstanding codes valid. */
+  private readonly otpKeys: PurposeKeys;
 
   // ---------------------------------------------------------------------------
   // Job creation (MODULE_CONTRACTS §4: idempotent per order)
@@ -290,16 +301,18 @@ export class DeliveryService {
   }
 
   /**
-   * Generates a 4-digit delivery code (only its hash is stored). The code is
+   * Generates a 4-digit delivery code (only its keyed hash is stored). The code is
    * returned once so staff can read it to the customer, and is sent through
-   * Resuto Connect when that module is deployed.
+   * Resuto Connect when that module is deployed. A new code resets the failed
+   * attempt counter and lifts a lock.
    */
   async issueOtp(ctx: TenantContext, jobId: string) {
     const code = String(randomInt(0, 10_000)).padStart(4, '0');
     const job = await this.db.scoped(ctx, async (tx) => {
       const j = await this.lockJob(tx, ctx, jobId);
       if (['delivered', 'cancelled', 'failed'].includes(j.status)) throw conflict('job_closed', 'This delivery is already closed');
-      await tx.query('update delivery_jobs set delivery_otp_hash = $2 where id = $1', [j.id, this.otpHash(j.id, code)]);
+      await tx.query(`update delivery_jobs set delivery_otp_hash = $2, otp_failed_attempts = 0, otp_locked_at = null, otp_issued_at = now()
+                        where id = $1`, [j.id, this.otpHash(j.id, code)]);
       await this.audit.record(tx, ctx, { action: 'delivery.otp_issued', entityType: 'delivery_job', entityId: j.id, branchId: j.branch_id });
       return tx.one<any>('select j.order_id, j.dropoff, o.customer_id from delivery_jobs j join orders o on o.id = j.order_id where j.id = $1', [j.id]);
     });
@@ -318,8 +331,44 @@ export class DeliveryService {
     return { code, messaging };
   }
 
-  otpHash(jobId: string, code: string) {
-    return sha256(`delivery-otp:${jobId}:${code}`);
+  /** Keyed hash of a delivery code (audit PS-08): without the server key, the stored value cannot be reversed. */
+  otpHash(jobId: string, code: string, key: Buffer = this.otpKeys.active) {
+    return OTP_HASH_VERSION + createHmac('sha256', key).update(`delivery-otp:${jobId}:${code}`).digest('hex');
+  }
+
+  /** True when `code` matches the stored hash under any key of the ring (every key is checked, in constant time each). */
+  otpMatches(jobId: string, code: string, stored: string) {
+    return this.otpKeys.all.reduce((hit, key) => safeEqual(this.otpHash(jobId, code, key), stored) || hit, false);
+  }
+
+  /**
+   * Checks a delivery code in its own committed transaction, so a wrong attempt is counted even though the delivery
+   * that carried it fails (audit PS-08: the limit used to live in one process's memory). Throws otp_locked after
+   * OTP_MAX_ATTEMPTS wrong codes, until a new code is issued.
+   */
+  async verifyOtp(orgId: string, jobId: string, driverId: string, code: string): Promise<void> {
+    const outcome = await this.db.withTenant(orgId, async (tx) => {
+      const job = await tx.maybeOne<{ delivery_otp_hash: string | null; otp_failed_attempts: number; otp_locked_at: Date | null; driver_id: string | null }>(
+        `select delivery_otp_hash, otp_failed_attempts, otp_locked_at, driver_id from delivery_jobs where id = $1 for update`, [jobId]);
+      if (!job || job.driver_id !== driverId) return 'not_found' as const;
+      if (!job.delivery_otp_hash) return 'not_set' as const;
+      if (!job.delivery_otp_hash.startsWith(OTP_HASH_VERSION)) return 'reissue' as const; // issued before keyed hashes
+      if (job.otp_locked_at || job.otp_failed_attempts >= OTP_MAX_ATTEMPTS) return 'locked' as const;
+      if (this.otpMatches(jobId, code, job.delivery_otp_hash)) return 'ok' as const;
+      const r = await tx.one<{ otp_failed_attempts: number }>(
+        `update delivery_jobs set otp_failed_attempts = otp_failed_attempts + 1,
+                otp_locked_at = case when otp_failed_attempts + 1 >= $2 then now() else null end
+          where id = $1 returning otp_failed_attempts`, [jobId, OTP_MAX_ATTEMPTS]);
+      return r.otp_failed_attempts >= OTP_MAX_ATTEMPTS ? 'locked_now' as const : 'wrong' as const;
+    }, 'system:delivery-otp');
+    if (outcome === 'ok') return;
+    if (outcome === 'not_found') throw notFound('Delivery job');
+    if (outcome === 'not_set') throw invalid('otp_not_set', 'This delivery has no delivery code');
+    if (outcome === 'reissue') throw invalid('otp_reissue_required', 'Ask the restaurant to send the customer a new delivery code');
+    if (outcome === 'locked' || outcome === 'locked_now') {
+      throw new DomainError('otp_locked', 'Too many wrong delivery codes. Ask the restaurant to send a new code.', 423, { maxAttempts: OTP_MAX_ATTEMPTS });
+    }
+    throw invalid('otp_invalid', 'The delivery code is not correct');
   }
 
   // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@
 // and sales invoices to the restaurant's own accounting system. Account ids are
 // mapped per connection in config.accounts (role → provider account id/code).
 import { providerRequest, ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
+import { guardedProviderCall } from '../net';
 
 export const ACCOUNT_ROLES = ['cash', 'card_clearing', 'wallet_clearing', 'bank', 'receivables', 'sales', 'delivery_income', 'discounts', 'vat_output', 'payment_fees', 'refunds'] as const;
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
@@ -166,15 +167,26 @@ export const odooAccountingDescriptor: ProviderDescriptor = {
   ],
   capabilities: ['journal_entries', 'invoices'],
 };
+/** "odoo.exceptions.AccessDenied" → "AccessDenied"; anything that is not a plain exception name → null. */
+const odooErrorName = (name: unknown) => (typeof name === 'string' && /^[A-Za-z_][\w.]{0,100}$/.test(name) ? name.split('.').pop()! : null);
+
+/**
+ * The Odoo URL is tenant-supplied (audit INT-02): calls go through the egress guard (public HTTPS hosts only,
+ * redirects re-checked, capped body) and errors keep only the HTTP status or the Odoo exception name, never the
+ * server's text, because they are stored and shown on the connection.
+ */
 async function odooCall(ctx: AdapterContext, service: string, method: string, args: unknown[]) {
   const url = String(ctx.credentials.url ?? '').replace(/\/$/, '');
   if (!/^https:\/\//.test(url)) throw new ProviderError('odoo_accounting', 'Set the Odoo "url" (https://…)', false);
-  const r = await providerRequest<any>('odoo_accounting', ctx, `${url}/jsonrpc`, {
+  const r = await guardedProviderCall('odoo_accounting', ctx.fetch, `${url}/jsonrpc`, (fetch) => providerRequest<any>('odoo_accounting', { fetch }, `${url}/jsonrpc`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, retries: 0,
     body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args }, id: Date.now() }),
-  });
-  if (r.error) throw new ProviderError('odoo_accounting', String(r.error.data?.message ?? r.error.message ?? 'rpc error').slice(0, 300), false);
-  return r.result;
+  }));
+  if (r?.error) {
+    const name = odooErrorName(r.error.data?.name);
+    throw new ProviderError('odoo_accounting', name ? `Odoo rejected the request (${name})` : 'Odoo rejected the request', false);
+  }
+  return r?.result;
 }
 async function odooUid(ctx: AdapterContext): Promise<number> {
   if (ctx.config.uid) return Number(ctx.config.uid);

@@ -1,14 +1,19 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
   acceptInvitation, branchInput, branchUpdate, createOrganization, inviteMember, updateMember, updateOrganization,
 } from '@resuto/contracts';
 import { z } from 'zod';
-import type { AuthPrincipal, TenantContext } from '../../common/auth/context';
-import { AllowMcp, Principal, RequirePermission, Tenant } from '../../common/auth/decorators';
+import type { AuthPrincipal, ResutoRequest, TenantContext } from '../../common/auth/context';
+import { Principal, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { forbidden } from '../../common/errors/domain-error';
+import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { OrganizationsService } from './organizations.service';
+
+/** Restaurant sign-ups: a few per account and per address each hour (audit PS-13; each org seeds menus, plans …). */
+const ORG_CREATE_PER_USER_HOUR = 5;
+const ORG_CREATE_PER_IP_HOUR = 30;
 
 const user = (p: AuthPrincipal) => {
   if (p.kind !== 'user') throw forbidden();
@@ -17,11 +22,14 @@ const user = (p: AuthPrincipal) => {
 
 @Controller()
 export class PlatformController {
-  constructor(private readonly orgs: OrganizationsService, private readonly db: DbService) {}
+  constructor(private readonly orgs: OrganizationsService, private readonly db: DbService, private readonly limiter: RateLimiter) {}
 
   @Post('orgs')
-  create(@Principal() principal: AuthPrincipal, @Body(zod(createOrganization)) body: z.infer<typeof createOrganization>) {
-    return this.orgs.create(user(principal), body);
+  create(@Principal() principal: AuthPrincipal, @Req() req: ResutoRequest, @Body(zod(createOrganization)) body: z.infer<typeof createOrganization>) {
+    const u = user(principal);
+    this.limiter.hit(`org-create:user:${u.userId}`, ORG_CREATE_PER_USER_HOUR, 3_600_000);
+    this.limiter.hit(`org-create:ip:${req.ip ?? 'unknown'}`, ORG_CREATE_PER_IP_HOUR, 3_600_000);
+    return this.orgs.create(u, body);
   }
 
   @Post('invitations/accept')
@@ -30,7 +38,6 @@ export class PlatformController {
   }
 
   @Get('o/:orgId')
-  @AllowMcp()
   get(@Tenant() ctx: TenantContext) {
     return this.orgs.get(ctx);
   }
