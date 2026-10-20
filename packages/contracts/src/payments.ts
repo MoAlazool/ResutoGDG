@@ -266,7 +266,11 @@ export interface ReceiptView {
   branch: { name: string; nameAr: string | null } | null;
   amountMinor: number;
   refundedMinor: number;
-  payment: { provider: string; method: string; mode: 'test' | 'live'; transactionId: string };
+  payment: {
+    provider: string; method: string; mode: 'test' | 'live'; transactionId: string;
+    /** PAY-19: 'gateway' = confirmed by the payment provider's verified evidence; 'staff' = recorded by staff who received or checked it (cash, COD, transfer, terminal). */
+    verification?: 'gateway' | 'staff';
+  };
   reference: { orders: string[]; reservation?: string };
   table: string | null;
   items: Array<{ name: string; nameAr: string | null; unitPriceMinor: number; quantity: number; totalMinor: number }>;

@@ -187,7 +187,7 @@ export class CheckoutService implements CheckoutPort {
       expiresAt: new Date(s.expires_at).toISOString(), paidAt: s.paid_at ? new Date(s.paid_at).toISOString() : null,
       attempt: attempt ? {
         id: attempt.id, method: attempt.method, provider: attempt.provider, status: attempt.status, redirectUrl: ACTIVE.includes(attempt.status) ? attempt.redirect_url : null,
-        sandbox: attempt.provider === 'simulated' || attempt.is_test, failureReason: attempt.failure_reason,
+        sandbox: attempt.provider === 'simulated' || attempt.is_test, failureReason: guestFailureCode(attempt.failure_reason),
       } : null,
       sandbox: this.providers.mode === 'sandbox',
       returnUrl: s.return_url,
@@ -231,11 +231,13 @@ export class CheckoutService implements CheckoutPort {
         return { kind: 'redirect', redirectUrl: prior.redirect_url, sandbox: prior.provider === 'simulated', paymentId: prior.id };
       }
       if (!prior.redirect_url && age < 2 * 60_000) throw conflict('checkout_in_progress', 'This payment is being prepared. Try again in a moment.');
-      if (await this.recheckAttempt(orgId, prior)) {
-        const settled = await this.db.withTenant(orgId, (tx) => tx.one<any>('select status from payments where id = $1', [prior.id]), actor);
-        if (settled.status === 'succeeded') return { kind: 'paid', sandbox: prior.provider === 'simulated', paymentId: prior.id };
-      }
-      await this.db.withTenant(orgId, (tx) => this.ledger.fail(tx, prior.id, 'superseded_by_new_attempt', 'cancelled'), actor);
+      // Close the earlier provider session first where the provider supports it (PAY-08), then re-check: a payment that
+      // completed meanwhile is applied instead of superseded. Anything that still lands later is resolved by the webhook path.
+      if (await this.closeAtProvider(orgId, prior) === 'settled') return { kind: 'paid', sandbox: prior.provider === 'simulated', paymentId: prior.id };
+      await this.db.withTenant(orgId, async (tx) => {
+        const cur = await tx.one<any>('select status from payments where id = $1 for update', [prior.id]);
+        if (ACTIVE.includes(cur.status)) await this.ledger.fail(tx, prior.id, 'superseded_by_new_attempt', 'cancelled');
+      }, actor);
     }
 
     const phase1 = await this.db.withTenant(orgId, async (tx) => {
@@ -254,6 +256,13 @@ export class CheckoutService implements CheckoutPort {
         throw conflict('split_active', 'This bill is being split. Use your share link.');
       }
       if (option.kind === 'offline') return { kind: 'offline' as const, option };
+      // PAY-09: re-check under the session lock. A concurrent /start that got here first owns the only active attempt
+      // (also enforced by payments_one_active_attempt_idx).
+      const active = await this.currentAttempt(tx, id, true);
+      if (active) {
+        if (active.redirect_url && active.method === input.method) return { kind: 'resume' as const, attempt: active };
+        throw conflict('checkout_in_progress', 'This payment is being prepared. Try again in a moment.');
+      }
       await this.assertStillDue(tx, s);
       const resolved = await this.providers.resolve(tx, orgId, s.branch_id, input.method as 'card' | 'wallet');
       if (!resolved) throw invalid('method_unavailable', 'This payment method is not available here');
@@ -270,6 +279,7 @@ export class CheckoutService implements CheckoutPort {
     if (phase1.kind === 'paid') return { kind: 'paid', sandbox: this.providers.mode === 'sandbox' };
     if (phase1.kind === 'expired') throw gone('checkout_expired', 'This payment link has expired. Ask for a new one.');
     if (phase1.kind === 'offline') return { kind: 'offline', instructions: phase1.option.instructions ?? undefined, sandbox: false };
+    if (phase1.kind === 'resume') return { kind: 'redirect', redirectUrl: phase1.attempt.redirect_url, sandbox: phase1.attempt.provider === 'simulated', paymentId: phase1.attempt.id };
 
     const { session: s, payment, resolved } = phase1;
     const apiOrigin = this.env.API_ORIGIN.replace(/\/$/, '');
@@ -280,12 +290,16 @@ export class CheckoutService implements CheckoutPort {
         reference: payment.id, amountMinor: s.amount_minor, currency: s.currency, method: input.method as 'card' | 'wallet',
         description: s.description ?? 'Restaurant bill payment', returnUrl: `${this.url(token)}?return=1`, cancelUrl: `${this.url(token)}?cancelled=1`,
         notificationUrl: `${apiOrigin}/v1/webhooks/payments/${resolved.provider}?c=${resolved.connectionId ?? orgId}`,
+        // Unsigned "invoice paid" callbacks (Moyasar callback_url) only trigger a server-side status query (PAY-16, INT-09).
+        nudgeUrl: `${apiOrigin}/v1/public/pay/${token}/nudge`,
         customer: { name: input.payerName ?? null }, expiresInSeconds: 1800,
       });
     } catch (error) {
       this.logger.warn(`provider checkout failed for ${payment.id}: ${(error as Error).message}`);
       await this.db.withTenant(orgId, async (tx) => {
-        await this.ledger.fail(tx, payment.id, `provider_error: ${(error as Error).message}`);
+        // PAY-20: guests only ever see the fixed code; the provider's text is kept for staff in raw.providerError.
+        await this.ledger.fail(tx, payment.id, 'provider_unavailable');
+        await tx.query(`update payments set raw = raw || $2 where id = $1`, [payment.id, { providerError: (error as Error).message.slice(0, 500) }]);
         await tx.query(`update checkout_sessions set status = 'open' where id = $1 and status = 'processing'`, [s.id]);
       }, actor);
       throw new DomainError('provider_unavailable', 'The payment provider is unavailable. No payment was taken; please try again.', 502);
@@ -334,7 +348,9 @@ export class CheckoutService implements CheckoutPort {
       const actx = await this.providers.adapterContext(orgId, resolved);
       const ev = await adapter.retrieveStatus(actx, { providerSessionId: attempt.ref_session, reference: attempt.id });
       if (ev.kind === 'ignored') return false;
-      await this.webhooks.applyEvent(orgId, attempt.provider, { ...ev, providerSessionId: ev.providerSessionId ?? attempt.ref_session, reference: ev.reference ?? attempt.id }, 'status_query');
+      // The query was authenticated with this attempt's own connection: the answer is bound to it and its environment (PAY-10).
+      await this.webhooks.applyEvent(orgId, attempt.provider, { ...ev, providerSessionId: ev.providerSessionId ?? attempt.ref_session, reference: ev.reference ?? attempt.id },
+        'status_query', { connectionId: attempt.connection_id ?? null, environment: actx.environment });
       return true;
     } catch (error) {
       this.logger.warn(`status query failed for ${attempt.id}: ${(error as Error).message}`);
@@ -348,6 +364,45 @@ export class CheckoutService implements CheckoutPort {
     const attempt = await this.db.withTenant(orgId, (tx) => this.currentAttempt(tx, id), `checkout:${id}`);
     if (attempt) await this.recheckAttempt(orgId, attempt);
     return this.view(token);
+  }
+
+  /**
+   * Unsigned provider "something changed" callback (Moyasar invoice callback_url): the body is ignored and only the
+   * attempt's status is re-read with the merchant's key. It can never settle anything by itself.
+   */
+  async nudge(token: string): Promise<{ received: true }> {
+    const { id, orgId } = await this.locate(token).catch(() => ({ id: null, orgId: null }));
+    if (!id || !orgId) return { received: true };
+    const attempt = await this.db.withTenant(orgId, (tx) => this.currentAttempt(tx, id), `checkout:${id}`);
+    if (attempt) await this.recheckAttempt(orgId, attempt);
+    return { received: true };
+  }
+
+  /**
+   * Makes an attempt's provider session unpayable where the provider supports it (Stripe session expire, Moyasar
+   * invoice cancel), then re-reads its status. Returns 'settled' when the payment completed meanwhile (and was applied).
+   */
+  async closeAtProvider(orgId: string, attempt: any): Promise<'settled' | 'closed' | 'unsupported' | 'error'> {
+    let result: 'closed' | 'unsupported' | 'error' = 'unsupported';
+    const adapter = paymentAdapter(attempt.provider);
+    if (adapter?.cancelCheckout && attempt.ref_session && attempt.provider !== 'simulated') {
+      try {
+        const actx = await this.providers.adapterContext(orgId, { provider: attempt.provider, connectionId: attempt.connection_id });
+        const r = await adapter.cancelCheckout(actx, { providerSessionId: attempt.ref_session });
+        result = r === 'cancelled' ? 'closed' : r === 'unsupported' ? 'unsupported' : 'error';
+        await this.db.withTenant(orgId, (tx) => tx.query(`update payments set raw = raw || $2 where id = $1`,
+          [attempt.id, { providerCancel: { result: r, at: new Date().toISOString() } }]), 'payments:checkout');
+      } catch (error) {
+        this.logger.warn(`provider cancel failed for ${attempt.id}: ${(error as Error).message}`);
+        result = 'error';
+      }
+    }
+    this.lastRecheck.delete(attempt.id);
+    if (await this.recheckAttempt(orgId, attempt)) {
+      const cur = await this.db.withTenant(orgId, (tx) => tx.one<any>('select status from payments where id = $1', [attempt.id]), 'payments:checkout');
+      if (cur.status === 'succeeded') return 'settled';
+    }
+    return result;
   }
 
   async receipt(token: string) {
@@ -423,7 +478,7 @@ export class CheckoutService implements CheckoutPort {
               and p.created_at < now() - interval '45 minutes' limit 50`);
       }, 'payments:expiry');
       for (const p of stale) {
-        await this.recheckAttempt(orgId, p);
+        if (await this.closeAtProvider(orgId, p) === 'settled') continue;
         await this.db.withTenant(orgId, async (tx) => {
           const cur = await tx.one<any>('select status from payments where id = $1', [p.id]);
           if (!ACTIVE.includes(cur.status)) return;
@@ -453,6 +508,23 @@ export class CheckoutService implements CheckoutPort {
   methods(tx: Tx, orgId: string, branchId: string, purpose: string, fulfillment?: string | null): Promise<CheckoutMethodOption[]> {
     return this.providers.methodsFor(tx, orgId, branchId, { purpose, fulfillment });
   }
+}
+
+/**
+ * The only failure codes a guest ever sees (PAY-20). Provider messages and internal reasons are mapped to these;
+ * anything unknown becomes `declined` for a definite failure.
+ */
+export const GUEST_FAILURE_CODES = ['declined', 'expired', 'cancelled', 'provider_unavailable', 'under_review'] as const;
+export function guestFailureCode(reason: string | null | undefined): (typeof GUEST_FAILURE_CODES)[number] | null {
+  if (!reason) return null;
+  if ((GUEST_FAILURE_CODES as readonly string[]).includes(reason)) return reason as (typeof GUEST_FAILURE_CODES)[number];
+  if (reason === 'async_payment_failed') return 'declined';
+  if (reason.startsWith('provider_error') || reason === 'provider_unavailable') return 'provider_unavailable';
+  if (['expired_at_provider', 'checkout_expired'].includes(reason)) return 'expired';
+  if (['superseded_by_new_attempt', 'duplicate_active_attempt', 'reservation_cancelled', 'voided_at_provider'].includes(reason)) return 'cancelled';
+  // Captured but not applied (amount mismatch, settled another way): staff were alerted and will refund or apply it.
+  if (['amount_or_currency_mismatch', 'overpayment_conflict'].includes(reason)) return 'under_review';
+  return 'declined';
 }
 
 /** Postgres enum arrays may arrive as "{card,cash}". */

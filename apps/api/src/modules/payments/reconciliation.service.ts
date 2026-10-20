@@ -93,7 +93,7 @@ export class ReconciliationService {
         source = 'sandbox';
       } else {
         const conn = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ id: string }>(
-          `select id from integration_connections where org_id = $1 and category = 'payments' and provider = $2 and status in ('connected', 'sandbox')
+          `select id from integration_connections where org_id = $1 and category = 'payments' and provider = $2 and status in ('connected', 'sandbox') and enabled
               and ($3::uuid is null or branch_id is null or branch_id = $3) order by (branch_id is not null) desc limit 1`, [ctx.orgId, input.provider, input.branchId ?? null]));
         if (!conn) throw conflict('not_connected', `Connect ${input.provider} first, or upload a settlement file`);
         connectionId = conn.id;
@@ -106,7 +106,7 @@ export class ReconciliationService {
     }
     return this.db.scoped(ctx, async (tx) => {
       const payments = await tx.query<any>(
-        `select id, amount_minor, refunded_minor, status, provider_payment_id, fee_minor from payments
+        `select id, amount_minor, refunded_minor, status, provider_payment_id, fee_minor, currency from payments
           where org_id = $1 and provider = $2 and ($3::uuid is null or branch_id = $3)
             and coalesce(captured_at, created_at) >= $4 and coalesce(captured_at, created_at) < $5
             and (status in ('succeeded', 'partially_refunded', 'refunded') or provider_payment_id is not null)`,
@@ -136,7 +136,10 @@ export class ReconciliationService {
       const providerSettled = ['succeeded', 'refunded', 'partially_refunded'].includes(t.status);
       let status: ItemStatus = 'matched';
       let notes: string | null = null;
-      if (t.amountMinor !== p.amount_minor) { status = 'amount_mismatch'; notes = `Resuto ${p.amount_minor}, provider ${t.amountMinor}`; }
+      // PAY-21: the same number in another currency is not the same amount.
+      if (p.currency && t.currency && String(t.currency).toUpperCase() !== String(p.currency).toUpperCase()) {
+        status = 'amount_mismatch'; notes = `Currency: Resuto ${p.currency}, provider ${t.currency}`;
+      } else if (t.amountMinor !== p.amount_minor) { status = 'amount_mismatch'; notes = `Resuto ${p.amount_minor}, provider ${t.amountMinor}`; }
       else if (settled !== providerSettled) { status = 'status_mismatch'; notes = `Resuto ${p.status}, provider ${t.status}`; }
       else if (settled && t.refundedMinor !== Number(p.refunded_minor)) { status = 'status_mismatch'; notes = `Refunded: Resuto ${p.refunded_minor}, provider ${t.refundedMinor}`; }
       items.push({ paymentId: p.id, providerTxnId: t.providerPaymentId, expected: p.amount_minor, actual: t.amountMinor, fee: t.feeMinor, status, notes });

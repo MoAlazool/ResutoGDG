@@ -1,20 +1,46 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, type CreateIntegrationConnection, type IntegrationConnectionView, type IntegrationSourceOfTruth,
   type UpdateIntegrationConnection,
 } from '@resuto/contracts';
 import { ProviderError, type AdapterContext } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
+import { ENV, type Env } from '../../config/env';
+import { Scheduled } from '../../common/events/events';
 import { SecretBox } from '../../common/crypto/secret-box';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
-import { adapterFor, credentialsHint, fieldsFor } from './catalog';
+import { adapterFor, catalogEntries, credentialsHint, fieldsFor, webhookFor } from './catalog';
+import { providerReadiness, type VerificationRow } from './readiness';
 import { ProviderHttp } from './provider-http';
 
 /** Columns member sessions may read (credentials_encrypted is not among them). */
 export const SAFE_COLUMNS = `id, org_id, branch_id, provider, category, auth_type, environment, status, enabled, credentials_hint, config, scopes,
-  source_of_truth, health, last_health_check_at, last_error, rate_limit, connected_by, connected_at, created_at, updated_at`;
+  source_of_truth, health, last_health_check_at, last_error, rate_limit, connected_by, connected_at, created_at, updated_at,
+  last_success_at, last_failure_at, last_webhook_at, account_identity`;
+
+/** AAD every connection's credentials are sealed with (INT-04: payments and accounting read them with the same AAD). */
+export const credentialsAad = (orgId: string, provider: string) => `${orgId}:${provider}`;
+
+/** Health checks run every 6 hours per connection; failing ones back off to 12 hours (FT-26, INT-17). */
+export const HEALTH_INTERVAL_HOURS = { ok: 6, failing: 12 } as const;
+
+/**
+ * Structured, redacted diagnostics from a provider failure (INT-17): HTTP status, retryability, a short message
+ * with anything key- or contact-like removed. Never the raw provider body.
+ */
+export function redactedError(e: unknown): { code: string; status: number | null; retryable: boolean; message: string } {
+  const pe = e instanceof ProviderError ? e : null;
+  const raw = (e as Error)?.message ?? String(e);
+  const message = raw
+    .replace(/HTTP (\d{3}):.*/s, 'HTTP $1')
+    .replace(/\b(sk|pk|rk|whsec|egy_sk|egy_pk|sau_sk|sau_pk)_[A-Za-z0-9_\-]+/g, '[key]')
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
+    .replace(/\+?\d[\d\s-]{8,}\d/g, '[number]')
+    .slice(0, 200);
+  return { code: pe ? (pe.status ? `http_${pe.status}` : pe.retryable ? 'network' : 'provider_rejected') : 'error', status: pe?.status ?? null, retryable: pe?.retryable ?? false, message };
+}
 
 export interface LoadedConnection {
   id: string;
@@ -42,6 +68,15 @@ export function toView(r: any): IntegrationConnectionView {
   };
 }
 
+/** Diagnostics and activation details for one connection (INT-17, CR-09): exact webhook URL and events, last success/webhook, account. */
+export function diagnostics(r: any, apiOrigin: string) {
+  return {
+    webhook: webhookFor(r.provider, r.id, apiOrigin),
+    lastSuccessAt: iso(r.last_success_at), lastFailureAt: iso(r.last_failure_at), lastWebhookAt: iso(r.last_webhook_at),
+    account: r.account_identity && Object.keys(r.account_identity).length ? r.account_identity : null,
+  };
+}
+
 /**
  * Per-tenant provider connections. Credentials are sealed with SecretBox
  * (aad = "<orgId>:<provider>") and only ever decrypted in tenant mode for an
@@ -49,23 +84,54 @@ export function toView(r: any): IntegrationConnectionView {
  */
 @Injectable()
 export class IntegrationConnectionsService {
+  private readonly logger = new Logger('IntegrationConnections');
+
   constructor(
     private readonly db: DbService,
     private readonly box: SecretBox,
     private readonly audit: AuditService,
     private readonly http: ProviderHttp,
+    @Inject(ENV) private readonly env: Env,
   ) {}
+
+  /**
+   * The provider catalogue for one tenant with computed per-capability readiness (INT-16): implementation facts from
+   * the adapters, the tenant's connections and country, and recorded acceptance results (integration_verifications).
+   */
+  async catalog(ctx: TenantContext) {
+    const { country, connected } = await this.db.scoped(ctx, async (tx) => ({
+      country: (await tx.one<{ country: string }>('select country from organizations where id = $1', [ctx.orgId])).country,
+      connected: new Set((await tx.query<{ provider: string }>(`select distinct provider from integration_connections where org_id = $1 and status <> 'revoked'`, [ctx.orgId])).map((r) => r.provider)),
+    }));
+    const verifications = await this.db.withPlatform((tx) => tx.query<VerificationRow>(
+      `select provider, capability, environment, status, ran_at, commit_sha from integration_verifications where status = 'passed'`));
+    return catalogEntries().map((e) => {
+      const adapter = adapterFor(e.id)!;
+      return {
+        ...e,
+        fields: fieldsFor(e.id),
+        activationKeys: e.activation.map((_, i) => `intg.activation.${e.id}.${i + 1}`),
+        webhookEvents: adapter.setup?.webhookEvents ?? [],
+        readinessDetail: providerReadiness(adapter, { country, configured: connected.has(e.id), verifications }),
+      };
+    });
+  }
+
+  /** Connection view plus diagnostics (webhook URL, last success/webhook, account identity). */
+  view(r: any) {
+    return { ...toView(r), ...diagnostics(r, this.env.API_ORIGIN) };
+  }
 
   list(ctx: TenantContext, filter: { category?: string } = {}) {
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query(`select ${SAFE_COLUMNS} from integration_connections where org_id = $1 and ($2::text is null or category = $2)
          order by category, provider`, [ctx.orgId, filter.category ?? null]);
-      return { items: rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map(toView), nextCursor: null };
+      return { items: rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => this.view(r)), nextCursor: null };
     });
   }
 
   get(ctx: TenantContext, id: string) {
-    return this.db.scoped(ctx, async (tx) => toView(await this.row(tx, ctx, id)));
+    return this.db.scoped(ctx, async (tx) => this.view(await this.row(tx, ctx, id)));
   }
 
   async row(tx: Tx, ctx: TenantContext, id: string) {
@@ -83,6 +149,7 @@ export class IntegrationConnectionsService {
     const simulated = d.readiness === 'simulated';
     this.requireFields(input.provider, input.credentials, input.config, simulated);
     const environment = simulated ? 'sandbox' : input.environment;
+    this.assertCredentialEnvironment(input.provider, input.credentials, environment);
     const hasCreds = Object.keys(input.credentials).length > 0;
     const status = simulated ? 'sandbox' : hasCreds ? 'pending' : 'not_configured';
     const sot = this.sourceOfTruth(input.sourceOfTruth);
@@ -95,12 +162,12 @@ export class IntegrationConnectionsService {
             credentials_hint, config, source_of_truth, connected_by, connected_at)
          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, case when $13 then now() end) returning id`,
         [ctx.orgId, input.branchId ?? null, input.provider, d.category, d.authType, environment, status,
-          hasCreds ? this.box.sealJson(input.credentials, `${ctx.orgId}:${input.provider}`) : null,
+          hasCreds ? this.box.sealJson(input.credentials, credentialsAad(ctx.orgId, input.provider)) : null,
           credentialsHint(input.credentials), input.config, sot, ctx.userId, hasCreds || simulated]);
       await this.log(tx, ctx.orgId, id, 'info', `Connection created (${environment})`, { provider: input.provider, status });
       await this.audit.record(tx, ctx, { action: 'integration.connected', entityType: 'integration_connection', entityId: id, branchId: input.branchId ?? null,
         metadata: { provider: input.provider, environment } });
-      return toView(await this.row(tx, ctx, id));
+      return this.view(await this.row(tx, ctx, id));
     });
   }
 
@@ -110,24 +177,34 @@ export class IntegrationConnectionsService {
       if (r.status === 'revoked' && !input.credentials) throw conflict('connection_revoked', 'Reconnect with new credentials first');
       const simulated = adapterFor(r.provider)?.descriptor.readiness === 'simulated';
       if (input.credentials || input.config) this.requireFields(r.provider, input.credentials ?? null, input.config ?? r.config, simulated);
+      const environment = simulated ? 'sandbox' : input.environment ?? r.environment;
+      if (input.credentials) this.assertCredentialEnvironment(r.provider, input.credentials, environment);
+      else if (input.environment && input.environment !== r.environment && adapterFor(r.provider)?.credentialEnvironment) {
+        // Keys are mode-specific: switching test <-> live needs the other environment's credentials (PAY-02).
+        throw invalid('credentials_required', 'Switching between test and live needs that environment\'s keys. Enter them with the change.');
+      }
       const sets: string[] = [];
       const params: unknown[] = [id];
       const set = (sql: string, v: unknown) => { params.push(v); sets.push(sql.replace('?', `$${params.length}`)); };
       if (input.environment && !simulated) set('environment = ?', input.environment);
       if (input.config) set('config = ?', input.config);
+      if (input.config && !input.credentials && !simulated && adapterFor(r.provider)?.descriptor.category === 'payments' && r.status === 'connected') {
+        // Payment settings (integration ids, region) bind webhooks to this connection: re-run the health check.
+        set('status = ?', 'pending');
+      }
       if (input.sourceOfTruth) set('source_of_truth = ?', this.sourceOfTruth({ ...r.source_of_truth, ...input.sourceOfTruth }));
       if (input.credentials) {
-        set('credentials_encrypted = ?', Object.keys(input.credentials).length ? this.box.sealJson(input.credentials, `${ctx.orgId}:${r.provider}`) : null);
+        set('credentials_encrypted = ?', Object.keys(input.credentials).length ? this.box.sealJson(input.credentials, credentialsAad(ctx.orgId, r.provider)) : null);
         set('credentials_hint = ?', credentialsHint(input.credentials));
         if (!simulated) set('status = ?', Object.keys(input.credentials).length ? 'pending' : 'not_configured');
-        sets.push('last_error = null', 'connected_at = coalesce(connected_at, now())');
+        sets.push('last_error = null', 'connected_at = coalesce(connected_at, now())', `account_identity = '{}'::jsonb`, `health = '{}'::jsonb`);
         set('connected_by = ?', ctx.userId);
       }
       if (sets.length) await tx.query(`update integration_connections set ${sets.join(', ')} where id = $1`, params);
       await this.log(tx, ctx.orgId, id, 'info', 'Connection updated', { fields: Object.keys(input) });
       await this.audit.record(tx, ctx, { action: 'integration.updated', entityType: 'integration_connection', entityId: id, branchId: r.branch_id,
         metadata: { provider: r.provider, fields: Object.keys(input) } });
-      return toView(await this.row(tx, ctx, id));
+      return this.view(await this.row(tx, ctx, id));
     });
   }
 
@@ -138,7 +215,7 @@ export class IntegrationConnectionsService {
       await tx.query(`update integration_connections set enabled = $2 where id = $1`, [id, enabled]);
       await this.log(tx, ctx.orgId, id, 'info', enabled ? 'Connection enabled' : 'Connection disabled');
       await this.audit.record(tx, ctx, { action: enabled ? 'integration.enabled' : 'integration.disabled', entityType: 'integration_connection', entityId: id, branchId: r.branch_id });
-      return toView(await this.row(tx, ctx, id));
+      return this.view(await this.row(tx, ctx, id));
     });
   }
 
@@ -150,7 +227,7 @@ export class IntegrationConnectionsService {
           health = '{}'::jsonb where id = $1`, [id]);
       await this.log(tx, ctx.orgId, id, 'warn', 'Connection revoked; credentials deleted');
       await this.audit.record(tx, ctx, { action: 'integration.revoked', entityType: 'integration_connection', entityId: id, branchId: r.branch_id, metadata: { provider: r.provider } });
-      return toView(await this.row(tx, ctx, id));
+      return this.view(await this.row(tx, ctx, id));
     });
   }
 
@@ -193,7 +270,7 @@ export class IntegrationConnectionsService {
   }
 
   private materialise(r: any): LoadedConnection {
-    const credentials = r.credentials_encrypted ? this.box.openJson<Record<string, string>>(r.credentials_encrypted, `${r.org_id}:${r.provider}`) : {};
+    const credentials = r.credentials_encrypted ? this.box.openJson<Record<string, string>>(r.credentials_encrypted, credentialsAad(r.org_id, r.provider)) : {};
     return {
       id: r.id, orgId: r.org_id, provider: r.provider, category: r.category, environment: r.environment, status: r.status, enabled: r.enabled,
       config: r.config ?? {}, sourceOfTruth: { ...DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, ...(r.source_of_truth ?? {}), orders: 'resuto' },
@@ -201,38 +278,88 @@ export class IntegrationConnectionsService {
     };
   }
 
-  /** Calls the adapter's healthCheck and records health/status/last_error. */
+  /**
+   * Calls the adapter's healthCheck and records health/status/last_error. A connection becomes "connected" only after
+   * an authenticated provider call succeeded AND (payments) the provider evidence shows the connection's environment.
+   * Diagnostics are structured and redacted (INT-05, INT-17).
+   */
   async healthCheck(ctx: TenantContext, id: string) {
     const view = await this.get(ctx, id);
     if (view.status === 'revoked') throw conflict('connection_revoked', 'This connection was revoked');
     this.assertNotRateLimited(await this.rateLimit(ctx.orgId, id));
-    const adapter = adapterFor(view.provider);
-    const conn = await this.load(ctx.orgId, { id });
+    return this.runHealth(ctx.orgId, id, `${ctx.actorType}:${ctx.actorId}`);
+  }
+
+  private async runHealth(orgId: string, id: string, actor: string) {
+    const conn = await this.load(orgId, { id });
+    const adapter = adapterFor(conn.provider);
     let health: Record<string, unknown>;
-    let status: string = view.status;
+    let status: string = conn.status;
     let error: string | null = null;
+    let account: Record<string, unknown> | null = null;
+    let outcome: 'success' | 'failure' | null = null;
     if (!adapter?.healthCheck) {
       health = { ok: null, note: 'This provider has no health check yet' };
     } else {
       try {
         const res = await adapter.healthCheck(conn.adapter);
-        health = { ok: res.ok, ...(res.details ? { details: res.details } : {}) };
+        const envMismatch = res.environment !== undefined && res.environment !== null && res.environment !== conn.environment;
+        const envUnknown = adapter.descriptor.category === 'payments' && adapter.descriptor.readiness !== 'simulated' && !res.environment;
+        const ok = res.ok && !envMismatch && !envUnknown;
+        health = { ok, ...(res.details ? { details: res.details } : {}), ...(res.environment !== undefined ? { environment: res.environment } : {}) };
+        account = res.account ? Object.fromEntries(Object.entries(res.account).filter(([, v]) => v !== null && v !== undefined)) : null;
         if (adapter.descriptor.readiness === 'simulated') status = 'sandbox';
-        else status = res.ok ? 'connected' : 'error';
-        if (!res.ok) error = 'Provider reported the account as not ready';
+        else status = ok ? 'connected' : 'error';
+        if (envMismatch) error = `The provider reports ${res.environment === 'live' ? 'live' : 'test'} credentials on this ${conn.environment === 'live' ? 'live' : 'test'} connection`;
+        else if (envUnknown) error = 'The credentials do not show which environment (test or live) they belong to';
+        else if (!res.ok) error = 'Provider reported the account as not ready';
+        outcome = ok ? 'success' : 'failure';
       } catch (e) {
-        error = e instanceof ProviderError ? e.message : `Health check failed: ${(e as Error).message}`;
-        health = { ok: false, error };
+        const d = redactedError(e);
+        error = d.message;
+        health = { ok: false, error: d };
         status = 'error';
-        if (e instanceof ProviderError && e.status === 429) await this.markRateLimited(ctx.orgId, id, e.retryAfterMs);
+        outcome = 'failure';
+        if (e instanceof ProviderError && e.status === 429) await this.markRateLimited(orgId, id, e.retryAfterMs);
       }
     }
-    return this.db.withTenant(ctx.orgId, async (tx) => {
-      await tx.query(`update integration_connections set health = $2, status = $3::integration_status, last_error = $4, last_health_check_at = now() where id = $1`,
-        [id, { ...health, checkedAt: new Date().toISOString() }, status, error]);
-      await this.log(tx, ctx.orgId, id, error ? 'error' : 'info', error ? `Health check failed: ${error}` : 'Health check passed', health);
-      return toView(await tx.one(`select ${SAFE_COLUMNS} from integration_connections where id = $1`, [id]));
-    }, `${ctx.actorType}:${ctx.actorId}`);
+    return this.db.withTenant(orgId, async (tx) => {
+      await tx.query(
+        `update integration_connections set health = $2, status = $3::integration_status, last_error = $4, last_health_check_at = now(),
+            last_success_at = case when $5 = 'success' then now() else last_success_at end,
+            last_failure_at = case when $5 = 'failure' then now() else last_failure_at end,
+            account_identity = case when $6::jsonb is not null then account_identity || $6::jsonb else account_identity end
+          where id = $1`,
+        [id, { ...health, checkedAt: new Date().toISOString() }, status, error, outcome, account ? JSON.stringify(account) : null]);
+      await this.log(tx, orgId, id, error ? 'error' : 'info', error ? `Health check failed: ${error}` : 'Health check passed', { ...health, ...(account ? { account } : {}) });
+      return this.view(await tx.one(`select ${SAFE_COLUMNS} from integration_connections where id = $1`, [id]));
+    }, actor);
+  }
+
+  /**
+   * Worker: re-checks enabled connections every 6 h (12 h while failing), skipping rate-limited ones, so a revoked
+   * key or a suspended account shows up before a guest hits it (INT-17, FT-26).
+   */
+  @Scheduled('integrations.health', 900)
+  async scheduledHealth(now = new Date()) {
+    const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; provider: string }>(
+      `select id, org_id, provider from integration_connections
+        where enabled and status in ('connected', 'error') and credentials_encrypted is not null
+          and (rate_limit->>'limitedUntil' is null or (rate_limit->>'limitedUntil')::timestamptz < $1)
+          and (last_health_check_at is null or last_health_check_at < $1::timestamptz - make_interval(hours => case when status = 'error' then $2 else $3 end))
+        order by last_health_check_at nulls first limit 50`, [now, HEALTH_INTERVAL_HOURS.failing, HEALTH_INTERVAL_HOURS.ok]));
+    let checked = 0, failed = 0;
+    for (const c of due) {
+      if (!adapterFor(c.provider)?.healthCheck) continue;
+      try {
+        const v = await this.runHealth(c.org_id, c.id, 'integrations:health');
+        checked++;
+        if (v.status === 'error') failed++;
+      } catch (e) {
+        this.logger.warn(`scheduled health ${c.id}: ${(e as Error).message}`);
+      }
+    }
+    return { checked, failed };
   }
 
   // ---------------------------------------------------------------------------
@@ -288,5 +415,32 @@ export class IntegrationConnectionsService {
       ...spec.config.filter((f) => f.required && (config[f.key] === undefined || config[f.key] === null || config[f.key] === '')).map((f) => f.key),
     ];
     if (missing.length) throw invalid('missing_fields', `Missing: ${missing.join(', ')}`, { missing });
+    // Provider-declared formats (key prefixes, numeric integration ids, region list) — checked here and in the form.
+    const malformed = [
+      ...spec.credentials.filter((f) => f.pattern && credentials?.[f.key] && !new RegExp(f.pattern).test(credentials[f.key]!)).map((f) => f.key),
+      ...spec.config.filter((f) => {
+        const v = config[f.key];
+        if (v === undefined || v === null || v === '') return false;
+        if (f.options && !f.options.includes(String(v))) return true;
+        return !!f.pattern && !new RegExp(f.pattern).test(String(v));
+      }).map((f) => f.key),
+    ];
+    if (malformed.length) throw invalid('invalid_fields', `Invalid format: ${malformed.join(', ')}`, { invalid: malformed });
+  }
+
+  /**
+   * Payment keys are environment-specific (documented prefixes). A test key on a live connection, a live key on a
+   * test connection, or a key whose environment cannot be told are all refused (PAY-02, INT-08 — fail closed).
+   */
+  private assertCredentialEnvironment(provider: string, credentials: Record<string, string>, environment: 'sandbox' | 'live') {
+    const a = adapterFor(provider);
+    if (!a?.credentialEnvironment || a.descriptor.readiness === 'simulated' || !Object.keys(credentials).length) return;
+    const env = a.credentialEnvironment(credentials);
+    if (!env) throw invalid('credential_environment_unknown', 'These keys do not show whether they are test or live keys. Copy them again from the provider dashboard.');
+    if (env !== environment) {
+      throw invalid('credential_environment_mismatch', environment === 'live'
+        ? 'These are TEST keys. A live connection needs the live keys.'
+        : 'These are LIVE keys. A test connection needs the test keys.', { credentialsEnvironment: env, connectionEnvironment: environment });
+    }
   }
 }

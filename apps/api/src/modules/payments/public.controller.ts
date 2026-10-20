@@ -50,6 +50,17 @@ export class PaymentsPublicController {
     return this.checkout.refresh(token);
   }
 
+  /**
+   * Provider "invoice paid" notification (Moyasar invoice callback_url, unsigned): the body is ignored, only a
+   * server-side status query with the merchant's key runs (PAY-16, INT-09). Always 200 so the provider stops retrying.
+   */
+  @Post('public/pay/:token/nudge')
+  @HttpCode(200)
+  nudge(@Req() req: ResutoRequest, @Param('token') token: string) {
+    this.limit(req, token, 20);
+    return this.checkout.nudge(token);
+  }
+
   @Get('public/pay/:token/receipt')
   receipt(@Req() req: ResutoRequest, @Param('token') token: string) {
     this.limit(req, token);

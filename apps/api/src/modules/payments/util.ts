@@ -28,6 +28,8 @@ export function toRefund(r: any) {
   return {
     id: r.id, paymentId: r.payment_id, amountMinor: r.amount_minor, reason: r.reason, status: r.status, provider: r.provider,
     providerRefundId: r.provider_refund_id, instructions: r.instructions, failureReason: r.failure_reason,
+    // PAY-05: true while Resuto could not learn the provider's answer; the refund is being resolved by inquiry, never resent blindly.
+    outcomeUncertain: r.outcome_uncertain === true, source: r.source ?? 'resuto', lastCheckedAt: iso(r.last_checked_at),
     createdBy: r.created_by, createdAt: iso(r.created_at), completedAt: iso(r.completed_at),
   };
 }

@@ -8,7 +8,6 @@ import type { TenantContext } from '../../common/auth/context';
 import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
-import { catalogEntries, fieldsFor } from './catalog';
 import { IntegrationConnectionsService } from './connections.service';
 import { IntegrationOAuthService } from './oauth.service';
 import { IntegrationSyncService } from './sync.service';
@@ -30,8 +29,8 @@ export class IntegrationsController {
 
   @Get('o/:orgId/integrations/catalog')
   @RequirePermission('integrations:manage')
-  catalog() {
-    return { items: catalogEntries().map((e) => ({ ...e, fields: fieldsFor(e.id), oauthConfigured: e.authType === 'oauth' ? !!this.oauth.appConfig(e.id) : null })) };
+  async catalog(@Tenant() ctx: TenantContext) {
+    return { items: (await this.connections.catalog(ctx)).map((e) => ({ ...e, oauthConfigured: e.authType === 'oauth' ? !!this.oauth.appConfig(e.id) : null })) };
   }
 
   @Get('o/:orgId/integrations/connections')

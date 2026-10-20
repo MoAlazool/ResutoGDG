@@ -10,10 +10,12 @@ import { invalid, notFound } from '../../common/errors/domain-error';
 import { zod } from '../../common/http/zod.pipe';
 import { PaymentLedgerService } from '../kernel/payment-ledger.service';
 import { ReconciliationService } from './reconciliation.service';
+import { RefundsService } from './refunds.service';
 import { StaffPaymentsService } from './staff-payments.service';
 
 const cashQuery = z.object({ branchId: uuid, from: isoDateTime, to: isoDateTime });
 const dueQuery = z.object({ orderId: uuid.optional(), visitId: uuid.optional() }).refine((q) => !!(q.orderId || q.visitId), 'orderId or visitId is required');
+const alertRefund = z.object({ key: z.string().min(8).max(120) });
 const listQuery = z.object({ status: z.string().max(40).optional(), limit: z.coerce.number().int().min(1).max(200).default(50) });
 
 /** Staff ResutoPay endpoints (paid module `pay`). */
@@ -25,6 +27,7 @@ export class PaymentsStaffController {
     private readonly reconciliation: ReconciliationService,
     private readonly ledger: PaymentLedgerService,
     private readonly db: DbService,
+    private readonly refundsSvc: RefundsService,
   ) {}
 
   @Get()
@@ -96,6 +99,13 @@ export class PaymentsStaffController {
     return this.payments.completeManualRefund(ctx, id, note);
   }
 
+  /** Asks the provider about a pending or unconfirmed refund now (PAY-05/PAY-12); never sends a second refund while the provider has a record of the first. */
+  @Post('refunds/:refundId/check')
+  @RequirePermission('payments:refund')
+  checkRefund(@Tenant() ctx: TenantContext, @Param('refundId', ParseUUIDPipe) id: string) {
+    return this.refundsSvc.check(ctx, id);
+  }
+
   // --- alerts --------------------------------------------------------------------
   @Get('alerts')
   @RequirePermission('payments:read')
@@ -108,6 +118,13 @@ export class PaymentsStaffController {
   @RequirePermission('payments:reconcile')
   resolveAlert(@Tenant() ctx: TenantContext, @Param('alertId', ParseUUIDPipe) id: string) {
     return this.payments.resolveAlert(ctx, id);
+  }
+
+  /** One-click provider refund of a capture Resuto never applied (late success, duplicate capture, overpayment) — PAY-08. */
+  @Post('alerts/:alertId/refund')
+  @RequirePermission('payments:refund')
+  refundAlert(@Tenant() ctx: TenantContext, @Param('alertId', ParseUUIDPipe) id: string, @Body(zod(alertRefund)) body: z.infer<typeof alertRefund>) {
+    return this.refundsSvc.refundUnappliedCapture(ctx, id, body.key);
   }
 
   // --- reconciliation ----------------------------------------------------------

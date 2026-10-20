@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { formatMoney, type CollectPayment, type CreatePaymentLink, type CreateRefund, type Currency } from '@resuto/contracts';
 import { paymentAdapter, PAYMENT_ADAPTERS } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
@@ -11,8 +11,8 @@ import { BillsService } from './bills.service';
 import { CheckoutService } from './checkout.service';
 import { PaymentProvidersService } from './providers.service';
 import { ReceiptsService } from './receipts.service';
+import { RefundsService } from './refunds.service';
 import { iso, SETTLED, toPayment, toRefund } from './util';
-import { PaymentWebhooksService } from './webhooks.service';
 
 const MANUAL_REFUND: Record<string, string> = {
   cash: 'Return {amount} in cash to the guest, then mark this refund as completed.',
@@ -26,8 +26,6 @@ const MANUAL_REFUND: Record<string, string> = {
 /** Staff payments: list/detail, cash/COD/InstaPay/bank collection, payment links, refunds, receipts, alerts. */
 @Injectable()
 export class StaffPaymentsService {
-  private readonly logger = new Logger('StaffPayments');
-
   constructor(
     private readonly db: DbService,
     private readonly audit: AuditService,
@@ -37,7 +35,7 @@ export class StaffPaymentsService {
     private readonly bills: BillsService,
     private readonly providers: PaymentProvidersService,
     private readonly receipts: ReceiptsService,
-    private readonly webhooks: PaymentWebhooksService,
+    private readonly refunds: RefundsService,
   ) {}
 
   async list(ctx: TenantContext, q: { status?: string; method?: string; provider?: string; branchId?: string; orderId?: string; from?: string; to?: string; limit: number; cursor?: string }) {
@@ -72,7 +70,7 @@ export class StaffPaymentsService {
       const session = p.checkout_session_id ? await tx.maybeOne<any>(
         `select id, purpose, channel, status, amount_minor, expires_at, created_at from checkout_sessions where id = $1`, [p.checkout_session_id]) : null;
       const pendingRefunds = refunds.filter((r) => ['pending', 'manual_required'].includes(r.status)).reduce((s, r) => s + Number(r.amount_minor), 0);
-      const supportsProviderRefund = !!PAYMENT_ADAPTERS[p.provider] && (p.provider === 'simulated' || !!p.connection_id);
+      const supportsProviderRefund = !!paymentAdapter(p.provider) && (p.provider === 'simulated' || !!p.connection_id);
       return {
         ...toPayment(p),
         allocations: allocations.map((a) => ({ id: a.id, orderId: a.order_id, orderNumber: a.number, amountMinor: Number(a.amount_minor), kind: a.kind, createdAt: iso(a.created_at) })),
@@ -199,64 +197,42 @@ export class StaffPaymentsService {
   // ---------------------------------------------------------------------------
   async refund(ctx: TenantContext, paymentId: string, body: CreateRefund) {
     const phase1 = await this.db.scoped(ctx, async (tx) => {
+      // Lock the payment first: concurrent requests (same key or not) serialise here, so a same-key retry replays (PS-24).
+      const p = await tx.maybeOne<any>('select * from payments where id = $1 for update', [paymentId]);
       const existing = await tx.maybeOne<any>('select * from refunds where org_id = $1 and idempotency_key = $2', [ctx.orgId, body.key]);
       if (existing) {
         if (existing.payment_id !== paymentId || Number(existing.amount_minor) !== body.amountMinor) throw conflict('idempotency_key_reused', 'This request key was already used for different data');
         return { replay: toRefund(existing) };
       }
-      const p = await tx.maybeOne<any>('select * from payments where id = $1 for update', [paymentId]);
       if (!p) throw notFound('Payment');
       ctx.assertBranch(p.branch_id);
       if (!['succeeded', 'partially_refunded'].includes(p.status)) throw conflict('not_refundable', 'Only settled payments can be refunded');
       if (p.method === 'deposit_credit') throw conflict('not_refundable', 'Deposit credit is refunded through the original deposit payment');
-      const pending = await tx.one<{ s: number }>(`select coalesce(sum(amount_minor), 0)::bigint as s from refunds where payment_id = $1 and status in ('pending', 'manual_required')`, [paymentId]);
+      const pending = await tx.one<{ s: number; provider_pending: number }>(
+        `select coalesce(sum(amount_minor), 0)::bigint as s, count(*) filter (where status = 'pending')::int as provider_pending
+           from refunds where payment_id = $1 and status in ('pending', 'manual_required')`, [paymentId]);
+      const viaProvider = !!paymentAdapter(p.provider) && (p.provider === 'simulated' || !!p.connection_id) && !!p.provider_payment_id;
+      // One provider refund at a time per payment: an unconfirmed one must be resolved before another is sent (PAY-05).
+      if (viaProvider && pending.provider_pending > 0) {
+        throw conflict('refund_in_progress', 'A refund on this payment is still being confirmed with the provider. Check it before refunding again.');
+      }
       const refundable = p.amount_minor - p.refunded_minor - Number(pending.s);
       if (body.amountMinor > refundable) throw new DomainError('refund_exceeds_payment', 'Refund exceeds the amount still refundable', 409, { refundableMinor: Math.max(refundable, 0) });
-      const viaProvider = !!PAYMENT_ADAPTERS[p.provider] && (p.provider === 'simulated' || !!p.connection_id) && !!p.provider_payment_id;
       const amountText = formatMoney(body.amountMinor, p.currency as Currency);
       const template = viaProvider ? null : MANUAL_REFUND[p.provider === 'manual' ? p.method : 'provider'] ?? MANUAL_REFUND.provider!;
       const instructions = template?.replace('{amount}', amountText).replace('{ref}', String(p.raw?.reference ?? p.provider_payment_id ?? p.id)).replace('{provider}', p.provider) ?? null;
+      const providerKey = viaProvider ? await this.refunds.nextProviderKey(tx, paymentId) : null;
       const refund = await tx.one<any>(
-        `insert into refunds(org_id, payment_id, amount_minor, reason, status, idempotency_key, created_by, provider, instructions)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning *`,
-        [ctx.orgId, paymentId, body.amountMinor, body.reason, viaProvider ? 'pending' : 'manual_required', body.key, ctx.userId, p.provider, instructions]);
+        `insert into refunds(org_id, payment_id, amount_minor, reason, status, idempotency_key, created_by, provider, instructions, provider_idempotency_key)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *`,
+        [ctx.orgId, paymentId, body.amountMinor, body.reason, viaProvider ? 'pending' : 'manual_required', body.key, ctx.userId, p.provider, instructions, providerKey]);
       await this.audit.record(tx, ctx, { action: 'refund.requested', entityType: 'refund', entityId: refund.id, branchId: p.branch_id,
         metadata: { paymentId, amountMinor: body.amountMinor, reason: body.reason, mode: viaProvider ? 'provider' : 'manual' } });
-      return { refund, payment: p, viaProvider };
+      return { refund, viaProvider };
     });
     if ('replay' in phase1) return phase1.replay;
     if (!phase1.viaProvider) return toRefund(phase1.refund);
-    return this.executeProviderRefund(ctx, phase1.refund, phase1.payment);
-  }
-
-  /** Calls the provider (outside any DB transaction); the ledger is updated only after the provider confirms. */
-  private async executeProviderRefund(ctx: TenantContext, refund: any, p: any) {
-    let result: { status: 'succeeded' | 'pending' | 'failed'; providerRefundId: string | null; failureReason?: string | null };
-    try {
-      const adapter = paymentAdapter(p.provider)!;
-      const actx = await this.providers.adapterContext(ctx.orgId, { provider: p.provider, connectionId: p.connection_id });
-      const ref = await this.db.withTenant(ctx.orgId, (tx) => tx.maybeOne<any>('select provider_session_id from payment_attempt_refs where payment_id = $1', [p.id]));
-      result = await adapter.refund(actx, { providerPaymentId: p.provider_payment_id, providerSessionId: ref?.provider_session_id ?? null, amountMinor: refund.amount_minor,
-        currency: p.currency, reason: refund.reason, idempotencyKey: refund.id });
-    } catch (error) {
-      this.logger.warn(`provider refund ${refund.id} failed: ${(error as Error).message}`);
-      result = { status: 'failed', providerRefundId: null, failureReason: (error as Error).message.slice(0, 300) };
-    }
-    return this.db.scoped(ctx, async (tx) => {
-      if (result.status === 'succeeded') {
-        await this.ledger.applyRefund(tx, ctx, p.id, refund.amount_minor);
-        const r = await tx.one<any>(`update refunds set status = 'succeeded', provider_refund_id = $2, completed_at = now() where id = $1 returning *`, [refund.id, result.providerRefundId]);
-        await this.audit.record(tx, ctx, { action: 'refund.succeeded', entityType: 'refund', entityId: refund.id, branchId: p.branch_id, metadata: { paymentId: p.id, amountMinor: refund.amount_minor } });
-        return toRefund(r);
-      }
-      if (result.status === 'pending') {
-        return toRefund(await tx.one<any>(`update refunds set provider_refund_id = $2 where id = $1 returning *`, [refund.id, result.providerRefundId]));
-      }
-      const r = await tx.one<any>(`update refunds set status = 'failed', failure_reason = $2, completed_at = now() where id = $1 returning *`, [refund.id, result.failureReason ?? 'provider_refused']);
-      await this.webhooks.alert(tx, ctx.orgId, { kind: 'refund_failed', provider: p.provider, paymentId: p.id, branchId: p.branch_id, details: { refundId: refund.id, reason: result.failureReason ?? null } });
-      await this.audit.record(tx, ctx, { action: 'refund.failed', entityType: 'refund', entityId: refund.id, branchId: p.branch_id, metadata: { reason: result.failureReason ?? null } });
-      return toRefund(r);
-    });
+    return this.refunds.execute(ctx.orgId, phase1.refund.id, ctx);
   }
 
   /** Staff confirm a manual refund (cash handed back, transfer sent); only then is the ledger updated. */

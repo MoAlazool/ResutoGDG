@@ -1,5 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
-import { signStripe } from '@resuto/integrations';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TenantContext } from '../src/common/auth/context';
 import { SecretBox } from '../src/common/crypto/secret-box';
@@ -24,6 +23,8 @@ let cashier: TestUser;
 let accountant: TestUser;
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
+// Stripe's documented scheme (docs.stripe.com/webhooks#verify-manually), computed here with node:crypto — not the adapter's helper.
+const signStripe = (secret: string, raw: string, ts: number) => `t=${ts},v1=${createHmac('sha256', secret).update(`${ts}.${raw}`).digest('hex')}`;
 const token = () => randomBytes(24).toString('base64url');
 const key = () => `k-${randomBytes(8).toString('hex')}`;
 
@@ -184,7 +185,9 @@ describe('hosted checkout through the simulated provider', () => {
     const session = await createSession({ purpose: 'order', orderId: order.id, channel: 'web' });
     const { view } = await payViaSandbox(session.token, 'failure');
     expect(view.status).toBe('open');
-    expect(view.attempt).toMatchObject({ status: 'failed', failureReason: 'sandbox_declined_by_tester' });
+    // PAY-20: guests see a fixed code; the provider's own text stays in the payment's raw data for staff.
+    expect(view.attempt).toMatchObject({ status: 'failed', failureReason: 'declined' });
+    expect(JSON.stringify(view)).not.toContain('sandbox_declined_by_tester');
     const retry = await payViaSandbox(session.token, 'success');
     expect(retry.view.status).toBe('paid');
   });
@@ -203,27 +206,36 @@ describe('hosted checkout through the simulated provider', () => {
     const [old] = await sql(`select status, failure_reason from payments where id = $1`, [first.id]);
     expect(old).toEqual({ status: 'cancelled', failure_reason: 'superseded_by_new_attempt' });
     expect((await sql(`select count(*)::int as n from payments where order_id = $1 and status = 'pending'`, [order.id]))[0].n).toBe(0);
-    // A late success for the cancelled attempt is alerted, never applied.
+    expect((await t.http.post(`/v1/public/pay/${session.token}/start`).send({ method: 'deposit_credit' })).status).toBe(400);
+    // PAY-08 (behaviour change): the superseded provider session could still be paid. The bill is still due and the
+    // link was not cancelled, so the captured money is applied (previously it was only alerted, leaving a captured
+    // payment unapplied). A capture on a session that was cancelled, or for a bill settled meanwhile, still alerts.
     const late = await sandbox.settle(tenant.orgId, first.provider_session_id, 'success');
     const res = await t.http.post(`/v1/webhooks/payments/simulated?c=${tenant.orgId}`).set(late!.headers).send(late!.raw);
-    expect(res.body.outcome).toBe('late_success');
-    expect((await sql(`select paid_minor from orders where id = $1`, [order.id]))[0].paid_minor).toBe(0);
-    expect((await t.http.post(`/v1/public/pay/${session.token}/start`).send({ method: 'deposit_credit' })).status).toBe(400);
+    expect(res.body.outcome).toBe('late_success_applied');
+    expect((await sql(`select paid_minor, payment_status from orders where id = $1`, [order.id]))[0]).toEqual({ paid_minor: order.totalMinor, payment_status: 'paid' });
+    expect((await sql(`select status, raw->'reopened'->>'previousReason' as why from payments where id = $1`, [first.id]))[0]).toEqual({ status: 'succeeded', why: 'superseded_by_new_attempt' });
+    expect((await t.http.get(`/v1/public/pay/${session.token}`)).body.status).toBe('paid');
   });
 
-  it('verifies real-provider webhooks with the merchant connection secret (Stripe, sandbox connection)', async () => {
+  // Legacy-row compatibility (INT-04/INT-18): a connection sealed WITHOUT the tenant AAD by an older fixture path is still
+  // readable and is re-sealed with "<orgId>:<provider>" on first use. New connections are created through the API
+  // (apps/api/test/payments-providers.test.ts).
+  it('verifies real-provider webhooks with the merchant connection secret (Stripe, legacy-sealed sandbox connection)', async () => {
     const box = t.app.get(SecretBox);
     const [conn] = await sql(
       `insert into integration_connections(org_id, provider, category, auth_type, environment, status, credentials_encrypted, credentials_hint)
        values ($1, 'stripe', 'payments', 'api_key', 'sandbox', 'connected', $2, 'sk_test_…0000') returning id`,
       [tenant.orgId, box.sealJson({ secretKey: 'sk_test_0000', webhookSecret: 'whsec_merchant_1' })]);
+    // Disabled for NEW checkouts (INT-07) so later tests keep using the simulated provider; webhooks for its attempts still verify.
+    await sql(`update integration_connections set enabled = false where id = $1`, [conn.id]);
     const order = await placeOrder([{ productId: menu.products.fries, quantity: 1 }]);
     // An attempt as CheckoutService would have created it before redirecting to Stripe.
     const pending = await db.scoped(ctx, (tx) => t.app.get(PaymentLedgerService).createPending(tx, ctx, {
       branchId: tenant.branchId, orderId: order.id, method: 'card', provider: 'stripe', connectionId: conn.id, amountMinor: order.totalMinor, currency: 'EGP', isTest: true,
     }));
     await sql(`insert into payment_attempt_refs(payment_id, org_id, provider, provider_session_id, redirect_url) values ($1, $2, 'stripe', 'cs_test_abc', 'https://checkout.stripe.com/c/pay/cs_test_abc')`, [pending.id, tenant.orgId]);
-    const raw = JSON.stringify({ id: `evt_${token()}`, type: 'checkout.session.completed', data: { object: {
+    const raw = JSON.stringify({ id: `evt_${token()}`, type: 'checkout.session.completed', livemode: false, data: { object: {
       id: 'cs_test_abc', amount_total: order.totalMinor, currency: 'egp', payment_status: 'paid', payment_intent: 'pi_test_abc', client_reference_id: pending.id } } });
     const sig = signStripe('whsec_merchant_1', raw, Math.floor(Date.now() / 1000));
     const wrong = signStripe('whsec_other', raw, Math.floor(Date.now() / 1000));
@@ -234,6 +246,10 @@ describe('hosted checkout through the simulated provider', () => {
     expect(ok.body.outcome).toBe('applied');
     const [p] = await sql(`select status, provider_payment_id from payments where id = $1`, [pending.id]);
     expect(p).toEqual({ status: 'succeeded', provider_payment_id: 'pi_test_abc' });
+    // The legacy envelope was migrated to the tenant AAD on first use.
+    const [sealed] = await sql(`select credentials_encrypted as c from integration_connections where id = $1`, [conn.id]);
+    expect(() => box.openJson(sealed.c)).toThrow();
+    expect(box.openJson(sealed.c, `${tenant.orgId}:stripe`)).toEqual({ secretKey: 'sk_test_0000', webhookSecret: 'whsec_merchant_1' });
     // Live connections are ignored while PAYMENT_MODE=sandbox.
     await sql(`update integration_connections set environment = 'live' where id = $1`, [conn.id]);
     const again = JSON.stringify({ ...JSON.parse(raw), id: `evt_${token()}` });
