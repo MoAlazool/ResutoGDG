@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Badge, Card, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
-import { dateTime, time } from '@/lib/format';
+import { dateTime, time, formatWhen } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -80,11 +80,11 @@ function Conversations() {
                 <span style={{ minWidth: 0, display: 'grid', gap: 2 }}>
                   <span className="row" style={{ gap: 6 }}><strong><bdi>{c.name ?? c.contact}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
                     <Badge tone={statusTone(c.status)}>{t(`connect.status.${c.status}`)}</Badge></span>
-                  <span className="fine" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260 }}>
+                  <span className="fine" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                     {c.lastMessage ? <>{c.lastMessage.direction === 'outbound' ? '↩ ' : ''}<bdi>{c.lastMessage.body ?? ''}</bdi></> : ''}</span>
                 </span>
                 <span style={{ display: 'grid', justifyItems: 'end', gap: 4 }}>
-                  <span className="fine">{time(c.lastMessageAt, locale)}</span>
+                  <span className="fine num" style={{ whiteSpace: 'nowrap' }}>{formatWhen(c.lastMessageAt, locale, org.timezone)}</span>
                   {c.unreadCount > 0 && <Badge tone="ok">{c.unreadCount}</Badge>}
                 </span>
               </button>
@@ -169,7 +169,7 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
               background: msg.direction === 'outbound' ? (msg.automated ? 'var(--info-bg)' : 'var(--leaf-bg)') : '#fff', border: '1px solid var(--line-soft)' }}>
               {msg.body ?? <em className="muted">{t('connect.inbox.unsupported')}</em>}
               {msg.interactive?.buttons && <div className="row" style={{ gap: 4, marginBlockStart: 6 }}>{msg.interactive.buttons.map((b: any) => <Badge key={b.id}>{b.title}</Badge>)}</div>}
-              {msg.interactive?.url && <div className="fine" style={{ marginBlockStart: 4 }}>🔗 {msg.interactive.displayText}</div>}
+              {msg.interactive?.url && <div className="fine" style={{ marginBlockStart: 4 }}>↗ <bdi>{msg.interactive.displayText}</bdi></div>}
             </div>
             <div className="fine" style={{ textAlign: msg.direction === 'outbound' ? 'end' : 'start' }}>
               {time(msg.createdAt, locale)}{msg.automated ? ` · ${t('connect.inbox.bot')}` : ''}{msg.direction === 'outbound' ? ` · ${t(`connect.msg.${msg.status}`)}` : ''}

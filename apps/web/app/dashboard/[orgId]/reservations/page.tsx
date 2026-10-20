@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState, type FormEvent } from 'react';
 import type { AvailabilityResult, ReservationView } from '@resuto/contracts';
-import { Badge, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, type Tone } from '@resuto/ui';
+import { Badge, Code, EmptyState, Field, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, UserText, useConfirm, type Tone } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { money, pick, time } from '@/lib/format';
@@ -22,6 +22,7 @@ export default function ReservationsPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm(locale);
   const day = useApi<{ items: ReservationView[] }>(`/o/${org.id}/reservations?date=${date}${branchId ? `&branchId=${branchId}` : ''}`, { pollMs: 15000 });
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
@@ -34,6 +35,7 @@ export default function ReservationsPage() {
 
   return (
     <ModuleGate module="core" permission="reservations:read">
+      {confirmDialog}
       <PageHeader title={t('nav.reservations')} subtitle={t('core.resdash.subtitle', { n: live.length, covers })}
         actions={can('reservations:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.resdash.new')}</button>} />
       <div className="form-row" style={{ alignItems: 'end' }}>
@@ -55,14 +57,14 @@ export default function ReservationsPage() {
               <div><strong style={{ fontSize: 20 }} className="num">{time(r.startsAt, locale, org.timezone)}</strong><div className="fine">{time(r.endsAt, locale, org.timezone)}</div></div>
               <div className="stack" style={{ gap: 6 }}>
                 <div className="spread">
-                  <span><strong>{r.guestName}</strong> · {t('core.res.guests', { n: r.partySize })}{r.tableLabel ? ` · ${t('core.kds.table', { label: r.tableLabel })}` : ''}</span>
+                  <span><strong><UserText>{r.guestName}</UserText></strong> · {t('core.res.guests', { n: r.partySize })}{r.tableLabel ? ` · ${t('core.kds.table', { label: r.tableLabel })}` : ''}</span>
                   <Badge tone={tone(r.status)}>{t(`core.res.status.${r.status}`)}</Badge>
                 </div>
                 <div className="fine">
-                  {r.code} · {t(`core.res.source.${r.source}`)}{r.guestPhone ? ` · ${r.guestPhone}` : ''}
+                  <Code>{r.code}</Code> · {t(`core.res.source.${r.source}`)}{r.guestPhone ? <> · <Phone value={r.guestPhone} link /></> : null}
                   {r.depositMinor > 0 && ` · ${t('core.res.deposit')}: ${money(r.depositMinor, r.currency, locale)} (${t(`core.res.deposit.${r.depositStatus}`)})`}
                 </div>
-                {r.notes && <div className="fine">“{r.notes}”</div>}
+                {r.notes && <div className="fine">“<UserText>{r.notes}</UserText>”</div>}
                 {can('reservations:write') && (
                   <div className="row">
                     {r.status === 'confirmed' && can('floor:seat') && (
@@ -72,8 +74,8 @@ export default function ReservationsPage() {
                       <button className="btn btn-sm" onClick={() => void act(() => call(`/o/${org.id}/reservations/${r.id}/no-show`, { body: {} }), t('core.res.status.no_show'))}>{t('core.resdash.noShow')}</button>
                     )}
                     {['held', 'pending_deposit', 'confirmed'].includes(r.status) && (
-                      <button className="btn btn-sm btn-danger" onClick={() => {
-                        if (window.confirm(t('core.res.cancelConfirm'))) void act(() => call(`/o/${org.id}/reservations/${r.id}/cancel`, { body: {} }), t('core.res.cancelled'));
+                      <button className="btn btn-sm btn-danger" onClick={async () => {
+                        if (await confirm({ title: t('core.res.cancelConfirm'), tone: 'danger', confirmLabel: t('core.res.cancel') })) void act(() => call(`/o/${org.id}/reservations/${r.id}/cancel`, { body: {} }), t('core.res.cancelled'));
                       }}>{t('core.res.cancel')}</button>
                     )}
                   </div>

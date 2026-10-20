@@ -1,7 +1,7 @@
 'use client';
 import { useState, type FormEvent } from 'react';
 import { LICENCE_KINDS, type ExpiryStatus, type LicenceView } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, TextareaField, useAction, type Tone } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, TextareaField, useAction, useConfirm, type Tone } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
@@ -20,6 +20,7 @@ export function ExpiryBadge({ status, days }: { status: ExpiryStatus; days: numb
 /** Licences & certificates with expiry badges, reminders (default 30/7/1 days) and file attachments. */
 export function Licences() {
   const { t, locale } = useT();
+  const [confirm, confirmDialog] = useConfirm(locale);
   const { org, can } = useOrg();
   const { call } = useSession();
   const [filter, setFilter] = useState<'' | ExpiryStatus>('');
@@ -65,6 +66,7 @@ export function Licences() {
 
   return (
     <div className="stack">
+      {confirmDialog}
       <div className="spread">
         <div className="row" style={{ gap: 6 }}>
           {(['', 'expired', 'expiring', 'valid', 'no_expiry'] as const).map((k) => (
@@ -90,10 +92,10 @@ export function Licences() {
             ) },
             { key: 'actions', header: '', render: (d) => (
               <div className="row" style={{ gap: 6 }}>
-                {d.file && <button className="btn btn-sm" onClick={() => void openFile(d.id)}>📎 {t('compliance.lic.file')}</button>}
+                {d.file && <button className="btn btn-sm" onClick={() => void openFile(d.id)}>{t('compliance.lic.file')}</button>}
                 {editable && <button className="btn btn-sm" onClick={() => setEditing(d)}>{t('action.edit')}</button>}
                 {editable && <button className="btn btn-sm btn-danger" disabled={act.pending}
-                  onClick={() => { if (window.confirm(t('compliance.lic.confirmDelete', { title: d.title }))) void act.run(() => call(`/o/${org.id}/compliance/documents/${d.id}`, { method: 'DELETE' })); }}>
+                  onClick={async () => { if (await confirm({ title: t('compliance.lic.confirmDelete', { title: d.title }), tone: 'danger', confirmLabel: t('action.delete') })) void act.run(() => call(`/o/${org.id}/compliance/documents/${d.id}`, { method: 'DELETE' })); }}>
                   {t('action.delete')}
                 </button>}
               </div>

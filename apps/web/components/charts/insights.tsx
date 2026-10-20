@@ -4,7 +4,7 @@ import { INTL_LOCALE } from '@resuto/contracts';
 import { useCallback, type ReactNode } from 'react';
 import s from './charts.module.css';
 import type { AnalyticsMeta } from '@resuto/contracts';
-import { Badge, Notice } from '@resuto/ui';
+import { Badge, DateTimeInput, Notice } from '@resuto/ui';
 import type { ApiRequestError } from '@/lib/api';
 import { money as fmtMoney } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -79,9 +79,9 @@ export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p:
       </select>
       {value.preset === 'custom' && (
         <>
-          <input type="date" className="input" style={{ width: 'auto', minHeight: 38 }} aria-label={t('insights.period.from')} value={value.from}
+          <DateTimeInput type="date" style={{ width: 'auto', minHeight: 38 }} aria-label={t('insights.period.from')} value={value.from}
             max={value.to} onChange={(e) => e.target.value && onChange({ ...value, from: e.target.value })} />
-          <input type="date" className="input" style={{ width: 'auto', minHeight: 38 }} aria-label={t('insights.period.to')} value={value.to}
+          <DateTimeInput type="date" style={{ width: 'auto', minHeight: 38 }} aria-label={t('insights.period.to')} value={value.to}
             min={value.from} onChange={(e) => e.target.value && onChange({ ...value, to: e.target.value })} />
         </>
       )}

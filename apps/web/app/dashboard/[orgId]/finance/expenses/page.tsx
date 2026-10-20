@@ -1,7 +1,7 @@
 'use client';
 import { Suspense, useState } from 'react';
 import { EXPENSE_KINDS } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, useAction } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, useAction, useConfirm } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -21,7 +21,8 @@ function Expenses() {
   const cats = useApi<{ items: Array<{ id: string; name: string; nameAr: string | null; kind: string }> }>(`/o/${org.id}/finance/expense-categories`);
   const [editing, setEditing] = useState<any | null>(null);
   const [catOpen, setCatOpen] = useState(false);
-  const remove = useAction(async (id: string) => { if (!confirm(t('finance.exp.deleteConfirm'))) return; await call(`/o/${org.id}/finance/expenses/${id}`, { method: 'DELETE' }); await list.reload(); });
+  const [confirm, confirmDialog] = useConfirm(locale);
+  const remove = useAction(async (id: string) => { if (!(await confirm({ title: t('finance.exp.deleteConfirm'), tone: 'danger', confirmLabel: t('action.delete') }))) return; await call(`/o/${org.id}/finance/expenses/${id}`, { method: 'DELETE' }); await list.reload(); });
   const upload = useAction(async (id: string, file: File) => {
     const fd = new FormData(); fd.append('file', file);
     await call(`/o/${org.id}/finance/expenses/${id}/receipt`, { body: fd });
@@ -31,6 +32,7 @@ function Expenses() {
   const writable = can('finance:write');
   return (
     <div className="stack">
+      {confirmDialog}
       {writable && (
         <div className="row">
           <button className="btn btn-primary" onClick={() => setEditing({})}>{t('finance.exp.add')}</button>

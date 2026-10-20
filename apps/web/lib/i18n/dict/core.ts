@@ -88,7 +88,7 @@ const en: Record<string, string> = {
   'core.kds.markReady': 'Ready', 'core.kds.handOver.dine_in': 'Served', 'core.kds.handOver.pickup': 'Picked up', 'core.kds.handOver.delivery': 'Out for delivery',
   'core.kds.station': 'Station', 'core.kds.allStations': 'All stations',
   // Orders (dashboard)
-  'core.orders.subtitle': 'Live orders from every channel.', 'core.orders.new': 'New order', 'core.orders.requests': 'Guest requests', 'core.orders.status': 'Status',
+  'core.orders.subtitle': 'Live orders from every channel.', 'core.orders.new': 'New order', 'core.orders.requests': 'Guest requests', 'core.orders.noRequests': 'No guest requests waiting.', 'core.orders.resolveRequest': 'Mark as handled', 'core.orders.status': 'Status',
   'core.orders.active': 'Open', 'core.orders.all': 'All', 'core.orders.channel': 'Channel', 'core.orders.fulfillment': 'Type', 'core.orders.date': 'Date',
   'core.orders.empty': 'No orders match', 'core.orders.emptyHint': 'New orders appear here automatically.', 'core.orders.placed': 'Time', 'core.orders.where': 'Table / guest',
   'core.orders.payment': 'Payment', 'core.orders.latest': 'Latest', 'core.orders.older': 'Older orders',
@@ -191,7 +191,7 @@ const ar: Record<string, string> = {
   'core.kds.recall': 'اضغط لإعادة الطبق للتحضير', 'core.kds.tapLine': 'اضغط لتقديم حالة الطبق', 'core.kds.accept': 'قبول', 'core.kds.start': 'ابدأ التحضير',
   'core.kds.markReady': 'جاهز', 'core.kds.handOver.dine_in': 'تم التقديم', 'core.kds.handOver.pickup': 'تم الاستلام', 'core.kds.handOver.delivery': 'خرج للتوصيل',
   'core.kds.station': 'المحطة', 'core.kds.allStations': 'كل المحطات',
-  'core.orders.subtitle': 'الطلبات المباشرة من كل القنوات.', 'core.orders.new': 'طلب جديد', 'core.orders.requests': 'طلبات الضيوف', 'core.orders.status': 'الحالة',
+  'core.orders.subtitle': 'الطلبات المباشرة من كل القنوات.', 'core.orders.new': 'طلب جديد', 'core.orders.requests': 'طلبات الضيوف', 'core.orders.noRequests': 'لا توجد طلبات ضيوف بالانتظار.', 'core.orders.resolveRequest': 'تمّت المعالجة', 'core.orders.status': 'الحالة',
   'core.orders.active': 'مفتوحة', 'core.orders.all': 'الكل', 'core.orders.channel': 'القناة', 'core.orders.fulfillment': 'النوع', 'core.orders.date': 'التاريخ',
   'core.orders.empty': 'لا توجد طلبات مطابقة', 'core.orders.emptyHint': 'تظهر الطلبات الجديدة هنا تلقائيًا.', 'core.orders.placed': 'الوقت', 'core.orders.where': 'الطاولة / الضيف',
   'core.orders.payment': 'الدفع', 'core.orders.latest': 'الأحدث', 'core.orders.older': 'طلبات أقدم',

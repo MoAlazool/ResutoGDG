@@ -41,7 +41,7 @@ export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose
             <div><div className="fine">{t('driver.payment')}</div><strong>{j.codAmountMinor > 0 && j.cashStatus !== 'none' ? `${money(j.codAmountMinor, j.currency, locale)} · ${t(`driver.dispatch.cash.${j.cashStatus}`)}` : t('driver.prepaid')}</strong></div>
           </div>
           {j.etaAt && <p className="fine" style={{ margin: 0 }}>{t('driver.eta', { t: time(j.etaAt, locale) })} — {t('driver.dispatch.etaNote')}</p>}
-          {j.navigationUrl && <a className="btn btn-sm btn-leaf" href={j.navigationUrl} target="_blank" rel="noopener noreferrer">🗺 {t('driver.openMaps')}</a>}
+          {j.navigationUrl && <a className="btn btn-sm btn-leaf" href={j.navigationUrl} target="_blank" rel="noopener noreferrer">↗ {t('driver.openMaps')}</a>}
           <div>
             <div className="fine">{t('driver.items')}</div>
             <ul style={{ margin: '4px 0 0', paddingInlineStart: 18 }}>{j.items.map((i, k) => <li key={k}>{i.quantity} × {locale === 'ar' && i.nameAr ? i.nameAr : i.name}</li>)}</ul>
@@ -79,7 +79,7 @@ export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose
             <div className="row">
               {!['failed'].includes(j.status) && (
                 <button className="btn btn-sm" disabled={act.pending} onClick={() => void act.run(async () => setOtp(await call(`/o/${org.id}/delivery/jobs/${j.id}/otp`, { body: {} })))}>
-                  🔑 {j.hasOtp ? t('driver.dispatch.regenerateOtp') : t('driver.dispatch.generateOtp')}
+                  {j.hasOtp ? t('driver.dispatch.regenerateOtp') : t('driver.dispatch.generateOtp')}
                 </button>
               )}
               {j.hasOtp && !otp && <Badge tone="info">{t('driver.dispatch.otpActive')}</Badge>}

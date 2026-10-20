@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState, type FormEvent } from 'react';
 import { INVENTORY_UNITS, WASTE_REASONS, parseMajor, unitsCompatible, type AnalyticsMeta, type Currency, type InventoryItemView, type InventoryUnit, type StockLevelView, type StockMovementView } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, UserText } from '@resuto/ui';
 import { BarList } from '@/components/charts';
 import { BranchSelect, LoadError, MetaPanel, PeriodPicker, presetPeriod, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
 import { newIdempotencyKey } from '@/lib/api';
@@ -49,7 +49,7 @@ export function LevelsTab({ onRecord }: { onRecord?: () => void }) {
           { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (l) => <span className="num">{l.reorderLevel ? `${f.num(l.reorderLevel)} ${l.unit}` : '—'}</span> },
           { key: 'value', header: t('insights.inventory.value'), align: 'end', render: (l) => <span className="num">{f.money(l.valueMinor)}</span> },
           { key: 'status', header: t('insights.inventory.status'), render: (l) => l.quantity < 0 ? <Badge tone="danger">{t('insights.inventory.negative')}</Badge>
-            : l.low ? <Badge tone="warn">⚠ {t('insights.inventory.low')}</Badge> : <Badge tone="ok">✓ {t('insights.inventory.ok')}</Badge> },
+            : l.low ? <Badge tone="warn">{t('insights.inventory.low')}</Badge> : <Badge tone="ok">✓ {t('insights.inventory.ok')}</Badge> },
           { key: 'counted', header: t('insights.inventory.lastCounted'), render: (l) => <span className="fine">{l.lastCountedAt ? dateTime(l.lastCountedAt, locale) : t('insights.inventory.never')}</span> },
         ]} />
       )}
@@ -394,12 +394,12 @@ export function AlertsTab() {
       <LoadError error={error} retry={reload} />
       {!data ? <Skeleton lines={3} /> : (
         <DataTable rows={data.items} rowKey={(a) => a.id} empty={<EmptyState title={t('insights.overview.stockOk')} />} columns={[
-          { key: 'item', header: t('insights.inventory.item'), render: (a) => <><Badge tone="warn">⚠</Badge> {pick(locale, a.name, a.nameAr)}</> },
+          { key: 'item', header: t('insights.inventory.item'), render: (a) => <><Badge tone="warn">!</Badge> {pick(locale, a.name, a.nameAr)}</> },
           { key: 'branch', header: t('insights.branch.label'), render: (a) => branchName(a.branchId) },
           { key: 'qty', header: t('insights.inventory.onHand'), align: 'end', render: (a) => <span className="num">{f.num(a.quantity)} {a.unit}</span> },
           { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (a) => <span className="num">{f.num(a.reorderLevel)} {a.unit}</span> },
           { key: 'since', header: t('insights.inventory.since'), render: (a) => <span className="fine">{dateTime(a.openedAt, locale)}</span> },
-          { key: 'supplier', header: t('insights.inventory.supplier'), render: (a) => a.supplierName ? <>{a.supplierName} {a.supplierPhone && <a href={`tel:${a.supplierPhone}`} dir="ltr" className="fine">{a.supplierPhone}</a>}</> : '—' },
+          { key: 'supplier', header: t('insights.inventory.supplier'), render: (a) => a.supplierName ? <><UserText>{a.supplierName}</UserText> {a.supplierPhone && <span className="fine"><Phone value={a.supplierPhone} link /></span>}</> : '—' },
         ]} />
       )}
       <p className="fine" style={{ marginBlockStart: 10 }}>{t('insights.inventory.alertsHint')}</p>

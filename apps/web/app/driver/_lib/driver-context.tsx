@@ -133,9 +133,9 @@ function DriverRuntime({ orgId, memberships, onSwitch, children }: {
   const refresh = useCallback(async () => { await Promise.all([profile.reload(), jobs.reload()]); }, [profile, jobs]);
   const value: DriverValue = { orgId, base, profile, jobs, location, call: session.call, refresh };
   const nav = [
-    { href: '/driver', icon: '🛵', label: t('driver.nav.jobs') },
-    { href: '/driver/cash', icon: '💵', label: t('driver.nav.cash') },
-    { href: '/driver/history', icon: '🕘', label: t('driver.nav.history') },
+    { href: '/driver', icon: '⇢', label: t('driver.nav.jobs') },
+    { href: '/driver/cash', icon: '¤', label: t('driver.nav.cash') },
+    { href: '/driver/history', icon: '☰', label: t('driver.nav.history') },
   ];
   const orgName = profile.data ? (locale === 'ar' && profile.data.org.nameAr ? profile.data.org.nameAr : profile.data.org.name) : '';
 

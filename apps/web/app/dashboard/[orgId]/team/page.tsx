@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { assignableRoles, type Role, INTL_LOCALE } from '@resuto/contracts';
-import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton } from '@resuto/ui';
+import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Code, Email, Phone, UserText } from '@resuto/ui';
 import { ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -161,9 +161,9 @@ export default function TeamPage() {
               {rowError && <div style={{ marginBlockEnd: 12 }}><Notice tone="danger">{rowError}</Notice></div>}
               <DataTable rows={members} rowKey={(m) => m.id} columns={[
                 { key: 'name', header: s.name, render: (m) => (
-                  <div><strong>{m.fullName || m.email || m.userId.slice(0, 8)}</strong>
+                  <div><strong>{m.fullName ? <UserText>{m.fullName}</UserText> : m.email ? <Email value={m.email} /> : <Code>{m.userId.slice(0, 8)}</Code>}</strong>
                     {m.userId === session.me?.user.id && <> <Badge tone="info">{s.you}</Badge></>}
-                    {m.email && m.fullName && <div className="fine">{m.email}</div>}</div>) },
+                    {m.email && m.fullName && <div className="fine"><Email value={m.email} /></div>}</div>) },
                 { key: 'role', header: s.role, render: (m) => editable(m) ? (
                   <select className="select" style={{ minHeight: 34, padding: '4px 8px', width: 'auto' }} value={m.role} aria-label={s.role}
                     onChange={(e) => void patch(m, { role: e.target.value })}>
@@ -183,7 +183,7 @@ export default function TeamPage() {
             <Card title={s.pending}>
               {team.data.invitations.length ? (
                 <DataTable rows={team.data.invitations} rowKey={(i) => i.id} columns={[
-                  { key: 'who', header: s.name, render: (i) => <span dir="ltr">{i.email ?? i.phone}</span> },
+                  { key: 'who', header: s.name, render: (i) => i.email ? <Email value={i.email} /> : <Phone value={i.phone} /> },
                   { key: 'role', header: s.role, render: (i) => roles[i.role] },
                   { key: 'branches', header: s.branches, render: (i) => scopeLabel(i.branchIds) },
                   { key: 'exp', header: s.status, render: (i) => <span className="muted">{s.expires.replace('{date}', day(i.expiresAt, locale))}</span> },
@@ -193,7 +193,7 @@ export default function TeamPage() {
           </>
         )}
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title={`${s.editBranches} — ${editing?.fullName || editing?.email || ''}`}
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={<>{s.editBranches} — <UserText>{editing?.fullName || editing?.email || ''}</UserText></>}
         footer={<><button className="btn" onClick={() => setEditing(null)}>{s.cancel}</button>
           <button className="btn btn-primary" disabled={editScope !== null && editScope.length === 0}
             onClick={async () => { if (editing && (await patch(editing, { branchIds: editScope }))) setEditing(null); }}>{s.save}</button></>}>
