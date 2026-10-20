@@ -1,20 +1,17 @@
 'use client';
-import { normalizeNumericInput } from '@resuto/contracts';
+import { dateTimeFormat, formatClock, normalizeNumericInput } from '@resuto/contracts';
+import { useUiLocale } from './locale';
+import { PageHeading } from './primitives';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
 
+/**
+ * Page heading (legacy .page-heading): eyebrow, 32px title, 13px subtitle and actions. Without an `overline` the
+ * eyebrow is the shell's "Restaurant / Branch" breadcrumb (PageEyebrowProvider).
+ */
 export function PageHeader({ title, subtitle, actions, overline }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; overline?: ReactNode }) {
-  return (
-    <header className="page-header">
-      <div>
-        {overline && <div className="overline">{overline}</div>}
-        <h1>{title}</h1>
-        {subtitle && <p>{subtitle}</p>}
-      </div>
-      {actions && <div className="row">{actions}</div>}
-    </header>
-  );
+  return <PageHeading title={title} subtitle={subtitle} actions={actions} eyebrow={overline} />;
 }
 
 export function Card({ title, actions, children, warm, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; warm?: boolean; className?: string }) {
@@ -86,14 +83,47 @@ export function Field({ label, hint, error, ...input }: FieldProps & InputHTMLAt
   return (
     <label className="field">
       <span>{label}</span>
-      <input className="input" aria-invalid={!!error || undefined} {...input}
-        onInput={numeric ? (e) => { normalizeNumericEvent(e); onInput?.(e); } : onInput}
-        onChange={numeric && onChange ? (e) => { normalizeNumericEvent(e); onChange(e); } : onChange} />
+      {input.type === 'date' || input.type === 'time'
+        ? <DateTimeInput aria-invalid={!!error || undefined} {...input} type={input.type as 'date' | 'time'} />
+        : <input className="input" aria-invalid={!!error || undefined} {...input}
+          onInput={numeric ? (e) => { normalizeNumericEvent(e); onInput?.(e); } : onInput}
+          onChange={numeric && onChange ? (e) => { normalizeNumericEvent(e); onChange(e); } : onChange} />}
       {hint && <small>{hint}</small>}
       {error && <span className="field-error">{error}</span>}
     </label>
   );
 }
+
+/** "2026-10-20" → "20 Oct 2026" / "20 أكتوبر 2026"; "21:30" → "21:30" / "9:30 م" (Western digits, no time zone shift). */
+export function formatInputValue(type: 'date' | 'time', value: string, locale: 'en' | 'ar'): string {
+  if (type === 'date') {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!m) return value;
+    return dateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!));
+  }
+  const m = /^(\d{2}):(\d{2})/.exec(value);
+  return m ? formatClock(+m[1]!, +m[2]!, locale) : value;
+}
+
+/**
+ * Native date/time input whose resting text is formatted by Resuto (Western digits, the page's language) instead of
+ * the browser's locale (mm/dd/yyyy, or Arabic-Indic digits in an Arabic browser). While focused the native fields
+ * are shown for typing; the native calendar/clock picker stays available (VS-06).
+ */
+export function DateTimeInput({ type, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { type: 'date' | 'time' }) {
+  const locale = useUiLocale();
+  const controlled = props.value !== undefined;
+  const [inner, setInner] = useState(String(props.defaultValue ?? ''));
+  const value = controlled ? String(props.value ?? '') : inner;
+  return (
+    <span className="date-input" data-filled={value ? '' : undefined}>
+      <input {...props} type={type} className={cx('input', className)}
+        onChange={(e) => { if (!controlled) setInner(e.target.value); props.onChange?.(e); }} />
+      {value && <span className="date-input-text num" aria-hidden="true">{formatInputValue(type, value, locale)}</span>}
+    </span>
+  );
+}
+
 export function SelectField({ label, hint, error, children, ...select }: FieldProps & SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <label className="field">

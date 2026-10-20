@@ -128,6 +128,44 @@ export function KeyValueList({ items, className }: { items: Array<{ label: React
   );
 }
 
+// --- Bidirectional text -------------------------------------------------------------------------
+// User-entered names, addresses and notes can be Arabic, Latin or mixed; phones, emails, codes and URLs are always
+// left-to-right. Rendering them inside a sentence of the other direction without isolation reorders them
+// ("201090001004+", a house number jumping to the far side). These wrappers isolate them (<bdi>, unicode-bidi:
+// isolate) so the surrounding sentence and the value each keep their own direction.
+
+/** User-entered text (names, addresses, notes, vendors): direction taken from its first strong character. */
+export function UserText({ children, className }: { children: ReactNode; className?: string }) {
+  if (children === null || children === undefined || children === '') return null;
+  return <bdi dir="auto" className={className}>{children}</bdi>;
+}
+
+/** Always left-to-right content (Latin identifiers, URLs, slugs, provider names). */
+export function Ltr({ children, className }: { children: ReactNode; className?: string }) {
+  if (children === null || children === undefined || children === '') return null;
+  return <bdi dir="ltr" className={className}>{children}</bdi>;
+}
+
+/** Phone number: left-to-right, tabular digits, optional tel: link. */
+export function Phone({ value, link, className }: { value: string | null | undefined; link?: boolean; className?: string }) {
+  if (!value) return null;
+  const text = <bdi dir="ltr" className={['num', className].filter(Boolean).join(' ')}>{value}</bdi>;
+  return link ? <a href={`tel:${value.replace(/[^\d+]/g, '')}`}>{text}</a> : text;
+}
+
+/** Email address: left-to-right, wraps anywhere so long addresses never overflow. */
+export function Email({ value, link, className }: { value: string | null | undefined; link?: boolean; className?: string }) {
+  if (!value) return null;
+  const text = <bdi dir="ltr" className={className} style={{ overflowWrap: 'anywhere' }}>{value}</bdi>;
+  return link ? <a href={`mailto:${value}`}>{text}</a> : text;
+}
+
+/** Codes and references (order numbers, reservation codes, request ids): left-to-right, tabular digits. */
+export function Code({ children, className }: { children: ReactNode; className?: string }) {
+  if (children === null || children === undefined || children === '') return null;
+  return <bdi dir="ltr" className={['num', 'code-ref', className].filter(Boolean).join(' ')}>{children}</bdi>;
+}
+
 // --- Accessibility helpers -----------------------------------------------------------------
 /** True when the user asked the OS to minimise motion (auto-playing demos must pause). */
 export function useReducedMotion(): boolean {
