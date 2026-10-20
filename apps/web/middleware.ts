@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { buildCsp, newNonce } from './lib/csp';
 
 /**
- * Custom-domain routing for restaurant websites. Requests whose Host is not one
+ * Sets the per-request Content-Security-Policy nonce on every page (lib/csp.ts), and does custom-domain routing
+ * for restaurant websites. Requests whose Host is not one
  * of the app hosts (APP_HOSTS, default localhost) are resolved through the
  * public by-host endpoint and rewritten to that tenant's /r/<slug> site.
  * Resolution is cached in memory per instance (60 s hits, 30 s misses).
@@ -33,24 +35,33 @@ async function resolveHost(host: string): Promise<string | null> {
   return slug;
 }
 
+const CSP_DEV = process.env.NODE_ENV !== 'production';
+
 export async function middleware(req: NextRequest) {
+  // Per-request script nonce (audit PS-17, lib/csp.ts): Next.js reads it from the request's CSP header and adds it
+  // to its own scripts; the browser gets the same policy on the response. Every return below goes through secure().
+  const nonce = newNonce();
+  const csp = buildCsp({ nonce, dev: CSP_DEV, apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL });
+  const headers = new Headers(req.headers);
+  headers.set('content-security-policy', csp);
+  const secure = (res: NextResponse) => { res.headers.set('Content-Security-Policy', csp); return res; };
+
   const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0]!.trim().toLowerCase().replace(/:\d+$/, '');
-  if (!host || isAppHost(host)) return NextResponse.next();
+  if (!host || isAppHost(host)) return secure(NextResponse.next({ request: { headers } }));
   const { pathname } = req.nextUrl;
-  if (PASS_THROUGH.test(pathname)) return NextResponse.next();
+  if (PASS_THROUGH.test(pathname)) return secure(NextResponse.next({ request: { headers } }));
 
   const slug = await resolveHost(host);
   const url = req.nextUrl.clone();
   if (!slug) {
     url.pathname = '/r/_unknown-host';
-    return NextResponse.rewrite(url, { status: 404 });
+    return secure(NextResponse.rewrite(url, { status: 404, request: { headers } }));
   }
-  const headers = new Headers(req.headers);
   headers.set('x-resuto-site-host', host);
   if (pathname === '/' || pathname === '') url.pathname = `/r/${slug}`;
   else if (pathname === '/reserve' || pathname === '/order') url.pathname = `${pathname}/${slug}`;
   else url.pathname = `/r/${slug}${pathname}`;
-  return NextResponse.rewrite(url, { request: { headers } });
+  return secure(NextResponse.rewrite(url, { request: { headers } }));
 }
 
 export const config = {

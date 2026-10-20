@@ -84,12 +84,21 @@ start with `AUTH_DEV_MODE` in production.
   The client IP follows `TRUST_PROXY` (one hop on Render by default); 429s carry
   `Retry-After` and `RateLimit-*`. Restaurant creation is limited per user and per address.
 - Security headers: `nosniff`, `Referrer-Policy`, `X-Frame-Options`, no `x-powered-by`; CORS
-  restricted to `CORS_ORIGINS`. The web app sends a Content-Security-Policy
-  (`apps/web/next.config.ts`: connections only to itself, the API and Supabase; no framing;
-  no plugins; `script-src` keeps `'unsafe-inline'` for the App Router bootstrap).
+  restricted to `CORS_ORIGINS`. Web Content-Security-Policy (`apps/web/lib/csp.ts`): every
+  page gets a per-request nonce from `apps/web/middleware.ts`; `script-src` allows only
+  nonce'd scripts and what they load (`'strict-dynamic'`), with no `'unsafe-inline'`, so
+  injected `<script>` tags and inline handlers do not run (the session token in
+  localStorage cannot be read by injected markup). Connections only to the site, the API
+  and Supabase; no framing, plugins or `<base>` changes; forms post only to the site.
+  `img-src` allows any `https:` host because product images are tenant URLs; this matters
+  only once script runs, which the nonce prevents (and running script could navigate away
+  with the token regardless). Static files carry a compatible fallback policy from
+  `next.config.ts`. After a web deploy, `curl -sI <page>` must show one
+  `content-security-policy` header with a `'nonce-…'` source.
 - Outbound calls to tenant-supplied URLs (Odoo POS/Accounting) go through the egress guard
   (`packages/integrations/src/net.ts`): public HTTPS hosts on 443 only, every DNS answer and
-  redirect re-checked, capped body, and errors never carry the server's response.
+  redirect re-checked, redirects to another origin refused (credentials never follow them),
+  capped body, and errors never carry the server's response or a parser message quoting it.
 - Correlation: every request has an `X-Request-Id` (validated or generated), stored on
   `audit_logs`, `outbox_events` and `mcp_tool_calls`, carried into worker handler runs and
   sent on outbound calls (providers, AI service); one JSON access-log line per request.
