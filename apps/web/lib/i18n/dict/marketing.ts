@@ -60,6 +60,11 @@ const en: Record<string, string> = {
   'marketing.recs.method': 'Recommendations are fixed, explainable rules run on your own data. Counts are exact; nothing is estimated by a model.',
   'marketing.recs.empty': 'No recommendations right now', 'marketing.recs.emptyBody': 'They appear when your customer data matches a rule, for example consented customers who stopped ordering.',
   'marketing.recs.evidence': 'Evidence', 'marketing.recs.createDraft': 'Create draft campaign',
+  'marketing.status.launching': 'Launching',
+  'marketing.camp.launchSandbox': 'Rehearse in sandbox',
+  'marketing.camp.launchReset': 'Clear launch',
+  'marketing.camp.launchResetConfirm': 'Only clear this launch after checking the ad platform: there must be no campaign tagged {tag}. Clearing lets you launch again.',
+  'marketing.camp.launchingNote': 'Creating the campaign at the ad platform…',
 };
 
 const ar: Record<string, string> = {
@@ -117,6 +122,11 @@ const ar: Record<string, string> = {
   'marketing.recs.method': 'التوصيات قواعد ثابتة وقابلة للتفسير تُطبق على بياناتك. الأعداد دقيقة ولا شيء مقدّر بنموذج.',
   'marketing.recs.empty': 'لا توجد توصيات حاليًا', 'marketing.recs.emptyBody': 'تظهر عندما تطابق بيانات عملائك قاعدة، مثل عملاء موافقين توقفوا عن الطلب.',
   'marketing.recs.evidence': 'الدليل', 'marketing.recs.createDraft': 'إنشاء مسودة حملة',
+  'marketing.status.launching': 'جارٍ الإطلاق',
+  'marketing.camp.launchSandbox': 'تجربة في بيئة الاختبار',
+  'marketing.camp.launchReset': 'إلغاء الإطلاق المعلّق',
+  'marketing.camp.launchResetConfirm': 'لا تُلغِ هذا الإطلاق إلا بعد التحقق من منصة الإعلانات: يجب ألا توجد حملة تحمل الوسم {tag}. الإلغاء يتيح الإطلاق من جديد.',
+  'marketing.camp.launchingNote': 'جارٍ إنشاء الحملة في منصة الإعلانات…',
 };
 
 export const marketing = { en, ar };

@@ -165,6 +165,8 @@ const enActions: Record<string, string> = {
   'integration.oauth_connected': 'Account authorised',
   'integration.oauth_state_rejected': 'Authorisation from another browser refused',
   'integration.account_selected': 'Ad account chosen',
+  'marketing.ad_campaign_launching': 'Ad campaign launch started',
+  'marketing.ad_campaign_launch_reset': 'Stuck ad launch cleared',
 };
 
 const arActions: Record<string, string> = {
@@ -327,6 +329,8 @@ const arActions: Record<string, string> = {
   'integration.oauth_connected': 'فُوّض حساب',
   'integration.oauth_state_rejected': 'رُفض تفويض من متصفح آخر',
   'integration.account_selected': 'اختير حساب إعلاني',
+  'marketing.ad_campaign_launching': 'بدأ إطلاق حملة إعلانية',
+  'marketing.ad_campaign_launch_reset': 'أُلغي إطلاق إعلاني معلّق',
 };
 
 const enEntities: Record<string, string> = {

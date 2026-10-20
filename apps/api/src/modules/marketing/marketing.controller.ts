@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
-  adInsightsSync, CAMPAIGN_STATUSES, campaignInput, campaignUpdate, promotionInput, promotionUpdate, rejectCampaign, scheduleCampaign, segmentInput,
+  adInsightsSync, CAMPAIGN_STATUSES, campaignInput, campaignUpdate, launchCampaign, promotionInput, promotionUpdate, rejectCampaign, resetCampaignLaunch, scheduleCampaign, segmentInput,
   segmentPreview, segmentUpdate, trackingLinkInput,
 } from '@resuto/contracts';
 import type { Request } from 'express';
@@ -127,7 +127,7 @@ export class MarketingController {
 
   @Post('campaigns/:id/send')
   @RequirePermission('marketing:write')
-  send(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.sendNow(ctx, id); }
+  send(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Headers('idempotency-key') key?: string) { return this.campaigns.sendNow(ctx, id, key); }
 
   @Post('campaigns/:id/cancel')
   @RequirePermission('marketing:write')
@@ -135,7 +135,17 @@ export class MarketingController {
 
   @Post('campaigns/:id/launch')
   @RequirePermission('marketing:write')
-  launch(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.launch(ctx, id); }
+  launch(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(launchCampaign)) body: z.infer<typeof launchCampaign>,
+    @Headers('idempotency-key') key?: string) {
+    return this.campaigns.launch(ctx, id, body, key);
+  }
+
+  /** PS-14: the owner checked the provider and no campaign carries the launch tag: release the stuck launch. */
+  @Post('campaigns/:id/launch/reset')
+  @RequirePermission('marketing:approve')
+  resetLaunch(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(resetCampaignLaunch)) _body: z.infer<typeof resetCampaignLaunch>) {
+    return this.campaigns.resetLaunch(ctx, id);
+  }
 
   @Post('campaigns/:id/insights/sync')
   @RequirePermission('marketing:write')

@@ -202,7 +202,8 @@ describe('campaigns', () => {
     expect(none.status).toBe(409);
     expect(none.body.error.code).toBe('ad_account_required');
     await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections`).set(auth(tenant.owner)).send({ provider: 'ads_sandbox' }).expect(201);
-    const launched = await t.http.post(m(`/campaigns/${id}/launch`)).set(auth(tenant.owner));
+    // INT-14: the sandbox is used only when asked for explicitly (it used to be a silent fallback).
+    const launched = await t.http.post(m(`/campaigns/${id}/launch`)).set(auth(tenant.owner)).send({ mode: 'sandbox' });
     expect(launched.body).toMatchObject({ status: 'sent', isSandbox: true });
     expect(launched.body.externalCampaignId).toMatch(/^sandbox_/);
     expect(launched.body.note).toMatch(/nothing was published/);
@@ -218,7 +219,7 @@ describe('campaigns', () => {
     try {
       const conn = (await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections`).set(auth(tenant.owner))
         .send({ provider: 'meta_ads', environment: 'live', credentials: { accessToken: 'EAAB-meta-live-token' }, config: { adAccountId: '1234567890' } })).body;
-      // Not yet health-checked → still not "connected": a new launch would go to the sandbox.
+      // Not yet health-checked → still not "connected": a live launch would be refused (never sent to the sandbox).
       http.fetch = scriptedFetch([{ body: { id: 'act_1234567890', name: 'Resto', currency: 'EGP', account_status: 1 } }]).fetch;
       expect((await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${conn.id}/health`).set(auth(tenant.owner))).body.status).toBe('connected');
       const liveId = await make('Meta live');

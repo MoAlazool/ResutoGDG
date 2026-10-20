@@ -3,12 +3,13 @@ import {
   AD_CHANNELS, ATTRIBUTION_DISCLAIMER, MESSAGE_CHANNELS, type CampaignChannel, type CampaignInput, type CampaignReport,
 } from '@resuto/contracts';
 import { adsAdapterFor, ProviderError, type AdsObjective } from '@resuto/integrations';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { Scheduled } from '../../common/events/events';
 import { AuditService } from '../../common/platform/audit.service';
+import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import type { CampaignsPort } from '../kernel/ports';
 import { MessagingService } from '../connect/messaging.service';
@@ -26,6 +27,9 @@ export const campaignView = (r: any) => ({
   promotionId: r.promotion_id, content: r.content, utmCampaign: r.utm_campaign, budgetMinor: r.budget_minor, currency: r.currency,
   scheduledAt: iso(r.scheduled_at), approvedBy: r.approved_by, approvedAt: iso(r.approved_at), sentAt: iso(r.sent_at), isSandbox: r.is_sandbox,
   source: r.source, externalCampaignId: r.external_campaign_id, createdBy: r.created_by, createdAt: iso(r.created_at), updatedAt: iso(r.updated_at),
+  // PS-14: the current or last launch attempt (token = the "[rs:<token>]" tag in the provider-side campaign name).
+  launch: r.launch_token ? { token: r.launch_token, startedAt: iso(r.launch_started_at), mode: r.launch_mode ?? null, error: r.launch_error ?? null,
+    inProgress: r.status === 'launching' } : null,
 });
 
 const utmSlug = (name: string) => `${name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'campaign'}-${randomBytes(3).toString('hex')}`;
@@ -49,6 +53,7 @@ export class CampaignsService implements CampaignsPort {
     private readonly messaging: MessagingService,
     private readonly segments: SegmentsService,
     private readonly connections: IntegrationConnectionsService,
+    private readonly idempotency: IdempotencyService,
   ) {}
 
   private async row(tx: Tx, ctx: TenantContext, id: string, lock = false) {
@@ -161,8 +166,15 @@ export class CampaignsService implements CampaignsPort {
   }
 
   /** Sends an approved messaging campaign now (or when its schedule is due). */
-  async sendNow(ctx: TenantContext, id: string) {
-    const result = await this.db.withTenant(ctx.orgId, (tx) => this.dispatch(tx, ctx, id), `${ctx.actorType}:${ctx.actorId}`);
+  async sendNow(ctx: TenantContext, id: string, idempotencyKey?: string | null) {
+    if (idempotencyKey !== undefined && idempotencyKey !== null && !/^[\x21-\x7e]{8,200}$/.test(idempotencyKey)) {
+      throw invalid('invalid_idempotency_key', 'Idempotency-Key must be 8-200 printable characters');
+    }
+    // PS-14: with an Idempotency-Key, a retry replays the first send's result instead of a 409; the key and the
+    // deliveries commit together (the row lock in dispatch serialises concurrent sends).
+    const result = await this.db.withTenant(ctx.orgId, (tx) => idempotencyKey
+      ? this.idempotency.run(tx, ctx.orgId, `marketing.send:${id}`, idempotencyKey, { id }, () => this.dispatch(tx, ctx, id))
+      : this.dispatch(tx, ctx, id), `${ctx.actorType}:${ctx.actorId}`);
     return { ...(await this.get(ctx, id)), delivery: result };
   }
 
@@ -274,50 +286,165 @@ export class CampaignsService implements CampaignsPort {
   }
 
   // ---------------------------------------------------------------------------
-  // Ad campaigns
+  // Ad campaigns (INT-14 / PS-14)
   // ---------------------------------------------------------------------------
-  private async adConnection(ctx: TenantContext, channel: string) {
-    const rows = await this.db.scoped(ctx, (tx) => tx.query<{ id: string; provider: string; environment: string; status: string }>(
-      `select id, provider, environment, status from integration_connections where org_id = $1 and enabled and provider = any($2::text[]) and status <> 'revoked'`,
-      [ctx.orgId, [channel, 'ads_sandbox']]));
-    const live = rows.find((r) => r.provider === channel && r.environment === 'live' && r.status === 'connected');
-    if (live) return { conn: live, sandbox: false };
-    const sandbox = rows.find((r) => r.provider === 'ads_sandbox');
-    if (sandbox) return { conn: sandbox, sandbox: true };
-    return null;
+  /**
+   * The connection a launch uses. 'live' needs the campaign channel's live connection to be connected: one that
+   * exists but is unhealthy is reported (409 with its health), never swapped for the sandbox. 'sandbox' is an
+   * explicit rehearsal on the ads sandbox connection.
+   */
+  private async adConnection(ctx: TenantContext, channel: string, mode: 'live' | 'sandbox') {
+    const rows = await this.db.scoped(ctx, (tx) => tx.query<{ id: string; provider: string; environment: string; status: string; enabled: boolean; last_error: string | null;
+      health: Record<string, unknown> }>(
+      `select id, provider, environment, status, enabled, last_error, health from integration_connections
+        where org_id = $1 and provider = any($2::text[]) and status <> 'revoked'`, [ctx.orgId, [channel, 'ads_sandbox']]));
+    if (mode === 'sandbox') {
+      const sandbox = rows.find((r) => r.provider === 'ads_sandbox' && r.enabled);
+      if (!sandbox) throw new DomainError('ads_sandbox_required', 'Add the ads sandbox in Integrations to rehearse a launch', 409);
+      return { conn: sandbox, sandbox: true };
+    }
+    const live = rows.find((r) => r.provider === channel && r.environment === 'live');
+    if (!live) {
+      throw new DomainError('ad_account_required', `Connect a live ${channel.replace('_', ' ')} account in Integrations first (or launch explicitly in the ads sandbox to rehearse)`, 409,
+        { sandboxAvailable: rows.some((r) => r.provider === 'ads_sandbox' && r.enabled) });
+    }
+    if (live.status !== 'connected' || !live.enabled) {
+      throw new DomainError('ad_account_unhealthy', `The ${channel.replace('_', ' ')} account is ${live.enabled ? live.status : 'switched off'}; reconnect or check it in Integrations. Nothing was launched.`, 409,
+        { connectionId: live.id, status: live.status, enabled: live.enabled, lastError: live.last_error, health: live.health, reconnect: '/integrations' });
+    }
+    return { conn: live, sandbox: false };
   }
 
-  async launch(ctx: TenantContext, id: string) {
-    const c = await this.get(ctx, id);
-    if (!AD_CHANNELS.includes(c.channel as CampaignChannel)) throw invalid('not_an_ad_campaign', 'Only ad campaigns are launched');
-    if (c.status !== 'approved') throw new DomainError('campaign_not_approved', 'An ad campaign must be approved before launch', 409, { status: c.status });
-    const found = await this.adConnection(ctx, c.channel);
-    if (!found) {
-      throw new DomainError('ad_account_required', `Connect a live ${c.channel.replace('_', ' ')} account (or the ads sandbox) in Integrations first`, 409);
+  /**
+   * Two-phase launch (PS-14): (1) under the row lock, claim the campaign ('launching' with a launch attempt: id,
+   * token, connection, Idempotency-Key) and commit; (2) call the provider once, with the token in the campaign name;
+   * (3) apply the result only to that attempt. A concurrent launch sees 'launching' and is refused; a retry with the
+   * same Idempotency-Key gets the attempt's current state; an outcome the provider left unknown (timeout, 5xx) keeps
+   * the claim, and the recovery job resolves it by the token.
+   */
+  async launch(ctx: TenantContext, id: string, input: { mode: 'live' | 'sandbox' } = { mode: 'live' }, idempotencyKey?: string | null) {
+    if (idempotencyKey !== undefined && idempotencyKey !== null && !/^[\x21-\x7e]{8,200}$/.test(idempotencyKey)) {
+      throw invalid('invalid_idempotency_key', 'Idempotency-Key must be 8-200 printable characters');
     }
-    const adapter = adsAdapterFor(found.conn.provider)!;
-    const conn = await this.connections.load(ctx.orgId, { id: found.conn.id });
-    let created;
-    try {
-      created = await adapter.createCampaign(conn.adapter, { name: c.name, objective: OBJECTIVE_TO_ADS[c.objective] ?? 'traffic', dailyBudgetMinor: c.budgetMinor, currency: c.currency ?? 'EGP' });
-    } catch (e) {
-      await this.db.withTenant(ctx.orgId, (tx) => this.connections.log(tx, ctx.orgId, found.conn.id, 'error', `Campaign launch failed: ${(e as Error).message}`, { campaignId: id }));
-      throw new DomainError('provider_error', e instanceof ProviderError ? e.message : 'Launch failed', 502);
+    const r0 = await this.db.scoped(ctx, (tx) => this.row(tx, ctx, id));
+    if (!AD_CHANNELS.includes(r0.channel as CampaignChannel)) throw invalid('not_an_ad_campaign', 'Only ad campaigns are launched');
+    if (idempotencyKey && r0.launch_idempotency_key === idempotencyKey && ['launching', 'sent'].includes(r0.status)) {
+      return { ...campaignView(r0), replayed: true };
     }
-    return this.db.scoped(ctx, async (tx) => {
+    const c0 = campaignView(r0);
+    if (c0.status !== 'approved') {
+      if (c0.status === 'launching') throw conflict('launch_in_progress', 'This campaign is being launched; check again in a moment');
+      throw new DomainError('campaign_not_approved', 'An ad campaign must be approved before launch', 409, { status: c0.status });
+    }
+    const found = await this.adConnection(ctx, c0.channel, input.mode);
+    // Phase 1: claim under the row lock (a concurrent launch waits here, then sees 'launching').
+    const claim = await this.db.scoped(ctx, async (tx) => {
       const r = await this.row(tx, ctx, id, true);
-      if (r.status !== 'approved') throw conflict('campaign_changed', 'The campaign changed during launch');
-      const row = await tx.one(
-        `update campaigns set status = 'sent', sent_at = now(), external_campaign_id = $2, is_sandbox = $3,
-            content = content || $4::jsonb where id = $1 returning *`,
-        [id, created.externalId, found.sandbox, { ad: { provider: found.conn.provider, connectionId: found.conn.id, providerStatus: created.status, sandbox: found.sandbox } }]);
+      if (idempotencyKey && r.launch_idempotency_key === idempotencyKey && ['launching', 'sent'].includes(r.status)) return null;
+      if (r.status === 'launching') throw conflict('launch_in_progress', 'This campaign is being launched; check again in a moment');
+      if (r.status !== 'approved') throw new DomainError('campaign_not_approved', 'An ad campaign must be approved before launch', 409, { status: r.status });
+      const attempt = { id: randomUUID(), token: randomBytes(5).toString('hex') };
+      await tx.query(
+        `update campaigns set status = 'launching', launch_attempt_id = $2, launch_token = $3, launch_started_at = now(), launch_connection_id = $4,
+            launch_mode = $5, launch_idempotency_key = $6, launch_error = null where id = $1`,
+        [id, attempt.id, attempt.token, found.conn.id, found.sandbox ? 'sandbox' : 'live', idempotencyKey ?? null]);
+      await this.audit.record(tx, ctx, { action: 'marketing.ad_campaign_launching', entityType: 'campaign', entityId: id,
+        metadata: { provider: found.conn.provider, sandbox: found.sandbox, attempt: attempt.id } });
+      return attempt;
+    });
+    if (!claim) return { ...(await this.get(ctx, id)), replayed: true };
+
+    // Phase 2: one provider call.
+    const adapter = adsAdapterFor(found.conn.provider)!;
+    let created: { externalId: string; status: string } | null = null;
+    let failure: unknown = null;
+    try {
+      const conn = await this.connections.loadFresh(ctx.orgId, { id: found.conn.id });
+      created = await adapter.createCampaign(conn.adapter, { name: c0.name, objective: OBJECTIVE_TO_ADS[c0.objective] ?? 'traffic', dailyBudgetMinor: c0.budgetMinor,
+        currency: c0.currency ?? 'EGP', idempotencyToken: claim.token });
+    } catch (e) {
+      failure = e;
+    }
+    // Phase 3: apply the outcome to this attempt only.
+    if (created) return this.finishLaunch(ctx, id, claim.id, found, created);
+    const definite = failure instanceof ProviderError && !failure.retryable && failure.status !== undefined && failure.status < 500;
+    const message = (failure as Error)?.message ?? 'launch failed';
+    await this.db.withTenant(ctx.orgId, async (tx) => {
+      await this.connections.log(tx, ctx.orgId, found.conn.id, 'error', `Campaign launch failed: ${message}`, { campaignId: id, attempt: claim.id, definite });
+      // A definite refusal releases the claim (nothing was created); an unknown outcome keeps it for the recovery job.
+      await tx.query(
+        `update campaigns set status = case when $3 then 'approved'::campaign_status else status end, launch_error = $4,
+            launch_attempt_id = case when $3 then null else launch_attempt_id end
+          where id = $1 and launch_attempt_id = $2`, [id, claim.id, definite, message.slice(0, 500)]);
+    }, `${ctx.actorType}:${ctx.actorId}`);
+    if (definite) throw new DomainError('provider_error', message, 502);
+    throw new DomainError('launch_outcome_unknown', `${adapter.descriptor.name} did not answer clearly. Resuto will look for the campaign tagged [rs:${claim.token}] and finish the launch; do not create it again by hand.`, 502,
+      { token: claim.token });
+  }
+
+  private async finishLaunch(ctx: TenantContext, id: string, attemptId: string, found: { conn: { id: string; provider: string }; sandbox: boolean },
+    created: { externalId: string; status: string }, actor = `${ctx.actorType}:${ctx.actorId}`) {
+    const adapter = adsAdapterFor(found.conn.provider)!;
+    return this.db.withTenant(ctx.orgId, async (tx) => {
+      const row = await tx.maybeOne(
+        `update campaigns set status = 'sent', sent_at = now(), external_campaign_id = $3, is_sandbox = $4, launch_error = null,
+            content = content || $5::jsonb where id = $1 and launch_attempt_id = $2 and status = 'launching' returning *`,
+        [id, attemptId, created.externalId, found.sandbox, { ad: { provider: found.conn.provider, connectionId: found.conn.id, providerStatus: created.status, sandbox: found.sandbox } }]);
+      if (!row) throw conflict('campaign_changed', 'The launch attempt was superseded');
       await this.audit.record(tx, ctx, { action: 'marketing.ad_campaign_launched', entityType: 'campaign', entityId: id,
         metadata: { provider: found.conn.provider, sandbox: found.sandbox, externalId: created.externalId } });
       return { ...campaignView(row), note: found.sandbox ? 'Sandbox launch: recorded in Resuto only; nothing was published and no money is spent.'
         : `Created ${created.status} in ${adapter.descriptor.name}. Complete ad sets and creatives there to start delivery.` };
-    });
+    }, actor);
   }
 
+  /**
+   * Resolves launches whose provider outcome was unknown (PS-14): looks the campaign up by its launch token where the
+   * provider supports it (Meta) and finishes the launch; otherwise leaves it 'launching' with a note for the owner.
+   */
+  @Scheduled('marketing.launch-recovery', 300)
+  async recoverLaunches(now = new Date(), scope: { orgId?: string } = {}) {
+    const rows = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; launch_attempt_id: string; launch_token: string; launch_connection_id: string | null;
+      launch_mode: string }>(
+      `select id, org_id, launch_attempt_id, launch_token, launch_connection_id, launch_mode from campaigns
+        where status = 'launching' and launch_started_at < $1::timestamptz - interval '2 minutes' and ($2::uuid is null or org_id = $2::uuid)
+        order by launch_started_at limit 20`, [now, scope.orgId ?? null]));
+    let recovered = 0, unresolved = 0;
+    for (const r of rows) {
+      const ctx = TenantContext.system(r.org_id, 'marketing.launch-recovery');
+      try {
+        if (!r.launch_connection_id) { unresolved++; continue; }
+        const conn = await this.connections.loadFresh(r.org_id, { id: r.launch_connection_id });
+        const adapter = adsAdapterFor(conn.provider);
+        const hit = adapter?.findCampaignByToken ? await adapter.findCampaignByToken(conn.adapter, r.launch_token) : null;
+        if (hit) {
+          await this.finishLaunch(ctx, r.id, r.launch_attempt_id, { conn: { id: conn.id, provider: conn.provider }, sandbox: r.launch_mode === 'sandbox' }, hit, 'marketing.launch-recovery');
+          recovered++;
+        } else {
+          await this.db.withTenant(r.org_id, (tx) => tx.query(`update campaigns set launch_error = $2 where id = $1 and launch_attempt_id = $3`,
+            [r.id, `Outcome unknown: check ${adapter?.descriptor.name ?? conn.provider} for a campaign tagged [rs:${r.launch_token}]. If there is none, clear the launch and try again.`, r.launch_attempt_id]),
+          'marketing.launch-recovery');
+          unresolved++;
+        }
+      } catch (e) {
+        this.logger.warn(`launch recovery ${r.id}: ${(e as Error).message}`);
+        unresolved++;
+      }
+    }
+    return { checked: rows.length, recovered, unresolved };
+  }
+
+  /** The owner confirmed no campaign tagged with the launch token exists at the provider: release the claim. */
+  resetLaunch(ctx: TenantContext, id: string) {
+    return this.db.scoped(ctx, async (tx) => {
+      const r = await this.row(tx, ctx, id, true);
+      if (r.status !== 'launching') throw conflict('not_launching', 'This campaign is not being launched');
+      if (Date.now() - new Date(r.launch_started_at).getTime() < 2 * 60_000) throw conflict('launch_in_progress', 'This launch is still running; wait a few minutes');
+      const row = await tx.one(`update campaigns set status = 'approved', launch_attempt_id = null, launch_error = null where id = $1 returning *`, [id]);
+      await this.audit.record(tx, ctx, { action: 'marketing.ad_campaign_launch_reset', entityType: 'campaign', entityId: id, metadata: { token: r.launch_token } });
+      return campaignView(row);
+    });
+  }
   /** Imports provider reporting into ad_campaign_reports (sandbox rows are flagged and excluded from cost). */
   async syncInsights(ctx: TenantContext, id: string, range: { since: string; until: string }) {
     const c = await this.get(ctx, id);

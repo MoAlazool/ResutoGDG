@@ -102,7 +102,7 @@ export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
 export const AD_CHANNELS: readonly CampaignChannel[] = ['meta_ads', 'tiktok_ads', 'snapchat_ads'];
 export const MESSAGE_CHANNELS: readonly CampaignChannel[] = ['whatsapp', 'sms'];
 export const CAMPAIGN_OBJECTIVES = ['retention', 'reactivation', 'acquisition', 'upsell', 'awareness', 'reservations'] as const;
-export const CAMPAIGN_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'sending', 'sent', 'cancelled', 'failed'] as const;
+export const CAMPAIGN_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'sending', 'launching', 'sent', 'cancelled', 'failed'] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 
 export const campaignContent = z.object({
@@ -115,6 +115,15 @@ export const campaignContent = z.object({
   landingPath: z.string().regex(/^\/(?!\/)[^\s]*$/).max(300).optional(),
   headline: z.string().trim().max(120).optional(),
 }).strict();
+
+/**
+ * Ad launch (INT-14): 'live' needs a connected live ad account for the campaign's channel; 'sandbox' is an explicit
+ * rehearsal on the ads sandbox. A live account that exists but is unhealthy is never replaced by the sandbox.
+ */
+export const launchCampaign = z.object({ mode: z.enum(['live', 'sandbox']).default('live') }).strict().default({ mode: 'live' });
+export type LaunchCampaign = z.infer<typeof launchCampaign>;
+/** Clears a launch whose outcome is unknown, after the owner checked the provider for the tagged campaign (PS-14). */
+export const resetCampaignLaunch = z.object({ confirmNotCreated: z.literal(true) }).strict();
 
 export const campaignInput = z.object({
   name: text(120),

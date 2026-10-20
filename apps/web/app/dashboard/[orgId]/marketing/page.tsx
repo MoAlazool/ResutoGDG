@@ -15,6 +15,8 @@ interface Campaign {
   id: string; name: string; objective: string; channel: string; status: string; segmentId: string | null; content: Record<string, any>; utmCampaign: string;
   budgetMinor: number | null; currency: string; scheduledAt: string | null; approvedAt: string | null; sentAt: string | null; isSandbox: boolean; source: string;
   externalCampaignId: string | null;
+  /** PS-14: current or last ad launch attempt; token = the [rs:<token>] tag in the provider-side campaign name. */
+  launch?: { token: string; startedAt: string | null; mode: 'live' | 'sandbox' | null; error: string | null; inProgress: boolean } | null;
 }
 
 export default function MarketingPage() {
@@ -33,7 +35,7 @@ export default function MarketingPage() {
   );
 }
 
-const statusTone = (s: string) => (({ draft: 'neutral', pending_approval: 'warn', approved: 'info', scheduled: 'info', sending: 'pay', sent: 'ok', cancelled: 'neutral', failed: 'danger' } as const)[s] ?? 'neutral');
+const statusTone = (s: string) => (({ draft: 'neutral', pending_approval: 'warn', approved: 'info', scheduled: 'info', sending: 'pay', launching: 'pay', sent: 'ok', cancelled: 'neutral', failed: 'danger' } as const)[s] ?? 'neutral');
 
 // ---------------------------------------------------------------------------
 // Segment builder (top-level and/or of rules; the API also accepts nested groups)
@@ -167,8 +169,9 @@ function Campaigns() {
     setForm({ ...form, name: '', text: '' });
     await list.reload();
   });
-  const act = useAction(async (c: Campaign, action: string, body?: unknown) => {
-    const res = await session.call<any>(`/o/${org.id}/marketing/campaigns/${c.id}/${action}`, { method: 'POST', body: body ?? {} });
+  // PS-14: launches and sends carry an Idempotency-Key, so a retried click replays instead of acting twice.
+  const act = useAction(async (c: Campaign, action: string, body?: unknown, idempotencyKey?: string) => {
+    const res = await session.call<any>(`/o/${org.id}/marketing/campaigns/${c.id}/${action}`, { method: 'POST', body: body ?? {}, ...(idempotencyKey ? { idempotencyKey } : {}) });
     setNote(res?.note ?? (res?.delivery ? t('marketing.camp.sentSummary', res.delivery) : res?.imported !== undefined ? t('marketing.camp.imported', { n: res.imported }) : null));
     await list.reload();
   });
@@ -186,7 +189,8 @@ function Campaigns() {
           { key: 'name', header: t('marketing.camp.name'), render: (c) => <><strong>{c.name}</strong><div className="fine">{t(`marketing.channel.${c.channel}`)} · {t(`marketing.objective.${c.objective}`)}</div></> },
           { key: 'status', header: t('marketing.camp.status'), render: (c) => <div className="row" style={{ gap: 4 }}><Badge tone={statusTone(c.status)}>{t(`marketing.status.${c.status}`)}</Badge>
             {c.isSandbox && ['sent', 'sending'].includes(c.status) && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
-            {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}</div> },
+            {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}
+            {c.status === 'launching' && <span className="fine" style={{ flexBasis: '100%' }}>{c.launch?.error ? <bdi dir="ltr">{c.launch.error}</bdi> : t('marketing.camp.launchingNote')}</span>}</div> },
           { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `◷ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
           { key: 'a', header: '', align: 'end', render: (c) => (
             <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
@@ -198,8 +202,12 @@ function Campaigns() {
                 <DateTimeInput type="datetime-local" style={{ width: 'auto', minHeight: 32 }} aria-label={t('marketing.camp.scheduleAt')}
                   value={scheduleFor[c.id] ?? ''} onChange={(e) => setScheduleFor({ ...scheduleFor, [c.id]: e.target.value })} />
                 <button className="btn btn-sm" disabled={act.pending || !scheduleFor[c.id]} onClick={() => act.run(c, 'schedule', { scheduledAt: new Date(scheduleFor[c.id]!).toISOString() })}>{t('marketing.camp.schedule')}</button>
-                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send'); }}>{t('marketing.camp.sendNow')}</button></>}
-              {c.status === 'approved' && isAd(c) && can('marketing:write') && <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => act.run(c, 'launch')}>{t('marketing.camp.launch')}</button>}
+                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send', undefined, crypto.randomUUID()); }}>{t('marketing.camp.sendNow')}</button></>}
+              {c.status === 'approved' && isAd(c) && can('marketing:write') && <>
+                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'live' }, crypto.randomUUID())}>{t('marketing.camp.launch')}</button>
+                <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'sandbox' }, crypto.randomUUID())}>{t('marketing.camp.launchSandbox')}</button></>}
+              {c.status === 'launching' && c.launch?.error && can('marketing:approve') && <button className="btn btn-sm btn-ghost" disabled={act.pending}
+                onClick={async () => { if (await confirm({ title: t('marketing.camp.launchResetConfirm', { tag: `[rs:${c.launch!.token}]` }), confirmLabel: t('marketing.camp.launchReset') })) void act.run(c, 'launch/reset', { confirmNotCreated: true }); }}>{t('marketing.camp.launchReset')}</button>}
               {c.status === 'sent' && isAd(c) && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending}
                 onClick={() => { const until = new Date().toISOString().slice(0, 10); const since = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10); void act.run(c, 'insights/sync', { since, until }); }}>{t('marketing.camp.importResults')}</button>}
               {['draft', 'pending_approval', 'approved', 'scheduled'].includes(c.status) && can('marketing:write') && <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'cancel')}>{t('action.cancel')}</button>}
