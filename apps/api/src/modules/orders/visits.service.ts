@@ -12,7 +12,7 @@ import { OutboxService } from '../../common/platform/outbox.service';
 import { ENV, type Env } from '../../config/env';
 import { StorageService } from '../../common/storage/storage.service';
 import { PaymentLedgerService } from '../kernel/payment-ledger.service';
-import { guestCoverUrl } from './guest-cover';
+import { guestCoverPath, signGuestCover } from './guest-cover';
 import { GuestTokens } from './guest-tokens';
 
 export interface OpenVisitInput {
@@ -186,7 +186,7 @@ export class VisitsService {
       `select t.org_id, t.id from dining_tables t join organizations o on o.id = t.org_id
         where t.qr_token = $1 and t.is_active and o.status <> 'closed'`, [qrToken]));
     if (!found) throw notFound('Table');
-    return this.db.withTenant(found.org_id, async (tx) => {
+    const view = await this.db.withTenant(found.org_id, async (tx) => {
       const r = await tx.one<any>(
         `select t.label, t.status, t.is_reservable, b.id as branch_id, b.code, b.name, b.name_ar, b.is_active, b.accepts_dine_in,
                 o.name as org_name, o.name_ar as org_name_ar, o.slug, o.currency,
@@ -201,9 +201,12 @@ export class VisitsService {
         org: { name: r.org_name, nameAr: r.org_name_ar, slug: r.slug, currency: r.currency },
         branch: { id: r.branch_id, code: r.code, name: r.name, nameAr: r.name_ar },
         table: { label: r.label }, accepting: reason === null, reason,
-        cover: await guestCoverUrl(tx, found.org_id, this.storage),
+        coverPath: await guestCoverPath(tx, found.org_id),
       };
     }, `guest:qr-lookup:${found.id}`);
+    // The cover is signed after the transaction (PCL-11: no storage round-trip while a pooled connection is held).
+    const { coverPath, ...rest } = view;
+    return { ...rest, cover: await signGuestCover(this.storage, coverPath) };
   }
 
   /** Resolves an X-Visit-Token header to its open visit (closed visits are rejected). */

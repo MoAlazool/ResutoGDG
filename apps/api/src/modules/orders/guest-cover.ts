@@ -8,14 +8,9 @@ const COVER_TTL_SECONDS = 6 * 3600;
  * The restaurant's own cover photo for guest pages (QR table menu, website ordering): the hero image of its published
  * website (Studio theme), the same picture /r/<slug> shows. Null when the restaurant has not published one; the guest
  * cover then shows its plain brand-ink treatment, never another restaurant's photo (VP-07 review).
- * Runs inside the tenant; only a media asset of this organisation is ever returned.
+ * Runs inside the tenant; only a media asset of this organisation is ever returned. The path is read inside a
+ * transaction and signed afterwards with signGuestCover (PCL-11).
  */
-export async function guestCoverUrl(tx: Tx, orgId: string, storage: StorageService): Promise<string | null> {
-  const path = await guestCoverPath(tx, orgId);
-  return path ? storage.signedUrl(path, COVER_TTL_SECONDS) : null;
-}
-
-/** The cover's storage path (read inside a transaction; sign it afterwards with signGuestCover). */
 export async function guestCoverPath(tx: Tx, orgId: string): Promise<string | null> {
   const row = await tx.maybeOne<{ path: string }>(
     `select ma.path

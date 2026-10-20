@@ -6,6 +6,9 @@ import { MenuService } from '../menu/menu.service';
 import { VisitsService } from '../orders/visits.service';
 import { candidates, planMeal, suggest, understand } from './menu-assistant';
 
+/** Work done over the branch's public menu inside the guest transaction. */
+type MenuWork<T> = (tx: Tx, menu: PublicMenu) => Promise<T>;
+
 /** How far back this branch's order history informs popularity and pairings. */
 const HISTORY_DAYS = 90;
 
@@ -39,7 +42,7 @@ export class GuestAssistantService {
     return new Map(rows.map((r) => [r.product_id, Number(r.n)]));
   }
 
-  private async webMenu<T>(slug: string, branchCode: string | undefined, fn: (tx: Tx, menu: PublicMenu) => Promise<T>): Promise<T> {
+  private async webMenu<T>(slug: string, branchCode: string | undefined, fn: MenuWork<T>): Promise<T> {
     const org = await this.menu.resolveOrgBySlug(slug);
     // Image URLs are signed in one batch after the transaction (PCL-11, PS-18), then copied into the answer.
     const urls = this.menu.publicMediaUrls();
@@ -55,7 +58,7 @@ export class GuestAssistantService {
     return withImages(result, menu);
   }
 
-  private async visitMenu<T>(token: string | undefined, fn: (tx: Tx, menu: PublicMenu) => Promise<T>): Promise<T> {
+  private async visitMenu<T>(token: string | undefined, fn: MenuWork<T>): Promise<T> {
     const urls = this.menu.publicMediaUrls();
     let menu: PublicMenu | null = null;
     const result = await this.visits.withGuestRead(token, async (tx, g) => {
