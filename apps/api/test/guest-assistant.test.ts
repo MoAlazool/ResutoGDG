@@ -33,11 +33,11 @@ describe('reading what the guest asked for', () => {
   it('understands English and Arabic, Arabic-Indic digits and number words', () => {
     expect(understand({ text: 'For three under EGP 1,000, not spicy please' })).toMatchObject({ party: 3, budgetMinor: 100000, mild: true, vegetarian: false });
     expect(understand({ text: 'إحنا ٣ وميزانيتنا ١٠٠٠ ومش عايزين حار' })).toMatchObject({ party: 3, budgetMinor: 100000, mild: true });
-    expect(understand({ text: 'لشخصين نباتي بدون مكسرات' })).toMatchObject({ party: 2, vegetarian: true, exclude: ['nuts'], mild: false });
+    expect(understand({ text: 'لشخصين نباتي بدون مكسرات' })).toMatchObject({ party: 2, vegetarian: true, exclude: ['tree_nuts'], mild: false });
     expect(understand({ text: 'I do not want it spicy' }).mild).toBe(true);
     expect(understand({ text: 'something spicy' }).mild).toBe(false);
     expect(understand({ text: 'احنا اربعة في حدود ٨٠٠ جنيه' })).toMatchObject({ party: 4, budgetMinor: 80000 });
-    expect(understand({ text: 'two of us, nut allergy, gluten-free' })).toMatchObject({ party: 2, exclude: ['gluten', 'nuts', 'wheat'] });
+    expect(understand({ text: 'two of us, nut allergy, gluten-free' })).toMatchObject({ party: 2, exclude: ['gluten', 'tree_nuts', 'wheat'] });
     // Mentioning an ingredient is not avoiding it.
     expect(understand({ text: 'extra cheese, no onions' }).exclude).toEqual([]);
     // Explicit choices win over the text; nothing said means a table for two with no budget.

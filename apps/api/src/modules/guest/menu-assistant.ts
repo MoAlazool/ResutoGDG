@@ -77,7 +77,7 @@ const ALLERGEN_WORDS: Array<[string, RegExp]> = [
   ['wheat', /wheat|gluten|قمح|جلوتين|جلوتن|غلوتين/],
   ['fish', /\bfish\b|seafood|سمك|أسماك|اسماك/],
   ['shellfish', /shellfish|shrimp|prawn|جمبري|قشريات/],
-  ['nuts', /\bnuts?\b|almond|walnut|cashew|pistachio|مكسرات|لوز|جوز|كاجو|فستق/],
+  ['tree_nuts', /\bnuts?\b|almond|walnut|cashew|pistachio|مكسرات|لوز|جوز|كاجو|فستق/],
   ['peanuts', /peanut|فول سوداني/],
   ['sesame', /sesame|tahini|سمسم|طحينة/],
   ['soy', /\bsoy|صويا/],
