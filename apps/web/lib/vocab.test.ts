@@ -5,7 +5,7 @@ import { ALLERGENS, INVENTORY_UNITS } from '@resuto/contracts';
 import { formatMessage } from './i18n/format-message';
 import { allergens, vocab } from './i18n/dict/vocab';
 import type { Locale } from './i18n/locale';
-import { actionLabel, allergenLabel, entityLabel, forecastReason, sourceLabel, stationLabel, unitLabel, type Translate } from './vocab';
+import { actionLabel, allergenLabel, entityLabel, forecastReason, invoiceStatusLabel, sourceLabel, stationLabel, subscriptionEventLabel, unitLabel, type Translate } from './vocab';
 
 // VS-21 / DF-15: codes the API stores in English are shown in the page language.
 
@@ -73,6 +73,19 @@ describe('operator vocabulary', () => {
     expect(missing).toEqual([]);
     expect(entityLabel(en, 'loyalty_card')).toBe('Loyalty card');
     expect(sourceLabel(ar, 'mcp')).toBe('اتصال ذكاء اصطناعي');
+  });
+
+  it('labels every plan-history event the API writes, and every invoice status', () => {
+    const types = new Set<string>(['created', 'demo_complimentary']); // organizations.service.ts insert, demo loader
+    for (const f of sources(join(repo, 'apps/api/src/modules/billing'))) {
+      for (const m of readFileSync(f, 'utf8').matchAll(/\.event\(tx,\s*[^,]+,\s*[^,]+,\s*(?:[^,?']+\?\s*'([a-z_]+)'\s*:\s*'([a-z_]+)'|'([a-z_]+)')/g)) {
+        for (const x of m.slice(1)) if (x) types.add(x);
+      }
+    }
+    expect(types.size).toBeGreaterThan(10);
+    const missing = [...types].filter((x) => subscriptionEventLabel(ar, x) === subscriptionEventLabel(en, x)).sort();
+    expect(missing).toEqual([]);
+    for (const st of ['draft', 'open', 'paid', 'void', 'uncollectible']) expect(invoiceStatusLabel(ar, st)).toMatch(/[\u0600-\u06FF]/);
   });
 
   it('turns forecast fallback reasons into sentences with Western digits', () => {

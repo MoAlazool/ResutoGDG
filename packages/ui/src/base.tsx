@@ -105,10 +105,16 @@ export function formatInputValue(type: 'date' | 'time', value: string, locale: '
   return m ? formatClock(+m[1]!, +m[2]!, locale) : value;
 }
 
+const EMPTY_DATE_TEXT = {
+  en: { date: 'Choose a date', time: 'Choose a time' },
+  ar: { date: 'اختر تاريخًا', time: 'اختر وقتًا' },
+} as const;
+
 /**
  * Native date/time input whose resting text is formatted by Resuto (Western digits, the page's language) instead of
- * the browser's locale (mm/dd/yyyy, or Arabic-Indic digits in an Arabic browser). While focused the native fields
- * are shown for typing; the native calendar/clock picker stays available (VS-06).
+ * the browser's locale (mm/dd/yyyy, or Arabic-Indic digits in an Arabic browser). An empty field shows `placeholder`
+ * (or "Choose a date" in the page language) instead of the browser's "mm/dd/yyyy" pattern. While focused the native
+ * fields are shown for typing; the native calendar/clock picker stays available (VS-06).
  */
 export function DateTimeInput({ type, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { type: 'date' | 'time' }) {
   const locale = useUiLocale();
@@ -116,10 +122,12 @@ export function DateTimeInput({ type, className, ...props }: InputHTMLAttributes
   const [inner, setInner] = useState(String(props.defaultValue ?? ''));
   const value = controlled ? String(props.value ?? '') : inner;
   return (
-    <span className="date-input" data-filled={value ? '' : undefined}>
+    <span className="date-input" data-filled={value ? '' : undefined} data-empty={value ? undefined : ''}>
       <input {...props} type={type} className={cx('input', className)}
         onChange={(e) => { if (!controlled) setInner(e.target.value); props.onChange?.(e); }} />
-      {value && <span className="date-input-text num" aria-hidden="true">{formatInputValue(type, value, locale)}</span>}
+      {value
+        ? <span className="date-input-text num" aria-hidden="true">{formatInputValue(type, value, locale)}</span>
+        : <span className="date-input-text date-input-empty" aria-hidden="true">{props.placeholder ?? EMPTY_DATE_TEXT[locale][type]}</span>}
     </span>
   );
 }

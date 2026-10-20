@@ -28,6 +28,12 @@ export const entityLabel = (t: Translate, type: string) => lookup(t, `vocab.enti
 /** Activity-log action ("order.status_changed" -> "Order status changed"), or null when it has no label yet. */
 export const actionLabel = (t: Translate, action: string) => lookup(t, `vocab.action.${action}`);
 
+/** Plan history entry (subscription_events.event_type), e.g. "upgraded" -> "Upgraded" / "ترقية الخطة". */
+export const subscriptionEventLabel = (t: Translate, type: string) => lookup(t, `vocab.subscription.${type}`) ?? humanise(type);
+
+/** Resuto invoice status (draft, open, paid, void, uncollectible). */
+export const invoiceStatusLabel = (t: Translate, status: string) => lookup(t, `vocab.invoice.${status}`) ?? humanise(status);
+
 /** Where an activity-log entry came from (api, mcp, worker, migration…). */
 export const sourceLabel = (t: Translate, source: string) => lookup(t, `vocab.source.${source}`) ?? humanise(source);
 

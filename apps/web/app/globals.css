@@ -117,8 +117,9 @@ bdi { unicode-bidi: isolate; }
 .check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; }
 /* Date and time fields show Resuto's formatting at rest (DateTimeInput); the native fields appear while typing. */
 .date-input { position: relative; display: block; }
-.date-input[data-filled] > input:not(:focus) { color: transparent; }
-.date-input[data-filled] > input:not(:focus)::-webkit-datetime-edit { opacity: 0; }
+:is(.date-input[data-filled], .date-input[data-empty]) > input:not(:focus) { color: transparent; }
+:is(.date-input[data-filled], .date-input[data-empty]) > input:not(:focus)::-webkit-datetime-edit { opacity: 0; }
+.date-input-empty { color: var(--muted); }
 .date-input-text { position: absolute; inset-inline-start: 14px; inset-block-start: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text); white-space: nowrap; }
 .date-input:focus-within .date-input-text { display: none; }
 :where(.ws, .login, .ws-solo) .field > span { font-size: var(--t-md); font-weight: 600; color: var(--text); }

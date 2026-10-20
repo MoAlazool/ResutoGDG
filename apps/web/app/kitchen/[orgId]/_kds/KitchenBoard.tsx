@@ -5,6 +5,7 @@ import { Notice } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { formatElapsedMs, pick } from '@/lib/format';
 import { useSession } from '@/lib/session';
+import { stationLabel } from '@/lib/vocab';
 import './kds.css';
 
 const FULFILLED: Record<string, string> = { dine_in: 'served', pickup: 'picked_up', delivery: 'delivered' };
@@ -106,7 +107,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations }: { orgId: 
                             <span className="kds-name">{pick(locale, l.name, l.nameAr)}</span>
                             {l.modifiers.length > 0 && <small>{l.modifiers.join(' · ')}</small>}
                             {l.notes && <small className="kds-note">“<bdi>{l.notes}</bdi>”</small>}
-                            {!station && <small>{l.station}</small>}
+                            {!station && <small>{stationLabel(t, l.station)}</small>}
                           </span>
                         </button>
                       );
@@ -136,7 +137,7 @@ export function StationPicker({ stations, value, onChange }: { stations: string[
     <div className="row" role="group" aria-label={t('core.kds.station')} style={{ gap: 6 }}>
       <button type="button" className={`btn btn-sm btn-pill ${value === null ? 'btn-primary' : ''}`} aria-pressed={value === null} onClick={() => onChange(null)}>{t('core.kds.allStations')}</button>
       {stations.map((s) => (
-        <button key={s} type="button" className={`btn btn-sm btn-pill ${value === s ? 'btn-primary' : ''}`} aria-pressed={value === s} onClick={() => onChange(s)}>{s}</button>
+        <button key={s} type="button" className={`btn btn-sm btn-pill ${value === s ? 'btn-primary' : ''}`} aria-pressed={value === s} onClick={() => onChange(s)}>{stationLabel(t, s)}</button>
       ))}
     </div>
   );

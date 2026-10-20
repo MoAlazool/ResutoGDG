@@ -364,6 +364,14 @@ export const vocab = {
     'vocab.forecast.baseline_outperformed_gbm_in_backtest': 'the simpler model was more accurate on past weeks',
     'vocab.forecast.insufficient_history_for_backtest': '{days, plural, one {only # day of sales history, too little to test models} other {only # days of sales history, too little to test models}}',
     'vocab.forecast.other': 'the advanced model was not used for this item',
+    // Plan history (subscription_events.event_type) and Resuto invoice statuses
+    'vocab.subscription.created': 'Plan started', 'vocab.subscription.demo_complimentary': 'Complimentary demo plan',
+    'vocab.subscription.upgraded': 'Upgraded', 'vocab.subscription.downgraded': 'Downgraded',
+    'vocab.subscription.change_scheduled': 'Plan change scheduled', 'vocab.subscription.scheduled_change_cleared': 'Scheduled change cancelled',
+    'vocab.subscription.scheduled_change_applied': 'Scheduled change applied', 'vocab.subscription.scheduled_change_blocked': 'Scheduled change blocked (over the new plan’s limits)',
+    'vocab.subscription.cancel_scheduled': 'Cancellation scheduled', 'vocab.subscription.resumed': 'Plan resumed', 'vocab.subscription.canceled': 'Plan ended',
+    'vocab.subscription.trial_ended': 'Trial ended', 'vocab.subscription.grace_expired': 'Grace period ended', 'vocab.subscription.period_rolled': 'New billing period',
+    'vocab.invoice.draft': 'Draft', 'vocab.invoice.open': 'Due', 'vocab.invoice.paid': 'Paid', 'vocab.invoice.void': 'Void', 'vocab.invoice.uncollectible': 'Uncollectible',
   },
   ar: {
     'vocab.unit.g': 'جم', 'vocab.unit.kg': 'كجم', 'vocab.unit.ml': 'مل', 'vocab.unit.l': 'لتر', 'vocab.unit.pcs': 'قطعة',
@@ -379,6 +387,13 @@ export const vocab = {
     'vocab.forecast.baseline_outperformed_gbm_in_backtest': 'كان النموذج الأبسط أدق في الأسابيع السابقة',
     'vocab.forecast.insufficient_history_for_backtest': 'سجل المبيعات {days, plural, zero {فارغ} one {يوم واحد فقط} two {يومان فقط} few {# أيام فقط} many {# يومًا فقط} other {# يوم فقط}}، وهو غير كافٍ لاختبار النماذج',
     'vocab.forecast.other': 'لم يُستخدم النموذج المتقدم لهذا الصنف',
+    'vocab.subscription.created': 'بدأت الخطة', 'vocab.subscription.demo_complimentary': 'خطة تجريبية مجانية',
+    'vocab.subscription.upgraded': 'ترقية الخطة', 'vocab.subscription.downgraded': 'تخفيض الخطة',
+    'vocab.subscription.change_scheduled': 'جُدول تغيير الخطة', 'vocab.subscription.scheduled_change_cleared': 'أُلغي التغيير المجدول',
+    'vocab.subscription.scheduled_change_applied': 'طُبّق التغيير المجدول', 'vocab.subscription.scheduled_change_blocked': 'تعذّر التغيير المجدول (تجاوز حدود الخطة الجديدة)',
+    'vocab.subscription.cancel_scheduled': 'جُدول الإلغاء', 'vocab.subscription.resumed': 'استُؤنفت الخطة', 'vocab.subscription.canceled': 'انتهت الخطة',
+    'vocab.subscription.trial_ended': 'انتهت الفترة التجريبية', 'vocab.subscription.grace_expired': 'انتهت فترة السماح', 'vocab.subscription.period_rolled': 'بدأت فترة فوترة جديدة',
+    'vocab.invoice.draft': 'مسودة', 'vocab.invoice.open': 'مستحقة', 'vocab.invoice.paid': 'مدفوعة', 'vocab.invoice.void': 'ملغاة', 'vocab.invoice.uncollectible': 'غير قابلة للتحصيل',
   },
 };
 

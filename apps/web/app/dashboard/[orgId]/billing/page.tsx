@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { invoiceStatusLabel, subscriptionEventLabel } from '@/lib/vocab';
 import { BILLING_STRINGS, type BillingStrings } from './strings';
 
 /** Lets wide tables scroll inside the page instead of widening it on phones. */
@@ -21,7 +22,7 @@ const day = (iso: string | null | undefined, locale: 'en' | 'ar') =>
   iso ? new Intl.DateTimeFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { dateStyle: 'medium' }).format(new Date(iso)) : '—';
 
 export default function BillingPage() {
-  const { locale } = useT();
+  const { locale, t } = useT();
   const s = BILLING_STRINGS[locale];
   const { org, can, reload: reloadOrg } = useOrg();
   const manage = can('billing:manage');
@@ -41,6 +42,8 @@ export default function BillingPage() {
   const e = ent.data;
   const v = sub.data;
   const pick = (en: string, ar: string | null) => (locale === 'ar' && ar ? ar : en);
+  /** The current plan by its localised name; other plan ids (history) as the id, isolated. */
+  const planName = (id: string) => (v && v.plan.id === id ? pick(v.plan.name, v.plan.nameAr) : id);
 
   return (
     <div style={FIT}>
@@ -123,7 +126,7 @@ export default function BillingPage() {
                   <tbody>{v.invoices.map((i) => (
                     <tr key={i.id}><td className="num">{i.number}</td><td>{day(i.periodStart, locale)} – {day(i.periodEnd, locale)}</td>
                       <td className="num" style={{ textAlign: 'end' }}>{money(i.totalMinor, i.currency, locale)}</td>
-                      <td><Badge tone={i.status === 'paid' ? 'ok' : 'warn'}>{i.status === 'draft' ? s.draft : i.status}</Badge></td></tr>
+                      <td><Badge tone={i.status === 'paid' ? 'ok' : 'warn'}>{i.status === 'draft' ? s.draft : invoiceStatusLabel(t, i.status)}</Badge></td></tr>
                   ))}</tbody>
                 </table>
               </div>
@@ -133,7 +136,7 @@ export default function BillingPage() {
           <Card title={s.history}>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8, fontSize: 13 }}>
               {v.events.slice(0, 12).map((ev) => (
-                <li key={ev.id} className="spread"><span>{ev.type.replaceAll('_', ' ')}{ev.toPlanId && ev.fromPlanId !== ev.toPlanId ? ` → ${ev.toPlanId}` : ''}</span>
+                <li key={ev.id} className="spread"><span>{subscriptionEventLabel(t, ev.type)}{ev.toPlanId && ev.fromPlanId !== ev.toPlanId ? <> · <bdi>{planName(ev.toPlanId)}</bdi></> : null}</span>
                   <span className="muted">{dateTime(ev.createdAt, locale)}</span></li>
               ))}
             </ul>
