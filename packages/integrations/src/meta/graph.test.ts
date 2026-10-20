@@ -53,3 +53,14 @@ describe('Graph request hygiene', () => {
     expect(verifyMetaSignature(Buffer.from(`${body} `), sig, 's3cret')).toBe(false);
   });
 });
+
+describe('error messages never carry the token', () => {
+  it('scrubs the request token and token-shaped strings that Meta echoes back', async () => {
+    const { graphRequest, scrubMetaMessage } = await import('./graph');
+    expect(scrubMetaMessage('Malformed access token EAAG-local-fake-token-not-real', 'EAAG-local-fake-token-not-real')).toBe('Malformed access token [token]');
+    expect(scrubMetaMessage('Invalid OAuth access token EAABwzLixnjYBO1234abcdEFGH')).toBe('Invalid OAuth access token [token]');
+    expect(scrubMetaMessage('bad app token 123456789|abcdefghijklmnopqrstu')).toBe('bad app token [token]');
+    const fetch = (async () => new Response(JSON.stringify({ error: { message: 'Malformed access token secret-token-123456', code: 190 } }), { status: 400 })) as unknown as typeof globalThis.fetch;
+    await expect(graphRequest('meta', { fetch }, 'me', { token: 'secret-token-123456' })).rejects.toThrow('Malformed access token [token]');
+  });
+});

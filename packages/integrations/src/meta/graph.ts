@@ -102,6 +102,16 @@ export interface GraphRequestOptions {
   version?: string;
 }
 
+/**
+ * Meta echoes the offending token in some error messages ("Malformed access token EAAG…"). Error text is logged, stored
+ * (connection logs, CAPI diagnostics) and shown to staff, so the request's token and anything token-shaped are removed.
+ */
+export function scrubMetaMessage(message: string, token?: string | null): string {
+  let m = token && token.length >= 6 ? message.split(token).join('[token]') : message;
+  m = m.replace(/\bEA[A-Za-z0-9]{2}[A-Za-z0-9_-]{8,}/g, '[token]').replace(/\b[0-9]{6,}\|[A-Za-z0-9_-]{16,}/g, '[token]');
+  return m;
+}
+
 /** `path` relative to the pinned version ("123/messages"), or an absolute Graph URL (paging.next links). */
 export function graphUrl(path: string, opts: Pick<GraphRequestOptions, 'query' | 'version'> = {}): URL {
   const u = /^https:\/\//.test(path) ? new URL(path) : new URL(`${GRAPH_HOST}/${opts.version ?? META_GRAPH_VERSION}/${path.replace(/^\//, '')}`);
@@ -147,7 +157,7 @@ export async function graphRequest<T>(provider: string, ctx: Pick<AdapterContext
     const retryable = rateLimited || res.status >= 500 || (code !== null && TRANSIENT_CODES.has(code));
     const retryAfter = Number(res.headers.get('retry-after')) * 1000 || undefined;
     const status = code === 190 ? 401 : rateLimited ? 429 : res.status;
-    const msg = parsed ? `HTTP ${res.status}${code !== null ? ` code ${code}${subcode ? `/${subcode}` : ''}` : ''}: ${String(err.message ?? 'error').slice(0, 200)}` : `HTTP ${res.status}: unexpected response`;
+    const msg = parsed ? `HTTP ${res.status}${code !== null ? ` code ${code}${subcode ? `/${subcode}` : ''}` : ''}: ${scrubMetaMessage(String(err.message ?? 'error'), opts.token).slice(0, 200)}` : `HTTP ${res.status}: unexpected response`;
     last = new MetaApiError(provider, msg, retryable, status, code, subcode, typeof err.fbtrace_id === 'string' ? err.fbtrace_id : null, retryAfter);
     if (!retryable || attempt === retries) break;
     await backoff(attempt, retryAfter);
