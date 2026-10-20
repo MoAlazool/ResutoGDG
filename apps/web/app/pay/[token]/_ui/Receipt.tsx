@@ -2,7 +2,7 @@
 import { INTL_LOCALE } from '@resuto/contracts';
 // Digital receipt — React port of legacy/public/receipt.js. Rendered only from
 // a ReceiptView the API builds from a settled payment row.
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import type { ReceiptView } from '@resuto/contracts';
 import { useT } from '@/lib/i18n/client';
 import { money } from '@/lib/format';
@@ -32,9 +32,40 @@ export function Barcode({ value, height = 54, label }: { value: string; height?:
   );
 }
 
-export function Receipt({ r, actions }: { r: ReceiptView; actions?: ReactNode }) {
+/**
+ * A self-contained copy of the receipt for saving (legacy receipt.js downloadReceipt): the paper's markup plus the
+ * receipt rules from the page's stylesheets, in the guest's language and direction.
+ */
+function downloadReceipt(paper: HTMLElement | null, r: ReceiptView, locale: string, dir: string, title: string) {
+  if (!paper) return false;
+  const css: string[] = [];
+  for (const sheet of Array.from(document.styleSheets)) {
+    // The receipt rules and the design tokens they use (so the saved file keeps its colours offline).
+    try { for (const rule of Array.from(sheet.cssRules)) if (rule.cssText.includes('receipt') || rule.cssText.startsWith(':root')) css.push(rule.cssText); } catch { /* cross-origin sheet */ }
+  }
+  const html = `<!doctype html><html lang="${locale}" dir="${dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
+    + `<title>${title} ${r.id}</title><style>body{margin:0;padding:28px 16px;background:var(--paper);display:flex;justify-content:center;font-family:system-ui,sans-serif}${css.join('\n')}</style>`
+    + `</head><body>${paper.outerHTML}</body></html>`;
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `receipt-${r.id}.html`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+
+/**
+ * The receipt with the legacy actions: Download / Share / Rate your visit / Done (receipt.js receiptActions).
+ * `onRate` appears only when the guest can still rate; `onDone` returns to where they came from.
+ */
+export function Receipt({ r, actions, onRate, onDone }: { r: ReceiptView; actions?: ReactNode; onRate?: () => void; onDone?: () => void }) {
   const { t, locale, dir } = useT();
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const paper = useRef<HTMLElement | null>(null);
   const m = (v: number) => money(v, r.currency, locale);
   const loc = locale === 'ar' ? INTL_LOCALE.ar : 'en-GB';
   const at = r.reservation ? new Date(r.reservation.startsAt) : new Date(r.at);
@@ -61,7 +92,7 @@ export function Receipt({ r, actions }: { r: ReceiptView; actions?: ReactNode })
   );
   return (
     <div className="receipt-stage">
-      <article className="receipt-paper" dir={dir} aria-label={`${t('pay.receipt.title')} ${r.id}`}>
+      <article ref={paper} className="receipt-paper" dir={dir} aria-label={`${t('pay.receipt.title')} ${r.id}`}>
         <div className="receipt-body">
           <header className="receipt-head">
             <h2 className="receipt-title">{t('pay.receipt.title')}</h2>
@@ -125,8 +156,13 @@ export function Receipt({ r, actions }: { r: ReceiptView; actions?: ReactNode })
         </div>
       </article>
       <div className="receipt-actions">
-        <button type="button" className="receipt-action" onClick={() => window.print()}>{t('pay.receipt.print')}</button>
+        <button type="button" className="receipt-action" onClick={() => setSaved(downloadReceipt(paper.current, r, locale, dir, t('pay.receipt.title')))}>
+          {saved ? t('pay.receipt.saved') : t('pay.receipt.download')}
+        </button>
         <button type="button" className="receipt-action" onClick={share}>{copied ? t('pay.receipt.copied') : t('pay.receipt.share')}</button>
+        <button type="button" className="receipt-action" onClick={() => window.print()}>{t('pay.receipt.print')}</button>
+        {onRate && <button type="button" className="receipt-action" onClick={onRate}>{t('pay.receipt.rate')}</button>}
+        {onDone && <button type="button" className="receipt-action is-primary" onClick={onDone}>{t('pay.receipt.done')}</button>}
       </div>
       {actions}
     </div>
