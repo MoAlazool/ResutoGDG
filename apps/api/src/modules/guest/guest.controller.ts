@@ -14,6 +14,7 @@ import { VisitsService } from '../orders/visits.service';
 import { GuestAssistantService } from './assistant.service';
 import { GuestService } from './guest.service';
 import { GuestRatingsService } from './ratings.service';
+import { TokenGuessGuard } from './token-guess-guard';
 
 const uuidPipe = new ParseUUIDPipe();
 const slugish = z.string().regex(/^[a-z0-9-]{1,60}$/);
@@ -23,8 +24,9 @@ const tokenKey = (t: string | undefined) => sha256(t ?? '').slice(0, 24);
  * Reads are keyed mostly on the visit token: every phone at a table shares one token and a restaurant's guests share
  * one Wi-Fi address, so a per-IP read limit sized for one phone throttled whole dining rooms (PCL-18). A table polls
  * once every few seconds per phone (the view carries order timelines and answers `unchanged` cheaply), so 240 reads a
- * minute per table and 1,200 per address leave ample head room; requests with a missing or unknown token count
- * against a strict per-address budget instead, which keeps token guessing slow.
+ * minute per table and 1,200 per address leave ample head room. Requests with a missing or unknown token count
+ * against a strict per-address budget; once it is spent the address gets 429 before any lookup, except for tokens
+ * seen working recently (TokenGuessGuard), so a correct guess is refused too and guessing costs no database work.
  */
 const READ_PER_IP = 1200;
 const READ_PER_TOKEN = 240;
@@ -38,20 +40,29 @@ const BAD_TOKEN_PER_IP = 60;
 @Controller('public')
 export class GuestController {
   constructor(private readonly guest: GuestService, private readonly visits: VisitsService, private readonly limiter: RateLimiter,
-    private readonly assistant: GuestAssistantService, private readonly ratings: GuestRatingsService) {}
+    private readonly assistant: GuestAssistantService, private readonly ratings: GuestRatingsService,
+    private readonly guessing: TokenGuessGuard) {}
 
   private limit(req: ResutoRequest, scope: string, token: string | undefined, perIp: number, perToken: number) {
     this.limiter.hit(`guest:${scope}:ip:${req.ip}`, perIp);
     if (token) this.limiter.hit(`guest:${scope}:tok:${tokenKey(token)}`, perToken);
   }
 
-  /** Read limits plus a strict budget for requests whose token turns out to be missing or no longer valid. */
+  /**
+   * Read limits plus a strict budget for requests whose token turns out to be missing or no longer valid. The budget is
+   * checked before the token is looked up, so once it is spent a guess is refused whether or not it would be right.
+   */
   private async read<T>(req: ResutoRequest, token: string | undefined, run: () => Promise<T>): Promise<T> {
     this.limit(req, 'read', token, READ_PER_IP, READ_PER_TOKEN);
+    const ip = req.ip ?? 'unknown';
+    const key = token ? tokenKey(token) : null;
+    this.guessing.check(ip, key, BAD_TOKEN_PER_IP);
     try {
-      return await run();
+      const result = await run();
+      if (key) this.guessing.worked(key);
+      return result;
     } catch (e) {
-      if ((e as { status?: number }).status === 401) this.limiter.hit(`guest:bad-token:ip:${req.ip}`, BAD_TOKEN_PER_IP);
+      if ((e as { status?: number }).status === 401) this.guessing.failed(ip);
       throw e;
     }
   }
@@ -72,7 +83,8 @@ export class GuestController {
   session(@Param('qrToken') qrToken: string, @Req() req: ResutoRequest) {
     this.limit(req, 'session', qrToken, 30, 60);
     if (!/^[A-Za-z0-9_-]{16,128}$/.test(qrToken)) throw notFound('Table');
-    return this.visits.tableSession(qrToken);
+    // A phone that just scanned in polls at once; its fresh token is known good even if someone here was guessing.
+    return this.visits.tableSession(qrToken).then((s) => { this.guessing.worked(tokenKey(s.token)); return s; });
   }
 
   @Public()

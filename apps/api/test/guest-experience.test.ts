@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant } from './helpers';
+import { VisitsService } from '../src/modules/orders/visits.service';
 import { key, qrTokenFor, saveFloor, table } from './ops-fixtures';
 
 // Guest experience (ws4b): read-only QR lookup (CR-03), light table polling and token-keyed read limits (PCL-18),
@@ -113,6 +114,16 @@ describe('table polling (PCL-18)', () => {
     for (const b of bogus) codes.push((await t.http.get('/v1/public/visits/current').set(visitHeader(b))).status);
     expect(codes.slice(0, 60).every((c) => c === 401)).toBe(true);
     expect(codes[60]).toBe(429);
+    // Once the budget is spent, a correct guess gains nothing: a real token this address has never used is refused
+    // before it is looked up...
+    const unseen = await t.app.get(VisitsService).tableSession(tables.Q1!.qr);
+    const guessed = await t.http.get('/v1/public/visits/current').set(visitHeader(unseen.token));
+    expect(guessed.status).toBe(429);
+    expect(guessed.body.error.code).toBe('rate_limited');
+    // ...while the phones already seated here keep polling, and a phone that scans in now can start at once.
+    expect((await t.http.get('/v1/public/visits/current').set(visitHeader(scan.body.token))).status).toBe(200);
+    const fresh = await t.http.post(`/v1/public/tables/${tables.Q1!.qr}/session`).expect(200);
+    expect((await t.http.get('/v1/public/visits/current').set(visitHeader(fresh.body.token))).status).toBe(200);
   });
 });
 
