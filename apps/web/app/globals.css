@@ -1,74 +1,17 @@
 /*
- * Resuto design tokens — carried over verbatim from the legacy CSS
- * (docs/ui/design-tokens.json). "brand" is the warm landing/booking identity;
- * "workspace" is the staff/guest application palette.
+ * Resuto web styles. Every design token (colours, type scale, radius, shadows, staff-shell metrics, floor states)
+ * comes from packages/ui/src/tokens.css, generated from docs/ui/design-tokens.json by scripts/ui/build-tokens.mjs.
+ * Do not define tokens here; lib/tokens-policy.test.ts rejects new hex colours outside the token file.
  */
+@import '../../../packages/ui/src/tokens.css';
+
 @font-face { font-family: Manrope; src: url('/fonts/manrope.ttf') format('truetype'); font-weight: 200 800; font-display: swap; }
 @font-face { font-family: 'Plex Arabic'; src: url('/fonts/plex-arabic.ttf') format('truetype'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Plex Arabic'; src: url('/fonts/plex-arabic-medium.ttf') format('truetype'); font-weight: 500; font-display: swap; }
 @font-face { font-family: 'Plex Arabic'; src: url('/fonts/plex-arabic-semibold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
 @font-face { font-family: 'Plex Arabic'; src: url('/fonts/plex-arabic-bold.ttf') format('truetype'); font-weight: 700 900; font-display: swap; }
 
-:root {
-  /* brand */
-  --brand-ink: #0C2620;
-  --brand-ink-2: #061713;
-  --brand-ink-3: #123A31;
-  --brand-paper: #FCF9F3;
-  --brand-sand: #F3ECE0;
-  --brand-muted: #57685F;
-  --brand-muted-2: #7F8E86;
-  --ember: #C85E33;
-  --ember-2: #E8875A;
-  --herb: #6F9A4C;
-  --gold: #B8893A;
-  --sky: #5A8598;
-
-  /* workspace */
-  --ink: #163d34;
-  --ink-strong: #173f36;
-  --paper: #faf9f5;
-  --card: #ffffff;
-  --muted: #747c74;
-  --warm: #efe9df;
-  --surface-warm: #f5f3ed;
-  --accent: #f0b298;
-  --line: #e1e5dd;
-  --line-soft: #eef0ea;
-  --text: #25382f;
-  --leaf-bg: #eef2e8;
-  --leaf-text: #285c41;
-
-  /* status (from floor-system.css table states) */
-  --ok-bg: #e6f2e2; --ok: #2f6238;
-  --warn-bg: #fbedc9; --warn: #7d5a12;
-  --info-bg: #e6ecf7; --info: #2f4a76;
-  --pay-bg: #eadff3; --pay: #76528f;
-  --danger-bg: #f8e1dc; --danger: #a33a22;
-  --clean-bg: #dce8f2; --clean: #4e7897;
-
-  /* chart palette (landing-demos.css) */
-  --chart-1: #C85E33; --chart-2: #6F9A4C; --chart-3: #B8893A; --chart-4: #5A8598;
-
-  /* shape & motion */
-  --radius-pill: 99px;
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
-  --shadow-card: 0 4px 20px #21352605;
-  --shadow-float: 0 8px 45px #132d322b;
-  --shadow-sheet: 0 20px 100px #123a3340;
-  --ease: cubic-bezier(.22, 1, .36, 1);
-
-  --font-body-en: Manrope, system-ui, sans-serif;
-  --font-body-ar: 'Plex Arabic', system-ui, sans-serif;
-  --font-display: Manrope, sans-serif;
-  --font-editorial: Georgia, 'Plex Arabic', serif;
-  color-scheme: light;
-}
-
-[lang='ar'] { --font-display: 'Plex Arabic', sans-serif; }
+:root { color-scheme: light; }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -84,7 +27,8 @@ body {
 [lang='ar'] body { font-family: var(--font-body-ar); font-weight: 500; font-size: 16px; }
 [lang='ar'] h1, [lang='ar'] h2, [lang='ar'] h3 { letter-spacing: 0 !important; line-height: 1.5; font-weight: 700; }
 [lang='ar'] button, [lang='ar'] label, [lang='ar'] nav { font-weight: 600; }
-h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink); margin-block: 0 .4em; line-height: 1.2; }
+/* --heading-ink lets a surface with its own palette (the landing) colour headings without redefining --ink. */
+h1, h2, h3, h4 { font-family: var(--font-display); color: var(--heading-ink, var(--ink)); margin-block: 0 .4em; line-height: 1.2; }
 h1 { font-size: clamp(26px, 3vw, 36px); font-weight: 650; letter-spacing: -.5px; }
 h2 { font-size: 21px; font-weight: 650; }
 h3 { font-size: 16px; font-weight: 700; }

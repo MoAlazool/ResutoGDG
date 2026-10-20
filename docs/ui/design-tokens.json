@@ -82,15 +82,48 @@
     },
     "table-state": {
       "_source": "legacy/public/floor-system.css (.svg-table.state-*) as surface fill / stroke",
-      "available-tag": {"fill": "#e6f2e2", "stroke": "#6f9c72", "text": "#2f6238"},
-      "occupied|ordering|eating": {"fill": "#dcebd7", "stroke": "#4d775e"},
-      "preparing": {"fill": "#f7e8bf", "stroke": "#b88831", "tagFill": "#fbedc9", "tagText": "#7d5a12"},
-      "ready": {"fill": "#d3eee4", "stroke": "#168565"},
-      "payment|bill-requested|partially-paid": {"fill": "#eadff3", "stroke": "#76528f"},
-      "paid": {"fill": "#d8ebe4", "stroke": "#2f8066"},
-      "cleaning": {"fill": "#dce8f2", "stroke": "#4e7897"},
-      "reserved|unavailable": {"fill": "#ede9e1", "stroke": "#a8a49c", "reservedTagFill": "#e6ecf7", "reservedTagStroke": "#5d7cae", "reservedTagText": "#2f4a76"},
-      "recommended": {"stroke": "#c3942f", "strokeWidth": 6}
+      "available-tag": {
+        "fill": "#e6f2e2",
+        "stroke": "#6f9c72",
+        "text": "#2f6238"
+      },
+      "occupied|ordering|eating": {
+        "fill": "#dcebd7",
+        "stroke": "#4d775e"
+      },
+      "preparing": {
+        "fill": "#f7e8bf",
+        "stroke": "#b88831",
+        "tagFill": "#fbedc9",
+        "tagText": "#7d5a12"
+      },
+      "ready": {
+        "fill": "#d3eee4",
+        "stroke": "#168565"
+      },
+      "payment|bill-requested|partially-paid": {
+        "fill": "#eadff3",
+        "stroke": "#76528f"
+      },
+      "paid": {
+        "fill": "#d8ebe4",
+        "stroke": "#2f8066"
+      },
+      "cleaning": {
+        "fill": "#dce8f2",
+        "stroke": "#4e7897"
+      },
+      "reserved|unavailable": {
+        "fill": "#ede9e1",
+        "stroke": "#a8a49c",
+        "reservedTagFill": "#e6ecf7",
+        "reservedTagStroke": "#5d7cae",
+        "reservedTagText": "#2f4a76"
+      },
+      "recommended": {
+        "stroke": "#c3942f",
+        "strokeWidth": 6
+      }
     },
     "most-frequent-literals": {
       "_note": "Top hex literals across all legacy/public/*.css by count (lower-cased)",
@@ -118,20 +151,52 @@
       "legacy-root": "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif (style.css :root; Inter is not shipped, so Manrope from platform.css wins)"
     },
     "files": {
-      "Manrope": {"file": "legacy/public/fonts/manrope.ttf", "weight": "200 800 (variable)", "license": "legacy/public/fonts/manrope-license.txt"},
-      "Plex Arabic 400": {"file": "legacy/public/fonts/plex-arabic.ttf", "weight": 400},
-      "Plex Arabic 500": {"file": "legacy/public/fonts/plex-arabic-medium.ttf", "weight": 500},
-      "Plex Arabic 600": {"file": "legacy/public/fonts/plex-arabic-semibold.ttf", "weight": 600},
-      "Plex Arabic 700-900": {"file": "legacy/public/fonts/plex-arabic-bold.ttf", "weight": "700 900", "license": "legacy/public/fonts/plex-arabic-license.txt"}
+      "Manrope": {
+        "file": "legacy/public/fonts/manrope.ttf",
+        "weight": "200 800 (variable)",
+        "license": "legacy/public/fonts/manrope-license.txt"
+      },
+      "Plex Arabic 400": {
+        "file": "legacy/public/fonts/plex-arabic.ttf",
+        "weight": 400
+      },
+      "Plex Arabic 500": {
+        "file": "legacy/public/fonts/plex-arabic-medium.ttf",
+        "weight": 500
+      },
+      "Plex Arabic 600": {
+        "file": "legacy/public/fonts/plex-arabic-semibold.ttf",
+        "weight": 600
+      },
+      "Plex Arabic 700-900": {
+        "file": "legacy/public/fonts/plex-arabic-bold.ttf",
+        "weight": "700 900",
+        "license": "legacy/public/fonts/plex-arabic-license.txt"
+      }
     },
     "featureSettings": "\"ss01\", \"cv11\" (landing)",
     "scale": {
       "_scope": ":root / html[lang=ar] (typography.css). Arabic gets one step larger.",
-      "t-xs": {"en": "11.5px", "ar": "12.5px"},
-      "t-sm": {"en": "12.5px", "ar": "13.5px"},
-      "t-md": {"en": "13.5px", "ar": "14.5px"},
-      "t-lg": {"en": "15px", "ar": "16px"},
-      "t-field": {"en": "14.5px", "ar": "15.5px"}
+      "t-xs": {
+        "en": "11.5px",
+        "ar": "12.5px"
+      },
+      "t-sm": {
+        "en": "12.5px",
+        "ar": "13.5px"
+      },
+      "t-md": {
+        "en": "13.5px",
+        "ar": "14.5px"
+      },
+      "t-lg": {
+        "en": "15px",
+        "ar": "16px"
+      },
+      "t-field": {
+        "en": "14.5px",
+        "ar": "15.5px"
+      }
     },
     "headings-landing": {
       "h1": "clamp(48px, 7.6vw, 112px) / 600 / line-height .94 / letter-spacing -.052em (ar: clamp(40px,6.2vw,86px), 700, lh 1.22, ls 0)",
@@ -140,10 +205,34 @@
       "h4-eyebrow": "12px / 750 / ls .12em / uppercase / color muted-2",
       "p": "clamp(15px, 1.05vw, 17px) / lh 1.68 / max-width 62ch"
     },
-    "headings-booking": {"h1": "clamp(27px, 5.4vw, 42px) / 600 / ls -.035em / lh 1.08"},
-    "weights-by-frequency": [650, 700, 600, 750, 500, 800, 900, 400, 550, 850],
+    "headings-booking": {
+      "h1": "clamp(27px, 5.4vw, 42px) / 600 / ls -.035em / lh 1.08"
+    },
+    "weights-by-frequency": [
+      650,
+      700,
+      600,
+      750,
+      500,
+      800,
+      900,
+      400,
+      550,
+      850
+    ],
     "arabicWeightRule": "html[lang=ar]: body, p and inputs at 500; buttons, labels and small at 600; h1-h3, strong and overline at 700 (brand-refinements.css)",
-    "sizes-by-frequency-px": [12, 11, 13, 14, 12.5, 10, 11.5, 9, 16, 15]
+    "sizes-by-frequency-px": [
+      12,
+      11,
+      13,
+      14,
+      12.5,
+      10,
+      11.5,
+      9,
+      16,
+      15
+    ]
   },
   "radius": {
     "_source": "legacy/public/landing.css (.lp --rl/--rm/--rs), legacy/public/experience.css (--radius-card), frequency count across legacy/public/*.css",
@@ -153,7 +242,17 @@
     "card": "24px",
     "pill": "99px",
     "circle": "50%",
-    "common-literals": ["10px", "12px", "8px", "14px", "20px", "4px", "9px", "18px", "16px"]
+    "common-literals": [
+      "10px",
+      "12px",
+      "8px",
+      "14px",
+      "20px",
+      "4px",
+      "9px",
+      "18px",
+      "16px"
+    ]
   },
   "shadow": {
     "_source": "legacy/public/experience.css (--shadow-soft), legacy/public/burger.css (--shadow), legacy/public/landing.css / landing-demos.css / booking.css literals",
@@ -185,7 +284,11 @@
     "_source": "legacy/public/landing.css, legacy/public/booking.css (--ease), legacy/public/experience.css (--motion-fast)",
     "ease": "cubic-bezier(.22,1,.36,1)",
     "fast": "180ms",
-    "common-transitions": ["opacity .3s", "opacity .35s var(--ease)", "border-color .2s, background .2s, transform .2s var(--ease)"],
+    "common-transitions": [
+      "opacity .3s",
+      "opacity .35s var(--ease)",
+      "border-color .2s, background .2s, transform .2s var(--ease)"
+    ],
     "reducedMotion": "@media (prefers-reduced-motion: reduce) appears in 8 stylesheets (9 occurrences)"
   },
   "breakpoint": {
@@ -198,6 +301,157 @@
     "lg-demo": "1080px (landing-demos.css)",
     "xl": "1100px (style.css, platform.css, pages.css)",
     "wide-min": "min-width 1600px (style.css, floor-editor.css)",
-    "other-one-offs": ["340px", "520px", "640px", "720px", "750px", "760px", "768px", "800px", "850px", "899px", "950px", "1000px", "1020px", "1024px", "1150px", "1180px", "1200px"]
+    "other-one-offs": [
+      "340px",
+      "520px",
+      "640px",
+      "720px",
+      "750px",
+      "760px",
+      "768px",
+      "800px",
+      "850px",
+      "899px",
+      "950px",
+      "1000px",
+      "1020px",
+      "1024px",
+      "1150px",
+      "1180px",
+      "1200px"
+    ]
+  },
+  "css": {
+    "$description": "CSS custom properties generated into packages/ui/src/tokens.css by scripts/ui/build-tokens.mjs (the single token source for apps/web). Values are literals or {dotted.path} references into this file. 'root' applies to :root, 'ar' to html[lang=ar]. Edit here, then run `node scripts/ui/build-tokens.mjs`; a unit test fails when tokens.css is stale.",
+    "root": {
+      "--brand-ink": "{color.brand.ink}",
+      "--brand-ink-2": "{color.brand.ink-2}",
+      "--brand-ink-3": "{color.brand.ink-3}",
+      "--brand-paper": "{color.brand.paper}",
+      "--brand-sand": "{color.brand.sand}",
+      "--brand-card": "{color.brand.card}",
+      "--brand-line": "{color.brand.line}",
+      "--brand-line-soft": "{color.brand.line-soft}",
+      "--brand-muted": "{color.brand.muted}",
+      "--brand-muted-2": "{color.brand.muted-2}",
+      "--ember": "{color.brand.ember}",
+      "--ember-2": "{color.brand.ember-2}",
+      "--herb": "{color.brand.herb}",
+      "--gold": "{color.brand.gold}",
+      "--sky": "{color.brand.sky}",
+      "--ink": "{color.workspace.ink}",
+      "--ink-strong": "{color.workspace.ink-experience}",
+      "--paper": "{color.workspace.paper}",
+      "--card": "#ffffff",
+      "--muted": "{color.workspace.muted}",
+      "--warm": "{color.workspace.warm}",
+      "--surface-warm": "{color.workspace.surface-warm}",
+      "--accent": "{color.workspace.accent}",
+      "--line": "{color.workspace.line}",
+      "--line-soft": "#eef0ea",
+      "--text": "{color.legacy-base.text}",
+      "--leaf-bg": "#eef2e8",
+      "--leaf-text": "#285c41",
+      "--green": "{color.legacy-base.green}",
+      "--green-hover": "#306451",
+      "--border": "{color.legacy-base.border}",
+      "--lime": "{color.legacy-base.lime}",
+      "--canvas": "{color.legacy-base.background}",
+      "--ws-sidebar": "250px",
+      "--ws-topbar": "70px",
+      "--nav-text": "#748078",
+      "--nav-hover": "#f2f5ef",
+      "--nav-active-bg": "#eaf0e7",
+      "--nav-active-text": "#295342",
+      "--nav-badge": "#d9e3d4",
+      "--nav-label": "#929b96",
+      "--period": "#9db861",
+      "--live": "#64946a",
+      "--subtle": "#68766d",
+      "--faint": "#8b958e",
+      "--chip-bg": "#f4f6ed",
+      "--chip-line": "#d3decb",
+      "--avatar-bg": "#eee7da",
+      "--avatar-text": "#887859",
+      "--ok-bg": "#e6f2e2",
+      "--ok": "#2f6238",
+      "--warn-bg": "#fbedc9",
+      "--warn": "#7d5a12",
+      "--info-bg": "#e6ecf7",
+      "--info": "#2f4a76",
+      "--pay-bg": "#eadff3",
+      "--pay": "#76528f",
+      "--danger-bg": "#f8e1dc",
+      "--danger": "#a33a22",
+      "--clean-bg": "#dce8f2",
+      "--clean": "#4e7897",
+      "--sandbox-bg": "#fff3d6",
+      "--sandbox": "#8a5a00",
+      "--sandbox-line": "#d8aa4a",
+      "--state-available-fill": "{color.table-state.available-tag.fill}",
+      "--state-available-stroke": "{color.table-state.available-tag.stroke}",
+      "--state-available-tag": "{color.table-state.available-tag.text}",
+      "--state-occupied-fill": "{color.table-state.occupied|ordering|eating.fill}",
+      "--state-occupied-stroke": "{color.table-state.occupied|ordering|eating.stroke}",
+      "--state-preparing-fill": "{color.table-state.preparing.fill}",
+      "--state-preparing-stroke": "{color.table-state.preparing.stroke}",
+      "--state-preparing-tag": "{color.table-state.preparing.tagText}",
+      "--state-ready-fill": "{color.table-state.ready.fill}",
+      "--state-ready-stroke": "{color.table-state.ready.stroke}",
+      "--state-payment-fill": "{color.table-state.payment|bill-requested|partially-paid.fill}",
+      "--state-payment-stroke": "{color.table-state.payment|bill-requested|partially-paid.stroke}",
+      "--state-paid-fill": "{color.table-state.paid.fill}",
+      "--state-paid-stroke": "{color.table-state.paid.stroke}",
+      "--state-cleaning-fill": "{color.table-state.cleaning.fill}",
+      "--state-cleaning-stroke": "{color.table-state.cleaning.stroke}",
+      "--state-reserved-fill": "{color.table-state.reserved|unavailable.fill}",
+      "--state-reserved-stroke": "{color.table-state.reserved|unavailable.stroke}",
+      "--state-reserved-tag": "{color.table-state.reserved|unavailable.reservedTagText}",
+      "--zone-main-room": "{color.floor-zones.main-room}",
+      "--zone-terrace": "{color.floor-zones.terrace}",
+      "--chart-1": "{color.chart-palette.p0}",
+      "--chart-2": "{color.chart-palette.p1}",
+      "--chart-3": "{color.chart-palette.p2}",
+      "--chart-4": "{color.chart-palette.p3}",
+      "--t-xs": "{font.scale.t-xs.en}",
+      "--t-sm": "{font.scale.t-sm.en}",
+      "--t-md": "{font.scale.t-md.en}",
+      "--t-lg": "{font.scale.t-lg.en}",
+      "--t-field": "{font.scale.t-field.en}",
+      "--font-body-en": "{font.family.body-en}",
+      "--font-body-ar": "'Plex Arabic', system-ui, sans-serif",
+      "--font-display": "{font.family.display-en}",
+      "--font-editorial": "Georgia, 'Plex Arabic', serif",
+      "--font-mark": "{font.family.serif-accent}",
+      "--font-mono": "{font.family.mono}",
+      "--radius-pill": "{radius.pill}",
+      "--radius-xs": "6px",
+      "--radius-sm": "8px",
+      "--radius-panel": "10px",
+      "--radius": "{radius.rs}",
+      "--radius-md": "16px",
+      "--radius-lg": "{radius.card}",
+      "--shadow-soft": "{shadow.soft}",
+      "--shadow-card": "0 4px 20px #21352605",
+      "--shadow-float": "0 8px 45px #132d322b",
+      "--shadow-sheet": "0 20px 100px #123a3340",
+      "--shadow-chip": "0 5px 15px #1d3b3014",
+      "--focus": "#9bc76a",
+      "--focus-soft": "#9ab86b33",
+      "--ease": "{motion.ease}",
+      "--motion-fast": "{motion.fast}",
+      "--space-1": "{space.space-1}",
+      "--space-2": "{space.space-2}",
+      "--space-3": "{space.space-3}",
+      "--space-4": "{space.space-4}"
+    },
+    "ar": {
+      "--t-xs": "{font.scale.t-xs.ar}",
+      "--t-sm": "{font.scale.t-sm.ar}",
+      "--t-md": "{font.scale.t-md.ar}",
+      "--t-lg": "{font.scale.t-lg.ar}",
+      "--t-field": "{font.scale.t-field.ar}",
+      "--font-display": "'Plex Arabic', sans-serif"
+    }
   }
 }
