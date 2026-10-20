@@ -41,19 +41,30 @@ export class GuestAssistantService {
 
   private async webMenu<T>(slug: string, branchCode: string | undefined, fn: (tx: Tx, menu: PublicMenu) => Promise<T>): Promise<T> {
     const org = await this.menu.resolveOrgBySlug(slug);
-    return this.db.withTenant(org.id, async (tx) => {
+    // Image URLs are signed in one batch after the transaction (PCL-11, PS-18), then copied into the answer.
+    const urls = this.menu.publicMediaUrls();
+    let menu: PublicMenu | null = null;
+    const result = await this.db.withTenant(org.id, async (tx) => {
       const branches = await tx.query<any>('select * from branches where org_id = $1 and is_active order by created_at', [org.id]);
       const branch = branchCode ? branches.find((b) => b.code === branchCode) : branches[0];
       if (!branch) throw notFound('Branch');
-      return fn(tx, await this.menu.publicMenuFor(tx, org.id, branch, branches));
+      menu = await this.menu.publicMenuFor(tx, org.id, branch, branches, urls);
+      return fn(tx, menu);
     }, 'guest:assistant');
+    await urls.resolve();
+    return withImages(result, menu);
   }
 
   private async visitMenu<T>(token: string | undefined, fn: (tx: Tx, menu: PublicMenu) => Promise<T>): Promise<T> {
-    return this.visits.withGuestRead(token, async (tx, g) => {
+    const urls = this.menu.publicMediaUrls();
+    let menu: PublicMenu | null = null;
+    const result = await this.visits.withGuestRead(token, async (tx, g) => {
       const branch = await tx.one('select * from branches where id = $1', [g.visit.branch_id]);
-      return fn(tx, await this.menu.publicMenuFor(tx, g.ctx.orgId, branch));
+      menu = await this.menu.publicMenuFor(tx, g.ctx.orgId, branch, undefined, urls);
+      return fn(tx, menu);
     });
+    await urls.resolve();
+    return withImages(result, menu);
   }
 
   private async plan(tx: Tx, menu: PublicMenu, req: AssistantRequest): Promise<AssistantResult> {
@@ -70,4 +81,20 @@ export class GuestAssistantService {
   forWeb(slug: string, req: AssistantRequest) { return this.webMenu(slug, req.branch, (tx, m) => this.plan(tx, m, req)); }
   suggestForVisit(token: string | undefined, productIds: string[]) { return this.visitMenu(token, (tx, m) => this.suggestions(tx, m, productIds)); }
   suggestForWeb(slug: string, branch: string | undefined, productIds: string[]) { return this.webMenu(slug, branch, (tx, m) => this.suggestions(tx, m, productIds)); }
+}
+
+/** Copies the menu's (now signed) image URLs onto every item of an answer that names a product. */
+function withImages<T>(result: T, menu: PublicMenu | null): T {
+  if (!menu) return result;
+  const images = new Map<string, string | null>();
+  for (const c of menu.categories) for (const p of c.products) images.set(p.id, p.imageUrl ?? null);
+  const walk = (v: unknown): void => {
+    if (Array.isArray(v)) { v.forEach(walk); return; }
+    if (!v || typeof v !== 'object') return;
+    const o = v as Record<string, unknown>;
+    if (typeof o.productId === 'string' && 'imageUrl' in o && images.has(o.productId)) o.imageUrl = images.get(o.productId);
+    for (const x of Object.values(o)) if (x && typeof x === 'object') walk(x);
+  };
+  walk(result);
+  return result;
 }
