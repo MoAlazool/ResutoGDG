@@ -80,17 +80,20 @@ export function EmbeddedSignupCard({ onDone }: { onDone: () => Promise<void> | v
   const [note, setNote] = useState<string | null>(null);
   const info = useRef<SessionInfo | null>(null);
   const startButton = useRef<HTMLButtonElement | null>(null);
+  const [reloaded, setReloaded] = useState(false);
 
-  // Back from the full page load the launcher asked for: say so, and put the focus on the button (Meta's window must
-  // be opened by a click).
+  // Back from the full page load the launcher asked for: say so, and put the focus on the button once it is enabled
+  // (Meta's window must be opened by a click).
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.get(SIGNUP_RELOAD_PARAM) !== 'whatsapp') return;
+    setReloaded(true);
     setNote(t('connect.signup.reloaded'));
     q.delete(SIGNUP_RELOAD_PARAM);
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${q.toString() ? `?${q}` : ''}`);
-    startButton.current?.focus();
   }, [t]);
+  const available = !!cfg.data?.available;
+  useEffect(() => { if (reloaded && available) startButton.current?.focus(); }, [reloaded, available]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
