@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { RESERVATION_RULES, VISIT_RULES, type GuestSession, type GuestVisitView } from '@resuto/contracts';
+import { RESERVATION_RULES, VISIT_RULES, type GuestSession, type GuestVisitLive, type PublicTableView } from '@resuto/contracts';
 import { randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
@@ -10,7 +10,9 @@ import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { ENV, type Env } from '../../config/env';
+import { StorageService } from '../../common/storage/storage.service';
 import { PaymentLedgerService } from '../kernel/payment-ledger.service';
+import { guestCoverUrl } from './guest-cover';
 import { GuestTokens } from './guest-tokens';
 
 export interface OpenVisitInput {
@@ -47,6 +49,7 @@ export class VisitsService {
     private readonly outbox: OutboxService,
     private readonly idempotency: IdempotencyService,
     @Inject(ENV) env: Env,
+    private readonly storage: StorageService,
   ) {
     this.tokens = new GuestTokens(env);
   }
@@ -136,9 +139,15 @@ export class VisitsService {
       const org = await tx.one<any>('select name, name_ar, slug, currency from organizations where id = $1', [found.org_id]);
       let visit = await tx.maybeOne<any>(`select * from visits where table_id = $1 and status = 'open'`, [table.id]);
       let opened = false;
+      let token: string | null = null;
       if (visit) {
-        const hash = this.tokens.hashFor(visit.id);
-        if (visit.guest_token_hash !== hash) await tx.query('update visits set guest_token_hash = $2 where id = $1', [visit.id, hash]);
+        // Keep the token the table already shares (any guest-token ring key); only when no ring key reproduces the
+        // stored hash (that key was retired) does the visit move to the active key, and earlier copies stop working.
+        token = this.tokens.visitTokenMatching(visit.id, visit.guest_token_hash);
+        if (!token) {
+          token = this.tokens.tokenFor(visit.id);
+          await tx.query('update visits set guest_token_hash = $2 where id = $1', [visit.id, this.tokens.hashFor(visit.id)]);
+        }
       } else {
         const branch = await tx.one<any>('select is_active, accepts_dine_in from branches where id = $1', [table.branch_id]);
         if (!branch.is_active || !branch.accepts_dine_in) throw conflict('table_unavailable', 'This table is not taking orders right now.', { reason: 'branch_closed' });
@@ -160,10 +169,41 @@ export class VisitsService {
         opened = true;
       }
       return {
-        token: this.tokens.tokenFor(visit.id), visitId: visit.id, orgId: found.org_id, branchId: visit.branch_id, tableLabel: table.label,
+        token: token ?? this.tokens.tokenFor(visit.id), visitId: visit.id, orgId: found.org_id, branchId: visit.branch_id, tableLabel: table.label,
         currency: org.currency, org: { name: org.name, nameAr: org.name_ar, slug: org.slug }, opened,
       };
     }, `guest:qr:${found.id}`);
+  }
+
+  /**
+   * Read-only table lookup for a QR link (CR-03): who the table belongs to and whether scanning in can work, with no
+   * session side effects (nothing is opened or re-hashed), so the guest page can answer a real 404 for unknown QR
+   * codes and render the branded shell before the session call. The QR code itself is the proof of presence; no
+   * visit id or token is ever returned here.
+   */
+  async tablePublic(qrToken: string): Promise<PublicTableView> {
+    const found = await this.db.withPlatform((tx) => tx.maybeOne<{ org_id: string; id: string }>(
+      `select t.org_id, t.id from dining_tables t join organizations o on o.id = t.org_id
+        where t.qr_token = $1 and t.is_active and o.status <> 'closed'`, [qrToken]));
+    if (!found) throw notFound('Table');
+    return this.db.withTenant(found.org_id, async (tx) => {
+      const r = await tx.one<any>(
+        `select t.label, t.status, t.is_reservable, b.id as branch_id, b.code, b.name, b.name_ar, b.is_active, b.accepts_dine_in,
+                o.name as org_name, o.name_ar as org_name_ar, o.slug, o.currency,
+                exists (select 1 from visits v where v.table_id = t.id and v.status = 'open') as has_visit
+           from dining_tables t join branches b on b.id = t.branch_id join organizations o on o.id = t.org_id where t.id = $1`, [found.id]);
+      const reason = r.has_visit ? null
+        : !r.is_active || !r.accepts_dine_in ? 'branch_closed'
+          : !r.is_reservable ? 'staff_seating'
+            : r.status === 'out_of_service' ? 'out_of_service'
+              : r.status === 'cleaning' ? 'cleaning' : null;
+      return {
+        org: { name: r.org_name, nameAr: r.org_name_ar, slug: r.slug, currency: r.currency },
+        branch: { id: r.branch_id, code: r.code, name: r.name, nameAr: r.name_ar },
+        table: { label: r.label }, accepting: reason === null, reason,
+        cover: await guestCoverUrl(tx, found.org_id, this.storage),
+      };
+    }, `guest:qr-lookup:${found.id}`);
   }
 
   /** Resolves an X-Visit-Token header to its open visit (closed visits are rejected). */
@@ -180,6 +220,19 @@ export class VisitsService {
     const { orgId, visitId } = await this.resolveGuest(token);
     return this.db.withTenant(orgId, async (tx) => {
       const visit = await tx.maybeOne<any>(`select * from visits where id = $1 and status = 'open' for update`, [visitId]);
+      if (!visit) throw new DomainError('visit_closed', 'This table session has ended. Scan the table QR code again.', 401);
+      return fn(tx, { ctx: guestContext(orgId, visitId), visit });
+    }, `guest:visit:${visitId}`);
+  }
+
+  /**
+   * Like withGuest, but for reads: the visit row is not locked, so guests polling a table never queue behind an
+   * order or a payment on the same visit (PCL-18).
+   */
+  async withGuestRead<T>(token: string | undefined, fn: (tx: Tx, g: GuestContext) => Promise<T>): Promise<T> {
+    const { orgId, visitId } = await this.resolveGuest(token);
+    return this.db.withTenant(orgId, async (tx) => {
+      const visit = await tx.maybeOne<any>(`select * from visits where id = $1 and status = 'open'`, [visitId]);
       if (!visit) throw new DomainError('visit_closed', 'This table session has ended. Scan the table QR code again.', 401);
       return fn(tx, { ctx: guestContext(orgId, visitId), visit });
     }, `guest:visit:${visitId}`);
@@ -205,28 +258,41 @@ export class VisitsService {
     return { totalMinor: sums.total, paidMinor: sums.paid, creditMinor: credit, dueMinor: Math.max(0, out.dueMinor - credit), ledgerDueMinor: out.dueMinor };
   }
 
-  async guestView(tx: Tx, visit: any): Promise<GuestVisitView> {
+  /**
+   * The guest's table view: orders with lines and their status timelines (so tracking an order needs no second
+   * request), totals, open requests and whether the table has been rated. `version` hashes the content, so a poll
+   * that sends it back can be answered with `{ unchanged: true }` (PCL-18).
+   */
+  async guestView(tx: Tx, visit: any): Promise<GuestVisitLive> {
     const table = await tx.one<{ id: string; label: string }>('select id, label from dining_tables where id = $1', [visit.table_id]);
     const org = await tx.one<{ currency: string }>('select currency from organizations where id = $1', [visit.org_id]);
-    const orders = await tx.query<any>('select id, number, status, total_minor, placed_at from orders where visit_id = $1 order by placed_at', [visit.id]);
-    const lines = orders.length
-      ? await tx.query<any>('select order_id, name, name_ar, quantity, line_total_minor, kitchen_status, modifiers from order_lines where order_id = any($1::uuid[]) order by line_seq', [orders.map((o) => o.id)])
+    const orders = await tx.query<any>('select id, number, status, fulfillment, total_minor, placed_at from orders where visit_id = $1 order by placed_at', [visit.id]);
+    const ids = orders.map((o) => o.id);
+    const lines = ids.length
+      ? await tx.query<any>('select order_id, name, name_ar, quantity, line_total_minor, kitchen_status, modifiers from order_lines where order_id = any($1::uuid[]) order by line_seq', [ids])
+      : [];
+    const events = ids.length
+      ? await tx.query<any>('select order_id, to_status, created_at from order_events where order_id = any($1::uuid[]) and to_status is not null order by id', [ids])
       : [];
     const requests = await tx.query<any>(`select kind, status, created_at from service_requests where visit_id = $1 and status <> 'resolved' order by created_at`, [visit.id]);
     const totals = await this.totals(tx, visit.id);
-    return {
+    const rated = !!(await tx.maybeOne(`select 1 from guest_ratings where visit_id = $1 and source = 'table'`, [visit.id]));
+    const view: Omit<GuestVisitLive, 'version'> = {
       visitId: visit.id, status: visit.status, table, branchId: visit.branch_id, currency: org.currency,
       orders: orders.map((o) => ({
-        id: o.id, number: o.number, status: o.status, totalMinor: o.total_minor, placedAt: o.placed_at.toISOString(),
+        id: o.id, number: o.number, status: o.status, fulfillment: o.fulfillment, totalMinor: o.total_minor, placedAt: o.placed_at.toISOString(),
         lines: lines.filter((l) => l.order_id === o.id).map((l) => ({
           name: l.name, nameAr: l.name_ar, quantity: l.quantity, lineTotalMinor: l.line_total_minor, kitchenStatus: l.kitchen_status,
           modifiers: (l.modifiers as any[]).map((m) => m.option),
         })),
+        timeline: events.filter((e) => e.order_id === o.id).map((e) => ({ status: e.to_status, at: e.created_at.toISOString() })),
       })),
       totals: { totalMinor: totals.totalMinor, paidMinor: totals.paidMinor, creditMinor: totals.creditMinor, dueMinor: totals.dueMinor },
       requests: requests.map((r) => ({ kind: r.kind, status: r.status, createdAt: r.created_at.toISOString() })),
       settling: await this.settling(tx, visit.id),
+      rated,
     };
+    return { ...view, version: sha256(JSON.stringify(view)).slice(0, 16) };
   }
 
   /** Applies unused reservation-deposit credit to the bill as a `deposit_credit` ledger payment. */

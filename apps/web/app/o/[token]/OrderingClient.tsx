@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Badge, Field, Modal, Notice, Skeleton } from '@resuto/ui';
+import { Badge, Field, Modal, Notice, Skeleton, useConfirm } from '@resuto/ui';
 import { api, ApiRequestError } from '@/lib/api';
 import { money, pick } from '@/lib/format';
 import { LocaleProvider, useT } from '@/lib/i18n/client';
@@ -92,6 +92,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
   token: string; view: View | null; error: ApiRequestError | null; reload: () => Promise<void>; setView: (v: View) => void; locale: Locale; setLocale: (l: Locale) => void;
 }) {
   const { t } = useT();
+  const [confirm, confirmDialog] = useConfirm(locale);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [picking, setPicking] = useState<Product | null>(null);
   const [stage, setStage] = useState<'menu' | 'review'>('menu');
@@ -161,7 +162,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
   });
 
   const cancel = () => run(async () => {
-    if (!window.confirm(t('connect.order.cancelConfirm'))) return;
+    if (!(await confirm({ title: t('connect.order.cancelConfirm'), tone: 'danger' }))) return;
     setView(await api<View>(`/public/connect/ordering/${token}/cancel`, { body: { version: view!.version } }));
   });
 
@@ -190,7 +191,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
   if (!view) return <main className="center-page"><div style={{ width: 320 }}><Skeleton lines={5} /></div></main>;
 
   const wrap = (children: ReactNode) => (<>{header}<main style={{ maxWidth: 720, margin: '0 auto', padding: '16px 16px 120px' }}>
-    {view.sandbox && <div style={{ marginBlockEnd: 12 }}><Notice tone="warn">{t('connect.order.sandboxNotice')}</Notice></div>}{children}</main></>);
+    {view.sandbox && <div style={{ marginBlockEnd: 12 }}><Notice tone="warn">{t('connect.order.sandboxNotice')}</Notice></div>}{children}</main>{confirmDialog}</>);
 
   if (view.expired || view.step === 'expired') return wrap(<div className="card"><h2>{t('connect.order.expired')}</h2><p className="muted">{t('connect.order.expiredBody')}</p></div>);
   if (view.step === 'cancelled') return wrap(<div className="card"><h2>{t('connect.order.cancelled')}</h2><p className="muted">{t('connect.order.cancelledBody')}</p></div>);
@@ -198,7 +199,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
     const awaiting = view.step === 'awaiting_payment';
     return wrap(
       <div className="card stack" style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 44 }} aria-hidden>{awaiting ? '💳' : '✅'}</div>
+        <div style={{ fontSize: 44, fontFamily: 'var(--font-glyph)' }} aria-hidden>{awaiting ? '¤' : '✓'}</div>
         <h1 style={{ fontSize: 24 }}>{awaiting ? t('connect.order.awaitingPayment') : t('connect.order.placed')}</h1>
         {view.order && <p className="muted">{t('connect.order.orderNumber', { number: view.order.number })} · <strong className="num">{money(view.order.totalMinor, view.order.currency, locale)}</strong></p>}
         {awaiting && view.checkoutUrl && <a className="btn btn-primary btn-block" href={view.checkoutUrl}>{t('connect.order.payNow')}</a>}

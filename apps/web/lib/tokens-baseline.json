@@ -23,8 +23,6 @@
   "apps/web/app/pay/[token]/_ui/receipt.css": 38,
   "apps/web/app/pay/[token]/sandbox/page.tsx": 1,
   "apps/web/app/r/[slug]/_components/site.css": 84,
-  "apps/web/app/reserve/[slug]/_map/FloorMap.tsx": 22,
-  "apps/web/app/t/[qr]/_guest/guest.css": 27,
   "apps/web/components/floor/floor.css": 221,
   "apps/web/components/floor/FloorScene.tsx": 6,
   "apps/web/components/floor/FloorStudio.tsx": 2,

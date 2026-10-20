@@ -109,7 +109,9 @@
 @keyframes receipt-shimmer{to{background-position:-300% 0}}
 
 /* ---- actions --------------------------------------------------------- */
-.receipt-actions{display:flex;gap:10px;width:100%;max-width:380px}
+.receipt-actions{display:flex;flex-wrap:wrap;gap:10px;width:100%;max-width:380px}
+.receipt-action.is-primary{flex-basis:100%;background:var(--ink);border-color:var(--ink);color:var(--on-ink)}
+.receipt-action.is-primary:hover{background:var(--brand-ink-3)}
 .receipt-actions-primary{flex-direction:column;gap:8px}
 .receipt-action{flex:1;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
  background:#fff;border:1px solid #dde3dc;border-radius:9px;color:#43554a;font-size:13px;font-weight:550;
@@ -170,7 +172,7 @@
 }
 
 /* Guest payment pages (pay, share, table bill) */
-.pay-page{min-height:100dvh;background:var(--brand-paper);padding:20px 16px 48px;display:flex;flex-direction:column;align-items:center}
+.pay-page{min-height:60dvh;padding:8px 16px 48px;display:flex;flex-direction:column;align-items:center}
 .pay-card{width:100%;max-width:440px;background:#fff;border-radius:var(--radius-lg);padding:24px 20px;box-shadow:0 20px 80px #243b3410}
 .pay-card+.pay-card{margin-top:14px}
 .pay-head{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;max-width:440px;margin-bottom:14px}

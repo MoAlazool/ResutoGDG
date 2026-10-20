@@ -12,6 +12,8 @@ export * from './catalog';
 export * from './floor';
 export * from './orders';
 export * from './reservations';
+export * from './phone';
+export * from './guest';
 export * from './inventory';
 export * from './customers';
 export * from './analytics';

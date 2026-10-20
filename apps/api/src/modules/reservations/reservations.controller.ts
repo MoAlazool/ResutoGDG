@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
-  availabilityQuery, reservationCancelRequest, reservationConfirmRequest, reservationDayQuery, reservationHoldRequest, staffReservationInput,
+  availabilityQuery, reservationCancelRequest, reservationConfirmRequest, reservationDayQuery, reservationHoldRequest, reservationSlotsQuery, staffReservationInput,
   staffReservationUpdate, type AvailabilityQuery, type ReservationHoldRequest,
 } from '@resuto/contracts';
 import { z } from 'zod';
@@ -110,12 +110,21 @@ export class PublicReservationsController {
     return this.reservations.publicAvailability(slug, q);
   }
 
+  /** Sittings of a service with free-table counts, in the branch time zone (VP-08, VP-11). */
+  @Public()
+  @Get(':slug/slots')
+  slots(@Param('slug') slug: string, @Query(zod(reservationSlotsQuery)) q: z.infer<typeof reservationSlotsQuery>, @Req() req: ResutoRequest) {
+    this.limiter.hit(`reservations:availability:${req.ip}`, 120);
+    if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
+    return this.reservations.publicSlots(slug, q);
+  }
+
   @Public()
   @Post(':slug/holds')
   hold(@Param('slug') slug: string, @Body(zod(reservationHoldRequest)) body: ReservationHoldRequest, @Req() req: ResutoRequest) {
     this.limiter.hit(`reservations:hold:${req.ip}`, 20);
-    this.limiter.hit(`reservations:hold:phone:${sha256(body.guestPhone).slice(0, 24)}`, 10);
     if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
-    return this.reservations.hold(slug, body);
+    // Per number, not per spelling: 010…, 10…, 20…, +20… and 0020… of one phone share a budget (CR-06).
+    return this.reservations.hold(slug, body, (e164) => this.limiter.hit(`reservations:hold:phone:${sha256(e164).slice(0, 24)}`, 10));
   }
 }

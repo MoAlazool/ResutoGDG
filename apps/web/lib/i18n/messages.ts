@@ -10,6 +10,7 @@ import { connect } from './dict/connect';
 import { core } from './dict/core';
 import { driver } from './dict/driver';
 import { finance } from './dict/finance';
+import { guest } from './dict/guest';
 import { insights } from './dict/insights';
 import { integrations } from './dict/integrations';
 import { intelligence } from './dict/intelligence';
@@ -22,7 +23,7 @@ import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp, integrations, vocab, allergens];
+const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp, integrations, vocab, allergens, guest];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {

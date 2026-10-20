@@ -153,7 +153,7 @@ export default function HostedCheckoutPage() {
               {view.methods.map((o) => (
                 <div key={o.method} className="pay-method" role="radio" tabIndex={0} aria-checked={method === o.method}
                   onClick={() => setMethod(o.method)} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setMethod(o.method); } }}>
-                  <span aria-hidden style={{ fontSize: 22 }}>{methodIcon[o.method] ?? '•'}</span>
+                  <span aria-hidden style={{ fontSize: 22, fontFamily: 'var(--font-glyph)' }}>{methodIcon[o.method] ?? '•'}</span>
                   <span><strong>{t(`pay.method.${o.method}`)}</strong><small>{o.kind === 'online' ? t('pay.method.online') : t('pay.method.offline')}{o.sandbox ? ` · ${t('pay.sandboxBadge')}` : ''}</small></span>
                 </div>
               ))}

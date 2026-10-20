@@ -6,6 +6,7 @@ import { RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { zod } from '../../common/http/zod.pipe';
 import { AnalyticsService } from './analytics.service';
+import { ratingsSummary } from './ratings';
 
 const overviewQuery = z.object({ branchId: uuid.optional() });
 type Period = z.infer<typeof analyticsPeriodQuery>;
@@ -49,6 +50,13 @@ export class AnalyticsController {
   @RequirePermission('analytics:read')
   operations(@Tenant() ctx: TenantContext, @Query(zod(analyticsPeriodQuery)) q: Period) {
     return this.db.scoped(ctx, (tx) => this.analytics.operations(tx, ctx, q));
+  }
+
+  /** Guest satisfaction: ratings left after payment (VS-27). */
+  @Get('ratings')
+  @RequirePermission('analytics:read')
+  ratings(@Tenant() ctx: TenantContext, @Query(zod(analyticsPeriodQuery)) q: Period) {
+    return this.db.scoped(ctx, (tx) => ratingsSummary(tx, ctx, q));
   }
 
   @Get('sustainability')

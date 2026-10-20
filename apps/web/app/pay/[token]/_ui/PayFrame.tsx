@@ -1,31 +1,34 @@
 'use client';
 import type { ReactNode } from 'react';
 import { Badge } from '@resuto/ui';
-import { LanguageToggle, useT } from '@/lib/i18n/client';
+import { useT } from '@/lib/i18n/client';
+import { ConsumerFooter, ConsumerHeader } from '@/components/guest/shell';
 import './receipt.css';
 import { isSafeRedirect } from './redirect';
 
 export { isSafeRedirect, PROVIDER_CHECKOUT_HOSTS } from './redirect';
 
-/** Shared frame for guest payment pages (hosted checkout, bill share, table bill). */
+/**
+ * Shared frame for guest payment pages (hosted checkout, sandbox): the restaurant's consumer header and footer
+ * around the payment card, as on the rest of the guest experience (VP-07). Payment logic lives in the pages.
+ */
 export function PayFrame({ merchant, sandbox, children }: { merchant?: string | null; sandbox?: boolean; children: ReactNode }) {
   const { t } = useT();
+  const org = merchant ? { name: merchant, nameAr: null } : null;
   return (
-    <main className="pay-page">
-      <div className="pay-head">
-        <strong>{merchant ?? t('app.name')}</strong>
-        <div className="row" style={{ gap: 8 }}>
-          {sandbox && <Badge tone="sandbox">{t('pay.sandboxBadge')}</Badge>}
-          <LanguageToggle />
-        </div>
-      </div>
-      {sandbox && <div style={{ width: '100%', maxWidth: 440, marginBottom: 12 }}><div className="notice notice-warn">{t('pay.sandboxNotice')}</div></div>}
-      {children}
-    </main>
+    <div className="gx">
+      <ConsumerHeader org={org} extra={sandbox ? <Badge tone="sandbox">{t('pay.sandboxBadge')}</Badge> : null} />
+      <main className="pay-page">
+        {sandbox && <div style={{ width: '100%', maxWidth: 440, marginBottom: 12 }}><div className="notice notice-warn">{t('pay.sandboxNotice')}</div></div>}
+        {children}
+      </main>
+      <ConsumerFooter org={org} />
+    </div>
   );
 }
 
-export const methodIcon: Record<string, string> = { card: '💳', wallet: '📱', cash: '💵', cod: '🛵', instapay: '⚡', bank_transfer: '🏦' };
+/** Monochrome method marks (the consumer app's typographic glyphs, never colour emoji). */
+export const methodIcon: Record<string, string> = { card: '▭', wallet: '▯', cash: '¤', cod: '⇢', instapay: '↯', bank_transfer: '⌂' };
 
 /** Keeps one intent's idempotency key across retries of that intent. */
 export function intentKey(scope: string): string {
