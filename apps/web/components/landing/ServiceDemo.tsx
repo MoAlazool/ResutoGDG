@@ -38,7 +38,9 @@ export function ServiceDemo({ L }: { L: Landing }) {
   const total = lines.reduce((n, m) => n + m.price, 0);
 
   useEffect(() => {
-    QRCode.toString(new URL(LINKS.demo, window.location.origin).toString(), { type: 'svg', margin: 1, color: { dark: '#0C2620', light: '#ffffff' } })
+    // Scanning opens the demo restaurant's live menu (self-service ordering). It is not a table QR: table tokens are
+    // secrets of the restaurant (the legacy page leaked them through /api/public) and are never published (VP-24).
+    QRCode.toString(new URL(LINKS.menu, window.location.origin).toString(), { type: 'svg', margin: 1, color: { dark: '#0C2620', light: '#ffffff' } })
       .then((svg) => setQr(svg)).catch(() => setQr(null));
   }, []);
 

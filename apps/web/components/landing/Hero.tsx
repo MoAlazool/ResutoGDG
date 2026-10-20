@@ -1,13 +1,13 @@
 'use client';
 // Hero "Service view": the live floor demo, service feed, legend and metrics
-// (port of the hero in legacy/public/landing.js). Sample service data only.
+// (port of the hero in legacy/public/landing.js). The room is the demo restaurant's saved floor (VP-12); the
+// service activity on it is sample data, labelled as such.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FloorSceneContent, type SceneTable } from '../floor/FloorScene';
 import { LINKS } from './links';
-import { SAMPLE } from './sample-data';
+import { narrowView, type LandingFloor } from './floor-data';
 import { onVisible, type Landing } from './use-landing';
 
-const NARROW_VIEW = '140 60 480 680';
 const HERO_CYCLE = ['available', 'occupied', 'preparing', 'available', 'ready', 'reserved', 'available', 'occupied', 'payment', 'available', 'cleaning', 'available'];
 const FEED = [
   { i: 7, state: 'ordering', title: 'Ordering by QR', meta: 'Menu opened in the browser' },
@@ -43,14 +43,14 @@ export function useNarrow() {
   return narrow;
 }
 
-export function Hero({ L }: { L: Landing }) {
+export function Hero({ L, floor }: { L: Landing; floor: LandingFloor }) {
   const { l, num, clock, arrow, reduced } = L;
-  const tables = SAMPLE.floor.tables;
+  const tables = floor.tables;
   const plan = useMemo(() => ({
-    ...SAMPLE.floor,
-    zones: SAMPLE.floor.zones.map((z) => ({ ...z, label: l(z.label) })),
-    objects: SAMPLE.floor.objects.map((o) => ({ ...o, label: l(o.label) })),
-  }), [l]);
+    width: floor.width, height: floor.height,
+    zones: floor.zones.map((z) => ({ ...z, label: l(z.label) })),
+    objects: floor.objects.map((o) => ({ ...o, label: l(o.label) })),
+  }), [l, floor]);
   const narrow = useNarrow();
   const tableAt = (i: number) => tables[((i % tables.length) + tables.length) % tables.length]!;
   const seatIndex = (i: number) => ((i % tables.length) + tables.length) % tables.length;
@@ -116,7 +116,7 @@ export function Hero({ L }: { L: Landing }) {
           <div className="lp-stage-body">
             <div className="lp-stage-floor">
               <div id="hero-floor">
-                <svg className="lp-floor-svg" viewBox={narrow ? NARROW_VIEW : `0 0 ${plan.width} ${plan.height}`} role="group" aria-label={l('Live floor plan of the restaurant')}>
+                <svg className="lp-floor-svg" viewBox={narrow ? narrowView(floor) : `0 0 ${plan.width} ${plan.height}`} role="group" aria-label={l('Live floor plan of the restaurant')}>
                   <FloorSceneContent layout={{ ...plan, background: null, tables: sceneTables }} mode="operations"
                     seatsLabel={(n) => `${num(n)} ${l('seats')}`} onTableActivate={(id) => { const i = tables.findIndex((t) => t.id === id); if (i >= 0) setDetail(i); }}
                     tableAria={(t) => `${t.label}, ${num(t.capacity)} ${l('seats')}, ${l(STATE_WORD[t.state ?? 'available'] ?? 'Open')}`} classOf={(id) => (id === pulse ? 'is-pulse' : undefined)} />

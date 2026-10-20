@@ -8,7 +8,7 @@ import marks from './brand-marks';
 import logos from './company-logos';
 import { LINKS } from './links';
 import { BUSINESS_CARD, cardAmount, type LandingPlan } from './plans';
-import { SAMPLE } from './sample-data';
+import type { LandingFloor } from './floor-data';
 import type { Landing } from './use-landing';
 
 export type { LandingPlan } from './plans';
@@ -205,14 +205,14 @@ function CountUp({ value, num, animate }: { value: number; num: (n: number) => s
 }
 
 const HERO_CYCLE = ['available', 'occupied', 'preparing', 'available', 'ready', 'reserved', 'available', 'occupied', 'payment', 'available', 'cleaning', 'available'];
-export function Cta({ L, ownT }: { L: Landing; ownT: (k: string) => string }) {
+export function Cta({ L, ownT, floor }: { L: Landing; ownT: (k: string) => string; floor: LandingFloor }) {
   const { l, arrow, num } = L;
-  const tables = SAMPLE.floor.tables.map((x, i) => ({ ...x, minSpendMinor: null, internalNotes: null, state: HERO_CYCLE[i % HERO_CYCLE.length] })) as SceneTable[];
+  const tables = floor.tables.map((x, i) => ({ ...x, minSpendMinor: null, internalNotes: null, state: HERO_CYCLE[i % HERO_CYCLE.length] })) as SceneTable[];
   return (
     <section className="lp-cta">
       <div className="lp-cta-floor" aria-hidden>
-        <svg viewBox={`0 0 ${SAMPLE.floor.width} ${SAMPLE.floor.height}`}>
-          <FloorSceneContent layout={{ ...SAMPLE.floor, zones: SAMPLE.floor.zones.map((z) => ({ ...z, label: l(z.label) })), objects: SAMPLE.floor.objects.map((o) => ({ ...o, label: l(o.label) })), background: null, tables }}
+        <svg viewBox={`0 0 ${floor.width} ${floor.height}`}>
+          <FloorSceneContent layout={{ width: floor.width, height: floor.height, zones: floor.zones.map((z) => ({ ...z, label: l(z.label) })), objects: floor.objects.map((o) => ({ ...o, label: l(o.label) })), background: null, tables }}
             mode="operations" seatsLabel={(n) => `${num(n)} ${l('seats')}`} />
         </svg>
       </div>

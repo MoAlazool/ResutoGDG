@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { LandingPage } from '@/components/landing/LandingPage';
+import { landingFloorFrom, SAMPLE_FLOOR, type LandingFloor } from '@/components/landing/floor-data';
+import { DEMO_SLUG } from '@/components/landing/links';
 import { landingPlansFrom, type LandingPlan } from '@/components/landing/plans';
 import { getT } from '@/lib/i18n/server';
 
@@ -39,8 +41,18 @@ async function loadPlans(): Promise<LandingPlan[] | null> {
   }
 }
 
+/** The demo restaurant's saved floor for the hero and closing banner (audit VP-12); the recorded sample if unavailable. */
+async function loadFloor(): Promise<LandingFloor> {
+  try {
+    const res = await fetch(`${API}/v1/public/floor/${encodeURIComponent(DEMO_SLUG)}/main`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(3000) });
+    return res.ok ? landingFloorFrom(await res.json()) : SAMPLE_FLOOR;
+  } catch {
+    return SAMPLE_FLOOR;
+  }
+}
+
 export default async function Home() {
-  const plans = await loadPlans();
+  const [plans, floor] = await Promise.all([loadPlans(), loadFloor()]);
   const { t } = await getT();
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -56,7 +68,7 @@ export default async function Home() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
-      <LandingPage plans={plans} />
+      <LandingPage plans={plans} floor={floor} />
     </>
   );
 }
