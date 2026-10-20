@@ -10,6 +10,7 @@ import { DbService } from '../src/common/db/db.service';
 import { OrdersKernelService } from '../src/modules/kernel/orders-kernel.service';
 import { CHECKOUT_PORT, type CheckoutPort } from '../src/modules/kernel/ports';
 import { PaymentProvidersService } from '../src/modules/payments/providers.service';
+import { PaymentWebhooksService } from '../src/modules/payments/webhooks.service';
 import { auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant } from './helpers';
 import { connect, inbox, paymobSignature, paymobTxn, scriptHealth, scriptProviders, stripeSignature, type Scripted } from './payments-fixtures';
 
@@ -153,6 +154,11 @@ describe('Stripe webhooks through the real controller', () => {
     return { order, session, csId, payment: await attemptOf(session.id) };
   }
 
+  /** Stripe's payment intent as read with the merchant key when a refund event is confirmed (metadata set at checkout). */
+  const scriptPaymentIntent = (pi: string, paymentId: string, amount: number, refunded: number) =>
+    s.on('GET', `https://api.stripe.com/v1/payment_intents/${pi}`, () => ({ body: { id: pi, amount, currency: 'egp', livemode: false,
+      metadata: { resuto_payment_id: paymentId }, latest_charge: { id: `ch_${pi}`, amount_refunded: refunded } } }));
+
   beforeAll(async () => {
     s.reset(); scriptHealth(s);
     k = await tenantWithMenu();
@@ -224,7 +230,9 @@ describe('Stripe webhooks through the real controller', () => {
     const { order, csId, payment } = await startStripe();
     const paid = completed(csId, order.totalMinor);
     expect((await send(paid, stripeSignature(secret, paid))).body.outcome).toBe('applied');
-    const refunded = JSON.stringify({ id: evt(), type: 'charge.refunded', livemode: false, data: { object: { id: 'ch_1', payment_intent: `pi_${csId}`, amount: order.totalMinor, amount_refunded: 1000, currency: 'egp' } } });
+    // The body's cumulative amount is not trusted: the payment intent read with the merchant key says 1000.
+    scriptPaymentIntent(`pi_${csId}`, payment.id, order.totalMinor, 1000);
+    const refunded = JSON.stringify({ id: evt(), type: 'charge.refunded', livemode: false, data: { object: { id: 'ch_1', payment_intent: `pi_${csId}`, amount: order.totalMinor, amount_refunded: order.totalMinor, currency: 'egp' } } });
     expect((await send(refunded, stripeSignature(secret, refunded))).body.outcome).toBe('refund_applied');
     expect(await orderRow(order.id)).toMatchObject({ refunded_minor: 1000, payment_status: 'partially_refunded' });
     const [r] = await sql(`select status, source, amount_minor from refunds where payment_id = $1`, [payment.id]);
@@ -240,6 +248,21 @@ describe('Stripe webhooks through the real controller', () => {
     expect((await send(dispute, stripeSignature(secret, dispute))).body.outcome).toBe('dispute_recorded');
     const [d] = await sql(`select kind, details from payment_alerts where payment_id = $1 and kind = 'dispute'`, [payment.id]);
     expect(d.details).toMatchObject({ disputeId: 'dp_1', opened: true });
+  });
+
+  it('a refund delivered BEFORE the success it reverses is retried, then applied once the success lands (reordered delivery)', async () => {
+    const { order, csId, payment } = await startStripe();
+    scriptPaymentIntent(`pi_${csId}`, payment.id, order.totalMinor, 700);
+    const refunded = JSON.stringify({ id: evt(), type: 'charge.refunded', livemode: false, data: { object: { id: 'ch_r', payment_intent: `pi_${csId}`, amount: order.totalMinor, amount_refunded: 700, currency: 'egp' } } });
+    const early = await send(refunded, stripeSignature(secret, refunded));
+    expect(early.status).toBe(503); // the provider retries; nothing was applied
+    expect((await sql(`select status, refunded_minor from payments where id = $1`, [payment.id]))[0]).toEqual({ status: 'pending', refunded_minor: 0 });
+    const paid = completed(csId, order.totalMinor);
+    expect((await send(paid, stripeSignature(secret, paid))).body.outcome).toBe('applied');
+    // The inbox worker (or the provider's retry) now applies the refund exactly once.
+    await t.app.get(PaymentWebhooksService).retryPending();
+    expect((await send(refunded, stripeSignature(secret, refunded))).body).toEqual({ received: true, duplicate: true });
+    expect((await sql(`select status, refunded_minor from payments where id = $1`, [payment.id]))[0]).toEqual({ status: 'partially_refunded', refunded_minor: 700 });
   });
 
   it('failure after success and expiry after success never undo a settled payment', async () => {

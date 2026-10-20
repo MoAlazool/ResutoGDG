@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { TenantContext } from '../../common/auth/context';
 import { DbService } from '../../common/db/db.service';
+import { IdempotencyService } from '../../common/platform/idempotency.service';
+import { WebhookInboxService } from '../../common/platform/webhook-inbox.service';
 import { OnDomainEvent, Scheduled, type OutboxEvent } from '../../common/events/events';
 import { CheckoutService } from './checkout.service';
 import { StaffPaymentsService } from './staff-payments.service';
@@ -12,7 +14,25 @@ import { StaffPaymentsService } from './staff-payments.service';
  */
 @Injectable()
 export class PaymentsJobs {
-  constructor(private readonly checkout: CheckoutService, private readonly staff: StaffPaymentsService, private readonly db: DbService) {}
+  constructor(
+    private readonly checkout: CheckoutService,
+    private readonly staff: StaffPaymentsService,
+    private readonly db: DbService,
+    private readonly inbox: WebhookInboxService,
+    private readonly idempotency: IdempotencyService,
+  ) {}
+
+  /** PAY-18 / PS-24: provider webhook inbox retention (every provider's rows; processed 90 d, rejected 7 d, failed 180 d). */
+  @Scheduled('platform.webhook_inbox_retention', 3600)
+  purgeInbox() {
+    return this.inbox.purge();
+  }
+
+  /** PS-24: client idempotency keys are kept for the retry window (7 days). */
+  @Scheduled('platform.idempotency_retention', 3600)
+  purgeIdempotencyKeys() {
+    return this.idempotency.purge();
+  }
 
   @Scheduled('payments.expire_checkouts', 60)
   expireCheckouts() {

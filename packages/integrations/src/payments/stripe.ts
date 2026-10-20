@@ -105,8 +105,10 @@ function eventFrom(e: any): PaymentEvent {
   const livemode = typeof e?.livemode === 'boolean' ? e.livemode : null;
   if (type.startsWith('checkout.session.')) return sessionEvent(type, o, livemode);
   if (type === 'charge.refunded') {
+    // Re-read through the payment intent (authenticated): its metadata names the Resuto payment even when the refund
+    // arrives before the success that would have recorded the payment intent id (reordered delivery, PAY-11).
     return { kind: 'payment_refunded', providerPaymentId: piOf(o?.payment_intent) ?? o?.id ?? null, refundedMinor: Number(o?.amount_refunded ?? 0),
-      amountMinor: Number(o?.amount), currency: String(o?.currency ?? '').toUpperCase(), livemode };
+      amountMinor: Number(o?.amount), currency: String(o?.currency ?? '').toUpperCase(), livemode, needsConfirmation: !!piOf(o?.payment_intent) };
   }
   if (type === 'refund.updated' || type === 'refund.created' || type === 'charge.refund.updated') {
     // A refund object: its cumulative effect is read from the payment intent before applying.
@@ -225,14 +227,18 @@ export const stripeAdapter: PaymentAdapter = {
     return eventFrom(payload);
   },
 
-  /** Refund objects report one refund; the cumulative refunded amount comes from the payment intent's charge. */
+  /**
+   * Refund events: the cumulative refunded amount comes from the payment intent's latest charge, and the Resuto
+   * payment from the payment intent's metadata (set at checkout) — both read with the merchant's key.
+   */
   async confirmEvent(ctx, ev) {
     if (ev.kind !== 'payment_refunded' || !ev.providerPaymentId) return { ...ev, needsConfirmation: false };
     const pi = await providerRequest<any>('stripe', ctx, `${STRIPE_API}/v1/payment_intents/${encodeURIComponent(ev.providerPaymentId)}?expand[]=latest_charge`, { headers: auth(ctx) });
     if (typeof pi?.livemode === 'boolean' && pi.livemode !== (ctx.environment === 'live')) throw new ProviderError('stripe', 'Payment intent environment does not match the connection', false);
     const charge = typeof pi?.latest_charge === 'object' ? pi.latest_charge : null;
+    const reference = typeof pi?.metadata?.resuto_payment_id === 'string' ? pi.metadata.resuto_payment_id : null;
     return { ...ev, refundedMinor: Number(charge?.amount_refunded ?? 0), amountMinor: Number(pi?.amount), currency: String(pi?.currency ?? ev.currency ?? '').toUpperCase(),
-      livemode: typeof pi?.livemode === 'boolean' ? pi.livemode : ev.livemode, needsConfirmation: false };
+      livemode: typeof pi?.livemode === 'boolean' ? pi.livemode : ev.livemode, reference, needsConfirmation: false };
   },
 
   async retrieveStatus(ctx, ref) {

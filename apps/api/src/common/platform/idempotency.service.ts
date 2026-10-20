@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { fingerprint } from '../crypto/hash';
 import { DbService, type Tx } from '../db/db.service';
-import { Scheduled } from '../events/events';
 import { conflict } from '../errors/domain-error';
 
 /** Client retries happen within minutes; keys are kept a week, then purged (PS-24). */
@@ -36,8 +35,7 @@ export class IdempotencyService {
     return result;
   }
 
-  /** Removes keys past the retry window (PS-24). */
-  @Scheduled('platform.idempotency_retention', 3600)
+  /** Removes keys past the retry window (PS-24). Scheduled by PaymentsJobs (payments.jobs.ts). */
   async purge(now = new Date()) {
     const rows = await this.db.withPlatform((tx) => tx.query<{ n: number }>(
       `with gone as (

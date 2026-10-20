@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { Scheduled } from '../events/events';
 
 export interface InboxRecord {
   id: string;
@@ -79,8 +78,10 @@ export class WebhookInboxService {
     await this.db.withPlatform((tx) => tx.query(`update webhook_inbox set alerted_at = now() where id = $1`, [id]));
   }
 
-  /** Deletes inbox rows past retention: processed/ignored after 90 days, rejected after 7, failed after 180. */
-  @Scheduled('platform.webhook_inbox_retention', 3600)
+  /**
+   * Deletes inbox rows past retention: processed/ignored after 90 days, rejected after 7, failed after 180.
+   * Scheduled by PaymentsJobs (payments.jobs.ts) for every provider's rows.
+   */
   async purge(now = new Date()) {
     const rows = await this.db.withPlatform((tx) => tx.query<{ n: number }>(
       `with gone as (

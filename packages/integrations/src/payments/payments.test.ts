@@ -126,7 +126,7 @@ describe('stripe', () => {
     expect(k('checkout.session.async_payment_failed', session)).toMatchObject({ kind: 'payment_failed', failureReason: 'async_payment_failed' });
     expect(k('checkout.session.expired', session)).toMatchObject({ kind: 'payment_expired', livemode: true });
     expect(k('charge.refunded', { id: 'ch_1', payment_intent: 'pi_1', amount: 10000, amount_refunded: 2500, currency: 'egp' }))
-      .toMatchObject({ kind: 'payment_refunded', providerPaymentId: 'pi_1', refundedMinor: 2500 });
+      .toMatchObject({ kind: 'payment_refunded', providerPaymentId: 'pi_1', refundedMinor: 2500, needsConfirmation: true });
     expect(k('refund.updated', { id: 're_1', payment_intent: 'pi_1', status: 'succeeded', amount: 2500, currency: 'egp' }))
       .toMatchObject({ kind: 'payment_refunded', providerRefundId: 're_1', needsConfirmation: true });
     expect(k('charge.dispute.created', { id: 'dp_1', payment_intent: 'pi_1', amount: 10000, status: 'needs_response', currency: 'egp' }))
@@ -170,6 +170,14 @@ describe('stripe', () => {
     expect(f.calls).toHaveLength(0);
     expect(stripeAdapter.credentialEnvironment({ secretKey: 'rk_live_1' })).toBe('live');
     expect(stripeAdapter.credentialEnvironment({ secretKey: 'whsec_1' })).toBeNull();
+  });
+
+  it('confirms refund events through the payment intent: cumulative refund and the Resuto payment from its metadata', async () => {
+    const f = fakeFetch([{ body: { id: 'pi_1', amount: 10000, currency: 'egp', livemode: false, metadata: { resuto_payment_id: 'pay_ref_1' }, latest_charge: { id: 'ch_1', amount_refunded: 3000 } } }]);
+    const c = ctx(f.fn, { secretKey: 'sk_test_1', webhookSecret: 'whsec_1' });
+    const ev = stripeAdapter.parseEvent({ id: 'e', type: 'charge.refunded', livemode: false, data: { object: { id: 'ch_1', payment_intent: 'pi_1', amount: 10000, amount_refunded: 9999, currency: 'egp' } } });
+    expect(await stripeAdapter.confirmEvent!(c, ev)).toMatchObject({ kind: 'payment_refunded', refundedMinor: 3000, reference: 'pay_ref_1', needsConfirmation: false });
+    expect(f.calls[0]!.url).toBe('https://api.stripe.com/v1/payment_intents/pi_1?expand[]=latest_charge');
   });
 
   it('expires sessions, resolves refunds by key and reports the account', async () => {
