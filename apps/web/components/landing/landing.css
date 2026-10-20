@@ -379,7 +379,7 @@ body.lp-locked{overflow:hidden}
 .lp-scr-tabs span{font-size:11px;font-weight:650;padding:6px 11px;border-radius:99px;background:#0c26200d;color:var(--brand-muted-2)}
 .lp-scr-tabs .is-on{background:var(--brand-ink);color:#F7F4EC}
 .lp-photo{display:block;width:52px;height:52px;flex:0 0 52px;border-radius:12px;background:#E7E3D8;background-size:266.667% 400%;background-position:var(--px) var(--py)}
-.lp-media-on .lp-photo{background-image:url('/landing/menu-photography.webp')}
+.lp-media-on .lp-photo{background-image:url('/brand/menu-photography.webp')}
 .lp-scr-dish{display:flex;align-items:center;gap:11px;padding:9px;background:#fff;border:1px solid var(--brand-line-soft);border-radius:15px;animation:lp-rise .45s var(--ease) backwards}
 .lp-scr-dish:nth-child(4){animation-delay:.06s}.lp-scr-dish:nth-child(5){animation-delay:.12s}
 .lp-scr-dish div{min-width:0;flex:1}

@@ -17,7 +17,7 @@ const NAV_LINKS: Array<[string, string]> = [['#studio', 'Floor Studio'], ['#serv
 
 export function Wordmark({ rtl }: { rtl: boolean }) {
   return rtl
-    ? <img className="lp-logo-ar" src="/landing/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} />
+    ? <img className="lp-logo-ar" src="/brand/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} />
     : <><span className="lp-logo-mark" aria-hidden>r</span><span className="lp-logo-type">resuto<i>.</i></span></>;
 }
 
