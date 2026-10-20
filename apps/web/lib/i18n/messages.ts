@@ -1,0 +1,77 @@
+// All dictionaries (both locales). Import this only on the server (getT, layouts) or where both locales are really
+// needed; client components get their messages from LocaleProvider (lib/i18n/client.tsx), which receives just the
+// active locale and the route group's scope, so the dictionaries are not part of any shared client bundle.
+//
+// The module has no top-level side effects (merging is lazy), so a client file that imports only constants from
+// '@/lib/i18n' does not drag the dictionaries in.
+import { common } from './dict/common';
+import { compliance } from './dict/compliance';
+import { connect } from './dict/connect';
+import { core } from './dict/core';
+import { driver } from './dict/driver';
+import { finance } from './dict/finance';
+import { insights } from './dict/insights';
+import { intelligence } from './dict/intelligence';
+import { marketing } from './dict/marketing';
+import { mcp } from './dict/mcp';
+import { pay } from './dict/pay';
+import { platform } from './dict/platform';
+import { studio } from './dict/studio';
+import { formatMessage } from './format-message';
+import type { Locale, Messages } from './locale';
+
+const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp];
+
+let merged: Record<Locale, Messages> | null = null;
+function all(): Record<Locale, Messages> {
+  if (!merged) {
+    const m: Record<Locale, Messages> = { en: {}, ar: {} };
+    for (const p of PARTS) { Object.assign(m.en, p.en); Object.assign(m.ar, p.ar); }
+    merged = m;
+  }
+  return merged;
+}
+
+/** Both locales, merged across modules (raw: Arabic entries do not include English fallbacks). */
+export const dictionaries: Record<Locale, Messages> = {
+  get en() { return all().en; },
+  get ar() { return all().ar; },
+};
+
+/** Translate with {name} interpolation and plurals; falls back to English, then the key. */
+export function translate(locale: Locale, key: string, vars?: Record<string, string | number>): string {
+  const d = all();
+  return formatMessage(d[locale][key] ?? d.en[key] ?? key, locale, vars);
+}
+
+/**
+ * Message scopes per route group. Guest pages (QR table, ordering, booking, payment, restaurant site) receive only
+ * the shared and guest namespaces; staff route groups add the rest. The landing page reads its own copy
+ * (platform.lp.*) and is excluded from both. lib/i18n/scopes.test.ts checks that every key the guest routes use is
+ * covered.
+ */
+export const GUEST_SCOPE: RegExp[] = [
+  /^app\./, /^action\./, /^state\./, /^lang\./, /^err\./, /^plural\./,
+  /^core\.(guest|bill|status|res|web|dietary|feature|method|channel|payment)\./,
+  /^pay\./, /^connect\.order\./, /^connect\.sandbox/, /^studio\.site\./, /^platform\.(?!lp\.)/,
+];
+const LANDING = /^platform\.lp\./;
+export type MessageScope = 'guest' | 'staff';
+export const inScope = (key: string, scope: MessageScope) =>
+  !LANDING.test(key) && (scope === 'guest' ? GUEST_SCOPE.some((r) => r.test(key)) : !GUEST_SCOPE.some((r) => r.test(key)));
+
+const scoped = new Map<string, Messages>();
+/** The messages a route group's client components need, for one locale, with English fallbacks applied. */
+export function messagesFor(locale: Locale, scope: MessageScope): Messages {
+  const cacheKey = `${locale}|${scope}`;
+  let out = scoped.get(cacheKey);
+  if (!out) {
+    const d = all();
+    out = {};
+    for (const key of new Set([...Object.keys(d.en), ...Object.keys(d.ar)])) {
+      if (inScope(key, scope)) out[key] = d[locale][key] ?? d.en[key]!;
+    }
+    scoped.set(cacheKey, out);
+  }
+  return out;
+}

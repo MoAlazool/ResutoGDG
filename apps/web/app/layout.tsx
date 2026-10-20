@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { LocaleProvider } from '@/lib/i18n/client';
+import { messagesFor } from '@/lib/i18n/messages';
 import { getLocale } from '@/lib/i18n/server';
-import { SessionProvider } from '@/lib/session';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -14,14 +14,16 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: '#173f36', width: 'device-width', initialScale: 1 };
 
+/**
+ * Root layout: document language/direction and the shared + guest messages for the active locale only.
+ * Staff route groups add their namespaces and the session in their own layouts (components/shell/StaffProviders).
+ */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   return (
     <html lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
       <body>
-        <LocaleProvider locale={locale}>
-          <SessionProvider>{children}</SessionProvider>
-        </LocaleProvider>
+        <LocaleProvider locale={locale} messages={messagesFor(locale, 'guest')}>{children}</LocaleProvider>
       </body>
     </html>
   );
