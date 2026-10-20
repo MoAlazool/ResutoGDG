@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CommonModule } from '../src/common/common.module';
 import { DbService } from '../src/common/db/db.service';
-import { EventDispatcher } from '../src/common/events/dispatcher.service';
+import { EventDispatcher, TIMED_OUT_HOLD_FACTOR, timedOutHoldUntil } from '../src/common/events/dispatcher.service';
 import { onceForEvent } from '../src/common/events/effects';
 import { OnDomainEvent, Scheduled, type OutboxEvent } from '../src/common/events/events';
 import { sql } from './helpers';
@@ -32,6 +32,10 @@ class LeaseHandlers {
   /** Cannot be cancelled: keeps running 300 ms after its 120 ms timeout. */
   @OnDomainEvent('lease.hang', 'order.cancelled', { timeoutMs: 120 })
   async hang(e: OutboxEvent) { count(`hang-start:${e.aggregateId}`); await sleep(420); count(`hang-done:${e.aggregateId}`); }
+
+  /** Cannot be cancelled: fails 200 ms after its 120 ms timeout. */
+  @OnDomainEvent('lease.hangfail', 'order.status_changed', { timeoutMs: 120 })
+  async hangFail(e: OutboxEvent) { count(`hangfail-start:${e.aggregateId}`); await sleep(320); throw new Error('provider said no, late'); }
 
   /** Sends a "message" exactly once even though the first attempt stops right after committing it. */
   @OnDomainEvent('lease.effect', 'order.paid')
@@ -143,6 +147,33 @@ describe('outbox claims are leased', () => {
     await da.tick();
     expect(runs.get(`hang-start:${agg}`)).toBe(1);
     expect((await outbox(id)).published_at).not.toBeNull();
+  });
+
+  // Review finding: the hold used to end at the first retry time (30 s), so a handler still working after its 30 s
+  // timeout (two provider calls of ~45 s each) could run next to its own retry.
+  it('a timed-out run holds its lease for several timeouts even when the retry is due sooner', () => {
+    const now = Date.UTC(2026, 9, 20);
+    const retry = new Date(now + 30_000);
+    expect(timedOutHoldUntil(now, retry, 30_000).getTime()).toBe(now + TIMED_OUT_HOLD_FACTOR * 30_000); // 150 s, not 30 s
+    expect(timedOutHoldUntil(now, retry, 1_000).getTime()).toBe(retry.getTime()); // never shorter than the retry time
+  });
+
+  it('a timed-out run that later fails frees its lease, so the retry is not held back', async () => {
+    const agg = uid('hangfail');
+    const id = await publish(agg, 'order.status_changed');
+    await da.tick();
+    const failed = await handling(id, 'lease.hangfail');
+    expect(failed).toMatchObject({ status: 'failed', attempts: 1 });
+    expect(new Date(failed.lease_until).getTime()).toBeGreaterThan(Date.now());
+    await sleep(400);
+    const after = await handling(id, 'lease.hangfail');
+    expect(after).toMatchObject({ status: 'failed', attempts: 1, lease_until: null });
+    // its retry runs once due (here: made due now)
+    await sql(`update event_handlings set next_attempt_at = now() where event_id = $1`, [id]);
+    await sql(`update outbox_events set available_at = now() where id = $1`, [id]);
+    await da.tick();
+    expect(runs.get(`hangfail-start:${agg}`)).toBe(2);
+    await sleep(400);
   });
 
   it('a failed handler waits for its own retry time even when the event comes back earlier for another handler', async () => {

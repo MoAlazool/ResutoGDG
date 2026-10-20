@@ -25,6 +25,16 @@ const JOB_POLL_MAX_SECONDS = 60;
 const BATCH_LEASE_MS = 5 * 60_000;
 const backoffSeconds = (attempt: number) => Math.min(30 * 2 ** (attempt - 1), 6 * 3600);
 const secs = (ms: number) => Math.ceil(ms / 1000);
+/**
+ * A timed-out run cannot be cancelled and may still be working (a provider call can take ~45 s with its retries).
+ * Its lease is kept for at least this many timeouts, even when the retry is due sooner, and is released as soon as
+ * the run settles (a late success is recorded, a late failure frees the retry). Only a run still going after that
+ * hold can overlap its retry; a process that died simply lets the lease expire.
+ */
+export const TIMED_OUT_HOLD_FACTOR = 5;
+export function timedOutHoldUntil(now: number, retryAt: Date, timeoutMs: number): Date {
+  return new Date(Math.max(retryAt.getTime(), now + TIMED_OUT_HOLD_FACTOR * timeoutMs));
+}
 
 class TimeoutError extends Error {}
 function withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
@@ -39,8 +49,9 @@ function withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T>
  *
  * Any number of worker loops may run side by side (separate worker, RUN_WORKER_IN_PROCESS, overlapping deploys,
  * replicas): event claims are leases with a claim token, each handler run is leased in event_handlings, and scheduled
- * jobs are claimed through job_leases. A handler or job that exceeds its timeout counts as failed; its lease is kept
- * until the retry time so the (uncancellable) run cannot overlap a retry, and a late success is still recorded.
+ * jobs are claimed through job_leases. A handler or job that exceeds its timeout counts as failed; its lease is held
+ * (timedOutHoldUntil) so the uncancellable run cannot overlap a retry or an admin replay, and a late success is still
+ * recorded.
  */
 @Injectable()
 export class EventDispatcher implements OnApplicationBootstrap {
@@ -166,11 +177,11 @@ export class EventDispatcher implements OnApplicationBootstrap {
       const dead = attempt >= MAX_ATTEMPTS;
       const next = new Date(Date.now() + backoffSeconds(attempt) * 1000);
       const message = (error as Error)?.message?.slice(0, 1000) ?? String(error);
-      // A timed-out run may still be going: keep its lease until the retry so the two can never overlap.
+      // A timed-out run may still be going: hold its lease (see timedOutHoldUntil) so it cannot overlap the retry.
       await this.finish(event.id, h.name, token, { status: dead ? 'dead' : 'failed', error: message, next: dead ? null : next,
-        leaseUntil: timedOut ? next : null });
+        leaseUntil: timedOut ? timedOutHoldUntil(Date.now(), next, h.timeoutMs) : null });
       if (timedOut) {
-        work.then(() => this.lateSuccess(event.id, h.name, token), () => undefined).catch(() => undefined);
+        work.then(() => this.lateSuccess(event.id, h.name, token), () => this.lateFailure(event.id, h.name, token)).catch(() => undefined);
       }
       this.logger.warn(`${h.name} failed for ${event.type} ${event.id} (attempt ${attempt}, request ${store.requestId}): ${message}`);
       return dead ? null : next;
@@ -190,6 +201,14 @@ export class EventDispatcher implements OnApplicationBootstrap {
       `update event_handlings set status = 'succeeded', last_error = null, next_attempt_at = null, lease_until = null, updated_at = now()
         where event_id = $1 and handler = $2 and claim_token = $3 and status in ('failed', 'dead')`, [eventId, handler, token]))
       .catch((e) => this.logger.warn(`could not record late success of ${handler} for ${eventId}: ${(e as Error).message}`));
+  }
+
+  /** A run that timed out has now failed for good: free its lease so the retry can start at its own time. */
+  private async lateFailure(eventId: string, handler: string, token: string) {
+    await this.db.withPlatform((tx) => tx.query(
+      `update event_handlings set lease_until = null, updated_at = now()
+        where event_id = $1 and handler = $2 and claim_token = $3 and status in ('failed', 'dead')`, [eventId, handler, token]))
+      .catch((e) => this.logger.warn(`could not release the lease of ${handler} for ${eventId}: ${(e as Error).message}`));
   }
 
   /**
