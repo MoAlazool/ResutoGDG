@@ -9,6 +9,7 @@ import { dateTime, money, pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import '../../t/[qr]/_guest/guest.css';
 import { FloorMap, type MapState } from './_map/FloorMap';
+import { MetaPixel } from '@/lib/tracking/MetaPixel';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -114,6 +115,7 @@ export default function ReservePage() {
 
   return (
     <main className="g-app">
+      <MetaPixel slug={slug} />
       <div className="g-wrap">
         <header className="g-top">
           <div className="g-brand"><strong>{info ? pick(locale, info.org.name, info.org.nameAr) : ''}</strong><small>{t('core.res.title')}</small></div>

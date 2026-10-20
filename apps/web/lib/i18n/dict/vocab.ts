@@ -167,6 +167,9 @@ const enActions: Record<string, string> = {
   'integration.account_selected': 'Ad account chosen',
   'marketing.ad_campaign_launching': 'Ad campaign launch started',
   'marketing.ad_campaign_launch_reset': 'Stuck ad launch cleared',
+  'marketing.meta_test_event': 'Meta test event sent',
+  'marketing.audience_dry_run': 'Meta audience dry run reviewed',
+  'connect.meta_page_connected': 'Facebook Page / Instagram account connected',
 };
 
 const arActions: Record<string, string> = {
@@ -331,6 +334,9 @@ const arActions: Record<string, string> = {
   'integration.account_selected': 'اختير حساب إعلاني',
   'marketing.ad_campaign_launching': 'بدأ إطلاق حملة إعلانية',
   'marketing.ad_campaign_launch_reset': 'أُلغي إطلاق إعلاني معلّق',
+  'marketing.meta_test_event': 'أُرسل حدث اختبار إلى ميتا',
+  'marketing.audience_dry_run': 'رُوجعت تجربة جمهور ميتا',
+  'connect.meta_page_connected': 'رُبطت صفحة فيسبوك / حساب إنستغرام',
 };
 
 const enEntities: Record<string, string> = {

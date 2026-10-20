@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getT } from '@/lib/i18n/server';
+import { MetaPixel } from '@/lib/tracking/MetaPixel';
 import { canonicalUrl, loadSite } from './_components/load-site';
 import { SiteView } from './_components/SiteView';
 import { jsonLdScript, loc, pickName, restaurantJsonLd } from './_components/site-utils';
@@ -39,6 +40,7 @@ export default async function RestaurantSite({ params }: Params) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(restaurantJsonLd(site, canonicalUrl(site), locale)) }} />
       <a className="sr-only" href="#main">{t('studio.site.skip')}</a>
+      <MetaPixel slug={slug} />
       <SiteView site={site} locale={locale} t={t} hostLinks={onCustomHost ? { home: '/', order: '/order', reserve: '/reserve' } : undefined} />
     </>
   );

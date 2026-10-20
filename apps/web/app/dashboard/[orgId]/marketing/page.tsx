@@ -8,8 +8,9 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { AudienceDryRunButton, MetaTracking } from './MetaTracking';
 
-type TabKey = 'campaigns' | 'segments' | 'promotions' | 'links' | 'recommendations';
+type TabKey = 'campaigns' | 'segments' | 'promotions' | 'links' | 'recommendations' | 'meta';
 interface Segment { id: string; name: string; memberCount: number; source: string; definition: SegmentGroup; lastComputedAt: string | null }
 interface Campaign {
   id: string; name: string; objective: string; channel: string; status: string; segmentId: string | null; content: Record<string, any>; utmCampaign: string;
@@ -25,12 +26,13 @@ export default function MarketingPage() {
   return (
     <ModuleGate module="marketing" permission="marketing:read">
       <PageHeader title={t('marketing.title')} subtitle={t('marketing.subtitle')} />
-      <Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />
+      <Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations', 'meta'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />
       {tab === 'campaigns' && <Campaigns />}
       {tab === 'segments' && <Segments />}
       {tab === 'promotions' && <Promotions />}
       {tab === 'links' && <Links />}
       {tab === 'recommendations' && <Recommendations onApplied={() => setTab('campaigns')} />}
+      {tab === 'meta' && <MetaTracking />}
     </ModuleGate>
   );
 }
@@ -133,7 +135,8 @@ function Segments() {
           { key: 'name', header: t('marketing.seg.name'), render: (s) => <><strong>{s.name}</strong> {s.source !== 'manual' && <Badge>{t(`marketing.source.${s.source}`)}</Badge>}</> },
           { key: 'n', header: t('marketing.seg.members'), align: 'end', render: (s) => <span className="num">{s.memberCount}</span> },
           { key: 'at', header: t('marketing.seg.computed'), render: (s) => dateTime(s.lastComputedAt, locale) },
-          { key: 'a', header: '', align: 'end', render: (s) => can('marketing:write') && <button className="btn btn-sm btn-ghost" disabled={refresh.pending} onClick={() => refresh.run(s.id)}>{t('marketing.seg.refresh')}</button> },
+          { key: 'a', header: '', align: 'end', render: (s) => can('marketing:write') && <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+            <button className="btn btn-sm btn-ghost" disabled={refresh.pending} onClick={() => refresh.run(s.id)}>{t('marketing.seg.refresh')}</button><AudienceDryRunButton segmentId={s.id} /></div> },
         ]} />
       )}
     </div>

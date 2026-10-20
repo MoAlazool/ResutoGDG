@@ -6,6 +6,7 @@ import { Notice, Skeleton } from '@resuto/ui';
 import { api } from '@/lib/api';
 import { money, pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
+import { MetaPurchase } from '@/lib/tracking/MetaPixel';
 import { StatusTimeline } from '../../../../t/[qr]/_guest/menu-ui';
 
 interface Tracked {
@@ -31,6 +32,7 @@ export default function TrackPage() {
 
   return (
     <main className="g-app">
+      <MetaPurchase slug={slug} orderRef={ref} ready={order?.paymentStatus === 'paid'} />
       <div className="g-wrap">
         <header className="g-top"><Link href={`/order/${slug}`} className="btn btn-ghost btn-sm">← {t('core.web.backToMenu')}</Link><LanguageToggle /></header>
         {error && <Notice tone="danger">{error}</Notice>}

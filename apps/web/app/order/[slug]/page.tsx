@@ -6,6 +6,7 @@ import { Notice, Skeleton } from '@resuto/ui';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { money, pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
+import { MetaPixel, metaOrderPlaced, metaTrack } from '@/lib/tracking/MetaPixel';
 import { CartLines, estimate, MenuBrowser, productIndex, ProductSheet, Sheet, Totals, useCart, type QuoteView } from '../../t/[qr]/_guest/menu-ui';
 
 type WebMenu = PublicMenu & { payment: { payAtPickup: boolean; cashOnDelivery: boolean; online: boolean } };
@@ -48,6 +49,7 @@ function OrderInner() {
 
   return (
     <main className="g-app">
+      <MetaPixel slug={slug} view="ViewContent" />
       <div className="g-wrap">
         <header className="g-top">
           <div className="g-brand"><strong>{pick(locale, menu.org.name, menu.org.nameAr)}</strong><small>{t('core.web.onlineOrdering')}</small></div>
@@ -80,16 +82,16 @@ function OrderInner() {
       </div>
       <div className="g-dock">
         <div className="g-dock-inner">
-          <button className="btn btn-primary" disabled={!cart.count || !canOrder} onClick={() => setCheckout(true)}>{t('core.web.checkout')}</button>
+          <button className="btn btn-primary" disabled={!cart.count || !canOrder} onClick={() => { metaTrack(slug, 'InitiateCheckout'); setCheckout(true); }}>{t('core.web.checkout')}</button>
           <span className="g-dock-total">{money(estimate(cart, products), currency, locale)}</span>
           <span className="g-count">{cart.count}</span>
         </div>
       </div>
       {product && <ProductSheet product={product} currency={currency} onClose={() => setProduct(null)}
-        onAdd={(qty, mods, notes) => { cart.add(product.id, qty, mods, notes); setProduct(null); }} />}
+        onAdd={(qty, mods, notes) => { cart.add(product.id, qty, mods, notes); metaTrack(slug, 'AddToCart', { content_ids: [product.id], content_type: 'product' }); setProduct(null); }} />}
       {checkout && (
         <CheckoutSheet slug={slug} menu={menu} fulfillment={fulfillment} cart={cart} products={products} onClose={() => setCheckout(false)}
-          onDone={(ref, url) => { cart.clear(); if (url) window.location.href = url; else router.push(`/order/${slug}/track/${ref}`); }} />
+          onDone={(ref, url) => { cart.clear(); metaOrderPlaced(slug, ref); if (url) window.location.href = url; else router.push(`/order/${slug}/track/${ref}`); }} />
       )}
     </main>
   );

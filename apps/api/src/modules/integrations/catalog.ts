@@ -81,6 +81,19 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
     ],
   },
   meta_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'adAccountId', label: 'Ad account id (act_…)', secret: false, required: true }] },
+  // INT-20: one Pixel / dataset per restaurant. Test connections (environment sandbox) need the Test Events code.
+  meta_capi: {
+    credentials: [{ key: 'accessToken', label: 'Conversions API access token', labelKey: 'intg.field.capiToken', secret: true, required: true }],
+    config: [
+      { key: 'pixelId', label: 'Pixel (dataset) id', labelKey: 'intg.field.pixelId', secret: false, required: true, pattern: '^\\d{6,20}$' },
+      { key: 'testEventCode', label: 'Test Events code (test connections only)', labelKey: 'intg.field.testEventCode', secret: false, required: false,
+        pattern: '^TEST[A-Za-z0-9]{1,30}$', hint: 'Events Manager > Test events. Leave empty on the live connection.', hintKey: 'intg.field.testEventCodeHint' },
+      { key: 'codPurchase', label: 'Cash orders count as Purchase', labelKey: 'intg.field.codPurchase', secret: false, required: false, kind: 'select',
+        options: ['on_completion', 'never'] },
+      { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select',
+        options: ['on', 'off'] },
+    ],
+  },
   tiktok_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'advertiserId', label: 'Advertiser id', secret: false, required: true }] },
   snapchat_ads: {
     credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }, { key: 'refreshToken', label: 'Refresh token', secret: true, required: false }],

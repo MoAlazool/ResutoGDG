@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, Headers, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
   adInsightsSync, CAMPAIGN_STATUSES, campaignInput, campaignUpdate, launchCampaign, promotionInput, promotionUpdate, rejectCampaign, resetCampaignLaunch, scheduleCampaign, segmentInput,
-  segmentPreview, segmentUpdate, trackingLinkInput,
+  metaTrackingContext, segmentPreview, segmentUpdate, trackingLinkInput,
 } from '@resuto/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -12,6 +12,7 @@ import { zod } from '../../common/http/zod.pipe';
 import { ENV, type Env } from '../../config/env';
 import { CampaignsService } from './campaigns.service';
 import { TrackingLinksService } from './links.service';
+import { MetaTrackingService } from './meta-tracking.service';
 import { PromotionsService } from './promotions.service';
 import { RecommendationsService } from './recommendations.service';
 import { SegmentsService } from './segments.service';
@@ -26,6 +27,7 @@ export class MarketingController {
     private readonly campaigns: CampaignsService,
     private readonly links: TrackingLinksService,
     private readonly recommendations: RecommendationsService,
+    private readonly tracking: MetaTrackingService,
   ) {}
 
   // Segments -------------------------------------------------------------------
@@ -182,6 +184,21 @@ export class MarketingController {
   applyRecommendation(@Tenant() ctx: TenantContext, @Param('key') key: string) {
     return this.recommendations.apply(ctx, z.string().regex(/^[a-z0-9_]{1,60}$/).parse(key));
   }
+
+  // Meta Pixel + Conversions API (INT-20) and Custom Audience dry run (INT-22) ---------------------------------
+  @Get('tracking/meta')
+  @RequirePermission('marketing:read')
+  metaTracking(@Tenant() ctx: TenantContext) { return this.tracking.diagnostics(ctx); }
+
+  @Post('tracking/meta/test-event')
+  @RequirePermission('marketing:write')
+  metaTestEvent(@Tenant() ctx: TenantContext, @Req() req: Request) {
+    return this.tracking.sendTestEvent(ctx, typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null);
+  }
+
+  @Post('segments/:id/meta-audience/dry-run')
+  @RequirePermission('marketing:write')
+  audienceDryRun(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.tracking.audienceDryRun(ctx, id); }
 }
 
 /** Public tracking-link resolution (web route /l/[code] redirects to `destination`). */
@@ -194,5 +211,34 @@ export class PublicLinksController {
   click(@Param('code') code: string, @Req() req: Request) {
     this.limiter.hit(`link:${req.ip}`, 120);
     return this.links.click(code);
+  }
+}
+
+/** Meta Pixel on the restaurant website (INT-20): config, the consented order context and the browser Purchase decision. */
+@Controller('public/tracking/:slug')
+export class PublicTrackingController {
+  constructor(private readonly tracking: MetaTrackingService, private readonly limiter: RateLimiter) {}
+
+  @Get()
+  @Public()
+  config(@Param('slug') slug: string, @Req() req: Request) {
+    this.limiter.hit(`tracking:cfg:${req.ip}`, 240);
+    return this.tracking.publicConfig(slug);
+  }
+
+  @Post('orders/:ref/context')
+  @Public()
+  @HttpCode(200)
+  context(@Param('slug') slug: string, @Param('ref') ref: string, @Body(zod(metaTrackingContext)) body: z.infer<typeof metaTrackingContext>, @Req() req: Request) {
+    this.limiter.hit(`tracking:ctx:${req.ip}`, 30);
+    const ua = req.headers['user-agent'];
+    return this.tracking.recordOrderContext(slug, ref, body, { ip: req.ip ?? null, userAgent: typeof ua === 'string' ? ua : null });
+  }
+
+  @Get('orders/:ref/purchase')
+  @Public()
+  purchase(@Param('slug') slug: string, @Param('ref') ref: string, @Req() req: Request) {
+    this.limiter.hit(`tracking:pur:${req.ip}`, 120);
+    return this.tracking.publicPurchase(slug, ref);
   }
 }

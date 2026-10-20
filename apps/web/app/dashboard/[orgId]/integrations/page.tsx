@@ -160,6 +160,8 @@ const fieldValid = (f: FieldSpec, v: string | undefined) => {
   return !f.pattern || new RegExp(f.pattern).test(v);
 };
 const regionKey = (url: string) => `intg.region.${new URL(url).host.split('.')[0]}`;
+/** Select options are either region URLs (Paymob) or plain values (Meta CAPI: on_completion, never, on, off). */
+const optionKey = (o: string) => (/^https?:\/\//.test(o) ? regionKey(o) : `intg.option.${o}`);
 
 /** Provider-declared credential and settings fields (INT-06): localized labels, formats checked before submit. */
 function ProviderFields({ provider, fields, values, onChange, touched }: {
@@ -173,7 +175,7 @@ function ProviderFields({ provider, fields, values, onChange, touched }: {
     if (f.kind === 'select' && f.options) {
       return (
         <SelectField key={f.key} label={label} hint={hint} value={values[f.key] || f.options[0]} onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}>
-          {f.options.map((o) => <option key={o} value={o}>{tx(regionKey(o), o)}</option>)}
+          {f.options.map((o) => <option key={o} value={o}>{tx(optionKey(o), o)}</option>)}
         </SelectField>
       );
     }

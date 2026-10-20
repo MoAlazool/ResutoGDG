@@ -21,7 +21,15 @@ export interface CspOptions {
   dev: boolean;
   apiUrl?: string;
   supabaseUrl?: string;
+  /**
+   * Restaurant website pages (INT-20): the Meta Pixel, which runs only after the guest consents, sends its events to
+   * www.facebook.com. Its script is loaded by trusted (nonce'd) code, so script-src needs nothing extra ('strict-dynamic').
+   * Staff pages never get this.
+   */
+  metaPixel?: boolean;
 }
+
+export const META_PIXEL_CONNECT = ['https://www.facebook.com', 'https://connect.facebook.net'];
 
 const originOf = (url: string | undefined) => {
   try { return url ? new URL(url).origin : null; } catch { return null; }
@@ -43,7 +51,7 @@ export function buildCsp(o: CspOptions): string {
     "style-src 'self' 'unsafe-inline'",
     list("img-src 'self' data: blob: https:", api, supabase),
     "font-src 'self' data:",
-    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:'),
+    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : [])),
     list("media-src 'self' blob: https:", api),
     "worker-src 'self' blob:",
     "manifest-src 'self'",

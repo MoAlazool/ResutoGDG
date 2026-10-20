@@ -153,6 +153,18 @@ export const trackingLinkInput = z.object({
 }).strict();
 export type TrackingLinkInput = z.infer<typeof trackingLinkInput>;
 
+// ---------------------------------------------------------------------------
+// Meta Pixel + Conversions API (INT-20): what the guest's browser shares after consenting, for one web order.
+// ---------------------------------------------------------------------------
+export const metaTrackingContext = z.object({
+  consentVersion: z.string().regex(/^[a-z0-9.-]{1,20}$/),
+  fbp: z.string().regex(/^fb\.[0-2]\.\d{10,13}\.\d{1,20}$/).nullable().optional(),
+  fbc: z.string().max(600).regex(/^fb\.[0-2]\.\d{10,13}\.[A-Za-z0-9_-]{8,}$/).nullable().optional(),
+  /** The https page the order was placed on (event_source_url). */
+  pageUrl: z.string().max(1000).regex(/^https?:\/\/[^\s]+$/).nullable().optional(),
+}).strict();
+export type MetaTrackingContext = z.infer<typeof metaTrackingContext>;
+
 export const ATTRIBUTION_DISCLAIMER =
   'Last-touch attribution: an order counts for a campaign when the customer’s most recent tracked touch (link click or campaign message) came from it. ' +
   'This is correlation, not incremental lift — some of these customers would have ordered anyway.';
