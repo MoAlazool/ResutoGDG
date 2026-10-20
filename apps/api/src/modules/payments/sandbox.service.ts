@@ -48,6 +48,10 @@ export class SandboxProviderService {
           [r.id, refunded, refunded === r.amount_minor ? 'refunded' : 'partially_refunded', input.idempotencyKey]);
         return { providerRefundId: `sim_re_${input.idempotencyKey.slice(0, 24)}` };
       }),
+      refundState: (input) => run(async (tx) => {
+        const r = await tx.maybeOne<any>('select refunded_minor, refund_keys from payment_sandbox_transactions where provider_payment_id = $1', [input.providerPaymentId]);
+        return r ? { applied: (r.refund_keys as string[]).includes(input.idempotencyKey), refundedMinor: Number(r.refunded_minor) } : null;
+      }),
       list: (range) => run(async (tx) => {
         const rows = await tx.query<any>(
           `select * from payment_sandbox_transactions where org_id = $1 and status <> 'open' and provider_payment_id is not null

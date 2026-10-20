@@ -9,7 +9,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { statusTone } from './tone';
+import { alertRefundMessageKey, statusTone } from './tone';
 
 type Tab = 'payments' | 'links' | 'refunds' | 'reconciliation' | 'cash' | 'alerts';
 
@@ -124,7 +124,10 @@ function RefundsList() {
         { key: 'amount', header: t('pay.dash.col.amount'), align: 'end', render: (r) => <span className="num" dir="ltr">{money(r.amountMinor, r.currency, locale)}</span> },
         { key: 'method', header: t('pay.dash.col.method'), render: (r) => t(`pay.method.${r.method}`) },
         { key: 'reason', header: t('pay.dash.col.reason'), render: (r) => r.reason },
-        { key: 'status', header: t('pay.dash.col.status'), render: (r) => <Badge tone={statusTone(r.status)}>{t(`pay.refund.status.${r.status}`)}</Badge> },
+        { key: 'status', header: t('pay.dash.col.status'), render: (r) => <div className="stack" style={{ gap: 2 }}>
+          <Badge tone={r.outcomeUncertain ? 'warn' : statusTone(r.status)}>{t(`pay.refund.status.${r.status}`)}</Badge>
+          {r.outcomeUncertain && <span className="fine">{t('pay.refund.uncertain')}</span>}
+          {r.source && r.source !== 'resuto' && <span className="fine">{t(`pay.refund.source.${r.source}`)}</span>}</div> },
       ]} />
     </>
   );
@@ -277,20 +280,47 @@ function Alerts() {
   const { call } = useSession();
   const { data, error, loading, reload } = useApi<{ items: any[] }>(`/o/${org.id}/payments/alerts`);
   const resolve = useAction(async (id: string) => { await call(`/o/${org.id}/payments/alerts/${id}/resolve`, { method: 'POST' }); await reload(); });
+  // PAY-08: one-click provider refund of a capture Resuto never applied. The API replays a pending or succeeded refund
+  // and starts a new attempt after a definite failure; the message follows the refund status it returns (F4).
+  const [refunded, setRefunded] = useState<{ id: string; status: string } | null>(null);
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const refundAtProvider = useAction(async (a: any) => {
+    const amount = a.details?.amountMinor ?? a.details?.received?.amountMinor;
+    if (!window.confirm(t('pay.alert.refundConfirm', { amount: amount != null ? money(amount, a.details?.currency ?? org.currency, locale) : '', provider: a.provider ?? '' }))) return;
+    setRefunded(null);
+    setRefundError(null);
+    try {
+      const r = await call<{ status: string }>(`/o/${org.id}/payments/alerts/${a.id}/refund`, { body: { key: `alert-${a.id}` } });
+      setRefunded({ id: a.id, status: r?.status ?? 'failed' });
+    } catch (e: any) {
+      const k = `pay.alert.refundError.${e?.code ?? ''}`;
+      if (t(k) === k) throw e;
+      setRefundError(t(k));
+    }
+    await reload();
+  });
+  const refundable = (a: any) => a.status === 'open' && a.details?.refundable === true && ['late_success', 'duplicate_capture', 'overpayment_conflict', 'deposit_not_due'].includes(a.kind);
+  const actionText = (a: any) => { const k = `pay.alert.action.${a.kind}`; const v = t(k); return v === k ? a.details?.action ?? null : v; };
   if (loading && !data) return <Skeleton lines={4} />;
   if (error) return <Notice tone="danger">{error.message}</Notice>;
   if (!data?.items.length) return <Card><EmptyState title={t('pay.dash.emptyAlerts')} /></Card>;
   return (
     <div className="stack">
+      {refundAtProvider.error && <Notice tone="danger">{refundAtProvider.error}</Notice>}
+      {refundError && <Notice tone="danger">{refundError}</Notice>}
       {data.items.map((a) => (
         <Card key={a.id}>
           <div className="spread">
             <div>
               <strong>{t(`pay.alert.${a.kind}`)}</strong>
-              <div className="fine">{a.provider} · {dateTime(a.createdAt, locale)}{a.paymentId && <> · <Link href={`/dashboard/${org.id}/payments/${a.paymentId}`}>{a.paymentId.slice(0, 8)}</Link></>}</div>
-              {a.details?.action && <p className="fine" style={{ margin: 0 }}>{a.details.action}</p>}
+              <div className="fine"><bdi>{a.provider}</bdi> · {dateTime(a.createdAt, locale)}{a.paymentId && <> · <Link href={`/dashboard/${org.id}/payments/${a.paymentId}`}><bdi dir="ltr">{a.paymentId.slice(0, 8)}</bdi></Link></>}</div>
+              {actionText(a) && <p className="fine" style={{ margin: 0 }}>{actionText(a)}</p>}
+              {refunded && refunded.id === a.id && (() => { const m = alertRefundMessageKey(refunded.status); return <Notice tone={m.tone}>{t(m.key)}</Notice>; })()}
             </div>
-            {can('payments:reconcile') && <button className="btn btn-sm" disabled={resolve.pending} onClick={() => resolve.run(a.id)}>{t('pay.alert.resolve')}</button>}
+            <div className="row" style={{ gap: 6 }}>
+              {refundable(a) && can('payments:refund') && <button className="btn btn-sm btn-danger" disabled={refundAtProvider.pending} onClick={() => refundAtProvider.run(a)}>{t('pay.alert.refundAtProvider')}</button>}
+              {can('payments:reconcile') && <button className="btn btn-sm" disabled={resolve.pending} onClick={() => resolve.run(a.id)}>{t('pay.alert.resolve')}</button>}
+            </div>
           </div>
         </Card>
       ))}

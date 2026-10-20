@@ -10,7 +10,10 @@ import type { ProviderCatalogEntry } from '@resuto/contracts';
  */
 export interface CatalogAdapter {
   descriptor: ProviderDescriptor;
-  healthCheck?: (ctx: providers.AdapterContext) => Promise<{ ok: boolean; details?: Record<string, unknown> }>;
+  healthCheck?: (ctx: providers.AdapterContext) => Promise<{ ok: boolean; details?: Record<string, unknown> } & Partial<providers.HealthCheckResult>>;
+  /** Payment adapters: environment implied by the credentials (documented key prefixes), null when unknown. */
+  credentialEnvironment?: (credentials: Record<string, string>) => 'sandbox' | 'live' | null;
+  setup?: providers.ProviderSetup;
   [key: string]: unknown;
 }
 
@@ -44,7 +47,11 @@ export function adapterFor(provider: string): CatalogAdapter | null {
   return load().get(provider) ?? null;
 }
 
-export interface FieldSpec { key: string; label: string; secret: boolean; required: boolean; hint?: string }
+export interface FieldSpec {
+  key: string; label: string; secret: boolean; required: boolean; hint?: string;
+  /** i18n key of the label (web dictionary), with `label` as the English fallback. */
+  labelKey?: string; hintKey?: string; kind?: 'text' | 'secret' | 'number' | 'select'; pattern?: string; options?: string[]; placeholder?: string;
+}
 
 /**
  * Connection form fields for the providers this module integrates. Providers
@@ -76,8 +83,31 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
   },
 };
 
+/** Payment adapters declare their own connection form (provider-specific credentials, validation patterns, i18n keys) — INT-06. */
+function setupFields(provider: string): { credentials: FieldSpec[]; config: FieldSpec[] } | null {
+  const setup = adapterFor(provider)?.setup;
+  if (!setup || (!setup.credentials.length && !setup.config.length)) return null;
+  const map = (f: providers.SetupField): FieldSpec => ({
+    key: f.key, label: f.label, labelKey: f.labelKey, secret: f.secret, required: f.required, kind: f.kind,
+    ...(f.pattern ? { pattern: f.pattern } : {}), ...(f.options ? { options: f.options } : {}), ...(f.placeholder ? { placeholder: f.placeholder } : {}),
+    ...(f.hintKey ? { hintKey: f.hintKey } : {}),
+  });
+  return { credentials: setup.credentials.map(map), config: setup.config.map(map) };
+}
+
 export const fieldsFor = (provider: string) =>
-  CONNECTION_FIELDS[provider] ?? { credentials: [{ key: 'apiKey', label: 'API key', secret: true, required: false }], config: [] };
+  CONNECTION_FIELDS[provider] ?? setupFields(provider) ?? { credentials: [{ key: 'apiKey', label: 'API key', secret: true, required: false }], config: [] };
+
+/** Where the merchant points the provider's webhooks for one connection, and which events to subscribe (CR-09). */
+export function webhookFor(provider: string, connectionId: string, apiOrigin: string) {
+  const a = adapterFor(provider);
+  if (a?.descriptor.category !== 'payments' || a.descriptor.readiness === 'simulated') return null;
+  return {
+    url: `${apiOrigin.replace(/\/$/, '')}/v1/webhooks/payments/${provider}?c=${connectionId}`,
+    events: a.setup?.webhookEvents ?? [],
+    registeredByMerchant: a.setup?.webhookRegisteredByMerchant ?? true,
+  };
+}
 
 /** "accessToken …4f2a" — enough to recognise a credential, never enough to use it. */
 export function credentialsHint(credentials: Record<string, string>): string | null {

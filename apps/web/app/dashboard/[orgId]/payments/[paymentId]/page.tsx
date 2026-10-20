@@ -31,6 +31,8 @@ export default function PaymentDetailPage() {
     setLastRefund(r); setKey(newIdempotencyKey()); setAmount(''); setReason(''); await reload();
   });
   const complete = useAction(async (id: string) => { await call(`/o/${org.id}/payments/refunds/${id}/complete`, { body: {} }); setLastRefund(null); await reload(); });
+  // PAY-05/PAY-12: ask the provider about a pending or unconfirmed refund (never sends a second one blindly).
+  const check = useAction(async (id: string) => { await call(`/o/${org.id}/payments/refunds/${id}/check`, { method: 'POST' }); await reload(); });
   const openReceipt = useAction(async () => setReceipt(await call<ReceiptView>(`/o/${org.id}/payments/${paymentId}/receipt`)));
 
   if (loading && !p) return <Skeleton lines={6} />;
@@ -69,9 +71,11 @@ export default function PaymentDetailPage() {
                 <div key={r.id} className="spread" style={{ borderBottom: '1px solid var(--line-soft)', paddingBottom: 8 }}>
                   <div><strong dir="ltr">{m(r.amountMinor)}</strong> <span className="fine">{r.reason}</span>
                     {r.instructions && r.status === 'manual_required' && <p className="fine" style={{ margin: 0 }}>{r.instructions}</p>}
-                    {r.failureReason && <p className="fine" style={{ margin: 0, color: 'var(--danger)' }}>{r.failureReason}</p>}</div>
+                    {r.outcomeUncertain && <p className="fine" style={{ margin: 0 }}>{t('pay.refund.uncertain')}</p>}
+                    {r.failureReason && !r.outcomeUncertain && <p className="fine" dir="ltr" style={{ margin: 0, color: 'var(--danger)', textAlign: 'start' }}>{r.failureReason}</p>}</div>
                   <div className="row" style={{ gap: 6 }}>
-                    <Badge tone={statusTone(r.status)}>{t(`pay.refund.status.${r.status}`)}</Badge>
+                    <Badge tone={r.outcomeUncertain ? 'warn' : statusTone(r.status)}>{t(`pay.refund.status.${r.status}`)}</Badge>
+                    {r.status === 'pending' && can('payments:refund') && <button className="btn btn-sm" disabled={check.pending} onClick={() => check.run(r.id)}>{t('pay.refund.check')}</button>}
                     {r.status === 'manual_required' && can('payments:refund') && <button className="btn btn-sm" disabled={complete.pending} onClick={() => complete.run(r.id)}>{t('pay.detail.complete')}</button>}
                   </div>
                 </div>
@@ -79,6 +83,7 @@ export default function PaymentDetailPage() {
             </div>
           )}
           {complete.error && <Notice tone="danger">{complete.error}</Notice>}
+          {check.error && <Notice tone="danger">{check.error}</Notice>}
           {can('payments:refund') && p.refundableMinor > 0 ? (
             <>
               <p className="fine">{t('pay.detail.refundable', { amount: m(p.refundableMinor) })} · {p.refundMode === 'provider' ? t('pay.detail.refundProvider', { provider: p.provider }) : t('pay.detail.refundManual')}</p>

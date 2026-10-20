@@ -96,6 +96,26 @@ export function constantTimeEqual(a: string, b: string): boolean {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
+/** The provider account a credential set belongs to, as reported by the provider (shown so the owner can confirm it is theirs). */
+export interface AccountIdentity {
+  id?: string | null;
+  name?: string | null;
+  country?: string | null;
+  currency?: string | null;
+}
+
+/**
+ * Result of an adapter health check: a cheap authenticated call proving the
+ * credentials work. `environment` is the mode the provider evidence shows
+ * (key prefix or account response); a mismatch with the connection fails the check.
+ */
+export interface HealthCheckResult {
+  ok: boolean;
+  details?: Record<string, unknown>;
+  account?: AccountIdentity | null;
+  environment?: 'sandbox' | 'live' | null;
+}
+
 /** Result of verifying and parsing an inbound webhook. */
 export interface VerifiedWebhook<T = unknown> {
   valid: boolean;

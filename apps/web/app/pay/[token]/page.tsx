@@ -43,6 +43,19 @@ export default function HostedCheckoutPage() {
 
   useEffect(() => { void load(returning); }, [load, returning]);
 
+  // PAY-14: providers append transaction fields (Paymob: the signed fields plus hmac) to the return URL. They are never
+  // used (the API re-checks with the provider), so drop them from the address bar and history right away.
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if ([...u.searchParams.keys()].some((k) => k !== 'return' && k !== 'cancelled')) {
+        const keep = new URLSearchParams();
+        for (const k of ['return', 'cancelled']) { const v = u.searchParams.get(k); if (v) keep.set(k, v); }
+        window.history.replaceState(window.history.state, '', `${u.pathname}${keep.size ? `?${keep}` : ''}`);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   // While an attempt is in flight, keep asking the API (which asks the provider).
   useEffect(() => {
     if (view?.status !== 'processing' || polls > 40) return;
@@ -70,12 +83,19 @@ export default function HostedCheckoutPage() {
   }
 
   const m = (v: number) => money(v, view?.currency ?? 'EGP', locale);
+  // PAY-20: guests only see fixed, localized messages keyed by the API's error code — never provider text.
+  const errorText = (e: ApiRequestError) => {
+    if (e.status === 404) return t('pay.notFound');
+    const key = `pay.error.${e.code}`;
+    const v = t(key);
+    return v === key ? t('pay.error.generic') : v;
+  };
   const merchant = view ? pick(locale, view.merchant.name, view.merchant.nameAr) : null;
 
   if (!view) {
     return (
       <PayFrame>
-        <div className="pay-card">{error ? <Notice tone="danger">{error.status === 404 ? t('pay.notFound') : error.message}</Notice> : <Skeleton lines={5} />}</div>
+        <div className="pay-card">{error ? <Notice tone="danger">{errorText(error)}</Notice> : <Skeleton lines={5} />}</div>
       </PayFrame>
     );
   }
@@ -98,11 +118,15 @@ export default function HostedCheckoutPage() {
     );
   }
 
-  const failed = view.attempt && ['failed', 'expired'].includes(view.attempt.status);
+  // A decline inside a provider checkout that stays open (PAY-07) is shown too; the guest may retry on the provider page.
+  const failure = view.attempt && (['failed', 'expired', 'cancelled'].includes(view.attempt.status) || view.attempt.failureReason === 'declined') ? view.attempt.failureReason ?? 'declined' : null;
+  const failureKey = `pay.failure.${failure}`;
+  const failureText = failure ? (t(failureKey) === failureKey ? t('pay.failedNote') : t(failureKey)) : null;
+  const failed = !!failure && view.attempt?.status !== 'cancelled';
   const selected = view.methods.find((x) => x.method === method);
   return (
     <PayFrame merchant={merchant} sandbox={view.sandbox}>
-      {failed && !offline && <div style={{ width: '100%', maxWidth: 440, marginBottom: 12 }}><Notice tone="warn">{t('pay.failedTitle')} — {t('pay.failedNote')}</Notice></div>}
+      {failed && !offline && <div style={{ width: '100%', maxWidth: 440, marginBottom: 12 }}><Notice tone="warn">{t('pay.failedTitle')} — {failureText}</Notice></div>}
       <section className="pay-card rise">
         <div className="overline">{t('pay.amountDue')}</div>
         <div className="pay-amount" dir="ltr">{m(view.amountMinor)}</div>
@@ -135,7 +159,7 @@ export default function HostedCheckoutPage() {
               ))}
             </div>
             {selected?.kind === 'online' && <Field label={t('pay.payerName')} value={payerName} maxLength={60} autoComplete="name" onChange={(e) => setPayerName(e.target.value)} />}
-            {error && <Notice tone="danger">{error.message}</Notice>}
+            {error && <Notice tone="danger">{errorText(error)}</Notice>}
             <button className="btn btn-primary btn-block" disabled={!method || pending} onClick={start} style={{ marginTop: 8 }}>
               {pending ? t('pay.redirecting') : selected?.kind === 'offline' ? t('pay.continue') : t('pay.payNow', { amount: m(view.amountMinor) })}
             </button>

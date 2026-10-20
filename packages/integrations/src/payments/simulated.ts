@@ -8,9 +8,10 @@
 // `store` object the API passes in AdapterContext.config, so reconciliation and
 // refunds work against a real provider-side record.
 import { randomBytes } from 'node:crypto';
-import { constantTimeEqual, hmacHex, type AdapterContext, type ProviderDescriptor } from '../core';
+import { hmacHex, type AdapterContext, type ProviderDescriptor } from '../core';
+import { hexDigestEquals, isHexDigest } from './signature';
 import {
-  header, rawText, rejected, safeJson,
+  header, rawText, redactProviderPayload, rejected, safeJson,
   type CheckoutRequest, type PaymentAdapter, type PaymentEvent, type ProviderTransaction, type RefundRequest, type WebhookInput,
 } from './types';
 
@@ -21,6 +22,8 @@ export interface SimulatedStore {
   get(providerSessionId: string): Promise<null | { status: 'open' | 'succeeded' | 'failed' | 'expired' | 'refunded' | 'partially_refunded'; providerPaymentId: string | null; reference: string; amountMinor: number; currency: string; feeMinor: number }>;
   open(input: { providerSessionId: string; reference: string; amountMinor: number; currency: string }): Promise<void>;
   refund(input: { providerPaymentId: string; amountMinor: number; idempotencyKey: string }): Promise<{ providerRefundId: string } | { error: string }>;
+  /** Whether a refund with this key was applied, and the cumulative refunded amount. */
+  refundState(input: { providerPaymentId: string; idempotencyKey: string }): Promise<null | { applied: boolean; refundedMinor: number }>;
   list(range: { from: Date; to: Date }): Promise<ProviderTransaction[]>;
 }
 
@@ -61,7 +64,10 @@ function toEvent(body: SimulatedEventBody): PaymentEvent {
   const kind = body.type === 'payment.succeeded' ? 'payment_succeeded' : body.type === 'payment.failed' ? 'payment_failed' : 'payment_expired';
   return {
     kind, providerSessionId: d.session_id, providerPaymentId: d.payment_id, reference: d.reference,
-    amountMinor: d.amount_minor, currency: String(d.currency).toUpperCase(), feeMinor: d.fee_minor ?? 0, failureReason: d.failure_reason ?? null,
+    amountMinor: d.amount_minor, currency: String(d.currency).toUpperCase(), feeMinor: d.fee_minor ?? 0,
+    failureReason: kind === 'payment_failed' ? 'declined' : kind === 'payment_expired' ? 'expired' : null,
+    providerMessage: d.failure_reason ?? null,
+    livemode: typeof body.livemode === 'boolean' ? body.livemode : null,
   };
 }
 
@@ -75,6 +81,21 @@ export const simulatedAdapter: PaymentAdapter = {
   descriptor: simulatedDescriptor,
   methods: ['card', 'wallet'],
   requiredCredentials: ['webhookSecret'],
+  sessionSurvivesDecline: false,
+  setup: {
+    credentials: [],
+    config: [],
+    webhookEvents: [],
+    webhookRegisteredByMerchant: false,
+    capabilities: {
+      checkout: { implemented: true, note: 'Resuto-hosted test page; no money moves.' },
+      webhooks: { implemented: true }, status_query: { implemented: true }, refunds: { implemented: true }, refund_status: { implemented: true },
+      cancel_checkout: { implemented: false }, transaction_listing: { implemented: true }, health_check: { implemented: true },
+    },
+    docs: {},
+  },
+
+  credentialEnvironment: () => 'sandbox',
 
   async createCheckout(ctx: AdapterContext, req: CheckoutRequest) {
     if (ctx.environment !== 'sandbox') throw new Error('The simulated provider only runs in sandbox mode');
@@ -99,11 +120,14 @@ export const simulatedAdapter: PaymentAdapter = {
     const t = Number(parts.t);
     const now = input.nowSeconds ?? Math.floor(Date.now() / 1000);
     if (!Number.isFinite(t) || !parts.v1) return rejected('missing signature');
+    if (!isHexDigest(parts.v1, 32)) return rejected('malformed signature');
     if (Math.abs(now - t) > SIMULATED_TOLERANCE_SECONDS) return rejected('timestamp outside tolerance');
     const raw = rawText(input.rawBody);
-    if (!constantTimeEqual(hmacHex('sha256', secret, `${t}.${raw}`), parts.v1)) return rejected('signature mismatch');
+    if (!hexDigestEquals(hmacHex('sha256', secret, `${t}.${raw}`), parts.v1, 32)) return rejected('signature mismatch');
     const body = safeJson(raw) as SimulatedEventBody | null;
     if (!body?.id || !body.data) return rejected('malformed payload');
+    // The simulated provider only ever signs test-mode events.
+    if (body.livemode !== false) return rejected('simulated events must be livemode:false');
     return { valid: true, eventKey: body.id, event: toEvent(body) };
   },
 
@@ -125,7 +149,20 @@ export const simulatedAdapter: PaymentAdapter = {
     return 'error' in r ? { status: 'failed', providerRefundId: null, failureReason: r.error } : { status: 'succeeded', providerRefundId: r.providerRefundId };
   },
 
+  async refundStatus(ctx, req) {
+    const r = await store(ctx).refundState({ providerPaymentId: req.providerPaymentId, idempotencyKey: req.idempotencyKey });
+    if (!r) return { status: 'unknown', failureReason: 'transaction_not_found' };
+    return r.applied ? { status: 'succeeded', providerRefundId: `sim_re_${req.idempotencyKey.slice(0, 24)}`, providerRefundedMinor: r.refundedMinor } : { status: 'not_found', providerRefundedMinor: r.refundedMinor };
+  },
+
   async listTransactions(ctx, range) {
     return store(ctx).list(range);
   },
+
+  async healthCheck(ctx) {
+    if (ctx.environment !== 'sandbox') throw new Error('The simulated provider only runs in sandbox mode');
+    return { ok: true, environment: 'sandbox', account: { id: 'sandbox', name: 'Resuto sandbox', country: null, currency: null }, details: { simulated: true } };
+  },
+
+  redactPayload: (body) => redactProviderPayload(body),
 };

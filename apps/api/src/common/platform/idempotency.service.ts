@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { fingerprint } from '../crypto/hash';
-import type { Tx } from '../db/db.service';
+import { DbService, type Tx } from '../db/db.service';
 import { conflict } from '../errors/domain-error';
+
+/** Client retries happen within minutes; keys are kept a week, then purged (PS-24). */
+export const IDEMPOTENCY_RETENTION_DAYS = 7;
 
 /**
  * Exactly-once effects for client retries: the first call with a key runs and
@@ -11,7 +14,9 @@ import { conflict } from '../errors/domain-error';
  */
 @Injectable()
 export class IdempotencyService {
-  async run<T>(tx: Tx, orgId: string, scope: string, key: string, payload: unknown, fn: () => Promise<T>): Promise<T> {
+  constructor(private readonly db: DbService) {}
+
+  async run<T>(tx: Tx, orgId: string, scope: string, key: string, payload: unknown, fn: () => Promise<T>, statusCode = 200): Promise<T> {
     const hash = fingerprint(payload);
     // Lock the key row (or claim it) so concurrent retries serialize.
     const claimed = await tx.maybeOne<{ request_hash: string }>(
@@ -25,8 +30,19 @@ export class IdempotencyService {
       if (existing.response !== null) return existing.response.value;
     }
     const result = await fn();
-    await tx.query(`update idempotency_keys set response = $4, status_code = 200 where org_id = $1 and scope = $2 and key = $3`,
-      [orgId, scope, key, JSON.stringify({ value: result ?? null })]);
+    await tx.query(`update idempotency_keys set response = $4, status_code = $5 where org_id = $1 and scope = $2 and key = $3`,
+      [orgId, scope, key, JSON.stringify({ value: result ?? null }), statusCode]);
     return result;
+  }
+
+  /** Removes keys past the retry window (PS-24). Scheduled by PaymentsJobs (payments.jobs.ts). */
+  async purge(now = new Date()) {
+    const rows = await this.db.withPlatform((tx) => tx.query<{ n: number }>(
+      `with gone as (
+         delete from idempotency_keys where ctid in (
+           select ctid from idempotency_keys where created_at < $1::timestamptz - make_interval(days => $2) limit 10000)
+         returning 1)
+       select count(*)::int as n from gone`, [now, IDEMPOTENCY_RETENTION_DAYS]));
+    return { deleted: rows[0]?.n ?? 0 };
   }
 }

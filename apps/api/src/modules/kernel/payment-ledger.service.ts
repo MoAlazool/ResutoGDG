@@ -67,6 +67,7 @@ export class PaymentLedgerService {
   async recordSucceeded(tx: Tx, ctx: TenantContext, input: PaymentInput): Promise<PaymentRow> {
     const existing = await this.byIdempotency(tx, ctx.orgId, input.idempotencyKey);
     if (existing) return existing;
+    if (input.provider === 'manual') await this.assertManualCollection(tx, ctx.orgId, input);
     await this.assertApplicable(tx, input, input.amountMinor);
     if (input.method === 'deposit_credit') await this.consumeVisitCredit(tx, input.visitId ?? null, input.amountMinor);
     const p = await this.insert(tx, ctx, input, 'succeeded');
@@ -87,9 +88,16 @@ export class PaymentLedgerService {
    * repeated webhooks for an already-succeeded payment are no-ops. The provider's
    * amount and currency must match what Resuto asked for.
    */
-  async confirm(tx: Tx, ctx: TenantContext, paymentId: string, evidence: { amountMinor: number; currency: string; providerPaymentId?: string | null; feeMinor?: number | null; raw?: Record<string, unknown> }) {
-    const p = await tx.maybeOne<PaymentRow & { provider_payment_id: string | null }>('select * from payments where id = $1 for update', [paymentId]);
+  async confirm(tx: Tx, ctx: TenantContext, paymentId: string, evidence: {
+    amountMinor: number; currency: string; providerPaymentId?: string | null; feeMinor?: number | null; raw?: Record<string, unknown>;
+    /** The environment the verified evidence came from (true = test). A payment is never settled by evidence from the other environment. */
+    isTest?: boolean;
+  }) {
+    const p = await tx.maybeOne<PaymentRow & { provider_payment_id: string | null; is_test: boolean }>('select * from payments where id = $1 for update', [paymentId]);
     if (!p) throw notFound('Payment');
+    if (evidence.isTest !== undefined && evidence.isTest !== p.is_test) {
+      throw conflict('environment_mismatch', `A ${evidence.isTest ? 'test' : 'live'} provider event cannot settle a ${p.is_test ? 'test' : 'live'} payment`);
+    }
     if (p.status === 'succeeded') return { payment: p, applied: false };
     if (p.status !== 'pending' && p.status !== 'requires_action' && p.status !== 'authorized') {
       throw conflict('payment_not_pending', `Payment is ${p.status}`);
@@ -172,6 +180,28 @@ export class PaymentLedgerService {
     return [];
   }
 
+  /**
+   * One rule for every staff collection route (PAY-19): transfer and terminal
+   * payments need the reference staff verified, cash on delivery only applies to
+   * delivery orders, and a transfer reference is recorded once per tenant.
+   */
+  private async assertManualCollection(tx: Tx, orgId: string, input: PaymentInput) {
+    const reference = typeof input.raw?.reference === 'string' ? input.raw.reference.trim() : '';
+    if (['instapay', 'bank_transfer', 'card'].includes(input.method) && !reference) {
+      throw invalid('reference_required', 'Enter the transfer or terminal reference');
+    }
+    if (input.method === 'cod') {
+      const o = input.orderId ? await tx.maybeOne<{ fulfillment: string }>('select fulfillment from orders where id = $1', [input.orderId]) : null;
+      if (!o || o.fulfillment !== 'delivery') throw invalid('cod_requires_delivery', 'Cash on delivery applies to delivery orders only');
+    }
+    if (['instapay', 'bank_transfer'].includes(input.method)) {
+      const dup = await tx.maybeOne<{ id: string }>(
+        `select id from payments where org_id = $1 and provider = 'manual' and method = $2 and lower(raw->>'reference') = lower($3)
+            and status in ('succeeded', 'partially_refunded', 'refunded') limit 1`, [orgId, input.method, reference]);
+      if (dup) throw conflict('duplicate_reference', 'This transfer reference was already recorded for another payment', { paymentId: dup.id });
+    }
+  }
+
   private async assertApplicable(tx: Tx, input: PaymentTarget & { amountMinor?: number; currency?: string; amount_minor?: number }, amount: number, excludePaymentId?: string) {
     if (!Number.isSafeInteger(amount) || amount <= 0) throw invalid('invalid_amount', 'Payment amount must be a positive integer');
     const t: PaymentTarget = {
@@ -179,6 +209,21 @@ export class PaymentLedgerService {
       reservationId: (input as any).reservationId ?? (input as any).reservation_id, shareId: (input as any).shareId ?? (input as any).share_id,
     };
     if (!t.orderId && !t.visitId && !t.reservationId) throw invalid('payment_target_required', 'A payment needs an order, visit or reservation');
+    if (t.reservationId && !t.orderId && !t.visitId) {
+      // Reservation deposits (PAY-17): only while the reservation still takes one, never above what is still due.
+      const r = await tx.maybeOne<{ status: string; deposit_minor: number; deposit_status: string }>(
+        'select status, deposit_minor, deposit_status from reservations where id = $1 for update', [t.reservationId]);
+      if (!r) throw notFound('Reservation');
+      if (!['held', 'pending_deposit', 'confirmed'].includes(r.status) || r.deposit_status !== 'required') {
+        throw new DomainError('overpayment', 'This reservation no longer takes a deposit', 409, { dueMinor: 0, reservationStatus: r.status, depositStatus: r.deposit_status });
+      }
+      const paid = await tx.one<{ s: number }>(
+        `select coalesce(sum(amount_minor - refunded_minor), 0)::bigint as s from payments
+          where reservation_id = $1 and order_id is null and visit_id is null and status in ('succeeded', 'partially_refunded')
+            and ($2::uuid is null or id <> $2)`, [t.reservationId, excludePaymentId ?? null]);
+      const due = Number(r.deposit_minor) - Number(paid.s);
+      if (amount > due) throw new DomainError('overpayment', 'This amount is more than the deposit still due', 409, { dueMinor: Math.max(due, 0) });
+    }
     if (t.orderId || t.visitId) {
       const orders = await this.targetOrders(tx, t, true);
       if (!orders.length && t.orderId) throw notFound('Order');
@@ -249,9 +294,11 @@ export class PaymentLedgerService {
             and not exists (select 1 from bill_shares x where x.split_id = s.id and x.status = 'open')`, [p.share_id]);
     }
     if (p.reservation_id && !p.order_id && !p.visit_id) {
+      // PAY-17: the deposit is "paid" only once the payments cover it (assertApplicable already refused anything above it).
       await tx.query(
-        `update reservations set deposit_status = 'paid', status = case when status = 'pending_deposit' then 'confirmed'::reservation_status else status end
-          where id = $1`, [p.reservation_id]);
+        `update reservations r set deposit_status = 'paid', status = case when r.status = 'pending_deposit' then 'confirmed'::reservation_status else r.status end
+          where r.id = $1 and (select coalesce(sum(amount_minor - refunded_minor), 0) from payments
+            where reservation_id = r.id and order_id is null and visit_id is null and status in ('succeeded', 'partially_refunded')) >= r.deposit_minor`, [p.reservation_id]);
     }
     if (p.checkout_session_id) {
       await tx.query(`update checkout_sessions set status = 'paid', paid_at = now() where id = $1 and status in ('open', 'processing')`, [p.checkout_session_id]);

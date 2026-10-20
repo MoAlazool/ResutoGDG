@@ -21,7 +21,9 @@ export class ReceiptsService {
       id: ref('RC', p.id), paymentId: p.id, status: p.status === 'succeeded' ? 'paid' : p.status, at: new Date(p.captured_at ?? p.created_at).toISOString(),
       currency: p.currency, restaurant: { name: org.name, nameAr: org.name_ar }, branch: branch ? { name: branch.name, nameAr: branch.name_ar } : null,
       amountMinor: p.amount_minor, refundedMinor: p.refunded_minor,
-      payment: { provider: p.provider, method: p.method, mode: p.is_test || p.provider === 'simulated' ? 'test' : 'live', transactionId: ref('TXN', p.provider_payment_id ?? p.id) },
+      payment: { provider: p.provider, method: p.method, mode: p.is_test || p.provider === 'simulated' ? 'test' : 'live', transactionId: ref('TXN', p.provider_payment_id ?? p.id),
+        // Manual collections are staff-verified, never presented as gateway-verified (PAY-19).
+        verification: p.provider === 'manual' || p.provider === 'reservation_deposit' ? 'staff' : 'gateway' },
     } as const;
 
     if (p.reservation_id && !p.order_id && !p.visit_id) {
