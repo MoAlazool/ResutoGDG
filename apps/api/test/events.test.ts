@@ -46,7 +46,8 @@ it('delivers each event once per handler and retries failures with backoff', asy
   expect(seen).toEqual(['ok:o-1']);
   const [h] = await sql(`select status, attempts from event_handlings where handler = 'test.flaky'`);
   expect(h).toMatchObject({ status: 'failed', attempts: 1 });
-  // Make the retry due now and run again: only the failed handler re-runs.
+  // Make the retry due now (the handler's own backoff and the event's) and run again: only the failed handler re-runs.
+  await sql(`update event_handlings set next_attempt_at = now() where handler = 'test.flaky'`);
   await sql(`update outbox_events set available_at = now() where aggregate_id = 'o-1'`);
   await dispatcher.tick();
   expect(seen).toEqual(['ok:o-1', 'flaky:o-1']);

@@ -40,7 +40,7 @@ All services deploy branch `claude/relaxed-mayer-omkl3f`.
 |---|---|
 | `NODE_ENV` | `staging` (refuses `AUTH_DEV_MODE`, requires `SUPABASE_URL` and `CREDENTIALS_KEYS`) |
 | `AUTH_DEV_MODE` | `false` |
-| `DATABASE_URL` | **secret, set by the owner in Render**: Supabase *session pooler* URI (port 5432) with `?sslmode=no-verify`. Session mode is required (scheduled jobs use session advisory locks). |
+| `DATABASE_URL` | **secret, set by the owner in Render**: Supabase *session pooler* URI (port 5432) with `?sslmode=no-verify`. The API holds no session state (per-transaction settings, scheduled jobs claimed through the `job_leases` table), so the transaction pooler (port 6543) also works. |
 | `SUPABASE_URL` | `https://skvnznyfxpxfuzvuipju.supabase.co` (tokens verified with the project JWKS, issuer `<url>/auth/v1`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **secret, set by the owner in Render** (Storage uploads and signed URLs) |
 | `SUPABASE_PUBLISHABLE_KEY` | publishable key (demo loader sign-in only) |

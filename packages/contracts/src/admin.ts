@@ -95,7 +95,8 @@ export interface AdminTenantDetail extends AdminTenantRow {
 export interface AdminOperations {
   generatedAt: string;
   outbox: { unpublished: number; oldestUnpublishedAt: string | null; retrying: number };
-  eventHandlings: { failed: number; dead: number; recent: Array<{ eventId: string; handler: string; status: string; attempts: number; lastError: string | null; eventType: string; orgId: string | null; updatedAt: string }> };
+  /** stuck = handler runs still 'running' after their lease ended (the worker stopped); replayable like dead letters. */
+  eventHandlings: { failed: number; dead: number; stuck: number; recent: Array<{ eventId: string; handler: string; status: string; attempts: number; lastError: string | null; eventType: string; orgId: string | null; updatedAt: string }> };
   webhooks: { failed: number; rejected: number; recent: Array<{ id: string; provider: string; status: string; attempts: number; error: string | null; orgId: string | null; receivedAt: string }> };
   jobs: Array<{ id: number; job: string; status: string; startedAt: string; finishedAt: string | null; error: string | null; stats: Record<string, unknown> }>;
   usage30d: Array<{ metric: string; quantity: number; tenants: number }>;

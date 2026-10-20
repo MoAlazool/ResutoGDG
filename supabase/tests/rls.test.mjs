@@ -228,3 +228,32 @@ test('every function in the app schema runs with a fixed search_path', async () 
       and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')`)).rows;
   assert.deepEqual(rows.map((r) => r.proname), []);
 });
+
+test('outbox side-effect records are tenant-isolated; job leases are worker-only; request ids come from the transaction', async () => {
+  const [e] = (await pool.query(`insert into outbox_events(org_id, aggregate_type, aggregate_id, event_type) values ($1, 'order', 'x', 'order.placed') returning id`, [ids.A.org])).rows;
+  await pool.query(`insert into event_effects(event_id, handler, effect, org_id) values ($1, 'connect.order-placed', 'customer-message', $2)`, [e.id, ids.A.org]);
+  await pool.query(`insert into job_leases(job) values ('rls.test') on conflict do nothing`);
+  const own = await as('resuto_member', { user: ids.A.user, org: ids.A.org }, (c) => c.query('select effect from event_effects where event_id = $1', [e.id]));
+  assert.equal(own.rowCount, 1);
+  const other = await as('resuto_member', { user: ids.B.user, org: ids.B.org }, (c) => c.query('select effect from event_effects where event_id = $1', [e.id]));
+  assert.equal(other.rowCount, 0);
+  const forged = await as('resuto_tenant', { org: ids.B.org }, (c) => c.query('select effect from event_effects where event_id = $1', [e.id]));
+  assert.equal(forged.rowCount, 0);
+  for (const role of ['resuto_member', 'resuto_tenant']) {
+    const leases = await as(role, { user: ids.A.user, org: ids.A.org }, (c) => c.query(`select job from job_leases`).catch((err) => ({ rowCount: 0, err })));
+    assert.equal(leases.rowCount, 0, `${role} reads job_leases`);
+  }
+  await assert.rejects(as('authenticated', { user: ids.A.user }, (c) => c.query('select * from event_effects')), /permission denied/);
+  // DbService sets app.request_id per transaction; outbox and audit rows pick it up by default.
+  const c = await pool.connect();
+  try {
+    await c.query('begin');
+    await c.query(`select set_config('app.request_id', 'req-rls-test-0001', true)`);
+    const [o] = (await c.query(`insert into outbox_events(org_id, aggregate_type, aggregate_id, event_type) values ($1, 'order', 'y', 'order.placed') returning request_id`, [ids.A.org])).rows;
+    const [a] = (await c.query(`insert into audit_logs(org_id, actor_type, actor_id, action) values ($1, 'system', 'test', 'rls.request_id') returning request_id`, [ids.A.org])).rows;
+    assert.deepEqual([o.request_id, a.request_id], ['req-rls-test-0001', 'req-rls-test-0001']);
+  } finally {
+    await c.query('rollback');
+    c.release();
+  }
+});

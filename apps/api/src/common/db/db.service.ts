@@ -3,6 +3,7 @@ import pg from 'pg';
 import { ENV, type Env } from '../../config/env';
 import type { TenantContext } from '../auth/context';
 import { DomainError } from '../errors/domain-error';
+import { requestContext } from '../http/request-context';
 import { pgClientConfig } from './pg-tls';
 
 // int8 (bigint) columns hold money in minor units; values stay far below 2^53,
@@ -163,8 +164,9 @@ export class DbService implements OnModuleDestroy {
         await client.query(
           `select set_config('request.jwt.claims', $1, true), set_config('app.org_id', $2, true), set_config('app.actor', $3, true),
                   set_config('statement_timeout', $4, true), set_config('idle_in_transaction_session_timeout', $5, true),
-                  set_config('jit', $6, true)`,
-          [ctx.userId ? JSON.stringify({ sub: ctx.userId, role: 'authenticated' }) : '', ctx.orgId ?? '', ctx.actor, ...this.txSettings],
+                  set_config('jit', $6, true), set_config('app.request_id', $7, true)`,
+          [ctx.userId ? JSON.stringify({ sub: ctx.userId, role: 'authenticated' }) : '', ctx.orgId ?? '', ctx.actor, ...this.txSettings,
+            requestContext.requestId() ?? ''],
         );
         if (ctx.mode === 'member') await client.query('set local role resuto_member');
         if (ctx.mode === 'tenant') await client.query('set local role resuto_tenant');
