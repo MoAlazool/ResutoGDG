@@ -727,6 +727,9 @@ body.lp-locked{overflow:hidden}
  .lp-studio-sticky{position:static;min-height:0}
  .lp-insights li{opacity:1;transform:none}
  .lp-spark-line polyline{stroke-dashoffset:0}
+ /* The app-wide reduced-motion rule removes animations outright, so show the drawn end state. */
+ .lp .mgr-spark polyline{stroke-dashoffset:0}
+ .lp .mgr-spark polygon{opacity:.13}
 }
 html{scroll-behavior:smooth;scroll-padding-block-start:86px}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

@@ -5,7 +5,7 @@ import { INTL_LOCALE } from '@resuto/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { LINKS } from './links';
 import { createStage } from './stage';
-import type { Landing } from './use-landing';
+import { useKeepReveal, type Landing } from './use-landing';
 
 // ---------------------------------------------------------------- bill
 const ITEMS: Array<[string, number]> = [['Seabass with lemon butter', 34500], ['Hibiscus cooler', 6500], ['Burrata & heirloom tomato', 14500], ['Wild mushroom risotto', 24500], ['Grilled chicken supreme', 28500], ['Chocolate fondant', 12500]];
@@ -19,6 +19,7 @@ export function BillDemo({ L }: { L: Landing }) {
   const [states, setStates] = useState<PayState[]>(PEOPLE.map(() => 'idle'));
   const [settled, setSettled] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const revealed = useKeepReveal(box);
   const paid = states.filter((s) => s === 'paid').length;
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export function BillDemo({ L }: { L: Landing }) {
           <div><span className="lp-chapter-tag">{l('Payments')}</span><h2>{l('The bill stops being the awkward part.')}</h2></div>
           <p>{l('One bill, a private link for each guest. Here four guests split it equally; they can also split by item or by a custom amount.')}</p>
         </div>
-        <div className={`pb${settled ? ' is-settled' : ''}`} id="pay" data-reveal ref={box}>
+        <div className={`pb${settled ? ' is-settled' : ''}${revealed}`} id="pay" data-reveal ref={box}>
           <div className="pb-bill">
             <small>{l('Table')} T5 · {l('Bill')}</small>
             <b className="pb-total"><bdi>{money(TOTAL)}</bdi></b>
@@ -107,6 +108,7 @@ export function ManagerDemo({ L }: { L: Landing }) {
   const [isLive, setLive] = useState(false);
   const [swap, setSwap] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const revealed = useKeepReveal(box);
   const fmt = new Intl.NumberFormat(rtl ? INTL_LOCALE.ar : 'en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
   useEffect(() => {
@@ -146,7 +148,7 @@ export function ManagerDemo({ L }: { L: Landing }) {
           <div><span className="lp-chapter-tag is-dark">{l('Manager view')}</span><h2>{l('The numbers move when the room does.')}</h2></div>
           <p>{l('Revenue, orders, ratings and kitchen load in one place, updating as tables order and pay. The AI manager points at what needs attention.')}</p>
         </div>
-        <div className={`mgr${isLive ? ' is-live' : ''}${swap ? ' is-swap' : ''}`} id="mgr" data-reveal ref={box}>
+        <div className={`mgr${isLive ? ' is-live' : ''}${swap ? ' is-swap' : ''}${revealed}`} id="mgr" data-reveal ref={box}>
           <div className="mgr-tiles" id="mgr-tiles">
             {tiles.map(([id, label, value]) => <article key={`${id}-${m.tick}`} className={m.bump.includes(id) ? 'is-bump' : undefined}><small>{l(label)}</small><strong><bdi>{value}</bdi></strong><Spark v={TRENDS[id]!} /></article>)}
           </div>

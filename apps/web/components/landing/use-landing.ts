@@ -1,6 +1,6 @@
 'use client';
 import { INTL_LOCALE } from '@resuto/contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type RefObject } from 'react';
 import { dictionaries } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/client';
 
@@ -21,6 +21,24 @@ export function useLanding() {
   }, [locale, rtl, reduced]);
 }
 export type Landing = ReturnType<typeof useLanding>;
+
+/**
+ * The page's scroll reveal adds "is-in" to [data-reveal] elements directly. A demo that also sets its own className
+ * (is-live, is-settled) would wipe that class on its next render, and everything keyed on ".is-in" (the KPI
+ * sparklines, VP-13) would vanish again. This keeps " is-in" in the rendered className once the page has added it.
+ */
+export function useKeepReveal(ref: RefObject<HTMLElement | null>): string {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (el.classList.contains('is-in')) { setShown(true); return; }
+    const mo = new MutationObserver(() => { if (el.classList.contains('is-in')) { setShown(true); mo.disconnect(); } });
+    mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+    return () => mo.disconnect();
+  }, [ref]);
+  return shown ? ' is-in' : '';
+}
 
 /** prefers-reduced-motion, read once on mount (the legacy page reloads when it changes). */
 export function useReducedMotionFlag() {

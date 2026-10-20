@@ -100,6 +100,25 @@ function TableDrawing({ o, mode, seatsLabel }: { o: SceneTable; mode: SceneMode;
   );
 }
 
+/** Direction of a label from its first strong character (what dir="auto" does for HTML). */
+export function labelDirection(s: string): 'ltr' | 'rtl' {
+  for (const ch of s) {
+    if (/[֐-ࣿיִ-﷿ﹰ-﻿]/.test(ch)) return 'rtl';
+    if (/\p{L}/u.test(ch)) return 'ltr';
+  }
+  return 'ltr';
+}
+
+/**
+ * A zone caption sits in the zone's top corner on the side its script reads from: Arabic at the top right, Latin at
+ * the top left. The direction is set on the text itself, so an Arabic page (where SVG text inherits direction:rtl and
+ * "start" means the right edge) no longer pushes the caption out past the zone's left edge (VP-13 / VS-08).
+ */
+function ZoneLabel({ label, w, h }: { label: string; w: number; h: number }) {
+  const dir = labelDirection(label);
+  return <text className="zone-label" direction={dir} textAnchor="start" x={dir === 'rtl' ? w / 2 - 24 : -w / 2 + 24} y={-h / 2 + 34}>{label}</text>;
+}
+
 function ObjectDrawing({ o, labelOf }: { o: FloorObject; labelOf: (s: string) => string }): ReactNode {
   const w = o.width, h = o.height, label = labelOf(o.label);
   switch (o.type) {
@@ -108,7 +127,7 @@ function ObjectDrawing({ o, labelOf }: { o: FloorObject; labelOf: (s: string) =>
         <>
           <rect className="zone-surface" x={-w / 2} y={-h / 2} width={w} height={h} rx="28" style={{ ['--zone-color' as string]: o.color ?? '#edf1e8' }} />
           {o.material && o.material !== 'stone' && <rect className={`material-${o.material}`} x={-w / 2} y={-h / 2} width={w} height={h} rx="28" pointerEvents="none" />}
-          <text className="zone-label" x={-w / 2 + 24} y={-h / 2 + 34}>{label}</text>
+          <ZoneLabel label={label} w={w} h={h} />
         </>
       );
     case 'text':
