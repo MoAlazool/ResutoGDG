@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import type { PublicPlansResponse } from '@resuto/contracts';
-import { formatNumber } from '@resuto/contracts';
 import { langAlternates } from '@/components/landing/legacy-routes';
 import { PricingPage } from '@/components/landing/PricingPage';
 import { getLocale } from '@/lib/i18n/server';
-import { faq, fromPrice } from './pricing-model';
+import { faq, formatAmount, fromPrice } from './pricing-model';
 
 const APP_ORIGIN = (process.env.NEXT_PUBLIC_APP_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
 const API = (process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
@@ -26,8 +25,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const [locale, plans] = await Promise.all([getLocale(), loadPlans()]);
   const from = plans ? fromPrice(plans) : null;
   const title = locale === 'ar'
-    ? (from !== null ? `أسعار ريسوتو: خطط تبدأ من ${formatNumber(from, 'ar')} جنيهًا شهريًا` : 'أسعار ريسوتو')
-    : (from !== null ? `Resuto pricing: plans from ${formatNumber(from, 'en')} EGP a month` : 'Resuto pricing');
+    ? (from !== null ? `أسعار ريسوتو: خطط تبدأ من ${formatAmount(from, 'ar')} جنيهًا شهريًا` : 'أسعار ريسوتو')
+    : (from !== null ? `Resuto pricing: plans from ${formatAmount(from, 'en')} EGP a month` : 'Resuto pricing');
   const description = locale === 'ar'
     ? 'خطط ريسوتو للمطاعم في مصر والسعودية: الحجوزات وطلبات QR وشاشة المطبخ وتقسيم الفاتورة، مع تجربة 14 يومًا دون بطاقة. رسوم مزودي الدفع منفصلة.'
     : 'Resuto plans for restaurants in Egypt and Saudi Arabia: reservations, QR ordering, the kitchen board and split bills, with a 14-day trial and no card. Provider fees are billed by the providers, not Resuto.';

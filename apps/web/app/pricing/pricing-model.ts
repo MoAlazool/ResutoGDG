@@ -26,7 +26,7 @@ const FEATURED_FALLBACK_INDEX = 1;
 export interface PricingCard {
   id: string;
   name: string;
-  /** Monthly / yearly amount in whole currency units; null for Business ("Let’s talk"). */
+  /** Monthly / yearly amount in major currency units (exact, may be fractional); null for Business ("Let’s talk"). */
   monthly: number | null;
   yearly: number | null;
   blurb: string;
@@ -37,8 +37,17 @@ export interface PricingCard {
 export interface CompareRow { label: string; detail?: string; cells: Record<string, Cell>; rival: Cell }
 export interface CompareGroup { group: string; rows: CompareRow[] }
 
-const major = (minor: number | null | undefined) => (typeof minor === 'number' ? Math.round(minor / 100) : null);
-const n = (v: number, locale: Locale) => formatNumber(v, locale);
+/**
+ * Minor units (piastres, halalas) to the exact major amount. Never rounded: Saudi module prices such as 8750 halalas
+ * are 87.50 SAR, and the page must show what the quote service invoices.
+ */
+const major = (minor: number | null | undefined) => (typeof minor === 'number' ? minor / 100 : null);
+/** Whole amounts stay as the legacy page printed them ("799"); any fraction shows both minor digits ("87.50"). */
+export const formatAmount = (v: number, locale: Locale) =>
+  formatNumber(v, locale, Number.isInteger(v) ? undefined : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** "87.50 SAR" / "87.50 ريال" from minor units (Build Your Resuto quote lines and totals). */
+export const amountFromMinor = (minor: number, currency: string, locale: Locale) => `${formatAmount(minor / 100, locale)} ${currencyWord(currency, locale)}`;
+const n = (v: number, locale: Locale) => formatAmount(v, locale);
 export const currencyWord = (currency: string, locale: Locale): string =>
   currency === 'SAR' ? pick(locale, ['SAR', 'ريال']) : pick(locale, ['EGP', 'جنيه']);
 /** "799 EGP / month" · "799 جنيه / شهريًا" (legacy card unit). */

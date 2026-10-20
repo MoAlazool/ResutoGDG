@@ -1,7 +1,7 @@
 import { hasEasternDigits, type PublicPlansResponse } from '@resuto/contracts';
 import { describe, expect, it } from 'vitest';
 import { PUBLIC_PLANS_EG } from '../../components/landing/plans.fixture';
-import { addOns, comparison, faq, fromPrice, pricingCards, yearlyIsTenMonths } from './pricing-model';
+import { addOns, amountFromMinor, comparison, faq, formatAmount, fromPrice, pricingCards, yearlyIsTenMonths } from './pricing-model';
 
 const allText = (x: unknown) => JSON.stringify(x);
 
@@ -69,5 +69,44 @@ describe('/pricing model (VP-09, VP-22)', () => {
     expect(names).toEqual(expect.arrayContaining(['Resuto Connect: 400 EGP / month']));
     expect(names.at(-1)).toBe('Premium onboarding and custom integrations: Quoted separately');
     expect(fromPrice(PUBLIC_PLANS_EG)).toBe(799);
+  });
+
+  it('shows fractional prices exactly, never rounded to whole riyals (Saudi module prices in halalas)', () => {
+    // Live SA payload values: driver 8750 and studio 6250 halalas a month are 87.50 and 62.50 SAR.
+    const connect = PUBLIC_PLANS_EG.modules.find((m) => m.key === 'connect')!;
+    const priced = (key: 'driver' | 'studio', name: string, month: number): PublicPlansResponse['modules'][number] => ({
+      ...connect, key, name, nameAr: name,
+      price: { ...connect.price!, amountMinor: month, currency: 'SAR' },
+      prices: { month: { ...connect.prices.month!, amountMinor: month, currency: 'SAR' }, year: { ...connect.prices.year!, amountMinor: month * 10, currency: 'SAR' } },
+    });
+    const sa: PublicPlansResponse = {
+      ...PUBLIC_PLANS_EG, country: 'SA', currency: 'SAR',
+      modules: [...PUBLIC_PLANS_EG.modules, priced('driver', 'ResutoDriver', 8750), priced('studio', 'ResutoStudio', 6250)],
+      plans: PUBLIC_PLANS_EG.plans.map((p) => (p.id === 'starter' ? { ...p, prices: { ...p.prices, month: { ...p.prices.month!, amountMinor: 29950 } } } : p)),
+    };
+    const monthly = addOns(sa, false, 'en').map((a) => `${a.name}: ${a.price}`);
+    const driver = sa.modules.find((m) => m.key === 'driver')!;
+    const studioMod = sa.modules.find((m) => m.key === 'studio')!;
+    expect(monthly).toEqual(expect.arrayContaining([`${driver.name}: 87.50 SAR / month`, `${studioMod.name}: 62.50 SAR / month`]));
+    expect(addOns(sa, true, 'en').map((a) => a.price)).toEqual(expect.arrayContaining(['875 SAR / year', '625 SAR / year']));
+    const rows = comparison(sa, false, 'en').flatMap((g) => g.rows);
+    const driverRow = rows.find((r) => r.label === driver.name)!;
+    const notIncluded = Object.values(driverRow.cells).filter((c) => c.kind === 'text').map((c) => (c as { text: string }).text);
+    expect(notIncluded.length).toBeGreaterThan(0);
+    for (const text of notIncluded) expect(text).toBe('Add-on · 87.50 SAR / month');
+    expect(pricingCards(sa, 'en')[0]!.monthly).toBe(299.5);
+    expect(rows.find((r) => r.label === 'Monthly price')!.cells.starter).toEqual({ kind: 'text', text: '299.50 SAR / month' });
+    expect(fromPrice(sa)).toBe(299.5);
+    expect(faq(sa, 'en')[0]![1]).toMatch(/^Starter is 299\.50 SAR/);
+    expect(allText(addOns(sa, false, 'ar'))).toContain('87.50 ريال / شهريًا');
+    expect(hasEasternDigits(allText([addOns(sa, false, 'ar'), comparison(sa, false, 'ar')]))).toBe(false);
+  });
+
+  it('formats Build Your Resuto quote amounts from minor units without rounding', () => {
+    expect(amountFromMinor(8750, 'SAR', 'en')).toBe('87.50 SAR');
+    expect(amountFromMinor(139950, 'EGP', 'en')).toBe('1,399.50 EGP');
+    expect(amountFromMinor(79900, 'EGP', 'ar')).toBe('799 جنيه');
+    expect(formatAmount(62.5, 'ar')).toBe('62.50');
+    expect(formatAmount(7990, 'en')).toBe('7,990');
   });
 });
