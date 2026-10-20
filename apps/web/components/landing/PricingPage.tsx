@@ -5,13 +5,14 @@
 // switch and Build Your Resuto (priced by the same quote service invoices use).
 import { formatNumber, normalizeNumericInput, type ModuleKey, type PriceQuote, type PublicPlansResponse, type SalesInquiryReceipt } from '@resuto/contracts';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { api, ApiRequestError } from '@/lib/api';
+import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { Switcher, Wordmark } from './Chrome';
 import { LINKS } from './links';
+import { salesPlanId, scrollToHash } from './pricing-helpers';
 import { useLanding } from './use-landing';
 import {
-  BUSINESS_ID, COMPETITOR, MARK, WORD, addOns, amountWithUnit, competitorChecked, comparison, currencyWord, customPlan, faq, freePlan,
+  BUSINESS_ID, COMPETITOR, MARK, WORD, addOns, amountFromMinor, amountWithUnit, competitorChecked, comparison, customPlan, faq, formatAmount, freePlan,
   moduleDetail, perUnit, pick, pluralBranches, pricingCards, yearlyIsTenMonths, type Cell, type Locale, type Pair,
 } from '../../app/pricing/pricing-model';
 import './landing.css';
@@ -35,13 +36,14 @@ function Amount({ value, locale, animate }: { value: number; locale: Locale; ani
     let raf = 0;
     const step = (now: number) => {
       const p = Math.min(1, (now - start) / 520), k = 1 - Math.pow(1 - p, 3);
-      setShown(Math.round(a + (value - a) * k));
+      // Whole numbers while counting; the last frame lands exactly on the price (87.50, not 88).
+      setShown(p < 1 ? Math.round(a + (value - a) * k) : value);
       if (p < 1) raf = requestAnimationFrame(step); else from.current = value;
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [value, animate]);
-  return <b data-amount={value}>{formatNumber(shown, locale)}</b>;
+  return <b data-amount={value}>{formatAmount(shown, locale)}</b>;
 }
 
 function PricingNav({ locale }: { locale: Locale }) {
@@ -75,6 +77,9 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
   const [failed, setFailed] = useState(false);
   const [yearly, setYearly] = useState(false);
   const [focus, setFocus] = useState('growth');
+  /** The plan the visitor actually chose (?plan= or a click), for the sales inquiry; the comparison's focus defaults to Growth. */
+  const [chosen, setChosen] = useState<string | null>(null);
+  const choose = useCallback((id: string) => { setFocus(id); setChosen(id); }, []);
   const [reduced, setReduced] = useState(true);
   const data = byCountry[country] ?? null;
 
@@ -82,8 +87,8 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
   // ?plan=pro highlights that plan's card and comparison column (links from the landing teaser).
   useEffect(() => {
     const wanted = new URLSearchParams(window.location.search).get('plan');
-    if (wanted && /^[a-z0-9_-]{2,40}$/.test(wanted)) setFocus(wanted);
-    if (window.location.hash) document.querySelector(window.location.hash)?.scrollIntoView();
+    if (wanted && /^[a-z0-9_-]{2,40}$/.test(wanted)) { setFocus(wanted); setChosen(wanted); }
+    scrollToHash(window.location.hash);
   }, []);
 
   const load = useCallback(async (which: Country) => {
@@ -154,7 +159,8 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
                         </div>
                         <small className="pr-billed">{sales ? c(['Scoped and quoted separately', 'يحدد النطاق والسعر بالاتفاق'])
                           : yearly ? (ten ? c(['Billed annually · 10 months for 12', 'دفع سنوي · 10 أشهر مقابل 12']) : c(['Billed annually', 'دفع سنوي'])) : c(['Billed monthly', 'دفع شهري'])}</small>
-                        <a className={`lp-btn ${p.featured ? 'lp-btn-solid' : 'lp-btn-line-ink'} lp-btn-full`} href={sales ? '#sales' : SIGNUP}>
+                        <a className={`lp-btn ${p.featured ? 'lp-btn-solid' : 'lp-btn-line-ink'} lp-btn-full`} href={sales ? '#sales' : SIGNUP}
+                          onClick={sales ? () => setChosen(BUSINESS_ID) : undefined}>
                           {sales ? c(['Contact sales', 'تواصل للمبيعات']) : c(['Start 14-day trial', 'ابدأ تجربة 14 يومًا'])}
                         </a>
                         <ul>{p.bullets.map((b) => <li key={b}>{b}</li>)}</ul>
@@ -192,7 +198,7 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
               <div className="cmp-wrap" id="pr-table">
                 <ul className="cmp-legend">{(['yes', 'no', 'quote', 'confirm', ...(egp ? ['unknown'] as const : [])] as const).map((k) => <li key={k}><Chip cell={{ kind: k }} locale={locale} /></li>)}</ul>
                 <label className="cmp-pick"><span>{c(['Plan to compare', 'الخطة للمقارنة'])}</span>
-                  <select value={focusId} onChange={(e) => setFocus(e.target.value)}>{cards.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                  <select value={focusId} onChange={(e) => choose(e.target.value)}>{cards.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                 </label>
                 <div className="cmp-scroll" tabIndex={0} role="region" aria-label={c(['Plan comparison', 'مقارنة الخطط'])}>
                   <table className="cmp" data-focus={focusId}>
@@ -203,7 +209,7 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
                           const amount = yearly ? p.yearly : p.monthly;
                           return (
                             <th key={p.id} scope="col" data-plan={p.id} className={focusId === p.id ? 'is-on' : undefined}>
-                              <button type="button" onClick={() => setFocus(p.id)} aria-pressed={focusId === p.id}>
+                              <button type="button" onClick={() => choose(p.id)} aria-pressed={focusId === p.id}>
                                 <b><bdi>{p.name}</bdi></b>
                                 <small>{amount !== null ? <bdi>{amountWithUnit(amount, data.currency, yearly, locale)}</bdi> : c(['Let’s talk', 'لنتحدث'])}</small>
                               </button>
@@ -241,7 +247,7 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
           </section>
         )}
 
-        <SalesForm locale={locale} planId={planIds.includes(focus) && focus !== BUSINESS_ID ? focus : null} />
+        <SalesForm locale={locale} planId={salesPlanId(chosen, planIds)} />
       </main>
       <footer className="pr-foot">
         <div className="lp-shell">
@@ -304,7 +310,7 @@ function Builder({ data, country, yearly, locale }: { data: PublicPlansResponse;
     const m = data.modules.find((x) => x.key === l.key);
     return m ? (locale === 'ar' ? m.nameAr : m.name) : l.key;
   };
-  const money = (minor: number) => `${formatNumber(Math.round(minor / 100), locale)} ${currencyWord(data.currency, locale)}`;
+  const money = (minor: number) => amountFromMinor(minor, data.currency, locale);
 
   return (
     <section className="pr-build" id="build">
@@ -377,7 +383,7 @@ function SalesForm({ locale, planId }: { locale: Locale; planId: string | null }
     ev.preventDefault();
     if (busy) return;
     const f = new FormData(ev.currentTarget);
-    key.current ??= crypto.randomUUID();
+    key.current ??= newIdempotencyKey();
     setBusy(true);
     setError(null);
     try {
@@ -390,6 +396,8 @@ function SalesForm({ locale, planId }: { locale: Locale; planId: string | null }
       setDone(receipt);
     } catch (e) {
       const kind = e instanceof ApiRequestError ? e.kind : 'server';
+      // A refused key (the server holds a different inquiry under it) is never reused: the next send gets a new one.
+      if (kind === 'conflict') key.current = null;
       setError(kind === 'validation' ? c(['Check the form: every field is required and the email must be valid.', 'راجع النموذج: كل الحقول مطلوبة ويجب أن يكون البريد صحيحًا.'])
         : kind === 'rate_limited' ? c(['We already have your recent requests. The team will reply to them.', 'وصلتنا طلباتك الأخيرة بالفعل، وسيرد عليها الفريق.'])
           : kind === 'offline' ? c(['You are offline. Your answers are still here; send again when you are connected.', 'لا يوجد اتصال. إجاباتك ما زالت هنا؛ أرسل مرة أخرى عند الاتصال.'])
@@ -406,7 +414,8 @@ function SalesForm({ locale, planId }: { locale: Locale; planId: string | null }
           <h2>{c(['Let’s shape your setup.', 'لنصمم ما يناسبك.'])}</h2>
           <p>{c(['Tell us what you need. Your request is saved for the Resuto team, who reply by email. Automatic email notifications are not enabled.', 'أخبرنا بما تحتاجه. يُحفظ طلبك لفريق ريسوتو الذي يرد عليك بالبريد. إشعارات البريد التلقائية غير مفعّلة.'])}</p>
         </div>
-        <form id="sales-form" className="pr-form" onSubmit={submit} noValidate={false}>
+        <form id="sales-form" className="pr-form" onSubmit={submit} noValidate={false}
+          onChange={() => { key.current = null; /* edited answers are a new inquiry, not a resend of the old one */ }}>
           {done ? (
             <p role="status">{c(['Request received. Reference:', 'تم استلام الطلب. الرقم:'])} <bdi>{done.reference}</bdi></p>
           ) : (
