@@ -246,7 +246,7 @@ const ar: Record<string, string> = {
   'insights.roi.monthlyRevenue': 'صافي الإيراد الشهري بدون الضريبة ({currency})', 'insights.roi.baselineDays': 'القياس على آخر N يوم',
   'insights.roi.uplift': 'الزيادة المتوقعة في الإيراد %', 'insights.roi.upliftHint': 'كن متحفظًا: التغييرات الصغيرة تتراكم.', 'insights.roi.variable': 'تكاليف متغيرة أخرى %',
   'insights.roi.variableHint': 'رسوم الدفع، التغليف، العمولات', 'insights.roi.ingredientMode': 'تكلفة المكونات', 'insights.roi.costMeasured': 'استخدم نسبة تكلفة الطعام المُقاسة',
-  'insights.roi.costManual': 'سأدخلها بنفسي', 'insights.roi.ingredient': 'تكلفة المكونات % من الإيراد', 'insights.roi.subscription': 'اشتراك ريزوتو شهريًا ({currency})',
+  'insights.roi.costManual': 'سأدخلها بنفسي', 'insights.roi.ingredient': 'تكلفة المكونات % من الإيراد', 'insights.roi.subscription': 'اشتراك ريسوتو شهريًا ({currency})',
   'insights.roi.other': 'تكاليف شهرية أخرى ({currency})', 'insights.roi.setup': 'تكلفة إعداد لمرة واحدة ({currency})', 'insights.roi.months': 'الأشهر', 'insights.roi.run': 'احسب السيناريو',
   'insights.roi.result': 'السيناريو', 'insights.roi.empty': 'أدخل افتراضاتك ثم احسب.', 'insights.roi.measuredTitle': 'مدخلات مُقاسة (من بياناتك)',
   'insights.roi.measuredNote': 'مُقاس من {from} إلى {to}.', 'insights.roi.measuredMonthly': 'صافي الإيراد الشهري بدون الضريبة', 'insights.roi.measuredCost': 'نسبة تكلفة الطعام المُقاسة',

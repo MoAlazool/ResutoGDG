@@ -25,10 +25,10 @@ const STR = {
     e_entitlement_override: 'Module grants', e_payment: 'Payments', e_menu: 'Menu', e_product: 'Products', e_legacy: 'Legacy import',
   },
   ar: {
-    title: 'سجل النشاط', subtitle: 'كل تغيير قام به الموظفون واتصالات الذكاء الاصطناعي ودعم ريزوتو والمهام التلقائية. لا يمكن تعديل السجلات.',
+    title: 'سجل النشاط', subtitle: 'كل تغيير قام به الموظفون واتصالات الذكاء الاصطناعي ودعم ريسوتو والمهام التلقائية. لا يمكن تعديل السجلات.',
     entity: 'النوع', all: 'كل النشاط', when: 'الوقت', who: 'من', what: 'ماذا', details: 'التفاصيل', more: 'تحميل نشاط أقدم', loading: 'جارٍ التحميل…',
     empty: 'لا يوجد نشاط مسجّل بعد.', error: 'تعذّر تحميل سجل النشاط.', retry: 'إعادة المحاولة', end: 'وصلت إلى بداية السجل.',
-    actor_user: 'موظف', actor_system: 'النظام', actor_platform_admin: 'دعم ريزوتو', actor_mcp_client: 'اتصال ذكاء اصطناعي', actor_guest: 'ضيف', actor_integration: 'تكامل', actor_driver: 'سائق',
+    actor_user: 'موظف', actor_system: 'النظام', actor_platform_admin: 'دعم ريسوتو', actor_mcp_client: 'اتصال ذكاء اصطناعي', actor_guest: 'ضيف', actor_integration: 'تكامل', actor_driver: 'سائق',
     e_organization: 'المطعم', e_branch: 'الفروع', e_membership: 'الفريق', e_invitation: 'الدعوات', e_subscription: 'الفوترة', e_order: 'الطلبات',
     e_entitlement_override: 'منح الوحدات', e_payment: 'المدفوعات', e_menu: 'القائمة', e_product: 'المنتجات', e_legacy: 'استيراد قديم',
   },

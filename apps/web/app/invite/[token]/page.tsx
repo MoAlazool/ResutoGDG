@@ -16,7 +16,7 @@ const STR = {
     wrongEmail: 'This invitation was sent to a different email address. Sign in with that address instead.', joined: 'Welcome aboard! Opening your workspace…',
   },
   ar: {
-    title: 'تمت دعوتك إلى ريزوتو', body: 'اقبل الدعوة للانضمام إلى فريق المطعم بالدور والفروع التي اختارها المالك.',
+    title: 'تمت دعوتك إلى ريسوتو', body: 'اقبل الدعوة للانضمام إلى فريق المطعم بالدور والفروع التي اختارها المالك.',
     signInFirst: 'سجّل الدخول أو أنشئ حسابًا بالبريد الإلكتروني الذي أُرسلت إليه الدعوة، ثم عُد إلى هذه الصفحة.',
     signIn: 'تسجيل الدخول', signUp: 'إنشاء حساب', accept: 'قبول الدعوة', accepting: 'جارٍ الانضمام…', signedInAs: 'مسجّل الدخول باسم {email}',
     switchAccount: 'استخدم حسابًا آخر', invalid: 'هذه الدعوة غير صالحة أو استُخدمت أو انتهت صلاحيتها. اطلب رابطًا جديدًا من المطعم.',
@@ -56,7 +56,7 @@ export default function InvitePage() {
     <main className="center-page">
       <div className="auth-card rise">
         <div className="spread">
-          <Link href="/" className="brand-row"><img src="/brand/resuto-icon.png" alt="" /> {locale === 'ar' ? 'ريزوتو' : 'Resuto'}</Link>
+          <Link href="/" className="brand-row"><img src="/brand/resuto-icon.png" alt="" /> {locale === 'ar' ? 'ريسوتو' : 'Resuto'}</Link>
           <LanguageToggle />
         </div>
         <h1 style={{ fontSize: 24 }}>{s.title}</h1>

@@ -130,7 +130,7 @@ export const intelligence = {
     'intelligence.task.routing': 'Routing',
   } as Record<string, string>,
   ar: {
-    'intelligence.title': 'ريزوتو الذكاء',
+    'intelligence.title': 'ريسوتو الذكاء',
     'intelligence.subtitle': 'توقعات ورؤى العملاء والتوصيات وخطط التوصيل من بياناتك أنت.',
     'intelligence.tab.insights': 'الرؤى',
     'intelligence.tab.forecast': 'التوقعات',
@@ -147,7 +147,7 @@ export const intelligence = {
     'intelligence.insights.refresh': 'افحص الآن',
     'intelligence.insights.refreshed': '{n, plural, =0 {لا رؤى جديدة} one {رؤية جديدة واحدة} two {رؤيتان جديدتان} few {# رؤى جديدة} many {# رؤية جديدة} other {# رؤية جديدة}}',
     'intelligence.insights.empty': 'لا توجد رؤى بعد',
-    'intelligence.insights.emptyBody': 'تظهر الرؤى عندما يرصد ريزوتو انخفاضًا في الإيراد أو صنفًا غير معتاد أو خطر نفاد مخزون أو عملاء دائمين غابوا أو بطئًا في المطبخ.',
+    'intelligence.insights.emptyBody': 'تظهر الرؤى عندما يرصد ريسوتو انخفاضًا في الإيراد أو صنفًا غير معتاد أو خطر نفاد مخزون أو عملاء دائمين غابوا أو بطئًا في المطبخ.',
     'intelligence.insights.filter.open': 'مفتوحة',
     'intelligence.insights.filter.all': 'الكل',
     'intelligence.insights.filter.dismissed': 'مُستبعدة',
@@ -246,7 +246,7 @@ export const intelligence = {
     'intelligence.assistant.empty': 'جرّب: «كم كانت مبيعات أمس؟» أو “What are the best sellers this week?”',
 
     'intelligence.research.synthetic': 'بيانات اصطناعية',
-    'intelligence.research.notice': 'أُجريت هذه التقييمات على مجموعة بيانات اصطناعية مولّدة ببذرة ثابتة بواسطة كود البحث في ريزوتو. توضح كيف تتقارن النماذج الأساسية على أنماط مطاعم مصرية وسعودية مُحاكاة. ليست قياسات على مطاعم حقيقية ولا تعبّر عن نتائجك.',
+    'intelligence.research.notice': 'أُجريت هذه التقييمات على مجموعة بيانات اصطناعية مولّدة ببذرة ثابتة بواسطة كود البحث في ريسوتو. توضح كيف تتقارن النماذج الأساسية على أنماط مطاعم مصرية وسعودية مُحاكاة. ليست قياسات على مطاعم حقيقية ولا تعبّر عن نتائجك.',
     'intelligence.research.task': 'المهمة',
     'intelligence.research.split': 'التقسيم',
     'intelligence.research.baseline': 'خط الأساس',

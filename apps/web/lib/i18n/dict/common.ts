@@ -61,7 +61,7 @@ export const common = {
     'entitlement.body': 'Upgrade your plan or add this module to unlock it. Your data stays safe.',
   },
   ar: {
-    'app.name': 'ريزوتو',
+    'app.name': 'ريسوتو',
     'app.tagline': 'نظام تشغيل المطاعم المدعوم بالذكاء الاصطناعي',
     'nav.overview': 'نظرة عامة',
     'nav.group.operations': 'التشغيل',
@@ -82,7 +82,7 @@ export const common = {
     'state.loading': 'جارٍ التحميل…', 'state.empty': 'لا يوجد شيء بعد', 'state.error': 'حدث خطأ ما',
     'state.saved': 'تم الحفظ', 'state.locked': 'غير متاح في خطتك', 'state.sandbox': 'وضع تجريبي', 'state.live': 'مباشر',
     'auth.signIn': 'تسجيل الدخول', 'auth.signUp': 'إنشاء حساب', 'auth.email': 'البريد الإلكتروني', 'auth.password': 'كلمة المرور',
-    'auth.fullName': 'الاسم الكامل', 'auth.noAccount': 'جديد على ريزوتو؟', 'auth.haveAccount': 'لديك حساب بالفعل؟',
+    'auth.fullName': 'الاسم الكامل', 'auth.noAccount': 'جديد على ريسوتو؟', 'auth.haveAccount': 'لديك حساب بالفعل؟',
     'auth.devMode': 'تسجيل دخول للتطوير المحلي: لم يتم إعداد {provider}.',
     'auth.brand.eyebrow': 'خدمة أكثر هدوءًا', 'auth.brand.line1': 'كل طاولة.', 'auth.brand.line2': 'كل طلب.', 'auth.brand.line3': 'في مكان واحد.',
     'auth.brand.body': 'مطعمك بين أيدٍ أمينة.', 'auth.brand.foot': 'مساحة تشغيل المطعم',

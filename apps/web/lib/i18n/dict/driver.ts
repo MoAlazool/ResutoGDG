@@ -87,12 +87,12 @@ const en: Record<string, string> = {
 };
 
 const ar: Record<string, string> = {
-  'driver.title': 'ريزوتو درايفر',
+  'driver.title': 'ريسوتو درايفر',
   'driver.notDriver.title': 'لا توجد صلاحية سائق',
   'driver.notDriver.body': 'هذا الحساب ليس سائقًا لأي مطعم. اطلب من مديرك دعوتك كسائق ثم سجّل الدخول مجددًا.',
   'driver.chooseRestaurant': 'اختر المطعم',
   'driver.switchRestaurant': 'تبديل المطعم',
-  'driver.moduleOff': 'خدمة التوصيل (ريزوتو درايفر) غير مفعّلة لهذا المطعم. تواصل مع مديرك.',
+  'driver.moduleOff': 'خدمة التوصيل (ريسوتو درايفر) غير مفعّلة لهذا المطعم. تواصل مع مديرك.',
   'driver.nav.jobs': 'التوصيلات', 'driver.nav.cash': 'النقدية', 'driver.nav.history': 'السجل',
   'driver.availability.label': 'الحالة',
   'driver.availability.available': 'متصل', 'driver.availability.busy': 'مشغول', 'driver.availability.break': 'استراحة', 'driver.availability.offline': 'غير متصل',
@@ -132,7 +132,7 @@ const ar: Record<string, string> = {
   'driver.timeline': 'المراحل', 'driver.back': 'رجوع', 'driver.loadMore': 'تحميل المزيد',
   'driver.cash.title': 'النقدية', 'driver.cash.onHand': 'النقد معك', 'driver.cash.toCollect': 'متبقٍ للتحصيل', 'driver.cash.collected': 'محصّل ولم يُسلَّم',
   'driver.cash.none': 'لا يوجد نقد للتسليم', 'driver.cash.settlements': 'عمليات التسليم', 'driver.cash.noSettlements': 'لا توجد عمليات تسليم بعد',
-  'driver.cash.settlementJobs': '{n, plural, one {توصيلة واحدة} two {توصيلتان} few {# توصيلات} many {# توصيلة} other {# توصيلة}}', 'driver.cash.handoverHint': 'سلّم هذا النقد لمديرك؛ وهو يسجّل التسليم في ريزوتو.',
+  'driver.cash.settlementJobs': '{n, plural, one {توصيلة واحدة} two {توصيلتان} few {# توصيلات} many {# توصيلة} other {# توصيلة}}', 'driver.cash.handoverHint': 'سلّم هذا النقد لمديرك؛ وهو يسجّل التسليم في ريسوتو.',
   'driver.cash.collectedOnJob': 'تم تحصيل النقد — سلّمه في نهاية ورديتك.',
   'driver.history.title': 'السجل', 'driver.history.empty': 'لا توجد توصيلات مكتملة بعد',
   'driver.vehicle.motorbike': 'دراجة نارية', 'driver.vehicle.car': 'سيارة', 'driver.vehicle.bicycle': 'دراجة', 'driver.vehicle.scooter': 'سكوتر',

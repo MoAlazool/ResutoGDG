@@ -23,8 +23,8 @@ const en = {
 };
 type S = typeof en;
 const ar: S = {
-  console: 'إدارة ريزوتو', tenants: 'المطاعم', prices: 'الأسعار', operations: 'التشغيل', signOut: 'تسجيل الخروج', role: 'الدور: {role}',
-  onlyAdmins: 'لمسؤولي المنصة فقط.', backToApp: 'العودة إلى ريزوتو',
+  console: 'إدارة ريسوتو', tenants: 'المطاعم', prices: 'الأسعار', operations: 'التشغيل', signOut: 'تسجيل الخروج', role: 'الدور: {role}',
+  onlyAdmins: 'لمسؤولي المنصة فقط.', backToApp: 'العودة إلى ريسوتو',
   readOnly: 'دورك هنا للقراءة فقط.',
   search: 'ابحث بالاسم أو الرابط أو المعرّف', status: 'الحالة', plan: 'الخطة', country: 'الدولة', any: 'الكل', created: 'تاريخ الإنشاء', lastOrder: 'آخر طلب',
   subscription: 'الاشتراك', counts: 'الفروع · الأعضاء · الطلبات (30 يومًا)', noTenants: 'لا توجد مطاعم مطابقة.', more: 'تحميل المزيد',

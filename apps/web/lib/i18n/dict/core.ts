@@ -146,7 +146,7 @@ const ar: Record<string, string> = {
   'core.guest.unavailableTitle': 'يرجى سؤال فريقنا', 'core.guest.scanAgain': 'ابدأ من جديد', 'core.guest.tableLabel': 'طاولة {label}',
   'core.guest.heroTitle': 'أطباقك المفضلة على راحتك.', 'core.guest.heroBody': 'اطلب من طاولتك وسنحضر كل شيء إليك.',
   'core.guest.callWaiter': 'استدعاء النادل', 'core.guest.requestBill': 'طلب الحساب', 'core.guest.settling': 'جارٍ معالجة دفعة. يمكنك الطلب مجددًا فور انتهائها.',
-  'core.guest.orderNumber': 'طلب رقم {n}', 'core.guest.poweredBy': 'بدعم من ريزوتو', 'core.guest.viewBill': 'الحساب', 'core.guest.viewCart': 'عرض السلة',
+  'core.guest.orderNumber': 'طلب رقم {n}', 'core.guest.poweredBy': 'بدعم من ريسوتو', 'core.guest.viewBill': 'الحساب', 'core.guest.viewCart': 'عرض السلة',
   'core.guest.itemsInCart': '{n, plural, one {صنف واحد في السلة} two {صنفان في السلة} few {# أصناف في السلة} many {# صنفًا في السلة} other {# صنف في السلة}}', 'core.guest.added': 'تمت الإضافة إلى طلبك', 'core.guest.billTitle': 'الحساب · طاولة {label}',
   'core.guest.payBill': 'ادفع {amount}', 'core.guest.askForBill': 'اطلب الحساب على الطاولة', 'core.guest.noOrdersYet': 'لا توجد طلبات بعد',
   'core.guest.backToMenu': 'العودة إلى القائمة', 'core.guest.trackingHint': 'تتحدث الحالة مباشرة أثناء تحضير طلبك.', 'core.guest.yourOrder': 'طلبك',

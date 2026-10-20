@@ -258,7 +258,7 @@ export const studioFloorAr: Record<string, string> = {
   'studio.floor.export': 'تصدير المسودة',
   'studio.floor.tableInUse': 'الطاولة {label} عليها زيارة مفتوحة أو حجز قادم ولا يمكن حذفها. أغلقها أو انقلها أولًا.',
   'studio.floor.invalidGeometry': 'رفض الخادم الأبعاد عند {path}. تأكد أن كل عنصر داخل اللوحة.',
-  'studio.floor.offline': 'تعذر الوصول إلى ريزوتو. مسودتك محفوظة في هذه العلامة — احفظ مرة أخرى عند عودة الاتصال.',
+  'studio.floor.offline': 'تعذر الوصول إلى ريسوتو. مسودتك محفوظة في هذه العلامة — احفظ مرة أخرى عند عودة الاتصال.',
   'studio.floor.overlaps': 'أثاث متداخل: {list}. راجع المسافات قبل الحفظ.',
   'studio.floor.noOverlaps': 'لا يوجد تداخل في الأثاث.',
   'studio.floor.footHint': 'Shift مع النقر لتحديد عدة عناصر · الأسهم للتحريك · المسافة لتحريك اللوحة',
