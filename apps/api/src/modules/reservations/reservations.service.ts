@@ -193,7 +193,7 @@ export class ReservationsService {
         return { id: r.id };
       });
       const r = await this.load(tx, result.id);
-      return { reservation: toReservation(r, await this.currency(tx, orgId)), manageToken: this.visits.tokens.reservationToken(r.id) };
+      return { reservation: toReservation(r, await this.currency(tx, orgId)), manageToken: await this.issueManageToken(tx, r) };
     });
   }
 
@@ -236,6 +236,19 @@ export class ReservationsService {
       await this.outbox.publish(tx, ctx.orgId, { type: 'reservation.confirmed', aggregateType: 'reservation', aggregateId: id, payload: { depositMinor: 0 } });
     }
     return { id };
+  }
+
+  /**
+   * The manage link token for a stored reservation (also on an idempotent retry): the guest-token ring key that
+   * produced its stored hash, so key rotation never changes a link already sent (PS-25). Only when that key has been
+   * retired is the reservation moved to a new token under the active key.
+   */
+  private async issueManageToken(tx: Tx, r: { id: string; access_token_hash: string | null }): Promise<string> {
+    const existing = this.visits.tokens.reservationToken(r.id, r.access_token_hash);
+    if (existing) return existing;
+    const fresh = this.visits.tokens.reservationToken(r.id);
+    await tx.query('update reservations set access_token_hash = $2 where id = $1', [r.id, sha256(fresh)]);
+    return fresh;
   }
 
   private async byToken<T>(token: string | undefined, fn: (tx: Tx, r: any, orgId: string) => Promise<T>) {
@@ -372,7 +385,7 @@ export class ReservationsService {
         });
         checkout = { id: s.id, url: s.url, expiresAt: s.expiresAt, amountMinor: s.amountMinor };
       }
-      return { reservation: toReservation(fresh, await this.currency(tx, ctx.orgId)), manageToken: this.visits.tokens.reservationToken(fresh.id), checkout };
+      return { reservation: toReservation(fresh, await this.currency(tx, ctx.orgId)), manageToken: await this.issueManageToken(tx, fresh), checkout };
     });
   }
 

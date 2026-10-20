@@ -136,9 +136,15 @@ export class VisitsService {
       const org = await tx.one<any>('select name, name_ar, slug, currency from organizations where id = $1', [found.org_id]);
       let visit = await tx.maybeOne<any>(`select * from visits where table_id = $1 and status = 'open'`, [table.id]);
       let opened = false;
+      let token: string | null = null;
       if (visit) {
-        const hash = this.tokens.hashFor(visit.id);
-        if (visit.guest_token_hash !== hash) await tx.query('update visits set guest_token_hash = $2 where id = $1', [visit.id, hash]);
+        // Keep the token the table already shares (any guest-token ring key); only when no ring key reproduces the
+        // stored hash (that key was retired) does the visit move to the active key, and earlier copies stop working.
+        token = this.tokens.visitTokenMatching(visit.id, visit.guest_token_hash);
+        if (!token) {
+          token = this.tokens.tokenFor(visit.id);
+          await tx.query('update visits set guest_token_hash = $2 where id = $1', [visit.id, this.tokens.hashFor(visit.id)]);
+        }
       } else {
         const branch = await tx.one<any>('select is_active, accepts_dine_in from branches where id = $1', [table.branch_id]);
         if (!branch.is_active || !branch.accepts_dine_in) throw conflict('table_unavailable', 'This table is not taking orders right now.', { reason: 'branch_closed' });
@@ -160,7 +166,7 @@ export class VisitsService {
         opened = true;
       }
       return {
-        token: this.tokens.tokenFor(visit.id), visitId: visit.id, orgId: found.org_id, branchId: visit.branch_id, tableLabel: table.label,
+        token: token ?? this.tokens.tokenFor(visit.id), visitId: visit.id, orgId: found.org_id, branchId: visit.branch_id, tableLabel: table.label,
         currency: org.currency, org: { name: org.name, nameAr: org.name_ar, slug: org.slug }, opened,
       };
     }, `guest:qr:${found.id}`);
