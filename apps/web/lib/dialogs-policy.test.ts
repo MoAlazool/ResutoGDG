@@ -8,8 +8,6 @@ import { describe, expect, it } from 'vitest';
 const ROOTS = ['apps/web/app', 'apps/web/components'];
 const ALLOW = new Set([
   'apps/web/app/dashboard/[orgId]/integrations/page.tsx', // integrations workstream (revoke confirm)
-  'apps/web/app/o/[token]/OrderingClient.tsx', // guest WhatsApp ordering workstream (cancel confirm)
-  'apps/web/app/reserve/[slug]/manage/page.tsx', // guest booking workstream (cancel confirm)
 ]);
 const repo = join(__dirname, '..', '..', '..');
 /** Always native: called on a global object. */
