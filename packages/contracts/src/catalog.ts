@@ -189,7 +189,13 @@ export interface PublicMenuOption { id: string; name: string; nameAr: string | n
 export interface PublicMenuGroup { id: string; name: string; nameAr: string | null; minSelect: number; maxSelect: number; options: PublicMenuOption[] }
 export interface PublicMenuProduct {
   id: string; name: string; nameAr: string | null; description: string | null; descriptionAr: string | null; priceMinor: number;
-  imageUrl: string | null; allergens: string[]; dietary: string[]; spiceLevel: number; available: boolean; prepMinutes: number | null;
+  /** A WebP derivative at least 640 px wide when one exists (CR-12), else the original. */
+  imageUrl: string | null;
+  /** `url 320w, url 640w, url 1280w` over the stored derivatives (null without derivatives). */
+  imageSrcSet?: string | null;
+  /** Original dimensions, for reserving the image box (no layout shift). */
+  imageWidth?: number | null; imageHeight?: number | null;
+  allergens: string[]; dietary: string[]; spiceLevel: number; available: boolean; prepMinutes: number | null;
   modifierGroups: PublicMenuGroup[];
 }
 export interface PublicBranch {

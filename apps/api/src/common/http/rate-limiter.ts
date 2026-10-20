@@ -30,7 +30,12 @@ export class RateLimiter {
     }
   }
 
+  /** Drops expired windows; if a flood of distinct keys keeps the map large, the oldest windows go too (PCL-25). */
   private prune(now: number, windowMs: number) {
     for (const [k, w] of this.windows) if (now - w.start >= windowMs) this.windows.delete(k);
+    for (const k of this.windows.keys()) {
+      if (this.windows.size <= 40_000) break;
+      this.windows.delete(k);
+    }
   }
 }

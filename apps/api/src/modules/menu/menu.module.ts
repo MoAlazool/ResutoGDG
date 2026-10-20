@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { MediaDerivativeJobs } from '../../common/storage/media-derivatives.jobs';
 import { MenuController, PublicMenuController } from './menu.controller';
 import { MENU_AVAILABILITY_PORT, MenuService } from './menu.service';
 
@@ -10,7 +11,8 @@ import { MENU_AVAILABILITY_PORT, MenuService } from './menu.service';
 @Global()
 @Module({
   controllers: [MenuController, PublicMenuController],
-  providers: [MenuService, { provide: MENU_AVAILABILITY_PORT, useExisting: MenuService }],
+  // MediaDerivativeJobs: backfill of menu/studio image derivatives (CR-12).
+  providers: [MenuService, { provide: MENU_AVAILABILITY_PORT, useExisting: MenuService }, MediaDerivativeJobs],
   exports: [MenuService, MENU_AVAILABILITY_PORT],
 })
 export class MenuModule {}

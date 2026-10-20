@@ -17,6 +17,10 @@ import { SegmentsService } from './segments.service';
 
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
 const MAX_RECIPIENTS = 5000;
+/** Recipients handled per transaction (PCL-11); the first chunk runs in the request, the dispatcher job does the rest. */
+export const CAMPAIGN_CHUNK = 200;
+/** Time the dispatcher job spends on chunks per run before leaving the rest to the next run. */
+const DISPATCH_BUDGET_MS = 20_000;
 const OBJECTIVE_TO_ADS: Record<string, AdsObjective> = {
   awareness: 'awareness', acquisition: 'traffic', reservations: 'traffic', retention: 'sales', reactivation: 'sales', upsell: 'sales',
 };
@@ -160,14 +164,28 @@ export class CampaignsService implements CampaignsPort {
     return this.transitionTo(ctx, id, ['draft', 'pending_approval', 'approved', 'scheduled'], 'cancelled');
   }
 
-  /** Sends an approved messaging campaign now (or when its schedule is due). */
+  /**
+   * Sends an approved messaging campaign. The campaign is marked `sending` and its segment computed in one short
+   * transaction; recipients are then processed in chunks of CAMPAIGN_CHUNK, each in its own transaction (PCL-11).
+   * The first chunk runs in this request, so small campaigns are `sent` when it returns; larger ones stay `sending`
+   * and the dispatcher job continues them within seconds. Deliveries are unique per (campaign, customer), and each
+   * chunk locks the campaign row, so a resumed or concurrent run never messages anyone twice.
+   */
   async sendNow(ctx: TenantContext, id: string) {
-    const result = await this.db.withTenant(ctx.orgId, (tx) => this.dispatch(tx, ctx, id), `${ctx.actorType}:${ctx.actorId}`);
-    return { ...(await this.get(ctx, id)), delivery: result };
+    const actor = `${ctx.actorType}:${ctx.actorId}`;
+    await this.db.withTenant(ctx.orgId, (tx) => this.startDispatch(tx, ctx, id), actor);
+    await this.db.withTenant(ctx.orgId, (tx) => this.dispatchChunk(tx, ctx, id), actor);
+    const delivery = await this.db.withTenant(ctx.orgId, (tx) => this.deliverySummary(tx, id), actor);
+    return { ...(await this.get(ctx, id)), delivery };
   }
 
-  private async dispatch(tx: Tx, ctx: TenantContext, id: string) {
+  /**
+   * Validates, marks the campaign `sending` and computes its segment (no messages yet). With `resume` a campaign that
+   * another run already started is left as it is (the scheduler, racing another run on the same due campaign).
+   */
+  private async startDispatch(tx: Tx, ctx: TenantContext, id: string, opts: { resume?: boolean } = {}) {
     const r = await this.row(tx, ctx, id, true);
+    if (opts.resume && r.status === 'sending') return;
     if (!['approved', 'scheduled'].includes(r.status)) {
       throw new DomainError('campaign_not_approved', 'A campaign must be approved before it can be sent', 409, { status: r.status });
     }
@@ -178,17 +196,26 @@ export class CampaignsService implements CampaignsPort {
     if (!r.segment_id) throw invalid('segment_required', 'Choose a segment');
     await tx.query(`update campaigns set status = 'sending' where id = $1`, [id]);
     await this.segments.compute(tx, ctx.orgId, r.segment_id);
+    const n = await tx.one<{ n: number }>(`select count(*)::int as n from (select 1 from segment_members where segment_id = $1 limit $2) s`,
+      [r.segment_id, MAX_RECIPIENTS + 1]);
+    if (n.n > MAX_RECIPIENTS) throw invalid('segment_too_large', `Campaigns are limited to ${MAX_RECIPIENTS} recipients`);
+  }
+
+  /**
+   * Up to CAMPAIGN_CHUNK recipients without a delivery yet. Holds the campaign row lock for the chunk, so chunks of
+   * one campaign never run concurrently. Marks the campaign `sent` when no recipient is left; returns true then.
+   */
+  private async dispatchChunk(tx: Tx, ctx: TenantContext, id: string): Promise<boolean> {
+    const r = await tx.maybeOne<any>(`select id, status, segment_id, content, utm_campaign from campaigns where id = $1 and org_id = $2 for update`, [id, ctx.orgId]);
+    if (!r || r.status !== 'sending') return true;
     const members = await tx.query<{ customer_id: string; marketing_consent: boolean }>(
-      `select m.customer_id, c.marketing_consent from segment_members m join customers c on c.id = m.customer_id where m.segment_id = $1 limit $2`, [r.segment_id, MAX_RECIPIENTS + 1]);
-    if (members.length > MAX_RECIPIENTS) throw invalid('segment_too_large', `Campaigns are limited to ${MAX_RECIPIENTS} recipients`);
-    const counts = { queued: 0, skippedNoConsent: 0, failed: 0, sandbox: 0, live: 0 };
+      `select m.customer_id, c.marketing_consent from segment_members m join customers c on c.id = m.customer_id
+        where m.segment_id = $1 and not exists (select 1 from campaign_deliveries d where d.campaign_id = $2 and d.customer_id = m.customer_id)
+        order by m.customer_id limit $3`, [r.segment_id, id, CAMPAIGN_CHUNK]);
     const variables = Object.fromEntries((r.content?.variables ?? []).map((v: string, i: number) => [String(i + 1), v]));
     for (const m of members) {
-      const existing = await tx.maybeOne(`select 1 from campaign_deliveries where campaign_id = $1 and customer_id = $2`, [id, m.customer_id]);
-      if (existing) continue; // resumable after a crash: never message anyone twice
       if (!m.marketing_consent) {
         await tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, status) values ($1, $2, $3, 'skipped_no_consent')`, [ctx.orgId, id, m.customer_id]);
-        counts.skippedNoConsent++;
         continue;
       }
       await tx.query('savepoint campaign_member');
@@ -199,28 +226,41 @@ export class CampaignsService implements CampaignsPort {
         if (!res.messageId) {
           await tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, status, error) values ($1, $2, $3, $4, $5)`,
             [ctx.orgId, id, m.customer_id, res.skipped === 'no_consent' ? 'skipped_no_consent' : 'failed', res.skipped ?? 'not_sent']);
-          if (res.skipped === 'no_consent') counts.skippedNoConsent++; else counts.failed++;
           continue;
         }
         const msg = await tx.one<{ status: string; sandbox: boolean }>(`select status, coalesce((payload->>'sandbox')::boolean, false) as sandbox from messages where id = $1`, [res.messageId]);
-        const status = msg.status === 'queued' ? 'queued' : msg.status;
         await tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, message_id, status, sent_at) values ($1, $2, $3, $4, $5, case when $5 <> 'queued' then now() end)`,
-          [ctx.orgId, id, m.customer_id, res.messageId, status]);
+          [ctx.orgId, id, m.customer_id, res.messageId, msg.status]);
         await tx.query(`insert into attribution_events(org_id, kind, campaign_id, customer_id, utm) values ($1, 'message_sent', $2, $3, $4)`,
           [ctx.orgId, id, m.customer_id, { utm_source: 'whatsapp', utm_medium: 'campaign', utm_campaign: r.utm_campaign, sandbox: msg.sandbox }]);
-        counts.queued++;
-        if (msg.sandbox) counts.sandbox++; else counts.live++;
       } catch (e) {
         await tx.query('rollback to savepoint campaign_member');
         if (!(e instanceof DomainError)) throw e;
         await tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, status, error) values ($1, $2, $3, 'failed', $4)`, [ctx.orgId, id, m.customer_id, e.code]);
-        counts.failed++;
       }
     }
+    if (members.length === CAMPAIGN_CHUNK) return false;
+    const counts = await this.deliverySummary(tx, id);
     // A campaign is "sandbox" unless at least one message went through a live channel.
     await tx.query(`update campaigns set status = 'sent', sent_at = now(), is_sandbox = $2 where id = $1`, [id, counts.live === 0]);
     await this.audit.record(tx, ctx, { action: 'marketing.campaign_sent', entityType: 'campaign', entityId: id, metadata: counts });
-    return { recipients: members.length, ...counts };
+    return true;
+  }
+
+  /** Delivery counts from the recorded deliveries (exact across chunks, runs and restarts). */
+  private async deliverySummary(tx: Tx, id: string) {
+    const c = await tx.one<any>(
+      `select count(*)::int as handled,
+              count(*) filter (where d.message_id is not null)::int as queued,
+              count(*) filter (where d.status = 'skipped_no_consent')::int as skipped,
+              count(*) filter (where d.message_id is null and d.status = 'failed')::int as failed,
+              count(*) filter (where coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null)::int as sandbox,
+              count(*) filter (where not coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null)::int as live,
+              (select count(*)::int from segment_members sm join campaigns cc on cc.segment_id = sm.segment_id
+                where cc.id = $1 and not exists (select 1 from campaign_deliveries x where x.campaign_id = $1 and x.customer_id = sm.customer_id)) as pending
+         from campaign_deliveries d left join messages m on m.id = d.message_id where d.campaign_id = $1`, [id]);
+    return { recipients: c.handled + c.pending, queued: c.queued, skippedNoConsent: c.skipped, failed: c.failed, sandbox: c.sandbox, live: c.live,
+      pending: c.pending };
   }
 
   /**
@@ -250,25 +290,40 @@ export class CampaignsService implements CampaignsPort {
       await tx.query(`update campaigns set status = 'scheduled', scheduled_at = $2 where id = $1`, [r.id, input.scheduledAt]);
       await this.outbox.publish(tx, ctx.orgId, { type: 'campaign.scheduled', aggregateType: 'campaign', aggregateId: r.id, payload: { scheduledAt: input.scheduledAt, source: input.source } });
     } else {
-      await this.dispatch(tx, ctx, r.id);
+      // In the caller's transaction: start and the first chunk; a larger campaign stays `sending` for the job.
+      await this.startDispatch(tx, ctx, r.id);
+      await this.dispatchChunk(tx, ctx, r.id);
     }
     const after = await tx.one<{ status: string; scheduled_at: Date | null }>(`select status, scheduled_at from campaigns where id = $1`, [r.id]);
     return { campaignId: r.id as string, status: after.status, scheduledAt: iso(after.scheduled_at) };
   }
 
-  @Scheduled('marketing.campaign-dispatch', 30)
-  async dispatchDue() {
-    const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string }>(
-      `select id, org_id from campaigns where status = 'scheduled' and scheduled_at <= now() order by scheduled_at limit 20`));
+  /**
+   * Starts scheduled campaigns that are due and continues campaigns left `sending` (large ones, or a run interrupted
+   * by a restart), one chunk per transaction, for up to DISPATCH_BUDGET_MS per run.
+   */
+  @Scheduled('marketing.campaign-dispatch', 30, { timeoutMs: 120_000 })
+  async dispatchDue(budgetMs = DISPATCH_BUDGET_MS) {
+    const started = Date.now();
+    const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; status: string }>(
+      `select id, org_id, status from campaigns
+        where (status = 'scheduled' and scheduled_at <= now()) or status = 'sending'
+        order by (status = 'sending') desc, scheduled_at nulls first limit 20`));
     let sent = 0;
     for (const c of due) {
+      const ctx = TenantContext.system(c.org_id, 'marketing.scheduler');
       try {
-        await this.db.withTenant(c.org_id, (tx) => this.dispatch(tx, TenantContext.system(c.org_id, 'marketing.scheduler'), c.id), 'marketing.scheduler');
-        sent++;
+        if (c.status === 'scheduled') await this.db.withTenant(c.org_id, (tx) => this.startDispatch(tx, ctx, c.id, { resume: true }), 'marketing.scheduler');
+        let done = false;
+        while (!done && Date.now() - started < budgetMs) {
+          done = await this.db.withTenant(c.org_id, (tx) => this.dispatchChunk(tx, ctx, c.id), 'marketing.scheduler');
+        }
+        if (done) sent++;
       } catch (e) {
         this.logger.warn(`campaign ${c.id}: ${(e as Error).message}`);
         await this.db.withTenant(c.org_id, (tx) => tx.query(`update campaigns set status = 'failed' where id = $1 and status in ('scheduled', 'sending')`, [c.id]), 'marketing.scheduler');
       }
+      if (Date.now() - started >= budgetMs) break;
     }
     return { due: due.length, sent };
   }

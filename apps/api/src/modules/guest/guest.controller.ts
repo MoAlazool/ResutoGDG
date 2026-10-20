@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   guestOrderRequest, guestQuoteRequest, serviceRequestInput, webOrderRequest, webQuoteRequest,
   type GuestOrderRequest, type WebOrderRequest,
@@ -11,6 +12,7 @@ import { notFound } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { VisitsService } from '../orders/visits.service';
+import { PUBLIC_MENU_CACHE_CONTROL } from '../menu/menu.service';
 import { GuestService } from './guest.service';
 
 const uuidPipe = new ParseUUIDPipe();
@@ -97,9 +99,14 @@ export class WebOrderController {
 
   @Public()
   @Get(':slug')
-  menu(@Param('slug') slug: string, @Query('branch') branch: string | undefined, @Req() req: ResutoRequest) {
+  async menu(@Param('slug') slug: string, @Query('branch') branch: string | undefined, @Req() req: ResutoRequest,
+    @Res({ passthrough: true }) res: Response) {
     this.limiter.hit(`web-order:read:${req.ip}`, 120);
-    return this.guest.webMenu(this.slug(slug), typeof branch === 'string' ? branch.slice(0, 60) : undefined);
+    // PCL-15: versioned ETag + public caching (same policy as /public/menu); a matching If-None-Match gets a 304.
+    const { etag, body } = await this.guest.cachedWebMenu(this.slug(slug), typeof branch === 'string' ? branch.slice(0, 60) : undefined);
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', PUBLIC_MENU_CACHE_CONTROL);
+    return body;
   }
 
   @Public()

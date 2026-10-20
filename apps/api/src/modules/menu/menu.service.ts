@@ -8,7 +8,9 @@ import { DomainError, conflict, invalid, notFound } from '../../common/errors/do
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
-import { StorageService } from '../../common/storage/storage.service';
+import { createHash } from 'node:crypto';
+import { BoundedCache } from '../../common/cache/bounded-cache';
+import { MediaUrls, StorageService, stableExpiry } from '../../common/storage/storage.service';
 import { csvToRows, previewRows } from './menu-import';
 
 /** Cross-module port for ResutoMCP; the lead's kernel/ports.ts declares the same Symbol.for token. */
@@ -27,6 +29,23 @@ export const toCategory = (r: any): Category => ({
   sortOrder: r.sort_order, isActive: r.is_active,
 });
 
+/** Signed menu image URLs: stable for a UTC day (PCL-14), so browsers and CDNs reuse the download. */
+export const MENU_IMAGE_TTL_SECONDS = 24 * 3600;
+/** Width the guest menu card needs (a 2x phone card); detail views use the srcset. */
+const MENU_IMAGE_MIN_WIDTH = 640;
+/**
+ * Public menu HTTP caching (PCL-15, docs/CACHE_POLICY.md): guests and CDNs may reuse a menu for 15 s (30 s at a
+ * shared cache), serve it stale while revalidating for a minute and during an outage for 10 minutes. Revalidation is
+ * cheap: the ETag is derived from menu_versions (bumped by triggers on every menu change) and the image URL window.
+ */
+export const PUBLIC_MENU_CACHE_CONTROL = 'public, max-age=15, s-maxage=30, stale-while-revalidate=60, stale-if-error=600';
+/** Bump when the public menu response shape changes, so cached copies from an older build are not revalidated. */
+const PUBLIC_MENU_SHAPE = 2;
+
+/** Branch columns the public menu exposes (toPublicBranch) plus the lookup code (PCL-28: no select *). */
+const PUBLIC_BRANCH_COLUMNS = `id, code, name, name_ar, accepts_dine_in, accepts_pickup, accepts_delivery, accepts_reservations, delivery_fee_minor,
+  min_order_minor, address, city, phone`;
+
 export const toPublicBranch = (b: any): PublicBranch => ({
   id: b.id, code: b.code, name: b.name, nameAr: b.name_ar, acceptsDineIn: b.accepts_dine_in, acceptsPickup: b.accepts_pickup,
   acceptsDelivery: b.accepts_delivery, acceptsReservations: b.accepts_reservations, deliveryFeeMinor: b.delivery_fee_minor,
@@ -40,6 +59,9 @@ export const toPublicBranch = (b: any): PublicBranch => ({
  */
 @Injectable()
 export class MenuService {
+  /** Built public menus by (org, branch, menu version, URL window): bounded and short-lived (PCL-25). */
+  private readonly builtMenus = new BoundedCache<PublicMenu>(1000, 60_000);
+
   constructor(
     private readonly db: DbService,
     private readonly audit: AuditService,
@@ -52,11 +74,12 @@ export class MenuService {
   // Editor view
   // ---------------------------------------------------------------------------
   async editorView(ctx: TenantContext): Promise<MenuEditorView> {
-    return this.db.scoped(ctx, async (tx) => {
+    const urls = this.storage.urls(MENU_IMAGE_TTL_SECONDS);
+    const view = await this.db.scoped(ctx, async (tx) => {
       const org = await tx.one<{ currency: string }>('select currency from organizations where id = $1', [ctx.orgId]);
       const menus = await tx.query('select id, name, name_ar, branch_id, is_active from menus where org_id = $1 order by sort_order, created_at', [ctx.orgId]);
       const categories = await tx.query('select * from menu_categories where org_id = $1 order by sort_order, created_at', [ctx.orgId]);
-      const products = await this.loadProducts(tx, ctx.orgId, null);
+      const products = await this.loadProducts(tx, ctx.orgId, null, urls);
       const modifierGroups = await this.loadGroups(tx, ctx.orgId, null, false);
       const stations = await tx.query<{ station: string }>(
         `select distinct station from (select station from products where org_id = $1 and is_active
@@ -67,17 +90,28 @@ export class MenuService {
         stations: stations.map((s) => s.station).filter(Boolean), currency: org.currency,
       };
     });
+    // Image URLs are signed in one batch after the transaction has committed (PCL-11, PS-18).
+    await urls.resolve();
+    return view;
   }
 
   async getProduct(ctx: TenantContext, productId: string): Promise<Product> {
-    return this.db.scoped(ctx, async (tx) => {
-      const [p] = await this.loadProducts(tx, ctx.orgId, [productId]);
+    const urls = this.storage.urls(MENU_IMAGE_TTL_SECONDS);
+    const product = await this.db.scoped(ctx, async (tx) => {
+      const [p] = await this.loadProducts(tx, ctx.orgId, [productId], urls);
       if (!p) throw notFound('Product');
       return p;
     });
+    await urls.resolve();
+    return product;
   }
 
-  private async loadProducts(tx: Tx, orgId: string, ids: string[] | null): Promise<Product[]> {
+  /**
+   * Products with their image URLs. With a collector the URLs are filled when the caller resolves it (after its
+   * transaction); without one they are signed here in a single batch.
+   */
+  private async loadProducts(tx: Tx, orgId: string, ids: string[] | null, urls?: MediaUrls): Promise<Product[]> {
+    const own = urls ?? this.storage.urls(MENU_IMAGE_TTL_SECONDS);
     const rows = await tx.query<any>(
       `select p.*, m.path as media_path from products p left join media_assets m on m.id = p.image_media_id
         where p.org_id = $1 and ($2::uuid[] is null or p.id = any($2::uuid[])) order by p.sort_order, p.created_at`, [orgId, ids]);
@@ -87,24 +121,25 @@ export class MenuService {
     const groups = await tx.query<any>('select product_id, group_id from product_modifier_groups where product_id = any($1::uuid[]) order by sort_order', [productIds]);
     const out: Product[] = [];
     for (const r of rows) {
-      out.push({
+      out.push(own.set({
         id: r.id, categoryId: r.category_id, name: r.name, nameAr: r.name_ar, description: r.description, descriptionAr: r.description_ar,
         priceMinor: r.price_minor, costMinor: r.cost_minor, currency: r.currency, station: r.station, prepMinutes: r.prep_minutes,
         spiceLevel: r.spice_level, dietary: r.dietary, allergens: r.allergens, ingredients: r.ingredients, calories: r.calories,
-        imageUrl: await this.imageUrl(r), imageMediaId: r.image_media_id, isActive: r.is_active, trackStock: r.track_stock,
+        imageUrl: null as string | null, imageMediaId: r.image_media_id, isActive: r.is_active, trackStock: r.track_stock,
         sortOrder: r.sort_order, externalRef: r.external_ref, version: r.version,
         branchSettings: settings.filter((s) => s.product_id === r.id).map((s) => ({
           branchId: s.branch_id, isAvailable: s.is_available, priceOverrideMinor: s.price_override_minor, stockQty: s.stock_qty,
         })),
         modifierGroupIds: groups.filter((g) => g.product_id === r.id).map((g) => g.group_id),
-      });
+      } as Product, 'imageUrl', r.media_path, { fallback: r.image_url ?? null }));
     }
+    if (!urls) await own.resolve();
     return out;
   }
 
-  private async imageUrl(r: { media_path?: string | null; image_url?: string | null }): Promise<string | null> {
-    if (r.media_path) return this.storage.signedUrl(r.media_path, 24 * 3600).catch(() => null);
-    return r.image_url ?? null;
+  /** Collector for public menu image URLs (guest routes resolve it after their transaction). */
+  publicMediaUrls(): MediaUrls {
+    return this.storage.urls(MENU_IMAGE_TTL_SECONDS);
   }
 
   private async loadGroups(tx: Tx, orgId: string, ids: string[] | null, activeOnly: boolean): Promise<ModifierGroup[]> {
@@ -238,14 +273,20 @@ export class MenuService {
 
   async uploadImage(ctx: TenantContext, id: string, file: { buffer: Buffer; mimetype: string } | undefined, alt?: string) {
     if (!file?.buffer?.length) throw invalid('file_required', 'Choose an image to upload');
-    return this.db.scoped(ctx, async (tx) => {
+    if (!file.mimetype.startsWith('image/')) throw invalid('unsupported_media', 'Upload a PNG, JPEG, WebP or GIF image');
+    if (!(await this.db.scoped(ctx, (tx) => tx.maybeOne('select 1 from products where id = $1', [id])))) throw notFound('Product');
+    // Upload and derivatives (CR-12) happen before the transaction (PCL-11); the transaction only records them.
+    const stored = await this.storage.store(ctx, { bytes: file.buffer, contentType: file.mimetype, folder: 'menu' });
+    const urls = this.storage.urls(MENU_IMAGE_TTL_SECONDS);
+    const product = await this.db.scoped(ctx, async (tx) => {
       if (!(await tx.maybeOne('select 1 from products where id = $1 for update', [id]))) throw notFound('Product');
-      if (!file.mimetype.startsWith('image/')) throw invalid('unsupported_media', 'Upload a PNG, JPEG, WebP or GIF image');
-      const media = await this.storage.put(tx, ctx, { bytes: file.buffer, contentType: file.mimetype, folder: 'menu', alt });
+      const media = await this.storage.record(tx, ctx, stored, { alt });
       await tx.query('update products set image_media_id = $2, image_url = null, version = version + 1 where id = $1', [id, media.id]);
       await this.changed(tx, ctx, 'menu.product.image_uploaded', 'product', id, { mediaId: media.id });
-      return (await this.loadProducts(tx, ctx.orgId, [id]))[0]!;
+      return (await this.loadProducts(tx, ctx.orgId, [id], urls))[0]!;
     });
+    await urls.resolve();
+    return product;
   }
 
   async setBranchSetting(ctx: TenantContext, productId: string, branchId: string, input: { isAvailable?: boolean; priceOverrideMinor?: number | null; stockQty?: number | null }) {
@@ -472,20 +513,53 @@ export class MenuService {
     return org;
   }
 
-  async publicMenu(slug: string, branchCode?: string): Promise<PublicMenu> {
-    const org = await this.resolveOrgBySlug(slug);
-    return this.db.withTenant(org.id, async (tx) => {
-      const branches = await tx.query<any>('select * from branches where org_id = $1 and is_active order by created_at', [org.id]);
-      const branch = branchCode ? branches.find((b) => b.code === branchCode) : branches[0];
-      if (!branch) throw notFound('Branch');
-      return this.publicMenuFor(tx, org.id, branch, branches);
-    }, 'guest:public-menu');
+  /** Organization and its current menu version, by slug (one statement; 404 for unknown or closed restaurants). */
+  async publicMenuVersion(slug: string): Promise<{ orgId: string; version: string }> {
+    const row = await this.db.withPlatform((tx) => tx.maybeOne<{ id: string; version: string }>(
+      `select o.id, coalesce(v.version, 0)::text as version from organizations o left join menu_versions v on v.org_id = o.id
+        where o.slug = $1 and o.status <> 'closed'`, [slug.toLowerCase()]));
+    if (!row) throw notFound('Restaurant');
+    return { orgId: row.id, version: row.version };
   }
 
-  /** Public menu for one branch inside an existing tenant transaction (guest sessions reuse it). */
-  async publicMenuFor(tx: Tx, orgId: string, branch: any, branches?: any[]): Promise<PublicMenu> {
+  /**
+   * Public menu with its validator. The ETag changes exactly when the response can: a menu change (menu_versions),
+   * a new image URL window (once a UTC day) or a new response shape. Built menus are reused from a bounded in-process
+   * cache while the version is current, so a cache hit costs one indexed lookup instead of a menu build.
+   */
+  async cachedPublicMenu(slug: string, branchCode?: string): Promise<{ menu: PublicMenu; etag: string; orgId: string }> {
+    const { orgId, version } = await this.publicMenuVersion(slug);
+    const scope = createHash('sha256').update(`${orgId}|${branchCode ?? ''}`).digest('base64url').slice(0, 12);
+    const tag = `pm${PUBLIC_MENU_SHAPE}-${version}-${stableExpiry(MENU_IMAGE_TTL_SECONDS)}-${scope}`;
+    let menu = this.builtMenus.get(tag);
+    if (!menu) {
+      menu = await this.publicMenu(slug, branchCode, orgId);
+      this.builtMenus.set(tag, menu);
+    }
+    return { menu, etag: `W/"${tag}"`, orgId };
+  }
+
+  async publicMenu(slug: string, branchCode?: string, orgId?: string): Promise<PublicMenu> {
+    const org = orgId ? { id: orgId } : await this.resolveOrgBySlug(slug);
+    const urls = this.publicMediaUrls();
+    const menu = await this.db.withTenant(org.id, async (tx) => {
+      const branches = await tx.query<any>(`select ${PUBLIC_BRANCH_COLUMNS} from branches where org_id = $1 and is_active order by created_at`, [org.id]);
+      const branch = branchCode ? branches.find((b) => b.code === branchCode) : branches[0];
+      if (!branch) throw notFound('Branch');
+      return this.publicMenuFor(tx, org.id, branch, branches, urls);
+    }, 'guest:public-menu');
+    await urls.resolve();
+    return menu;
+  }
+
+  /**
+   * Public menu for one branch inside an existing tenant transaction (guest sessions reuse it). Pass `urls` to sign
+   * the image URLs after the transaction (the caller resolves it); without it they are signed here in one batch.
+   */
+  async publicMenuFor(tx: Tx, orgId: string, branch: any, branches?: any[], urls?: MediaUrls): Promise<PublicMenu> {
+    const media = urls ?? this.publicMediaUrls();
     const org = await tx.one<any>('select name, name_ar, currency, slug from organizations where id = $1', [orgId]);
-    const all = branches ?? await tx.query<any>('select * from branches where org_id = $1 and is_active order by created_at', [orgId]);
+    const all = branches ?? await tx.query<any>(`select ${PUBLIC_BRANCH_COLUMNS} from branches where org_id = $1 and is_active order by created_at`, [orgId]);
     const categories = await tx.query<any>(
       `select c.id, c.name, c.name_ar from menu_categories c join menus m on m.id = c.menu_id
         where c.org_id = $1 and c.is_active and m.is_active and (m.branch_id is null or m.branch_id = $2) order by m.sort_order, c.sort_order, c.created_at`,
@@ -494,7 +568,7 @@ export class MenuService {
     // `available: false` means sold out (tracked stock reached 0).
     const products = await tx.query<any>(
       `select p.id, p.category_id, p.name, p.name_ar, p.description, p.description_ar, coalesce(s.price_override_minor, p.price_minor) as price_minor,
-              p.image_url, m.path as media_path, p.allergens, p.dietary, p.spice_level, p.prep_minutes,
+              p.image_url, m.path as media_path, m.variants as media_variants, m.width as media_width, m.height as media_height, p.allergens, p.dietary, p.spice_level, p.prep_minutes,
               (not p.track_stock or s.stock_qty is null or s.stock_qty > 0) as available
          from products p
          left join product_branch_settings s on s.product_id = p.id and s.branch_id = $2
@@ -510,19 +584,22 @@ export class MenuService {
     for (const c of categories) {
       const items = [];
       for (const p of products.filter((x) => x.category_id === c.id)) {
-        items.push({
+        items.push(media.set({
           id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar, priceMinor: p.price_minor,
-          imageUrl: await this.imageUrl(p), allergens: p.allergens, dietary: p.dietary, spiceLevel: p.spice_level, available: p.available,
+          imageUrl: null as string | null, imageSrcSet: null as string | null,
+          imageWidth: p.media_path ? p.media_width ?? null : null, imageHeight: p.media_path ? p.media_height ?? null : null,
+          allergens: p.allergens, dietary: p.dietary, spiceLevel: p.spice_level, available: p.available,
           prepMinutes: p.prep_minutes,
           modifierGroups: links.filter((l) => l.product_id === p.id).map((l) => groupById.get(l.group_id)).filter((g): g is ModifierGroup => !!g)
             .map((g) => ({
               id: g.id, name: g.name, nameAr: g.nameAr, minSelect: g.minSelect, maxSelect: g.maxSelect,
               options: g.options.map((o) => ({ id: o.id, name: o.name, nameAr: o.nameAr, priceDeltaMinor: o.priceDeltaMinor, available: o.isAvailable })),
             })),
-        });
+        }, 'imageUrl', p.media_path, { fallback: p.image_url ?? null, variants: p.media_variants, minWidth: MENU_IMAGE_MIN_WIDTH, srcSetKey: 'imageSrcSet' }));
       }
       if (items.length) result.push({ id: c.id, name: c.name, nameAr: c.name_ar, products: items });
     }
+    if (!urls) await media.resolve();
     return {
       org: { name: org.name, nameAr: org.name_ar, currency: org.currency, slug: org.slug },
       branch: toPublicBranch(branch), branches: all.map(toPublicBranch), categories: result,

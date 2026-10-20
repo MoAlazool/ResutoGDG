@@ -42,6 +42,28 @@ export const WINDOW_MS = 24 * 3600 * 1000;
 const MAX_ATTEMPTS = 6;
 const backoffSeconds = (attempt: number) => Math.min(30 * 2 ** (attempt - 1), 3600);
 const TRANSACTIONAL = /^(order|delivery|reservation|payment|ordering|bot|staff|handoff|system)/;
+/** Sender fairness (PCL-12): messages per organization per run; transactional (priority 0) before marketing (1). */
+export const SENDER_PER_ORG = 25;
+/** Lease on a claimed message; a send (15 s adapter timeout) always finishes well inside it. */
+const LEASE = `interval '2 minutes'`;
+
+/**
+ * Next attempt delay in ms (PCL-12): the provider's Retry-After when it sent one, else exponential backoff; both get
+ * jitter (+-20 %, never below Retry-After) so retries of many messages do not arrive in lockstep.
+ */
+export function retryDelayMs(attempt: number, retryAfterMs?: number, random = Math.random) {
+  if (retryAfterMs && retryAfterMs > 0) return Math.round(Math.min(retryAfterMs, 3600_000) * (1 + 0.2 * random()));
+  return Math.round(backoffSeconds(attempt) * 1000 * (0.8 + 0.4 * random()));
+}
+
+/** 0 = transactional (default, including staff replies), 1 = marketing (campaigns and other consented outreach). */
+const priorityOf = (reason?: string) => (reason && !TRANSACTIONAL.test(reason) ? 1 : 0);
+
+type Prepared =
+  | { kind: 'skip' }
+  | { kind: 'fail'; attempt: number; error: string; retryable: boolean; connectionId?: string; detail?: string }
+  | { kind: 'defer'; until: Date }
+  | { kind: 'send'; attempt: number; conv: ConversationRow; conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>; content: OutboundContent };
 
 export function windowState(lastInboundAt: Date | string | null | undefined) {
   const last = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
@@ -88,10 +110,10 @@ export class MessagingService implements MessagingPort {
     const kind = content.type === 'text' ? 'text' : content.type === 'template' ? 'template' : 'interactive';
     const sandbox = conv.transport === 'sandbox';
     const msg = await tx.one<{ id: string }>(
-      `insert into messages(org_id, conversation_id, direction, kind, body, payload, status, next_attempt_at, sent_by, is_automated)
-       values ($1, $2, 'outbound', $3, $4, $5, 'queued', now(), $6, $7) returning id`,
+      `insert into messages(org_id, conversation_id, direction, kind, body, payload, status, next_attempt_at, sent_by, is_automated, priority)
+       values ($1, $2, 'outbound', $3, $4, $5, 'queued', now(), $6, $7, $8) returning id`,
       [conv.org_id, conv.id, kind, content.body.slice(0, 4096), { ...content, ...(sandbox ? { sandbox: true } : {}), ...(opts.reason ? { reason: opts.reason } : {}) },
-        opts.sentBy ?? null, opts.automated]);
+        opts.sentBy ?? null, opts.automated, priorityOf(opts.reason)]);
     if (sandbox) {
       const res = await messagingSandboxAdapter.send(this.providerPayload(conv, content));
       await tx.query(`update messages set status = 'delivered', provider_message_id = $2, attempts = 1, next_attempt_at = null where id = $1`, [msg.id, res.messageId]);
@@ -191,52 +213,118 @@ export class MessagingService implements MessagingPort {
   }
 
   // ---------------------------------------------------------------------------
-  // Sender job: Cloud API messages with retries and exponential backoff
+  // Sender job: Cloud API messages with retries, backoff with jitter and per-tenant fairness
   // ---------------------------------------------------------------------------
+  /**
+   * Claims due messages and sends them. The claim (a 2-minute lease written into next_attempt_at) is the source of
+   * truth for an in-progress send: every later step only acts while the message still carries that exact lease.
+   * Each organization gets at most SENDER_PER_ORG messages per run, transactional before marketing, so a large
+   * campaign cannot hold back another tenant's (or its own) order notifications (PCL-12).
+   */
   @Scheduled('connect.outbound-sender', 5)
-  async runSender(limit = 50) {
-    // Lease due messages (2 minutes) so concurrent workers don't double-send.
-    const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string }>(
-      `update messages m set next_attempt_at = now() + interval '2 minutes'
-        where m.id in (select m2.id from messages m2 join conversations c on c.id = m2.conversation_id join messaging_channels ch on ch.id = c.channel_id
-                        where m2.status = 'queued' and m2.direction = 'outbound' and m2.next_attempt_at <= now() and ch.transport = 'meta_cloud'
-                        order by m2.next_attempt_at limit $1 for update of m2 skip locked)
-        returning m.id, m.org_id`, [limit]));
+  async runSender(limit = 50, perOrg = SENDER_PER_ORG) {
+    const due = await this.claimDue(limit, perOrg);
     let sent = 0, failed = 0, retried = 0;
     for (const m of due) {
-      const outcome = await this.sendOne(m.org_id, m.id).catch((e) => { this.logger.warn(`send ${m.id}: ${(e as Error).message}`); return 'retry' as const; });
+      const outcome = await this.sendOne(m.org_id, m.id, m.lease).catch((e) => { this.logger.warn(`send ${m.id}: ${(e as Error).message}`); return 'retry' as const; });
       if (outcome === 'sent') sent++; else if (outcome === 'failed') failed++; else retried++;
     }
     return { due: due.length, sent, failed, retried };
   }
 
-  private async sendOne(orgId: string, messageId: string): Promise<'sent' | 'failed' | 'retry'> {
-    return this.db.withTenant(orgId, async (tx) => {
-      const m = await tx.maybeOne<any>(`select id, conversation_id, payload, attempts, status from messages where id = $1 for update`, [messageId]);
-      if (!m || m.status !== 'queued') return 'sent';
-      const conv = await this.conversation(tx, m.conversation_id);
+  /** Leases up to `limit` due Cloud API messages, at most `perOrg` per organization, transactional first. */
+  async claimDue(limit: number, perOrg = SENDER_PER_ORG) {
+    return this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; lease: string }>(
+      `with orgs as (
+         select distinct org_id from messages where status = 'queued' and direction = 'outbound' and next_attempt_at <= now()),
+       picked as (
+         select x.id, x.priority, x.next_attempt_at from orgs o cross join lateral (
+           select m2.id, m2.priority, m2.next_attempt_at
+             from messages m2 join conversations c on c.id = m2.conversation_id join messaging_channels ch on ch.id = c.channel_id
+            where m2.org_id = o.org_id and m2.status = 'queued' and m2.direction = 'outbound' and m2.next_attempt_at <= now()
+              and ch.transport = 'meta_cloud'
+            order by m2.priority, m2.next_attempt_at limit $2) x)
+       update messages m set next_attempt_at = now() + ${LEASE}
+        where m.id in (select id from picked order by priority, next_attempt_at limit $1)
+          and m.status = 'queued' and m.next_attempt_at <= now()
+        returning m.id, m.org_id, m.next_attempt_at::text as lease`, [limit, perOrg]));
+  }
+
+  /**
+   * One claimed message, in three steps (PCL-11): (1) a short transaction reads the message, conversation and
+   * credentials; (2) the provider call runs outside any transaction, holding no database connection; (3) a short
+   * transaction records the outcome, only if the message still carries this run's lease. A credential that is
+   * missing or cannot be decrypted fails the message for good (it used to retry every 2 minutes forever).
+   */
+  private async sendOne(orgId: string, messageId: string, lease: string): Promise<'sent' | 'failed' | 'retry'> {
+    const prep = await this.db.withTenant(orgId, async (tx): Promise<Prepared> => {
+      const m = await tx.maybeOne<any>(
+        `select id, conversation_id, payload, attempts from messages where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz`,
+        [messageId, lease]);
+      if (!m) return { kind: 'skip' };
       const attempt = m.attempts + 1;
-      const fail = async (error: string, retryable: boolean) => {
-        const final = !retryable || attempt >= MAX_ATTEMPTS;
-        await tx.query(`update messages set attempts = $2, error = $3, status = $4, next_attempt_at = $5 where id = $1`,
-          [messageId, attempt, error.slice(0, 500), final ? 'failed' : 'queued', final ? null : new Date(Date.now() + backoffSeconds(attempt) * 1000)]);
-        await tx.query(`update campaign_deliveries set status = 'failed', error = $2 where message_id = $1 and $3`, [messageId, error.slice(0, 300), final]);
-        return final ? 'failed' as const : 'retry' as const;
-      };
-      if (!conv?.connection_id || !conv.phone_number_id) return fail('channel has no WhatsApp connection', false);
-      const conn = await this.connections.loadInTx(tx, conv.connection_id);
-      if (!conn.enabled || conn.status === 'revoked') return fail('WhatsApp connection is disabled or revoked', false);
+      const conv = await this.conversation(tx, m.conversation_id);
+      if (!conv?.connection_id || !conv.phone_number_id) return { kind: 'fail', attempt, error: 'channel has no WhatsApp connection', retryable: false };
+      let conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>;
       try {
-        const { sandbox: _s, reason: _r, ...content } = m.payload ?? {};
-        const res = await whatsappCloudAdapter.send({ ...conn.adapter, config: { ...conn.adapter.config, phoneNumberId: conv.phone_number_id } },
-          this.providerPayload(conv, content as OutboundContent));
-        await tx.query(`update messages set status = 'sent', provider_message_id = $2, attempts = $3, error = null, next_attempt_at = null where id = $1`, [messageId, res.messageId, attempt]);
-        await tx.query(`update campaign_deliveries set status = 'sent', sent_at = now() where message_id = $1`, [messageId]);
-        return 'sent';
+        conn = await this.connections.loadInTx(tx, conv.connection_id);
       } catch (e) {
-        if (e instanceof ProviderError) return fail(e.message, e.retryable);
-        return fail(`send failed: ${(e as Error).message}`, true);
+        return { kind: 'fail', attempt, error: 'whatsapp_connection_unavailable', retryable: false, connectionId: conv.connection_id, detail: (e as Error).message };
+      }
+      if (!conn.enabled || conn.status === 'revoked') return { kind: 'fail', attempt, error: 'WhatsApp connection is disabled or revoked', retryable: false };
+      const rl = await tx.maybeOne<{ until: Date | null }>(
+        `select (rate_limit->>'limitedUntil')::timestamptz as until from integration_connections where id = $1`, [conn.id]);
+      if (rl?.until && new Date(rl.until).getTime() > Date.now()) return { kind: 'defer', until: new Date(rl.until) };
+      const { sandbox: _s, reason: _r, ...content } = m.payload ?? {};
+      return { kind: 'send', attempt, conv, conn, content: content as OutboundContent };
+    }, 'connect.sender');
+
+    if (prep.kind === 'skip') return 'sent'; // already handled by another run
+    if (prep.kind === 'defer') {
+      // The connection is paused after a 429: wait for it without spending an attempt.
+      await this.db.withTenant(orgId, (tx) => tx.query(
+        `update messages set next_attempt_at = $3 where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz`,
+        [messageId, lease, new Date(prep.until.getTime() + Math.round(Math.random() * 5000))]), 'connect.sender');
+      return 'retry';
+    }
+    if (prep.kind === 'fail') return this.recordFailure(orgId, messageId, lease, prep.attempt, prep.error, prep.retryable, undefined, prep);
+
+    try {
+      const res = await whatsappCloudAdapter.send({ ...prep.conn.adapter, config: { ...prep.conn.adapter.config, phoneNumberId: prep.conv.phone_number_id } },
+        this.providerPayload(prep.conv, prep.content));
+      const recorded = await this.db.withTenant(orgId, async (tx) => {
+        const row = await tx.maybeOne(
+          `update messages set status = 'sent', provider_message_id = $3, attempts = $4, error = null, next_attempt_at = null
+            where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz returning id`, [messageId, lease, res.messageId, prep.attempt]);
+        if (row) await tx.query(`update campaign_deliveries set status = 'sent', sent_at = now() where message_id = $1`, [messageId]);
+        return !!row;
+      }, 'connect.sender');
+      if (!recorded) this.logger.warn(`message ${messageId} was sent but its lease had moved on; status not recorded by this run`);
+      return 'sent';
+    } catch (e) {
+      if (e instanceof ProviderError) {
+        if (e.status === 429) await this.connections.markRateLimited(orgId, prep.conn.id, e.retryAfterMs).catch(() => undefined);
+        return this.recordFailure(orgId, messageId, lease, prep.attempt, e.message, e.retryable, e.retryAfterMs);
+      }
+      return this.recordFailure(orgId, messageId, lease, prep.attempt, `send failed: ${(e as Error).message}`, true);
+    }
+  }
+
+  private async recordFailure(orgId: string, messageId: string, lease: string, attempt: number, error: string, retryable: boolean,
+    retryAfterMs?: number, log?: { connectionId?: string; detail?: string }): Promise<'failed' | 'retry'> {
+    const final = !retryable || attempt >= MAX_ATTEMPTS;
+    await this.db.withTenant(orgId, async (tx) => {
+      const row = await tx.maybeOne(
+        `update messages set attempts = $3, error = $4, status = $5, next_attempt_at = $6
+          where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz returning id`,
+        [messageId, lease, attempt, error.slice(0, 500), final ? 'failed' : 'queued', final ? null : new Date(Date.now() + retryDelayMs(attempt, retryAfterMs))]);
+      if (row && final) await tx.query(`update campaign_deliveries set status = 'failed', error = $2 where message_id = $1`, [messageId, error.slice(0, 300)]);
+      if (row && log?.connectionId) {
+        // Shown in the connection's log in Integrations, so the owner sees why WhatsApp messages stopped.
+        await this.connections.log(tx, orgId, log.connectionId, 'error', 'WhatsApp message not sent: the connection credentials are unavailable',
+          { messageId, reason: (log.detail ?? '').slice(0, 200) });
       }
     }, 'connect.sender');
+    return final ? 'failed' : 'retry';
   }
 }
