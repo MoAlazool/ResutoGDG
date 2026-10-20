@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
-  RESERVATION_RULES, TABLE_FEATURES, canTransitionReservation,
-  type AvailabilityResult, type ReservationHoldRequest, type ReservationStatus, type ReservationView,
+  RESERVATION_RULES, TABLE_FEATURES, canTransitionReservation, normalizePhone,
+  type AvailabilityResult, type ReservationHoldRequest, type ReservationSlotsView, type ReservationStatus, type ReservationView,
 } from '@resuto/contracts';
 import { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
@@ -13,6 +13,7 @@ import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
+import { orgCountry } from '../orders/org-country';
 import { VisitsService } from '../orders/visits.service';
 import { evaluateTables, pickTable, withinOpeningHours, type BookingRow, type TableRow } from './availability';
 
@@ -29,6 +30,10 @@ export const toReservation = (r: any, currency: string): ReservationView => ({
 interface Slot {
   branch: any; tz: string; currency: string; startsAt: Date; endsAt: Date; blockedUntil: Date; durationMin: number; dow: number; startMin: number;
 }
+
+const half = (from: number, to: number) => Array.from({ length: (to - from) * 2 + 1 }, (_, i) => `${String(from + Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
+/** Legacy booking services (reservations.js): lunch 12:00-16:00 and dinner 17:00-23:00, every half hour. */
+const SERVICES = { lunch: half(12, 16), dinner: half(17, 23) } as const;
 
 /** Translates the exclusion constraint into a friendly conflict. */
 function overlapToConflict(e: unknown): never {
@@ -145,6 +150,73 @@ export class ReservationsService {
     });
   }
 
+  /**
+   * The bookable sittings of one service (lunch 12:00-16:00, dinner 17:00-23:00, every 30 minutes, as in the legacy
+   * booking page) with the number of tables free for the party at each, in the branch's time zone (VP-08, VP-11).
+   * "Today" is today where the restaurant is, not where the guest's phone is; sittings that start within ten minutes
+   * are dropped; with no date, the guest starts on the first day that still has a few sittings left.
+   */
+  async publicSlots(slug: string, q: { branch?: string; date?: string; partySize: number; service?: 'lunch' | 'dinner' }): Promise<ReservationSlotsView> {
+    return this.publicTenant(slug, async (tx, orgId) => {
+      const found = await tx.maybeOne<{ id: string }>(
+        `select id from branches where org_id = $1 and is_active and accepts_reservations and ($2::text is null or code = $2) order by created_at limit 1`,
+        [orgId, q.branch ?? null]);
+      if (!found) throw notFound('Branch');
+      const branch = await tx.one<any>(
+        `select b.*, coalesce(b.timezone, o.timezone) as tz, o.currency, ((now() at time zone coalesce(b.timezone, o.timezone))::date)::text as today
+           from branches b join organizations o on o.id = b.org_id where b.id = $1`, [found.id]);
+      const today: string = branch.today;
+      const sittings = async (date: string, service: 'lunch' | 'dinner') => {
+        const times = SERVICES[service];
+        const rows = await tx.query<{ time: string; starts_at: Date; dow: number }>(
+          `select t as time, (($1::date + t::time) at time zone $2) as starts_at, extract(dow from $1::date)::int as dow from unnest($3::text[]) t`,
+          [date, branch.tz, times]);
+        const now = Date.now();
+        const upcoming = rows.filter((r) => r.starts_at.getTime() >= now + 10 * 60_000);
+        return { rows: upcoming, passed: rows.length - upcoming.length };
+      };
+      let date = q.date && q.date >= today ? q.date : today;
+      let service: 'lunch' | 'dinner' = q.service ?? 'dinner';
+      let firstOpenDate = today;
+      if (!q.date) {
+        // Legacy openingSlot(): dinner, else lunch, when at least three sittings are left today; otherwise tomorrow.
+        const pickToday = q.service ? [q.service] : (['dinner', 'lunch'] as const);
+        let chosen: 'lunch' | 'dinner' | null = null;
+        for (const s of pickToday) if ((await sittings(today, s)).rows.length >= 3) { chosen = s; break; }
+        if (chosen) service = chosen;
+        else {
+          date = (await tx.one<{ d: string }>(`select ($1::date + 1)::text as d`, [today])).d;
+          firstOpenDate = date;
+          service = q.service ?? 'dinner';
+        }
+      }
+      const { rows, passed } = await sittings(date, service);
+      const durationMin = Number(branch.reservation_duration_min);
+      const slots: ReservationSlotsView['slots'] = [];
+      if (rows.length) {
+        const first = rows[0]!;
+        const mk = (r: { time: string; starts_at: Date; dow: number }): Slot => {
+          const [h, m] = r.time.split(':').map(Number);
+          const endsAt = new Date(r.starts_at.getTime() + durationMin * 60_000);
+          return { branch, tz: branch.tz, currency: branch.currency, startsAt: r.starts_at, endsAt,
+            blockedUntil: new Date(endsAt.getTime() + Number(branch.reservation_buffer_min) * 60_000), durationMin, dow: r.dow, startMin: (h ?? 0) * 60 + (m ?? 0) };
+        };
+        const { at } = await this.evaluate(tx, mk(first), q.partySize, []);
+        for (const r of rows) {
+          const slot = mk(r);
+          let open = true;
+          try { this.assertBookable(slot); } catch (e) { if (!(e instanceof DomainError)) throw e; open = false; }
+          slots.push({ time: r.time, open, free: open ? at(slot).filter((t) => t.available).length : 0 });
+        }
+      }
+      return {
+        branch: { id: branch.id, code: branch.code, name: branch.name, nameAr: branch.name_ar },
+        timeZone: branch.tz, today, date, service, firstOpenDate, slots, passed,
+        durationMin, depositMinor: Number(branch.reservation_deposit_minor), currency: branch.currency,
+      };
+    });
+  }
+
   staffAvailability(ctx: TenantContext, q: { branchId?: string; date: string; time: string; partySize: number; features?: string }) {
     if (!q.branchId) throw invalid('branch_required', 'Choose a branch');
     ctx.assertBranch(q.branchId);
@@ -183,6 +255,10 @@ export class ReservationsService {
       const ctx = new TenantContext(orgId, 'waiter', null, null, 'guest', 'web:reservation', 'web');
       const branch = await tx.maybeOne<{ id: string }>('select id from branches where id = $1 and org_id = $2 and is_active', [body.branchId, orgId]);
       if (!branch) throw notFound('Branch');
+      // CR-06: the phone as typed (01x…, 05x…, Arabic-Indic digits) becomes E.164 for the restaurant's country.
+      const phone = normalizePhone(body.guestPhone, await orgCountry(tx, orgId));
+      if (!phone) throw invalid('phone_invalid', 'Enter a phone number the restaurant can call, e.g. 010 0123 4567.');
+      body = { ...body, guestPhone: phone };
       const { key, ...payload } = body;
       const result = await this.idempotency.run(tx, orgId, 'reservation-hold', key, payload, async () => {
         const r = await this.insert(tx, ctx, {

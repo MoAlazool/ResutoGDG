@@ -1,5 +1,5 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import type { CartLine, GuestOrderRequest, PublicMenu, WebOrderRequest } from '@resuto/contracts';
+import { normalizePhone, type CartLine, type GuestOrderRequest, type GuestVisitPoll, type PublicMenu, type WebOrderRequest } from '@resuto/contracts';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
@@ -9,6 +9,7 @@ import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
 import { PricingService, type Quote } from '../kernel/pricing.service';
 import { MenuService } from '../menu/menu.service';
+import { orgCountry } from '../orders/org-country';
 import { VisitsService } from '../orders/visits.service';
 
 const iso = (d: Date | null | undefined) => (d ? new Date(d).toISOString() : null);
@@ -48,12 +49,16 @@ export class GuestService {
   // ---------------------------------------------------------------------------
   // QR table ordering
   // ---------------------------------------------------------------------------
-  current(token: string | undefined) {
-    return this.visits.withGuest(token, (tx, g) => this.visits.guestView(tx, g.visit));
+  /** The table view; with the version the guest already has, an unchanged visit answers in a few bytes (PCL-18). */
+  current(token: string | undefined, version?: string): Promise<GuestVisitPoll> {
+    return this.visits.withGuestRead(token, async (tx, g) => {
+      const view = await this.visits.guestView(tx, g.visit);
+      return version && version === view.version ? { unchanged: true as const, version } : view;
+    });
   }
 
   visitMenu(token: string | undefined): Promise<PublicMenu> {
-    return this.visits.withGuest(token, async (tx, g) => {
+    return this.visits.withGuestRead(token, async (tx, g) => {
       const branch = await tx.one('select * from branches where id = $1', [g.visit.branch_id]);
       return this.menu.publicMenuFor(tx, g.ctx.orgId, branch);
     });
@@ -82,7 +87,7 @@ export class GuestService {
   }
 
   orderStatus(token: string | undefined, orderId: string) {
-    return this.visits.withGuest(token, async (tx, g) => {
+    return this.visits.withGuestRead(token, async (tx, g) => {
       const o = await tx.maybeOne<any>('select * from orders where id = $1 and visit_id = $2', [orderId, g.visit.id]);
       if (!o) throw notFound('Order');
       return this.publicOrder(tx, o);
@@ -160,6 +165,10 @@ export class GuestService {
     const checkout = body.payment === 'online' ? requirePort(this.checkout, 'Online payment (ResutoPay)') : null;
     return this.webTenant(slug, async (tx, ctx) => {
       await this.assertBranch(tx, ctx.orgId, body.branchId);
+      // CR-06: the phone as typed (01x…, Arabic-Indic digits) becomes E.164 for the restaurant's country.
+      const phone = normalizePhone(body.customer.phone, await orgCountry(tx, ctx.orgId));
+      if (!phone) throw invalid('phone_invalid', 'Enter a phone number the restaurant can call, e.g. 010 0123 4567.');
+      body = { ...body, customer: { ...body.customer, phone } };
       const { returnUrl: _r, ...payload } = body;
       const order = await this.idempotency.run(tx, ctx.orgId, 'web-order', key, payload, async () => {
         // Tracking links (Marketing) append rcid=<campaignId>; only this restaurant's campaigns count.

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
 import {
-  guestOrderRequest, guestQuoteRequest, serviceRequestInput, webOrderRequest, webQuoteRequest,
+  guestOrderRequest, guestQuoteRequest, guestVisitPollQuery, serviceRequestInput, webOrderRequest, webQuoteRequest,
   type GuestOrderRequest, type WebOrderRequest,
 } from '@resuto/contracts';
 import { z } from 'zod';
@@ -18,6 +18,17 @@ const slugish = z.string().regex(/^[a-z0-9-]{1,60}$/);
 const tokenKey = (t: string | undefined) => sha256(t ?? '').slice(0, 24);
 
 /**
+ * Reads are keyed mostly on the visit token: every phone at a table shares one token and a restaurant's guests share
+ * one Wi-Fi address, so a per-IP read limit sized for one phone throttled whole dining rooms (PCL-18). A table polls
+ * once every few seconds per phone (the view carries order timelines and answers `unchanged` cheaply), so 240 reads a
+ * minute per table and 1,200 per address leave ample head room; requests with a missing or unknown token count
+ * against a strict per-address budget instead, which keeps token guessing slow.
+ */
+const READ_PER_IP = 1200;
+const READ_PER_TOKEN = 240;
+const BAD_TOKEN_PER_IP = 60;
+
+/**
  * QR table guest API (MODULE_CONTRACTS §8 "Guest table session"). Public:
  * the visit bearer token (X-Visit-Token) is the only credential; limits apply
  * per IP and per token.
@@ -31,6 +42,26 @@ export class GuestController {
     if (token) this.limiter.hit(`guest:${scope}:tok:${tokenKey(token)}`, perToken);
   }
 
+  /** Read limits plus a strict budget for requests whose token turns out to be missing or no longer valid. */
+  private async read<T>(req: ResutoRequest, token: string | undefined, run: () => Promise<T>): Promise<T> {
+    this.limit(req, 'read', token, READ_PER_IP, READ_PER_TOKEN);
+    try {
+      return await run();
+    } catch (e) {
+      if ((e as { status?: number }).status === 401) this.limiter.hit(`guest:bad-token:ip:${req.ip}`, BAD_TOKEN_PER_IP);
+      throw e;
+    }
+  }
+
+  /** Read-only QR lookup: the restaurant and table behind a QR code, with no session side effects (CR-03). */
+  @Public()
+  @Get('tables/:qrToken')
+  table(@Param('qrToken') qrToken: string, @Req() req: ResutoRequest) {
+    this.limiter.hit(`guest:table:ip:${req.ip}`, 240);
+    if (!/^[A-Za-z0-9_-]{16,128}$/.test(qrToken)) throw notFound('Table');
+    return this.visits.tablePublic(qrToken);
+  }
+
   @Public()
   @Post('tables/:qrToken/session')
   @HttpCode(200)
@@ -42,16 +73,14 @@ export class GuestController {
 
   @Public()
   @Get('visits/current')
-  current(@Headers('x-visit-token') token: string | undefined, @Req() req: ResutoRequest) {
-    this.limit(req, 'read', token, 240, 120);
-    return this.guest.current(token);
+  current(@Headers('x-visit-token') token: string | undefined, @Query(zod(guestVisitPollQuery)) q: z.infer<typeof guestVisitPollQuery>, @Req() req: ResutoRequest) {
+    return this.read(req, token, () => this.guest.current(token, q.v));
   }
 
   @Public()
   @Get('visits/current/menu')
   menu(@Headers('x-visit-token') token: string | undefined, @Req() req: ResutoRequest) {
-    this.limit(req, 'read', token, 240, 120);
-    return this.guest.visitMenu(token);
+    return this.read(req, token, () => this.guest.visitMenu(token));
   }
 
   @Public()
@@ -73,8 +102,7 @@ export class GuestController {
   @Public()
   @Get('visits/current/orders/:orderId')
   orderStatus(@Headers('x-visit-token') token: string | undefined, @Param('orderId', uuidPipe) orderId: string, @Req() req: ResutoRequest) {
-    this.limit(req, 'read', token, 240, 120);
-    return this.guest.orderStatus(token, orderId);
+    return this.read(req, token, () => this.guest.orderStatus(token, orderId));
   }
 
   @Public()

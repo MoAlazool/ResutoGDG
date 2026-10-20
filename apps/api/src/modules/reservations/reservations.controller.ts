@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
-  availabilityQuery, reservationCancelRequest, reservationConfirmRequest, reservationDayQuery, reservationHoldRequest, staffReservationInput,
+  availabilityQuery, reservationCancelRequest, reservationConfirmRequest, reservationDayQuery, reservationHoldRequest, reservationSlotsQuery, staffReservationInput,
   staffReservationUpdate, type AvailabilityQuery, type ReservationHoldRequest,
 } from '@resuto/contracts';
 import { z } from 'zod';
@@ -108,6 +108,15 @@ export class PublicReservationsController {
     this.limiter.hit(`reservations:availability:${req.ip}`, 120);
     if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
     return this.reservations.publicAvailability(slug, q);
+  }
+
+  /** Sittings of a service with free-table counts, in the branch time zone (VP-08, VP-11). */
+  @Public()
+  @Get(':slug/slots')
+  slots(@Param('slug') slug: string, @Query(zod(reservationSlotsQuery)) q: z.infer<typeof reservationSlotsQuery>, @Req() req: ResutoRequest) {
+    this.limiter.hit(`reservations:availability:${req.ip}`, 120);
+    if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
+    return this.reservations.publicSlots(slug, q);
   }
 
   @Public()
