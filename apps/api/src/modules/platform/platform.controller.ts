@@ -4,7 +4,7 @@ import {
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { AuthPrincipal, ResutoRequest, TenantContext } from '../../common/auth/context';
-import { AllowMcp, Principal, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { Principal, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { forbidden } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
@@ -38,7 +38,6 @@ export class PlatformController {
   }
 
   @Get('o/:orgId')
-  @AllowMcp()
   get(@Tenant() ctx: TenantContext) {
     return this.orgs.get(ctx);
   }
