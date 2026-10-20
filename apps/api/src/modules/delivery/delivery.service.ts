@@ -4,7 +4,7 @@ import { estimateTravelSeconds, haversineMeters } from '@resuto/integrations';
 import { createHmac, randomInt } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
 import { safeEqual } from '../../common/crypto/hash';
-import { purposeKey } from '../../common/crypto/keys';
+import { purposeKeys, type PurposeKeys } from '../../common/crypto/keys';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
@@ -43,10 +43,11 @@ export class DeliveryService {
     @Inject(ENV) env: Env,
     @Optional() @Inject(MESSAGING_PORT) private readonly messaging?: MessagingPort,
   ) {
-    this.otpKey = purposeKey(env, 'delivery-otp');
+    this.otpKeys = purposeKeys(env, 'delivery-otp');
   }
 
-  private readonly otpKey: Buffer;
+  /** Active key signs new codes; every ring key verifies, so rotating keys keeps outstanding codes valid. */
+  private readonly otpKeys: PurposeKeys;
 
   // ---------------------------------------------------------------------------
   // Job creation (MODULE_CONTRACTS §4: idempotent per order)
@@ -331,8 +332,13 @@ export class DeliveryService {
   }
 
   /** Keyed hash of a delivery code (audit PS-08): without the server key, the stored value cannot be reversed. */
-  otpHash(jobId: string, code: string) {
-    return OTP_HASH_VERSION + createHmac('sha256', this.otpKey).update(`delivery-otp:${jobId}:${code}`).digest('hex');
+  otpHash(jobId: string, code: string, key: Buffer = this.otpKeys.active) {
+    return OTP_HASH_VERSION + createHmac('sha256', key).update(`delivery-otp:${jobId}:${code}`).digest('hex');
+  }
+
+  /** True when `code` matches the stored hash under any key of the ring (every key is checked, in constant time each). */
+  otpMatches(jobId: string, code: string, stored: string) {
+    return this.otpKeys.all.reduce((hit, key) => safeEqual(this.otpHash(jobId, code, key), stored) || hit, false);
   }
 
   /**
@@ -348,7 +354,7 @@ export class DeliveryService {
       if (!job.delivery_otp_hash) return 'not_set' as const;
       if (!job.delivery_otp_hash.startsWith(OTP_HASH_VERSION)) return 'reissue' as const; // issued before keyed hashes
       if (job.otp_locked_at || job.otp_failed_attempts >= OTP_MAX_ATTEMPTS) return 'locked' as const;
-      if (safeEqual(this.otpHash(jobId, code), job.delivery_otp_hash)) return 'ok' as const;
+      if (this.otpMatches(jobId, code, job.delivery_otp_hash)) return 'ok' as const;
       const r = await tx.one<{ otp_failed_attempts: number }>(
         `update delivery_jobs set otp_failed_attempts = otp_failed_attempts + 1,
                 otp_locked_at = case when otp_failed_attempts + 1 >= $2 then now() else null end

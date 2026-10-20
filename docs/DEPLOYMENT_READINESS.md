@@ -46,7 +46,8 @@ Vercel `resuto` project + Firebase) is untouched and still deploys from `main`.
 API: `DATABASE_URL` (Supavisor pooler works in transaction mode: every request runs in one
 transaction and all role/claim settings are `SET LOCAL`/`set_config(..., true)`; the `pg`
 driver uses unnamed statements), `SUPABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `CREDENTIALS_KEYS`
-(32-byte keys, rotate by prepending), `AI_SERVICE_TOKEN`,
+(32-byte keys, rotate by prepending), `SIGNING_KEY` (optional, recommended: 32+ characters,
+comma-separated newest first; master for delivery-code and media-URL HMACs, old entries keep verifying), `AI_SERVICE_TOKEN`,
 `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `GEMINI_API_KEY` (optional).
 Web: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 Provider credentials are **per restaurant** in `integration_connections` (encrypted),

@@ -46,6 +46,7 @@ All services deploy branch `claude/relaxed-mayer-omkl3f`.
 | `SUPABASE_PUBLISHABLE_KEY` | publishable key (demo loader sign-in only) |
 | `STORAGE_DRIVER` | `supabase` (private bucket `tenant-media`, signed URLs) |
 | `CREDENTIALS_KEYS`, `AI_SERVICE_TOKEN` | secrets generated for staging, stored only in Render (`MCP_INTERNAL_TOKEN` is no longer read; it can be deleted) |
+| `SIGNING_KEY` | optional secret (32+ characters; comma-separated, newest first) for delivery-code and media-URL HMACs. Unset: derived from `CREDENTIALS_KEYS`. Every listed key (and every `CREDENTIALS_KEYS` entry) still verifies, so setting or rotating it never invalidates outstanding delivery codes; drop an old entry only after its codes and URLs have expired (a day is plenty). |
 | `AI_SERVICE_URL` | `https://resuto-2-staging-ai.onrender.com` |
 | `RUN_WORKER_IN_PROCESS` | `true` |
 | `PAYMENT_MODE` | `sandbox` (simulated provider only) |

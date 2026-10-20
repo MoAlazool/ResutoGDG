@@ -54,6 +54,9 @@ start with `AUTH_DEV_MODE` in production.
   key from `common/crypto/keys.ts`, never the JWT secret).
 - Delivery codes: keyed HMAC (`h1:` prefix), 5 wrong attempts per issued code counted in the
   database lock the code until staff issue a new one.
+- Purpose keys form a ring (`SIGNING_KEY` entries, then every `CREDENTIALS_KEYS` entry): the
+  newest signs, all verify, so key rotation never turns outstanding delivery codes into wrong
+  attempts or breaks signed media URLs.
 - Authenticated API responses: `Cache-Control: private, no-store` and `Vary` on the credential
   headers unless a public controller sets its own policy; HSTS in staging/production.
 - Audit log: append-only for application roles (trigger), includes MCP and AI actions.
