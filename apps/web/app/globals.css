@@ -175,6 +175,10 @@ input[type='file']::file-selector-button:hover { background: var(--file-btn-hove
   display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--radius-pill);
   font-size: 12px; font-weight: 650; background: var(--line-soft); color: var(--ink); white-space: nowrap;
 }
+/* A long badge (provider name + readiness note) wraps within its column instead of widening the page on phones;
+   badges in table cells keep one line (the table scrolls). */
+.badge { max-width: 100%; white-space: normal; overflow-wrap: break-word; }
+table .badge { white-space: nowrap; overflow-wrap: normal; }
 .badge-ok { background: var(--ok-bg); color: var(--ok); }
 .badge-warn { background: var(--warn-bg); color: var(--warn); }
 .badge-info { background: var(--info-bg); color: var(--info); }
