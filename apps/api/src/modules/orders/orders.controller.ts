@@ -5,7 +5,7 @@ import {
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
-import { AllowMcp, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { RequirePermission, Tenant } from '../../common/auth/decorators';
 import { zod } from '../../common/http/zod.pipe';
 import { OrdersService } from './orders.service';
 import { VisitsService } from './visits.service';
@@ -17,14 +17,12 @@ export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
   @Get('orders')
-  @AllowMcp()
   @RequirePermission('orders:read')
   list(@Tenant() ctx: TenantContext, @Query(zod(orderListQuery)) q: OrderListQuery) {
     return this.orders.listOrders(ctx, q);
   }
 
   @Get('orders/:id')
-  @AllowMcp()
   @RequirePermission('orders:read')
   get(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string) {
     return this.orders.detail(ctx, id);
@@ -37,7 +35,6 @@ export class OrdersController {
   }
 
   @Post('orders/:id/transition')
-  @AllowMcp()
   @RequirePermission('orders:status')
   transition(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(orderTransitionRequest)) body: z.infer<typeof orderTransitionRequest>) {
     return this.orders.transition(ctx, id, body.to, body.version);

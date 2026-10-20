@@ -5,7 +5,7 @@ import {
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
-import { AllowMcp, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { zod } from '../../common/http/zod.pipe';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
@@ -40,7 +40,6 @@ export class InventoryController {
   // Items -------------------------------------------------------------------
   @Get('items')
   @RequirePermission('inventory:read')
-  @AllowMcp()
   items(@Tenant() ctx: TenantContext, @Query(zod(itemListQuery)) q: z.infer<typeof itemListQuery>) {
     return this.db.scoped(ctx, (tx) => this.inventory.listItems(tx, ctx, { includeArchived: q.includeArchived === 'true', q: q.q }));
   }
@@ -60,28 +59,24 @@ export class InventoryController {
   // Levels, valuation, alerts --------------------------------------------------
   @Get('levels')
   @RequirePermission('inventory:read')
-  @AllowMcp()
   levels(@Tenant() ctx: TenantContext, @Query(zod(optionalBranch)) q: z.infer<typeof optionalBranch>) {
     return this.db.scoped(ctx, (tx) => this.inventory.levels(tx, ctx, q.branchId));
   }
 
   @Get('valuation')
   @RequirePermission('inventory:read')
-  @AllowMcp()
   valuation(@Tenant() ctx: TenantContext, @Query(zod(optionalBranch)) q: z.infer<typeof optionalBranch>) {
     return this.db.scoped(ctx, (tx) => this.inventory.valuation(tx, ctx, q.branchId));
   }
 
   @Get('alerts')
   @RequirePermission('inventory:read')
-  @AllowMcp()
   alerts(@Tenant() ctx: TenantContext, @Query(zod(optionalBranch)) q: z.infer<typeof optionalBranch>) {
     return this.db.scoped(ctx, (tx) => this.inventory.openAlerts(tx, ctx, q.branchId));
   }
 
   @Get('waste-report')
   @RequirePermission('inventory:read')
-  @AllowMcp()
   waste(@Tenant() ctx: TenantContext, @Query(zod(wasteReportQuery)) q: z.infer<typeof wasteReportQuery>) {
     return this.db.scoped(ctx, (tx) => this.inventory.wasteReport(tx, ctx, q));
   }

@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useState } from 'react';
-import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
+import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
@@ -185,7 +185,7 @@ function Reconciliation({ providers }: { providers: string[] }) {
           {(runs.data?.items ?? []).length === 0 && <p className="fine">{t('pay.dash.emptyRuns')}</p>}
           {(runs.data?.items ?? []).map((r) => (
             <button key={r.id} className="btn btn-ghost" style={{ justifyContent: 'space-between' }} onClick={() => open.run(r.id)}>
-              <span>{r.provider} · {dateTime(r.createdAt, locale)}</span>
+              <span><bdi>{r.provider}</bdi> · {dateTime(r.createdAt, locale)}</span>
               <span>{r.totals.matched}/{r.totals.items} {t('pay.recon.matched')}</span>
             </button>
           ))}
@@ -284,9 +284,14 @@ function Alerts() {
   // and starts a new attempt after a definite failure; the message follows the refund status it returns (F4).
   const [refunded, setRefunded] = useState<{ id: string; status: string } | null>(null);
   const [refundError, setRefundError] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm(locale);
   const refundAtProvider = useAction(async (a: any) => {
     const amount = a.details?.amountMinor ?? a.details?.received?.amountMinor;
-    if (!window.confirm(t('pay.alert.refundConfirm', { amount: amount != null ? money(amount, a.details?.currency ?? org.currency, locale) : '', provider: a.provider ?? '' }))) return;
+    const ok = await confirm({
+      title: t('pay.alert.refundConfirm', { amount: amount != null ? money(amount, a.details?.currency ?? org.currency, locale) : '', provider: a.provider ?? '' }),
+      tone: 'danger',
+    });
+    if (!ok) return;
     setRefunded(null);
     setRefundError(null);
     try {
@@ -306,6 +311,7 @@ function Alerts() {
   if (!data?.items.length) return <Card><EmptyState title={t('pay.dash.emptyAlerts')} /></Card>;
   return (
     <div className="stack">
+      {confirmDialog}
       {refundAtProvider.error && <Notice tone="danger">{refundAtProvider.error}</Notice>}
       {refundError && <Notice tone="danger">{refundError}</Notice>}
       {data.items.map((a) => (

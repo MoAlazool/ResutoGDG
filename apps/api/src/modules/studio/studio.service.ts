@@ -9,6 +9,7 @@ import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { StorageService } from '../../common/storage/storage.service';
 import { SiteBuilderService } from './site-builder.service';
 import { referencedMedia, toMedia, toSection, toWebsite, type SiteDocument } from './studio.mappers';
+import { escapeLike } from '../mcp/mcp.util';
 
 const MAX_SECTIONS = 30;
 
@@ -221,7 +222,7 @@ export class StudioService {
         `select p.id, p.name, p.name_ar, p.price_minor, p.currency, p.image_url, ma.path as image_path, c.name as category
            from products p join menu_categories c on c.id = p.category_id left join media_assets ma on ma.id = p.image_media_id
           where p.org_id = $1 and p.is_active and ($2::text is null or p.name ilike '%' || $2 || '%' or p.name_ar ilike '%' || $2 || '%')
-          order by c.sort_order, p.sort_order, p.name limit 200`, [ctx.orgId, search?.trim() || null]);
+          order by c.sort_order, p.sort_order, p.name limit 200`, [ctx.orgId, search?.trim() ? escapeLike(search.trim()) : null]);
       const items = await Promise.all(rows.map(async (r) => ({
         id: r.id, name: r.name, nameAr: r.name_ar, category: r.category, priceMinor: Number(r.price_minor), currency: r.currency,
         imageUrl: r.image_path ? await this.storage.signedUrl(r.image_path, 3600) : r.image_url,

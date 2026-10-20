@@ -23,13 +23,6 @@ export const PlatformAdmin = (...roles: Array<'superadmin' | 'support' | 'financ
  * route (apps/api/test/mcp-route-lockdown.test.ts).
  */
 export const McpRuntime = (): ClassDecorator => SetMetadata(MCP_RUNTIME, true);
-/**
- * @deprecated Has no effect. MCP client keys used to reach REST routes marked with this decorator directly, which
- * skipped the tool allow-list, approvals and MCP audit (audit FT-01/PS-03). Keys now reach only @McpRuntime() routes;
- * expose a wanted read as an MCP tool instead. Remove remaining usages.
- */
-export const AllowMcp = (): MethodDecorator & ClassDecorator => () => undefined;
-
 export const Tenant = createParamDecorator((_: unknown, ctx: ExecutionContext) => {
   const req = ctx.switchToHttp().getRequest<ResutoRequest>();
   if (!req.tenant) throw new Error('Tenant context missing: route needs :orgId');

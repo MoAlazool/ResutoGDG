@@ -7,6 +7,7 @@ import type { Tx } from '../../common/db/db.service';
 import { conflict, forbidden, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { branchScope, int, iso } from '../analytics/scope';
+import { escapeLike } from '../mcp/mcp.util';
 
 /** Orders that count towards customer value: confirmed and not cancelled. */
 const COUNTED = `o.status not in ('cancelled', 'awaiting_payment')`;
@@ -31,7 +32,7 @@ export class CustomersService {
 
   private filterSql(ctx: TenantContext, q: Partial<CustomerListQuery>) {
     const scope = branchScope(ctx, q.branchId);
-    const qText = q.q?.trim() || null;
+    const qText = q.q?.trim() ? escapeLike(q.q.trim()) : null;
     const digits = qText ? qText.replace(/\D/g, '') : '';
     const params: unknown[] = [
       ctx.orgId, scope, qText, digits.length >= 3 ? digits : null, q.tag ?? null,

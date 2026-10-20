@@ -6,7 +6,7 @@ import {
 import { z } from 'zod';
 import type { ResutoRequest, TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
-import { AllowMcp, Public, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { notFound } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
@@ -21,14 +21,12 @@ export class ReservationsController {
   constructor(private readonly reservations: ReservationsService) {}
 
   @Get()
-  @AllowMcp()
   @RequirePermission('reservations:read')
   day(@Tenant() ctx: TenantContext, @Query(zod(reservationDayQuery)) q: z.infer<typeof reservationDayQuery>) {
     return this.reservations.day(ctx, q);
   }
 
   @Get('availability')
-  @AllowMcp()
   @RequirePermission('reservations:read')
   availability(@Tenant() ctx: TenantContext, @Query(zod(availabilityQuery)) q: AvailabilityQuery) {
     return this.reservations.staffAvailability(ctx, q);

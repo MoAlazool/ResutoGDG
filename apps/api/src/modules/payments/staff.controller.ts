@@ -4,7 +4,7 @@ import {
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
-import { AllowMcp, RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
+import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { invalid, notFound } from '../../common/errors/domain-error';
 import { zod } from '../../common/http/zod.pipe';
@@ -32,7 +32,6 @@ export class PaymentsStaffController {
 
   @Get()
   @RequirePermission('payments:read')
-  @AllowMcp()
   list(@Tenant() ctx: TenantContext, @Query(zod(listPaymentsQuery)) q: z.infer<typeof listPaymentsQuery>) {
     return this.payments.list(ctx, q);
   }
@@ -67,14 +66,12 @@ export class PaymentsStaffController {
   // --- payment links -----------------------------------------------------------
   @Get('links')
   @RequirePermission('payments:read')
-  @AllowMcp()
   links(@Tenant() ctx: TenantContext, @Query(zod(listQuery)) q: z.infer<typeof listQuery>) {
     return this.payments.listLinks(ctx, q);
   }
 
   @Post('links')
   @RequirePermission('payments:collect')
-  @AllowMcp()
   createLink(@Tenant() ctx: TenantContext, @Body(zod(createPaymentLink)) body: z.infer<typeof createPaymentLink>) {
     return this.payments.createLink(ctx, body);
   }
@@ -168,7 +165,6 @@ export class PaymentsStaffController {
   // --- single payment (keep last: ":paymentId" would shadow the routes above) ----
   @Get(':paymentId')
   @RequirePermission('payments:read')
-  @AllowMcp()
   detail(@Tenant() ctx: TenantContext, @Param('paymentId', ParseUUIDPipe) id: string) {
     return this.payments.detail(ctx, id);
   }

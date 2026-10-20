@@ -4,7 +4,7 @@ import { accountingPush, createExport, expenseCategoryInput, expenseInput, expen
 import type { Response } from 'express';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
-import { AllowMcp, RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
+import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
 import { zod } from '../../common/http/zod.pipe';
 import { AccountingService } from './accounting.service';
 import { ExpensesService } from './expenses.service';
@@ -26,14 +26,12 @@ export class FinanceController {
 
   @Get('overview')
   @RequirePermission('finance:read')
-  @AllowMcp()
   overview(@Tenant() ctx: TenantContext, @Query(zod(financePeriod)) p: Period) {
     return this.finance.overview(ctx, p);
   }
 
   @Get('pnl')
   @RequirePermission('finance:read')
-  @AllowMcp()
   pnl(@Tenant() ctx: TenantContext, @Query(zod(financePeriod)) p: Period) {
     return this.finance.pnl(ctx, p);
   }
@@ -52,7 +50,6 @@ export class FinanceController {
 
   @Get('insights')
   @RequirePermission('finance:read')
-  @AllowMcp()
   insights(@Tenant() ctx: TenantContext, @Query(zod(financePeriod)) p: Period) {
     return this.finance.insights(ctx, p);
   }

@@ -7,7 +7,7 @@ import {
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { ResutoRequest, TenantContext } from '../../common/auth/context';
-import { AllowMcp, Public, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { MenuService } from './menu.service';
@@ -20,7 +20,6 @@ export class MenuController {
   constructor(private readonly menu: MenuService) {}
 
   @Get('o/:orgId/menu')
-  @AllowMcp()
   @RequirePermission('menu:read')
   view(@Tenant() ctx: TenantContext) {
     return this.menu.editorView(ctx);
@@ -60,7 +59,6 @@ export class MenuController {
 
   // Products -----------------------------------------------------------------
   @Get('o/:orgId/menu/products/:id')
-  @AllowMcp()
   @RequirePermission('menu:read')
   product(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string) {
     return this.menu.getProduct(ctx, id);
@@ -100,7 +98,6 @@ export class MenuController {
 
   /** Quick availability ("86") toggle for kitchen, waiters and cashiers. */
   @Post('o/:orgId/menu/products/:id/availability')
-  @AllowMcp()
   @RequirePermission('menu:availability')
   availability(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(availabilityToggle)) body: { branchId: string; available: boolean }) {
     return this.menu.toggleAvailability(ctx, id, body.branchId, body.available);

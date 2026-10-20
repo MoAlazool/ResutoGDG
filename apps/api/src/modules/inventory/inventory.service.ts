@@ -12,6 +12,7 @@ import { AuditService } from '../../common/platform/audit.service';
 import { branchScope, int, iso, num, TZ } from '../analytics/scope';
 import type { inventoryItemUpdate, movementListQuery, stocktakeInput, supplierUpdate, wasteReportQuery } from '@resuto/contracts';
 import { StockAlertsService } from './stock-alerts.service';
+import { escapeLike } from '../mcp/mcp.util';
 
 interface ItemRow { id: string; name: string; unit: InventoryUnit; cost_per_unit_minor: number; reorder_level: string; is_active: boolean }
 
@@ -60,7 +61,7 @@ export class InventoryService {
               coalesce((select sum(sl.quantity) from stock_levels sl where sl.item_id = i.id and ($3::uuid[] is null or sl.branch_id = any($3))), 0) as total_quantity
          from inventory_items i left join suppliers s on s.id = i.supplier_id
         where i.org_id = $1 and ($2 or i.is_active) and ($4::text is null or i.name ilike '%' || $4 || '%' or i.name_ar ilike '%' || $4 || '%' or i.sku ilike $4 || '%')
-        order by lower(i.name)`, [ctx.orgId, !!opts.includeArchived, scope, opts.q?.trim() || null]);
+        order by lower(i.name)`, [ctx.orgId, !!opts.includeArchived, scope, opts.q?.trim() ? escapeLike(opts.q.trim()) : null]);
     return { items: rows.map(mapItem), nextCursor: null };
   }
 

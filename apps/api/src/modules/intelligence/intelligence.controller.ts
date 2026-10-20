@@ -5,7 +5,7 @@ import {
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
-import { AllowMcp, RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
+import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { forbidden, notFound } from '../../common/errors/domain-error';
 import { zod } from '../../common/http/zod.pipe';
@@ -42,14 +42,12 @@ export class IntelligenceController {
   }
 
   @Get('forecast')
-  @AllowMcp()
   @RequirePermission('ai:use')
   forecast(@Tenant() ctx: TenantContext, @Query(zod(forecastQuery)) q: z.infer<typeof forecastQuery>) {
     return this.intelligence.forecast(ctx, q);
   }
 
   @Get('segments')
-  @AllowMcp()
   @RequirePermission('ai:use')
   segments(@Tenant() ctx: TenantContext) {
     return this.intelligence.segments(ctx);
@@ -69,7 +67,6 @@ export class IntelligenceController {
   }
 
   @Get('recommendations')
-  @AllowMcp()
   @RequirePermission('ai:use')
   recommendations(@Tenant() ctx: TenantContext, @Query(zod(recommendationsQuery)) q: z.infer<typeof recommendationsQuery>) {
     if (q.customerId) ctx.require('customers:read');
@@ -98,7 +95,6 @@ export class IntelligenceController {
   }
 
   @Get('insights')
-  @AllowMcp()
   @RequirePermission('ai:use')
   listInsights(@Tenant() ctx: TenantContext, @Query(zod(insightsQuery)) q: z.infer<typeof insightsQuery>) {
     return this.insights.list(ctx, q);

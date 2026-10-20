@@ -5,7 +5,7 @@ import {
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { ResutoRequest, TenantContext } from '../../common/auth/context';
-import { AllowMcp, Public, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
@@ -42,7 +42,6 @@ export class BillingController {
 
   /** Any member: what is enabled and why, limits and current-period usage. */
   @Get('entitlements')
-  @AllowMcp()
   entitlements(@Tenant() ctx: TenantContext): Promise<EntitlementsView> {
     return this.db.scoped(ctx, (tx) => this.view.view(tx, ctx.orgId));
   }
