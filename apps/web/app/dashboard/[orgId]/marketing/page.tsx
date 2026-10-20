@@ -1,20 +1,24 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AD_CHANNELS, type CampaignReport, type MarketingRecommendation, type SegmentGroup, type SegmentRule } from '@resuto/contracts';
 import { Badge, Card, DataTable, DateTimeInput, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
+import { createAttemptKeys } from '@/lib/attempt-keys';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { AudienceDryRunButton, MetaTracking } from './MetaTracking';
 
-type TabKey = 'campaigns' | 'segments' | 'promotions' | 'links' | 'recommendations';
+type TabKey = 'campaigns' | 'segments' | 'promotions' | 'links' | 'recommendations' | 'meta';
 interface Segment { id: string; name: string; memberCount: number; source: string; definition: SegmentGroup; lastComputedAt: string | null }
 interface Campaign {
   id: string; name: string; objective: string; channel: string; status: string; segmentId: string | null; content: Record<string, any>; utmCampaign: string;
   budgetMinor: number | null; currency: string; scheduledAt: string | null; approvedAt: string | null; sentAt: string | null; isSandbox: boolean; source: string;
   externalCampaignId: string | null;
+  /** PS-14: current or last ad launch attempt; token = the [rs:<token>] tag in the provider-side campaign name. */
+  launch?: { token: string; startedAt: string | null; mode: 'live' | 'sandbox' | null; error: string | null; inProgress: boolean } | null;
 }
 
 export default function MarketingPage() {
@@ -23,17 +27,18 @@ export default function MarketingPage() {
   return (
     <ModuleGate module="marketing" permission="marketing:read">
       <PageHeader title={t('marketing.title')} subtitle={t('marketing.subtitle')} />
-      <Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />
+      <Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations', 'meta'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />
       {tab === 'campaigns' && <Campaigns />}
       {tab === 'segments' && <Segments />}
       {tab === 'promotions' && <Promotions />}
       {tab === 'links' && <Links />}
       {tab === 'recommendations' && <Recommendations onApplied={() => setTab('campaigns')} />}
+      {tab === 'meta' && <MetaTracking />}
     </ModuleGate>
   );
 }
 
-const statusTone = (s: string) => (({ draft: 'neutral', pending_approval: 'warn', approved: 'info', scheduled: 'info', sending: 'pay', sent: 'ok', cancelled: 'neutral', failed: 'danger' } as const)[s] ?? 'neutral');
+const statusTone = (s: string) => (({ draft: 'neutral', pending_approval: 'warn', approved: 'info', scheduled: 'info', sending: 'pay', launching: 'pay', sent: 'ok', cancelled: 'neutral', failed: 'danger' } as const)[s] ?? 'neutral');
 
 // ---------------------------------------------------------------------------
 // Segment builder (top-level and/or of rules; the API also accepts nested groups)
@@ -131,7 +136,8 @@ function Segments() {
           { key: 'name', header: t('marketing.seg.name'), render: (s) => <><strong>{s.name}</strong> {s.source !== 'manual' && <Badge>{t(`marketing.source.${s.source}`)}</Badge>}</> },
           { key: 'n', header: t('marketing.seg.members'), align: 'end', render: (s) => <span className="num">{s.memberCount}</span> },
           { key: 'at', header: t('marketing.seg.computed'), render: (s) => dateTime(s.lastComputedAt, locale) },
-          { key: 'a', header: '', align: 'end', render: (s) => can('marketing:write') && <button className="btn btn-sm btn-ghost" disabled={refresh.pending} onClick={() => refresh.run(s.id)}>{t('marketing.seg.refresh')}</button> },
+          { key: 'a', header: '', align: 'end', render: (s) => can('marketing:write') && <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+            <button className="btn btn-sm btn-ghost" disabled={refresh.pending} onClick={() => refresh.run(s.id)}>{t('marketing.seg.refresh')}</button><AudienceDryRunButton segmentId={s.id} /></div> },
         ]} />
       )}
     </div>
@@ -167,8 +173,14 @@ function Campaigns() {
     setForm({ ...form, name: '', text: '' });
     await list.reload();
   });
-  const act = useAction(async (c: Campaign, action: string, body?: unknown) => {
-    const res = await session.call<any>(`/o/${org.id}/marketing/campaigns/${c.id}/${action}`, { method: 'POST', body: body ?? {} });
+  // PS-14: launches and sends carry an Idempotency-Key that stays the same while the same attempt is retried (same
+  // campaign, action, mode and status), so a retried click replays instead of acting twice.
+  const attempts = useRef(createAttemptKeys()).current;
+  const act = useAction(async (c: Campaign, action: string, body?: unknown, idempotent = false) => {
+    const scope = `${c.id}:${action}:${(body as { mode?: string } | undefined)?.mode ?? ''}:${c.status}`;
+    const res = await session.call<any>(`/o/${org.id}/marketing/campaigns/${c.id}/${action}`, { method: 'POST', body: body ?? {},
+      ...(idempotent ? { idempotencyKey: attempts.key(scope) } : {}) });
+    if (idempotent) attempts.settled(scope);
     setNote(res?.note ?? (res?.delivery ? t('marketing.camp.sentSummary', res.delivery) : res?.imported !== undefined ? t('marketing.camp.imported', { n: res.imported }) : null));
     await list.reload();
   });
@@ -186,7 +198,8 @@ function Campaigns() {
           { key: 'name', header: t('marketing.camp.name'), render: (c) => <><strong>{c.name}</strong><div className="fine">{t(`marketing.channel.${c.channel}`)} · {t(`marketing.objective.${c.objective}`)}</div></> },
           { key: 'status', header: t('marketing.camp.status'), render: (c) => <div className="row" style={{ gap: 4 }}><Badge tone={statusTone(c.status)}>{t(`marketing.status.${c.status}`)}</Badge>
             {c.isSandbox && ['sent', 'sending'].includes(c.status) && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
-            {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}</div> },
+            {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}
+            {c.status === 'launching' && <span className="fine" style={{ flexBasis: '100%' }}>{c.launch?.error ? <bdi dir="ltr">{c.launch.error}</bdi> : t('marketing.camp.launchingNote')}</span>}</div> },
           { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `◷ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
           { key: 'a', header: '', align: 'end', render: (c) => (
             <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
@@ -198,8 +211,12 @@ function Campaigns() {
                 <DateTimeInput type="datetime-local" style={{ width: 'auto', minHeight: 32 }} aria-label={t('marketing.camp.scheduleAt')}
                   value={scheduleFor[c.id] ?? ''} onChange={(e) => setScheduleFor({ ...scheduleFor, [c.id]: e.target.value })} />
                 <button className="btn btn-sm" disabled={act.pending || !scheduleFor[c.id]} onClick={() => act.run(c, 'schedule', { scheduledAt: new Date(scheduleFor[c.id]!).toISOString() })}>{t('marketing.camp.schedule')}</button>
-                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send'); }}>{t('marketing.camp.sendNow')}</button></>}
-              {c.status === 'approved' && isAd(c) && can('marketing:write') && <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => act.run(c, 'launch')}>{t('marketing.camp.launch')}</button>}
+                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send', undefined, true); }}>{t('marketing.camp.sendNow')}</button></>}
+              {c.status === 'approved' && isAd(c) && can('marketing:write') && <>
+                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'live' }, true)}>{t('marketing.camp.launch')}</button>
+                <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'sandbox' }, true)}>{t('marketing.camp.launchSandbox')}</button></>}
+              {c.status === 'launching' && c.launch?.error && can('marketing:approve') && <button className="btn btn-sm btn-ghost" disabled={act.pending}
+                onClick={async () => { if (await confirm({ title: t('marketing.camp.launchResetConfirm', { tag: `[rs:${c.launch!.token}]` }), confirmLabel: t('marketing.camp.launchReset') })) void act.run(c, 'launch/reset', { confirmNotCreated: true }); }}>{t('marketing.camp.launchReset')}</button>}
               {c.status === 'sent' && isAd(c) && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending}
                 onClick={() => { const until = new Date().toISOString().slice(0, 10); const since = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10); void act.run(c, 'insights/sync', { since, until }); }}>{t('marketing.camp.importResults')}</button>}
               {['draft', 'pending_approval', 'approved', 'scheduled'].includes(c.status) && can('marketing:write') && <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'cancel')}>{t('action.cancel')}</button>}

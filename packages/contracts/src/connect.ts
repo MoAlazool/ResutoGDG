@@ -29,8 +29,40 @@ export const createMessagingChannel = z.discriminatedUnion('transport', [
     branchId: uuid.nullable().optional(),
     orderingEnabled: z.boolean().default(true),
   }).strict(),
+  /**
+   * Messenger / Instagram Direct (INT-21 / FT-05): the Page (and linked Instagram account) come from the connection
+   * (provider meta_pages), never from this request, and are proven through the Graph API before the channel exists.
+   */
+  z.object({
+    transport: z.literal('meta_page'),
+    kind: z.enum(['messenger', 'instagram']),
+    displayName: text(80),
+    connectionId: uuid,
+    branchId: uuid.nullable().optional(),
+    orderingEnabled: z.boolean().default(true),
+  }).strict(),
 ]);
 export type CreateMessagingChannel = z.infer<typeof createMessagingChannel>;
+
+const metaId = (what: string) => z.string().regex(/^\d{3,30}$/, `${what} (digits)`);
+
+/**
+ * WhatsApp Embedded Signup completion (INT-13). The browser received `code` (valid 30 seconds) and the WABA / phone
+ * number ids from Meta's popup; the server exchanges the code for the business token, proves ownership, subscribes to
+ * webhooks and registers the number. `event` is Meta's session event: the WhatsApp Business app coexistence flow
+ * skips registration (the number is already registered).
+ */
+export const whatsappEmbeddedSignup = z.object({
+  code: z.string().trim().min(8).max(2000),
+  wabaId: metaId('WhatsApp Business Account id'),
+  phoneNumberId: metaId('Phone number id'),
+  businessId: metaId('Business portfolio id').optional().nullable(),
+  event: z.enum(['FINISH', 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING']).default('FINISH'),
+  displayName: text(80),
+  branchId: uuid.nullable().optional(),
+  orderingEnabled: z.boolean().default(true),
+}).strict();
+export type WhatsAppEmbeddedSignup = z.infer<typeof whatsappEmbeddedSignup>;
 
 export const updateMessagingChannel = z.object({
   displayName: text(80).optional(),
@@ -135,6 +167,8 @@ export const orderingDetailsInput = z.object({
     line1: text(300), area: optionalText(120), city: optionalText(80), notes: optionalText(300),
   }).strict().optional(),
   marketingConsent: z.boolean().optional(),
+  /** Messenger / Instagram conversations carry no phone number; delivery orders from them ask for one (INT-21). */
+  phone: phoneE164.optional(),
 }).strict();
 export type OrderingDetailsInput = z.infer<typeof orderingDetailsInput>;
 

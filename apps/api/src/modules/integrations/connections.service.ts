@@ -14,6 +14,28 @@ import { AuditService } from '../../common/platform/audit.service';
 import { adapterFor, catalogEntries, credentialsHint, fieldsFor, webhookFor } from './catalog';
 import { providerReadiness, type VerificationRow } from './readiness';
 import { ProviderHttp } from './provider-http';
+import { platformProofSecret } from './meta-platform';
+import { oauthApp } from './oauth-apps';
+import { newToken } from '../../common/crypto/hash';
+
+/**
+ * WhatsApp onboarding model (INT-13): a connection whose credentials include the app secret is a merchant-owned Meta
+ * app ('own_app'): its webhooks arrive on /v1/webhooks/whatsapp/c/<id>, signed with that secret, with a generated
+ * verify token. Without it the token belongs to Resuto's platform app ('platform'; Embedded Signup), whose webhooks
+ * arrive on /v1/webhooks/whatsapp signed with WHATSAPP_APP_SECRET.
+ */
+export function whatsappConnectionConfig(credentials: Record<string, string> | null, config: Record<string, unknown>, previous: Record<string, unknown> = {}) {
+  const next: Record<string, unknown> = { ...config };
+  // Server-owned keys are never taken from the request.
+  for (const k of ['appMode', 'webhookVerifyToken', 'tokenSource', 'onboarding']) delete next[k];
+  // INT-12: the Graph version is pinned in code (META_GRAPH_VERSION); a connection cannot choose another one.
+  delete next.graphVersion;
+  const ownApp = credentials ? !!credentials.appSecret : previous.appMode === 'own_app';
+  next.appMode = ownApp ? 'own_app' : 'platform';
+  if (ownApp) next.webhookVerifyToken = typeof previous.webhookVerifyToken === 'string' ? previous.webhookVerifyToken : newToken(24);
+  if (!credentials) for (const k of ['tokenSource', 'onboarding']) if (previous[k] !== undefined) next[k] = previous[k];
+  return next;
+}
 
 /** Columns member sessions may read (credentials_encrypted is not among them). */
 export const SAFE_COLUMNS = `id, org_id, branch_id, provider, category, auth_type, environment, status, enabled, credentials_hint, config, scopes,
@@ -77,7 +99,7 @@ export function toView(r: any): IntegrationConnectionView {
 /** Diagnostics and activation details for one connection (INT-17, CR-09): exact webhook URL and events, last success/webhook, account. */
 export function diagnostics(r: any, apiOrigin: string) {
   return {
-    webhook: webhookFor(r.provider, r.id, apiOrigin),
+    webhook: webhookFor(r.provider, r.id, apiOrigin, r.config ?? {}),
     lastSuccessAt: iso(r.last_success_at), lastFailureAt: iso(r.last_failure_at), lastWebhookAt: iso(r.last_webhook_at),
     account: r.account_identity && Object.keys(r.account_identity).length ? r.account_identity : null,
   };
@@ -159,6 +181,7 @@ export class IntegrationConnectionsService {
     const hasCreds = Object.keys(input.credentials).length > 0;
     const status = simulated ? 'sandbox' : hasCreds ? 'pending' : 'not_configured';
     const sot = this.sourceOfTruth(input.sourceOfTruth);
+    if (input.provider === 'whatsapp_cloud') input = { ...input, config: whatsappConnectionConfig(input.credentials, input.config) as CreateIntegrationConnection['config'] };
     return this.db.scoped(ctx, async (tx) => {
       const exists = await tx.maybeOne(`select id from integration_connections where org_id = $1 and provider = $2 and branch_id is not distinct from $3`,
         [ctx.orgId, input.provider, input.branchId ?? null]);
@@ -192,6 +215,9 @@ export class IntegrationConnectionsService {
       const sets: string[] = [];
       const params: unknown[] = [id];
       const set = (sql: string, v: unknown) => { params.push(v); sets.push(sql.replace('?', `$${params.length}`)); };
+      if (r.provider === 'whatsapp_cloud' && (input.config || input.credentials)) {
+        input = { ...input, config: whatsappConnectionConfig(input.credentials ?? null, input.config ?? r.config ?? {}, r.config ?? {}) as UpdateIntegrationConnection['config'] };
+      }
       if (input.environment && !simulated) set('environment = ?', input.environment);
       if (input.config) set('config = ?', input.config);
       if (input.config && !input.credentials && !simulated && adapterFor(r.provider)?.descriptor.category === 'payments' && r.status === 'connected') {
@@ -225,15 +251,32 @@ export class IntegrationConnectionsService {
     });
   }
 
-  /** Destroys the stored credentials (they cannot be recovered) and switches the connection off. */
+  /**
+   * Destroys the stored credentials (they cannot be recovered) and switches the connection off. Providers with a
+   * documented revocation (Meta user tokens, TikTok, WhatsApp webhook subscription) are asked to revoke the token
+   * first (INT-11); the outcome is reported honestly — local credentials are deleted either way.
+   */
   async revoke(ctx: TenantContext, id: string) {
+    const before = await this.get(ctx, id);
+    let providerRevocation: { attempted: boolean; revoked: boolean; note: string } | null = null;
+    const revokeAccess = adapterFor(before.provider)?.revokeAccess as
+      ((c: AdapterContext, app: ReturnType<typeof oauthApp>) => Promise<{ attempted: boolean; revoked: boolean; note: string }>) | undefined;
+    if (before.status !== 'revoked' && typeof revokeAccess === 'function') {
+      try {
+        const conn = await this.load(ctx.orgId, { id });
+        if (Object.keys(conn.adapter.credentials).length) providerRevocation = await revokeAccess(conn.adapter, oauthApp(conn.provider, this.env.API_ORIGIN));
+      } catch (e) {
+        providerRevocation = { attempted: true, revoked: false, note: `The provider did not confirm the revocation: ${redactedError(e).message}` };
+      }
+    }
     return this.db.scoped(ctx, async (tx) => {
       const r = await this.row(tx, ctx, id);
       await tx.query(`update integration_connections set credentials_encrypted = null, credentials_hint = null, status = 'revoked', enabled = false,
           health = '{}'::jsonb where id = $1`, [id]);
-      await this.log(tx, ctx.orgId, id, 'warn', 'Connection revoked; credentials deleted');
-      await this.audit.record(tx, ctx, { action: 'integration.revoked', entityType: 'integration_connection', entityId: id, branchId: r.branch_id, metadata: { provider: r.provider } });
-      return this.view(await this.row(tx, ctx, id));
+      await this.log(tx, ctx.orgId, id, 'warn', 'Connection revoked; credentials deleted', providerRevocation ? { providerRevocation } : {});
+      await this.audit.record(tx, ctx, { action: 'integration.revoked', entityType: 'integration_connection', entityId: id, branchId: r.branch_id,
+        metadata: { provider: r.provider, ...(providerRevocation ? { providerRevoked: providerRevocation.revoked, providerAttempted: providerRevocation.attempted } : {}) } });
+      return { ...this.view(await this.row(tx, ctx, id)), providerRevocation };
     });
   }
 
@@ -266,6 +309,93 @@ export class IntegrationConnectionsService {
     }, 'integration');
   }
 
+  // ---------------------------------------------------------------------------
+  // OAuth token lifetime (INT-11): refresh short-lived tokens, flag expiring ones
+  // ---------------------------------------------------------------------------
+  private refreshable(conn: LoadedConnection) {
+    return typeof adapterFor(conn.provider)?.refreshAccessToken === 'function' && !!conn.adapter.credentials.refreshToken;
+  }
+
+  /**
+   * Like load(), refreshing an OAuth access token that expires within 5 minutes (or now, with force) when the provider
+   * supports refresh tokens (Snapchat access tokens live 3600 s). The new tokens are sealed before use.
+   */
+  async loadFresh(orgId: string, where: { id?: string; provider?: string; category?: string }, opts: { force?: boolean } = {}): Promise<LoadedConnection> {
+    const conn = await this.load(orgId, where);
+    if (!this.refreshable(conn)) return conn;
+    const exp = typeof conn.config.tokenExpiresAt === 'string' ? Date.parse(conn.config.tokenExpiresAt) : NaN;
+    if (!opts.force && !(Number.isFinite(exp) && exp - Date.now() < 5 * 60_000)) return conn;
+    await this.refreshToken(conn);
+    return this.load(orgId, { id: conn.id });
+  }
+
+  private async refreshToken(conn: LoadedConnection) {
+    const app = oauthApp(conn.provider, this.env.API_ORIGIN);
+    const refresh = adapterFor(conn.provider)?.refreshAccessToken as
+      (c: { fetch: typeof fetch }, a: NonNullable<typeof app>, rt: string) => Promise<{ accessToken: string; refreshToken?: string | null; expiresIn?: number | null }>;
+    if (!app) throw new DomainError('provider_app_not_configured', 'The provider app is not configured on this server; the token cannot be refreshed', 503);
+    let tokens;
+    try {
+      tokens = await refresh({ fetch: this.http.fetch }, app, conn.adapter.credentials.refreshToken!);
+    } catch (e) {
+      const d = redactedError(e);
+      if (!isTransientProviderFailure(e)) {
+        await this.db.withTenant(conn.orgId, async (tx) => {
+          await tx.query(`update integration_connections set status = 'error', last_error = $2, last_failure_at = now() where id = $1`,
+            [conn.id, 'The provider refused the refresh token; reconnect this account']);
+          await this.log(tx, conn.orgId, conn.id, 'error', 'Token refresh refused; reconnect needed', { error: d });
+        }, 'integrations:token-refresh');
+      }
+      throw e;
+    }
+    await this.db.withTenant(conn.orgId, async (tx) => {
+      const r = await tx.one<{ credentials_encrypted: string; config: Record<string, unknown> }>(
+        `select credentials_encrypted, config from integration_connections where id = $1 for update`, [conn.id]);
+      const stored = this.box.openJson<Record<string, string>>(r.credentials_encrypted, credentialsAad(conn.orgId, conn.provider));
+      const creds = { ...stored, accessToken: tokens.accessToken, ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}) };
+      await tx.query(`update integration_connections set credentials_encrypted = $2, credentials_hint = $3, config = config || $4 where id = $1`,
+        [conn.id, this.box.sealJson(creds, credentialsAad(conn.orgId, conn.provider)), credentialsHint(creds),
+          { tokenExpiresAt: tokens.expiresIn ? new Date(Date.now() + tokens.expiresIn * 1000).toISOString() : null, lastTokenRefreshAt: new Date().toISOString() }]);
+      await this.log(tx, conn.orgId, conn.id, 'info', 'Access token refreshed', { expiresIn: tokens.expiresIn ?? null });
+    }, 'integrations:token-refresh');
+  }
+
+  /**
+   * Worker (every 30 minutes): refreshes short-lived OAuth tokens that expire within 15 minutes, and flags Meta
+   * long-lived user tokens (≈ 60 days, no server-side refresh) 7 days before they expire; an expired one marks the
+   * connection as error so nothing silently fails at launch time.
+   */
+  @Scheduled('integrations.oauth-tokens', 1800)
+  async maintainOAuthTokens(now = new Date(), scope: { orgId?: string } = {}) {
+    const rows = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; provider: string; config: Record<string, unknown>; status: string }>(
+      `select id, org_id, provider, config, status from integration_connections
+        where enabled and status in ('connected', 'pending', 'error') and credentials_encrypted is not null and config ? 'tokenExpiresAt'
+          and config->>'tokenExpiresAt' is not null and ($2::uuid is null or org_id = $2::uuid)
+          and (config->>'tokenExpiresAt')::timestamptz < $1::timestamptz + interval '7 days'
+        order by (config->>'tokenExpiresAt')::timestamptz limit 100`, [now, scope.orgId ?? null]));
+    let refreshed = 0, flagged = 0, expired = 0, failed = 0;
+    for (const r of rows) {
+      const exp = new Date(String(r.config.tokenExpiresAt));
+      if (typeof adapterFor(r.provider)?.refreshAccessToken === 'function') {
+        if (exp.getTime() - now.getTime() > 15 * 60_000) continue;
+        try { await this.loadFresh(r.org_id, { id: r.id }, { force: true }); refreshed++; } catch { failed++; }
+        continue;
+      }
+      const isExpired = exp.getTime() <= now.getTime();
+      await this.db.withTenant(r.org_id, async (tx) => {
+        if (isExpired) {
+          await tx.query(`update integration_connections set status = 'error', last_error = 'The access token expired; reconnect this account' where id = $1 and status <> 'error'`, [r.id]);
+          await this.log(tx, r.org_id, r.id, 'error', 'Access token expired; reconnect needed', { expiredAt: exp.toISOString() });
+        } else if (r.config.reconnectReminderAt === undefined || Date.parse(String(r.config.reconnectReminderAt)) < now.getTime() - 86_400_000) {
+          await tx.query(`update integration_connections set config = config || $2 where id = $1`, [r.id, { reconnectBy: exp.toISOString(), reconnectReminderAt: now.toISOString() }]);
+          await this.log(tx, r.org_id, r.id, 'warn', 'Access token expires soon; reconnect before it does', { expiresAt: exp.toISOString() });
+        }
+      }, 'integrations:token-check');
+      if (isExpired) expired++; else flagged++;
+    }
+    return { checked: rows.length, refreshed, flagged, expired, failed };
+  }
+
   /** Like load(), inside an existing tenant-mode transaction. */
   async loadInTx(tx: Tx, id: string): Promise<LoadedConnection> {
     if (tx.ctx.mode !== 'tenant') throw new Error('credentials can only be read in tenant mode');
@@ -277,6 +407,9 @@ export class IntegrationConnectionsService {
 
   private materialise(r: any): LoadedConnection {
     const credentials = r.credentials_encrypted ? this.box.openJson<Record<string, string>>(r.credentials_encrypted, credentialsAad(r.org_id, r.provider)) : {};
+    // appsecret_proof for Meta tokens issued to Resuto's platform app (never stored; own-app connections store theirs).
+    const proof = platformProofSecret(r.provider, r.config);
+    if (proof && !credentials.appSecret) credentials.appSecret = proof;
     return {
       id: r.id, orgId: r.org_id, provider: r.provider, category: r.category, environment: r.environment, status: r.status, enabled: r.enabled,
       config: r.config ?? {}, sourceOfTruth: { ...DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, ...(r.source_of_truth ?? {}), orders: 'resuto' },
@@ -297,7 +430,7 @@ export class IntegrationConnectionsService {
   }
 
   private async runHealth(orgId: string, id: string, actor: string) {
-    const conn = await this.load(orgId, { id });
+    let conn = await this.loadFresh(orgId, { id }).catch(() => this.load(orgId, { id }));
     const adapter = adapterFor(conn.provider);
     let health: Record<string, unknown>;
     let status: string = conn.status;
@@ -309,7 +442,15 @@ export class IntegrationConnectionsService {
       health = { ok: null, note: 'This provider has no health check yet' };
     } else {
       try {
-        const res = await adapter.healthCheck(conn.adapter);
+        let res;
+        try {
+          res = await adapter.healthCheck(conn.adapter);
+        } catch (e) {
+          // An expired short-lived OAuth token (Snapchat: 1 hour): refresh once and retry (INT-11).
+          if (!(e instanceof ProviderError && e.status === 401 && this.refreshable(conn))) throw e;
+          conn = await this.loadFresh(orgId, { id }, { force: true });
+          res = await adapter.healthCheck(conn.adapter);
+        }
         const envMismatch = res.environment !== undefined && res.environment !== null && res.environment !== conn.environment;
         const envUnknown = adapter.descriptor.category === 'payments' && adapter.descriptor.readiness !== 'simulated' && !res.environment;
         const ok = res.ok && !envMismatch && !envUnknown;

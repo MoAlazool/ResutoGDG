@@ -60,10 +60,24 @@ export interface FieldSpec {
  */
 export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; config: FieldSpec[] }> = {
   whatsapp_cloud: {
-    credentials: [{ key: 'accessToken', label: 'System user access token', secret: true, required: true }],
+    credentials: [
+      { key: 'accessToken', label: 'System user access token', secret: true, required: true },
+      // INT-13: set only for a Meta app the restaurant owns; its webhooks are verified with this secret.
+      { key: 'appSecret', label: 'App secret (only for your own Meta app)', labelKey: 'intg.field.whatsappAppSecret', secret: true, required: false,
+        hint: 'Leave empty when the number was connected through Resuto (Embedded Signup).', hintKey: 'intg.field.whatsappAppSecretHint' },
+    ],
     config: [
-      { key: 'phoneNumberId', label: 'Phone number id', secret: false, required: true },
-      { key: 'wabaId', label: 'WhatsApp Business Account id', secret: false, required: true },
+      { key: 'phoneNumberId', label: 'Phone number id', secret: false, required: true, pattern: '^\\d{5,30}$' },
+      { key: 'wabaId', label: 'WhatsApp Business Account id', secret: false, required: true, pattern: '^\\d{5,30}$' },
+    ],
+  },
+  // INT-21 / FT-05: Messenger and Instagram Direct through a Page access token (system user of the restaurant's business).
+  meta_pages: {
+    credentials: [{ key: 'accessToken', label: 'Page access token', labelKey: 'intg.field.pageToken', secret: true, required: true }],
+    config: [
+      { key: 'pageId', label: 'Facebook Page id', labelKey: 'intg.field.pageId', secret: false, required: true, pattern: '^\\d{3,30}$' },
+      { key: 'instagramAccountId', label: 'Instagram professional account id (for Instagram Direct)', labelKey: 'intg.field.instagramAccountId', secret: false,
+        required: false, pattern: '^\\d{3,30}$' },
     ],
   },
   foodics: { credentials: [{ key: 'accessToken', label: 'Foodics access token', secret: true, required: true }], config: [] },
@@ -76,6 +90,19 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
     ],
   },
   meta_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'adAccountId', label: 'Ad account id (act_…)', secret: false, required: true }] },
+  // INT-20: one Pixel / dataset per restaurant. Test connections (environment sandbox) need the Test Events code.
+  meta_capi: {
+    credentials: [{ key: 'accessToken', label: 'Conversions API access token', labelKey: 'intg.field.capiToken', secret: true, required: true }],
+    config: [
+      { key: 'pixelId', label: 'Pixel (dataset) id', labelKey: 'intg.field.pixelId', secret: false, required: true, pattern: '^\\d{6,20}$' },
+      { key: 'testEventCode', label: 'Test Events code (test connections only)', labelKey: 'intg.field.testEventCode', secret: false, required: false,
+        pattern: '^TEST[A-Za-z0-9]{1,30}$', hint: 'Events Manager > Test events. Used only while the connection is in Test; Live never sends it.', hintKey: 'intg.field.testEventCodeHint' },
+      { key: 'codPurchase', label: 'Cash orders count as Purchase', labelKey: 'intg.field.codPurchase', secret: false, required: false, kind: 'select',
+        options: ['on_completion', 'never'] },
+      { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select',
+        options: ['on', 'off'] },
+    ],
+  },
   tiktok_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'advertiserId', label: 'Advertiser id', secret: false, required: true }] },
   snapchat_ads: {
     credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }, { key: 'refreshToken', label: 'Refresh token', secret: true, required: false }],
@@ -99,7 +126,17 @@ export const fieldsFor = (provider: string) =>
   CONNECTION_FIELDS[provider] ?? setupFields(provider) ?? { credentials: [{ key: 'apiKey', label: 'API key', secret: true, required: false }], config: [] };
 
 /** Where the merchant points the provider's webhooks for one connection, and which events to subscribe (CR-09). */
-export function webhookFor(provider: string, connectionId: string, apiOrigin: string) {
+export function webhookFor(provider: string, connectionId: string, apiOrigin: string, config: Record<string, unknown> = {}) {
+  if (provider === 'whatsapp_cloud') {
+    // INT-13: only a merchant-owned Meta app registers a callback; platform (Embedded Signup) numbers use Resuto's app.
+    if (config.appMode !== 'own_app') return null;
+    return {
+      url: `${apiOrigin.replace(/\/$/, '')}/v1/webhooks/whatsapp/c/${connectionId}`,
+      events: ['messages', 'message_template_status_update'],
+      registeredByMerchant: true,
+      verifyToken: typeof config.webhookVerifyToken === 'string' ? config.webhookVerifyToken : null,
+    };
+  }
   const a = adapterFor(provider);
   if (a?.descriptor.category !== 'payments' || a.descriptor.readiness === 'simulated') return null;
   return {

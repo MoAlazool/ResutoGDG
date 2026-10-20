@@ -266,8 +266,16 @@ describe('inbox access control', () => {
   it('refuses the simulator on non-sandbox channels', async () => {
     const conn = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections`).set(auth(tenant.owner))
       .send({ provider: 'whatsapp_cloud', environment: 'live', credentials: { accessToken: 'EAAG-sim-test-token-0001' }, config: { phoneNumberId: '900000000000001', wabaId: '900000000000002' } });
-    const ch = await t.http.post(`/v1/o/${tenant.orgId}/connect/channels`).set(auth(tenant.owner))
-      .send({ transport: 'meta_cloud', displayName: 'Live', phoneNumberId: '900000000000001', wabaId: '900000000000002', connectionId: conn.body.id });
+    const http = t.app.get(ProviderHttp);
+    const original = http.fetch;
+    http.fetch = scriptedFetch([{ body: { data: [{ id: '900000000000001' }] } }, { body: { success: true } }]).fetch; // INT-03 ownership proof
+    let ch;
+    try {
+      ch = await t.http.post(`/v1/o/${tenant.orgId}/connect/channels`).set(auth(tenant.owner))
+        .send({ transport: 'meta_cloud', displayName: 'Live', phoneNumberId: '900000000000001', wabaId: '900000000000002', connectionId: conn.body.id });
+    } finally {
+      http.fetch = original;
+    }
     expect(ch.status).toBe(201);
     expect(ch.body).toMatchObject({ sandbox: false, status: 'pending' });
     const res = await t.http.post(`/v1/o/${tenant.orgId}/connect/sandbox/inbound`).set(auth(tenant.owner)).send({ channelId: ch.body.id, from: nextPhone(), text: 'order' });
@@ -293,9 +301,18 @@ describe('WhatsApp Cloud API webhook', () => {
     const conn = await t.http.post(`/v1/o/${live.orgId}/integrations/connections`).set(auth(live.owner))
       .send({ provider: 'whatsapp_cloud', environment: 'live', credentials: { accessToken: 'EAAG-live-token-abcdef' }, config: { phoneNumberId: PHONE_ID, wabaId: '102290129340398' } });
     expect(conn.status).toBe(201);
-    const ch = await t.http.post(`/v1/o/${live.orgId}/connect/channels`).set(auth(live.owner))
-      .send({ transport: 'meta_cloud', displayName: 'Main WhatsApp', phoneNumberId: PHONE_ID, wabaId: '102290129340398', connectionId: conn.body.id });
-    expect(ch.status).toBe(201);
+    // INT-03: the channel is created only after the connection token proves the number belongs to the WABA.
+    const http = t.app.get(ProviderHttp);
+    const original = http.fetch;
+    http.fetch = scriptedFetch([{ body: { data: [{ id: PHONE_ID, display_phone_number: '+1 555 078 3881', verified_name: 'Live Resto' }] } }, { body: { success: true } }]).fetch;
+    try {
+      const ch = await t.http.post(`/v1/o/${live.orgId}/connect/channels`).set(auth(live.owner))
+        .send({ transport: 'meta_cloud', displayName: 'Main WhatsApp', phoneNumberId: PHONE_ID, wabaId: '102290129340398', connectionId: conn.body.id });
+      expect(ch.status).toBe(201);
+      expect(ch.body).toMatchObject({ verified: true, webhookSubscribed: true });
+    } finally {
+      http.fetch = original;
+    }
   });
 
   it('answers the verification handshake only with the right token', async () => {
@@ -350,7 +367,7 @@ describe('WhatsApp Cloud API webhook', () => {
       await sql(`update messages set next_attempt_at = now() where id = $1`, [queued.id]);
       const r2 = await sender.runSender();
       expect(r2).toMatchObject({ sent: 1 });
-      expect(f.calls[1]!.url).toBe(`https://graph.facebook.com/v23.0/${PHONE_ID}/messages`);
+      expect(f.calls[1]!.url).toBe(`https://graph.facebook.com/v26.0/${PHONE_ID}/messages`);
       expect(f.calls[1]!.headers.authorization).toBe('Bearer EAAG-live-token-abcdef');
       expect(JSON.parse(f.calls[1]!.body!)).toMatchObject({ to: '201005550001', type: 'interactive' });
     } finally {

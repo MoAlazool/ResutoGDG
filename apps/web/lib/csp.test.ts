@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCsp, newNonce } from './csp';
+import { buildCsp, documentAllowsMetaSdk, META_SDK_PAGE, newNonce } from './csp';
 
 // Audit PS-17 review: script-src allowed 'unsafe-inline' on every page, so any injected script could run and read the
 // localStorage session token. Pages now get a per-request nonce policy without 'unsafe-inline' for scripts.
@@ -49,5 +49,21 @@ describe('newNonce', () => {
     const a = newNonce();
     expect(a).toMatch(/^[A-Za-z0-9+/]{22}==$/);
     expect(new Set(Array.from({ length: 50 }, newNonce)).size).toBe(50);
+  });
+});
+
+describe('Meta SDK policy follows the loaded document (INT-13 review)', () => {
+  it('allows the SDK only in a document that was itself loaded at the Inbox path', () => {
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/inbox')).toBe(true);
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/inbox/?signup=whatsapp')).toBe(true);
+    // Loaded at the dashboard home, then client-side navigation to the Inbox: the document keeps frame-src 'none'.
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1')).toBe(false);
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/marketing')).toBe(false);
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/inbox/x')).toBe(false);
+    expect(documentAllowsMetaSdk(null)).toBe(false);
+    expect(META_SDK_PAGE.test('/dashboard/org-1/inbox')).toBe(true);
+    // The policies that go with it: only the Inbox document can frame www.facebook.com.
+    expect(directive(buildCsp({ ...opts, nonce: 'n', dev: false, metaSdk: true }), 'frame-src')).toContain('https://www.facebook.com');
+    expect(directive(buildCsp({ ...opts, nonce: 'n', dev: false }), 'frame-src')).toBe("frame-src 'none'");
   });
 });

@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
 import {
-  createIntegrationConnection, integrationOauthStart, integrationProviderId, integrationSyncRequest, resolveIntegrationConflict, updateIntegrationConnection,
+  createIntegrationConnection, integrationAccountSelection, integrationOauthComplete, integrationOauthStart, integrationProviderId, integrationSyncRequest,
+  resolveIntegrationConflict, updateIntegrationConnection,
 } from '@resuto/contracts';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -135,15 +136,44 @@ export class IntegrationsController {
   @Post('o/:orgId/integrations/oauth/:provider/start')
   @RequirePermission('integrations:manage')
   oauthStart(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Body(zod(integrationOauthStart)) body: z.infer<typeof integrationOauthStart>) {
-    return this.oauth.start(ctx, integrationProviderId.parse(provider), body.redirectAfter);
+    return this.oauth.start(ctx, integrationProviderId.parse(provider), body);
   }
 
+  /** PS-11: completes the flow for the user who started it, from the browser holding the nonce. */
+  @Post('o/:orgId/integrations/oauth/:provider/complete')
+  @RequirePermission('integrations:manage')
+  oauthComplete(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Body(zod(integrationOauthComplete)) body: z.infer<typeof integrationOauthComplete>) {
+    return this.oauth.complete(ctx, integrationProviderId.parse(provider), body);
+  }
+
+  /** INT-11: the ad accounts / advertisers the connection's token can use (fresh from the provider). */
+  @Get('o/:orgId/integrations/connections/:id/accounts')
+  @RequirePermission('integrations:manage')
+  accounts(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.oauth.listAccounts(ctx, id);
+  }
+
+  /** INT-11: picks the account the connection uses, from the ones the provider granted; then checks its health. */
+  @Post('o/:orgId/integrations/connections/:id/account')
+  @RequirePermission('integrations:manage')
+  selectAccount(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(integrationAccountSelection)) body: z.infer<typeof integrationAccountSelection>) {
+    return this.oauth.selectAccount(ctx, id, body.accountId);
+  }
+
+  /**
+   * Registered provider redirect URI. It completes nothing (PS-11): it forwards code and state to the web app, which
+   * completes the flow with the signed-in user's session and the browser nonce. The page must not be cached or
+   * referred onward (the code is in the URL).
+   */
   @Get('public/integrations/oauth/:provider/callback')
   @Public()
-  async oauthCallback(@Param('provider') provider: string, @Query('code') code: string | undefined, @Query('state') state: string | undefined,
-    @Res() res: Response) {
+  oauthCallback(@Param('provider') provider: string, @Query() query: Record<string, string | undefined>, @Res() res: Response) {
     this.limiter.hit(`oauth:${res.req.ip}`, 30);
-    const target = await this.oauth.callback(integrationProviderId.parse(provider), code, state);
+    const target = this.oauth.callbackRedirect(integrationProviderId.parse(provider), {
+      code: query.code ?? query.auth_code, state: query.state, error: query.error, error_description: query.error_description,
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Referrer-Policy', 'no-referrer');
     res.redirect(302, target);
   }
 }

@@ -21,7 +21,35 @@ export interface CspOptions {
   dev: boolean;
   apiUrl?: string;
   supabaseUrl?: string;
+  /**
+   * Restaurant website pages (INT-20): the Meta Pixel, which runs only after the guest consents, sends its events to
+   * www.facebook.com. Its script is loaded by trusted (nonce'd) code, so script-src needs nothing extra ('strict-dynamic').
+   * Staff pages never get this.
+   */
+  metaPixel?: boolean;
+  /**
+   * Inbox > Channels (INT-13): WhatsApp Embedded Signup runs Meta's JavaScript SDK (loaded by trusted code), whose
+   * login dialog talks to www.facebook.com through a hidden frame. Only that page gets these hosts.
+   */
+  metaSdk?: boolean;
 }
+
+export const META_SDK_HOSTS = ['https://www.facebook.com', 'https://web.facebook.com', 'https://connect.facebook.net'];
+
+/** Inbox > Channels runs Meta's SDK for WhatsApp Embedded Signup (INT-13): only documents loaded at this path get META_SDK_HOSTS. */
+export const META_SDK_PAGE = /^\/dashboard\/[^/]+\/inbox\/?$/;
+
+/**
+ * A document keeps the policy it was loaded with: client-side navigation (next/link) to the Inbox does not bring the
+ * Inbox's policy. So the SDK may only run when the document itself was loaded at the Inbox path. `loadedUrl` is the
+ * URL the browser loaded the document from (its navigation timing entry), not the current URL.
+ */
+export function documentAllowsMetaSdk(loadedUrl: string | null | undefined): boolean {
+  if (!loadedUrl) return false;
+  try { return META_SDK_PAGE.test(new URL(loadedUrl, 'http://local').pathname); } catch { return false; }
+}
+
+export const META_PIXEL_CONNECT = ['https://www.facebook.com', 'https://connect.facebook.net'];
 
 const originOf = (url: string | undefined) => {
   try { return url ? new URL(url).origin : null; } catch { return null; }
@@ -43,11 +71,11 @@ export function buildCsp(o: CspOptions): string {
     "style-src 'self' 'unsafe-inline'",
     list("img-src 'self' data: blob: https:", api, supabase),
     "font-src 'self' data:",
-    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:'),
+    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : []), ...(o.metaSdk ? META_SDK_HOSTS : [])),
     list("media-src 'self' blob: https:", api),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
-    "frame-src 'none'",
+    o.metaSdk ? list('frame-src', ...META_SDK_HOSTS) : "frame-src 'none'",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

@@ -10,6 +10,8 @@ export * from './meta-ads';
 export * from './tiktok-ads';
 export * from './snapchat-ads';
 export * from './sandbox';
+export * from './meta-capi';
+export * from './audiences';
 
 export const adsAdapters = [metaAdsAdapter, tiktokAdsAdapter, snapchatAdsAdapter, adsSandboxAdapter] as const;
 

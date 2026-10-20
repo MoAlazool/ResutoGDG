@@ -7,7 +7,7 @@ import { OutboxService } from '../../common/platform/outbox.service';
 import { PlanLimitsService } from '../billing/plan-limits.service';
 import { PricingService, type CartLineInput, type Quote } from './pricing.service';
 
-export type OrderChannel = 'qr' | 'web' | 'whatsapp' | 'staff' | 'pos' | 'mcp' | 'phone';
+export type OrderChannel = 'qr' | 'web' | 'whatsapp' | 'staff' | 'pos' | 'mcp' | 'phone' | 'messenger' | 'instagram';
 
 export interface PlaceOrderInput {
   branchId: string;

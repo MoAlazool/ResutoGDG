@@ -159,6 +159,18 @@ const enActions: Record<string, string> = {
   'website.section_updated': 'Website section updated',
   'website.sections_reordered': 'Website sections reordered',
   'website.updated': 'Website updated',
+  'connect.channel_superseded': 'Unverified channel replaced by the number\'s owner',
+  'connect.channel_verified': 'Messaging channel verified',
+  'connect.channel_verification_failed': 'Messaging channel verification failed',
+  'integration.whatsapp_embedded_signup': 'WhatsApp connected with Meta signup',
+  'integration.oauth_connected': 'Account authorised',
+  'integration.oauth_state_rejected': 'Authorisation from another browser refused',
+  'integration.account_selected': 'Ad account chosen',
+  'marketing.ad_campaign_launching': 'Ad campaign launch started',
+  'marketing.ad_campaign_launch_reset': 'Stuck ad launch cleared',
+  'marketing.meta_test_event': 'Meta test event sent',
+  'marketing.audience_dry_run': 'Meta audience dry run reviewed',
+  'connect.meta_page_connected': 'Facebook Page / Instagram account connected',
 };
 
 const arActions: Record<string, string> = {
@@ -315,6 +327,18 @@ const arActions: Record<string, string> = {
   'website.section_updated': 'عُدّل قسم في الموقع',
   'website.sections_reordered': 'أُعيد ترتيب أقسام الموقع',
   'website.updated': 'عُدّل الموقع',
+  'connect.channel_superseded': 'استُبدلت قناة غير موثّقة بقناة مالك الرقم',
+  'connect.channel_verified': 'وُثّقت قناة مراسلة',
+  'connect.channel_verification_failed': 'تعذّر توثيق قناة مراسلة',
+  'integration.whatsapp_embedded_signup': 'رُبط واتساب عبر تسجيل Meta',
+  'integration.oauth_connected': 'فُوّض حساب',
+  'integration.oauth_state_rejected': 'رُفض تفويض من متصفح آخر',
+  'integration.account_selected': 'اختير حساب إعلاني',
+  'marketing.ad_campaign_launching': 'بدأ إطلاق حملة إعلانية',
+  'marketing.ad_campaign_launch_reset': 'أُلغي إطلاق إعلاني معلّق',
+  'marketing.meta_test_event': 'أُرسل حدث اختبار إلى ميتا',
+  'marketing.audience_dry_run': 'رُوجعت تجربة جمهور ميتا',
+  'connect.meta_page_connected': 'رُبطت صفحة فيسبوك / حساب إنستغرام',
 };
 
 const enEntities: Record<string, string> = {
@@ -331,6 +355,7 @@ const enEntities: Record<string, string> = {
   reservation: 'Reservation', segment: 'Customer segment', service_request: 'Guest request', subscription: 'Plan', supplier: 'Supplier',
   tax_profile: 'Tax settings', tracking_link: 'Tracking link', visit: 'Visit', website: 'Website', website_section: 'Website section',
   entitlement_override: 'Module access',
+  'integration_oauth_state': 'Authorisation',
 };
 
 const arEntities: Record<string, string> = {
@@ -347,6 +372,7 @@ const arEntities: Record<string, string> = {
   reservation: 'حجز', segment: 'شريحة عملاء', service_request: 'طلب ضيف', subscription: 'الخطة', supplier: 'مورّد',
   tax_profile: 'إعدادات الضريبة', tracking_link: 'رابط تتبّع', visit: 'زيارة', website: 'الموقع', website_section: 'قسم الموقع',
   entitlement_override: 'صلاحية وحدة',
+  'integration_oauth_state': 'تفويض',
 };
 
 const prefix = (p: string, m: Record<string, string>) => Object.fromEntries(Object.entries(m).map(([k, v]) => [`${p}${k}`, v]));

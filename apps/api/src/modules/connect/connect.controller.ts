@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   connectSandboxInbound, createMessagingChannel, inboxAssignConversation, inboxConversationFilters, inboxHandoffRequest, inboxStaffReply,
-  messageTemplateInput, messageTemplateUpdate, updateMessagingChannel,
+  messageTemplateInput, messageTemplateUpdate, updateMessagingChannel, whatsappEmbeddedSignup,
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -13,6 +13,7 @@ import { zod } from '../../common/http/zod.pipe';
 import { ChannelsService } from './channels.service';
 import { ConversationsService } from './conversations.service';
 import { OrderingService } from './ordering.service';
+import { WhatsAppSignupService } from './whatsapp-signup.service';
 
 @Controller('o/:orgId/connect')
 @RequiresModule('connect')
@@ -23,6 +24,7 @@ export class ConnectController {
     private readonly ordering: OrderingService,
     private readonly db: DbService,
     private readonly audit: AuditService,
+    private readonly signup: WhatsAppSignupService,
   ) {}
 
   // Channels -----------------------------------------------------------------
@@ -42,6 +44,27 @@ export class ConnectController {
   @RequirePermission('connect:manage')
   updateChannel(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(updateMessagingChannel)) body: z.infer<typeof updateMessagingChannel>) {
     return this.channels.update(ctx, id, body);
+  }
+
+  /** INT-03: re-proves ownership through the Graph API (pre-INT-03 channels, token changes, webhook subscription retry). */
+  @Post('channels/:id/verify')
+  @RequirePermission('connect:manage')
+  verifyChannel(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.channels.verify(ctx, id);
+  }
+
+  /** INT-13: what the Embedded Signup launcher needs (app id, configuration id, SDK URL) and what is still missing. */
+  @Get('whatsapp/embedded-signup')
+  @RequirePermission('connect:manage')
+  signupConfig() {
+    return this.signup.config();
+  }
+
+  /** INT-13: completes Embedded Signup (code exchange, ownership proof, webhook subscription, registration). */
+  @Post('whatsapp/embedded-signup')
+  @RequirePermission('connect:manage')
+  signupComplete(@Tenant() ctx: TenantContext, @Body(zod(whatsappEmbeddedSignup)) body: z.infer<typeof whatsappEmbeddedSignup>) {
+    return this.signup.complete(ctx, body);
   }
 
   // Inbox --------------------------------------------------------------------

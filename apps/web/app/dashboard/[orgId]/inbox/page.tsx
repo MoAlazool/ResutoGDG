@@ -8,22 +8,27 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { ChannelKindBadge, EmbeddedSignupCard, PageChannelCard, SIGNUP_RELOAD_PARAM, VerifyCell } from './MetaChannels';
 
 interface Window { open: boolean; closesAt: string | null }
+/** Messenger / Instagram contacts have no phone number (their ids are page-scoped), so they are labelled by network. */
+const guestLabel = (t: (k: string) => string, kind?: string) =>
+  t(kind === 'messenger' || kind === 'instagram' ? `connect.inbox.guest.${kind}` : 'connect.inbox.guest.other');
 interface ConvItem {
-  id: string; channelName: string; sandbox: boolean; contact: string; name: string | null; status: string; unreadCount: number;
+  id: string; channelName: string; channelKind?: string; sandbox: boolean; contact: string | null; name: string | null; status: string; unreadCount: number;
   lastMessageAt: string | null; lastMessage: { body: string; direction: string } | null; window: Window; handoffOpen: boolean;
 }
 interface Message { id: string; direction: 'inbound' | 'outbound'; kind: string; body: string | null; status: string; error: string | null; automated: boolean;
   sandbox: boolean; interactive: any; createdAt: string }
 interface Detail {
-  id: string; status: string; channel: { id: string; name: string; sandbox: boolean }; contact: string; contactName: string | null; locale: string;
+  id: string; status: string; channel: { id: string; name: string; sandbox: boolean; kind?: string; transport?: string }; humanReplyUntil?: string | null; contact: string | null; contactName: string | null; locale: string;
   customer: { id: string; name: string | null; marketingConsent: boolean } | null; window: Window; botActive: boolean;
   handoff: { id: string; reason: string; status: string } | null;
   orderingSession: { step: string; fulfillment: string | null; totalMinor: number | null; currency: string | null; orderNumber: string | null; paymentMethod: string | null } | null;
   messages: Message[];
 }
-interface Channel { id: string; transport: string; sandbox: boolean; displayName: string; status: string; orderingEnabled: boolean; phoneNumberId: string | null }
+interface Channel { id: string; kind: string; transport: string; sandbox: boolean; displayName: string; status: string; orderingEnabled: boolean; phoneNumberId: string | null;
+  verified: boolean | null; webhookSubscribed: boolean | null }
 interface Template { id: string; name: string; language: string; category: string; body: string; variables: string[]; providerStatus: string; sandbox: boolean }
 
 const statusTone = (s: string) => (s === 'handoff' ? 'warn' : s === 'closed' ? 'neutral' : s === 'bot' ? 'info' : 'ok') as 'warn' | 'neutral' | 'info' | 'ok';
@@ -31,6 +36,8 @@ const statusTone = (s: string) => (s === 'handoff' ? 'warn' : s === 'closed' ? '
 export default function InboxPage() {
   const { t } = useT();
   const [tab, setTab] = useState<'conversations' | 'channels' | 'templates'>('conversations');
+  // The WhatsApp signup launcher reloads the Inbox (for its Content-Security-Policy) and continues on Channels.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get(SIGNUP_RELOAD_PARAM) === 'whatsapp') setTab('channels'); }, []);
   return (
     <ModuleGate module="connect" permission="connect:read">
       <PageHeader title={t('connect.inbox.title')} subtitle={t('connect.inbox.subtitle')} />
@@ -78,7 +85,7 @@ function Conversations() {
               <button type="button" onClick={() => setSelected(c.id)} className="btn btn-ghost" aria-current={selected === c.id}
                 style={{ width: '100%', justifyContent: 'space-between', textAlign: 'start', minHeight: 60, padding: '8px 10px', background: selected === c.id ? 'var(--leaf-bg)' : undefined, whiteSpace: 'normal' }}>
                 <span style={{ minWidth: 0, display: 'grid', gap: 2 }}>
-                  <span className="row" style={{ gap: 6 }}><strong><bdi>{c.name ?? c.contact}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
+                  <span className="row" style={{ gap: 6 }}><strong><bdi>{c.name ?? c.contact ?? guestLabel(t, c.channelKind)}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
                     <Badge tone={statusTone(c.status)}>{t(`connect.status.${c.status}`)}</Badge></span>
                   <span className="fine" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                     {c.lastMessage ? <>{c.lastMessage.direction === 'outbound' ? '↩ ' : ''}<bdi>{c.lastMessage.body ?? ''}</bdi></> : ''}</span>
@@ -130,19 +137,23 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
   });
   const usable = (templates.data?.items ?? []).filter((tp) => tp.providerStatus === 'approved' || (d?.channel.sandbox && tp.providerStatus === 'sandbox'));
   const chosen = usable.find((tp) => tp.name === templateName);
+  // Messenger / Instagram (INT-21): no templates; after 24 hours a person may still reply for 7 days (HUMAN_AGENT).
+  const pageChannel = d?.channel.transport === 'meta_page';
+  const humanOpen = pageChannel && !!d?.humanReplyUntil && new Date(d.humanReplyUntil).getTime() > Date.now();
+  const canWrite = !!d && (d.window.open || humanOpen);
 
   if (!d) return <section className="card">{detail.error ? <Notice tone="danger">{detail.error.message}</Notice> : <Skeleton lines={6} />}</section>;
   return (
-    <section className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 520, minWidth: 0 }} aria-label={d.contactName ?? d.contact}>
+    <section className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 520, minWidth: 0 }} aria-label={d.contactName ?? d.contact ?? guestLabel(t, d.channel.kind)}>
       <header style={{ padding: 14, borderBlockEnd: '1px solid var(--line-soft)' }} className="spread">
         <div>
-          <div className="row" style={{ gap: 6 }}><strong><bdi>{d.customer?.name ?? d.contactName ?? d.contact}</bdi></strong>
-            <span className="fine" dir="ltr">{d.contact}</span>
+          <div className="row" style={{ gap: 6 }}><strong><bdi>{d.customer?.name ?? d.contactName ?? d.contact ?? guestLabel(t, d.channel.kind)}</bdi></strong>
+            {d.contact && <span className="fine" dir="ltr">{d.contact}</span>}
             {d.channel.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             <Badge tone={statusTone(d.status)}>{t(`connect.status.${d.status}`)}</Badge>
             {d.customer && <Badge tone={d.customer.marketingConsent ? 'ok' : 'neutral'}>{t(d.customer.marketingConsent ? 'connect.inbox.consent' : 'connect.inbox.noConsent')}</Badge>}
           </div>
-          <div className="fine">{d.botActive ? t('connect.inbox.botActive') : t('connect.inbox.botPaused')} · {d.channel.name}</div>
+          <div className="fine">{d.botActive ? t('connect.inbox.botActive') : t('connect.inbox.botPaused')} · {d.channel.name}{d.channel.kind ? ` · ${t(`connect.channels.kind.${d.channel.kind}`)}` : ''}</div>
         </div>
         <div className="row" style={{ gap: 6 }}>
           {can('connect:reply') && !d.handoff && d.status !== 'closed' && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run('handoff', {})}>{t('connect.inbox.takeOver')}</button>}
@@ -184,16 +195,17 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
           <div className="row" style={{ gap: 6 }}>
             <Badge tone={d.window.open ? 'ok' : 'warn'}>{d.window.open ? t('connect.window.open', { until: dateTime(d.window.closesAt, locale) }) : t('connect.window.closed')}</Badge>
           </div>
-          {!d.window.open && <Notice tone="warn">{t('connect.window.templateOnly')}</Notice>}
-          <SelectField label={t('connect.inbox.template')} value={templateName} onChange={(e) => { setTemplateName(e.target.value); setVars([]); }}>
+          {pageChannel ? (!d.window.open && <Notice tone="warn">{humanOpen ? t('connect.window.humanAgent', { until: dateTime(d.humanReplyUntil!, locale) }) : t('connect.window.pageClosed')}</Notice>)
+            : !d.window.open && <Notice tone="warn">{t('connect.window.templateOnly')}</Notice>}
+          {!pageChannel && <SelectField label={t('connect.inbox.template')} value={templateName} onChange={(e) => { setTemplateName(e.target.value); setVars([]); }}>
             <option value="">{d.window.open ? t('connect.inbox.freeText') : t('connect.inbox.chooseTemplate')}</option>
             {usable.map((tp) => <option key={tp.id} value={tp.name}>{tp.name} ({tp.language}){tp.sandbox ? ` · ${t('connect.sandbox.badge')}` : ''}</option>)}
-          </SelectField>
-          {chosen ? chosen.variables.map((v, i) => (
+          </SelectField>}
+          {chosen && !pageChannel ? chosen.variables.map((v, i) => (
             <Field key={v} label={v} value={vars[i] ?? ''} onChange={(e) => { const n = [...vars]; n[i] = e.target.value; setVars(n); }} required />
-          )) : <TextareaField label={t('connect.inbox.message')} value={text} onChange={(e) => setText(e.target.value)} maxLength={4096} disabled={!d.window.open} rows={3} />}
+          )) : <TextareaField label={t('connect.inbox.message')} value={text} onChange={(e) => setText(e.target.value)} maxLength={pageChannel ? 2000 : 4096} disabled={!canWrite} rows={3} />}
           {send.error && <Notice tone="danger">{send.error}</Notice>}
-          <button className="btn btn-primary" disabled={send.pending || (chosen ? chosen.variables.some((_, i) => !vars[i]) : !text.trim() || !d.window.open)}>{t('connect.inbox.send')}</button>
+          <button className="btn btn-primary" disabled={send.pending || (chosen && !pageChannel ? chosen.variables.some((_, i) => !vars[i]) : !text.trim() || !canWrite)}>{t('connect.inbox.send')}</button>
         </form>
       )}
     </section>
@@ -278,7 +290,8 @@ function Channels() {
         <DataTable rows={channels.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('connect.channels.empty')}>{t('connect.channels.emptyBody')}</EmptyState>}
           columns={[
             { key: 'name', header: t('connect.channels.name'), render: (c) => <strong>{c.displayName}</strong> },
-            { key: 'transport', header: t('connect.channels.transport'), render: (c) => c.sandbox ? <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge> : <Badge tone="info">WhatsApp Cloud API</Badge> },
+            { key: 'transport', header: t('connect.channels.transport'), render: (c) => <ChannelKindBadge c={c} /> },
+            { key: 'verified', header: t('connect.channels.ownership'), render: (c) => <VerifyCell c={c} onDone={() => channels.reload()} /> },
             { key: 'status', header: t('connect.channels.status'), render: (c) => <Badge tone={c.status === 'connected' ? 'ok' : c.status === 'error' ? 'danger' : c.status === 'disabled' ? 'neutral' : 'warn'}>{t(`connect.channelStatus.${c.status}`)}</Badge> },
             { key: 'ordering', header: t('connect.channels.ordering'), render: (c) => can('connect:manage')
               ? <label className="check"><input type="checkbox" checked={c.orderingEnabled} onChange={(e) => toggle.run(c, { orderingEnabled: e.target.checked })} /> {t('connect.channels.orderingOn')}</label>
@@ -311,6 +324,12 @@ function Channels() {
         </div>
       )}
       {create.error && <Notice tone="danger">{create.error}</Notice>}
+      {can('connect:manage') && can('integrations:manage') && (
+        <div className="grid grid-2">
+          <EmbeddedSignupCard onDone={() => channels.reload()} />
+          <PageChannelCard onDone={() => channels.reload()} />
+        </div>
+      )}
     </div>
   );
 }

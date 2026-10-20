@@ -185,7 +185,7 @@ describe('connections and credentials', () => {
     const mine = await t.http.post(api('/connections')).set(auth(tenant.owner)).send({ provider: 'odoo', credentials: { apiKey: 'odoo-key-123456789' }, config: { url: 'https://erp.example.com', currency: 'EGP' } });
     expect((await t.http.get(`/v1/o/${other.orgId}/integrations/connections/${mine.body.id}`).set(auth(other.owner))).status).toBe(404);
     expect((await t.http.get(api(`/connections/${mine.body.id}`)).set(auth(other.owner))).status).toBe(404);
-    const oauth = await t.http.post(api('/oauth/meta_ads/start')).set(auth(tenant.owner)).send({});
+    const oauth = await t.http.post(api('/oauth/meta_ads/start')).set(auth(tenant.owner)).send({ browserBinding: 'a'.repeat(64) });
     expect(oauth.status).toBe(503);
     expect(oauth.body.error).toMatchObject({ code: 'provider_app_not_configured' });
     expect(oauth.body.error.details.activation.length).toBeGreaterThan(0);

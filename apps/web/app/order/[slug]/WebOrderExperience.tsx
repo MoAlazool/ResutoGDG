@@ -11,6 +11,7 @@ import { AssistantCard, AssistantSheet } from '@/components/guest/assistant';
 import { CartSheet, useSuggestions } from '@/components/guest/cart';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart, type Cart } from '@/components/guest/menu';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
+import { MetaPixel, metaOrderPlaced, metaTrack } from '@/lib/tracking/MetaPixel';
 
 export type WebMenu = PublicMenu & {
   payment: { payAtPickup: boolean; cashOnDelivery: boolean; online: boolean };
@@ -28,7 +29,19 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<PublicMenuProduct | null>(null);
   const [sheet, setSheet] = useState<'cart' | 'checkout' | 'assistant' | null>(null);
-  const cart = useCart(`resuto.webcart.${slug}`);
+  const baseCart = useCart(`resuto.webcart.${slug}`);
+  // Meta Pixel (INT-20): every add on the website is an AddToCart; a no-op unless the guest agreed to ad measurement.
+  const cart: Cart = {
+    ...baseCart,
+    add: (productId, quantity, modifiers, notes) => {
+      baseCart.add(productId, quantity, modifiers, notes);
+      metaTrack(slug, 'AddToCart', { content_ids: [productId], content_type: 'product' });
+    },
+    addMany: (lines) => {
+      baseCart.addMany(lines);
+      if (lines.length) metaTrack(slug, 'AddToCart', { content_ids: lines.map((l) => l.productId), content_type: 'product' });
+    },
+  };
   const products = useMemo(() => productIndex(menu), [menu]);
   const toast = useToast();
   const first = useRef(true);
@@ -50,6 +63,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
 
   return (
     <div className="gx">
+      <MetaPixel slug={slug} view="ViewContent" />
       <ConsumerHeader org={org} branch={b} menuHref={null} reserveHref={org && menu?.branches.some((x) => x.acceptsReservations) ? `/reserve/${org.slug}` : null} />
       <Cover image={menu?.cover ?? null} overline={org ? pick(locale, org.name, org.nameAr) : ''} title={t('core.guest.cover.title')} body={t('core.guest.cover.body')} />
       <main className="gx-main">
@@ -82,7 +96,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
       {sheet === 'cart' && (
         <CartSheet cart={cart} products={products} currency={currency} onClose={() => setSheet(null)} suggestions={suggestions}
           onSuggest={(id) => { cart.add(id, 1); toast.show(t('core.guest.addedConfirm')); }}
-          footer={<button type="button" className="gx-btn is-primary is-block" disabled={!cart.count || !canOrder} onClick={() => setSheet('checkout')}>{t('core.web.checkout')}</button>} />
+          footer={<button type="button" className="gx-btn is-primary is-block" disabled={!cart.count || !canOrder} onClick={() => { metaTrack(slug, 'InitiateCheckout'); setSheet('checkout'); }}>{t('core.web.checkout')}</button>} />
       )}
       {sheet === 'assistant' && menu && (
         <AssistantSheet endpoint={`/public/order/${encodeURIComponent(slug)}/assistant`} extra={{ branch: menu.branch.code }} currency={currency} onClose={() => setSheet(null)}
@@ -90,7 +104,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
       )}
       {sheet === 'checkout' && menu && (
         <CheckoutSheet slug={slug} menu={menu} cart={cart} onClose={() => setSheet('cart')}
-          onDone={(ref, url) => { cart.clear(); if (url) window.location.href = url; else router.push(`/order/${slug}/track/${ref}`); }} />
+          onDone={(ref, url) => { cart.clear(); metaOrderPlaced(slug, ref); if (url) window.location.href = url; else router.push(`/order/${slug}/track/${ref}`); }} />
       )}
       {toast.node}
     </div>

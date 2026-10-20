@@ -11,7 +11,7 @@ export const marketingContractsVersion = 1 as const;
 // values are always bound parameters, never interpolated.
 // ---------------------------------------------------------------------------
 const withinDays = z.number().int().min(1).max(3650).optional();
-export const SEGMENT_ORDER_CHANNELS = ['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone'] as const;
+export const SEGMENT_ORDER_CHANNELS = ['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone', 'messenger', 'instagram'] as const;
 
 export const segmentRule = z.discriminatedUnion('type', [
   /** No (non-cancelled) order and no visit for at least N days. */
@@ -79,7 +79,7 @@ const promotionBase = z.object({
   maxDiscountMinor: minor.nullable().optional(),
   minOrderMinor: minor.default(0),
   branchIds: z.array(uuid).max(100).nullable().optional(),
-  channels: z.array(z.enum(SEGMENT_ORDER_CHANNELS)).max(7).nullable().optional(),
+  channels: z.array(z.enum(SEGMENT_ORDER_CHANNELS)).max(9).nullable().optional(),
   startsAt: isoDateTime.nullable().optional(),
   endsAt: isoDateTime.nullable().optional(),
   maxRedemptions: z.number().int().min(1).max(1e7).nullable().optional(),
@@ -102,7 +102,7 @@ export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
 export const AD_CHANNELS: readonly CampaignChannel[] = ['meta_ads', 'tiktok_ads', 'snapchat_ads'];
 export const MESSAGE_CHANNELS: readonly CampaignChannel[] = ['whatsapp', 'sms'];
 export const CAMPAIGN_OBJECTIVES = ['retention', 'reactivation', 'acquisition', 'upsell', 'awareness', 'reservations'] as const;
-export const CAMPAIGN_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'sending', 'sent', 'cancelled', 'failed'] as const;
+export const CAMPAIGN_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'sending', 'launching', 'sent', 'cancelled', 'failed'] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
 
 export const campaignContent = z.object({
@@ -115,6 +115,15 @@ export const campaignContent = z.object({
   landingPath: z.string().regex(/^\/(?!\/)[^\s]*$/).max(300).optional(),
   headline: z.string().trim().max(120).optional(),
 }).strict();
+
+/**
+ * Ad launch (INT-14): 'live' needs a connected live ad account for the campaign's channel; 'sandbox' is an explicit
+ * rehearsal on the ads sandbox. A live account that exists but is unhealthy is never replaced by the sandbox.
+ */
+export const launchCampaign = z.object({ mode: z.enum(['live', 'sandbox']).default('live') }).strict().default({ mode: 'live' });
+export type LaunchCampaign = z.infer<typeof launchCampaign>;
+/** Clears a launch whose outcome is unknown, after the owner checked the provider for the tagged campaign (PS-14). */
+export const resetCampaignLaunch = z.object({ confirmNotCreated: z.literal(true) }).strict();
 
 export const campaignInput = z.object({
   name: text(120),
@@ -143,6 +152,18 @@ export const trackingLinkInput = z.object({
   utm: z.object({ source: utmPart, medium: utmPart, campaign: utmPart, content: utmPart, term: utmPart }).strict().default({}),
 }).strict();
 export type TrackingLinkInput = z.infer<typeof trackingLinkInput>;
+
+// ---------------------------------------------------------------------------
+// Meta Pixel + Conversions API (INT-20): what the guest's browser shares after consenting, for one web order.
+// ---------------------------------------------------------------------------
+export const metaTrackingContext = z.object({
+  consentVersion: z.string().regex(/^[a-z0-9.-]{1,20}$/),
+  fbp: z.string().regex(/^fb\.[0-2]\.\d{10,13}\.\d{1,20}$/).nullable().optional(),
+  fbc: z.string().max(600).regex(/^fb\.[0-2]\.\d{10,13}\.[A-Za-z0-9_-]{8,}$/).nullable().optional(),
+  /** The https page the order was placed on (event_source_url). */
+  pageUrl: z.string().max(1000).regex(/^https?:\/\/[^\s]+$/).nullable().optional(),
+}).strict();
+export type MetaTrackingContext = z.infer<typeof metaTrackingContext>;
 
 export const ATTRIBUTION_DISCLAIMER =
   'Last-touch attribution: an order counts for a campaign when the customer’s most recent tracked touch (link click or campaign message) came from it. ' +

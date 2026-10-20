@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { langParam, legacyRedirect } from './components/landing/legacy-routes';
-import { buildCsp, newNonce } from './lib/csp';
+import { buildCsp, META_SDK_PAGE, newNonce } from './lib/csp';
 import { LOCALE_COOKIE } from './lib/i18n/locale';
 
 /**
@@ -24,6 +24,8 @@ const MISS_TTL = 30_000;
 const cache = new Map<string, { slug: string | null; at: number }>();
 /** Guest routes already qualified by slug/token work on every host unchanged. */
 const PASS_THROUGH = /^\/(reserve|order|t|pay|s|o|l)\/[^/]+/;
+/** Restaurant website, web ordering and booking pages: the only places the Meta Pixel can run. */
+const GUEST_SITE = /^\/(r|order|reserve)\/[^/]+/;
 
 async function resolveHost(host: string): Promise<string | null> {
   const hit = cache.get(host);
@@ -47,7 +49,11 @@ export async function middleware(req: NextRequest) {
   // Per-request script nonce (audit PS-17, lib/csp.ts): Next.js reads it from the request's CSP header and adds it
   // to its own scripts; the browser gets the same policy on the response. Every return below goes through secure().
   const nonce = newNonce();
-  const csp = buildCsp({ nonce, dev: CSP_DEV, apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL });
+  const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0]!.trim().toLowerCase().replace(/:\d+$/, '');
+  // Restaurant website pages (and custom domains) may run the consented Meta Pixel (INT-20); staff pages never.
+  const metaPixel = GUEST_SITE.test(req.nextUrl.pathname) || (!!host && !isAppHost(host) && !/^\/(pay|s|t|o)\//.test(req.nextUrl.pathname));
+  const csp = buildCsp({ nonce, dev: CSP_DEV, apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, metaPixel,
+    metaSdk: META_SDK_PAGE.test(req.nextUrl.pathname) });
   // ?lang=ar|en wins over the saved language: the request carries it as the locale cookie (so this render already
   // uses it) and the response saves it, with the same attributes as the in-page language switcher.
   const lang = langParam(req.nextUrl.searchParams);
@@ -60,7 +66,6 @@ export async function middleware(req: NextRequest) {
     return res;
   };
 
-  const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0]!.trim().toLowerCase().replace(/:\d+$/, '');
   const { pathname } = req.nextUrl;
   if (!host || isAppHost(host)) {
     const legacy = legacyRedirect(pathname);

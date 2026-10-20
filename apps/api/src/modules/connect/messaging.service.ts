@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  buildButtonsMessage, buildCtaUrlMessage, buildListMessage, buildLocationRequestMessage, buildTemplateMessage, buildTextMessage,
-  messagingSandboxAdapter, ProviderError, renderTemplateBody, whatsappCloudAdapter, type ListSection, type ReplyButton,
+  buildButtonsMessage, buildCtaUrlMessage, buildListMessage, buildLocationRequestMessage, buildPageMessage, buildTemplateMessage, buildTextMessage,
+  messagingSandboxAdapter, metaPagesAdapter, ProviderError, renderTemplateBody, whatsappCloudAdapter, type ListSection, type PageChannelKind, type ReplyButton,
 } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
@@ -28,7 +28,11 @@ export interface ConversationRow {
   status: string;
   last_inbound_at: Date | null;
   locale: 'en' | 'ar';
-  transport: 'sandbox' | 'meta_cloud';
+  transport: 'sandbox' | 'meta_cloud' | 'meta_page';
+  /** whatsapp | messenger | instagram */
+  channel_kind: string;
+  /** Messenger / Instagram: the Page that sends (POST /<PAGE_ID>/messages). */
+  page_id: string | null;
   connection_id: string | null;
   phone_number_id: string | null;
   waba_id: string | null;
@@ -39,6 +43,8 @@ export interface ConversationRow {
 }
 
 export const WINDOW_MS = 24 * 3600 * 1000;
+/** Messenger / Instagram: a person (not the bot) may reply up to 7 days after the customer's last message (HUMAN_AGENT tag). */
+export const HUMAN_AGENT_WINDOW_MS = 7 * 24 * 3600 * 1000;
 const MAX_ATTEMPTS = 6;
 const backoffSeconds = (attempt: number) => Math.min(30 * 2 ** (attempt - 1), 3600);
 const TRANSACTIONAL = /^(order|delivery|reservation|payment|ordering|bot|staff|handoff|system)/;
@@ -67,9 +73,9 @@ const priorityOf = (reason?: string) => (reason && !TRANSACTIONAL.test(reason) ?
 
 type Prepared =
   | { kind: 'skip' }
-  | { kind: 'fail'; lease: string; attempt: number; error: string; retryable: boolean; connectionId?: string; detail?: string }
+  | { kind: 'fail'; lease: string; attempt: number; error: string; retryable: boolean; connectionId?: string; detail?: string; page?: boolean }
   | { kind: 'defer'; lease: string; until: Date }
-  | { kind: 'send'; lease: string; attempt: number; conv: ConversationRow; conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>; content: OutboundContent };
+  | { kind: 'send'; lease: string; attempt: number; conv: ConversationRow; conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>; content: OutboundContent; humanAgent: boolean };
 
 export function windowState(lastInboundAt: Date | string | null | undefined) {
   const last = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
@@ -97,7 +103,8 @@ export class MessagingService implements MessagingPort {
   async conversation(tx: Tx, id: string): Promise<ConversationRow | null> {
     return tx.maybeOne<ConversationRow>(
       `select c.id, c.org_id, c.channel_id, c.customer_id, c.external_contact, c.contact_name, c.status, c.last_inbound_at, c.locale, c.branch_id,
-              ch.transport, ch.connection_id, ch.phone_number_id, ch.waba_id, ch.ordering_enabled, ch.status as channel_status, ch.branch_id as channel_branch_id
+              ch.transport, ch.kind as channel_kind, ch.page_id, ch.connection_id, ch.phone_number_id, ch.waba_id, ch.ordering_enabled, ch.status as channel_status,
+              ch.branch_id as channel_branch_id
          from conversations c join messaging_channels ch on ch.id = c.channel_id where c.id = $1`, [id]);
   }
 
@@ -105,8 +112,17 @@ export class MessagingService implements MessagingPort {
   async enqueue(tx: Tx, conv: ConversationRow, content: OutboundContent, opts: { automated: boolean; sentBy?: string | null; reason?: string }) {
     if (conv.channel_status === 'disabled') throw new DomainError('channel_disabled', 'This channel is disabled', 409);
     const window = windowState(conv.last_inbound_at);
-    if (content.type !== 'template' && !window.open) {
-      throw new DomainError('outside_window', 'More than 24 hours since the customer last wrote. Use an approved template.', 409, { closesAt: window.closesAt });
+    const page = conv.transport === 'meta_page';
+    if (page && content.type === 'template') {
+      throw new DomainError('template_not_supported', 'Messenger and Instagram have no message templates: reply within 24 hours of the customer\'s last message.', 409);
+    }
+    // Messenger / Instagram (INT-21): after 24 hours only a person may reply, within 7 days, with the HUMAN_AGENT tag.
+    const humanAgent = page && !window.open && !opts.automated && !!conv.last_inbound_at
+      && Date.now() - new Date(conv.last_inbound_at).getTime() < HUMAN_AGENT_WINDOW_MS;
+    if (content.type !== 'template' && !window.open && !humanAgent) {
+      throw new DomainError('outside_window', page
+        ? 'More than 24 hours since the customer last wrote. A staff member can still reply for 7 days; after that, wait for the customer to write.'
+        : 'More than 24 hours since the customer last wrote. Use an approved template.', 409, { closesAt: window.closesAt });
     }
     if (content.type === 'template') {
       const t = await tx.maybeOne<{ id: string }>(`select id from message_templates where org_id = $1 and name = $2 and language = $3 and provider_status = any($4::text[])`,
@@ -118,7 +134,8 @@ export class MessagingService implements MessagingPort {
     const msg = await tx.one<{ id: string }>(
       `insert into messages(org_id, conversation_id, direction, kind, body, payload, status, next_attempt_at, sent_by, is_automated, priority)
        values ($1, $2, 'outbound', $3, $4, $5, 'queued', now(), $6, $7, $8) returning id`,
-      [conv.org_id, conv.id, kind, content.body.slice(0, 4096), { ...content, ...(sandbox ? { sandbox: true } : {}), ...(opts.reason ? { reason: opts.reason } : {}) },
+      [conv.org_id, conv.id, kind, content.body.slice(0, 4096), { ...content, ...(sandbox ? { sandbox: true } : {}), ...(opts.reason ? { reason: opts.reason } : {}),
+        ...(humanAgent ? { humanAgent: true } : {}) },
         opts.sentBy ?? null, opts.automated, priorityOf(opts.reason)]);
     if (sandbox) {
       const res = await messagingSandboxAdapter.send(this.providerPayload(conv, content));
@@ -128,9 +145,11 @@ export class MessagingService implements MessagingPort {
     return { messageId: msg.id, sandbox };
   }
 
-  /** Meta Cloud API request body for a logical message. */
-  providerPayload(conv: { external_contact: string }, c: OutboundContent): Record<string, unknown> {
+  /** Provider request body for a logical message: WhatsApp Cloud API, or the Messenger Send API for Page channels. */
+  providerPayload(conv: { external_contact: string; transport?: string; channel_kind?: string }, c: OutboundContent,
+    policy: { windowOpen: boolean; humanAgent: boolean } = { windowOpen: true, humanAgent: false }): Record<string, unknown> {
     const to = conv.external_contact;
+    if (conv.transport === 'meta_page') return buildPageMessage(conv.channel_kind as PageChannelKind, to, c, policy);
     switch (c.type) {
       case 'text': return buildTextMessage(to, c.body, /https?:\/\//.test(c.body));
       case 'buttons': return buildButtonsMessage(to, c.body, c.buttons, c.header);
@@ -163,7 +182,8 @@ export class MessagingService implements MessagingPort {
     if (!convId && input.phone) {
       convId = (await tx.maybeOne<{ id: string }>(
         `select c.id from conversations c join messaging_channels ch on ch.id = c.channel_id
-          where c.org_id = $1 and c.external_contact = $2 and ch.status <> 'disabled' order by c.last_inbound_at desc nulls last limit 1`,
+          where c.org_id = $1 and c.external_contact = $2 and ch.status <> 'disabled' and ch.transport <> 'meta_page'
+          order by c.last_inbound_at desc nulls last limit 1`, // a phone never matches a Messenger / Instagram id
         [ctx.orgId, input.phone.replace(/^\+/, '')]))?.id ?? null;
     }
     if (!convId) return { messageId: null, skipped: 'no_channel' };
@@ -183,7 +203,7 @@ export class MessagingService implements MessagingPort {
       const r = await this.enqueue(tx, conv, { type: 'text', body: input.text }, { automated: true, reason: input.reason });
       return { messageId: r.messageId };
     }
-    if (input.templateName) {
+    if (input.templateName && conv.transport !== 'meta_page') {
       const t = await tx.maybeOne<{ name: string; language: string; body: string; variables: string[] }>(
         `select name, language, body, variables from message_templates where org_id = $1 and name = $2 and provider_status = any($3::text[])
           order by (language = $4) desc limit 1`, [ctx.orgId, input.templateName, usableStatuses(conv.transport), conv.locale]);
@@ -238,7 +258,7 @@ export class MessagingService implements MessagingPort {
     return { due: due.length, sent, failed, retried };
   }
 
-  /** Leases up to `limit` due Cloud API messages, at most `perOrg` per organization, transactional first. */
+  /** Leases up to `limit` due provider messages (WhatsApp Cloud API and Messenger/Instagram Pages), at most `perOrg` per organization, transactional first. */
   async claimDue(limit: number, perOrg = SENDER_PER_ORG) {
     return this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; lease: string }>(
       `with orgs as (
@@ -248,7 +268,7 @@ export class MessagingService implements MessagingPort {
            select m2.id, m2.priority, m2.next_attempt_at
              from messages m2 join conversations c on c.id = m2.conversation_id join messaging_channels ch on ch.id = c.channel_id
             where m2.org_id = o.org_id and m2.status = 'queued' and m2.direction = 'outbound' and m2.next_attempt_at <= now()
-              and ch.transport = 'meta_cloud'
+              and ch.transport in ('meta_cloud', 'meta_page')
             order by m2.priority, m2.next_attempt_at limit $2) x)
        update messages m set next_attempt_at = now() + ${LEASE}
         where m.id in (select id from picked order by priority, next_attempt_at limit $1)
@@ -279,19 +299,25 @@ export class MessagingService implements MessagingPort {
       const lease: string = m.lease;
       const attempt = m.attempts + 1;
       const conv = await this.conversation(tx, m.conversation_id);
-      if (!conv?.connection_id || !conv.phone_number_id) return { kind: 'fail', lease, attempt, error: 'channel has no WhatsApp connection', retryable: false };
+      const page = conv?.transport === 'meta_page';
+      const label = page ? 'Page' : 'WhatsApp';
+      if (!conv?.connection_id || (page ? !conv.page_id : !conv.phone_number_id)) {
+        return { kind: 'fail', lease, attempt, error: `channel has no ${label} connection`, retryable: false };
+      }
       let conn: Awaited<ReturnType<IntegrationConnectionsService['loadInTx']>>;
       try {
         conn = await this.connections.loadInTx(tx, conv.connection_id);
       } catch (e) {
-        return { kind: 'fail', lease, attempt, error: 'whatsapp_connection_unavailable', retryable: false, connectionId: conv.connection_id, detail: (e as Error).message };
+        return { kind: 'fail', lease, attempt, error: page ? 'page_connection_unavailable' : 'whatsapp_connection_unavailable', retryable: false,
+          connectionId: conv.connection_id, detail: (e as Error).message, page };
       }
-      if (!conn.enabled || conn.status === 'revoked') return { kind: 'fail', lease, attempt, error: 'WhatsApp connection is disabled or revoked', retryable: false };
+      if (!conn.enabled || conn.status === 'revoked') return { kind: 'fail', lease, attempt, error: `${label} connection is disabled or revoked`, retryable: false };
       const rl = await tx.maybeOne<{ until: Date | null }>(
         `select (rate_limit->>'limitedUntil')::timestamptz as until from integration_connections where id = $1`, [conn.id]);
       if (rl?.until && new Date(rl.until).getTime() > Date.now()) return { kind: 'defer', lease, until: new Date(rl.until) };
-      const { sandbox: _s, reason: _r, ...content } = m.payload ?? {};
-      return { kind: 'send', lease, attempt, conv, conn, content: content as OutboundContent };
+      // humanAgent (INT-21) is a sending policy flag, never part of the provider request body.
+      const { sandbox: _s, reason: _r, humanAgent, ...content } = m.payload ?? {};
+      return { kind: 'send', lease, attempt, conv, conn, content: content as OutboundContent, humanAgent: humanAgent === true };
     }, 'connect.sender');
 
     if (prep.kind === 'skip') return 'sent'; // already handled by another run
@@ -307,8 +333,15 @@ export class MessagingService implements MessagingPort {
 
     let res: { messageId: string };
     try {
-      res = await whatsappCloudAdapter.send({ ...prep.conn.adapter, config: { ...prep.conn.adapter.config, phoneNumberId: prep.conv.phone_number_id } },
-        this.providerPayload(prep.conv, prep.content));
+      const { conv, conn } = prep;
+      res = conv.transport === 'meta_page'
+        // Messenger / Instagram: the window is checked again at send time, so a queued bot message that missed it is
+        // not sent with a tag; HUMAN_AGENT only for a staff reply within 7 days of the customer's last message.
+        ? await metaPagesAdapter.send(conn.adapter, conv.page_id!, this.providerPayload(conv, prep.content, {
+          windowOpen: windowState(conv.last_inbound_at).open,
+          humanAgent: prep.humanAgent && !!conv.last_inbound_at && Date.now() - new Date(conv.last_inbound_at).getTime() < HUMAN_AGENT_WINDOW_MS }))
+        : await whatsappCloudAdapter.send({ ...conn.adapter, config: { ...conn.adapter.config, phoneNumberId: conv.phone_number_id } },
+          this.providerPayload(conv, prep.content));
     } catch (e) {
       if (e instanceof ProviderError) {
         if (e.status === 429) await this.connections.markRateLimited(orgId, prep.conn.id, e.retryAfterMs).catch(() => undefined);
@@ -348,7 +381,7 @@ export class MessagingService implements MessagingPort {
   }
 
   private async recordFailure(orgId: string, messageId: string, lease: string, attempt: number, error: string, retryable: boolean,
-    retryAfterMs?: number, log?: { connectionId?: string; detail?: string }): Promise<'failed' | 'retry'> {
+    retryAfterMs?: number, log?: { connectionId?: string; detail?: string; page?: boolean }): Promise<'failed' | 'retry'> {
     const final = !retryable || attempt >= MAX_ATTEMPTS;
     await this.db.withTenant(orgId, async (tx) => {
       const row = await tx.maybeOne(
@@ -357,8 +390,9 @@ export class MessagingService implements MessagingPort {
         [messageId, lease, attempt, error.slice(0, 500), final ? 'failed' : 'queued', final ? null : new Date(Date.now() + retryDelayMs(attempt, retryAfterMs))]);
       if (row && final) await tx.query(`update campaign_deliveries set status = 'failed', error = $2 where message_id = $1`, [messageId, error.slice(0, 300)]);
       if (row && log?.connectionId) {
-        // Shown in the connection's log in Integrations, so the owner sees why WhatsApp messages stopped.
-        await this.connections.log(tx, orgId, log.connectionId, 'error', 'WhatsApp message not sent: the connection credentials are unavailable',
+        // Shown in the connection's log in Integrations, so the owner sees why messages on this channel stopped.
+        await this.connections.log(tx, orgId, log.connectionId, 'error',
+          `${log.page ? 'Messenger/Instagram' : 'WhatsApp'} message not sent: the connection credentials are unavailable`,
           { messageId, reason: (log.detail ?? '').slice(0, 200) });
       }
     }, 'connect.sender');

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
 import { money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
+import { MetaPurchase } from '@/lib/tracking/MetaPixel';
 import { RatingSheet } from '@/components/guest/rating';
 import { ConsumerFooter, ConsumerHeader, MoneyRow, useToast, type ShellOrg } from '@/components/guest/shell';
 import { StatusOrder, statusHeadline } from '@/components/guest/tracker';
@@ -36,6 +37,8 @@ export function TrackClient({ slug, orderRef, org }: { slug: string; orderRef: s
   const done = !!order && (order.paymentStatus === 'paid' || ['picked_up', 'delivered'].includes(order.status));
   return (
     <div className="gx">
+      {/* Meta Pixel Purchase (INT-20): consented, deduplicated with the server event, once the order counts as paid. */}
+      <MetaPurchase slug={slug} orderRef={orderRef} ready={order?.paymentStatus === 'paid'} />
       <ConsumerHeader org={org} menuHref={`/order/${slug}`} reserveHref={null} />
       <main className="gx-main gx-status-page">
         <span className="gx-overline">{t('core.guest.status.overline')}</span>

@@ -151,3 +151,124 @@ Create a TEST connection per provider in Dashboard → Integrations, paste the w
 provider dashboard, run the acceptance checks, then create a separate LIVE connection with the live keys.
 Merchants who used Moyasar before this change should rotate their webhook secret token, because older inbox
 rows stored it (a migration has since removed it).
+
+## Meta: WhatsApp, Messenger, Instagram, Ads, Pixel + Conversions API (ws7a-meta)
+
+Last updated 2026-10-20 (branch `ws/ws7a-meta`). **No Meta capability has been run against Meta yet: there is no Meta
+app, test WABA, Page, sandbox ad account or Pixel in this environment.** `node scripts/providers/acceptance.mjs`
+without credentials reports the 11 Meta checks as `not_run` (8) or `blocked` (3: the two message checks without
+`--allow message`, the paused campaign without `--allow spend`). Evidence:
+`scratchpad/program/evidence/ws7a-meta/acceptance-no-credentials.txt`.
+
+### Version pin (INT-12)
+
+Every Meta call (WhatsApp Cloud API, Marketing API, Messenger Send API, Conversions API, OAuth dialog) uses one
+constant, `META_GRAPH_VERSION = 'v26.0'` (`packages/integrations/src/meta/graph.ts`). Checked 2026-10-20:
+[Graph API versions](https://developers.facebook.com/docs/graph-api/changelog/versions) (v26.0 released 2026-07-29,
+expiry TBD) and the [Marketing API changelog](https://developers.facebook.com/docs/marketing-api/marketing-api-changelog)
+(v26.0 TBD, v25.0 until 2027-02-23, v24.0 until 2026-11-10; v23.0 is no longer listed). `metaVersionWarnings()` is a
+unit-test gate (and the `meta.graph_version` acceptance check) that fails 60 days before a pinned version's known end of
+life; update `META_VERSION_SUPPORT` when Meta publishes the v26.0 date.
+
+### Decisions
+
+- **WhatsApp multi-tenant model (INT-13): Resuto is a Meta Tech Provider; restaurants connect with Embedded Signup v4**
+  ([implementation](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation);
+  v2/v3 were deprecated on 2026-10-15). The browser runs Meta's SDK (`FB.login` with the configuration id, session event
+  `WA_EMBEDDED_SIGNUP`); the API exchanges the 30-second code for the business token, proves the number belongs to the
+  WABA, subscribes Resuto's app to the WABA's webhooks, registers the number (sealed 6-digit PIN), and only then stores a
+  connected connection and a verified channel. Webhooks are signed with the platform app secret (`WHATSAPP_APP_SECRET`).
+  A restaurant's own Meta app stays supported: its connection carries its app secret and gets its own callback
+  `/v1/webhooks/whatsapp/c/<connection id>` with a generated verify token; only that app's signature reaches its channels.
+- **Ownership before routing (INT-03, INT-21):** a WhatsApp channel exists only for its connection's number and WABA after
+  `GET /<WABA_ID>/phone_numbers` lists the number; webhooks reach only verified channels whose WABA equals `entry[].id`.
+  A Messenger / Instagram channel exists only after the Page token proves it is that Page (`GET /me`) and, for
+  Instagram, that the Page's `instagram_business_account` is the claimed account; the Page/account ids come from the
+  connection, never from the request; webhooks reach only the verified channel whose kind and account equal `entry[].id`.
+- **OAuth (INT-11 / PS-11) for Meta, TikTok and Snapchat ads:** the state is bound to the starting user and a browser nonce
+  (only its SHA-256 is stored); the provider callback only forwards code and state to `/dashboard/oauth/<provider>`, which
+  completes with the user's session and the nonce. None of Meta (manual login flow), TikTok for Business or Snapchat
+  Marketing API documents PKCE for these flows, so the binding is the CSRF control. Meta short-lived → long-lived token
+  (or a Facebook Login for Business system-user token with `META_ADS_LOGIN_CONFIG_ID`), `appsecret_proof` for platform-app
+  tokens, account picker, Snapchat refresh (before use, after 401, every 30 min), provider revoke on disconnect where
+  documented (Meta `DELETE /{user-id}/permissions`, TikTok `revoke_token`; Snapchat documents none).
+- **Ad launches (INT-14 / PS-14):** no silent sandbox fallback (an unhealthy live account is a 409 with its health; the
+  sandbox is an explicit `{ mode: 'sandbox' }`); two-phase launch with a row-locked claim, a `[rs:<token>]` tag in the
+  provider campaign name, `Idempotency-Key` on launch and send, and a 5-minute recovery job.
+- **Pixel + Conversions API (INT-20):** consent first, one Purchase per order, same `event_id` from the browser and the
+  server (`p.<sha256("purchase:"+public ref)>`, so the public order reference never reaches Meta). Purchase policy:
+  prepaid = when an online payment is captured; cash on delivery / pay at pickup = when the order is completed (or never,
+  per restaurant). Never sent: guests who declined (no consented order context), demo restaurants
+  (`organizations.onboarding.demo`), test or simulated payments, cancelled orders, events older than 7 days. Test
+  connections send `test_event_code` on every event; live connections never do (Meta processes test events too).
+  A restaurant has one `meta_capi` connection (unique per org, provider and branch): the owner tests it in Test, then
+  switches the same connection to Live (Integrations > Reconnect); no second connection is created.
+- **Audiences, ad sets, creatives, Page / Instagram publishing (INT-22): deferred.** A Custom Audience *dry run*
+  (`POST /v1/o/:org/marketing/segments/:id/meta-audience/dry-run`, Marketing > Segments) shows the consent-filtered,
+  SHA-256-normalised, 10,000-row batches and the `customaudiences` request Resuto would make, and sends nothing. Uploading
+  needs the ad account's Custom Audience Terms (error 200/1870090 otherwise) and App Review; publishing needs
+  `pages_manage_posts` / `instagram_content_publish` review. Both stay off until those exist.
+
+### WhatsApp Cloud API (`whatsapp_cloud`)
+
+Code: `packages/integrations/src/messaging/whatsapp-cloud.ts`, `apps/api/src/modules/connect/*`.
+
+| Capability | Implemented code | Supported mode | Configuration required | Local test evidence | External test (acceptance check) | Last verified | Limitations |
+|---|---|---|---|---|---|---|---|
+| Embedded Signup v4 | `whatsapp-signup.service.ts`, Inbox > Channels "Connect with Meta" | live | `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_ES_CONFIG_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`; Tech Provider status | `whatsapp-ownership.test.ts` (scripted Graph) | — (needs a real signup) | not run | The browser launcher was not run against Meta (no app); CSP allows facebook.com framing on the Inbox page only |
+| Number ownership (INT-03) | `verifyPhoneOwnership`, channel create/verify | test number, live | token that can read the WABA | `whatsapp-ownership.test.ts` | `whatsapp.ownership` | not run | — |
+| Webhooks | `X-Hub-Signature-256` before parsing; per-scope inbox keys; WABA + number routing | live | platform or own-app secret | `connect.test.ts`, `whatsapp-ownership.test.ts` | `whatsapp.webhook_signature` | not run | — |
+| Send / 24-hour window / templates | sender job with retries; templates outside the window | test number, live | — | `connect.test.ts` | `whatsapp.send_template` (`--allow message`) | not run | Template review status arrives by webhook |
+
+### Messenger and Instagram Direct (`meta_pages`, INT-21 / FT-05)
+
+Code: `packages/integrations/src/messaging/meta-pages.ts`, `apps/api/src/modules/connect/meta-pages-webhook.service.ts`.
+Docs: [Send API](https://developers.facebook.com/docs/messenger-platform/send-messages),
+[Instagram send](https://developers.facebook.com/docs/messenger-platform/instagram/features/send-message),
+[webhooks](https://developers.facebook.com/docs/messenger-platform/webhooks).
+
+| Capability | Implemented code | Supported mode | Configuration required | Local test evidence | External test (acceptance check) | Last verified | Limitations |
+|---|---|---|---|---|---|---|---|
+| Connecting the Page | Facebook Login (for Business with `META_PAGES_LOGIN_CONFIG_ID`, else `pages_show_list,pages_messaging,pages_manage_metadata,business_management,instagram_basic,instagram_manage_messages`) with the PS-11 bound state; long-lived user token; Page picker from `GET /me/accounts`; the chosen Page's own token from `GET /<PAGE_ID>?fields=access_token` (no expiry); revoke `DELETE /{user-id}/permissions` | live | `META_APP_ID`, `META_APP_SECRET`, redirect URI `/v1/public/integrations/oauth/meta_pages/callback` | `meta-pages.test.ts` (adapter), `oauth-binding.test.ts` (start, binding, picker, Page token, channel proof, revoke) | `meta_pages.ownership` | not run | A pasted Page token (system user) remains possible; it can only offer its own Page and has no provider revoke |
+| Page / Instagram ownership | `verifyOwnership` (`GET /me`, `instagram_business_account`), `subscribed_apps` | live (test Page) | the connection's Page token, Page id, Instagram account id | `meta-pages.test.ts` (adapter + API) | `meta_pages.ownership` | not run | — |
+| Webhooks | `/v1/webhooks/meta`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | live | app webhooks for `page` and `instagram` (messages, messaging_postbacks) | API tests: signature, handshake, routing by kind + account, unknown accounts ignored | `meta_pages.webhook_signature` | not run | Delivery/read receipts are not mapped (Messenger reports watermarks, not message ids) |
+| Bot ordering | quick replies (13), button template / link, typed address, phone asked on the hosted page for delivery | live | — | API test webhook → bot → order (channel `messenger`) | — | not run | No location pin; Instagram has no button template (link in text) |
+| 24-hour window and handoff | RESPONSE inside 24 h; staff only with `HUMAN_AGENT` up to 7 days (re-checked at send); no templates | live | `human_agent` feature (App Review) | API test | `meta_pages.send_reply` (`--allow message`) | not run | Meta's Handover Protocol (multiple apps) is not used; handoff is Resuto's bot → staff |
+
+### Meta Ads (`meta_ads`), TikTok (`tiktok_ads`), Snapchat (`snapchat_ads`)
+
+| Capability | Implemented code | Supported mode | Configuration required | Local test evidence | External test (acceptance check) | Last verified | Limitations |
+|---|---|---|---|---|---|---|---|
+| OAuth bound to browser + user | `oauth.service.ts`, `/dashboard/oauth/<provider>` | live | provider app ids/secrets, redirect URI | `oauth-binding.test.ts` | — | not run | No PKCE documented by the providers |
+| Ad account picker | `listAccounts` | live | — | `ads.test.ts`, `oauth-binding.test.ts` | `meta_ads.ad_accounts` | not run | — |
+| Paused campaign, idempotent launch | `createCampaign` (PAUSED, `[rs:<token>]`), `findCampaignByToken`, recovery job | live (sandbox ad account) | ad account with a payment method | `ad-launch-safety.test.ts` | `meta_ads.campaign_create_paused` (`--allow spend`) | not run | Ad sets / creatives are created in Ads Manager (INT-22 deferred) |
+| Insights | `fetchInsights` | live | — | `ads.test.ts`, `marketing.test.ts` | — | not run | — |
+| Custom Audience | dry run only | — | — | `meta-capi.test.ts`, `meta-tracking.test.ts` | — | — | Upload deferred (Terms, App Review) |
+
+### Meta Pixel + Conversions API (`meta_capi`, INT-20)
+
+Code: `packages/integrations/src/ads/meta-capi.ts`, `apps/api/src/modules/marketing/meta-tracking.service.ts`,
+`apps/web/lib/tracking/**`. Docs: [using the API](https://developers.facebook.com/docs/marketing-api/conversions-api/using-the-api),
+[customer information parameters](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/customer-information-parameters),
+[deduplication](https://developers.facebook.com/docs/marketing-api/conversions-api/deduplicate-pixel-and-server-events),
+[Pixel](https://developers.facebook.com/docs/meta-pixel/get-started).
+
+| Capability | Implemented code | Supported mode | Configuration required | Local test evidence | External test (acceptance check) | Last verified | Limitations |
+|---|---|---|---|---|---|---|---|
+| Browser Pixel (consented) | consent prompt per restaurant + prompt version; `_fbp`/`_fbc` after consent; fbq + fbevents.js added by nonce-trusted code; PageView, ViewContent, AddToCart, InitiateCheckout, Purchase (eventID) | test, live | Pixel id; browser Pixel on | `lib/tracking/meta.test.ts` (CSP scope, loader, dedup id parity, mounts); browser proof | — | not run | `connect-src` gains www.facebook.com / connect.facebook.net only on `/r`, `/order`, `/reserve` and custom domains |
+| Server Purchase | outbox `order.paid` / `order.status_changed`; one row per event id; retry on 5xx | test (`test_event_code`), live | CAPI token, Pixel id, Test Events code for test | `meta-capi.test.ts`, `meta-tracking.test.ts` | `meta_capi.test_event`, `meta_capi.health` | not run | Only web orders (consented context); IP/UA kept 8 days |
+| Diagnostics | Marketing > Meta Pixel (status, 7-day counts, events with reasons), "Send test event" | test | — | API test, browser proof | — | — | — |
+
+### Owner actions before going live (Meta)
+
+1. Create Resuto's Business-type Meta app; become a Tech Provider; configure Embedded Signup (`WHATSAPP_ES_CONFIG_ID`),
+   Facebook Login for Business, Messenger + Instagram products, Marketing API. Set `META_APP_ID`, `META_APP_SECRET`,
+   `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `META_WEBHOOK_VERIFY_TOKEN` (and optionally `META_ADS_LOGIN_CONFIG_ID`,
+   `META_PAGES_LOGIN_CONFIG_ID`). Add `https://<api>/v1/public/integrations/oauth/meta_ads/callback` and
+   `.../oauth/meta_pages/callback` as valid OAuth redirect URIs.
+2. Register webhooks: `https://<api>/v1/webhooks/whatsapp` (WhatsApp) and `https://<api>/v1/webhooks/meta` (page, instagram).
+3. App Review: `whatsapp_business_management`, `whatsapp_business_messaging`, `pages_messaging`, `pages_manage_metadata`,
+   `instagram_basic`, `instagram_manage_messages`, `human_agent`, `ads_management`, `ads_read`, `business_management`.
+4. Run the acceptance checks with Meta's test assets (`--list` prints the variables), record them with
+   `record-acceptance.mjs`, then allow `message` / `spend` checks one at a time with your own test recipient and a sandbox
+   ad account.

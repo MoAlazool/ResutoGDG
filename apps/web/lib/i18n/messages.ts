@@ -56,7 +56,7 @@ export function translate(locale: Locale, key: string, vars?: Record<string, str
 export const GUEST_SCOPE: RegExp[] = [
   /^app\./, /^action\./, /^state\./, /^lang\./, /^err\./, /^plural\./,
   /^core\.(guest|bill|status|res|web|dietary|allergen|feature|method|channel|payment)\./,
-  /^pay\./, /^connect\.order\./, /^connect\.sandbox/, /^studio\.site\./, /^platform\.(?!lp\.)/,
+  /^pay\./, /^connect\.order\./, /^marketing\.consent\./, /^connect\.sandbox/, /^studio\.site\./, /^platform\.(?!lp\.)/,
 ];
 const LANDING = /^platform\.lp\./;
 /**

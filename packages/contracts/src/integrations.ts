@@ -60,7 +60,25 @@ export type IntegrationSyncRequest = z.infer<typeof integrationSyncRequest>;
 
 export const resolveIntegrationConflict = z.object({ resolution: z.enum(['kept_local', 'kept_external', 'ignored']) }).strict();
 
-export const integrationOauthStart = z.object({ redirectAfter: z.string().regex(/^\/(?!\/)[^\s]*$/).max(300).optional() }).strict();
+/**
+ * OAuth start (PS-11). `browserBinding` is the SHA-256 (hex) of a random nonce the browser keeps until the provider
+ * sends it back; completing the flow needs that nonce and the same signed-in user.
+ */
+export const integrationOauthStart = z.object({
+  redirectAfter: z.string().regex(/^\/(?!\/)[^\s]*$/).max(300).optional(),
+  browserBinding: z.string().regex(/^[0-9a-f]{64}$/, 'SHA-256 hex of the browser nonce'),
+}).strict();
+
+/** OAuth completion, posted by the web app with the user's session after the provider redirected back. */
+export const integrationOauthComplete = z.object({
+  code: z.string().trim().min(1).max(2000),
+  state: z.string().trim().min(16).max(200),
+  browserNonce: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/),
+}).strict();
+export type IntegrationOauthComplete = z.infer<typeof integrationOauthComplete>;
+
+/** Picks the ad account / advertiser a connection uses, from the ones the provider granted. */
+export const integrationAccountSelection = z.object({ accountId: z.string().trim().regex(/^[A-Za-z0-9_-]{1,64}$/) }).strict();
 
 export type IntegrationReadiness = 'simulated' | 'implemented_unverified' | 'sandbox_verified' | 'live_verified';
 

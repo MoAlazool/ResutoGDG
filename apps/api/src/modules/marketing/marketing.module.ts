@@ -4,7 +4,8 @@ import { IntegrationsModule } from '../integrations/integrations.module';
 import { CampaignsService } from './campaigns.service';
 import { TrackingLinksService } from './links.service';
 import { MarketingEventsService } from './marketing-events.service';
-import { MarketingController, PublicLinksController } from './marketing.controller';
+import { MarketingController, PublicLinksController, PublicTrackingController } from './marketing.controller';
+import { MetaTrackingService } from './meta-tracking.service';
 import { PromotionsService } from './promotions.service';
 import { RecommendationsService } from './recommendations.service';
 import { SegmentsService } from './segments.service';
@@ -21,9 +22,9 @@ export const CAMPAIGN_SEND_PORT = Symbol.for('resuto.CAMPAIGN_SEND_PORT');
 @Global()
 @Module({
   imports: [IntegrationsModule],
-  controllers: [MarketingController, PublicLinksController],
+  controllers: [MarketingController, PublicLinksController, PublicTrackingController],
   providers: [
-    SegmentsService, PromotionsService, CampaignsService, TrackingLinksService, RecommendationsService, MarketingEventsService,
+    SegmentsService, PromotionsService, CampaignsService, TrackingLinksService, RecommendationsService, MarketingEventsService, MetaTrackingService,
     { provide: SEGMENTS_PORT, useExisting: SegmentsService },
     { provide: CAMPAIGNS_PORT, useExisting: CampaignsService },
     { provide: CAMPAIGN_SEND_PORT, useExisting: CampaignsService },

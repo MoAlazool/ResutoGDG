@@ -19,6 +19,10 @@ import { MessagingService, type ConversationRow, type OutboundContent } from './
 
 export const SESSION_TTL_MINUTES = 60;
 
+/** The ordering-session / order channel of a conversation (its messaging channel's kind). */
+const conversationChannel = (conv: { channel_kind?: string }) =>
+  (conv.channel_kind === 'messenger' || conv.channel_kind === 'instagram' ? conv.channel_kind : 'whatsapp') as 'whatsapp' | 'messenger' | 'instagram';
+
 export interface InboundMessage {
   type: 'text' | 'button_reply' | 'list_reply' | 'location' | 'button' | 'image' | 'other';
   text: string | null;
@@ -31,6 +35,8 @@ interface OrderingState {
   branchId?: string;
   fulfillment?: 'pickup' | 'delivery';
   customerName?: string;
+  /** Messenger / Instagram delivery orders: the phone the guest typed on the hosted page. */
+  customerPhone?: string;
   address?: { line1: string; area?: string | null; city?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null };
   marketingConsent?: boolean;
   cart?: CartLine[];
@@ -196,8 +202,8 @@ export class OrderingService {
     }
     const session = await tx.one<SessionRow>(
       `insert into ordering_sessions(org_id, conversation_id, customer_id, channel, step, state, token_hash, expires_at)
-       values ($1, $2, $3, 'whatsapp', 'branch', '{}'::jsonb, $4, now() + make_interval(mins => $5)) returning *`,
-      [ctx.orgId, conv.id, conv.customer_id, sha256(newToken()), SESSION_TTL_MINUTES]);
+       values ($1, $2, $3, $4, 'branch', '{}'::jsonb, $5, now() + make_interval(mins => $6)) returning *`,
+      [ctx.orgId, conv.id, conv.customer_id, conversationChannel(conv), sha256(newToken()), SESSION_TTL_MINUTES]);
     if (branches.length === 1) {
       const s = await this.save(tx, session, { state: { branchId: branches[0]!.id }, branch_id: branches[0]!.id, step: 'fulfillment' });
       return this.autoFulfillment(tx, s);
@@ -375,6 +381,8 @@ export class OrderingService {
       branch: branch ? { id: branch.id, name: branch.name, nameAr: branch.name_ar, address: branch.address, deliveryFeeMinor: Number(branch.delivery_fee_minor), minOrderMinor: Number(branch.min_order_minor) } : null,
       fulfillment: s.state.fulfillment ?? null, customerName: s.state.customerName ?? null, address: s.state.address ?? null,
       marketingConsent: s.state.marketingConsent ?? false, paymentOnlineAvailable: await this.onlineAvailable(s.org_id),
+      // Messenger / Instagram give no phone number: a delivery order asks for one on this page.
+      needsPhone: (s.channel === 'messenger' || s.channel === 'instagram') && s.state.fulfillment === 'delivery', customerPhone: s.state.customerPhone ?? null,
       cart: s.state.cart ?? [], quote: s.state.quote ?? null, order: s.state.order ?? null,
       paymentMethod: s.state.paymentMethod ?? null, checkoutUrl: s.step === 'awaiting_payment' ? s.state.checkout?.url ?? null : null,
     };
@@ -406,6 +414,7 @@ export class OrderingService {
         ...(input.customerName ? { customerName: input.customerName } : {}),
         ...(input.address ? { address: { ...input.address, latitude: s.state.address?.latitude ?? null, longitude: s.state.address?.longitude ?? null } } : {}),
         ...(input.marketingConsent !== undefined ? { marketingConsent: input.marketingConsent } : {}),
+        ...(input.phone ? { customerPhone: input.phone } : {}),
       };
       const saved = await this.save(tx, s, { state }, input.version);
       return this.publicView(tx, saved, conv);
@@ -453,13 +462,14 @@ export class OrderingService {
     if (!st.cart?.length || !st.branchId || !st.fulfillment) throw invalid('cart_empty', 'Choose your items first');
     if (st.fulfillment === 'delivery' && !st.address?.line1) throw invalid('address_required', 'Add a delivery address');
     const ctx = guestCtx(s.org_id, s.id, source);
-    const phone = conv ? `+${conv.external_contact.replace(/^\+/, '')}` : null;
+    // Messenger / Instagram contacts are page-scoped ids, not phone numbers.
+    const phone = conv && conversationChannel(conv) === 'whatsapp' ? `+${conv.external_contact.replace(/^\+/, '')}` : st.customerPhone ?? null;
     const campaignId = await this.attributedCampaign(tx, s.org_id, s.customer_id, attribution?.campaignId);
     const utm = attribution ? Object.fromEntries(Object.entries({ utm_source: attribution.utm_source, utm_medium: attribution.utm_medium,
       utm_campaign: attribution.utm_campaign, utm_content: attribution.utm_content, utm_term: attribution.utm_term, session_key: attribution.sessionKey })
       .filter(([, v]) => v)) : {};
     const placed = await this.orders.place(tx, ctx, {
-      branchId: st.branchId, channel: s.channel === 'web' ? 'web' : 'whatsapp', fulfillment: st.fulfillment, lines: st.cart,
+      branchId: st.branchId, channel: s.channel === 'web' ? 'web' : s.channel === 'messenger' || s.channel === 'instagram' ? s.channel : 'whatsapp', fulfillment: st.fulfillment, lines: st.cart,
       customer: { name: st.customerName ?? conv?.contact_name ?? null, phone, marketingConsent: !!st.marketingConsent },
       // With a phone the kernel resolves (and updates consent on) the customer itself.
       customerId: phone ? null : s.customer_id, deliveryAddress: st.fulfillment === 'delivery' ? st.address : null,
