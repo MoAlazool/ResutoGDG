@@ -11,24 +11,33 @@
 //     https://developers.facebook.com/docs/messenger-platform/webhooks
 //   Page subscription: POST /<PAGE_ID>/subscribed_apps?subscribed_fields=messages,messaging_postbacks
 //     https://developers.facebook.com/docs/graph-api/reference/page/subscribed_apps
+//   Connecting the Page (INT-21): Facebook Login for Business (config_id; or the classic scopes below) with the bound
+//   state of PS-11, the user token made long-lived, the Pages it manages from GET /me/accounts, and the chosen Page's
+//   own token from GET /<PAGE_ID>?fields=access_token. A Page token obtained with a long-lived user token has no expiry.
+//     https://developers.facebook.com/documentation/facebook-login/facebook-login-for-business
+//     https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived/  (long-lived Page token)
+//     https://developers.facebook.com/docs/graph-api/reference/user/accounts/
 // Readiness: implemented_unverified (no Page or Instagram account available). Acceptance checks: ../acceptance/meta.ts.
+import type { AdAccountChoice, AuthUrlOptions, OAuthAppConfig, OAuthTokens, ProviderRevocation } from '../ads/types';
 import { ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
-import { graphRequest, MetaApiError, metaAuth } from '../meta/graph';
+import { graphList, graphRequest, MetaApiError, metaAuth } from '../meta/graph';
+import { metaExchangeCode, metaExchangeLongLived, metaLoginUrl, metaRevokePermissions, metaTokenIdentity } from '../meta/oauth';
 
 export const metaPagesDescriptor: ProviderDescriptor = {
   id: 'meta_pages',
   name: 'Facebook Messenger & Instagram Direct',
   category: 'messaging',
   countries: ['EG', 'SA'],
-  authType: 'api_key',
+  authType: 'oauth',
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.facebook.com/docs/messenger-platform',
-  capabilities: ['page_ownership_proof', 'instagram_account_proof', 'webhook_subscription', 'signed_webhooks', 'standard_window_24h', 'human_agent_tag',
+  capabilities: ['oauth', 'oauth_state_bound', 'page_picker', 'long_lived_page_token', 'provider_revoke', 'page_ownership_proof', 'instagram_account_proof', 'webhook_subscription', 'signed_webhooks', 'standard_window_24h', 'human_agent_tag',
     'quick_replies', 'url_button', 'handoff'],
   activation: [
     'Resuto\'s Meta app needs the Messenger and Instagram products, Advanced Access to pages_messaging, pages_manage_metadata, instagram_basic and instagram_manage_messages (App Review), and the human_agent feature for staff replies after 24 hours.',
     'Set META_APP_SECRET and META_WEBHOOK_VERIFY_TOKEN on the API server and register https://<api-host>/v1/webhooks/meta for the "page" (messages, messaging_postbacks) and "instagram" (messages, messaging_postbacks) webhook objects.',
-    'In Meta Business Suite, give a system user of the restaurant\'s business access to the Facebook Page (and the linked Instagram professional account), generate a Page access token and paste it here with the Page id (and the Instagram account id for Instagram).',
+    'Add https://<api-host>/v1/public/integrations/oauth/meta_pages/callback as a valid OAuth redirect URI of the Meta app. Optional: META_PAGES_LOGIN_CONFIG_ID, a Facebook Login for Business configuration (user access token) with the permissions above.',
+    'The restaurant presses "Connect with Facebook" in Resuto > Integrations, grants its Page (and the linked Instagram professional account) in Meta\'s window and picks the Page in Resuto; Resuto keeps the Page\'s own token, which does not expire. Without the Meta app, an owner can still paste a Page access token with the Page id (and Instagram account id).',
     'Then add the Messenger or Instagram channel in Inbox > Channels: Resuto proves the token belongs to that Page (and that the Instagram account is linked to it) and subscribes the Page to messages before the channel receives anything.',
   ],
 };
@@ -149,8 +158,89 @@ export type PageOwnership =
   | { owned: true; page: { id: string; name: string | null }; instagram: { id: string; username: string | null } | null }
   | { owned: false; reason: 'token_not_for_page' | 'instagram_not_linked' | 'no_access' };
 
+/** Classic Facebook Login scopes when no Facebook Login for Business configuration is set (META_PAGES_LOGIN_CONFIG_ID). */
+export const META_PAGES_SCOPES = ['pages_show_list', 'pages_messaging', 'pages_manage_metadata', 'business_management', 'instagram_basic', 'instagram_manage_messages'];
+
+interface PageRow { id?: string; name?: string; tasks?: string[]; instagram_business_account?: { id?: string; username?: string } }
+
+const pageChoice = (p: PageRow): AdAccountChoice => ({
+  id: String(p.id ?? ''), name: p.name ?? null, currency: null,
+  // Shown in the picker: the linked Instagram account, if any.
+  status: p.instagram_business_account?.id ? `instagram:${p.instagram_business_account.username ?? p.instagram_business_account.id}` : null,
+});
+
+async function managedPages(ctx: Pick<AdapterContext, 'fetch'>, userToken: string, appSecret: string | null): Promise<AdAccountChoice[]> {
+  const rows = await graphList<PageRow>('meta_pages', ctx, 'me/accounts', {
+    token: userToken, appSecret, query: { fields: 'id,name,tasks,instagram_business_account{id,username}', limit: 100 }, retries: 1, maxPages: 5 });
+  return rows.map(pageChoice).filter((p) => /^\d{3,30}$/.test(p.id));
+}
+
+/**
+ * Facebook Login (for Business) for Messenger / Instagram (INT-21). Same bound-state OAuth as the ads providers
+ * (apps/api IntegrationOAuthService); the user token only lists the Pages and fetches the chosen Page's own token.
+ */
+export const metaPagesOAuth = {
+  descriptor: metaPagesDescriptor,
+
+  buildAuthUrl(app: OAuthAppConfig, state: string, opts: AuthUrlOptions = {}) {
+    return metaLoginUrl(app, opts.configId ? { state, configId: opts.configId } : { state, scope: META_PAGES_SCOPES });
+  },
+
+  /** Code → long-lived user token → its identity (for revoke) and the Pages it manages (the picker). */
+  async exchangeCode(ctx: Pick<AdapterContext, 'fetch'>, app: OAuthAppConfig, code: string): Promise<OAuthTokens> {
+    const first = await metaExchangeCode('meta_pages', ctx, app, code);
+    const long = await metaExchangeLongLived('meta_pages', ctx, app, first.accessToken);
+    const proof = app.clientSecret ?? null;
+    const identity = await metaTokenIdentity('meta_pages', ctx, long.accessToken, proof);
+    const accounts = await managedPages(ctx, long.accessToken, proof);
+    // The Page token used for messaging (pageAccess) does not expire; the user token is only for re-listing Pages.
+    return { accessToken: long.accessToken, expiresIn: null, tokenKind: 'user', identity: { userId: identity.userId }, accountIds: accounts.map((a) => a.id), accounts };
+  },
+
+  /** Pages the stored user token manages. A pasted Page token can only offer its own Page. */
+  async listAccounts(ctx: AdapterContext): Promise<AdAccountChoice[]> {
+    if (ctx.credentials.userAccessToken) {
+      const { token, appSecret } = metaAuth('meta_pages', ctx, 'userAccessToken');
+      return managedPages(ctx, token, appSecret);
+    }
+    const { token, appSecret } = metaAuth('meta_pages', ctx);
+    const me = await graphRequest<PageRow>('meta_pages', ctx, 'me', { token, appSecret, query: { fields: 'id,name,instagram_business_account{id,username}' }, retries: 1 });
+    return me.id ? [pageChoice(me)] : [];
+  },
+
+  /** The chosen Page's own access token and linked Instagram professional account, read with the user token. */
+  async pageAccess(ctx: AdapterContext, pageId: string): Promise<{ pageToken: string; name: string | null; instagramAccountId: string | null }> {
+    if (!/^\d{3,30}$/.test(pageId)) throw new ProviderError('meta_pages', 'invalid page id', false);
+    const { token, appSecret } = metaAuth('meta_pages', ctx, 'userAccessToken');
+    const r = await graphRequest<PageRow & { access_token?: string }>('meta_pages', ctx, pageId,
+      { token, appSecret, query: { fields: 'id,name,access_token,instagram_business_account{id}' }, retries: 1 });
+    if (r.id !== pageId || !r.access_token) throw new ProviderError('meta_pages', 'Meta returned no Page token: the person did not grant this Page', false);
+    return { pageToken: r.access_token, name: r.name ?? null, instagramAccountId: r.instagram_business_account?.id ?? null };
+  },
+};
+
 export const metaPagesAdapter = {
   descriptor: metaPagesDescriptor,
+
+  /**
+   * Disconnect: a connection made with Facebook Login de-authorises the app for that person (DELETE
+   * /{user-id}/permissions with the user token), which also invalidates the Page tokens derived from it. A pasted
+   * Page token has no person to de-authorise: the owner removes the app in Meta Business Settings.
+   */
+  async revokeAccess(ctx: AdapterContext): Promise<ProviderRevocation> {
+    const userId = typeof ctx.config.metaUserId === 'string' ? ctx.config.metaUserId : null;
+    if (!userId || !ctx.credentials.userAccessToken) {
+      return { attempted: false, revoked: false, note: 'This Page token was pasted: remove the Resuto app in Meta Business Settings > Integrations > Connected apps.' };
+    }
+    const { token, appSecret } = metaAuth('meta_pages', ctx, 'userAccessToken');
+    try {
+      const ok = await metaRevokePermissions('meta_pages', ctx, userId, token, appSecret);
+      return { attempted: true, revoked: ok, note: ok ? 'Meta confirmed the permissions were removed.' : 'Meta did not confirm the revocation.' };
+    } catch (e) {
+      if (e instanceof MetaApiError && e.tokenInvalid) return { attempted: true, revoked: true, note: 'The token was already invalid at Meta.' };
+      throw e;
+    }
+  },
 
   /**
    * Proves the token is the Page's own access token (GET /me returns the Page) and, for Instagram, that the Page's

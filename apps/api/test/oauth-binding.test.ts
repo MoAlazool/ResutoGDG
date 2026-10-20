@@ -220,3 +220,95 @@ describe('INT-11: TikTok and Snapchat', () => {
     expect(rev.body.providerRevocation.note).toMatch(/Snapchat Business Manager/);
   });
 });
+
+describe('INT-21: the Facebook Page (Messenger / Instagram) connects with Facebook Login, bound like the ads flows', () => {
+  const pages = [{ id: '1111111111', name: 'Olive Room' }, { id: '2222222222', name: 'Smash & Co', instagram_business_account: { id: '1784000', username: 'smash' } }];
+
+  it('start uses the Pages Login for Business configuration (or the documented scopes) and the same bound state', async () => {
+    const tenant = await createTenant(t);
+    const classic = await start(tenant, 'meta_pages');
+    expect(classic.url.searchParams.get('scope')).toContain('pages_messaging');
+    expect(classic.url.searchParams.get('redirect_uri')).toBe('http://api.test/v1/public/integrations/oauth/meta_pages/callback');
+    process.env.META_PAGES_LOGIN_CONFIG_ID = '5550001';
+    try {
+      const s = await start(tenant, 'meta_pages');
+      expect(s.url.searchParams.get('config_id')).toBe('5550001');
+      expect(s.url.searchParams.get('scope')).toBeNull();
+      // Another browser (wrong nonce) cannot complete it.
+      const f = script([{ body: {} }]);
+      expect((await complete(tenant, 'meta_pages', { code: 'c', state: s.state, browserNonce: browser().nonce })).status).toBe(403);
+      expect(f.calls).toHaveLength(0);
+    } finally { delete process.env.META_PAGES_LOGIN_CONFIG_ID; }
+  });
+
+  it('complete lists the granted Pages; choosing one stores that Page\'s own token, and the channel proof then passes', async () => {
+    const tenant = await createTenant(t);
+    const s = await start(tenant, 'meta_pages');
+    const f = script(metaExchange(pages));
+    const done = await complete(tenant, 'meta_pages', { code: 'auth-code', state: s.state, browserNonce: s.nonce });
+    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(f.calls.map(route)).toEqual(['GET /v26.0/oauth/access_token', 'GET /v26.0/oauth/access_token', 'GET /v26.0/me', 'GET /v26.0/me/accounts']);
+    expect(done.body).toMatchObject({ needsAccountSelection: true, connection: { provider: 'meta_pages', authType: 'oauth', category: 'messaging', status: 'pending' } });
+    expect(done.body.accounts.map((a: any) => a.id)).toEqual(['1111111111', '2222222222']);
+    const id = done.body.connection.id as string;
+    const conns = t.app.get(IntegrationConnectionsService);
+    let fresh = await conns.loadFresh(tenant.orgId, { id });
+    expect(fresh.adapter.credentials.userAccessToken).toBe('EAAB-long-lived');
+    expect(fresh.adapter.credentials.accessToken).toBeUndefined(); // no Page chosen yet: nothing can message
+
+    // A Page the person did not grant is refused before any provider call; a granted one fetches its token.
+    script([{ body: { data: pages } }]);
+    expect((await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${id}/account`).set(auth(tenant.owner)).send({ accountId: '9999999999' })).body.error.code)
+      .toBe('account_not_granted');
+    const sel = script([
+      { body: { id: '2222222222', name: 'Smash & Co', access_token: 'EAAPage-smash-own', instagram_business_account: { id: '1784000' } } },
+      { body: { id: '2222222222', name: 'Smash & Co' } },
+      { body: { instagram_business_account: { id: '1784000', username: 'smash' } } },
+    ]);
+    const chosen = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${id}/account`).set(auth(tenant.owner)).send({ accountId: '2222222222' });
+    expect(chosen.status, JSON.stringify(chosen.body)).toBe(201);
+    expect(sel.calls.map(route)).toEqual(['GET /v26.0/2222222222', 'GET /v26.0/me', 'GET /v26.0/2222222222']);
+    expect(sel.calls[0]!.headers.authorization).toBe('Bearer EAAB-long-lived');
+    expect(sel.calls[1]!.headers.authorization).toBe('Bearer EAAPage-smash-own');
+    expect(new URL(sel.calls[1]!.url).searchParams.get('appsecret_proof')).toBe(createHmac('sha256', ENV.META_APP_SECRET).update('EAAPage-smash-own').digest('hex'));
+    expect(chosen.body).toMatchObject({ status: 'connected', config: { pageId: '2222222222', instagramAccountId: '1784000', tokenSource: 'platform_app' } });
+    expect(JSON.stringify(chosen.body)).not.toMatch(/EAAPage|EAAB-long/);
+    fresh = await conns.loadFresh(tenant.orgId, { id });
+    expect(fresh.adapter.credentials).toMatchObject({ accessToken: 'EAAPage-smash-own', userAccessToken: 'EAAB-long-lived' });
+
+    // The Messenger channel's ownership proof runs on the stored Page token.
+    const ch = script([{ body: { id: '2222222222', name: 'Smash & Co' } }, { body: { success: true } }]);
+    const channel = await t.http.post(`/v1/o/${tenant.orgId}/connect/channels`).set(auth(tenant.owner))
+      .send({ transport: 'meta_page', kind: 'messenger', displayName: 'Messenger', connectionId: id });
+    expect(channel.status, JSON.stringify(channel.body)).toBe(201);
+    expect(channel.body).toMatchObject({ kind: 'messenger', verified: true });
+    expect(ch.calls[0]!.headers.authorization).toBe('Bearer EAAPage-smash-own');
+
+    // Disconnect de-authorises the Login user at Meta (which also invalidates the Page token).
+    const rv = script([{ body: { success: true } }]);
+    const revoked = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${id}/revoke`).set(auth(tenant.owner));
+    expect(revoked.body).toMatchObject({ status: 'revoked', providerRevocation: { attempted: true, revoked: true } });
+    expect(route(rv.calls[0]!)).toBe('DELETE /v26.0/10229/permissions');
+    expect(rv.calls[0]!.headers.authorization).toBe('Bearer EAAB-long-lived');
+  });
+
+  it('a single granted Page is selected at once; a pasted Page token keeps working and offers only its own Page', async () => {
+    const tenant = await createTenant(t);
+    const s = await start(tenant, 'meta_pages');
+    script([...metaExchange([pages[0]!]), { body: { id: '1111111111', name: 'Olive Room', access_token: 'EAAPage-olive-own' } }, { body: { id: '1111111111', name: 'Olive Room' } }]);
+    const done = await complete(tenant, 'meta_pages', { code: 'auth-code', state: s.state, browserNonce: s.nonce });
+    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(done.body).toMatchObject({ needsAccountSelection: false, connection: { status: 'connected', config: { pageId: '1111111111' } } });
+    expect(done.body.connection.config.instagramAccountId).toBeUndefined();
+
+    const other = await createTenant(t);
+    const manual = await t.http.post(`/v1/o/${other.orgId}/integrations/connections`).set(auth(other.owner))
+      .send({ provider: 'meta_pages', environment: 'live', credentials: { accessToken: 'EAAPage-pasted-123456' }, config: { pageId: '3333333333' } });
+    expect(manual.status).toBe(201);
+    script([{ body: { id: '3333333333', name: 'Pasted Page' } }]);
+    const listed = await t.http.get(`/v1/o/${other.orgId}/integrations/connections/${manual.body.id}/accounts`).set(auth(other.owner));
+    expect(listed.body.accounts).toEqual([{ id: '3333333333', name: 'Pasted Page', currency: null, status: null }]);
+    const switchPage = await t.http.post(`/v1/o/${other.orgId}/integrations/connections/${manual.body.id}/account`).set(auth(other.owner)).send({ accountId: '3333333334' });
+    expect(switchPage.status).toBe(422);
+  });
+});

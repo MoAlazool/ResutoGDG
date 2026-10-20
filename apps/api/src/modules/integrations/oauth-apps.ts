@@ -7,6 +7,7 @@ import type { OAuthAppConfig } from '@resuto/integrations';
  */
 export const OAUTH_APP_ENV: Record<string, { id: string; secret: string }> = {
   meta_ads: { id: 'META_APP_ID', secret: 'META_APP_SECRET' },
+  meta_pages: { id: 'META_APP_ID', secret: 'META_APP_SECRET' },
   tiktok_ads: { id: 'TIKTOK_APP_ID', secret: 'TIKTOK_APP_SECRET' },
   snapchat_ads: { id: 'SNAPCHAT_CLIENT_ID', secret: 'SNAPCHAT_CLIENT_SECRET' },
 };

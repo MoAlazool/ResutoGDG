@@ -25,7 +25,9 @@ type CatalogItem = ProviderCatalogEntry & {
 interface WebhookInfo { url: string; events: string[]; registeredByMerchant: boolean; verifyToken?: string | null }
 interface AccountChoice { id: string; name: string | null; currency: string | null; status: string | null }
 /** Config key of the chosen ad account per ads provider (INT-11 picker). */
-const ACCOUNT_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId' };
+const ACCOUNT_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId' };
+/** Picker wording: a Facebook Page for Messenger / Instagram (INT-21), an ad account otherwise. */
+const pickerKey = (provider: string, k: 'title' | 'help' | 'label' | 'none' | 'use' | 'choose' | 'change') => `intg.${provider === 'meta_pages' ? 'page' : 'account'}.${k}`;
 type ConnectionView = IntegrationConnectionView & {
   webhook?: WebhookInfo | null; lastSuccessAt?: string | null; lastFailureAt?: string | null; lastWebhookAt?: string | null; account?: Record<string, string> | null;
 };
@@ -344,8 +346,8 @@ function Connections() {
             <option value="resuto">{t('connect.int.sot.resuto')}</option><option value="provider">{t('connect.int.sot.provider')}</option></select>) : <span className="fine">{t('connect.int.sot.ordersResuto')}</span> },
         { key: 'a', header: '', align: 'end', render: (c) => (
           <div className="row" style={{ gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            {needsAccount(c) && <button className="btn btn-sm btn-primary" onClick={() => setPicking(c.id)}>{t('intg.account.choose')}</button>}
-            {!needsAccount(c) && hasChoices(c) && <button className="btn btn-sm btn-ghost" onClick={() => setPicking(c.id)}>{t('intg.account.change')}</button>}
+            {needsAccount(c) && <button className="btn btn-sm btn-primary" onClick={() => setPicking(c.id)}>{t(pickerKey(c.provider, 'choose'))}</button>}
+            {!needsAccount(c) && hasChoices(c) && <button className="btn btn-sm btn-ghost" onClick={() => setPicking(c.id)}>{t(pickerKey(c.provider, 'change'))}</button>}
             {c.status !== 'revoked' && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'health')}>{t('connect.int.check')}</button>}
             {c.status !== 'sandbox' && specOf(c) && <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ c, mode: 'credentials' })}>{t('intg.action.updateCredentials')}</button>}
             {c.status !== 'revoked' && c.status !== 'sandbox' && (specOf(c)?.fields.config.length ?? 0) > 0 && <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ c, mode: 'settings' })}>{t('intg.action.editSettings')}</button>}
@@ -387,11 +389,11 @@ function AccountPicker({ connection, onClose, onSaved }: { connection: Connectio
     onSaved();
   });
   return (
-    <Modal open onClose={onClose} title={t('intg.account.title')}>
+    <Modal open onClose={onClose} title={t(pickerKey(connection.provider, 'title'))}>
       <form onSubmit={save.run} className="stack">
-        <p className="fine" style={{ margin: 0 }}>{t('intg.account.help')}</p>
-        {choices.length === 0 ? <Notice tone="warn">{t('intg.account.none')}</Notice> : (
-          <SelectField label={t('intg.account.label')} value={value} onChange={(e) => setValue(e.target.value)}>
+        <p className="fine" style={{ margin: 0 }}>{t(pickerKey(connection.provider, 'help'))}</p>
+        {choices.length === 0 ? <Notice tone="warn">{t(pickerKey(connection.provider, 'none'))}</Notice> : (
+          <SelectField label={t(pickerKey(connection.provider, 'label'))} value={value} onChange={(e) => setValue(e.target.value)}>
             {choices.map((a) => <option key={a.id} value={a.id}>{[a.name ?? a.id, a.id, a.currency, a.status].filter(Boolean).join(' · ')}</option>)}
           </SelectField>
         )}
@@ -399,7 +401,7 @@ function AccountPicker({ connection, onClose, onSaved }: { connection: Connectio
         {save.error && <Notice tone="danger">{save.error}</Notice>}
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className="btn btn-ghost" disabled={refresh.pending} onClick={() => refresh.run()}>{t('intg.account.refresh')}</button>
-          <button className="btn btn-primary" disabled={save.pending || !value}>{t('intg.account.use')}</button>
+          <button className="btn btn-primary" disabled={save.pending || !value}>{t(pickerKey(connection.provider, 'use'))}</button>
         </div>
       </form>
     </Modal>

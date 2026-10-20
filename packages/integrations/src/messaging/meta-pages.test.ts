@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPageMessage, metaPagesAdapter, metaPagesEventKey, parseMetaPagesWebhook } from './meta-pages';
+import { buildPageMessage, META_PAGES_SCOPES, metaPagesAdapter, metaPagesEventKey, metaPagesOAuth, parseMetaPagesWebhook } from './meta-pages';
 import { scriptedFetch } from './testing/scripted-fetch';
 
 const ctx = (fetch: typeof globalThis.fetch, config: Record<string, unknown> = { pageId: '1111111111' }) =>
@@ -84,5 +84,54 @@ describe('ownership proof and sending', () => {
     expect(s.calls[0]!.body).toBe('subscribed_fields=messages%2Cmessaging_postbacks');
     expect(await metaPagesAdapter.send(ctx(s.fetch), '1111111111', { recipient: { id: '900' }, messaging_type: 'RESPONSE', message: { text: 'hi' } })).toEqual({ messageId: 'm.out' });
     expect(s.calls[1]!.headers.authorization).toBe('Bearer EAAPage-token-123');
+  });
+});
+
+describe('INT-21: connecting the Page with Facebook Login (for Business)', () => {
+  const app = { clientId: 'app-1', clientSecret: 'app-secret', redirectUri: 'https://api.test/v1/public/integrations/oauth/meta_pages/callback' };
+
+  it('builds the dialog URL with the Login for Business configuration, or the documented scopes without one', () => {
+    const withConfig = new URL(metaPagesOAuth.buildAuthUrl(app, 'state-123', { configId: '777' }));
+    expect(withConfig.pathname).toBe('/v26.0/dialog/oauth');
+    expect(Object.fromEntries(withConfig.searchParams)).toEqual({ client_id: 'app-1', redirect_uri: app.redirectUri, state: 'state-123', response_type: 'code', config_id: '777' });
+    const classic = new URL(metaPagesOAuth.buildAuthUrl(app, 'state-123'));
+    expect(classic.searchParams.get('scope')).toBe(META_PAGES_SCOPES.join(','));
+    expect(classic.searchParams.get('config_id')).toBeNull();
+  });
+
+  it('exchanges the code for a long-lived user token and lists the Pages it manages (no Page token yet)', async () => {
+    const f = scriptedFetch([
+      { body: { access_token: 'EAAshort', expires_in: 3600 } },
+      { body: { access_token: 'EAAlong-user', expires_in: 5184000 } },
+      { body: { id: '9001', name: 'Owner' } },
+      { body: { data: [{ id: '1111111111', name: 'Olive Room', tasks: ['MESSAGING'], instagram_business_account: { id: '1784', username: 'oliveroom' } }, { id: '2222222222', name: 'Smash' }] } },
+    ]);
+    const t = await metaPagesOAuth.exchangeCode({ fetch: f.fetch }, app, 'code-1');
+    expect(t).toMatchObject({ accessToken: 'EAAlong-user', expiresIn: null, tokenKind: 'user', identity: { userId: '9001' } });
+    expect(t.accounts).toEqual([{ id: '1111111111', name: 'Olive Room', currency: null, status: 'instagram:oliveroom' }, { id: '2222222222', name: 'Smash', currency: null, status: null }]);
+    expect(f.calls.map((c) => new URL(c.url).pathname)).toEqual(['/v26.0/oauth/access_token', '/v26.0/oauth/access_token', '/v26.0/me', '/v26.0/me/accounts']);
+    expect(new URL(f.calls[1]!.url).searchParams.get('grant_type')).toBe('fb_exchange_token');
+    expect(JSON.stringify(t.accounts)).not.toContain('access_token');
+  });
+
+  it('reads the chosen Page\'s own token with the user token, and refuses a Page the person did not grant', async () => {
+    const f = scriptedFetch([{ body: { id: '1111111111', name: 'Olive Room', access_token: 'EAAPage-own', instagram_business_account: { id: '1784' } } }, { body: { id: '2222222222' } }]);
+    const c = { environment: 'live' as const, credentials: { userAccessToken: 'EAAlong-user', appSecret: 'app-secret' }, config: {}, fetch: f.fetch };
+    expect(await metaPagesOAuth.pageAccess(c, '1111111111')).toEqual({ pageToken: 'EAAPage-own', name: 'Olive Room', instagramAccountId: '1784' });
+    expect(f.calls[0]!.headers.authorization).toBe('Bearer EAAlong-user');
+    expect(new URL(f.calls[0]!.url).searchParams.get('appsecret_proof')).toMatch(/^[0-9a-f]{64}$/);
+    await expect(metaPagesOAuth.pageAccess(c, '2222222222')).rejects.toThrow(/did not grant/);
+  });
+
+  it('a pasted Page token offers only its own Page; revoke needs the Login user', async () => {
+    const f = scriptedFetch([{ body: { id: '1111111111', name: 'Olive Room' } }]);
+    expect(await metaPagesOAuth.listAccounts(ctx(f.fetch))).toEqual([{ id: '1111111111', name: 'Olive Room', currency: null, status: null }]);
+    expect(await metaPagesAdapter.revokeAccess(ctx(f.fetch))).toMatchObject({ attempted: false });
+    const r = scriptedFetch([{ body: { success: true } }]);
+    const viaLogin = { environment: 'live' as const, credentials: { accessToken: 'EAAPage-own', userAccessToken: 'EAAlong-user' }, config: { metaUserId: '9001' }, fetch: r.fetch };
+    expect(await metaPagesAdapter.revokeAccess(viaLogin)).toMatchObject({ attempted: true, revoked: true });
+    expect(r.calls[0]).toMatchObject({ method: 'DELETE' });
+    expect(new URL(r.calls[0]!.url).pathname).toBe('/v26.0/9001/permissions');
+    expect(r.calls[0]!.headers.authorization).toBe('Bearer EAAlong-user');
   });
 });

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { IntegrationOauthComplete } from '@resuto/contracts';
-import { adsAdapterFor, ProviderError, type AdAccountChoice, type OAuthAppConfig, type OAuthTokens } from '@resuto/integrations';
+import { adsAdapterFor, metaPagesOAuth, ProviderError, type AdAccountChoice, type AdsAdapter, type OAuthAppConfig, type OAuthTokens } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { newToken, sha256 } from '../../common/crypto/hash';
 import { SecretBox } from '../../common/crypto/secret-box';
@@ -14,8 +14,12 @@ import { metaPlatform } from './meta-platform';
 import { OAUTH_APP_ENV, oauthApp } from './oauth-apps';
 import { ProviderHttp } from './provider-http';
 
-/** Config key holding the chosen ad account / advertiser per provider. */
-export const ACCOUNT_CONFIG_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId' };
+/** Config key holding the chosen ad account / advertiser (or, for Messenger / Instagram, the Facebook Page) per provider. */
+export const ACCOUNT_CONFIG_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId' };
+
+/** What the bound-state OAuth flow needs from a provider: the ads adapters, and the Facebook Page connection (INT-21). */
+type OAuthProvider = Pick<AdsAdapter, 'descriptor' | 'buildAuthUrl' | 'exchangeCode' | 'listAccounts'>;
+const oauthProvider = (provider: string): OAuthProvider | null => adsAdapterFor(provider) ?? (provider === 'meta_pages' ? metaPagesOAuth : null);
 const MAX_CHOICES = 50;
 
 const iso = (secondsFromNow: number | null | undefined) => (secondsFromNow ? new Date(Date.now() + secondsFromNow * 1000).toISOString() : null);
@@ -50,18 +54,20 @@ export class IntegrationOAuthService {
   }
 
   private configId(provider: string) {
-    return provider === 'meta_ads' ? metaPlatform().adsLoginConfigId : null;
+    if (provider === 'meta_ads') return metaPlatform().adsLoginConfigId;
+    if (provider === 'meta_pages') return metaPlatform().pagesLoginConfigId;
+    return null;
   }
 
   async start(ctx: TenantContext, provider: string, input: { redirectAfter?: string; browserBinding: string }) {
-    const adapter = adsAdapterFor(provider);
+    const adapter = oauthProvider(provider);
     if (!adapter || adapter.descriptor.authType !== 'oauth') throw invalid('oauth_unsupported', `${provider} does not use OAuth`);
     const app = this.appConfig(provider);
     if (!app) {
       throw new DomainError('provider_app_not_configured', `${adapter.descriptor.name} OAuth is not configured on this Resuto server`, 503,
         { activation: adapter.descriptor.activation, env: Object.values(OAUTH_APP_ENV[provider] ?? {}) });
     }
-    if (!ctx.userId) throw new DomainError('forbidden', 'Only a signed-in person can authorise an ad account', 403);
+    if (!ctx.userId) throw new DomainError('forbidden', 'Only a signed-in person can authorise an account', 403);
     const state = newToken(24);
     await this.db.scoped(ctx, (tx) => tx.query(
       `insert into integration_oauth_states(state_hash, org_id, provider, environment, redirect_after, created_by, expires_at, browser_binding_hash)
@@ -86,7 +92,7 @@ export class IntegrationOAuthService {
   }
 
   async complete(ctx: TenantContext, provider: string, input: IntegrationOauthComplete) {
-    const adapter = adsAdapterFor(provider);
+    const adapter = oauthProvider(provider);
     const app = this.appConfig(provider);
     if (!adapter || adapter.descriptor.authType !== 'oauth') throw invalid('oauth_unsupported', `${provider} does not use OAuth`);
     if (!app) throw new DomainError('provider_app_not_configured', `${adapter.descriptor.name} OAuth is not configured on this Resuto server`, 503);
@@ -109,7 +115,11 @@ export class IntegrationOAuthService {
     }
     const choices: AdAccountChoice[] = (tokens.accounts?.length ? tokens.accounts : (tokens.accountIds ?? []).map((id) => ({ id, name: null, currency: null, status: null })))
       .slice(0, MAX_CHOICES);
-    const creds: Record<string, string> = { accessToken: tokens.accessToken, ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}) };
+    const pages = provider === 'meta_pages';
+    // Messenger / Instagram: the user token only lists Pages and reads the chosen Page's token (stored as accessToken
+    // once a Page is chosen); messaging always uses the Page's own token.
+    let creds: Record<string, string> = pages ? { userAccessToken: tokens.accessToken }
+      : { accessToken: tokens.accessToken, ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}) };
     const key = ACCOUNT_CONFIG_KEY[provider]!;
     const config: Record<string, unknown> = {
       tokenSource: 'platform_app', tokenKind: tokens.tokenKind ?? 'user', accountChoices: choices,
@@ -119,22 +129,30 @@ export class IntegrationOAuthService {
     };
     // Exactly one granted account: select it. Several: the owner picks (the previous selection is kept if still granted).
     const autoPick = choices.length === 1 ? choices[0]!.id : null;
+    const prev = await this.db.withTenant(ctx.orgId, (tx) => tx.maybeOne<{ config: Record<string, unknown> }>(
+      `select config from integration_connections where org_id = $1 and provider = $2 and branch_id is null`, [ctx.orgId, provider]));
+    const kept = prev?.config?.[key] && choices.some((c) => c.id === prev.config[key]) ? String(prev.config[key]) : null;
+    const selected = autoPick ?? kept;
+    let pageExtra: Record<string, unknown> = {};
+    if (pages && selected) {
+      const page = await this.pageAccess(provider, tokens.accessToken, selected);
+      creds = { ...creds, accessToken: page.pageToken };
+      pageExtra = page.instagramAccountId ? { instagramAccountId: page.instagramAccountId } : {};
+    }
     const id = await this.db.withTenant(ctx.orgId, async (tx) => {
-      const prev = await tx.maybeOne<{ config: Record<string, unknown> }>(
-        `select config from integration_connections where org_id = $1 and provider = $2 and branch_id is null`, [ctx.orgId, provider]);
-      const kept = prev?.config?.[key] && choices.some((c) => c.id === prev.config[key]) ? String(prev.config[key]) : null;
-      const selected = autoPick ?? kept;
       const sealed = this.box.sealJson(creds, credentialsAad(ctx.orgId, provider));
-      const cfg = { ...config, ...(selected ? { [key]: selected } : {}) };
+      const cfg = { ...config, ...(selected ? { [key]: selected } : {}), ...pageExtra };
+      // Keys that belong to the previous grant are dropped (the Page's Instagram account is re-read with the new one).
+      const dropped = pages ? [key, 'instagramAccountId'] : [key];
       const connId = (await tx.one<{ id: string }>(
         `insert into integration_connections(org_id, provider, category, auth_type, environment, status, credentials_encrypted, credentials_hint, config,
             connected_by, connected_at)
-         values ($1, $2, 'ads', 'oauth', 'live', 'pending', $3, $4, $5, $6, now())
+         values ($1, $2, $8, 'oauth', 'live', 'pending', $3, $4, $5, $6, now())
          on conflict (org_id, provider, coalesce(branch_id, '00000000-0000-0000-0000-000000000000'::uuid))
          do update set credentials_encrypted = excluded.credentials_encrypted, credentials_hint = excluded.credentials_hint, status = 'pending', enabled = true,
-           config = (integration_connections.config - $7::text) || excluded.config, connected_by = excluded.connected_by, connected_at = now(), last_error = null,
+           config = (integration_connections.config - $7::text[]) || excluded.config, connected_by = excluded.connected_by, connected_at = now(), last_error = null,
            account_identity = '{}'::jsonb, health = '{}'::jsonb
-         returning id`, [ctx.orgId, provider, sealed, credentialsHint(creds), cfg, ctx.userId, key])).id;
+         returning id`, [ctx.orgId, provider, sealed, credentialsHint(creds), cfg, ctx.userId, dropped, adapter.descriptor.category])).id;
       await tx.query(`update integration_oauth_states set connection_id = $2 where state_hash = $1`, [sha256(input.state), connId]);
       await this.connections.log(tx, ctx.orgId, connId, 'info', 'OAuth authorisation completed', { accounts: choices.length, tokenKind: config.tokenKind,
         expiresAt: config.tokenExpiresAt });
@@ -156,19 +174,47 @@ export class IntegrationOAuthService {
     let choices = ((view.config.accountChoices as AdAccountChoice[] | undefined) ?? []);
     if (!choices.some((c) => c.id === accountId)) choices = await this.listAccounts(ctx, connectionId).then((r) => r.accounts);
     if (!choices.some((c) => c.id === accountId)) throw invalid('account_not_granted', 'That account was not granted to Resuto. Reconnect and grant it, or pick another.');
+    // Messenger / Instagram: the chosen Page's own token replaces the previous one (read with the Login user token).
+    let sealed: string | null = null;
+    let extra: Record<string, unknown> = {};
+    let dropIg = false;
+    if (view.provider === 'meta_pages') {
+      const conn = await this.connections.loadFresh(ctx.orgId, { id: connectionId });
+      const userToken = conn.adapter.credentials.userAccessToken;
+      if (!userToken) {
+        if (view.config.pageId !== accountId) throw invalid('reconnect_required', 'This connection uses a pasted Page token. Connect with Facebook to choose another Page.');
+      } else {
+        const page = await this.pageAccess(view.provider, userToken, accountId);
+        sealed = this.box.sealJson({ userAccessToken: userToken, accessToken: page.pageToken }, credentialsAad(ctx.orgId, view.provider));
+        extra = page.instagramAccountId ? { instagramAccountId: page.instagramAccountId } : {};
+        dropIg = !page.instagramAccountId;
+      }
+    }
     await this.db.withTenant(ctx.orgId, async (tx) => {
-      await tx.query(`update integration_connections set config = config || $2, status = case when status = 'revoked' then status else 'pending' end where id = $1`,
-        [connectionId, { [key]: accountId }]);
+      await tx.query(`update integration_connections set config = (case when $4 then config - 'instagramAccountId' else config end) || $2,
+          credentials_encrypted = coalesce($3, credentials_encrypted), status = case when status = 'revoked' then status else 'pending' end where id = $1`,
+        [connectionId, { [key]: accountId, ...extra }, sealed, dropIg]);
       await this.connections.log(tx, ctx.orgId, connectionId, 'info', 'Ad account selected', { accountId });
       await this.audit.record(tx, ctx, { action: 'integration.account_selected', entityType: 'integration_connection', entityId: connectionId, metadata: { provider: view.provider } });
     }, `${ctx.actorType}:${ctx.actorId}`);
     return this.connections.healthCheck(ctx, connectionId);
   }
 
+  /** The Page's own token for a Page the Login user granted (INT-21). Errors never carry a token. */
+  private async pageAccess(provider: string, userToken: string, pageId: string) {
+    const ctxA = { environment: 'live' as const, credentials: { userAccessToken: userToken, appSecret: metaPlatform().appSecret ?? '' }, config: {}, fetch: this.http.fetch };
+    try {
+      return await metaPagesOAuth.pageAccess(ctxA, pageId);
+    } catch (e) {
+      if (e instanceof ProviderError && !e.retryable) throw invalid('account_not_granted', 'Meta did not give Resuto access to that Page. Reconnect and grant it.', { provider: redactedError(e) });
+      throw new DomainError('provider_error', 'Meta could not be reached to read the Page. Try again.', 502, { provider: redactedError(e), provider_name: provider });
+    }
+  }
+
   /** Re-lists the accounts the connection's token can use (fresh from the provider) and stores them as choices. */
   async listAccounts(ctx: TenantContext, connectionId: string) {
     const view = await this.connections.get(ctx, connectionId);
-    const adapter = adsAdapterFor(view.provider);
+    const adapter = oauthProvider(view.provider);
     if (!adapter?.listAccounts) throw invalid('not_supported', 'This provider cannot list accounts');
     if (view.status === 'revoked') throw conflict('connection_revoked', 'Reconnect first');
     const conn = await this.connections.loadFresh(ctx.orgId, { id: connectionId });

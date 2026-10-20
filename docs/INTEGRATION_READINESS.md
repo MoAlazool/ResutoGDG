@@ -229,7 +229,8 @@ Docs: [Send API](https://developers.facebook.com/docs/messenger-platform/send-me
 
 | Capability | Implemented code | Supported mode | Configuration required | Local test evidence | External test (acceptance check) | Last verified | Limitations |
 |---|---|---|---|---|---|---|---|
-| Page / Instagram ownership | `verifyOwnership` (`GET /me`, `instagram_business_account`), `subscribed_apps` | live (test Page) | Page access token, Page id, Instagram account id | `meta-pages.test.ts` (adapter + API) | `meta_pages.ownership` | not run | Connection is a pasted Page token (system user); Facebook Login for Business for Pages (`META_PAGES_LOGIN_CONFIG_ID`) is not built |
+| Connecting the Page | Facebook Login (for Business with `META_PAGES_LOGIN_CONFIG_ID`, else `pages_show_list,pages_messaging,pages_manage_metadata,business_management,instagram_basic,instagram_manage_messages`) with the PS-11 bound state; long-lived user token; Page picker from `GET /me/accounts`; the chosen Page's own token from `GET /<PAGE_ID>?fields=access_token` (no expiry); revoke `DELETE /{user-id}/permissions` | live | `META_APP_ID`, `META_APP_SECRET`, redirect URI `/v1/public/integrations/oauth/meta_pages/callback` | `meta-pages.test.ts` (adapter), `oauth-binding.test.ts` (start, binding, picker, Page token, channel proof, revoke) | `meta_pages.ownership` | not run | A pasted Page token (system user) remains possible; it can only offer its own Page and has no provider revoke |
+| Page / Instagram ownership | `verifyOwnership` (`GET /me`, `instagram_business_account`), `subscribed_apps` | live (test Page) | the connection's Page token, Page id, Instagram account id | `meta-pages.test.ts` (adapter + API) | `meta_pages.ownership` | not run | — |
 | Webhooks | `/v1/webhooks/meta`, `META_APP_SECRET`, `META_WEBHOOK_VERIFY_TOKEN` | live | app webhooks for `page` and `instagram` (messages, messaging_postbacks) | API tests: signature, handshake, routing by kind + account, unknown accounts ignored | `meta_pages.webhook_signature` | not run | Delivery/read receipts are not mapped (Messenger reports watermarks, not message ids) |
 | Bot ordering | quick replies (13), button template / link, typed address, phone asked on the hosted page for delivery | live | — | API test webhook → bot → order (channel `messenger`) | — | not run | No location pin; Instagram has no button template (link in text) |
 | 24-hour window and handoff | RESPONSE inside 24 h; staff only with `HUMAN_AGENT` up to 7 days (re-checked at send); no templates | live | `human_agent` feature (App Review) | API test | `meta_pages.send_reply` (`--allow message`) | not run | Meta's Handover Protocol (multiple apps) is not used; handoff is Resuto's bot → staff |
@@ -262,7 +263,9 @@ Code: `packages/integrations/src/ads/meta-capi.ts`, `apps/api/src/modules/market
 
 1. Create Resuto's Business-type Meta app; become a Tech Provider; configure Embedded Signup (`WHATSAPP_ES_CONFIG_ID`),
    Facebook Login for Business, Messenger + Instagram products, Marketing API. Set `META_APP_ID`, `META_APP_SECRET`,
-   `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `META_WEBHOOK_VERIFY_TOKEN` (and optionally `META_ADS_LOGIN_CONFIG_ID`).
+   `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `META_WEBHOOK_VERIFY_TOKEN` (and optionally `META_ADS_LOGIN_CONFIG_ID`,
+   `META_PAGES_LOGIN_CONFIG_ID`). Add `https://<api>/v1/public/integrations/oauth/meta_ads/callback` and
+   `.../oauth/meta_pages/callback` as valid OAuth redirect URIs.
 2. Register webhooks: `https://<api>/v1/webhooks/whatsapp` (WhatsApp) and `https://<api>/v1/webhooks/meta` (page, instagram).
 3. App Review: `whatsapp_business_management`, `whatsapp_business_messaging`, `pages_messaging`, `pages_manage_metadata`,
    `instagram_basic`, `instagram_manage_messages`, `human_agent`, `ads_management`, `ads_read`, `business_management`.
