@@ -1,0 +1,63 @@
+{
+ "label": "after-phone-photos",
+ "commit": "50ed79b",
+ "at": "2026-10-20T17:31:16.593Z",
+ "runs": 3,
+ "rows": [
+  {
+   "id": "guest-qr",
+   "locale": "ar",
+   "lcp": 5364,
+   "fcp": 2632,
+   "cls": 0.169,
+   "ttfb": 18,
+   "loadMs": 2170,
+   "lcpEl": "SECTION.g-hero",
+   "requests": 42,
+   "kb": 927,
+   "fontKb": 222,
+   "imageKb": 472,
+   "scriptKb": 196,
+   "apiKb": 7,
+   "repeatLcp": 1164,
+   "repeatKb": 24,
+   "repeatRequests": 41,
+   "repeatCachedOr304": 34,
+   "repeatFromCache": 34,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": {
+    "perMinute": 24,
+    "preflightsPerMinute": 0,
+    "notModified": 0,
+    "total": 8
+   }
+  },
+  {
+   "id": "web-order",
+   "locale": "en",
+   "lcp": 4764,
+   "fcp": 2672,
+   "cls": 0,
+   "ttfb": 18,
+   "loadMs": 2148,
+   "lcpEl": "SECTION.g-hero",
+   "requests": 34,
+   "kb": 752,
+   "fontKb": 53,
+   "imageKb": 472,
+   "scriptKb": 195,
+   "apiKb": 3,
+   "repeatLcp": 1348,
+   "repeatKb": 19,
+   "repeatRequests": 34,
+   "repeatCachedOr304": 32,
+   "repeatFromCache": 32,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  }
+ ]
+}
