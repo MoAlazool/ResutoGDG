@@ -1,5 +1,7 @@
 // Typed fetch wrapper for the Resuto API. All business data goes through the
 // NestJS API; the browser never talks to the database directly.
+import { reportConnection } from './connection';
+
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 
 /**
@@ -82,8 +84,11 @@ export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise
     });
   } catch (e) {
     if (opts.signal?.aborted || (e as Error)?.name === 'AbortError') throw new ApiRequestError(0, 'aborted', copy('aborted'));
+    reportConnection(false);
     throw new ApiRequestError(0, 'network_error', copy('offline'));
   }
+  // Topbar connection status: a gateway/server outage means "reconnecting"; any other answer means the API is reachable.
+  reportConnection(!(res.status === 502 || res.status === 503 || res.status === 504));
   const requestId = res.headers.get('x-request-id') ?? undefined;
   const text = await res.text().catch(() => '');
   let data: any = null;
