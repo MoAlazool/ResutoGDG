@@ -4,6 +4,7 @@
 // Embedded Signup docs (2026-10-20): https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Card, Field, Notice, SelectField, useAction } from '@resuto/ui';
+import { documentAllowsMetaSdk } from '@/lib/csp';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -54,6 +55,21 @@ function loadSdk(cfg: SignupConfig): Promise<FBType> {
   });
 }
 
+/** Query flag of the full page load the launcher asks for (see loadedWithSdkPolicy). */
+export const SIGNUP_RELOAD_PARAM = 'signup';
+
+/**
+ * Whether this document was loaded with the Inbox's Content-Security-Policy (the one that lets Meta's SDK frame
+ * www.facebook.com). Staff usually reach the Inbox by client-side navigation from another dashboard page, whose
+ * stricter policy the document keeps; the launcher then reloads the Inbox before opening Meta's window.
+ */
+function loadedWithSdkPolicy(): boolean {
+  const nav = (typeof performance !== 'undefined' && performance.getEntriesByType?.('navigation')[0]) as PerformanceNavigationTiming | undefined;
+  // Without navigation timing, trust a document that was just hard-loaded for the signup.
+  const loaded = nav?.name ?? (new URLSearchParams(window.location.search).get(SIGNUP_RELOAD_PARAM) === 'whatsapp' ? window.location.href : null);
+  return documentAllowsMetaSdk(loaded);
+}
+
 /** WhatsApp Embedded Signup v4: Meta's window returns a 30-second code plus the WABA and number ids; the API does the rest. */
 export function EmbeddedSignupCard({ onDone }: { onDone: () => Promise<void> | void }) {
   const { t } = useT();
@@ -63,6 +79,18 @@ export function EmbeddedSignupCard({ onDone }: { onDone: () => Promise<void> | v
   const [name, setName] = useState('');
   const [note, setNote] = useState<string | null>(null);
   const info = useRef<SessionInfo | null>(null);
+  const startButton = useRef<HTMLButtonElement | null>(null);
+
+  // Back from the full page load the launcher asked for: say so, and put the focus on the button (Meta's window must
+  // be opened by a click).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get(SIGNUP_RELOAD_PARAM) !== 'whatsapp') return;
+    setNote(t('connect.signup.reloaded'));
+    q.delete(SIGNUP_RELOAD_PARAM);
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${q.toString() ? `?${q}` : ''}`);
+    startButton.current?.focus();
+  }, [t]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -81,6 +109,11 @@ export function EmbeddedSignupCard({ onDone }: { onDone: () => Promise<void> | v
   const start = useAction(async () => {
     setNote(null);
     info.current = null;
+    if (!loadedWithSdkPolicy()) {
+      // Reached by client-side navigation: load the Inbox itself so its policy (Meta's hosts) applies, then start again.
+      window.location.assign(`${window.location.pathname}?${SIGNUP_RELOAD_PARAM}=whatsapp`);
+      return;
+    }
     const c = cfg.data!;
     const FB = await loadSdk(c);
     const code = await new Promise<string | null>((resolve) => FB.login((r) => resolve(r.authResponse?.code ?? null),
@@ -105,7 +138,7 @@ export function EmbeddedSignupCard({ onDone }: { onDone: () => Promise<void> | v
       ) : (
         <>
           <Field label={t('connect.channels.name')} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
-          <button className="btn btn-primary" disabled={!cfg.data?.available || start.pending} onClick={() => start.run()}>{t('connect.signup.start')}</button>
+          <button ref={startButton} className="btn btn-primary" disabled={!cfg.data?.available || start.pending} onClick={() => start.run()}>{t('connect.signup.start')}</button>
         </>
       )}
       {note && <Notice tone="info">{note}</Notice>}

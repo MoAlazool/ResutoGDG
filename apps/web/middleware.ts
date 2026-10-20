@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { buildCsp, newNonce } from './lib/csp';
+import { buildCsp, META_SDK_PAGE, newNonce } from './lib/csp';
 
 /**
  * Sets the per-request Content-Security-Policy nonce on every page (lib/csp.ts), and does custom-domain routing
@@ -20,8 +20,6 @@ const cache = new Map<string, { slug: string | null; at: number }>();
 const PASS_THROUGH = /^\/(reserve|order|t|pay|s|o|l)\/[^/]+/;
 /** Restaurant website, web ordering and booking pages: the only places the Meta Pixel can run. */
 const GUEST_SITE = /^\/(r|order|reserve)\/[^/]+/;
-/** Inbox > Channels runs Meta's SDK for WhatsApp Embedded Signup (INT-13). */
-const META_SDK_PAGE = /^\/dashboard\/[^/]+\/inbox\/?$/;
 
 async function resolveHost(host: string): Promise<string | null> {
   const hit = cache.get(host);

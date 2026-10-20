@@ -8,7 +8,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { ChannelKindBadge, EmbeddedSignupCard, PageChannelCard, VerifyCell } from './MetaChannels';
+import { ChannelKindBadge, EmbeddedSignupCard, PageChannelCard, SIGNUP_RELOAD_PARAM, VerifyCell } from './MetaChannels';
 
 interface Window { open: boolean; closesAt: string | null }
 /** Messenger / Instagram contacts have no phone number (their ids are page-scoped), so they are labelled by network. */
@@ -36,6 +36,8 @@ const statusTone = (s: string) => (s === 'handoff' ? 'warn' : s === 'closed' ? '
 export default function InboxPage() {
   const { t } = useT();
   const [tab, setTab] = useState<'conversations' | 'channels' | 'templates'>('conversations');
+  // The WhatsApp signup launcher reloads the Inbox (for its Content-Security-Policy) and continues on Channels.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get(SIGNUP_RELOAD_PARAM) === 'whatsapp') setTab('channels'); }, []);
   return (
     <ModuleGate module="connect" permission="connect:read">
       <PageHeader title={t('connect.inbox.title')} subtitle={t('connect.inbox.subtitle')} />
