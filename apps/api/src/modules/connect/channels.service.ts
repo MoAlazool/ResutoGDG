@@ -31,6 +31,10 @@ const templateView = (r: any) => ({
   providerTemplateId: r.provider_template_id, sandbox: r.provider_status === 'sandbox', createdAt: iso(r.created_at), updatedAt: iso(r.updated_at),
 });
 
+export interface VerifiedWhatsAppInput {
+  displayName: string; displayPhone?: string | null; phoneNumberId: string; wabaId: string; branchId?: string | null; orderingEnabled: boolean;
+}
+
 export interface WhatsAppVerification {
   method: 'graph_waba_phone_numbers';
   wabaId: string;
@@ -178,6 +182,16 @@ export class ChannelsService {
   }
 
   /** A number proven by another channel cannot be claimed again; an unverified (pre-INT-03) claim never blocks the owner. */
+  /**
+   * Embedded Signup pre-check (before the code exchange and any provider write): a number another tenant has a
+   * verified channel for is refused. The same tenant re-onboarding its own number is allowed.
+   */
+  async assertNotClaimedElsewhere(orgId: string, phoneNumberId: string) {
+    const taken = await this.db.withPlatform((p) => p.maybeOne<{ org_id: string }>(
+      `select org_id from messaging_channels where phone_number_id = $1 and verified_at is not null and org_id <> $2 limit 1`, [phoneNumberId, orgId]));
+    if (taken) throw conflict('phone_number_in_use', 'This WhatsApp phone number is already registered with Resuto');
+  }
+
   private async assertNotClaimed(orgId: string, phoneNumberId: string, exceptChannelId: string | null = null) {
     const taken = await this.db.withPlatform((p) => p.maybeOne<{ id: string; org_id: string; verified_at: Date | null }>(
       `select id, org_id, verified_at from messaging_channels where phone_number_id = $1 and ($2::uuid is null or id <> $2)`, [phoneNumberId, exceptChannelId]));
@@ -225,36 +239,43 @@ export class ChannelsService {
    * Stores a WhatsApp channel whose ownership was just proven (manual connection or Embedded Signup). An older,
    * unverified claim on the same number (made before INT-03) is superseded and audited in its tenant.
    */
-  async attachVerifiedWhatsApp(ctx: TenantContext, connectionId: string, input: { displayName: string; displayPhone?: string | null; phoneNumberId: string; wabaId: string;
-    branchId?: string | null; orderingEnabled: boolean }, verification: WhatsAppVerification) {
+  async attachVerifiedWhatsApp(ctx: TenantContext, connectionId: string, input: VerifiedWhatsAppInput, verification: WhatsAppVerification) {
+    await this.supersedeUnverifiedClaims(input.phoneNumberId);
+    return this.db.scoped(ctx, (tx) => this.insertVerifiedWhatsApp(tx, ctx, connectionId, input, verification));
+  }
+
+  /** Older, unverified claims on a number whose ownership was just proven are superseded (audited in their tenant). */
+  async supersedeUnverifiedClaims(phoneNumberId: string) {
     await this.db.withPlatform(async (p) => {
       const stale = await p.query<{ id: string; org_id: string }>(
         `update messaging_channels set phone_number_id = null, status = 'disabled',
             verification = verification || jsonb_build_object('supersededAt', now(), 'supersededReason', 'ownership proven by another account')
-          where phone_number_id = $1 and verified_at is null returning id, org_id`, [input.phoneNumberId]);
+          where phone_number_id = $1 and verified_at is null returning id, org_id`, [phoneNumberId]);
       for (const s of stale) {
         await p.query(`insert into audit_logs(org_id, actor_type, actor_id, action, entity_type, entity_id, source, metadata)
                        values ($1, 'system', 'connect.ownership', 'connect.channel_superseded', 'messaging_channel', $2, 'api', $3)`,
           [s.org_id, s.id, { reason: 'unverified claim on a WhatsApp number whose ownership another account proved' }]);
       }
     });
-    return this.db.scoped(ctx, async (tx) => {
-      let row;
-      try {
-        row = await tx.one(
-          `insert into messaging_channels(org_id, branch_id, kind, transport, connection_id, display_name, display_phone, phone_number_id, waba_id, status, ordering_enabled,
-              verified_at, verification)
-           values ($1, $2, 'whatsapp', 'meta_cloud', $3, $4, $5, $6, $7, 'pending', $8, now(), $9) returning *`,
-          [ctx.orgId, input.branchId ?? null, connectionId, input.displayName, input.displayPhone ?? null, input.phoneNumberId, input.wabaId, input.orderingEnabled, verification]);
-      } catch (e) {
-        if ((e as { code?: string }).code === '23505') throw conflict('phone_number_in_use', 'This WhatsApp phone number is already registered with Resuto');
-        throw e;
-      }
-      row.connection_status = (await tx.one<{ status: string }>(`select status from integration_connections where id = $1`, [connectionId])).status;
-      await this.audit.record(tx, ctx, { action: 'connect.channel_created', entityType: 'messaging_channel', entityId: row.id, branchId: row.branch_id,
-        metadata: { transport: row.transport, verified: true, subscribedApp: verification.subscribedApp } });
-      return channelView(row);
-    });
+  }
+
+  /** Inserts the verified channel inside the caller's transaction (Embedded Signup stores it with its connection). */
+  async insertVerifiedWhatsApp(tx: Tx, ctx: TenantContext, connectionId: string, input: VerifiedWhatsAppInput, verification: WhatsAppVerification) {
+    let row;
+    try {
+      row = await tx.one(
+        `insert into messaging_channels(org_id, branch_id, kind, transport, connection_id, display_name, display_phone, phone_number_id, waba_id, status, ordering_enabled,
+            verified_at, verification)
+         values ($1, $2, 'whatsapp', 'meta_cloud', $3, $4, $5, $6, $7, 'pending', $8, now(), $9) returning *`,
+        [ctx.orgId, input.branchId ?? null, connectionId, input.displayName, input.displayPhone ?? null, input.phoneNumberId, input.wabaId, input.orderingEnabled, verification]);
+    } catch (e) {
+      if ((e as { code?: string }).code === '23505') throw conflict('phone_number_in_use', 'This WhatsApp phone number is already registered with Resuto');
+      throw e;
+    }
+    row.connection_status = (await tx.one<{ status: string }>(`select status from integration_connections where id = $1`, [connectionId])).status;
+    await this.audit.record(tx, ctx, { action: 'connect.channel_created', entityType: 'messaging_channel', entityId: row.id, branchId: row.branch_id,
+      metadata: { transport: row.transport, verified: true, subscribedApp: verification.subscribedApp } });
+    return channelView(row);
   }
 
   /**

@@ -1,7 +1,9 @@
 // INT-03 (WhatsApp number ownership) and INT-13 (multi-tenant onboarding model: platform app with Embedded Signup,
 // or a merchant-owned app with its own secret and callback URL). Provider calls are scripted; nothing reaches Meta.
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
+import { conflict } from '../src/common/errors/domain-error';
+import { ChannelsService } from '../src/modules/connect/channels.service';
 import { ProviderHttp } from '../src/modules/integrations/provider-http';
 import { scriptedFetch, type RecordedRequest } from './growth-helpers';
 import { addMember, auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant } from './helpers';
@@ -185,8 +187,9 @@ describe('INT-13: merchant-owned Meta app (own secret, own callback URL)', () =>
     expect(view.webhook).toEqual({ url: `http://api.test/v1/webhooks/whatsapp/c/${own.id}`, events: ['messages', 'message_template_status_update'], registeredByMerchant: true, verifyToken });
     expect(JSON.stringify(view)).not.toContain('merchant-own-app-secret');
     // A client cannot choose the mode or the token.
-    const forged = await t.http.patch(`/v1/o/${a.orgId}/integrations/connections/${own.id}`).set(auth(a.owner)).send({ config: { phoneNumberId: phone, wabaId: waba, appMode: 'platform', webhookVerifyToken: 'mine' } });
+    const forged = await t.http.patch(`/v1/o/${a.orgId}/integrations/connections/${own.id}`).set(auth(a.owner)).send({ config: { phoneNumberId: phone, wabaId: waba, appMode: 'platform', webhookVerifyToken: 'mine', graphVersion: 'v17.0' } });
     expect(forged.body.config).toMatchObject({ appMode: 'own_app', webhookVerifyToken: verifyToken });
+    expect(forged.body.config.graphVersion).toBeUndefined(); // INT-12: the version is pinned in code
 
     const hs = await t.http.get(`/v1/webhooks/whatsapp/c/${own.id}`).query({ 'hub.mode': 'subscribe', 'hub.verify_token': verifyToken, 'hub.challenge': '4242' });
     expect(hs.status).toBe(200);
@@ -279,6 +282,48 @@ describe('INT-13: Embedded Signup with Resuto as Tech Provider', () => {
       expect(coex.status).toBe(201);
       expect(coex.body.registered).toBe(false);
       expect(f.calls.some((c: RecordedRequest) => c.url.includes('/register'))).toBe(false);
+    });
+  });
+
+  it('refuses a number another tenant has verified before spending the code, and stores nothing', async () => {
+    await withEnv(async () => {
+      const { phone, waba } = ids();
+      const owner = await createTenant(t);
+      const c = await connect(owner, phone, waba);
+      script([listed(phone), { body: { success: true } }]);
+      expect((await channel(owner, { phoneNumberId: phone, wabaId: waba, connectionId: c.id })).status).toBe(201);
+      const intruder = await createTenant(t);
+      const f = script([{ body: { access_token: 'EAAG-x' } }]);
+      const res = await t.http.post(`/v1/o/${intruder.orgId}/connect/whatsapp/embedded-signup`).set(auth(intruder.owner))
+        .send({ code: 'es-code-123456', wabaId: waba, phoneNumberId: phone, displayName: 'WA' });
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('phone_number_in_use');
+      expect(f.calls).toHaveLength(0); // no code exchange, no subscribe, no register
+      expect((await sql(`select count(*)::int as n from integration_connections where org_id = $1`, [intruder.orgId]))[0].n).toBe(0);
+    });
+  });
+
+  it('a channel conflict after the provider steps rolls back the connection upsert (previous connection kept as it was)', async () => {
+    await withEnv(async () => {
+      const { phone, waba } = ids();
+      const other = ids();
+      const tenant = await createTenant(t);
+      const before = await connect(tenant, other.phone, other.waba); // the org's earlier connection, no channel on it yet
+      const snapshot = (await sql(`select config, credentials_hint, credentials_encrypted from integration_connections where id = $1`, [before.id]))[0];
+      const channels = t.app.get(ChannelsService);
+      const spy = vi.spyOn(channels, 'insertVerifiedWhatsApp').mockRejectedValueOnce(conflict('phone_number_in_use', 'This WhatsApp phone number is already registered with Resuto'));
+      try {
+        script([{ body: { access_token: 'EAAG-race-token' } }, listed(phone), { body: { success: true } }, { body: { success: true } }]);
+        const res = await t.http.post(`/v1/o/${tenant.orgId}/connect/whatsapp/embedded-signup`).set(auth(tenant.owner))
+          .send({ code: 'es-code-123456', wabaId: waba, phoneNumberId: phone, displayName: 'WA' });
+        expect(res.status).toBe(409);
+        expect(res.body.error.code).toBe('phone_number_in_use');
+      } finally { spy.mockRestore(); }
+      const rows = await sql(`select id, config, credentials_hint, credentials_encrypted from integration_connections where org_id = $1`, [tenant.orgId]);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ id: before.id, config: snapshot.config, credentials_hint: snapshot.credentials_hint });
+      expect(rows[0].credentials_encrypted).toEqual(snapshot.credentials_encrypted);
+      expect((await sql(`select count(*)::int as n from audit_logs where org_id = $1 and action = 'integration.whatsapp_embedded_signup'`, [tenant.orgId]))[0].n).toBe(0);
     });
   });
 
