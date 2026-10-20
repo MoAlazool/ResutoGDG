@@ -288,7 +288,7 @@ export const readTools: McpTool[] = [
     async handler(tx, ctx, input) {
       const scope = branchScope(ctx, input.branchId);
       const rows = await tx.query<any>(
-        `select id, kind, severity, title, body, method, status, branch_id, evidence, created_at from ai_insights
+        `select id, kind, severity, title, body, method, status, branch_id, evidence, template_key, template_params, created_at from ai_insights
           where org_id = $1 and (branch_id is null or $2::uuid[] is null or branch_id = any($2))
             and ($3::uuid is null or branch_id = $3)
             and status = any($4::text[]) and ($5::text[] is null or severity = any($5))
@@ -296,7 +296,9 @@ export const readTools: McpTool[] = [
         [ctx.orgId, scope, input.branchId ?? null, input.status ?? ['new', 'seen'], input.severity ?? null, input.limit]);
       return {
         items: rows.map((r) => ({ id: r.id, kind: r.kind, severity: r.severity, title: r.title, body: r.body, method: r.method,
-          status: r.status, branchId: r.branch_id, evidence: r.evidence ?? {}, createdAt: iso(r.created_at)! })),
+          status: r.status, branchId: r.branch_id, evidence: r.evidence ?? {},
+          // FT-15: clients render title/body in their language from the template (renderInsight in @resuto/contracts).
+          templateKey: r.template_key ?? null, params: r.template_params ?? null, createdAt: iso(r.created_at)! })),
       };
     },
   }),

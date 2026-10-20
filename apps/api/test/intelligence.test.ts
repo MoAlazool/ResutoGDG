@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
-import { formatMoney } from '@resuto/contracts';
+import { formatMoney, renderInsight } from '@resuto/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TenantContext } from '../src/common/auth/context';
 import { DbService } from '../src/common/db/db.service';
@@ -171,6 +171,20 @@ describe('demand forecast (end to end on kernel-created orders)', () => {
     expect(item.fallbackReason).toMatch(/^history_too_short/);
   });
 
+  it('DF-05: marks generated demo history as synthetic and real history as not', async () => {
+    const q = { branchId: A.branchId, productId: menu.products.limited, horizon: 7 };
+    const real = await t.http.get(`${base()}/forecast`).query(q).set(auth(A.owner));
+    expect(real.body).toMatchObject({ isSyntheticData: false, syntheticReason: null });
+    await sql(`update organizations set onboarding = onboarding || '{"demo": true}'::jsonb where id = $1`, [A.orgId]);
+    try {
+      const demo = await t.http.get(`${base()}/forecast`).query(q).set(auth(A.owner));
+      expect(demo.status).toBe(200);
+      expect(demo.body).toMatchObject({ isSyntheticData: true, syntheticReason: 'demo_tenant' });
+    } finally {
+      await sql(`update organizations set onboarding = onboarding - 'demo' where id = $1`, [A.orgId]);
+    }
+  });
+
   it('validates input and enforces tenancy', async () => {
     expect((await t.http.get(`${base()}/forecast`).query({ branchId: A.branchId, horizon: 30 }).set(auth(A.owner))).status).toBe(400);
     expect((await t.http.get(`${base()}/forecast`).set(auth(A.owner))).status).toBe(400);
@@ -262,7 +276,7 @@ describe('insights', () => {
     expect(res.status).toBe(201);
     expect(res.body.created).toBeGreaterThanOrEqual(5);
     const list = await t.http.get(`${base()}/insights`).set(auth(A.owner));
-    const keys = (await sql(`select dedupe_key, method, severity, evidence from ai_insights where org_id = $1`, [A.orgId]));
+    const keys = (await sql(`select coalesce(dedupe_key, episode_key) as dedupe_key, method, severity, evidence, template_key, template_params from ai_insights where org_id = $1`, [A.orgId]));
     const byPrefix = (p: string) => keys.find((k) => k.dedupe_key.startsWith(p));
     const drop = byPrefix(`revenue_drop:${A.branchId}:${yesterday}`)!;
     expect(drop.method).toBe('deterministic');
@@ -274,6 +288,17 @@ describe('insights', () => {
     expect(byPrefix('inactive_valuable:')!.evidence.customerIds).toContain(customers.vip);
     expect(keys.some((k) => k.method === 'model')).toBe(true);
     expect(list.body.items.length).toBe(keys.length);
+    // FT-15: every generated insight carries a template key + params; the stored English text is only a fallback.
+    expect(keys.every((k) => typeof k.template_key === 'string' && k.template_params)).toBe(true);
+    expect(drop.template_key).toBe('revenue_drop');
+    expect(drop.template_params).toMatchObject({ revenueMinor: yesterdayRevenue, date: yesterday, currency: 'EGP', branch: { en: 'Main branch' } });
+    const item = list.body.items.find((i: any) => i.templateKey === 'revenue_drop');
+    expect(item).toMatchObject({ templateKey: 'revenue_drop', params: { date: yesterday } });
+    expect(item.title).toMatch(/^Revenue down [\d.]+% at Main branch$/);
+    const ar = renderInsight(item.templateKey, item.params, 'ar')!;
+    expect(ar.title).toContain('انخفض الإيراد');
+    expect(ar.body).not.toMatch(/[٠-٩]/);
+    expect(ar.evidence.map((e) => e.label)).toContain('الإيراد');
     insightId = list.body.items[0].id;
   }, 120_000);
 
@@ -317,12 +342,65 @@ describe('insights', () => {
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ created: 0 });
     expect(res.body.resolved).toBe(stockout[0] === 'dismissed' ? 1 : 2);
-    expect(await status('inventory_below_reorder_level', 'itemId', id('Rice'))).toEqual(['acted']);
+    // Closed by the system as 'resolved' (DF-03), not 'acted' (which records that a person acted on it).
+    expect(await status('inventory_below_reorder_level', 'itemId', id('Rice'))).toEqual(['resolved']);
     expect(await status('inventory_below_reorder_level', 'itemId', id('Oil'))).toEqual(['new']);
-    expect(await status('stock_cover_vs_14d_average', 'productId', menu.products.limited)).toEqual([stockout[0] === 'dismissed' ? 'dismissed' : 'acted']);
+    expect(await status('stock_cover_vs_14d_average', 'productId', menu.products.limited)).toEqual([stockout[0] === 'dismissed' ? 'dismissed' : 'resolved']);
     const open = await t.http.get(`${base()}/insights`).query({ status: 'new' }).set(auth(A.owner));
     expect(open.body.items.some((i: any) => i.evidence.itemId === id('Rice'))).toBe(false);
     await sql(`update product_branch_settings set stock_qty = 3 where product_id = $1`, [menu.products.limited]);
+  });
+
+  it('DF-03: a restock resolves the low-stock insight at once; a re-breach opens a new one; a continuing breach refreshes one card', async () => {
+    const inv = `/v1/o/${A.orgId}/inventory`;
+    const created = await t.http.post(`${inv}/items`).set(auth(A.owner)).send({ name: 'Burrata', nameAr: 'بوراتا', unit: 'pcs', costPerUnitMinor: 5000, reorderLevel: 5 });
+    expect(created.status).toBe(201);
+    const itemId = created.body.id;
+    const move = (body: Record<string, unknown>) => t.http.post(`${inv}/movements`).set(auth(A.owner)).send({ branchId: A.branchId, itemId, ...body });
+    const cards = async () => sql(`select id, status, template_params, episode_ended_at from ai_insights where org_id = $1 and evidence->>'itemId' = $2 order by created_at`, [A.orgId, itemId]);
+
+    expect((await move({ kind: 'purchase', quantity: 10, unitCostMinor: 5000 })).status).toBe(201);
+    expect((await move({ kind: 'waste', quantity: 9, reason: 'spoiled' })).status).toBe(201); // 1 left, alert opens
+    await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
+    let rows = await cards();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: 'new', template_params: { quantity: 1, reorderLevel: 5, unit: 'pcs', item: { en: 'Burrata', ar: 'بوراتا' } } });
+
+    // A continuing breach (stock moves but stays low) refreshes the same card instead of adding one.
+    expect((await move({ kind: 'purchase', quantity: 2, unitCostMinor: 5000 })).status).toBe(201); // 3 left, still low
+    const again = await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
+    rows = await cards();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].template_params.quantity).toBe(3);
+    expect(again.body.created).toBe(0);
+
+    // Restock: the inventory transaction resolves the alert and closes the card immediately (no refresh needed).
+    expect((await move({ kind: 'purchase', quantity: 20, unitCostMinor: 5000 })).status).toBe(201);
+    rows = await cards();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe('resolved');
+    expect(rows[0].episode_ended_at).not.toBeNull();
+    const open = await t.http.get(`${base()}/insights`).query({ status: 'new' }).set(auth(A.owner));
+    expect(open.body.items.some((i: any) => i.evidence.itemId === itemId)).toBe(false);
+
+    // Same-day re-breach: a new card (the resolved one does not suppress it).
+    expect((await move({ kind: 'waste', quantity: 21, reason: 'spoiled' })).status).toBe(201); // 2 left
+    const rebreach = await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
+    rows = await cards();
+    expect(rows.map((r) => r.status)).toEqual(['resolved', 'new']);
+    expect(rows[1].template_params.quantity).toBe(2);
+    expect(rebreach.body.created).toBeGreaterThanOrEqual(1);
+
+    // A card the owner dismissed while the breach continues stays dismissed and is not re-created by the next run.
+    await t.http.patch(`${base()}/insights/${rows[1].id}`).set(auth(A.owner)).send({ status: 'dismissed' });
+    await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
+    rows = await cards();
+    expect(rows.map((r) => r.status)).toEqual(['resolved', 'dismissed']);
+    // The restock ends that episode too, keeping the owner's status.
+    expect((await move({ kind: 'purchase', quantity: 20, unitCostMinor: 5000 })).status).toBe(201);
+    rows = await cards();
+    expect(rows.map((r) => r.status)).toEqual(['resolved', 'dismissed']);
+    expect(rows[1].episode_ended_at).not.toBeNull();
   });
 });
 

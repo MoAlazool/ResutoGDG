@@ -50,7 +50,8 @@ export const routePlanInput = z.object({
 });
 export type RoutePlanInput = z.infer<typeof routePlanInput>;
 
-export const INSIGHT_STATUSES = ['new', 'seen', 'dismissed', 'acted'] as const;
+/** 'resolved': closed by the system because the condition cleared (e.g. restocked); the others are set by people. */
+export const INSIGHT_STATUSES = ['new', 'seen', 'dismissed', 'acted', 'resolved'] as const;
 export const insightsQuery = z.object({
   status: z.enum(INSIGHT_STATUSES).optional(),
   branchId: uuid.optional(),
@@ -103,7 +104,10 @@ export interface ItemForecast {
 export interface ForecastResponse {
   branchId: string; horizon: number; asOf: string; generatedAt: string;
   calendar: { weekendDays: string[]; ramadan: Array<{ start: string; end: string }>; ramadanSource: string };
-  items: ItemForecast[]; isSyntheticData: false; computationMs: number;
+  items: ItemForecast[];
+  /** True when the history is generated demo data (organisation flagged as a demo), never for real orders (DF-05). */
+  isSyntheticData: boolean; syntheticReason: 'demo_tenant' | null;
+  computationMs: number;
 }
 
 export interface SegmentsResponse {
@@ -148,8 +152,12 @@ export interface RoutePlanResponse {
 
 export interface Insight {
   id: string; branchId: string | null; kind: string; severity: 'info' | 'opportunity' | 'warning' | 'critical';
+  /** English fallback text; render `templateKey` + `params` with `renderInsight` for the reader's language. */
   title: string; body: string; evidence: Record<string, unknown>; method: 'deterministic' | 'model' | 'llm';
   status: (typeof INSIGHT_STATUSES)[number]; createdAt: string;
+  templateKey: string | null; params: Record<string, unknown> | null;
+  /** Last time a continuing condition refreshed the numbers (stock episodes). */
+  refreshedAt: string | null;
 }
 
 export interface AssistantToolCall { name: string; args: Record<string, unknown>; result?: unknown; error?: string }

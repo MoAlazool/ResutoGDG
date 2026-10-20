@@ -92,7 +92,9 @@ export default function ForecastPage() {
           : !data?.items.length ? <Empty title={t('intelligence.forecast.empty')} body={t('intelligence.forecast.emptyBody')} />
             : (
               <div className="stack">
-                <Notice>{t('intelligence.computedFrom')} {data.calendar.ramadan.length ? t('intelligence.forecast.ramadan') : ''}</Notice>
+                {data.isSyntheticData
+                  ? <Notice tone="warn"><Badge tone="warn">{t('intelligence.synthetic.badge')}</Badge> {t('intelligence.synthetic.forecast')} {data.calendar.ramadan.length ? t('intelligence.forecast.ramadan') : ''}</Notice>
+                  : <Notice>{t('intelligence.computedFrom')} {data.calendar.ramadan.length ? t('intelligence.forecast.ramadan') : ''}</Notice>}
                 <div className="grid grid-2">{data.items.map((it) => <div key={it.productId} style={{ minWidth: 0 }}><ItemCard item={it} /></div>)}</div>
               </div>
             )}

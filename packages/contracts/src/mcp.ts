@@ -182,7 +182,7 @@ export const mcpToolInputs = {
   list_low_stock: z.object({ branchId }),
   list_insights: z.object({
     branchId,
-    status: z.array(z.enum(['new', 'seen', 'dismissed', 'acted'])).min(1).max(4).optional().describe('Defaults to new and seen'),
+    status: z.array(z.enum(['new', 'seen', 'dismissed', 'acted', 'resolved'])).min(1).max(5).optional().describe('Defaults to new and seen'),
     severity: z.array(z.enum(['info', 'opportunity', 'warning', 'critical'])).min(1).max(4).optional(),
     limit: limit(50, 20),
   }),
@@ -310,6 +310,8 @@ export const mcpToolOutputs = {
     items: z.array(z.object({
       id: z.string(), kind: z.string(), severity: z.string(), title: z.string(), body: z.string(), method: z.string(),
       status: z.string(), branchId: nullableString, evidence: z.record(z.string(), z.unknown()), createdAt: z.string(),
+      templateKey: nullableString.optional().describe('Render title/body in the reader language with renderInsight(templateKey, params, locale)'),
+      params: z.record(z.string(), z.unknown()).nullable().optional(),
     })),
   }),
   create_customer_segment: z.object({ segmentId: z.string(), memberCount: z.number().int(), status: z.literal('draft'), source: z.literal('mcp') }),

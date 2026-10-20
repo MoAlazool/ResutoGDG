@@ -25,6 +25,7 @@ export * from './delivery';
 export * from './finance';
 export * from './compliance';
 export * from './intelligence';
+export * from './insight-templates';
 export * from './mcp';
 export * from './studio';
 export * from './sales';
