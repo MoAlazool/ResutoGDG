@@ -35,6 +35,22 @@ credentials reports all 16 payment checks as `not_run`. Evidence:
 - Refunds are applied to the ledger only after the provider confirms them. If the outcome is unknown, the
   refund stays pending and is resolved by an inquiry. It is resent only if the provider has no record of it,
   and the resend uses the same idempotency key.
+- Webhooks are deduplicated on signed (or authenticated) content only: Paymob on a hash of the 20 HMAC fields
+  (plus the unsigned reference echo, so a forged echo never pre-empts the genuine delivery), Moyasar on the event
+  id, the payment it names and `live`, Stripe on the event id. Copies of one transaction that differ in unsigned
+  fields are processed once; any other variant is idempotent: one alert per (kind, payment, provider transaction),
+  never re-opened after staff resolved it, and one provider transaction is refunded from alerts at most once. A
+  one-click alert refund that the provider definitely refused can be retried (new attempt, new key); the dashboard
+  reports "refunded" only for a confirmed refund.
+- A payment the provider reports as refunded before Resuto saw it settle (Moyasar `refunded` covers partial
+  refunds; Paymob inquiry with a refunded amount) is proof of the charge when it comes from an authenticated
+  re-read: the capture is applied first, then the cumulative refund, in one transaction.
+- Connection health never gates money already in flight. Webhook verification, status queries and refunds of
+  existing payments need only the connection's credentials (not revoked) and the matching environment; health
+  status and the enabled flag only choose connections for NEW checkouts. A provider outage during a health check
+  (network, timeout, 5xx, 429) keeps the connection's status and is recorded in `health` and `last_failure_at`.
+  The scheduled `integrations.health` job (every 15 min) re-checks connected connections every 6 h, failing ones
+  every 12 h and pending ones hourly.
 
 ### Paymob (EG/SA/AE/OM; Intention API + Unified Checkout)
 

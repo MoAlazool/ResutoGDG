@@ -18,6 +18,7 @@
 // - Integration ids are mode-specific; the signed `integration_id` must be one of
 //   the connection's configured ids, which binds the event to the connection's
 //   environment. With no ids configured verification fails closed (PAY-02).
+import { createHash } from 'node:crypto';
 import { hmacHex, providerRequest, ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
 import { hexDigestEquals } from './signature';
 import {
@@ -90,6 +91,18 @@ export function paymobHmacPayload(obj: any): string {
 }
 export const paymobHmac = (secret: string, obj: any) => hmacHex('sha512', secret, paymobHmacPayload(obj));
 
+/**
+ * Dedupe key of a verified callback, built from SIGNED content only (the 20 HMAC fields): copies of one signed
+ * transaction that differ in unsigned fields (data.message, is_live, …) are the same event and are processed once.
+ * Refund-type callbacks are re-read through the authenticated inquiry before anything is applied, so the unsigned
+ * cumulative refunded_amount_cents is kept in their key: a second partial refund is confirmed again (idempotent per
+ * cumulative total) instead of being dropped as a duplicate.
+ */
+export function paymobEventKey(obj: any, needsConfirmation: boolean): string {
+  const signed = createHash('sha256').update(paymobHmacPayload(obj)).digest('hex').slice(0, 32);
+  return `txn:${obj.id}:${signed}${needsConfirmation ? `:refunded=${obj.refunded_amount_cents ?? ''}` : ''}`;
+}
+
 function integrationIds(config: Record<string, unknown>) {
   return [config.integrationIdCard, config.integrationIdWallet].filter((v) => v !== undefined && v !== null && v !== '').map(String);
 }
@@ -117,7 +130,9 @@ function txnEvent(obj: any, signed: boolean): PaymentEvent {
   const refunded = Number(obj?.refunded_amount_cents);
   if (obj?.is_voided === true) return { kind: 'payment_voided', ...ids, refundedMinor: signed ? null : Number(obj?.amount_cents), needsConfirmation: signed };
   if (obj?.is_refunded === true || (!signed && refunded > 0)) {
-    return { kind: 'payment_refunded', ...ids, refundedMinor: signed || !Number.isFinite(refunded) ? null : refunded, needsConfirmation: signed };
+    // An inquiry answer for a successful transaction that was refunded proves the capture (review F5); a signed hint never does.
+    const capturedMinor = !signed && obj?.success === true && obj?.is_voided !== true ? Number(obj?.amount_cents) : null;
+    return { kind: 'payment_refunded', ...ids, refundedMinor: signed || !Number.isFinite(refunded) ? null : refunded, needsConfirmation: signed, capturedMinor };
   }
   // A child transaction that is not a capture (refund/void record of a parent): only the inquiry can say what it did.
   if (obj?.has_parent_transaction === true && obj?.is_capture !== true) {
@@ -256,11 +271,12 @@ export const paymobAdapter: PaymentAdapter = {
     const known = integrationIds(config);
     // Fail closed: without configured (mode-specific) integration ids the event cannot be bound to this connection's environment.
     if (!known.length) return rejected('integration ids not configured');
-    const eventKey = `txn:${obj.id}:${obj.success}:${obj.pending}:${obj.is_refunded}:${obj.is_voided}:${obj.is_capture}:${obj.refunded_amount_cents ?? ''}`;
+    const event = txnEvent(obj, true);
+    const eventKey = paymobEventKey(obj, !!event.needsConfirmation);
     if (!known.includes(String(obj.integration_id))) {
-      return { valid: true, eventKey, event: { ...txnEvent(obj, true), kind: 'ignored', failureReason: 'unknown_integration' } };
+      return { valid: true, eventKey, event: { ...event, kind: 'ignored', failureReason: 'unknown_integration' } };
     }
-    return { valid: true, eventKey, event: txnEvent(obj, true) };
+    return { valid: true, eventKey, event };
   },
 
   parseEvent(payload: any, config = {}) {

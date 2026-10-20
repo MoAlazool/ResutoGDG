@@ -30,6 +30,16 @@ interface Target extends Binding { orgId: string; credentials: Record<string, st
 
 export const inboxProvider = (provider: string) => `payments:${provider}`;
 
+/** Declines kept per attempt in payments.raw.declines (one per provider transaction). */
+const MAX_DECLINES = 20;
+/**
+ * Alert kinds about ONE provider transaction: a redelivery or an unsigned-field variant of the same transaction
+ * updates the existing alert (repeats, lastSeenAt) instead of adding another — in particular another refundable one —
+ * and never re-opens one staff already resolved (F3).
+ */
+const ONE_OPEN_ALERT_PER_TRANSACTION: ReadonlySet<string> = new Set(['late_success', 'duplicate_capture', 'overpayment_conflict', 'deposit_not_due',
+  'amount_mismatch', 'reference_mismatch', 'unmatched_event', 'environment_mismatch', 'auth_only']);
+
 /** Transient: retried by the provider and the inbox worker (e.g. a refund delivered before its payment's success). */
 class RetryLater extends Error {}
 
@@ -76,10 +86,12 @@ export class PaymentWebhooksService {
       throw new DomainError('invalid_signature', 'Invalid webhook signature', 401);
     }
     const t = target!;
-    // Bodies that are not fully signed (Paymob, Moyasar) dedupe on the body too: a forged variant of a genuine
-    // delivery can never pre-empt the genuine one's event key (PS-02 follow-on).
-    const fullySigned = provider === 'stripe' || provider === 'simulated';
-    const eventKey = fullySigned ? verified.eventKey : `${verified.eventKey}:${sha256(text).slice(0, 16)}`;
+    // Dedupe on SIGNED (or authenticated) content only — the adapter's key — never on the raw body: copies of one
+    // signed transaction that differ in unsigned fields are one event (review F3). The unsigned reference echo
+    // (Paymob merchant_order_id) is part of the key so a forged variant naming another attempt (→ reference_mismatch)
+    // can never pre-empt the genuine delivery; any other variant is processed idempotently (one alert per transaction).
+    const claim = isUuid(verified.event.claimedReference) ? verified.event.claimedReference : null;
+    const eventKey = claim ? `${verified.eventKey}:ref:${claim}` : verified.eventKey;
     const rec = await this.inbox.store({
       provider: inboxProvider(provider), eventKey, signatureValid: true,
       payload: { connectionId: t.connectionId, environment: t.environment, body: adapter.redactPayload(safeJson(raw)) }, headers, orgId: t.orgId,
@@ -258,7 +270,7 @@ export class PaymentWebhooksService {
           case 'payment_expired': return this.applyFailure(tx, orgId, provider, payment, ev);
           case 'payment_authorized': return this.applyAuthorized(tx, orgId, provider, payment, ev);
           case 'payment_refunded':
-          case 'payment_voided': return this.applyRefundObserved(tx, ctx, orgId, provider, payment, ev);
+          case 'payment_voided': return this.applyRefundObserved(tx, ctx, orgId, provider, payment, ev, source, binding);
           case 'dispute_opened':
           case 'dispute_closed': return this.applyDispute(tx, orgId, provider, payment, ev);
           default: return { outcome: 'ignored' as const, paymentId: payment.id };
@@ -346,9 +358,13 @@ export class PaymentWebhooksService {
     if (!expired && paymentAdapter(provider)?.sessionSurvivesDecline) {
       // PAY-07: Paymob intentions and Moyasar invoices accept another try after a decline. Record it, keep the attempt
       // open (so a later success in the same checkout is applied) and let the guest retry or pick another method.
+      // One entry per provider transaction, at most MAX_DECLINES (redeliveries and unsigned variants add nothing).
       await tx.query(
-        `update payments set failure_reason = 'declined', raw = jsonb_set(raw, '{declines}', coalesce(raw->'declines', '[]'::jsonb) || $2::jsonb)
-          where id = $1 and status in ('pending', 'requires_action', 'authorized')`, [payment.id, JSON.stringify([decline])]);
+        `update payments set failure_reason = 'declined',
+            raw = case when jsonb_array_length(coalesce(raw->'declines', '[]'::jsonb)) >= $3
+                         or ($4::text is not null and coalesce(raw->'declines', '[]'::jsonb) @> jsonb_build_array(jsonb_build_object('providerPaymentId', $4::text)))
+                       then raw else jsonb_set(raw, '{declines}', coalesce(raw->'declines', '[]'::jsonb) || $2::jsonb) end
+          where id = $1 and status in ('pending', 'requires_action', 'authorized')`, [payment.id, JSON.stringify([decline]), MAX_DECLINES, decline.providerPaymentId]);
       await this.reopenSession(tx, payment.checkout_session_id);
       return { outcome: 'decline_recorded', paymentId: payment.id };
     }
@@ -375,7 +391,8 @@ export class PaymentWebhooksService {
    * refunded amount first settles Resuto's own pending refunds; any remainder was
    * started at the provider and is recorded as such. Idempotent per cumulative total.
    */
-  private async applyRefundObserved(tx: Tx, ctx: ReturnType<typeof webhookCtx>, orgId: string, provider: string, payment: any, ev: PaymentEvent): Promise<{ outcome: ApplyOutcome; paymentId: string }> {
+  private async applyRefundObserved(tx: Tx, ctx: ReturnType<typeof webhookCtx>, orgId: string, provider: string, payment: any, ev: PaymentEvent,
+    source: 'webhook' | 'status_query', binding: Binding): Promise<{ outcome: ApplyOutcome; paymentId: string }> {
     if (ev.providerPaymentId && payment.provider_payment_id && ev.providerPaymentId !== payment.provider_payment_id) {
       await this.alert(tx, orgId, { kind: 'unmatched_event', provider, paymentId: payment.id, branchId: payment.branch_id,
         details: { reason: 'refund_for_other_transaction', providerPaymentId: ev.providerPaymentId, settledProviderPaymentId: payment.provider_payment_id } });
@@ -388,10 +405,21 @@ export class PaymentWebhooksService {
           await this.reopenSession(tx, payment.checkout_session_id);
           return { outcome: 'failed_recorded', paymentId: payment.id };
         }
-        // Delivered before the success it reverses (providers do not guarantee order): retry once the success is applied.
-        throw new RetryLater('refund observed before the payment was settled');
+        const captured = Number(ev.capturedMinor);
+        if (ev.kind === 'payment_refunded' && !ev.needsConfirmation && Number.isSafeInteger(captured) && captured > 0) {
+          // Authenticated evidence that the transaction was captured and then (partly) refunded before Resuto applied the
+          // capture — e.g. a Moyasar payment_paid confirmed after a refund: the re-read says "refunded", never "paid" again.
+          // Settle the capture first, then the cumulative refund below, in this same transaction (review F5).
+          const settled = await this.applySuccess(tx, orgId, provider, payment, { ...ev, kind: 'payment_succeeded', amountMinor: captured }, source, binding);
+          if (settled.outcome !== 'applied') return settled;
+          payment = await tx.one<any>('select * from payments where id = $1', [payment.id]);
+        } else {
+          // Delivered before the success it reverses (providers do not guarantee order): retry once the success is applied.
+          throw new RetryLater('refund observed before the payment was settled');
+        }
+      } else {
+        return { outcome: 'ignored', paymentId: payment.id };
       }
-      return { outcome: 'ignored', paymentId: payment.id };
     }
     const total = Number(ev.refundedMinor);
     if (!Number.isSafeInteger(total) || total < 0) return { outcome: 'ignored', paymentId: payment.id };
@@ -437,6 +465,22 @@ export class PaymentWebhooksService {
   }
 
   async alert(tx: Tx, orgId: string, a: { kind: string; provider?: string; paymentId?: string | null; branchId?: string | null; checkoutSessionId?: string | null; details: Record<string, unknown> }) {
+    const ppid = a.details.providerPaymentId ?? null;
+    const psid = a.details.providerSessionId ?? null;
+    if (ONE_OPEN_ALERT_PER_TRANSACTION.has(a.kind) && (ppid !== null || psid !== null)) {
+      const txn = ppid !== null ? `p:${String(ppid)}` : `s:${String(psid)}`;
+      // Serialises concurrent deliveries of the same transaction (some paths run after the payment lock was released).
+      await tx.query('select pg_advisory_xact_lock(hashtext($1))', [`payment-alert:${orgId}:${a.kind}:${a.paymentId ?? ''}:${txn}`]);
+      const open = await tx.maybeOne<{ id: string }>(
+        `select id from payment_alerts where org_id = $1 and kind = $2 and payment_id is not distinct from $3::uuid
+            and case when $4::text is not null then details->>'providerPaymentId' = $4::text else details->>'providerSessionId' = $5::text end
+          order by (status = 'open') desc, created_at limit 1`, [orgId, a.kind, a.paymentId ?? null, ppid === null ? null : String(ppid), psid === null ? null : String(psid)]);
+      if (open) {
+        await tx.query(`update payment_alerts set details = details || jsonb_build_object('repeats', coalesce((details->>'repeats')::int, 1) + 1, 'lastSeenAt', now())
+            where id = $1`, [open.id]);
+        return;
+      }
+    }
     await tx.query(
       `insert into payment_alerts(org_id, branch_id, kind, payment_id, checkout_session_id, provider, details) values ($1, $2, $3, $4, $5, $6, $7)`,
       [orgId, a.branchId ?? null, a.kind, a.paymentId ?? null, a.checkoutSessionId ?? null, a.provider ?? null, JSON.stringify(a.details)]);

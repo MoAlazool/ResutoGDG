@@ -77,6 +77,13 @@ export interface PaymentEvent {
   livemode?: boolean | null;
   /** Cumulative amount refunded on the provider payment (refund/void events). */
   refundedMinor?: number | null;
+  /**
+   * Set only from an AUTHENTICATED read of the provider object (fetch / inquiry, never a signed hint): the transaction
+   * was captured for this amount before it was refunded. A refund observed while Resuto's attempt is still open then
+   * settles the capture first and the refund after it, instead of waiting for a success event that a re-read can no
+   * longer produce (Moyasar reports any refunded payment, partial or full, as status "refunded").
+   */
+  capturedMinor?: number | null;
   providerRefundId?: string | null;
   disputeId?: string | null;
   disputeStatus?: string | null;

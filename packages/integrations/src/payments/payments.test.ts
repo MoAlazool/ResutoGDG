@@ -255,6 +255,23 @@ describe('paymob', () => {
     expect(a.eventKey).not.toBe(b.eventKey);
   });
 
+  it('builds the event key from signed fields only: unsigned variants of one transaction share it (review F3)', () => {
+    const verify = (obj: any, hmacOf: any = obj) => paymobAdapter.verifyWebhook({ hmacSecret: PAYMOB_SECRET }, { rawBody: JSON.stringify({ obj }), headers: {}, query: { hmac: paymobHmac(PAYMOB_SECRET, hmacOf) } }, { integrationIdCard: 4520 });
+    const base = paymobObj();
+    const genuine = verify(base);
+    expect(genuine.valid).toBe(true);
+    // Same hmac, unsigned fields changed (the payer sees the signed fields + hmac on the GET redirect).
+    for (const variant of [{ ...base, data: { message: 'Approved 2' } }, { ...base, is_live: true }, { ...base, order: { ...base.order, merchant_order_id: 'x' } }]) {
+      const v = verify(variant, base);
+      expect(v.valid).toBe(true);
+      expect(v.eventKey).toBe(genuine.eventKey);
+    }
+    // A different signed state of the same transaction is a different event.
+    const voided = { ...base, is_voided: true };
+    expect(verify(voided).eventKey).not.toBe(genuine.eventKey);
+    expect(genuine.eventKey).toMatch(new RegExp(`^txn:${base.id}:[0-9a-f]{32}$`));
+  });
+
   it('derives the environment from the keys and fails closed on mixed or unknown keys', () => {
     expect(paymobCredentialEnvironment(PAYMOB_TEST)).toBe('sandbox');
     expect(paymobCredentialEnvironment(PAYMOB_LIVE)).toBe('live');
@@ -322,9 +339,12 @@ describe('moyasar', () => {
 
   it('treats a correct token as a hint only; the payment must be fetched before it counts (PAY-04)', () => {
     const ok = verify(body('moy-secret'));
-    expect(ok).toMatchObject({ valid: true, eventKey: 'evt_m_1' });
+    expect(ok).toMatchObject({ valid: true, eventKey: 'evt_m_1:pay_m_1:false' });
     expect(ok.event).toMatchObject({ kind: 'ignored', needsConfirmation: true, providerPaymentId: 'pay_m_1', livemode: false, accountName: 'Olive Room' });
     expect(verify(body('wrong'))).toMatchObject({ valid: false, reason: 'signature mismatch' });
+    // The key covers what is fetched and the environment flag, so a variant naming another payment is another event.
+    expect(verify(body('moy-secret', 'payment_paid', { data: { ...payment, id: 'pay_other' } })).eventKey).toBe('evt_m_1:pay_other:false');
+    expect(verify(body('moy-secret', 'payment_paid', { account_name: 'changed' })).eventKey).toBe('evt_m_1:pay_m_1:false');
     expect(verify(body(''))).toMatchObject({ valid: false });
     expect(verify('{"id":1}')).toMatchObject({ valid: false, reason: 'malformed payload' });
     expect(verify('not json')).toMatchObject({ valid: false, reason: 'malformed payload' });

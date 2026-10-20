@@ -87,7 +87,8 @@ function paymentEvent(p: any, livemode: boolean | null): PaymentEvent {
     case 'captured': return { kind: 'payment_succeeded', ...ids, amountMinor: Number(p?.captured ?? p?.amount) };
     case 'authorized': return { kind: 'payment_authorized', ...ids };
     case 'failed': return { kind: 'payment_failed', ...ids, failureReason: 'declined', providerMessage: typeof p?.source?.message === 'string' ? p.source.message.slice(0, 200) : null };
-    case 'refunded': return { kind: 'payment_refunded', ...ids, refundedMinor: Number(p?.refunded ?? 0) };
+    // "refunded" covers partial refunds too: the payment was charged first ("paid" → amount, "captured" → captured).
+    case 'refunded': return { kind: 'payment_refunded', ...ids, refundedMinor: Number(p?.refunded ?? 0), capturedMinor: Number(p?.captured) > 0 ? Number(p.captured) : Number(p?.amount) };
     case 'voided': return { kind: 'payment_voided', ...ids, refundedMinor: Number(p?.amount ?? 0) };
     default: return { kind: 'ignored', ...ids };
   }
@@ -191,7 +192,10 @@ export const moyasarAdapter: PaymentAdapter = {
       return rejected('malformed payload');
     }
     if (!secretEquals(secret, body.secret_token)) return rejected('signature mismatch');
-    return { valid: true, eventKey: String(body.id), event: hintEvent(body) };
+    // The token authenticates the whole body equally; only the event id, the payment that will be FETCHED and the
+    // live flag (checked before the fetch) decide what happens, so they are the dedupe key. A variant of a known
+    // event that names another payment or environment can never pre-empt the genuine delivery's key.
+    return { valid: true, eventKey: `${body.id}:${typeof body.data.id === 'string' ? body.data.id : ''}:${String(body.live ?? '')}`, event: hintEvent(body) };
   },
 
   parseEvent(payload: any) {
@@ -214,7 +218,8 @@ export const moyasarAdapter: PaymentAdapter = {
     const inv = await providerRequest<any>('moyasar', ctx, `${MOYASAR_API}/invoices/${encodeURIComponent(ref.providerSessionId)}`, { headers: auth(ctx) });
     const live = ctx.environment === 'live';
     const payments: any[] = inv.payments ?? [];
-    const settled = payments.find((p) => p.status === 'paid' || p.status === 'captured');
+    // A payment refunded (partly or fully) before Resuto saw it settle is still proof of the charge (review F5).
+    const settled = payments.find((p) => p.status === 'paid' || p.status === 'captured') ?? payments.find((p) => p.status === 'refunded');
     if (settled) return paymentEvent({ ...settled, invoice_id: inv.id, metadata: settled.metadata ?? inv.metadata }, live);
     const held = payments.find((p) => p.status === 'authorized');
     if (held) return paymentEvent({ ...held, invoice_id: inv.id, metadata: held.metadata ?? inv.metadata }, live);

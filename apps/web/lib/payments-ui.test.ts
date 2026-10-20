@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { alertRefundMessageKey } from '../app/dashboard/[orgId]/payments/tone';
 import { isSafeRedirect } from '../app/pay/[token]/_ui/redirect';
 import { integrations } from './i18n/dict/integrations';
 import { pay } from './i18n/dict/pay';
@@ -31,6 +32,18 @@ describe('payment and integration strings', () => {
     }
     for (const s of ['not_configured', 'implementation_incomplete', 'pending_external_verification', 'official_test_verified', 'live_verified', 'blocked_by_provider']) {
       expect(translate('ar', `intg.readiness.${s}`)).not.toBe(`intg.readiness.${s}`);
+    }
+  });
+});
+
+describe('alert refund result (PAY-08, review F4)', () => {
+  it('says "refunded" only for a confirmed refund and reports every other status as a failure, in both languages', () => {
+    expect(alertRefundMessageKey('succeeded')).toEqual({ key: 'pay.alert.refundSent', tone: 'ok' });
+    expect(alertRefundMessageKey('pending')).toEqual({ key: 'pay.alert.refundPending', tone: 'warn' });
+    for (const s of ['failed', 'manual_required', undefined, null, 'weird']) expect(alertRefundMessageKey(s as any)).toEqual({ key: 'pay.alert.refundFailed', tone: 'danger' });
+    for (const k of ['pay.alert.refundSent', 'pay.alert.refundPending', 'pay.alert.refundFailed', 'pay.alert.refundError.capture_already_refunded', 'pay.alert.refundError.refund_in_progress']) {
+      expect(translate('ar', k)).not.toBe(k);
+      expect(translate('en', k)).not.toBe(k);
     }
   });
 });

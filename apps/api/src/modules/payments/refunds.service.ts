@@ -204,14 +204,21 @@ export class RefundsService {
    * A capture Resuto never applied (late success on a closed attempt, a duplicate
    * capture, an overpayment): staff refund it in one click from the alert (PAY-08).
    * The ledger is not touched — that money was never counted.
+   *
+   * Replay-safe and retryable (review F3/F4): a pending or succeeded refund of the
+   * alert is returned as is; after a DEFINITE failure the next click is a new
+   * attempt with a new key (`alert:<id>:<n>`). One provider transaction is refunded
+   * at most once through this path, whichever alert it is requested from.
    */
   async refundUnappliedCapture(ctx: TenantContext, alertId: string, key: string) {
     const phase1 = await this.db.scoped(ctx, async (tx) => {
       const a = await tx.maybeOne<any>('select * from payment_alerts where id = $1 for update', [alertId]);
       if (!a || !a.payment_id) throw notFound('Alert');
       ctx.assertBranch(a.branch_id);
-      const existing = await tx.maybeOne<any>('select * from refunds where org_id = $1 and idempotency_key = $2', [ctx.orgId, `alert:${alertId}`]);
-      if (existing) return { replay: toRefund(existing) };
+      const tries = await tx.query<any>(
+        `select * from refunds where org_id = $1 and (idempotency_key = $2 or idempotency_key like $2 || ':%') order by created_at desc`, [ctx.orgId, `alert:${alertId}`]);
+      const live = tries.find((r) => r.status === 'pending' || r.status === 'succeeded');
+      if (live) return { replay: toRefund(live) };
       if (!['late_success', 'duplicate_capture', 'overpayment_conflict', 'deposit_not_due'].includes(a.kind) || a.details?.refundable !== true) {
         throw conflict('alert_not_refundable', 'This alert has no captured payment to refund');
       }
@@ -219,18 +226,28 @@ export class RefundsService {
       const p = await tx.one<any>('select * from payments where id = $1 for update', [a.payment_id]);
       const providerPaymentId = a.details?.providerPaymentId ?? (a.kind === 'duplicate_capture' ? null : p.provider_payment_id);
       if (!providerPaymentId) throw conflict('alert_not_refundable', 'The provider transaction id is unknown; refund it in the provider dashboard');
+      // The same captured transaction may be named by several alerts (older duplicates, another kind): refund it once.
+      const other = await tx.maybeOne<any>(
+        `select id, status from refunds where payment_id = $1 and source = 'unapplied_capture' and provider_payment_id = $2 and status in ('pending', 'succeeded') limit 1`,
+        [p.id, String(providerPaymentId)]);
+      if (other) {
+        throw conflict(other.status === 'pending' ? 'refund_in_progress' : 'capture_already_refunded',
+          other.status === 'pending' ? 'A refund of this provider transaction is already in progress' : 'This provider transaction was already refunded', { refundId: other.id });
+      }
       // A duplicate capture refunds the SECOND transaction; for the others the payment itself must still be unapplied.
       if (a.kind !== 'duplicate_capture' && ['succeeded', 'partially_refunded', 'refunded'].includes(p.status)) {
         throw conflict('alert_not_refundable', 'This payment was applied meanwhile; refund it from the payment instead');
       }
       const amount = Number(a.details?.amountMinor ?? a.details?.received?.amountMinor ?? p.amount_minor);
+      // Attempt n after n-1 definite failures; the first keeps the original key so earlier replays still match.
+      const attemptKey = tries.length ? `alert:${alertId}:${tries.length + 1}` : `alert:${alertId}`;
       const refund = await tx.one<any>(
         `insert into refunds(org_id, payment_id, amount_minor, reason, status, idempotency_key, created_by, provider, source, provider_payment_id, provider_idempotency_key)
          values ($1, $2, $3, $4, 'pending', $5, $6, $7, 'unapplied_capture', $8, $9) returning *`,
-        [ctx.orgId, p.id, amount, `Unapplied capture (${a.kind})`, `alert:${alertId}`, ctx.userId, p.provider, providerPaymentId, `alert:${alertId}`]);
+        [ctx.orgId, p.id, amount, `Unapplied capture (${a.kind})`, attemptKey, ctx.userId, p.provider, String(providerPaymentId), attemptKey]);
       await tx.query(`update payment_alerts set details = details || $2 where id = $1`, [alertId, { refundId: refund.id, refundRequestedBy: ctx.userId, refundKey: key }]);
       await this.audit.record(tx, ctx, { action: 'refund.unapplied_capture_requested', entityType: 'refund', entityId: refund.id, branchId: p.branch_id,
-        metadata: { alertId, kind: a.kind, amountMinor: amount, providerPaymentId } });
+        metadata: { alertId, kind: a.kind, amountMinor: amount, providerPaymentId, attempt: tries.length + 1 } });
       return { refund };
     });
     if ('replay' in phase1) return phase1.replay;
