@@ -17,11 +17,49 @@ export const RETENTION = {
   /** A job run still 'running' this long after its start, with no live lease, belonged to a stopped process. */
   abandonedRunHours: 1,
 };
-const BATCH = 5000;
+/**
+ * Each delete statement removes at most `batch` rows in its own transaction (short locks); a run repeats batches until
+ * a table is cleared or the run has used `budgetMs` (below the job's 5-minute timeout). One hourly run can therefore
+ * clear far more than one batch per table (audit PCL-13 review: a single 5,000-row batch per hour capped outbox
+ * retention at ~120k events/day). Tables left with rows past retention are reported in `backlog`.
+ */
+export const MAINTENANCE_LIMITS = { batch: 5000, budgetMs: 4 * 60_000 };
+
+type Table = 'outboxEvents' | 'jobRuns' | 'idempotencyKeys' | 'webhooks';
+const DELETES: Record<Table, { sql: string; params: () => unknown[] }> = {
+  outboxEvents: {
+    sql: `delete from outbox_events where id in (
+            select e.id from outbox_events e
+             where e.published_at < now() - make_interval(days => $1)
+               and (e.published_at < now() - make_interval(days => $2)
+                    or not exists (select 1 from event_handlings h where h.event_id = e.id and h.status = 'dead'))
+             limit $3) returning id`,
+    params: () => [RETENTION.publishedEventsDays, RETENTION.deadLetterDays],
+  },
+  jobRuns: {
+    sql: `delete from job_runs where id in (
+            select id from job_runs
+             where (status = 'succeeded' and started_at < now() - make_interval(days => $1))
+                or (status <> 'running' and started_at < now() - make_interval(days => $2))
+             limit $3) returning id`,
+    params: () => [RETENTION.succeededJobRunsDays, RETENTION.otherJobRunsDays],
+  },
+  idempotencyKeys: {
+    sql: `delete from idempotency_keys where ctid in (
+            select ctid from idempotency_keys where created_at < now() - make_interval(days => $1) limit $2) returning key`,
+    params: () => [RETENTION.idempotencyKeysDays],
+  },
+  webhooks: {
+    sql: `delete from webhook_inbox where id in (
+            select id from webhook_inbox where status in ('processed', 'ignored', 'rejected')
+               and received_at < now() - make_interval(days => $1) limit $2) returning id`,
+    params: () => [RETENTION.finishedWebhooksDays],
+  },
+};
 
 /**
  * Hourly housekeeping: closes job runs abandoned by stopped processes and deletes operational rows past their
- * retention in bounded batches (each statement removes at most BATCH rows, so it never holds long locks).
+ * retention in bounded batches (see MAINTENANCE_LIMITS).
  */
 @Injectable()
 export class MaintenanceJobs {
@@ -30,36 +68,27 @@ export class MaintenanceJobs {
 
   @Scheduled('platform.maintenance', 3600, { timeoutMs: 5 * 60_000 })
   async run() {
-    const n = (rows: unknown[]) => rows.length;
-    const stats = await this.db.withPlatform(async (tx) => ({
-      abandonedJobRuns: n(await tx.query(
-        `update job_runs r set status = 'abandoned', finished_at = now(), error = 'the process stopped before the run finished'
-          where r.status = 'running' and r.started_at < now() - make_interval(hours => $1)
-            and not exists (select 1 from job_leases l where l.run_id = r.id and l.locked_until > now())
-          returning r.id`, [RETENTION.abandonedRunHours])),
-      outboxEvents: n(await tx.query(
-        `delete from outbox_events where id in (
-           select e.id from outbox_events e
-            where e.published_at < now() - make_interval(days => $1)
-              and (e.published_at < now() - make_interval(days => $2)
-                   or not exists (select 1 from event_handlings h where h.event_id = e.id and h.status = 'dead'))
-            limit $3) returning id`, [RETENTION.publishedEventsDays, RETENTION.deadLetterDays, BATCH])),
-      jobRuns: n(await tx.query(
-        `delete from job_runs where id in (
-           select id from job_runs
-            where (status = 'succeeded' and started_at < now() - make_interval(days => $1))
-               or (status <> 'running' and started_at < now() - make_interval(days => $2))
-            limit $3) returning id`, [RETENTION.succeededJobRunsDays, RETENTION.otherJobRunsDays, BATCH])),
-      idempotencyKeys: n(await tx.query(
-        `delete from idempotency_keys where ctid in (
-           select ctid from idempotency_keys where created_at < now() - make_interval(days => $1) limit $2) returning key`,
-        [RETENTION.idempotencyKeysDays, BATCH])),
-      webhooks: n(await tx.query(
-        `delete from webhook_inbox where id in (
-           select id from webhook_inbox where status in ('processed', 'ignored', 'rejected')
-              and received_at < now() - make_interval(days => $1) limit $2) returning id`, [RETENTION.finishedWebhooksDays, BATCH])),
-    }), 'system:maintenance');
-    if (Object.values(stats).some((v) => v > 0)) this.logger.log(`maintenance ${JSON.stringify(stats)}`);
+    const started = Date.now();
+    const { batch, budgetMs } = MAINTENANCE_LIMITS;
+    const abandonedJobRuns = (await this.db.withPlatform((tx) => tx.query(
+      `update job_runs r set status = 'abandoned', finished_at = now(), error = 'the process stopped before the run finished'
+        where r.status = 'running' and r.started_at < now() - make_interval(hours => $1)
+          and not exists (select 1 from job_leases l where l.run_id = r.id and l.locked_until > now())
+        returning r.id`, [RETENTION.abandonedRunHours]), 'system:maintenance')).length;
+    const deleted: Record<Table, number> = { outboxEvents: 0, jobRuns: 0, idempotencyKeys: 0, webhooks: 0 };
+    const backlog: Table[] = [];
+    for (const table of Object.keys(DELETES) as Table[]) {
+      const { sql, params } = DELETES[table];
+      for (;;) {
+        if (Date.now() - started >= budgetMs) { backlog.push(table); break; }
+        const n = (await this.db.withPlatform((tx) => tx.query(sql, [...params(), batch]), 'system:maintenance')).length;
+        deleted[table] += n;
+        if (n < batch) break;
+      }
+    }
+    const stats = { abandonedJobRuns, ...deleted, backlog };
+    if (backlog.length) this.logger.warn(`maintenance stopped at its time budget; rows past retention remain in ${backlog.join(', ')}`);
+    if (abandonedJobRuns || Object.values(deleted).some((v) => v > 0)) this.logger.log(`maintenance ${JSON.stringify(stats)}`);
     return stats;
   }
 }

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MaintenanceJobs, RETENTION } from '../src/modules/system/maintenance.jobs';
+import { MAINTENANCE_LIMITS, MaintenanceJobs, RETENTION } from '../src/modules/system/maintenance.jobs';
 import { auth, bootTestApp, signup, sql, unique, type TestApp, type TestUser } from './helpers';
 
 // Audit PCL-13: no retention for outbox/handlings/job_runs/idempotency keys, no dead-letter replay, job_runs left
@@ -62,6 +62,33 @@ describe('maintenance job', () => {
     const hooks = (await sql(`select event_key from webhook_inbox where event_key = any($1)`, [[oldHook, freshHook, pendingHook]])).map((r) => r.event_key).sort();
     expect(hooks).toEqual([freshHook, pendingHook].sort());
     await sql(`delete from job_leases where job = 'ops.live'`);
+  });
+});
+
+describe('maintenance throughput', () => {
+  // Review finding: one batch per table per hourly run capped retention at 5,000 outbox events/hour (~120k/day);
+  // anything above that piled up for ever.
+  it('repeats batches within one run until the backlog is cleared', async () => {
+    const saved = { ...MAINTENANCE_LIMITS };
+    try {
+      MAINTENANCE_LIMITS.batch = 3;
+      const ids = await Promise.all(Array.from({ length: 10 }, () => event(RETENTION.publishedEventsDays + 3)));
+      const stats = await t.app.get(MaintenanceJobs).run();
+      expect(stats.outboxEvents).toBeGreaterThanOrEqual(10);
+      expect(stats.backlog).toEqual([]);
+      for (const id of ids) expect(await exists(id)).toBe(false);
+    } finally { Object.assign(MAINTENANCE_LIMITS, saved); }
+  });
+
+  it('stops at its time budget and reports what is left', async () => {
+    const saved = { ...MAINTENANCE_LIMITS };
+    try {
+      MAINTENANCE_LIMITS.budgetMs = 0;
+      const id = await event(RETENTION.publishedEventsDays + 3);
+      const stats = await t.app.get(MaintenanceJobs).run();
+      expect(stats.backlog).toEqual(['outboxEvents', 'jobRuns', 'idempotencyKeys', 'webhooks']);
+      expect(await exists(id)).toBe(true);
+    } finally { Object.assign(MAINTENANCE_LIMITS, saved); }
   });
 });
 
