@@ -100,5 +100,13 @@ export function normalizeNumericInput(value: string): string {
     .replace(/[٬،]/g, ','); // Arabic thousands separator, Arabic comma
 }
 
+/**
+ * Replaces Arabic-Indic (٠-٩) and Extended Arabic-Indic (۰-۹) digits with 0-9 and changes nothing else, so it is
+ * safe for codes and phone numbers typed on an Arabic keyboard (no separator rewriting, unlike
+ * normalizeNumericInput). Used by the contracts' phone/code schemas so the API stores Western digits (CR-04).
+ */
+export const toWesternDigits = (value: string): string =>
+  value.replace(EASTERN_DIGITS, (c) => String((c.charCodeAt(0) & 0xf) % 10));
+
 /** True when a string contains any Eastern Arabic digit (used by tests and QA scans). */
 export const hasEasternDigits = (s: string) => /[٠-٩۰-۹]/.test(s);

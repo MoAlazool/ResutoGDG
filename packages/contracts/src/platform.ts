@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { countryCode, locale, optionalText, phoneE164, slug, text, uuid } from './common';
+import { countryCode, locale, optionalPhone, optionalText, phoneE164, slug, text, uuid } from './common';
 import { memberRole } from './permissions';
 
 export const branchInput = z.object({
@@ -8,7 +8,7 @@ export const branchInput = z.object({
   nameAr: optionalText(120),
   address: optionalText(300),
   city: optionalText(80),
-  phone: optionalText(30),
+  phone: optionalPhone(30),
   latitude: z.number().min(-90).max(90).optional().nullable(),
   longitude: z.number().min(-180).max(180).optional().nullable(),
   /** IANA zone; null = the organization's timezone. */
