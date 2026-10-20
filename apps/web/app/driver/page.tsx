@@ -47,7 +47,7 @@ export default function DriverHome() {
         </div>
         <div className="spread">
           <LocationPill />
-          {me.cashOnHandMinor > 0 && <span className={s.pill}>💵 {t('driver.cash.onHand')}: {money(me.cashOnHandMinor, me.org.currency, locale)}</span>}
+          {me.cashOnHandMinor > 0 && <span className={s.pill}><span aria-hidden="true">¤</span> {t('driver.cash.onHand')}: {money(me.cashOnHandMinor, me.org.currency, locale)}</span>}
         </div>
         {act.error && <Notice tone="danger">{act.error}</Notice>}
         {location.state === 'denied' && <Notice tone="warn">{t('driver.location.deniedHelp')}</Notice>}

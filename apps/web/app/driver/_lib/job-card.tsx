@@ -24,11 +24,11 @@ export function JobCard({ job, offer, sequence, children }: { job: DeliveryJobVi
         </div>
         <div className={s.address}><bdi>{addressLine(job) || '—'}</bdi></div>
         <div className={s.meta}>
-          {job.dropoff.customerName && <span>👤 <bdi>{job.dropoff.customerName}</bdi></span>}
-          {job.distanceM !== null && <span>📍 {t('driver.distance', { km: km(job.distanceM)! })}</span>}
-          {job.etaAt && <span>⏱ {t('driver.eta', { t: time(job.etaAt, locale) })}</span>}
+          {job.dropoff.customerName && <span><span aria-hidden="true">♙</span> <bdi>{job.dropoff.customerName}</bdi></span>}
+          {job.distanceM !== null && <span><span aria-hidden="true">⌖</span> {t('driver.distance', { km: km(job.distanceM)! })}</span>}
+          {job.etaAt && <span><span aria-hidden="true">◷</span> {t('driver.eta', { t: time(job.etaAt, locale) })}</span>}
           {job.codAmountMinor > 0 && job.cashStatus !== 'none'
-            ? <span className={s.cod}>💵 {t('driver.cod')}: {money(job.codAmountMinor, job.currency, locale)}</span>
+            ? <span className={s.cod}><span aria-hidden="true">¤</span> {t('driver.cod')}: {money(job.codAmountMinor, job.currency, locale)}</span>
             : <span>✓ {t('driver.prepaid')}</span>}
         </div>
       </Link>

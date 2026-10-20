@@ -187,7 +187,7 @@ function Campaigns() {
           { key: 'status', header: t('marketing.camp.status'), render: (c) => <div className="row" style={{ gap: 4 }}><Badge tone={statusTone(c.status)}>{t(`marketing.status.${c.status}`)}</Badge>
             {c.isSandbox && ['sent', 'sending'].includes(c.status) && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}</div> },
-          { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `⏱ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
+          { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `◷ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
           { key: 'a', header: '', align: 'end', render: (c) => (
             <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
               {c.status === 'draft' && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'submit')}>{t('marketing.camp.submit')}</button>}
