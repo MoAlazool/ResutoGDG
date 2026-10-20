@@ -119,9 +119,12 @@ bdi { unicode-bidi: isolate; }
 .date-input { position: relative; display: block; }
 :is(.date-input[data-filled], .date-input[data-empty]) > input:not(:focus) { color: transparent; }
 :is(.date-input[data-filled], .date-input[data-empty]) > input:not(:focus)::-webkit-datetime-edit { opacity: 0; }
-.date-input-empty { color: var(--muted); }
 .date-input-text { position: absolute; inset-inline-start: 14px; inset-block-start: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text); white-space: nowrap; }
 .date-input:focus-within .date-input-text { display: none; }
+.date-input-text.date-input-empty { color: var(--muted); }
+/* Chromium lays date/time fields out left-to-right with the picker icon on the right, also on Arabic pages: keep the
+   right-aligned Arabic text clear of the icon. */
+[dir='rtl'] .date-input-text { inset-inline-start: 42px; }
 :where(.ws, .login, .ws-solo) .field > span { font-size: var(--t-md); font-weight: 600; color: var(--text); }
 :where(.ws, .login, .ws-solo) :is(.input, .select, .textarea) { font-size: var(--t-field); border-color: var(--border); }
 @media (max-width: 700px) { :where(.ws, .login, .ws-solo) :is(.input, .select, .textarea) { font-size: 16px; } }

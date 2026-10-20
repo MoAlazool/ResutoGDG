@@ -106,15 +106,26 @@ if (want('preflights')) {
   const page = await ctx.newPage();
   // CORS preflights are not page requests in Playwright; count them through the DevTools protocol.
   const counts = { OPTIONS: 0, GET: 0 };
+  const steady = { OPTIONS: 0, GET: 0 };
+  let inSteady = false;
+  const distinct = new Set();
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Network.enable');
-  cdp.on('Network.requestWillBeSent', (e) => { if (e.request.url.startsWith(API)) counts[e.request.method] = (counts[e.request.method] ?? 0) + 1; });
+  cdp.on('Network.requestWillBeSent', (e) => {
+    if (!e.request.url.startsWith(API)) return;
+    counts[e.request.method] = (counts[e.request.method] ?? 0) + 1;
+    if (e.request.method === 'GET') distinct.add(e.request.url);
+    if (inSteady) steady[e.request.method] = (steady[e.request.method] ?? 0) + 1;
+  });
   cdp.on('Network.requestWillBeSentExtraInfo', () => {});
   let preflight = 0;
   cdp.on('Network.responseReceived', (e) => { if (e.type === 'Preflight') preflight++; });
   await page.goto(WEB + D + '/orders', { waitUntil: 'networkidle' });
+  // After the first load every polled URL has a cached preflight (Access-Control-Max-Age): polls must not preflight.
+  inSteady = true;
   await page.waitForTimeout(20000);
-  res.preflights = { windowSeconds: 20, ...counts, preflightResponses: preflight };
+  res.preflights = { windowSeconds: 20, ...counts, preflightResponses: preflight, distinctGetUrls: distinct.size,
+    steadyState: { afterFirstLoad: true, ...steady } };
   await ctx.close();
 }
 
