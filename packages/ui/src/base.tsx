@@ -1,20 +1,17 @@
 'use client';
-import { normalizeNumericInput } from '@resuto/contracts';
+import { dateTimeFormat, formatClock, normalizeNumericInput } from '@resuto/contracts';
+import { useUiLocale } from './locale';
+import { PageHeading } from './primitives';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
 
+/**
+ * Page heading (legacy .page-heading): eyebrow, 32px title, 13px subtitle and actions. Without an `overline` the
+ * eyebrow is the shell's "Restaurant / Branch" breadcrumb (PageEyebrowProvider).
+ */
 export function PageHeader({ title, subtitle, actions, overline }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; overline?: ReactNode }) {
-  return (
-    <header className="page-header">
-      <div>
-        {overline && <div className="overline">{overline}</div>}
-        <h1>{title}</h1>
-        {subtitle && <p>{subtitle}</p>}
-      </div>
-      {actions && <div className="row">{actions}</div>}
-    </header>
-  );
+  return <PageHeading title={title} subtitle={subtitle} actions={actions} eyebrow={overline} />;
 }
 
 export function Card({ title, actions, children, warm, className }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; warm?: boolean; className?: string }) {
@@ -86,14 +83,69 @@ export function Field({ label, hint, error, ...input }: FieldProps & InputHTMLAt
   return (
     <label className="field">
       <span>{label}</span>
-      <input className="input" aria-invalid={!!error || undefined} {...input}
-        onInput={numeric ? (e) => { normalizeNumericEvent(e); onInput?.(e); } : onInput}
-        onChange={numeric && onChange ? (e) => { normalizeNumericEvent(e); onChange(e); } : onChange} />
+      {isDateTimeType(input.type)
+        ? <DateTimeInput aria-invalid={!!error || undefined} {...input} type={input.type} />
+        : <input className="input" aria-invalid={!!error || undefined} {...input}
+          onInput={numeric ? (e) => { normalizeNumericEvent(e); onInput?.(e); } : onInput}
+          onChange={numeric && onChange ? (e) => { normalizeNumericEvent(e); onChange(e); } : onChange} />}
       {hint && <small>{hint}</small>}
       {error && <span className="field-error">{error}</span>}
     </label>
   );
 }
+
+export type DateTimeType = 'date' | 'time' | 'datetime-local';
+const isDateTimeType = (t: unknown): t is DateTimeType => t === 'date' || t === 'time' || t === 'datetime-local';
+
+/**
+ * Resting text of a date/time field, in the page's language with Western digits and no time-zone shift (the value is
+ * wall-clock): "2026-10-20" → "20 Oct 2026" / "20 أكتوبر 2026"; "21:30" → "21:30" / "9:30 م";
+ * "2026-10-13T06:43" → "13 Oct 2026, 6:43" / "13 أكتوبر 2026، 6:43 ص". Unparseable values are shown as given.
+ */
+export function formatInputValue(type: DateTimeType, value: string, locale: 'en' | 'ar'): string {
+  const date = (v: string) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    return m ? dateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!)) : null;
+  };
+  const time = (v: string) => {
+    const m = /^(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(v);
+    return m ? formatClock(+m[1]!, +m[2]!, locale) : null;
+  };
+  if (type === 'date') return date(value) ?? value;
+  if (type === 'time') return time(value) ?? value;
+  const [d, t] = value.split('T');
+  const dd = d ? date(d) : null;
+  const tt = t ? time(t) : null;
+  return dd && tt ? `${dd}${locale === 'ar' ? '، ' : ', '}${tt}` : value;
+}
+
+const EMPTY_DATE_TEXT = {
+  en: { date: 'Choose a date', time: 'Choose a time', 'datetime-local': 'Choose a date and time' },
+  ar: { date: 'اختر تاريخًا', time: 'اختر وقتًا', 'datetime-local': 'اختر التاريخ والوقت' },
+} as const;
+
+/**
+ * Native date, time or datetime-local input whose resting text is formatted by Resuto (Western digits, the page's language) instead of
+ * the browser's locale (mm/dd/yyyy, or Arabic-Indic digits in an Arabic browser). An empty field shows `placeholder`
+ * (or "Choose a date" in the page language) instead of the browser's "mm/dd/yyyy" pattern. While focused the native
+ * fields are shown for typing; the native calendar/clock picker stays available (VS-06).
+ */
+export function DateTimeInput({ type, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { type: DateTimeType }) {
+  const locale = useUiLocale();
+  const controlled = props.value !== undefined;
+  const [inner, setInner] = useState(String(props.defaultValue ?? ''));
+  const value = controlled ? String(props.value ?? '') : inner;
+  return (
+    <span className="date-input" data-filled={value ? '' : undefined} data-empty={value ? undefined : ''}>
+      <input {...props} type={type} className={cx('input', className)}
+        onChange={(e) => { if (!controlled) setInner(e.target.value); props.onChange?.(e); }} />
+      {value
+        ? <span className="date-input-text num" aria-hidden="true">{formatInputValue(type, value, locale)}</span>
+        : <span className="date-input-text date-input-empty" aria-hidden="true">{props.placeholder ?? EMPTY_DATE_TEXT[locale][type]}</span>}
+    </span>
+  );
+}
+
 export function SelectField({ label, hint, error, children, ...select }: FieldProps & SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <label className="field">
@@ -116,12 +168,14 @@ export function TextareaField({ label, hint, error, ...ta }: FieldProps & Textar
 }
 
 export interface Column<T> { key: string; header: ReactNode; render: (row: T) => ReactNode; align?: 'start' | 'end' }
-export function DataTable<T>({ rows, columns, rowKey, empty, onRowClick }: {
+export function DataTable<T>({ rows, columns, rowKey, empty, onRowClick, busy }: {
   rows: T[]; columns: Column<T>[]; rowKey: (row: T) => string; empty?: ReactNode; onRowClick?: (row: T) => void;
+  /** The rows belong to the previous filter/page while the new result loads (useApi().pending): dimmed + aria-busy. */
+  busy?: boolean;
 }) {
-  if (!rows.length) return <div className="card">{empty ?? <EmptyState title="Nothing here yet" />}</div>;
+  if (!rows.length) return <div className="card" aria-busy={busy || undefined}>{empty ?? <EmptyState title="Nothing here yet" />}</div>;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" aria-busy={busy || undefined} data-busy={busy || undefined}>
       <table className="data">
         <thead><tr>{columns.map((c) => <th key={c.key} style={{ textAlign: c.align === 'end' ? 'end' : 'start' }}>{c.header}</th>)}</tr></thead>
         <tbody>

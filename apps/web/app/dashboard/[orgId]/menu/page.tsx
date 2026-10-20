@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { parseMajor, type MenuEditorView, type MenuImportPreview, type ModifierGroup, type Product } from '@resuto/contracts';
-import { Badge, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField } from '@resuto/ui';
+import { Badge, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, initialOf, useConfirm, usePrompt } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { money, pick } from '@/lib/format';
@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { allergenLabel, stationLabel } from '@/lib/vocab';
 
 type Tab = 'items' | 'modifiers' | 'import';
 const list = (s: FormDataEntryValue | null) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -24,6 +25,8 @@ export default function MenuPage() {
   const menu = useApi<MenuEditorView>(`/o/${org.id}/menu`);
   const write = can('menu:write');
   const m = menu.data;
+  const [confirm, confirmDialog] = useConfirm(locale);
+  const [prompt, promptDialog] = usePrompt(locale);
 
   const run = async (fn: () => Promise<unknown>) => {
     setError(null);
@@ -35,12 +38,13 @@ export default function MenuPage() {
     <ModuleGate module="core" permission="menu:read">
       <PageHeader title={t('nav.menu')} subtitle={t('core.menu.subtitle')}
         actions={write && tab === 'items' && <>
-          <button className="btn" onClick={() => {
-            const name = window.prompt(t('core.menu.categoryName'));
-            if (name?.trim()) void run(() => call(`/o/${org.id}/menu/categories`, { body: { name: name.trim() } }));
+          <button className="btn" onClick={async () => {
+            const name = await prompt({ title: t('core.menu.category'), label: t('core.menu.categoryName'), maxLength: 120, confirmLabel: t('action.create') });
+            if (name) void run(() => call(`/o/${org.id}/menu/categories`, { body: { name } }));
           }}>+ {t('core.menu.category')}</button>
           <button className="btn btn-primary" disabled={!m?.categories.length} onClick={() => setEditing('new')}>+ {t('core.menu.item')}</button>
         </>} />
+      {confirmDialog}{promptDialog}
       {write && <Tabs<Tab> value={tab} onChange={setTab} tabs={[{ key: 'items', label: t('core.menu.items') }, { key: 'modifiers', label: t('core.menu.modifiers') }, { key: 'import', label: t('core.menu.import') }]} />}
       {error && <Notice tone="danger">{error}</Notice>}
       {menu.error && <Notice tone="danger">{menu.error.message}</Notice>}
@@ -72,11 +76,13 @@ export default function MenuPage() {
                         const ids = arr.map((x) => x.id); [ids[idx + 1], ids[idx]] = [ids[idx]!, ids[idx + 1]!];
                         void run(() => call(`/o/${org.id}/menu/categories/reorder`, { body: { ids } }));
                       }}>↓</button>
-                      <button className="btn btn-sm" onClick={() => {
-                        const name = window.prompt(t('core.menu.categoryName'), c.name);
-                        if (name?.trim()) void run(() => call(`/o/${org.id}/menu/categories/${c.id}`, { method: 'PATCH', body: { name: name.trim() } }));
+                      <button className="btn btn-sm" onClick={async () => {
+                        const name = await prompt({ title: t('action.edit'), label: t('core.menu.categoryName'), defaultValue: c.name, maxLength: 120, confirmLabel: t('action.save') });
+                        if (name && name !== c.name) void run(() => call(`/o/${org.id}/menu/categories/${c.id}`, { method: 'PATCH', body: { name } }));
                       }}>{t('action.edit')}</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => { if (window.confirm(t('core.menu.archiveCategory'))) void run(() => call(`/o/${org.id}/menu/categories/${c.id}`, { method: 'DELETE' })); }}>{t('core.menu.archive')}</button>
+                      <button className="btn btn-sm btn-danger" onClick={async () => {
+                        if (await confirm({ title: t('core.menu.archiveCategory'), tone: 'danger', confirmLabel: t('core.menu.archive') })) void run(() => call(`/o/${org.id}/menu/categories/${c.id}`, { method: 'DELETE' }));
+                      }}>{t('core.menu.archive')}</button>
                     </div>
                   )}
                 </div>
@@ -86,8 +92,8 @@ export default function MenuPage() {
                       <tbody>
                         {items.map((p) => (
                           <tr key={p.id}>
-                            <td style={{ width: 56 }}>{p.imageUrl ? <img src={p.imageUrl} alt="" width={44} height={44} style={{ borderRadius: 8, objectFit: 'cover' }} /> : <span aria-hidden>🍽</span>}</td>
-                            <td><strong>{pick(locale, p.name, p.nameAr)}</strong><div className="fine">{p.station}{p.prepMinutes ? ` · ${p.prepMinutes}′` : ''}{p.allergens.length ? ` · ${p.allergens.join(', ')}` : ''}</div></td>
+                            <td style={{ width: 56 }}>{p.imageUrl ? <img src={p.imageUrl} alt="" width={44} height={44} style={{ borderRadius: 8, objectFit: 'cover' }} /> : <span className="item-initial" aria-hidden>{initialOf(pick(locale, p.name, p.nameAr))}</span>}</td>
+                            <td><strong>{pick(locale, p.name, p.nameAr)}</strong><div className="fine">{stationLabel(t, p.station)}{p.prepMinutes ? ` · ${p.prepMinutes}′` : ''}{p.allergens.length ? ` · ${p.allergens.map((a) => allergenLabel(t, a)).join(locale === 'ar' ? '، ' : ', ')}` : ''}</div></td>
                             <td className="num">{money(p.priceMinor, p.currency, locale)}</td>
                             <td>
                               {can('menu:availability') ? (
@@ -115,7 +121,8 @@ export default function MenuPage() {
 }
 
 function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: MenuEditorView; product: Product | null; branchId: string; onClose: () => void; onSaved: () => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
+  const [confirm, confirmDialog] = useConfirm(locale);
   const { org } = useOrg();
   const { call } = useSession();
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +168,7 @@ function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: Men
 
   return (
     <Modal open onClose={onClose} title={product ? t('core.menu.editItem') : t('core.menu.newItem')}>
+      {confirmDialog}
       <form onSubmit={submit}>
         <div className="form-row">
           <Field label={t('core.menu.name')} name="name" required maxLength={120} defaultValue={product?.name} />
@@ -179,7 +187,7 @@ function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: Men
           <Field label={t('core.menu.station')} name="station" list="stations" maxLength={40} defaultValue={product?.station ?? ''} />
           <Field label={t('core.menu.prep')} name="prep" type="number" min={0} max={600} defaultValue={product?.prepMinutes ?? ''} />
           <SelectField label={t('core.menu.spice')} name="spice" defaultValue={String(product?.spiceLevel ?? 0)}>
-            {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n === 0 ? '—' : '🌶'.repeat(n)}</option>)}
+            {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n === 0 ? '—' : '•'.repeat(n)}</option>)}
           </SelectField>
         </div>
         <datalist id="stations">{menu.stations.map((s) => <option key={s} value={s} />)}</datalist>
@@ -205,7 +213,7 @@ function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: Men
         {error && <Notice tone="danger">{error}</Notice>}
         <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
           {product ? <button type="button" className="btn btn-danger" onClick={async () => {
-            if (!window.confirm(t('core.menu.archiveItem'))) return;
+            if (!(await confirm({ title: t('core.menu.archiveItem'), tone: 'danger', confirmLabel: t('core.menu.archive') }))) return;
             try { await call(`/o/${org.id}/menu/products/${product.id}`, { method: 'DELETE' }); onSaved(); } catch (e) { setError((e as Error).message); }
           }}>{t('core.menu.archive')}</button> : <span />}
           <div className="row">

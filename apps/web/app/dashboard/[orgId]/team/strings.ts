@@ -24,7 +24,7 @@ const ar: S = {
   st_active: 'نشط', st_suspended: 'موقوف', st_invited: 'مدعو', st_removed: 'محذوف', expires: 'تنتهي {date}', saved: 'تم الحفظ',
   limitHit: 'تم بلوغ حد الموظفين في خطتك.', upgrade: 'عرض الخطط', cannotAssign: 'دورك لا يسمح بدعوة الأعضاء أو تعديلهم.',
   editBranches: 'الفروع', save: 'حفظ', cancel: 'إلغاء', loadError: 'تعذّر تحميل الفريق.', retry: 'إعادة المحاولة',
-  driverHint: 'يستخدم السائقون تطبيق ريزوتو للسائق على الويب ولا يُحتسبون ضمن حد الموظفين.',
+  driverHint: 'يستخدم السائقون تطبيق ريسوتو للسائق على الويب ولا يُحتسبون ضمن حد الموظفين.',
 };
 export const TEAM_STRINGS = { en, ar };
 

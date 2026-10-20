@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { CustomerSummary } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, useAction } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, useAction, Email, Phone, UserText } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { BranchSelect, LoadError, qs, useFormat, InsightsPage } from '@/components/charts/insights';
 import { API_URL, ApiRequestError } from '@/lib/api';
@@ -34,7 +34,7 @@ export default function CustomersPage() {
     q: filters.q, tag: filters.tag.trim().toLowerCase(), consent: filters.consent, lastOrderBefore: filters.lastOrderBefore, lastOrderAfter: filters.lastOrderAfter,
     minOrders: filters.minOrders, minSpendMinor: filters.minSpend ? Math.round(Number(filters.minSpend) * 100) : undefined, branchId: filters.branchId, sort: filters.sort,
   };
-  const { data, error, loading, reload } = useApi<Page>(`/o/${org.id}/customers${qs({ ...params, limit: 50, cursor })}`);
+  const { data, error, loading, pending, reload } = useApi<Page>(`/o/${org.id}/customers${qs({ ...params, limit: 50, cursor })}`);
   const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) => setDraft({ ...draft, [k]: e.target.value });
   const exportCsv = useAction(async () => {
     const res = await fetch(`${API_URL}/v1/o/${org.id}/customers/export.csv${qs(params)}`, { headers: { Authorization: `Bearer ${session.token}` } });
@@ -92,11 +92,11 @@ export default function CustomersPage() {
       <LoadError error={error} retry={reload} />
       {loading && !data ? <div className="card"><Skeleton lines={6} /></div> : data && (
         <>
-          <DataTable rows={data.items} rowKey={(c) => c.id} onRowClick={(c) => router.push(`/dashboard/${org.id}/customers/${c.id}`)}
+          <DataTable rows={data.items} rowKey={(c) => c.id} onRowClick={(c) => router.push(`/dashboard/${org.id}/customers/${c.id}`)} busy={pending}
             empty={<EmptyState title={filtered ? t('insights.customers.noMatch') : t('insights.customers.none')}>{!filtered && t('insights.customers.noneHint')}</EmptyState>} columns={[
               { key: 'name', header: t('insights.customers.name'), render: (c) => (
-                <Link href={`/dashboard/${org.id}/customers/${c.id}`} onClick={(e) => e.stopPropagation()}>{c.displayName ?? <span className="muted">{t('insights.customers.unnamed')}</span>}</Link>) },
-              { key: 'contact', header: t('insights.customers.contact'), render: (c) => <span className="fine" dir="ltr">{c.phone ?? c.email ?? '—'}</span> },
+                <Link href={`/dashboard/${org.id}/customers/${c.id}`} onClick={(e) => e.stopPropagation()}>{c.displayName ? <UserText>{c.displayName}</UserText> : <span className="muted">{t('insights.customers.unnamed')}</span>}</Link>) },
+              { key: 'contact', header: t('insights.customers.contact'), render: (c) => <span className="fine">{c.phone ? <Phone value={c.phone} /> : c.email ? <Email value={c.email} /> : '—'}</span> },
               { key: 'orders', header: t('insights.kpi.orders'), align: 'end', render: (c) => <span className="num">{c.orderCount}</span> },
               { key: 'spend', header: t('insights.customers.spend'), align: 'end', render: (c) => <span className="num">{f.money(c.totalSpendMinor)}</span> },
               { key: 'last', header: t('insights.customers.lastOrder'), render: (c) => <span className="fine">{c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'}</span> },

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { AD_CHANNELS, type CampaignReport, type MarketingRecommendation, type SegmentGroup, type SegmentRule } from '@resuto/contracts';
-import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, Tabs, TextareaField, useAction } from '@resuto/ui';
+import { Badge, Card, DataTable, DateTimeInput, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -143,6 +143,7 @@ function Segments() {
 // ---------------------------------------------------------------------------
 function Campaigns() {
   const { t, locale } = useT();
+  const [confirm, confirmDialog] = useConfirm(locale);
   const { org, can } = useOrg();
   const session = useSession();
   const list = useApi<{ items: Campaign[] }>(`/o/${org.id}/marketing/campaigns`, { pollMs: 15000 });
@@ -175,6 +176,7 @@ function Campaigns() {
 
   return (
     <div className="stack">
+      {confirmDialog}
       <div className="spread"><Notice>{t('marketing.camp.flow')}</Notice>
         {can('marketing:write') && <button className="btn btn-primary" onClick={() => setEditing(true)}>{t('marketing.camp.new')}</button>}</div>
       {note && <Notice tone="ok">{note}</Notice>}
@@ -185,7 +187,7 @@ function Campaigns() {
           { key: 'status', header: t('marketing.camp.status'), render: (c) => <div className="row" style={{ gap: 4 }}><Badge tone={statusTone(c.status)}>{t(`marketing.status.${c.status}`)}</Badge>
             {c.isSandbox && ['sent', 'sending'].includes(c.status) && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}</div> },
-          { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `⏱ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
+          { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `◷ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
           { key: 'a', header: '', align: 'end', render: (c) => (
             <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
               {c.status === 'draft' && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'submit')}>{t('marketing.camp.submit')}</button>}
@@ -193,10 +195,10 @@ function Campaigns() {
                 <button className="btn btn-sm btn-leaf" disabled={act.pending} onClick={() => act.run(c, 'approve')}>{t('marketing.camp.approve')}</button>
                 <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'reject', {})}>{t('marketing.camp.reject')}</button></>}
               {['approved', 'scheduled'].includes(c.status) && !isAd(c) && can('marketing:write') && <>
-                <input type="datetime-local" className="input" style={{ width: 'auto', minHeight: 32 }} aria-label={t('marketing.camp.scheduleAt')}
+                <DateTimeInput type="datetime-local" style={{ width: 'auto', minHeight: 32 }} aria-label={t('marketing.camp.scheduleAt')}
                   value={scheduleFor[c.id] ?? ''} onChange={(e) => setScheduleFor({ ...scheduleFor, [c.id]: e.target.value })} />
                 <button className="btn btn-sm" disabled={act.pending || !scheduleFor[c.id]} onClick={() => act.run(c, 'schedule', { scheduledAt: new Date(scheduleFor[c.id]!).toISOString() })}>{t('marketing.camp.schedule')}</button>
-                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => window.confirm(t('marketing.camp.sendConfirm')) && act.run(c, 'send')}>{t('marketing.camp.sendNow')}</button></>}
+                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send'); }}>{t('marketing.camp.sendNow')}</button></>}
               {c.status === 'approved' && isAd(c) && can('marketing:write') && <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => act.run(c, 'launch')}>{t('marketing.camp.launch')}</button>}
               {c.status === 'sent' && isAd(c) && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending}
                 onClick={() => { const until = new Date().toISOString().slice(0, 10); const since = new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10); void act.run(c, 'insights/sync', { since, until }); }}>{t('marketing.camp.importResults')}</button>}

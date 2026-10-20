@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { CONSENT_SOURCES, type CustomerProfile, type CustomerSummary } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, TextareaField, useAction } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, Email, Ltr, UserText } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { LoadError, qs, Section, useBranchName, useFormat, InsightsPage } from '@/components/charts/insights';
 import { dateTime } from '@/lib/format';
@@ -65,7 +65,7 @@ export default function CustomerProfilePage() {
       {!c && !error && <div className="card"><Skeleton lines={6} /></div>}
       {c && (
         <>
-          <PageHeader overline={t('nav.customers')} title={c.displayName ?? t('insights.customers.unnamed')}
+          <PageHeader overline={t('nav.customers')} title={c.displayName ? <UserText>{c.displayName}</UserText> : t('insights.customers.unnamed')}
             subtitle={<span className="row" style={{ gap: 6 }}>
               {c.anonymisedAt && <Badge tone="danger">{t('insights.profile.anonymised')}</Badge>}
               {c.marketingConsent ? <Badge tone="ok">✓ {t('insights.customers.consentGranted')}</Badge> : <Badge>{t('insights.customers.consentNot')}</Badge>}
@@ -82,11 +82,11 @@ export default function CustomerProfilePage() {
           <div className="grid grid-2" style={{ alignItems: 'start' }}>
             <Section title={t('insights.profile.details')}>
               <dl className="stack" style={{ gap: 8, margin: 0 }}>
-                <div><dt className="fine">{t('insights.customers.phone')}</dt><dd style={{ margin: 0 }} dir="ltr">{c.phone ?? '—'}</dd></div>
-                <div><dt className="fine">{t('insights.customers.email')}</dt><dd style={{ margin: 0 }}>{c.email ?? '—'}</dd></div>
-                <div><dt className="fine">{t('insights.profile.identities')}</dt><dd style={{ margin: 0 }}>{c.identities.length ? c.identities.map((i) => <Badge key={i.id}>{i.kind}: <span dir="ltr">{i.value}</span></Badge>) : '—'}</dd></div>
-                <div><dt className="fine">{t('insights.profile.addresses')}</dt><dd style={{ margin: 0 }}>{c.addresses.length ? c.addresses.map((a) => <div key={a.id}>{[a.label, a.line1, a.area, a.city].filter(Boolean).join(' · ')}</div>) : '—'}</dd></div>
-                <div><dt className="fine">{t('insights.profile.notes')}</dt><dd style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{c.notes ?? '—'}</dd></div>
+                <div><dt className="fine">{t('insights.customers.phone')}</dt><dd style={{ margin: 0 }}>{c.phone ? <Phone value={c.phone} link /> : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.customers.email')}</dt><dd style={{ margin: 0 }}>{c.email ? <Email value={c.email} link /> : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.profile.identities')}</dt><dd style={{ margin: 0 }}>{c.identities.length ? c.identities.map((i) => <Badge key={i.id}>{i.kind}: <Ltr>{i.value}</Ltr></Badge>) : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.profile.addresses')}</dt><dd style={{ margin: 0 }}>{c.addresses.length ? c.addresses.map((a) => <div key={a.id}>{[a.label, a.line1, a.area, a.city].filter(Boolean).map((part, n) => <span key={n}>{n > 0 && ' · '}<UserText>{part}</UserText></span>)}</div>) : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.profile.notes')}</dt><dd style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{c.notes ? <UserText>{c.notes}</UserText> : '—'}</dd></div>
                 <div><dt className="fine">{t('insights.profile.firstSeen')}</dt><dd style={{ margin: 0 }}>{c.firstOrderAt ? dateTime(c.firstOrderAt, locale, org.timezone) : '—'}</dd></div>
               </dl>
             </Section>

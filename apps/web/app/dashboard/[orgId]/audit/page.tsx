@@ -1,10 +1,11 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Card, EmptyState, Notice, PageHeader, SelectField, Skeleton } from '@resuto/ui';
+import { Badge, Card, Code, EmptyState, Notice, PageHeader, SelectField, Skeleton } from '@resuto/ui';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
+import { actionLabel, entityLabel, sourceLabel } from '@/lib/vocab';
 
 /** Lets wide tables scroll inside the page instead of widening it on phones. */
 const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
@@ -25,10 +26,10 @@ const STR = {
     e_entitlement_override: 'Module grants', e_payment: 'Payments', e_menu: 'Menu', e_product: 'Products', e_legacy: 'Legacy import',
   },
   ar: {
-    title: 'سجل النشاط', subtitle: 'كل تغيير قام به الموظفون واتصالات الذكاء الاصطناعي ودعم ريزوتو والمهام التلقائية. لا يمكن تعديل السجلات.',
+    title: 'سجل النشاط', subtitle: 'كل تغيير قام به الموظفون واتصالات الذكاء الاصطناعي ودعم ريسوتو والمهام التلقائية. لا يمكن تعديل السجلات.',
     entity: 'النوع', all: 'كل النشاط', when: 'الوقت', who: 'من', what: 'ماذا', details: 'التفاصيل', more: 'تحميل نشاط أقدم', loading: 'جارٍ التحميل…',
     empty: 'لا يوجد نشاط مسجّل بعد.', error: 'تعذّر تحميل سجل النشاط.', retry: 'إعادة المحاولة', end: 'وصلت إلى بداية السجل.',
-    actor_user: 'موظف', actor_system: 'النظام', actor_platform_admin: 'دعم ريزوتو', actor_mcp_client: 'اتصال ذكاء اصطناعي', actor_guest: 'ضيف', actor_integration: 'تكامل', actor_driver: 'سائق',
+    actor_user: 'موظف', actor_system: 'النظام', actor_platform_admin: 'دعم ريسوتو', actor_mcp_client: 'اتصال ذكاء اصطناعي', actor_guest: 'ضيف', actor_integration: 'تكامل', actor_driver: 'سائق',
     e_organization: 'المطعم', e_branch: 'الفروع', e_membership: 'الفريق', e_invitation: 'الدعوات', e_subscription: 'الفوترة', e_order: 'الطلبات',
     e_entitlement_override: 'منح الوحدات', e_payment: 'المدفوعات', e_menu: 'القائمة', e_product: 'المنتجات', e_legacy: 'استيراد قديم',
   },
@@ -37,7 +38,7 @@ const ENTITY_TYPES = ['organization', 'branch', 'membership', 'invitation', 'sub
 const TONE: Record<string, 'info' | 'pay' | 'warn' | 'neutral'> = { platform_admin: 'pay', mcp_client: 'info', system: 'neutral', user: 'neutral' };
 
 export default function AuditPage() {
-  const { locale } = useT();
+  const { locale, t } = useT();
   const s = STR[locale];
   const { org, can } = useOrg();
   const { call, ready, token } = useSession();
@@ -86,8 +87,9 @@ export default function AuditPage() {
               {items.map((e) => (
                 <tr key={e.id}>
                   <td style={{ whiteSpace: 'nowrap' }} className="num">{dateTime(e.created_at, locale, undefined)}</td>
-                  <td><Badge tone={TONE[e.actor_type] ?? 'neutral'}>{actor(e.actor_type)}</Badge>{e.source !== 'api' && <span className="fine"> · {e.source}</span>}</td>
-                  <td><code style={{ fontSize: 13 }}>{e.action}</code>{e.entity_type && <div className="fine">{e.entity_type}{e.entity_id ? ` · ${e.entity_id.slice(0, 8)}` : ''}</div>}</td>
+                  <td><Badge tone={TONE[e.actor_type] ?? 'neutral'}>{actor(e.actor_type)}</Badge>{e.source !== 'api' && <span className="fine"> · {sourceLabel(t, e.source)}</span>}</td>
+                  <td title={e.action}>{actionLabel(t, e.action) ?? <Code>{e.action}</Code>}
+                    {e.entity_type && <div className="fine">{entityLabel(t, e.entity_type)}{e.entity_id && <> · <Code>{e.entity_id.slice(0, 8)}</Code></>}</div>}</td>
                   <td>
                     {Object.keys(e.metadata ?? {}).length > 0 && (
                       <>

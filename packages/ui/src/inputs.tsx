@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { DateTimeInput } from './base';
 import { UiStyles } from './styles';
 import type { UiLocale } from './overlays';
 
@@ -85,8 +86,8 @@ export function DateRangePicker({ value, onChange, locale = 'en', presets = [1, 
     <fieldset className="rui-daterange" style={{ border: 0, padding: 0, margin: 0 }}>
       <UiStyles />
       <legend className="sr-only">{label ?? t.range}</legend>
-      <label className="field"><span>{t.from}</span><input type="date" className="input" value={value.from} max={value.to || undefined} onChange={(e) => set(e.target.value, value.to)} /></label>
-      <label className="field"><span>{t.to}</span><input type="date" className="input" value={value.to} min={value.from || undefined} onChange={(e) => set(value.from, e.target.value)} /></label>
+      <label className="field"><span>{t.from}</span><DateTimeInput type="date" value={value.from} max={value.to || undefined} onChange={(e) => set(e.target.value, value.to)} /></label>
+      <label className="field"><span>{t.to}</span><DateTimeInput type="date" value={value.to} min={value.from || undefined} onChange={(e) => set(value.from, e.target.value)} /></label>
       <div className="rui-presets" role="group" aria-label={label ?? t.range}>
         {presets.map((d) => {
           const r = lastDays(d);

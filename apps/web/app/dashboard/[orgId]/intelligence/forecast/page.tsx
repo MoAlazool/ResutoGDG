@@ -6,6 +6,7 @@ import { useT } from '@/lib/i18n/client';
 import { pick } from '@/lib/format';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
+import { forecastReason } from '@/lib/vocab';
 import { ForecastChart, Legend } from '../_components/charts';
 import { ApiErrorNotice, BranchSelect, Empty, IntelShell, fmtNum, fmtPct, useBranch } from '../_components/IntelShell';
 
@@ -37,7 +38,7 @@ function ItemCard({ item }: { item: ItemForecast }) {
         { color: 'var(--chart-1)', label: t('intelligence.forecast.prediction'), dashed: true },
         { color: 'var(--chart-1)', label: t('intelligence.forecast.interval', { level }), band: true },
       ]} />
-      {item.fallbackReason && <p className="fine">{t('intelligence.forecast.fallback', { reason: item.fallbackReason })}</p>}
+      {item.fallbackReason && <p className="fine">{t('intelligence.forecast.fallback', { reason: forecastReason(t, item.fallbackReason) })}</p>}
       <h3 style={{ fontSize: 14, marginBlock: '14px 6px' }}>{t('intelligence.forecast.backtest', { folds: item.backtest.folds, horizon: item.backtest.horizon })}</h3>
       <div className="table-wrap">
         <table className="data">
@@ -46,7 +47,7 @@ function ItemCard({ item }: { item: ItemForecast }) {
             {item.candidates.map((c) => (
               <tr key={c.model}>
                 <td>{t(`intelligence.model.${c.model}`)} {c.model === item.model && <Badge tone="ok">{t('intelligence.forecast.chosen')}</Badge>}
-                  {c.excluded && <div className="fine">{c.excluded}</div>}</td>
+                  {c.excluded && <div className="fine">{forecastReason(t, c.excluded)}</div>}</td>
                 <td className="num" style={{ textAlign: 'end' }}>{fmtNum(c.metrics?.mae, locale, 2)}</td>
                 <td className="num" style={{ textAlign: 'end' }}>{fmtNum(c.metrics?.rmse, locale, 2)}</td>
                 <td className="num" style={{ textAlign: 'end' }}>{fmtPct(c.metrics?.wape, locale)}</td>

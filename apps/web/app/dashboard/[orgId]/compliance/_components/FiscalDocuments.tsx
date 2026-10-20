@@ -2,7 +2,7 @@
 import QRCode from 'qrcode';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { FiscalDocumentView, FiscalKind, FiscalLine } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, Skeleton, Tabs, useAction, type Tone } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, Skeleton, Tabs, useAction, type Tone, Phone, UserText } from '@resuto/ui';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -56,10 +56,10 @@ function Invoice({ view, innerRef }: { view: PrintView; innerRef: React.Ref<HTML
       <div className={s.invoiceHead}>
         <div>
           <h3>{view.title.ar} — {view.title.en}</h3>
-          <div><strong>{view.seller.name}</strong>{view.seller.tradeName && view.seller.tradeName !== view.seller.name ? ` (${locale === 'ar' && view.seller.tradeNameAr ? view.seller.tradeNameAr : view.seller.tradeName})` : ''}</div>
+          <div><strong><UserText>{view.seller.name}</UserText></strong>{view.seller.tradeName && view.seller.tradeName !== view.seller.name ? <> (<UserText>{locale === 'ar' && view.seller.tradeNameAr ? view.seller.tradeNameAr : view.seller.tradeName}</UserText>)</> : ''}</div>
           <div>{t('compliance.doc.vatNumber')}: <span dir="ltr">{view.seller.vatNumber}</span></div>
-          <div className="fine">{Object.values(view.seller.address ?? {}).filter(Boolean).join(', ')}</div>
-          <div className="fine">{view.seller.branch.name}{view.seller.branch.phone ? ` · ${view.seller.branch.phone}` : ''}</div>
+          <div className="fine"><UserText>{Object.values(view.seller.address ?? {}).filter(Boolean).join(', ')}</UserText></div>
+          <div className="fine"><UserText>{view.seller.branch.name}</UserText>{view.seller.branch.phone ? <> · <Phone value={view.seller.branch.phone} /></> : ''}</div>
         </div>
         <QrImage payload={view.qr.payload} className={s.qr} />
       </div>
@@ -111,7 +111,7 @@ function DocumentModal({ id, onClose, onChanged }: { id: string; onClose(): void
           </div>
           <Invoice view={print.data} innerRef={ref} />
           <div className="row">
-            <button className="btn btn-sm" onClick={() => printElement(ref.current, d.number)}>🖨 {t('compliance.doc.print')}</button>
+            <button className="btn btn-sm" onClick={() => printElement(ref.current, d.number)}>{t('compliance.doc.print')}</button>
             <button className="btn btn-sm" onClick={() => void call<any>(`/o/${org.id}/compliance/fiscal-documents/${id}/payload`).then(setPayload)}>{'</>'} {t('compliance.doc.payload')}</button>
             {can('compliance:write') && <button className="btn btn-sm" disabled={act.pending} onClick={() => void act.run(() => call(`/o/${org.id}/compliance/fiscal-documents/${id}/resubmit`, { body: {} }))}>↻ {t('compliance.doc.resubmit')}</button>}
           </div>

@@ -21,3 +21,5 @@ reports/
 
 # symlinked virtualenvs in worktrees (a trailing-slash pattern does not match a symlink)
 .venv
+# Local legacy comparison instance data (scripts/ui, workstream screenshots)
+.legacy-*.json*

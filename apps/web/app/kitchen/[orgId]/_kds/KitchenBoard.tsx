@@ -3,8 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KitchenFeed, KitchenTicket } from '@resuto/contracts';
 import { Notice } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
-import { pick } from '@/lib/format';
+import { formatElapsedMs, pick } from '@/lib/format';
 import { useSession } from '@/lib/session';
+import { stationLabel } from '@/lib/vocab';
 import './kds.css';
 
 const FULFILLED: Record<string, string> = { dine_in: 'served', pickup: 'picked_up', delivery: 'delivered' };
@@ -89,7 +90,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations }: { orgId: 
                   <article key={tk.id} className={cls} aria-busy={busy === tk.id}>
                     <div className="kds-tile-head">
                       <strong>#{tk.number.padStart(3, '0')}</strong>
-                      <span className="kds-age" aria-label={t('core.kds.age')}>{mins}:{String(age % 60).padStart(2, '0')}</span>
+                      <span className="kds-age" aria-label={t('core.kds.age')}>{mins < 60 ? `${mins}:${String(age % 60).padStart(2, '0')}` : formatElapsedMs(age * 1000, locale)}</span>
                     </div>
                     <div className="kds-where">
                       {tk.tableLabel ? t('core.kds.table', { label: tk.tableLabel }) : t(`core.web.${tk.fulfillment}`)}
@@ -106,7 +107,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations }: { orgId: 
                             <span className="kds-name">{pick(locale, l.name, l.nameAr)}</span>
                             {l.modifiers.length > 0 && <small>{l.modifiers.join(' · ')}</small>}
                             {l.notes && <small className="kds-note">“<bdi>{l.notes}</bdi>”</small>}
-                            {!station && <small>{l.station}</small>}
+                            {!station && <small>{stationLabel(t, l.station)}</small>}
                           </span>
                         </button>
                       );
@@ -136,7 +137,7 @@ export function StationPicker({ stations, value, onChange }: { stations: string[
     <div className="row" role="group" aria-label={t('core.kds.station')} style={{ gap: 6 }}>
       <button type="button" className={`btn btn-sm btn-pill ${value === null ? 'btn-primary' : ''}`} aria-pressed={value === null} onClick={() => onChange(null)}>{t('core.kds.allStations')}</button>
       {stations.map((s) => (
-        <button key={s} type="button" className={`btn btn-sm btn-pill ${value === s ? 'btn-primary' : ''}`} aria-pressed={value === s} onClick={() => onChange(s)}>{s}</button>
+        <button key={s} type="button" className={`btn btn-sm btn-pill ${value === s ? 'btn-primary' : ''}`} aria-pressed={value === s} onClick={() => onChange(s)}>{stationLabel(t, s)}</button>
       ))}
     </div>
   );

@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "description": "Marks lib/i18n as side-effect free so a client file importing only constants from '@/lib/i18n' (e.g. LOCALE_COOKIE) does not bundle the dictionaries (PCL-07).",
+  "sideEffects": false
+}

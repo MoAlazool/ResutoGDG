@@ -76,7 +76,7 @@ export function SalesPanel(props: PanelProps) {
           <BarList format={f.money} empty={t('insights.empty.none')} items={data.byFulfillment.map((b) => ({ key: b.key, label: t(`insights.fulfillment.${b.key}`), value: b.netMinor, hint: t('insights.ordersCount', { count: b.orders }) }))} />
         </Section>
         <Section title={t('insights.sales.byBranch')}>
-          <BarList format={f.money} empty={t('insights.empty.none')} items={data.byBranch.map((b) => ({ key: b.key, label: b.label ?? branchName(b.key), value: b.netMinor, hint: f.pct(b.sharePct) }))} />
+          <BarList format={f.money} empty={t('insights.empty.none')} items={data.byBranch.map((b) => ({ key: b.key, label: branchName(b.key) !== '—' ? branchName(b.key) : b.label ?? '—', value: b.netMinor, hint: f.pct(b.sharePct) }))} />
         </Section>
         <Section title={t('insights.sales.byPayment')}>
           <BarList format={f.money} empty={t('insights.sales.noPayments')} items={data.byPaymentMethod.map((p) => ({ key: p.method, label: t(`insights.payment.${p.method}`), value: p.netMinor,

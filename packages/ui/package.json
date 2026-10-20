@@ -5,6 +5,7 @@
   "description": "Resuto design-system React components (styles live in apps/web/app/globals.css tokens).",
   "main": "src/index.tsx",
   "types": "src/index.tsx",
+  "sideEffects": false,
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

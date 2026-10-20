@@ -5,7 +5,8 @@ import { can, type ModuleKey, type Permission, type Role } from '@resuto/contrac
 export interface OrgInfo {
   id: string; slug: string; name: string; nameAr: string | null; country: 'EG' | 'SA'; currency: 'EGP' | 'SAR';
   timezone: string; role: Role; status: string;
-  branches: Array<{ id: string; name: string; nameAr: string | null; code: string; isActive: boolean }>;
+  branches: Array<{ id: string; name: string; nameAr: string | null; code: string; isActive: boolean; acceptsDineIn?: boolean }>;
+  onboarding?: Record<string, unknown> | null;
 }
 
 interface OrgValue {
@@ -14,6 +15,12 @@ interface OrgValue {
   can(p: Permission): boolean;
   hasModule(m: ModuleKey): boolean;
   reload(): Promise<void>;
+  /**
+   * Branch chosen in the shell's restaurant chip (null until there is a choice). `org.branches` lists it first, so
+   * screens that open on `org.branches[0]` follow it; new screens should read this value directly.
+   */
+  branchId?: string | null;
+  setBranchId?(branchId: string): void;
 }
 
 const OrgContext = createContext<OrgValue | null>(null);
@@ -32,4 +39,9 @@ export function useOrg() {
   const v = useContext(OrgContext);
   if (!v) throw new Error('useOrg must be used inside the dashboard');
   return v;
+}
+
+/** The dashboard org when inside it, otherwise null (shared components used on both sides). */
+export function useOptionalOrg() {
+  return useContext(OrgContext);
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MODULE_KEYS, type ModuleKey, type PriceQuote, type PublicPlan, type PublicPlansResponse, INTL_LOCALE } from '@resuto/contracts';
 import { api } from '@/lib/api';
 import { money } from '@/lib/format';
+import { Wordmark } from '@resuto/ui';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import { MODULE_DESC_AR, PRICING_STRINGS } from './strings';
 import css from './pricing.module.css';
@@ -60,7 +61,12 @@ export function PricingView() {
     <div className={css.page}>
       <header className={css.header}>
         <div className={`${css.wrap} ${css.headerInner}`}>
-          <Link href="/" className={css.brand}><img src="/brand/resuto-icon.png" alt="" /> {locale === 'ar' ? 'ريزوتو' : 'resuto.'}</Link>
+          <Link href="/" className={css.brand} aria-label={locale === 'ar' ? 'ريسوتو' : 'Resuto'}>
+            {/* The Resuto wordmark, as on the landing page: the Arabic logotype in Arabic, the Latin wordmark otherwise. */}
+            {locale === 'ar'
+              ? <img src="/landing/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} style={{ height: 32, width: 'auto' }} />
+              : <Wordmark size="sm" label="Resuto" />}
+          </Link>
           <nav className={css.nav} aria-label="Pricing sections">
             <a href="#plans">{s.navPlans}</a><a href="#compare">{s.navCompare}</a><a href="#build">{s.navBuild}</a><a href="#faq">{s.navFaq}</a>
           </nav>

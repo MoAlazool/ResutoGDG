@@ -61,18 +61,18 @@ export default function DriverJobPage() {
       <section className={s.detailBlock} aria-label={t('driver.customer')}>
         <span className={s.label}>{t('driver.customer')}</span>
         <span className={s.value}><bdi>{j.dropoff.customerName ?? '—'}</bdi></span>
-        {phone && <a className={s.linkBtn} href={`tel:${phone}`}>📞 {t('driver.call')} <span dir="ltr">{phone}</span></a>}
+        {phone && <a className={s.linkBtn} href={`tel:${phone}`}><span aria-hidden="true">☏</span> {t('driver.call')} <span dir="ltr">{phone}</span></a>}
       </section>
 
       <section className={s.detailBlock} aria-label={t('driver.address')}>
         <span className={s.label}>{t('driver.address')}</span>
         <span className={s.value}><bdi>{addressLine(j) || '—'}</bdi></span>
-        {j.dropoff.notes && <span>📝 <bdi>{j.dropoff.notes}</bdi></span>}
+        {j.dropoff.notes && <span><span aria-hidden="true">✎︎</span> <bdi>{j.dropoff.notes}</bdi></span>}
         <div className={s.meta}>
           {j.distanceM !== null && <span>{t('driver.distance', { km: km(j.distanceM)! })}</span>}
           {j.etaAt && <span>{t('driver.eta', { t: time(j.etaAt, locale) })}</span>}
         </div>
-        {j.navigationUrl && <a className={`btn btn-leaf ${s.bigBtn}`} href={j.navigationUrl} target="_blank" rel="noopener noreferrer">🗺 {t('driver.openMaps')}</a>}
+        {j.navigationUrl && <a className={`btn btn-leaf ${s.bigBtn}`} href={j.navigationUrl} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↗</span> {t('driver.openMaps')}</a>}
         {j.pickup.address && <span className="fine">{t('driver.pickupFrom', { place: isolate(j.branchName ?? ''), address: isolate(j.pickup.address) })}</span>}
       </section>
 
@@ -198,7 +198,7 @@ function DeliverForm({ job, run, pending, onDone }: {
         <input ref={fileRef} id="proof-photo" type="file" accept="image/*" capture="environment" onChange={(e) => void onFile(e.target.files?.[0])} />
         {photo && <img className={s.photoPreview} src={photo.preview} alt={t('driver.proof.uploaded')} />}
         <button type="button" className={`btn ${s.bigBtn}`} disabled={uploading} onClick={() => fileRef.current?.click()}>
-          📷 {uploading ? t('state.loading') : photo ? t('driver.proof.retake') : t('driver.proof.photo')}
+          <span aria-hidden="true">◉</span> {uploading ? t('state.loading') : photo ? t('driver.proof.retake') : t('driver.proof.photo')}
         </button>
       </div>
       <Field label={t('driver.proof.recipient')} name="recipientName" autoComplete="off" maxLength={120} />

@@ -2,12 +2,14 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { AnalyticsMeta, Permission } from '@resuto/contracts';
-import { Badge, Notice, PageHeader, Skeleton, Stat } from '@resuto/ui';
+import { Badge, NavGlyph, Notice, PageHeader, StatsStrip, StatsStripSkeleton, type NavGlyphName } from '@resuto/ui';
 import { LineChart } from '@/components/charts';
 import { BranchSelect, Delta, InsightsPage, LoadError, MetaPanel, qs, Section, useBranchName, useFormat } from '@/components/charts/insights';
+import { formatElapsed } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
+import { unitLabel } from '@/lib/vocab';
 
 interface Overview {
   date: string; localTime: string; currency: string;
@@ -22,14 +24,15 @@ interface Overview {
   meta: AnalyticsMeta;
 }
 
-const QUICK_LINKS: Array<{ href: string; label: string; icon: string; permission: Permission }> = [
-  { href: '/orders', label: 'nav.orders', icon: '🧾', permission: 'orders:read' },
-  { href: '/kitchen', label: 'nav.kitchen', icon: '🔥', permission: 'kitchen:operate' },
-  { href: '/reservations', label: 'nav.reservations', icon: '📅', permission: 'reservations:read' },
-  { href: '/menu', label: 'nav.menu', icon: '🍽', permission: 'menu:read' },
-  { href: '/inventory', label: 'nav.inventory', icon: '📦', permission: 'inventory:read' },
-  { href: '/customers', label: 'nav.customers', icon: '👥', permission: 'customers:read' },
-  { href: '/analytics', label: 'nav.analytics', icon: '📈', permission: 'analytics:read' },
+const QUICK_LINKS: Array<{ href: string; label: string; glyph: NavGlyphName; permission: Permission }> = [
+  { href: '/orders', label: 'nav.orders', glyph: 'orders', permission: 'orders:read' },
+  { href: '/kitchen', label: 'nav.kitchen', glyph: 'kitchen', permission: 'kitchen:operate' },
+  { href: '/floor', label: 'nav.floor', glyph: 'floor', permission: 'floor:read' },
+  { href: '/reservations', label: 'nav.reservations', glyph: 'reservations', permission: 'reservations:read' },
+  { href: '/menu', label: 'nav.menu', glyph: 'menu', permission: 'menu:read' },
+  { href: '/inventory', label: 'nav.inventory', glyph: 'inventory', permission: 'inventory:read' },
+  { href: '/customers', label: 'nav.customers', glyph: 'customers', permission: 'customers:read' },
+  { href: '/analytics', label: 'nav.analytics', glyph: 'analytics', permission: 'analytics:read' },
 ];
 
 function QuickLinks() {
@@ -42,7 +45,7 @@ function QuickLinks() {
       <div className="grid grid-4" style={{ gap: 10 }}>
         {links.map((l) => (
           <Link key={l.href} href={`/dashboard/${org.id}${l.href}`} className="btn" style={{ justifyContent: 'flex-start' }}>
-            <span aria-hidden>{l.icon}</span> {t(l.label)}
+            <NavGlyph name={l.glyph} /> {t(l.label)}
           </Link>
         ))}
       </div>
@@ -83,30 +86,30 @@ export default function OverviewPage() {
     );
   }
 
-  const oldestMinutes = data?.live.oldestOpenOrderAt ? Math.round((Date.now() - Date.parse(data.live.oldestOpenOrderAt)) / 60000) : null;
+  const oldestAt = data?.live.oldestOpenOrderAt ? Date.parse(data.live.oldestOpenOrderAt) : null;
+  const oldestMinutes = oldestAt !== null ? Math.round((Date.now() - oldestAt) / 60000) : null;
+  const oldest = oldestAt !== null ? formatElapsed(oldestAt, locale) : null;
+  const deltaNote = (pct: number | null, value: string) => <span className="row" style={{ gap: 6 }}><Delta value={pct} /> {t('insights.overview.vsLastWeek', { value })}</span>;
   return (
     <InsightsPage>
-      <PageHeader overline={t('nav.overview')} title={title}
+      <PageHeader title={t('nav.overview')}
         subtitle={data ? t('insights.overview.asOf', { date: f.date(data.date), time: data.localTime, tz: data.meta.timezone }) : t('state.loading')}
         actions={<BranchSelect value={branchId} onChange={setBranchId} />} />
       <LoadError error={error} retry={reload} />
-      {loading && !data && <div className="card"><Skeleton lines={5} /></div>}
+      {loading && !data && <StatsStripSkeleton count={6} />}
       {data && (
         <div className="stack" style={{ gap: 16 }}>
-          <div className="grid grid-3">
-            <Stat label={t('insights.overview.netToday')} value={f.money(data.today.netMinor)}
-              hint={<span className="row" style={{ gap: 6 }}><Delta value={data.changePct.netMinor} /> {t('insights.overview.vsLastWeek', { value: f.money(data.lastWeekSameTime.netMinor) })}</span>} />
-            <Stat label={t('insights.overview.ordersToday')} value={f.num(data.today.orders)}
-              hint={<span className="row" style={{ gap: 6 }}><Delta value={data.changePct.orders} /> {t('insights.overview.vsLastWeek', { value: f.num(data.lastWeekSameTime.orders) })}</span>} />
-            <Stat label={t('insights.kpi.aov')} value={f.money(data.today.averageOrderMinor)}
-              hint={<span className="row" style={{ gap: 6 }}><Delta value={data.changePct.averageOrderMinor} /> {t('insights.overview.vsLastWeek', { value: f.money(data.lastWeekSameTime.averageOrderMinor) })}</span>} />
-            <Stat label={t('insights.overview.openOrders')} value={f.num(data.live.openOrders)}
-              hint={oldestMinutes !== null ? t('insights.overview.oldest', { minutes: oldestMinutes }) : t('insights.overview.noneOpen')}
-              tone={oldestMinutes !== null && oldestMinutes > 45 ? 'warn' : undefined} />
-            <Stat label={t('insights.overview.openTables')} value={f.num(data.live.openVisits)} />
-            <Stat label={t('insights.overview.reservationsToday')} value={f.num(data.reservationsToday.total)}
-              hint={t('insights.overview.guests', { count: data.reservationsToday.guests })} />
-          </div>
+          <StatsStrip label={t('nav.overview')} items={[
+            { key: 'net', label: t('insights.overview.netToday'), value: f.money(data.today.netMinor), note: deltaNote(data.changePct.netMinor, f.money(data.lastWeekSameTime.netMinor)) },
+            { key: 'orders', label: t('insights.overview.ordersToday'), value: f.num(data.today.orders), note: deltaNote(data.changePct.orders, f.num(data.lastWeekSameTime.orders)) },
+            { key: 'aov', label: t('insights.kpi.aov'), value: f.money(data.today.averageOrderMinor), note: deltaNote(data.changePct.averageOrderMinor, f.money(data.lastWeekSameTime.averageOrderMinor)) },
+            { key: 'open', label: t('insights.overview.openOrders'), value: f.num(data.live.openOrders),
+              note: oldest !== null ? t('insights.overview.oldest', { elapsed: oldest }) : t('insights.overview.noneOpen'),
+              tone: oldestMinutes !== null && oldestMinutes > 45 ? 'warn' : undefined },
+            { key: 'tables', label: t('insights.overview.openTables'), value: f.num(data.live.openVisits) },
+            { key: 'res', label: t('insights.overview.reservationsToday'), value: f.num(data.reservationsToday.total),
+              note: t('insights.overview.guests', { count: data.reservationsToday.guests }) },
+          ]} />
 
           <div className="grid grid-2">
             <Section title={t('insights.overview.trend')}>
@@ -122,7 +125,7 @@ export default function OverviewPage() {
             <Section title={t('insights.overview.alerts')}>
               <div className="stack" style={{ gap: 10 }}>
                 {data.live.byStatus.awaitingPayment > 0 && <Notice tone="warn">{t('insights.overview.awaitingPayment', { count: data.live.byStatus.awaitingPayment })}</Notice>}
-                {oldestMinutes !== null && oldestMinutes > 45 && <Notice tone="warn">{t('insights.overview.slowOrder', { minutes: oldestMinutes })}</Notice>}
+                {oldest !== null && oldestMinutes !== null && oldestMinutes > 45 && <Notice tone="warn">{t('insights.overview.slowOrder', { elapsed: oldest })}</Notice>}
                 {data.lowStock.count > 0 ? (
                   <div>
                     <div className="spread" style={{ marginBlockEnd: 6 }}>
@@ -131,7 +134,7 @@ export default function OverviewPage() {
                     </div>
                     <ul style={{ margin: 0, paddingInlineStart: 18 }}>
                       {data.lowStock.items.map((i) => (
-                        <li key={i.id}>{locale === 'ar' && i.nameAr ? i.nameAr : i.name} — <span className="num">{f.num(i.quantity)} {i.unit}</span>
+                        <li key={i.id}>{locale === 'ar' && i.nameAr ? i.nameAr : i.name} — <span className="num">{f.num(i.quantity)} {unitLabel(t, i.unit)}</span>
                           <span className="fine"> ({t('insights.inventory.reorderAt', { level: f.num(i.reorderLevel) })} · {branchName(i.branchId)})</span></li>
                       ))}
                     </ul>

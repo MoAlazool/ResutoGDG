@@ -1,10 +1,10 @@
 'use client';
 import { useMemo, useRef, useState } from 'react';
 import type { MenuEditorView, OrderDetail, OrderSummary, FloorLayout } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, SelectField, Skeleton, Field } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
-import { dateTime, money, pick, time } from '@/lib/format';
+import { dateTime, formatWhen, money, pick, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -39,24 +39,37 @@ export default function OrdersPage() {
   const requests = useApi<{ items: Array<{ id: string; kind: string; tableLabel: string; createdAt: string }> }>(
     `/o/${org.id}/requests${branchId ? `?branchId=${branchId}` : ''}`, { pollMs: 5000 });
   const { call } = useSession();
+  // Keep the last failure on screen while a poll retries (useApi clears `error` during the request), so the strip
+  // does not flicker between the failure text and the skeleton.
+  const requestsErr = useRef<ApiRequestError | null>(null);
+  if (requests.data !== undefined) requestsErr.current = null;
+  else if (requests.error) requestsErr.current = requests.error;
+  const reqError = requestsErr.current;
 
   return (
     <ModuleGate module="core" permission="orders:read">
       <PageHeader title={t('nav.orders')} subtitle={t('core.orders.subtitle')}
         actions={can('orders:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.orders.new')}</button>} />
-      {(requests.data?.items.length ?? 0) > 0 && (
-        <section className="card card-warm" style={{ marginBottom: 16 }} aria-label={t('core.orders.requests')}>
-          <h2 style={{ fontSize: 17 }}>{t('core.orders.requests')}</h2>
-          <div className="row">
-            {requests.data!.items.map((r) => (
-              <span key={r.id} className="badge badge-warn" style={{ padding: '6px 6px 6px 12px' }}>
-                {r.kind === 'bill' ? '🧾' : '🛎'} {t('core.kds.table', { label: r.tableLabel })} · {t(`core.request.${r.kind}`)} · {time(r.createdAt, locale)}
-                <button className="btn btn-sm" style={{ minHeight: 26 }} onClick={async () => { await call(`/o/${org.id}/requests/${r.id}/resolve`, { body: { status: 'resolved' } }); void requests.reload(); }}>✓</button>
+      {/* Guest requests keep a fixed slot (VS-07): the strip is always there, so its arrival does not push the filters
+          and the table down after the page has rendered. */}
+      <section className="card card-warm requests-strip" aria-label={t('core.orders.requests')} aria-busy={(requests.data === undefined && !reqError) || undefined}>
+        <h2>{t('core.orders.requests')}</h2>
+        <div className="row">
+          {requests.data === undefined ? (reqError
+            ? <span className="fine requests-error" role="status" data-kind={reqError.kind}>
+                {reqError.kind === 'forbidden' ? t('core.orders.requestsForbidden') : <>{t('core.orders.requestsFailed')}{' '}
+                  <button type="button" className="btn btn-sm" onClick={() => void requests.reload()}>{t('action.retry')}</button></>}
               </span>
-            ))}
-          </div>
-        </section>
-      )}
+            : <span className="skeleton" style={{ display: 'block', width: 220, height: 30 }} aria-hidden />)
+            : requests.data.items.length === 0 ? <span className="fine">{t('core.orders.noRequests')}</span>
+              : requests.data.items.map((r) => (
+                <span key={r.id} className="badge badge-warn request-chip">
+                  {t('core.kds.table', { label: r.tableLabel })} · {t(`core.request.${r.kind}`)} · <span className="num">{formatWhen(r.createdAt, locale, org.timezone)}</span>
+                  <button className="btn btn-sm" aria-label={t('core.orders.resolveRequest')} onClick={async () => { await call(`/o/${org.id}/requests/${r.id}/resolve`, { body: { status: 'resolved' } }); void requests.reload(); }}>✓</button>
+                </span>
+              ))}
+        </div>
+      </section>
       <div className="form-row" style={{ alignItems: 'end' }}>
         {org.branches.length > 1 && (
           <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => { setBranchId(e.target.value); setCursor(undefined); }}>
@@ -80,12 +93,12 @@ export default function OrdersPage() {
       </div>
       {list.error && <Notice tone="danger">{list.error.message}</Notice>}
       {list.loading && !list.data ? <Skeleton lines={6} /> : (
-        <DataTable rows={list.data?.items ?? []} rowKey={(o) => o.id} onRowClick={(o) => setSelected(o.id)}
+        <DataTable rows={list.data?.items ?? []} rowKey={(o) => o.id} onRowClick={(o) => setSelected(o.id)} busy={list.pending}
           empty={<EmptyState title={t('core.orders.empty')}>{t('core.orders.emptyHint')}</EmptyState>}
           columns={[
             { key: 'n', header: '#', render: (o) => <strong>#{o.number}</strong> },
-            { key: 'time', header: t('core.orders.placed'), render: (o) => time(o.placedAt, locale, org.timezone) },
-            { key: 'where', header: t('core.orders.where'), render: (o) => o.tableLabel ? t('core.kds.table', { label: o.tableLabel }) : `${t(`core.web.${o.fulfillment}`)}${o.customerName ? ` · ${o.customerName}` : ''}` },
+            { key: 'time', header: t('core.orders.placed'), render: (o) => <span className="num">{formatWhen(o.placedAt, locale, org.timezone)}</span> },
+            { key: 'where', header: t('core.orders.where'), render: (o) => o.tableLabel ? t('core.kds.table', { label: o.tableLabel }) : <>{t(`core.web.${o.fulfillment}`)}{o.customerName ? <> · <UserText>{o.customerName}</UserText></> : null}</> },
             { key: 'channel', header: t('core.orders.channel'), render: (o) => t(`core.channel.${o.channel}`) },
             { key: 'status', header: t('core.orders.status'), render: (o) => <Badge tone={statusTone(o.status)}>{t(`core.status.${o.status}`)}</Badge> },
             { key: 'pay', header: t('core.orders.payment'), render: (o) => <Badge tone={o.paymentStatus === 'paid' ? 'ok' : o.paymentStatus === 'unpaid' ? 'neutral' : 'pay'}>{t(`core.payment.${o.paymentStatus}`)}</Badge> },
@@ -112,6 +125,7 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
   const [pending, setPending] = useState(false);
   const collectKey = useRef(newIdempotencyKey());
   const o = detail.data;
+  const [prompt, promptDialog] = usePrompt(locale);
 
   const run = async (fn: () => Promise<unknown>) => {
     setPending(true); setError(null);
@@ -125,6 +139,7 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
 
   return (
     <Modal open onClose={onClose} title={o ? t('core.guest.orderNumber', { n: o.number }) : t('state.loading')}>
+      {promptDialog}
       {!o ? <Skeleton lines={5} /> : (
         <div className="stack">
           <div className="row">
@@ -132,20 +147,20 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
             <Badge tone={o.paymentStatus === 'paid' ? 'ok' : 'pay'}>{t(`core.payment.${o.paymentStatus}`)}</Badge>
             <span className="fine">{t(`core.channel.${o.channel}`)} · {t(`core.web.${o.fulfillment}`)} · {dateTime(o.placedAt, locale, org.timezone)}</span>
           </div>
-          {(o.customerName || o.customerPhone) && <p style={{ margin: 0 }}>{o.customerName}{o.customerPhone ? ` · ${o.customerPhone}` : ''}{o.tableLabel ? ` · ${t('core.kds.table', { label: o.tableLabel })}` : ''}</p>}
-          {o.deliveryAddress != null && <p className="fine" style={{ margin: 0 }}>📍 {String((o.deliveryAddress as { line1?: string }).line1 ?? '')}</p>}
+          {(o.customerName || o.customerPhone) && <p style={{ margin: 0 }}><UserText>{o.customerName}</UserText>{o.customerName && o.customerPhone ? ' · ' : ''}<Phone value={o.customerPhone} link />{o.tableLabel ? ` · ${t('core.kds.table', { label: o.tableLabel })}` : ''}</p>}
+          {o.deliveryAddress != null && <p className="fine" style={{ margin: 0 }}><UserText>{String((o.deliveryAddress as { line1?: string }).line1 ?? '')}</UserText></p>}
           <div>
             {o.lines.map((l) => (
               <div key={l.id} className="spread" style={{ borderBottom: '1px solid var(--line-soft)', padding: '8px 0' }}>
                 <span><strong>{l.quantity}×</strong> {pick(locale, l.name, l.nameAr)}
                   {l.modifiers.length > 0 && <small className="fine"> · {l.modifiers.map((m) => m.option).join(', ')}</small>}
-                  {l.notes && <small className="fine"> · “{l.notes}”</small>}
+                  {l.notes && <small className="fine"> · “<UserText>{l.notes}</UserText>”</small>}
                   {' '}<Badge>{t(`core.kitchen.${l.kitchenStatus}`)}</Badge></span>
                 <span className="num">{money(l.lineTotalMinor, o.currency, locale)}</span>
               </div>
             ))}
           </div>
-          {o.notes && <Notice tone="warn">{o.notes}</Notice>}
+          {o.notes && <Notice tone="warn"><UserText>{o.notes}</UserText></Notice>}
           <div className="spread"><span>{t('core.bill.total')}</span><strong className="num">{money(o.totalMinor, o.currency, locale)}</strong></div>
           <div className="spread fine"><span>{t('core.bill.paid')}</span><span className="num">{money(o.paidMinor - o.refundedMinor, o.currency, locale)}</span></div>
           {o.dueMinor > 0 && <div className="spread"><span>{t('core.bill.due')}</span><strong className="num">{money(o.dueMinor, o.currency, locale)}</strong></div>}
@@ -164,9 +179,9 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
               })}>{t('core.orders.collectCash', { amount: money(o.dueMinor, o.currency, locale) })}</button>
             )}
             {can('orders:cancel') && !['cancelled', 'served', 'picked_up', 'delivered'].includes(o.status) && (
-              <button className="btn btn-danger" disabled={pending} onClick={() => {
-                const reason = window.prompt(t('core.orders.cancelReason'));
-                if (reason && reason.trim().length >= 2) void run(() => call(`/o/${org.id}/orders/${o.id}/cancel`, { body: { reason: reason.trim(), version: o.version } }));
+              <button className="btn btn-danger" disabled={pending} onClick={async () => {
+                const reason = await prompt({ title: t('core.orders.cancel'), label: t('core.orders.cancelReason'), minLength: 2, maxLength: 300, multiline: true, tone: 'danger', confirmLabel: t('core.orders.cancel') });
+                if (reason) void run(() => call(`/o/${org.id}/orders/${o.id}/cancel`, { body: { reason, version: o.version } }));
               }}>{t('core.orders.cancel')}</button>
             )}
           </div>

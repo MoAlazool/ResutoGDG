@@ -50,7 +50,7 @@ export const USAGE_LIMIT_FOR: Record<string, PlanLimitKey | undefined> = {
 export const EXTERNAL_COSTS_NOTE =
   'Resuto subscription fees only. Payment-provider fees, WhatsApp conversation fees and advertising spend are charged by those providers directly to your accounts and are not included.';
 export const EXTERNAL_COSTS_NOTE_AR =
-  'رسوم اشتراك ريزوتو فقط. رسوم مزودي الدفع ورسوم محادثات واتساب وتكاليف الإعلانات يحصّلها هؤلاء المزودون مباشرة من حساباتك ولا تشملها هذه الأسعار.';
+  'رسوم اشتراك ريسوتو فقط. رسوم مزودي الدفع ورسوم محادثات واتساب وتكاليف الإعلانات يحصّلها هؤلاء المزودون مباشرة من حساباتك ولا تشملها هذه الأسعار.';
 
 export interface PriceTag {
   amountMinor: number;

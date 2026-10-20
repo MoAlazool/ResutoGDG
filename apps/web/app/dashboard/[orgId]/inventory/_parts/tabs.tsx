@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState, type FormEvent } from 'react';
 import { INVENTORY_UNITS, WASTE_REASONS, parseMajor, unitsCompatible, type AnalyticsMeta, type Currency, type InventoryItemView, type InventoryUnit, type StockLevelView, type StockMovementView } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, UserText } from '@resuto/ui';
 import { BarList } from '@/components/charts';
 import { BranchSelect, LoadError, MetaPanel, PeriodPicker, presetPeriod, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
 import { newIdempotencyKey } from '@/lib/api';
@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { unitLabel } from '@/lib/vocab';
 
 const majorOf = (minor: number) => (minor / 100).toFixed(2);
 
@@ -45,11 +46,11 @@ export function LevelsTab({ onRecord }: { onRecord?: () => void }) {
         <DataTable rows={rows} rowKey={(l) => `${l.branchId}:${l.itemId}`} empty={<EmptyState title={t('insights.inventory.noItems')}>{t('insights.inventory.noItemsHint')}</EmptyState>} columns={[
           { key: 'item', header: t('insights.inventory.item'), render: (l) => pick(locale, l.name, l.nameAr) },
           { key: 'branch', header: t('insights.branch.label'), render: (l) => branchName(l.branchId) },
-          { key: 'qty', header: t('insights.inventory.onHand'), align: 'end', render: (l) => <span className="num">{f.num(l.quantity)} {l.unit}</span> },
-          { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (l) => <span className="num">{l.reorderLevel ? `${f.num(l.reorderLevel)} ${l.unit}` : '—'}</span> },
+          { key: 'qty', header: t('insights.inventory.onHand'), align: 'end', render: (l) => <span className="num">{f.num(l.quantity)} {unitLabel(t, l.unit)}</span> },
+          { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (l) => <span className="num">{l.reorderLevel ? `${f.num(l.reorderLevel)} ${unitLabel(t, l.unit)}` : '—'}</span> },
           { key: 'value', header: t('insights.inventory.value'), align: 'end', render: (l) => <span className="num">{f.money(l.valueMinor)}</span> },
           { key: 'status', header: t('insights.inventory.status'), render: (l) => l.quantity < 0 ? <Badge tone="danger">{t('insights.inventory.negative')}</Badge>
-            : l.low ? <Badge tone="warn">⚠ {t('insights.inventory.low')}</Badge> : <Badge tone="ok">✓ {t('insights.inventory.ok')}</Badge> },
+            : l.low ? <Badge tone="warn">{t('insights.inventory.low')}</Badge> : <Badge tone="ok">✓ {t('insights.inventory.ok')}</Badge> },
           { key: 'counted', header: t('insights.inventory.lastCounted'), render: (l) => <span className="fine">{l.lastCountedAt ? dateTime(l.lastCountedAt, locale) : t('insights.inventory.never')}</span> },
         ]} />
       )}
@@ -109,7 +110,7 @@ export function MovementTab() {
         <form onSubmit={action.run}>
           <SelectField label={t('insights.inventory.item')} required value={form.itemId} onChange={(e) => setForm({ ...form, itemId: e.target.value, unit: '' })}>
             <option value="">{t('insights.inventory.chooseItem')}</option>
-            {items.data.items.map((i) => <option key={i.id} value={i.id}>{pick(locale, i.name, i.nameAr)} ({i.unit})</option>)}
+            {items.data.items.map((i) => <option key={i.id} value={i.id}>{pick(locale, i.name, i.nameAr)} ({unitLabel(t, i.unit)})</option>)}
           </SelectField>
           <div className="form-row">
             <SelectField label={kind === 'transfer' ? t('insights.movement.from') : t('insights.branch.label')} value={form.branchId} onChange={set('branchId')}>
@@ -132,12 +133,12 @@ export function MovementTab() {
             <Field label={kind === 'count' ? t('insights.movement.counted') : t('insights.movement.quantity')} type="number" min={0} step="0.001" required
               value={form.quantity} onChange={set('quantity')} />
             <SelectField label={t('insights.inventory.unit')} value={form.unit || item?.unit || ''} onChange={set('unit')} disabled={!item}>
-              {units.map((u) => <option key={u} value={u}>{u}</option>)}
+              {units.map((u) => <option key={u} value={u}>{unitLabel(t, u)}</option>)}
             </SelectField>
           </div>
           {kind === 'purchase' && (
             <div className="form-row">
-              <Field label={t('insights.movement.unitCost', { unit: item?.unit ?? '', currency: org.currency })} inputMode="decimal" value={form.unitCost} onChange={set('unitCost')}
+              <Field label={t('insights.movement.unitCost', { unit: item ? unitLabel(t, item.unit) : '', currency: org.currency })} inputMode="decimal" value={form.unitCost} onChange={set('unitCost')}
                 placeholder={item ? majorOf(item.costPerUnitMinor) : ''} hint={t('insights.movement.unitCostHint')} />
               <SelectField label={t('insights.inventory.supplier')} value={form.supplierId} onChange={set('supplierId')}>
                 <option value="">—</option>
@@ -160,15 +161,15 @@ export function MovementTab() {
           <div className="stack">
             <Notice tone="ok">{t('state.saved')}</Notice>
             {result.kind === 'transfer' ? (
-              <p>{t('insights.movement.transferDone', { out: f.num(result.out.quantityAfter), in: f.num(result.in.quantityAfter), unit: result.unit })}</p>
+              <p>{t('insights.movement.transferDone', { out: f.num(result.out.quantityAfter), in: f.num(result.in.quantityAfter), unit: unitLabel(t, result.unit) })}</p>
             ) : result.kind === 'count' ? (
               <div className="grid grid-3">
-                <Stat label={t('insights.movement.expected')} value={`${f.num(result.expectedQuantity)} ${result.unit}`} />
-                <Stat label={t('insights.movement.counted')} value={`${f.num(result.countedQuantity)} ${result.unit}`} />
-                <Stat label={t('insights.movement.variance')} value={`${result.variance > 0 ? '+' : ''}${f.num(result.variance)} ${result.unit}`}
+                <Stat label={t('insights.movement.expected')} value={`${f.num(result.expectedQuantity)} ${unitLabel(t, result.unit)}`} />
+                <Stat label={t('insights.movement.counted')} value={`${f.num(result.countedQuantity)} ${unitLabel(t, result.unit)}`} />
+                <Stat label={t('insights.movement.variance')} value={`${result.variance > 0 ? '+' : ''}${f.num(result.variance)} ${unitLabel(t, result.unit)}`}
                   hint={f.money(result.varianceValueMinor)} tone={result.variance < 0 ? 'danger' : result.variance > 0 ? 'warn' : 'ok'} />
               </div>
-            ) : <p>{t('insights.movement.levelNow', { qty: f.num(result.quantityAfter), unit: result.unit })}</p>}
+            ) : <p>{t('insights.movement.levelNow', { qty: f.num(result.quantityAfter), unit: unitLabel(t, result.unit) })}</p>}
             {result.lowStockAlertsOpened?.length > 0 && <Notice tone="warn">{t('insights.movement.lowOpened')}</Notice>}
           </div>
         )}
@@ -227,10 +228,10 @@ export function ItemsTab() {
         {!items.data ? <Skeleton lines={4} /> : (
           <DataTable rows={items.data.items} rowKey={(i) => i.id} empty={<EmptyState title={t('insights.inventory.noItems')}>{t('insights.inventory.noItemsHint')}</EmptyState>} columns={[
             { key: 'name', header: t('insights.inventory.item'), render: (i) => <>{pick(locale, i.name, i.nameAr)} {!i.isActive && <Badge>{t('insights.inventory.archived')}</Badge>}</> },
-            { key: 'unit', header: t('insights.inventory.unit'), render: (i) => i.unit },
-            { key: 'cost', header: t('insights.inventory.costPerUnit'), align: 'end', render: (i) => <span className="num">{f.money(i.costPerUnitMinor)} / {i.unit}</span> },
+            { key: 'unit', header: t('insights.inventory.unit'), render: (i) => unitLabel(t, i.unit) },
+            { key: 'cost', header: t('insights.inventory.costPerUnit'), align: 'end', render: (i) => <span className="num">{f.money(i.costPerUnitMinor)} / {unitLabel(t, i.unit)}</span> },
             { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (i) => <span className="num">{f.num(i.reorderLevel)}</span> },
-            { key: 'total', header: t('insights.inventory.onHandAll'), align: 'end', render: (i) => <span className="num">{f.num(i.totalQuantity)} {i.unit}</span> },
+            { key: 'total', header: t('insights.inventory.onHandAll'), align: 'end', render: (i) => <span className="num">{f.num(i.totalQuantity)} {unitLabel(t, i.unit)}</span> },
             { key: 'supplier', header: t('insights.inventory.supplier'), render: (i) => i.supplierName ?? '—' },
             ...(writable ? [{ key: 'actions', header: '', align: 'end' as const, render: (i: InventoryItemView) => (
               <span className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
@@ -269,10 +270,10 @@ export function ItemsTab() {
             <SelectField label={t('insights.inventory.unit')} value={form.unit} onChange={set('unit')} disabled={editing !== 'new'} hint={editing !== 'new' ? t('insights.inventory.unitLocked') : t('insights.inventory.unitHint')}>
               {INVENTORY_UNITS.map((u) => <option key={u} value={u}>{t(`insights.unit.${u}`)}</option>)}
             </SelectField>
-            <Field label={t('insights.inventory.costPerUnitIn', { unit: form.unit, currency: org.currency })} inputMode="decimal" required value={form.cost} onChange={set('cost')} />
+            <Field label={t('insights.inventory.costPerUnitIn', { unit: unitLabel(t, form.unit), currency: org.currency })} inputMode="decimal" required value={form.cost} onChange={set('cost')} />
           </div>
           <div className="form-row">
-            <Field label={t('insights.inventory.reorderLevelIn', { unit: form.unit })} type="number" min={0} step="0.001" value={form.reorder} onChange={set('reorder')} hint={t('insights.inventory.reorderHint')} />
+            <Field label={t('insights.inventory.reorderLevelIn', { unit: unitLabel(t, form.unit) })} type="number" min={0} step="0.001" value={form.reorder} onChange={set('reorder')} hint={t('insights.inventory.reorderHint')} />
             <Field label="SKU" value={form.sku} onChange={set('sku')} />
           </div>
           <SelectField label={t('insights.inventory.supplier')} value={form.supplierId} onChange={set('supplierId')}>
@@ -357,7 +358,7 @@ export function RecipesTab() {
                     <input className="input" type="number" min={0} step="0.001" value={r.quantity} disabled={!writable} onChange={(e) => update(i, { quantity: e.target.value })} /></label>
                   <label className="field" style={{ flex: '0 1 90px', margin: 0 }}><span>{t('insights.inventory.unit')}</span>
                     <select className="select" value={r.unit} disabled={!writable} onChange={(e) => update(i, { unit: e.target.value as InventoryUnit })}>
-                      {(it ? INVENTORY_UNITS.filter((u) => unitsCompatible(u, it.unit)) : INVENTORY_UNITS).map((u) => <option key={u} value={u}>{u}</option>)}
+                      {(it ? INVENTORY_UNITS.filter((u) => unitsCompatible(u, it.unit)) : INVENTORY_UNITS).map((u) => <option key={u} value={u}>{unitLabel(t, u)}</option>)}
                     </select></label>
                   {writable && <button type="button" className="btn btn-sm btn-ghost" aria-label={t('action.delete')} onClick={() => setRows(editRows.filter((_, idx) => idx !== i))}>✕</button>}
                 </div>
@@ -394,12 +395,12 @@ export function AlertsTab() {
       <LoadError error={error} retry={reload} />
       {!data ? <Skeleton lines={3} /> : (
         <DataTable rows={data.items} rowKey={(a) => a.id} empty={<EmptyState title={t('insights.overview.stockOk')} />} columns={[
-          { key: 'item', header: t('insights.inventory.item'), render: (a) => <><Badge tone="warn">⚠</Badge> {pick(locale, a.name, a.nameAr)}</> },
+          { key: 'item', header: t('insights.inventory.item'), render: (a) => <><Badge tone="warn">!</Badge> {pick(locale, a.name, a.nameAr)}</> },
           { key: 'branch', header: t('insights.branch.label'), render: (a) => branchName(a.branchId) },
-          { key: 'qty', header: t('insights.inventory.onHand'), align: 'end', render: (a) => <span className="num">{f.num(a.quantity)} {a.unit}</span> },
-          { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (a) => <span className="num">{f.num(a.reorderLevel)} {a.unit}</span> },
+          { key: 'qty', header: t('insights.inventory.onHand'), align: 'end', render: (a) => <span className="num">{f.num(a.quantity)} {unitLabel(t, a.unit)}</span> },
+          { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (a) => <span className="num">{f.num(a.reorderLevel)} {unitLabel(t, a.unit)}</span> },
           { key: 'since', header: t('insights.inventory.since'), render: (a) => <span className="fine">{dateTime(a.openedAt, locale)}</span> },
-          { key: 'supplier', header: t('insights.inventory.supplier'), render: (a) => a.supplierName ? <>{a.supplierName} {a.supplierPhone && <a href={`tel:${a.supplierPhone}`} dir="ltr" className="fine">{a.supplierPhone}</a>}</> : '—' },
+          { key: 'supplier', header: t('insights.inventory.supplier'), render: (a) => a.supplierName ? <><UserText>{a.supplierName}</UserText> {a.supplierPhone && <span className="fine"><Phone value={a.supplierPhone} link /></span>}</> : '—' },
         ]} />
       )}
       <p className="fine" style={{ marginBlockStart: 10 }}>{t('insights.inventory.alertsHint')}</p>
@@ -458,7 +459,7 @@ export function ValueWasteTab() {
                 <BarList format={f.money} items={waste.data.byReason.map((r) => ({ key: r.reason, label: t(`insights.waste.${r.reason}`), value: r.valueMinor }))} /></div>
               <div><h3>{t('insights.inventory.byItem')}</h3>
                 <BarList format={f.money} items={waste.data.byItem.slice(0, 10).map((r) => ({ key: `${r.itemId}:${r.reason}`, label: pick(locale, r.name, r.nameAr), value: r.valueMinor,
-                  hint: `${f.num(r.quantity)} ${r.unit} · ${t(`insights.waste.${r.reason}`)}` }))} /></div>
+                  hint: `${f.num(r.quantity)} ${unitLabel(t, r.unit)} · ${t(`insights.waste.${r.reason}`)}` }))} /></div>
             </div>
           </div>
         )}
@@ -502,7 +503,7 @@ export function HistoryTab() {
           { key: 'item', header: t('insights.inventory.item'), render: (m) => m.itemName },
           { key: 'branch', header: t('insights.branch.label'), render: (m) => branchName(m.branchId) },
           { key: 'kind', header: t('insights.movement.reason'), render: (m) => <>{t(`insights.reason.${m.reason}`)}{m.wasteReason && <span className="fine"> · {t(`insights.waste.${m.wasteReason}`)}</span>}</> },
-          { key: 'qty', header: t('insights.movement.quantity'), align: 'end', render: (m) => <span className="num" style={{ color: m.quantityDelta < 0 ? 'var(--danger)' : 'var(--ok)' }}>{m.quantityDelta > 0 ? '+' : ''}{f.num(m.quantityDelta)} {m.unit}</span> },
+          { key: 'qty', header: t('insights.movement.quantity'), align: 'end', render: (m) => <span className="num" style={{ color: m.quantityDelta < 0 ? 'var(--danger)' : 'var(--ok)' }}>{m.quantityDelta > 0 ? '+' : ''}{f.num(m.quantityDelta)} {unitLabel(t, m.unit)}</span> },
           { key: 'note', header: t('insights.movement.note'), render: (m) => <span className="fine">{m.note ?? (m.referenceType === 'order' ? t('insights.inventory.fromOrder') : '')}</span> },
         ]} />
       )}

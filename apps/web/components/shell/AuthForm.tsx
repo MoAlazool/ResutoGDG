@@ -1,21 +1,52 @@
 'use client';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
-import { Field, Notice } from '@resuto/ui';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import type { MeResponse } from '@resuto/contracts';
+import { Field, Notice, Wordmark } from '@resuto/ui';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
-import { AUTH_MODE, useSession } from '@/lib/session';
+import { homePath } from '@/lib/home-path';
+import { safeNext } from '@/lib/safe-next';
+import { AUTH_MODE, GOOGLE_AUTH, useSession } from '@/lib/session';
 
+const WORKSPACES = ['manager', 'kitchen', 'host'] as const;
+type Workspace = (typeof WORKSPACES)[number];
+
+/** Where a signed-in user goes: `next` when given, otherwise their role's home in their first restaurant (VS-05). */
+export function destinationFor(me: MeResponse | null, next: string | null): string {
+  const safe = safeNext(next);
+  if (safe) return safe;
+  const m = me?.memberships[0];
+  return m ? homePath(m.role, m.orgId) : '/onboarding';
+}
+
+/**
+ * Staff sign-in and sign-up, restored to the legacy split layout (legacy/public/app.js renderLogin): a green brand
+ * panel ("A calmer kind of service. Every table. Every order. All together.") and the form column with the
+ * workspace eyebrow, "Welcome back.", email and password, Google when configured, the account note and links to the
+ * other workspaces. After sign-in each role lands on its own screen (kitchen → KDS, front desk → floor, …).
+ */
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
-  const { t } = useT();
+  const { t, tn } = useT();
   const session = useSession();
   const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const routed = useRef(false);
+  const next = params.get('next');
+  const workspace: Workspace | 'staff' = (WORKSPACES as readonly string[]).includes(params.get('role') ?? '') ? params.get('role') as Workspace : 'staff';
+
+  // Already signed in (or back from Google): continue to the right screen instead of showing the form again.
+  useEffect(() => {
+    if (routed.current || pending || !session.ready || !session.token || !session.me) return;
+    routed.current = true;
+    router.replace(destinationFor(session.me, next));
+  }, [session.ready, session.token, session.me, pending, next, router]);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (pending) return;
     const f = new FormData(e.currentTarget);
     setPending(true);
     setError(null);
@@ -23,42 +54,64 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       if (mode === 'signup') await session.signUp(String(f.get('email')), String(f.get('password')), String(f.get('fullName') || ''));
       else await session.signIn(String(f.get('email')), String(f.get('password')));
       const me = await session.refreshMe();
-      const next = params.get('next');
-      if (next?.startsWith('/')) router.push(next);
-      else if (me?.memberships.length) {
-        const m = me.memberships[0]!;
-        router.push(m.role === 'driver' ? '/driver' : m.role === 'kitchen' ? `/kitchen/${m.orgId}` : `/dashboard/${m.orgId}`);
-      } else router.push('/onboarding');
+      routed.current = true;
+      router.push(destinationFor(me, next));
     } catch (err) {
       setError((err as Error).message);
-    } finally {
       setPending(false);
     }
   }
 
+  async function google() {
+    setError(null);
+    try { await session.signInWithGoogle(safeNext(next)); } catch (err) { setError((err as Error).message); }
+  }
+
+  const otherWorkspaces = WORKSPACES.filter((w) => w !== workspace);
   return (
-    <main className="center-page">
-      <div className="auth-card rise">
-        <div className="spread">
-          <Link href="/" className="brand-row"><img src="/brand/resuto-icon.png" alt="" /> {t('app.name')}</Link>
-          <LanguageToggle />
+    <div className="login">
+      <section className="login-brand" aria-label={t('auth.brand.foot')}>
+        <Link href="/" className="ws-brand" aria-label={t('app.name')}><Wordmark tone="light" label={t('app.name')} /></Link>
+        <div>
+          <div className="eyebrow">{t('auth.brand.eyebrow')}</div>
+          <h1>{t('auth.brand.line1')}<br />{t('auth.brand.line2')}<br />{t('auth.brand.line3')}</h1>
+          <p>{t('auth.brand.body')}</p>
         </div>
-        <h1 style={{ fontSize: 26 }}>{mode === 'signup' ? t('auth.signUp') : t('auth.signIn')}</h1>
-        <form onSubmit={submit} noValidate={false}>
+        <small>{t('auth.brand.foot')}</small>
+      </section>
+      <main className="login-main">
+        <form className="login-form" onSubmit={submit} aria-busy={pending || undefined}>
+          <div className="eyebrow">{t(`auth.workspace.${workspace}`)}</div>
+          <h1>{mode === 'signup' ? t('auth.signupTitle') : t('auth.welcome')}</h1>
+          <p>{mode === 'signup' ? t('auth.signupBody') : t('auth.welcomeBody')}</p>
+          {params.get('reason') === 'expired' && mode === 'login' && <Notice tone="warn">{t('auth.expired')}</Notice>}
           {mode === 'signup' && <Field label={t('auth.fullName')} name="fullName" autoComplete="name" />}
-          <Field label={t('auth.email')} name="email" type="email" required autoComplete="email" />
-          <Field label={t('auth.password')} name="password" type="password" required minLength={10} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+          <Field label={t('auth.email')} name="email" type="email" required autoComplete="email" dir="ltr" />
+          <Field label={t('auth.password')} name="password" type="password" required minLength={10}
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}
-          <button className="btn btn-primary btn-block" disabled={pending} style={{ marginBlockStart: 12 }}>
-            {pending ? t('state.loading') : mode === 'signup' ? t('auth.signUp') : t('auth.signIn')}
+          <button className="btn btn-primary btn-block" disabled={pending} aria-busy={pending || undefined}>
+            {pending ? t('state.loading') : mode === 'signup' ? t('auth.submitSignup') : t('auth.submit')}
           </button>
+          {GOOGLE_AUTH && <button type="button" className="btn btn-block" onClick={google} disabled={pending}>{t('auth.google')}</button>}
+          <p className="login-note">{t('auth.accountNote')}</p>
+          <div className="login-links">
+            {mode === 'signup'
+              ? <span>{t('auth.haveAccount')} <Link href={`/login${next ? `?next=${encodeURIComponent(next)}` : ''}`}>{t('auth.signIn')}</Link></span>
+              : <Link href="/signup">{t('auth.createAccount')}</Link>}
+          </div>
+          {mode === 'login' && (
+            <nav className="login-roles" aria-label={t('auth.brand.foot')}>
+              {otherWorkspaces.map((w) => <Link key={w} href={`/login?role=${w}${next ? `&next=${encodeURIComponent(next)}` : ''}`}>{t(`auth.workspace.${w}`)} ↗</Link>)}
+            </nav>
+          )}
+          {AUTH_MODE === 'dev' && (
+            <p className="login-dev"><span className="badge badge-sandbox">DEV</span>
+              <span>{tn('auth.devMode', { provider: <bdi dir="ltr">Supabase Auth</bdi> })}</span></p>
+          )}
         </form>
-        <p className="fine" style={{ marginBlockStart: 18 }}>
-          {mode === 'signup' ? t('auth.haveAccount') : t('auth.noAccount')}{' '}
-          <Link href={mode === 'signup' ? '/login' : '/signup'}>{mode === 'signup' ? t('auth.signIn') : t('auth.signUp')}</Link>
-        </p>
-        {AUTH_MODE === 'dev' && <p className="fine"><span className="badge badge-sandbox">DEV</span> {t('auth.devMode')}</p>}
-      </div>
-    </main>
+      </main>
+      <LanguageToggle className="ws-lang" label={t('lang.short')} />
+    </div>
   );
 }

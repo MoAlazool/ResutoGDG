@@ -524,7 +524,7 @@ const attributed = await must('POST', `/public/order/${SLUG}/orders`, { headers:
 const draft = await must('POST', mk('/campaigns'), { token: STAFF.marketing.token, body: { name: 'Iftar set menu (demo draft)', channel: 'whatsapp', segmentId: regulars.id, objective: 'reactivation',
   content: { text: 'Our iftar set menu is back. Book your table. (demo draft)' } } });
 await must('POST', mk(`/campaigns/${draft.id}/submit`), { token: STAFF.marketing.token });
-await must('POST', mk('/promotions'), { token: STAFF.marketing.token, body: { code: 'WELCOME10', name: 'Welcome 10% (demo)', nameAr: 'خصم ترحيبي ١٠٪ (تجريبي)', kind: 'percent', value: 1000, maxDiscountMinor: 5000, minOrderMinor: 20000, channels: ['web'] } });
+await must('POST', mk('/promotions'), { token: STAFF.marketing.token, body: { code: 'WELCOME10', name: 'Welcome 10% (demo)', nameAr: 'خصم ترحيبي 10% (تجريبي)', kind: 'percent', value: 1000, maxDiscountMinor: 5000, minOrderMinor: 20000, channels: ['web'] } });
 log('marketing: 2 segments, 1 approved campaign sent on the sandbox channel with an attributed paid order, 1 awaiting approval, 1 promo code');
 
 // --- 13. finance: monthly operating expenses (no ingredient expenses: item costs already carry COGS) -----------------------------

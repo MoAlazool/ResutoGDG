@@ -6,10 +6,17 @@
 // display: Money, formatMinor, useMoneyFormat, useNumberFormat, StatusBadge (+ maps), Timeline,
 //          KeyValueList, useReducedMotion, VisuallyHidden
 // states: SkeletonBlock/Stats/Table/Cards, Freshness, ErrorState, StaleNotice, Loadable, failureKind, useOnline
+// primitives: PageHeading, PageEyebrowProvider, Breadcrumb, StatsStrip(+Skeleton), Panel, PanelHead
+// shell: Wordmark, NAV_GLYPHS/NavGlyph, NavBadge, RestaurantChip, Topbar, LiveStatus, WorkspaceFooter, ProfileButton,
+//        RouteProgress, initialOf
+// display (bidi): UserText, Ltr, Phone, Email, Code
 export * from './base';
+export * from './primitives';
+export * from './shell';
 export * from './overlays';
 export * from './toast';
 export * from './inputs';
 export * from './display';
 export * from './states';
+export * from './locale';
 export { UiStyles } from './styles';
