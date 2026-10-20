@@ -15,13 +15,13 @@ export type { LandingPlan } from './plans';
 
 const NAV_LINKS: Array<[string, string]> = [['#studio', 'Floor Studio'], ['#service', 'Guest service'], ['#operations', 'Operations'], ['#connect', 'Connect'], ['#pricing', 'Pricing']];
 
-function Wordmark({ rtl }: { rtl: boolean }) {
+export function Wordmark({ rtl }: { rtl: boolean }) {
   return rtl
     ? <img className="lp-logo-ar" src="/landing/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} />
     : <><span className="lp-logo-mark" aria-hidden>r</span><span className="lp-logo-type">resuto<i>.</i></span></>;
 }
 
-function Switcher({ L }: { L: Landing }) {
+export function Switcher({ L }: { L: Landing }) {
   return (
     <button type="button" className="language-switch" lang={L.rtl ? 'en' : 'ar'} aria-label={L.rtl ? 'Switch to English' : 'التبديل إلى العربية'} onClick={() => setLocale(L.rtl ? 'en' : 'ar')}>
       {L.rtl ? 'EN' : 'العربية'}

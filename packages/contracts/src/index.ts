@@ -25,3 +25,4 @@ export * from './compliance';
 export * from './intelligence';
 export * from './mcp';
 export * from './studio';
+export * from './sales';
