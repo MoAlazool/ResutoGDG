@@ -35,11 +35,15 @@ export const BUDGETS = [
   { group: 'other', kb: 290, targetKb: 220, test: () => true },
 ];
 
-/** HTML document budgets (gzip kB): sign-in/onboarding pages carry only their own copy (auth scope). */
+/**
+ * HTML document budgets (gzip kB, ratchets at the largest of EN/AR plus headroom). Sign-in/onboarding pages carry
+ * only their own copy (auth scope): /login went from 182 kB raw / 47.5 kB gz to 46 kB / 12.5 kB in English. Staff
+ * documents still carry every module's copy (~48 kB gz EN, ~57 kB AR); splitting it per module is the next step.
+ */
 export const DOC_BUDGETS = [
-  { group: 'auth', kb: 24, test: (r) => /^\/(login|signup|onboarding)(\/|$)/.test(r) },
+  { group: 'auth', kb: 18, test: (r) => /^\/(login|signup|onboarding)(\/|$)/.test(r) },
   { group: 'staff', kb: 62, test: (r) => /^\/(dashboard|kitchen|driver|admin)(\/|$)/.test(r) },
-  { group: 'public', kb: 80, test: () => true },
+  { group: 'public', kb: 42, test: () => true },
 ];
 
 const manifest = JSON.parse(readFileSync(path.join(NEXT, 'app-build-manifest.json'), 'utf8')).pages;
