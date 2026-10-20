@@ -17,10 +17,11 @@ import { mcp } from './dict/mcp';
 import { pay } from './dict/pay';
 import { platform } from './dict/platform';
 import { studio } from './dict/studio';
+import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp];
+const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp, vocab, allergens];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {
@@ -52,7 +53,7 @@ export function translate(locale: Locale, key: string, vars?: Record<string, str
  */
 export const GUEST_SCOPE: RegExp[] = [
   /^app\./, /^action\./, /^state\./, /^lang\./, /^err\./, /^plural\./,
-  /^core\.(guest|bill|status|res|web|dietary|feature|method|channel|payment)\./,
+  /^core\.(guest|bill|status|res|web|dietary|allergen|feature|method|channel|payment)\./,
   /^pay\./, /^connect\.order\./, /^connect\.sandbox/, /^studio\.site\./, /^platform\.(?!lp\.)/,
 ];
 const LANDING = /^platform\.lp\./;

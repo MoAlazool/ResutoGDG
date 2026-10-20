@@ -9,6 +9,7 @@ import { formatElapsed } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
+import { unitLabel } from '@/lib/vocab';
 
 interface Overview {
   date: string; localTime: string; currency: string;
@@ -133,7 +134,7 @@ export default function OverviewPage() {
                     </div>
                     <ul style={{ margin: 0, paddingInlineStart: 18 }}>
                       {data.lowStock.items.map((i) => (
-                        <li key={i.id}>{locale === 'ar' && i.nameAr ? i.nameAr : i.name} — <span className="num">{f.num(i.quantity)} {i.unit}</span>
+                        <li key={i.id}>{locale === 'ar' && i.nameAr ? i.nameAr : i.name} — <span className="num">{f.num(i.quantity)} {unitLabel(t, i.unit)}</span>
                           <span className="fine"> ({t('insights.inventory.reorderAt', { level: f.num(i.reorderLevel) })} · {branchName(i.branchId)})</span></li>
                       ))}
                     </ul>

@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { allergenLabel, stationLabel } from '@/lib/vocab';
 
 type Tab = 'items' | 'modifiers' | 'import';
 const list = (s: FormDataEntryValue | null) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -92,7 +93,7 @@ export default function MenuPage() {
                         {items.map((p) => (
                           <tr key={p.id}>
                             <td style={{ width: 56 }}>{p.imageUrl ? <img src={p.imageUrl} alt="" width={44} height={44} style={{ borderRadius: 8, objectFit: 'cover' }} /> : <span className="item-initial" aria-hidden>{initialOf(pick(locale, p.name, p.nameAr))}</span>}</td>
-                            <td><strong>{pick(locale, p.name, p.nameAr)}</strong><div className="fine">{p.station}{p.prepMinutes ? ` · ${p.prepMinutes}′` : ''}{p.allergens.length ? ` · ${p.allergens.join(', ')}` : ''}</div></td>
+                            <td><strong>{pick(locale, p.name, p.nameAr)}</strong><div className="fine">{stationLabel(t, p.station)}{p.prepMinutes ? ` · ${p.prepMinutes}′` : ''}{p.allergens.length ? ` · ${p.allergens.map((a) => allergenLabel(t, a)).join(locale === 'ar' ? '، ' : ', ')}` : ''}</div></td>
                             <td className="num">{money(p.priceMinor, p.currency, locale)}</td>
                             <td>
                               {can('menu:availability') ? (
