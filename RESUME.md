@@ -15,17 +15,24 @@ measurements, redeploy staging and re-verify.
 
 | Stage | State |
 |---|---|
-| Grounded audit (visual parity, features, integrations, payments, security, perf, defects) | in progress |
-| P0 foundations: Western digits 0-9, verified DB TLS, Admin Auth demo provisioning | done on `lead/p0-digits` (merge pending) |
-| P0: original landing/design tokens, core visual fidelity, loading foundations, security blockers | next |
-| P1: module workflows, payment safety, Meta/WhatsApp/payment adapters, activation tests | pending |
+| Grounded audit (227 items; `docs/BACKLOG.md`, `docs/FEATURE_MATRIX.md`) | done |
+| P0 foundations: Western digits 0-9, verified DB TLS, Admin Auth demo provisioning, data layer, loading states | done |
+| Wave 1: security hardening, payments authenticity + activation, legacy staff shell | done, on staging (API) at `5274252` |
+| Wave 2: public pages + Smash storefront, guest ordering/reservations, performance, Meta growth | running |
+| Wave 3+: operations UI (KDS, floor, host, setup), module features (loyalty, notifications, hours/zones…), Studio AI + MCP, other integrations, demo data + QA | pending |
 | P2: remaining integrations, Studio AI, MCP interop, advanced performance, research | pending |
 | Staging redeploy + full regression on the final commit | pending |
 
 ## Next executable task
-Read the audit backlog (`docs/BACKLOG.md` once written), then run the P0 implementation workstreams.
+Integrate wave 2 (merge `ws/ws4a-public`, `ws/ws4b-guest`, `ws/ws6-perf`, `ws/ws7a-meta`; run the full suite sequentially;
+push; redeploy Render; run `scripts/staging/*`), then launch wave 3 from `docs/BACKLOG.md` (workstreams ws5, ws8, ws9,
+ws7b, ws10).
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
+- **Vercel connector**: re-authorize the Vercel connector in claude.ai with access to the team that owns
+  `resuto-2-staging-web` (scope "ta-nk"). Until then the web app on staging cannot be redeployed or inspected.
+- **Supabase**: turn on leaked-password protection; configure SMTP + Site URL (B-14).
+- **Vercel automation bypass** created for earlier QA: revoke it in Project → Settings → Deployment Protection.
 See `docs/OPEN_BLOCKERS.md` → "Owner actions". Provider credentials (Paymob, Stripe, Moyasar, Meta, TikTok, Snapchat,
 Foodics, Odoo, Wafeq, Qoyod, ZATCA/ETA, Gemini) are not available; their acceptance scripts are written to run once
 configured and are reported as not yet run.

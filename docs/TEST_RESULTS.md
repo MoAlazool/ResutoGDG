@@ -55,3 +55,36 @@ Supabase Storage and Postgres; payments and WhatsApp in sandbox mode. Synthetic 
 
 Not covered on staging: real payment, WhatsApp, ads or tax providers (sandbox only); email confirmation
 and password reset (Supabase SMTP is not configured, B-14); load testing (free plans).
+
+## Continuation wave 1 — integrated (2026-10-20)
+
+Security hardening, payments authenticity/activation and the restored staff shell, merged at `9d2aa9b` and
+followed by `5274252` (small integration follow-ups). Local container, own test databases.
+
+| Suite | Commit | Result |
+|---|---|---|
+| API integration (51 files) | `9d2aa9b` | **473 / 473** |
+| Database security | `9d2aa9b` | **28 / 28** |
+| MCP server (official SDK client, end to end) | `9d2aa9b` | **19 / 19** |
+| Integrations adapters + acceptance runner | `9d2aa9b` | **170 / 170** |
+| Contracts | `9d2aa9b` | **22 / 22** |
+| AI service | `9d2aa9b` | pass |
+| Legacy migration tool | `9d2aa9b` | **9 / 9** |
+| Web unit (incl. digits, bidi, dialogs, tokens, CSP, cache policy guards) | `5274252` | **132 / 132** (2 failed at `9d2aa9b`; fixed in `5274252`) |
+| Web typecheck / production build | `9d2aa9b`, `5274252` | pass / pass |
+| API tests touched by `5274252` (inventory, customers, studio, MCP lockdown, MCP) | `5274252` | **66 / 66** |
+| Dependency audit (`pnpm audit --prod --audit-level high`) | `9d2aa9b` | no known vulnerabilities |
+| Provider acceptance checks without credentials | `9d2aa9b` | 16 listed, all **not run** (not configured) — as designed |
+
+First integration run caught one real defect: both migrations created the same retention index; fixed in `9d2aa9b`
+before anything reached staging.
+
+### Staging after wave 1 (Render API/AI/MCP at `5274252`)
+
+| Check | Result |
+|---|---|
+| Migrations | 7 new migrations applied over verified TLS (Supabase root CA); API booted |
+| `node scripts/staging/smoke.mjs` | **39 / 39** (the Vercel bypass check is not run: no bypass is used) |
+| `node scripts/staging/mcp-check.mjs` | **7 / 7** |
+| Supabase security advisor | no errors; warnings: 3 extensions kept in `public` (documented), leaked-password protection off (owner setting) |
+| Web on Vercel | **not redeployed**: the Vercel connector lost access to the project's team; the web still serves the previous build. Owner action listed in `RESUME.md`. |
