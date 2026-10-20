@@ -1,12 +1,14 @@
 // Guest ratings (20261020060001): tenant isolation, staff read-only, immutability, one rating per paid thing, and
-// score/shape constraints. Runs against a freshly migrated disposable database.
+// score/shape constraints. Runs against its own freshly migrated disposable database (<TEST_DATABASE_URL>_ratings),
+// so it can run in parallel with rls.test.mjs, which resets the base one.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
 import { migrate } from '../../scripts/db/migrate.mjs';
 import { ensureDatabase } from '../../scripts/db/ensure-db.mjs';
 
-const url = process.env.TEST_DATABASE_URL || 'postgres://postgres@127.0.0.1:54329/resuto_test';
+const base = process.env.TEST_DATABASE_URL || 'postgres://postgres@127.0.0.1:54329/resuto_test';
+const url = base.replace(/\/([^/?]+)(\?.*)?$/, (_m, db, q = '') => `/${db}_ratings${q}`);
 const pool = new pg.Pool({ connectionString: url, max: 4 });
 const ids = {};
 
