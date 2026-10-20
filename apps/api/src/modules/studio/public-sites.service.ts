@@ -32,13 +32,15 @@ export class PublicSitesService {
     return this.published(row.org_id);
   }
 
-  private published(orgId: string) {
-    return this.db.withTenant(orgId, async (tx) => {
+  private async published(orgId: string) {
+    // Built inside the transaction, its media URLs signed after it (PCL-11): no storage call holds a connection.
+    const pending = await this.db.withTenant(orgId, async (tx) => {
       const rev = await tx.maybeOne<{ revision: number; snapshot: SiteDocument; published_at: string }>(
         `select r.revision, r.snapshot, r.published_at from website_revisions r join websites w on w.id = r.website_id
           where w.org_id = $1 and w.status = 'published' order by r.revision desc limit 1`, [orgId]);
       if (!rev) throw siteNotFound();
-      return this.builder.build(tx, orgId, rev.snapshot, { revision: rev.revision, publishedAt: new Date(rev.published_at).toISOString(), preview: false });
+      return this.builder.prepare(tx, orgId, rev.snapshot, { revision: rev.revision, publishedAt: new Date(rev.published_at).toISOString(), preview: false });
     }, 'guest:website');
+    return this.builder.finish(pending);
   }
 }

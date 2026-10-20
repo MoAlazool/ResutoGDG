@@ -24,21 +24,6 @@ const SCOPED = `scoped as (
      and o.placed_at >= (($3::date - 1)::timestamp at time zone 'UTC') and o.placed_at < (($4::date + 2)::timestamp at time zone 'UTC')
      and (o.placed_at at time zone coalesce(b.timezone, org.timezone))::date between $3::date and $4::date)`;
 
-const REVENUE_COLUMNS = `
-  count(*) filter (where counted)::int as orders,
-  count(*) filter (where status = 'cancelled')::int as cancelled,
-  coalesce(sum(total_minor + discount_minor) filter (where counted), 0)::bigint as gross,
-  coalesce(sum(discount_minor) filter (where counted), 0)::bigint as discounts,
-  coalesce(sum(refunded_minor) filter (where counted), 0)::bigint as refunds,
-  coalesce(sum(total_minor - refunded_minor) filter (where counted), 0)::bigint as net,
-  coalesce(round(sum(case when total_minor > 0 then tax_minor::numeric * (total_minor - refunded_minor) / total_minor else 0 end) filter (where counted)), 0)::bigint as vat,
-  coalesce(sum(delivery_fee_minor) filter (where counted), 0)::bigint as delivery_fees,
-  coalesce(sum(service_charge_minor) filter (where counted), 0)::bigint as service_charge,
-  coalesce(sum(paid_minor - refunded_minor) filter (where counted), 0)::bigint as paid,
-  coalesce(sum(total_minor) filter (where counted), 0)::bigint as billed,
-  coalesce(sum(refunded_minor) filter (where status = 'cancelled'), 0)::bigint as refunds_on_cancelled,
-  count(*) filter (where status = 'awaiting_payment')::int as awaiting_payment`;
-
 /**
  * Net line revenue excluding VAT, after the order discount is spread over lines
  * pro rata: line_total × (1 − discount/subtotal) × (inclusive ? (taxable − tax)/taxable : 1),
@@ -50,6 +35,74 @@ const LINE_NET_EX_VAT = `(ol.line_total_minor::numeric
          then (s.subtotal_minor - s.discount_minor + s.service_charge_minor + s.delivery_fee_minor - s.tax_minor)::numeric
               / (s.subtotal_minor - s.discount_minor + s.service_charge_minor + s.delivery_fee_minor)
          else 1 end)`;
+
+/**
+ * Daily rollups (PCL-26, migration 20261020080003). `covered` lists the (branch, local date) days of the period whose
+ * rollup rows are exact (not stale) and older than the live window (local today − 3); `scoped_live` holds the orders
+ * of every other day of the period, read one (branch, day) slice at a time through orders_branch_time_idx (LATERAL +
+ * OFFSET 0 keeps it a per-slice index scan). Reports sum the rollup rows of covered days with the same aggregates
+ * computed live for the rest, so the result is identical to a full raw scan (test/analytics-rollups.test.ts). With
+ * rollups = false nothing is covered (the raw path). Params: $1 org, $2 branch scope (uuid[] | null), $3 from, $4 to.
+ */
+const HYBRID = (rollups: boolean) => `covered as (
+  select d.branch_id, d.local_date from analytics_days d
+    join branches b on b.id = d.branch_id join organizations org on org.id = d.org_id
+   where ${rollups ? 'true' : 'false'} and d.org_id = $1 and ($2::uuid[] is null or d.branch_id = any($2))
+     and d.local_date between $3::date and $4::date and not d.stale
+     and d.local_date < (now() at time zone coalesce(b.timezone, org.timezone))::date - 3)
+, live_days as materialized (
+  select b.id as branch_id, g.d::date as local_date, coalesce(b.timezone, org.timezone) as tz
+    from branches b join organizations org on org.id = b.org_id
+   cross join generate_series($3::date, $4::date, interval '1 day') g(d)
+   where b.org_id = $1 and ($2::uuid[] is null or b.id = any($2))
+     and not exists (select 1 from covered c where c.branch_id = b.id and c.local_date = g.d::date))
+, scoped_live as (
+  select o.id, o.branch_id, o.channel, o.fulfillment, o.status, o.subtotal_minor, o.discount_minor, o.delivery_fee_minor, o.service_charge_minor,
+         o.tax_minor, o.tax_inclusive, o.total_minor, o.paid_minor, o.refunded_minor,
+         (o.placed_at at time zone u.tz) as local_ts, o.status not in ('cancelled', 'awaiting_payment') as counted
+    from live_days u cross join lateral (
+      select o.* from orders o where o.org_id = $1 and o.branch_id = u.branch_id
+         and o.placed_at >= (u.local_date::timestamp at time zone u.tz) and o.placed_at < ((u.local_date + 1)::timestamp at time zone u.tz)
+      offset 0) o)`;
+
+/** Revenue grain: branch × local date × hour × channel × fulfillment (needs HYBRID). */
+const ORDER_GRAIN = `grain as (
+  select r.branch_id, r.local_date, r.hour::int as hour, r.channel, r.fulfillment, r.orders, r.cancelled, r.awaiting_payment, r.gross, r.discounts,
+         r.refunds, r.net, r.vat, r.delivery_fees, r.service_charge, r.paid, r.billed, r.refunds_on_cancelled
+    from analytics_order_rollups r join covered c on c.branch_id = r.branch_id and c.local_date = r.local_date
+  union all
+  select branch_id, local_ts::date, extract(hour from local_ts)::int, channel, fulfillment,
+         count(*) filter (where counted)::int, count(*) filter (where status = 'cancelled')::int, count(*) filter (where status = 'awaiting_payment')::int,
+         coalesce(sum(total_minor + discount_minor) filter (where counted), 0)::bigint, coalesce(sum(discount_minor) filter (where counted), 0)::bigint,
+         coalesce(sum(refunded_minor) filter (where counted), 0)::bigint, coalesce(sum(total_minor - refunded_minor) filter (where counted), 0)::bigint,
+         coalesce(sum(case when total_minor > 0 then tax_minor::numeric * (total_minor - refunded_minor) / total_minor else 0 end) filter (where counted), 0),
+         coalesce(sum(delivery_fee_minor) filter (where counted), 0)::bigint, coalesce(sum(service_charge_minor) filter (where counted), 0)::bigint,
+         coalesce(sum(paid_minor - refunded_minor) filter (where counted), 0)::bigint, coalesce(sum(total_minor) filter (where counted), 0)::bigint,
+         coalesce(sum(refunded_minor) filter (where status = 'cancelled'), 0)::bigint
+    from scoped_live group by branch_id, local_ts::date, extract(hour from local_ts), channel, fulfillment)`;
+
+/** Revenue totals over the grain (VAT is summed unrounded and rounded once, exactly as a per-order sum would be). */
+const GRAIN_REVENUE = `
+  coalesce(sum(orders), 0)::int as orders, coalesce(sum(cancelled), 0)::int as cancelled, coalesce(sum(gross), 0)::bigint as gross,
+  coalesce(sum(discounts), 0)::bigint as discounts, coalesce(sum(refunds), 0)::bigint as refunds, coalesce(sum(net), 0)::bigint as net,
+  coalesce(round(sum(vat)), 0)::bigint as vat, coalesce(sum(delivery_fees), 0)::bigint as delivery_fees,
+  coalesce(sum(service_charge), 0)::bigint as service_charge, coalesce(sum(paid), 0)::bigint as paid, coalesce(sum(billed), 0)::bigint as billed,
+  coalesce(sum(refunds_on_cancelled), 0)::bigint as refunds_on_cancelled, coalesce(sum(awaiting_payment), 0)::int as awaiting_payment`;
+
+/** Product sales grain (needs HYBRID): rollup rows of covered days + live line aggregates of counted orders. */
+const PRODUCT_GRAIN = `sales_grain as (
+  select r.product_id, r.name, r.name_ar, r.qty, r.revenue, r.net_ex_vat, r.costed_net, r.cost, r.lines, r.lines_without_cost
+    from analytics_product_rollups r join covered c on c.branch_id = r.branch_id and c.local_date = r.local_date
+  union all
+  select ol.product_id, max(ol.name), max(ol.name_ar), sum(ol.quantity)::bigint, sum(ol.line_total_minor)::bigint, sum(${LINE_NET_EX_VAT}),
+         sum(${LINE_NET_EX_VAT}) filter (where ol.cost_minor is not null), sum(ol.cost_minor)::bigint, count(*)::int,
+         count(*) filter (where ol.cost_minor is null)::int
+    from order_lines ol join scoped_live s on s.id = ol.order_id where s.counted group by ol.product_id)`;
+
+/** Owner home live tiles: open orders of any date through orders_open_org_idx (PCL-09). Exported for the plan test. */
+export const OVERVIEW_LIVE_SQL = `select status::text as status, count(*)::int as n, min(placed_at) as oldest from orders
+        where org_id = $1 and ($2::uuid[] is null or branch_id = any($2)) and status in ('awaiting_payment', 'placed', 'accepted', 'preparing', 'ready')
+        group by 1`;
 
 const REVENUE_METHOD =
   'Orders are bucketed by local date in each branch\'s timezone. Counted orders exclude cancelled and awaiting-payment orders. ' +
@@ -99,23 +152,63 @@ export class AnalyticsService {
     };
   }
 
-  private async revenue(tx: Tx, orgId: string, scope: string[] | null, p: Period) {
-    return tx.one(`with ${SCOPED} select ${REVENUE_COLUMNS} from scoped`, [orgId, scope, p.from, p.to]);
+  private async revenue(tx: Tx, orgId: string, scope: string[] | null, p: Period, rollups = true) {
+    return tx.one(`with ${HYBRID(rollups)}, ${ORDER_GRAIN} select ${GRAIN_REVENUE} from grain`, [orgId, scope, p.from, p.to]);
   }
 
   // -------------------------------------------------------------------------
   // Revenue summary, breakdowns, trend, heatmap
   // -------------------------------------------------------------------------
-  async summary(tx: Tx, ctx: TenantContext, q: AnalyticsPeriodQuery) {
+  /** `opts.rollups = false` reads every day live (tests compare both paths; the API always uses rollups). */
+  async summary(tx: Tx, ctx: TenantContext, q: AnalyticsPeriodQuery, opts: { rollups?: boolean } = {}) {
+    const rollups = opts.rollups ?? true;
     const { scope, tz, currency } = await this.context(tx, ctx, q.branchId);
     const params = [ctx.orgId, scope, q.from, q.to];
-    const cur = await this.revenue(tx, ctx.orgId, scope, q);
+    // One statement: the grain is built once (a CTE used by every part is materialised) and each part of the report is
+    // an aggregate over it, instead of rebuilding the period for every breakdown.
+    const report = await tx.one<any>(
+      `with ${HYBRID(rollups)}, ${ORDER_GRAIN}
+       , pay as (
+           select r.method, r.is_test, r.collected, r.refunded
+             from analytics_payment_rollups r join covered c on c.branch_id = r.branch_id and c.local_date = r.local_date
+           union all
+           select p.method, p.is_test, coalesce(sum(pa.amount_minor) filter (where pa.kind = 'payment'), 0)::bigint,
+                  coalesce(-sum(pa.amount_minor) filter (where pa.kind = 'refund'), 0)::bigint
+             from payment_allocations pa join payments p on p.id = pa.payment_id join scoped_live s on s.id = pa.order_id
+            where s.counted group by 1, 2)
+       , by_branch as (
+           select g.key, bb.name as label, g.orders, g.net, g.billed from (
+             select branch_id as key, coalesce(sum(orders), 0)::int as orders, coalesce(sum(net), 0)::bigint as net,
+                    coalesce(sum(billed), 0)::bigint as billed
+               from grain group by 1) g join branches bb on bb.id = g.key)
+       , by_channel as (
+           select channel::text as key, null::text as label, coalesce(sum(orders), 0)::int as orders, coalesce(sum(net), 0)::bigint as net,
+                  coalesce(sum(billed), 0)::bigint as billed from grain group by 1, 2)
+       , by_fulfillment as (
+           select fulfillment::text as key, null::text as label, coalesce(sum(orders), 0)::int as orders, coalesce(sum(net), 0)::bigint as net,
+                  coalesce(sum(billed), 0)::bigint as billed from grain group by 1, 2)
+       , payments as (
+           select method::text as method, is_test, sum(collected)::bigint as collected, sum(refunded)::bigint as refunded from pay group by 1, 2)
+       , daily as (
+           select d.day::date::text as day, coalesce(sum(g.orders), 0)::int as orders, coalesce(sum(g.net), 0)::bigint as net
+             from generate_series($3::date, $4::date, interval '1 day') d(day) left join grain g on g.local_date = d.day::date group by d.day)
+       , heat as (
+           select extract(isodow from local_date)::int as dow, hour, coalesce(sum(orders), 0)::int as orders, coalesce(sum(net), 0)::bigint as net
+             from grain group by 1, 2 having sum(orders) > 0)
+       select (select row_to_json(t) from (select ${GRAIN_REVENUE} from grain) t) as totals,
+              coalesce((select json_agg(b order by b.net desc) from by_branch b), '[]') as by_branch,
+              coalesce((select json_agg(b order by b.net desc) from by_channel b), '[]') as by_channel,
+              coalesce((select json_agg(b order by b.net desc) from by_fulfillment b), '[]') as by_fulfillment,
+              coalesce((select json_agg(p order by p.collected desc) from payments p), '[]') as payments,
+              coalesce((select json_agg(d order by d.day) from daily d), '[]') as daily,
+              coalesce((select json_agg(h order by h.dow, h.hour) from heat h), '[]') as heat`, params);
+    const cur = report.totals;
     const totals = this.mapRevenue(cur);
     let comparison = null;
     if (q.compare === 'previous') {
       const n = daysBetween(q.from, q.to);
       const prevPeriod = { from: addDays(q.from, -n), to: addDays(q.from, -1) };
-      const prev = this.mapRevenue(await this.revenue(tx, ctx.orgId, scope, prevPeriod));
+      const prev = this.mapRevenue(await this.revenue(tx, ctx.orgId, scope, prevPeriod, rollups));
       comparison = {
         ...prevPeriod, totals: prev,
         changePct: {
@@ -125,33 +218,9 @@ export class AnalyticsService {
         },
       };
     }
-    const breakdown = (dim: string, label = dim) => tx.query(
-      `with ${SCOPED} select ${dim} as key, ${label === dim ? 'null' : label} as label, count(*) filter (where counted)::int as orders,
-              coalesce(sum(total_minor - refunded_minor) filter (where counted), 0)::bigint as net,
-              coalesce(sum(total_minor) filter (where counted), 0)::bigint as billed
-         from scoped ${label === dim ? '' : 'join branches bb on bb.id = scoped.branch_id'} group by 1, 2 order by net desc`, params);
     const mapBreakdown = (rows: any[]) => rows.map((r) => ({ key: r.key, label: r.label, orders: r.orders, netMinor: int(r.net),
       averageOrderMinor: r.orders ? Math.round(int(r.billed) / r.orders) : 0, sharePct: pct(int(r.net), totals.netMinor) }));
-    const [byBranch, byChannel, byFulfillment, payments, daily, heat] = await Promise.all([
-      breakdown('scoped.branch_id', 'bb.name'),
-      breakdown('channel::text'),
-      breakdown('fulfillment::text'),
-      tx.query(
-        `with ${SCOPED} select p.method::text as method, p.is_test,
-                coalesce(sum(pa.amount_minor) filter (where pa.kind = 'payment'), 0)::bigint as collected,
-                coalesce(-sum(pa.amount_minor) filter (where pa.kind = 'refund'), 0)::bigint as refunded
-           from payment_allocations pa join payments p on p.id = pa.payment_id join scoped s on s.id = pa.order_id
-          where s.counted group by 1, 2 order by collected desc`, params),
-      tx.query(
-        `with ${SCOPED}, days as (select generate_series($3::date, $4::date, interval '1 day')::date as day)
-         select d.day::text as day, count(s.id) filter (where s.counted)::int as orders,
-                coalesce(sum(s.total_minor - s.refunded_minor) filter (where s.counted), 0)::bigint as net
-           from days d left join scoped s on s.local_ts::date = d.day group by d.day order by d.day`, params),
-      tx.query(
-        `with ${SCOPED} select extract(isodow from local_ts)::int as dow, extract(hour from local_ts)::int as hour,
-                count(*)::int as orders, coalesce(sum(total_minor - refunded_minor), 0)::bigint as net
-           from scoped where counted group by 1, 2 order by 1, 2`, params),
-    ]);
+    const { by_branch: byBranch, by_channel: byChannel, by_fulfillment: byFulfillment, payments, daily, heat } = report as Record<string, any[]>;
     const realPayments = payments.filter((p) => !p.is_test);
     const testPayments = payments.filter((p) => p.is_test);
     return {
@@ -174,18 +243,16 @@ export class AnalyticsService {
   // -------------------------------------------------------------------------
   // Products: top, underperforming, margins
   // -------------------------------------------------------------------------
-  async products(tx: Tx, ctx: TenantContext, q: AnalyticsPeriodQuery) {
+  async products(tx: Tx, ctx: TenantContext, q: AnalyticsPeriodQuery, opts: { rollups?: boolean } = {}) {
     const { scope, tz, currency } = await this.context(tx, ctx, q.branchId);
     const params = [ctx.orgId, scope, q.from, q.to];
     const rows = await tx.query(
-      `with ${SCOPED}
+      `with ${HYBRID(opts.rollups ?? true)}, ${PRODUCT_GRAIN}
        , sales as (
-         select ol.product_id, max(ol.name) as name, max(ol.name_ar) as name_ar, sum(ol.quantity)::int as qty,
-                sum(ol.line_total_minor)::bigint as revenue, sum(${LINE_NET_EX_VAT}) as net_ex_vat,
-                sum(${LINE_NET_EX_VAT}) filter (where ol.cost_minor is not null) as costed_net,
-                sum(ol.cost_minor)::bigint as cost, count(*)::int as lines, count(*) filter (where ol.cost_minor is null)::int as lines_without_cost
-           from order_lines ol join scoped s on s.id = ol.order_id
-          where s.counted group by ol.product_id)
+         select product_id, max(name) as name, max(name_ar) as name_ar, sum(qty)::int as qty, sum(revenue)::bigint as revenue,
+                sum(net_ex_vat) as net_ex_vat, sum(costed_net) as costed_net, sum(cost)::bigint as cost, sum(lines)::int as lines,
+                sum(lines_without_cost)::int as lines_without_cost
+           from sales_grain group by product_id)
        select coalesce(sales.product_id, p.id) as product_id, coalesce(p.name, sales.name) as name, coalesce(p.name_ar, sales.name_ar) as name_ar,
               p.is_active, coalesce(sales.qty, 0) as qty, coalesce(sales.revenue, 0) as revenue, coalesce(round(sales.net_ex_vat), 0)::bigint as net_ex_vat,
               round(sales.costed_net)::bigint as costed_net, sales.cost, coalesce(sales.lines, 0) as lines, coalesce(sales.lines_without_cost, 0) as lines_without_cost
@@ -429,7 +496,7 @@ export class AnalyticsService {
     const { scope, tz, currency } = await this.context(tx, ctx, branchId);
     const base = `t as (select (now() at time zone $3) as local_now)
       , base as (
-        select o.*, (o.placed_at at time zone $3) as local_ts, o.status not in ('cancelled', 'awaiting_payment') as counted
+        select o.total_minor, o.refunded_minor, (o.placed_at at time zone $3) as local_ts, o.status not in ('cancelled', 'awaiting_payment') as counted
           from orders o where o.org_id = $1 and ($2::uuid[] is null or o.branch_id = any($2)) and o.placed_at >= now() - interval '9 days')`;
     const params = [ctx.orgId, scope, tz];
     const kpi = await tx.one(
@@ -451,10 +518,7 @@ export class AnalyticsService {
               coalesce(sum(total_minor - refunded_minor) filter (where local_ts::date = (select local_now::date from t) - 7), 0)::bigint as last_week
          from base where counted and local_ts::date in ((select local_now::date from t), (select local_now::date from t) - 7)
         group by 1 order by 1`, params);
-    const live = await tx.query(
-      `select status::text as status, count(*)::int as n, min(placed_at) as oldest from orders
-        where org_id = $1 and ($2::uuid[] is null or branch_id = any($2)) and status in ('awaiting_payment', 'placed', 'accepted', 'preparing', 'ready')
-        group by 1`, [ctx.orgId, scope]);
+    const live = await tx.query(OVERVIEW_LIVE_SQL, [ctx.orgId, scope]);
     const visits = await tx.one(`select count(*)::int as n from visits where org_id = $1 and status = 'open' and ($2::uuid[] is null or branch_id = any($2))`, [ctx.orgId, scope]);
     const reservations = await tx.query(
       `select status::text as status, count(*)::int as n, coalesce(sum(party_size), 0)::int as guests from reservations
@@ -500,9 +564,10 @@ export class AnalyticsService {
     const period = { from: addDays(today, -input.baselineDays), to: addDays(today, -1) };
     const measuredRevenue = this.mapRevenue(await this.revenue(tx, ctx.orgId, scope, period));
     const costRow = await tx.one(
-      `with ${SCOPED} select coalesce(round(sum(${LINE_NET_EX_VAT})), 0)::bigint as net, coalesce(round(sum(${LINE_NET_EX_VAT}) filter (where ol.cost_minor is not null)), 0)::bigint as costed,
-              coalesce(sum(ol.cost_minor), 0)::bigint as cost
-         from order_lines ol join scoped s on s.id = ol.order_id where s.counted`, [ctx.orgId, scope, period.from, period.to]);
+      `with ${HYBRID(true)}, ${PRODUCT_GRAIN}
+       select coalesce(round(sum(net_ex_vat)), 0)::bigint as net, coalesce(round(sum(costed_net)), 0)::bigint as costed,
+              coalesce(sum(cost), 0)::bigint as cost
+         from sales_grain`, [ctx.orgId, scope, period.from, period.to]);
     const coverage = int(costRow.net) > 0 ? int(costRow.costed) / int(costRow.net) : 0;
     const measuredCostPct = int(costRow.costed) > 0 ? Math.round((int(costRow.cost) / int(costRow.costed)) * 10000) / 100 : null;
     const measuredMonthly = Math.round((measuredRevenue.netExVatMinor * 30) / input.baselineDays);

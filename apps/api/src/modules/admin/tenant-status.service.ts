@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { BoundedCache } from '../../common/cache/bounded-cache';
 import { DbService } from '../../common/db/db.service';
 
 /**
@@ -7,18 +8,17 @@ import { DbService } from '../../common/db/db.service';
  */
 @Injectable()
 export class TenantStatusService {
-  private readonly cache = new Map<string, { suspended: boolean; at: number }>();
-  private static readonly TTL_MS = 10_000;
+  /** Bounded per-instance cache (PCL-25): 20k organizations, 10 s each. */
+  private readonly cache = new BoundedCache<boolean>(20_000, 10_000);
 
   constructor(private readonly db: DbService) {}
 
   async isSuspended(orgId: string): Promise<boolean> {
     const hit = this.cache.get(orgId);
-    if (hit && Date.now() - hit.at < TenantStatusService.TTL_MS) return hit.suspended;
+    if (hit !== undefined) return hit;
     const row = await this.db.withPlatform((tx) => tx.maybeOne<{ status: string }>('select status from organizations where id = $1', [orgId]));
     const suspended = row?.status === 'suspended';
-    this.cache.set(orgId, { suspended, at: Date.now() });
-    if (this.cache.size > 20_000) this.cache.clear();
+    this.cache.set(orgId, suspended);
     return suspended;
   }
 

@@ -4,7 +4,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
-import { StorageService } from '../../common/storage/storage.service';
+import { MediaUrls, StorageService } from '../../common/storage/storage.service';
 
 const COLUMNS: Record<string, string> = {
   categoryId: 'category_id', branchId: 'branch_id', amountMinor: 'amount_minor', taxMinor: 'tax_minor', incurredOn: 'incurred_on',
@@ -33,13 +33,21 @@ export class ExpensesService {
   }
 
   private async toExpense(r: any) {
-    return {
+    const urls = this.storage.urls(600);
+    const e = this.expenseRow(r, urls);
+    await urls.resolve();
+    return e;
+  }
+
+  /** Receipt URLs are short-lived and private; `urls` signs them in one batch (PS-18). */
+  private expenseRow(r: any, urls: MediaUrls) {
+    return urls.set({
       id: r.id, branchId: r.branch_id, categoryId: r.category_id, categoryName: r.category_name ?? null, categoryKind: r.category_kind ?? null,
       amountMinor: r.amount_minor, taxMinor: r.tax_minor, netMinor: r.amount_minor - r.tax_minor, currency: r.currency, incurredOn: r.incurred_on,
       vendor: r.vendor, description: r.description, paymentMethod: r.payment_method, externalRef: r.external_ref, source: r.source,
-      receiptMediaId: r.receipt_media_id, receiptUrl: r.receipt_path ? await this.storage.signedUrl(r.receipt_path, 600) : null,
+      receiptMediaId: r.receipt_media_id, receiptUrl: null as string | null,
       createdBy: r.created_by, createdAt: new Date(r.created_at).toISOString(),
-    };
+    }, 'receiptUrl', r.receipt_path);
   }
 
   private async load(tx: Tx, id: string) {
@@ -52,7 +60,8 @@ export class ExpensesService {
 
   async list(ctx: TenantContext, q: { from?: string; to?: string; categoryId?: string; branchId?: string; limit: number; cursor?: string }) {
     if (q.branchId) ctx.assertBranch(q.branchId);
-    return this.db.scoped(ctx, async (tx) => {
+    const urls = this.storage.urls(600);
+    const page = await this.db.scoped(ctx, async (tx) => {
       const [cDate, cId] = q.cursor ? Buffer.from(q.cursor, 'base64url').toString().split('|') : [null, null];
       const rows = await tx.query<any>(
         `select e.*, c.name as category_name, c.kind as category_kind, m.path as receipt_path from expenses e join expense_categories c on c.id = e.category_id
@@ -62,7 +71,7 @@ export class ExpensesService {
             and ($6::date is null or (e.incurred_on, e.id) < ($6::date, $7::uuid))
           order by e.incurred_on desc, e.id desc limit $8`,
         [ctx.orgId, q.from ?? null, q.to ?? null, q.categoryId ?? null, q.branchId ?? null, cDate || null, cId || null, q.limit]);
-      const items = await Promise.all(rows.map((r) => this.toExpense(r)));
+      const items = rows.map((r) => this.expenseRow(r, urls));
       const last = rows[rows.length - 1];
       const totals = await tx.one<any>(
         `select coalesce(sum(amount_minor), 0)::bigint as amount, coalesce(sum(tax_minor), 0)::bigint as tax, count(*)::int as n from expenses
@@ -72,6 +81,9 @@ export class ExpensesService {
       return { items, nextCursor: rows.length === q.limit && last ? Buffer.from(`${last.incurred_on}|${last.id}`).toString('base64url') : null,
         totals: { count: totals.n, amountMinor: Number(totals.amount), taxMinor: Number(totals.tax), netMinor: Number(totals.amount) - Number(totals.tax) } };
     });
+    // Signed after the transaction, in one batch (PCL-11, PS-18).
+    await urls.resolve();
+    return page;
   }
 
   async get(ctx: TenantContext, id: string) {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { normalizePhone, type CartLine, type GuestOrderRequest, type GuestVisitPoll, type PublicMenu, type WebOrderRequest } from '@resuto/contracts';
 import { TenantContext } from '../../common/auth/context';
@@ -10,7 +11,7 @@ import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
 import { PricingService, type Quote } from '../kernel/pricing.service';
 import { MenuService } from '../menu/menu.service';
-import { guestCoverUrl } from '../orders/guest-cover';
+import { guestCoverPath, signGuestCover } from '../orders/guest-cover';
 import { orgCountry } from '../orders/org-country';
 import { VisitsService } from '../orders/visits.service';
 
@@ -60,11 +61,15 @@ export class GuestService {
     });
   }
 
-  visitMenu(token: string | undefined): Promise<PublicMenu> {
-    return this.visits.withGuestRead(token, async (tx, g) => {
+  async visitMenu(token: string | undefined): Promise<PublicMenu> {
+    // Image URLs are signed in one batch after the guest transaction (PCL-11, PS-18).
+    const urls = this.menu.publicMediaUrls();
+    const menu = await this.visits.withGuestRead(token, async (tx, g) => {
       const branch = await tx.one('select * from branches where id = $1', [g.visit.branch_id]);
-      return this.menu.publicMenuFor(tx, g.ctx.orgId, branch);
+      return this.menu.publicMenuFor(tx, g.ctx.orgId, branch, undefined, urls);
     });
+    await urls.resolve();
+    return menu;
   }
 
   quote(token: string | undefined, body: { lines: CartLine[]; promotionCode?: string | null }) {
@@ -132,12 +137,20 @@ export class GuestService {
   }
 
   async webMenu(slug: string, branchCode?: string) {
-    const menu = await this.menu.publicMenu(slug, branchCode);
-    const org = await this.menu.resolveOrgBySlug(slug);
+    return (await this.cachedWebMenu(slug, branchCode)).body;
+  }
+
+  /** Web-order menu with a validator (PCL-15): the public menu's version plus the online-payment flag. */
+  async cachedWebMenu(slug: string, branchCode?: string) {
+    const { menu, etag, orgId } = await this.menu.cachedPublicMenu(slug, branchCode);
     // Offer online payment only when ResutoPay is deployed and this restaurant's plan includes it.
-    const online = !!this.checkout && (await this.entitlements.isEnabled(org.id, 'pay'));
-    const cover = await this.db.withTenant(org.id, (tx) => guestCoverUrl(tx, org.id, this.storage), 'guest:cover');
-    return {
+    const online = !!this.checkout && (await this.entitlements.isEnabled(orgId, 'pay'));
+    // The cover is the published site's hero; its path is read in a short transaction and signed afterwards (PCL-11).
+    // The validator covers it too, so a new hero image is not hidden behind a 304.
+    const coverPath = await this.db.withTenant(orgId, (tx) => guestCoverPath(tx, orgId), 'guest:cover');
+    const cover = await signGuestCover(this.storage, coverPath);
+    const coverTag = coverPath ? createHash('sha1').update(coverPath).digest('hex').slice(0, 8) : '0';
+    return { etag: etag && etag.replace(/"$/, `-${online ? 1 : 0}-${coverTag}"`).replace('W/"pm', 'W/"po'), body: {
       ...menu,
       cover,
       payment: {
@@ -145,7 +158,7 @@ export class GuestService {
         cashOnDelivery: menu.branch.acceptsDelivery,
         online,
       },
-    };
+    } };
   }
 
   webQuote(slug: string, body: { branchId: string; fulfillment: 'pickup' | 'delivery'; lines: CartLine[]; promotionCode?: string | null }) {

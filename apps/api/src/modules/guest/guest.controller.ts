@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   assistantRequest, guestOrderRequest, guestQuoteRequest, guestRatingInput, guestVisitPollQuery, serviceRequestInput, suggestionsRequest, webOrderRequest,
   webQuoteRequest, type AssistantRequest, type GuestOrderRequest, type GuestRatingInput, type WebOrderRequest,
@@ -12,6 +13,7 @@ import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { VisitsService } from '../orders/visits.service';
 import { GuestAssistantService } from './assistant.service';
+import { PUBLIC_MENU_CACHE_CONTROL, PUBLIC_MENU_NO_STORE } from '../menu/menu.service';
 import { GuestService } from './guest.service';
 import { GuestRatingsService } from './ratings.service';
 import { TokenGuessGuard } from './token-guess-guard';
@@ -178,9 +180,14 @@ export class WebOrderController {
 
   @Public()
   @Get(':slug')
-  menu(@Param('slug') slug: string, @Query('branch') branch: string | undefined, @Req() req: ResutoRequest) {
+  async menu(@Param('slug') slug: string, @Query('branch') branch: string | undefined, @Req() req: ResutoRequest,
+    @Res({ passthrough: true }) res: Response) {
     this.limiter.hit(`web-order:read:${req.ip}`, 120);
-    return this.guest.webMenu(this.slug(slug), typeof branch === 'string' ? branch.slice(0, 60) : undefined);
+    // PCL-15: versioned ETag + public caching (same policy as /public/menu); a matching If-None-Match gets a 304.
+    const { etag, body } = await this.guest.cachedWebMenu(this.slug(slug), typeof branch === 'string' ? branch.slice(0, 60) : undefined);
+    if (etag) res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', etag ? PUBLIC_MENU_CACHE_CONTROL : PUBLIC_MENU_NO_STORE);
+    return body;
   }
 
   @Public()

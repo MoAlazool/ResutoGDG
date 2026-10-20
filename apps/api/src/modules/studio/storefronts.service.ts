@@ -70,7 +70,7 @@ export class StorefrontsService {
     const org = await this.db.withPlatform((tx) => tx.maybeOne<{ id: string }>(
       `select id from organizations where slug = $1 and status in ('onboarding', 'active')`, [orgSlug]));
     if (!org) throw storefrontNotFound();
-    return this.db.withTenant(org.id, async (tx) => {
+    const pending = await this.db.withTenant(org.id, async (tx) => {
       const r = await tx.maybeOne<Row & { org_slug: string; org_name: string; org_name_ar: string | null; currency: string; demo: boolean;
         code: string; name: string; name_ar: string | null; city: string | null; accepts_pickup: boolean; accepts_delivery: boolean; opening_hours: unknown; timezone: string }>(
         `select s.*, o.slug as org_slug, o.name as org_name, o.name_ar as org_name_ar, o.currency,
@@ -82,22 +82,26 @@ export class StorefrontsService {
             -- that website is published (a draft or unpublished site would leave the storefront's links dead).
             and exists (select 1 from websites w where w.org_id = s.org_id and w.status = 'published')`, [org.id, storefrontSlug]);
       if (!r) throw storefrontNotFound();
-      const media = await this.builder.mediaMap(tx, org.id, [r.logo_media_id, r.hero_media_id].filter((x): x is string => !!x));
+      // Media URLs are signed after the transaction (PCL-11), in one batch.
+      const urls = this.builder.urls();
+      const media = await this.builder.mediaMap(tx, org.id, [r.logo_media_id, r.hero_media_id].filter((x): x is string => !!x), urls);
       const order = `/order/${r.org_slug}?branch=${encodeURIComponent(r.code)}`;
-      return {
+      return { urls, assemble: (): PublicStorefront => ({
         slug: r.slug,
         org: { slug: r.org_slug, name: r.org_name, nameAr: r.org_name_ar, currency: r.currency, demo: r.demo },
         branch: { id: r.branch_id, code: r.code, name: r.name, nameAr: r.name_ar, city: r.city, acceptsPickup: r.accepts_pickup, acceptsDelivery: r.accepts_delivery, openingHours: r.opening_hours, timezone: r.timezone },
         brand: {
           name: r.brand_name, nameAr: r.brand_name_ar, tagline: r.tagline ?? {},
           primaryColor: r.theme.primaryColor, accentColor: r.theme.accentColor, inkColor: r.theme.inkColor ?? DEFAULT_INK, paperColor: r.theme.paperColor ?? DEFAULT_PAPER,
-          logoUrl: r.logo_media_id ? media.get(r.logo_media_id)?.url ?? null : null,
-          heroUrl: r.hero_media_id ? media.get(r.hero_media_id)?.url ?? null : null,
+          logoUrl: r.logo_media_id ? media.get(r.logo_media_id)?.url || null : null,
+          heroUrl: r.hero_media_id ? media.get(r.hero_media_id)?.url || null : null,
         },
         content: r.content ?? {},
         links: { site: `/r/${r.org_slug}`, order, menu: `/v1/public/order/${r.org_slug}?branch=${encodeURIComponent(r.code)}` },
-      };
+      }) };
     }, 'guest:storefront');
+    await pending.urls.resolve();
+    return pending.assemble();
   }
 
   private async assertRefs(tx: Tx, orgId: string, input: UpsertStorefront) {

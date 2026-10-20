@@ -1,0 +1,265 @@
+{
+ "at": "2026-10-20T12:34:59.644Z",
+ "db": "resuto_ws6_scale",
+ "results": [
+  {
+   "id": "Q1",
+   "name": "orders.active, one branch (Orders page, polled 5 s)",
+   "ms": 36.13,
+   "planningMs": 0.41,
+   "sharedHit": 7412,
+   "sharedRead": 0,
+   "rowsScanned": 121582,
+   "seqScans": [],
+   "indexes": [
+    "orders_branch_updated_idx",
+    "order_lines_org_order_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q1b",
+   "name": "orders.active, all branches",
+   "ms": 103.8,
+   "planningMs": 0.47,
+   "sharedHit": 7790,
+   "sharedRead": 2430,
+   "rowsScanned": 250443,
+   "seqScans": [
+    "orders (250419 rows)"
+   ],
+   "indexes": [
+    "order_lines_org_order_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q2",
+   "name": "orders.all first page",
+   "ms": 1.78,
+   "planningMs": 0.38,
+   "sharedHit": 267,
+   "sharedRead": 0,
+   "rowsScanned": 160,
+   "seqScans": [],
+   "indexes": [
+    "orders_org_time_idx",
+    "order_lines_org_order_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q4",
+   "name": "overview live (open orders, any date)",
+   "ms": 42.77,
+   "planningMs": 0.17,
+   "sharedHit": 7911,
+   "sharedRead": 2269,
+   "rowsScanned": 250419,
+   "seqScans": [
+    "orders (250419 rows)"
+   ],
+   "indexes": [],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q5",
+   "name": "KDS change marker (polled 2 s per screen)",
+   "ms": 66.4,
+   "planningMs": 0.56,
+   "sharedHit": 8223,
+   "sharedRead": 2600,
+   "rowsScanned": 401746,
+   "seqScans": [],
+   "indexes": [
+    "orders_branch_updated_idx",
+    "orders_org_time_idx",
+    "order_lines_org_order_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q6",
+   "name": "KDS tickets",
+   "ms": 51.32,
+   "planningMs": 0.46,
+   "sharedHit": 8481,
+   "sharedRead": 0,
+   "rowsScanned": 321985,
+   "seqScans": [],
+   "indexes": [
+    "orders_org_time_idx",
+    "orders_branch_updated_idx",
+    "order_lines_org_order_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q7",
+   "name": "order detail payments (OR across join)",
+   "ms": 667.39,
+   "planningMs": 0.51,
+   "sharedHit": 785228,
+   "sharedRead": 0,
+   "rowsScanned": 583200,
+   "seqScans": [],
+   "indexes": [
+    "payments_org_time_idx",
+    "payment_allocations_payment_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q8",
+   "name": "analytics revenue totals, 30 days",
+   "ms": 69.46,
+   "planningMs": 0.9,
+   "sharedHit": 10595,
+   "sharedRead": 0,
+   "rowsScanned": 252280,
+   "seqScans": [],
+   "indexes": [
+    "orders_org_time_idx",
+    "orders_branch_updated_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q8b",
+   "name": "analytics revenue totals, 365 days",
+   "ms": 307.19,
+   "planningMs": 0.69,
+   "sharedHit": 13945,
+   "sharedRead": 1971,
+   "rowsScanned": 400860,
+   "seqScans": [],
+   "indexes": [
+    "orders_branch_updated_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "Q8c",
+   "name": "analytics daily series, 365 days",
+   "ms": 657.94,
+   "planningMs": 0.93,
+   "sharedHit": 15916,
+   "sharedRead": 0,
+   "rowsScanned": 400860,
+   "seqScans": [],
+   "indexes": [
+    "orders_branch_updated_idx"
+   ],
+   "diskSorts": [
+    "14536 kB"
+   ],
+   "violations": []
+  },
+  {
+   "id": "Q9",
+   "name": "analytics products, 30 days",
+   "ms": 277.71,
+   "planningMs": 1.08,
+   "sharedHit": 57462,
+   "sharedRead": 19232,
+   "rowsScanned": 284908,
+   "seqScans": [],
+   "indexes": [
+    "orders_org_time_idx",
+    "orders_branch_updated_idx",
+    "order_lines_org_order_idx"
+   ],
+   "diskSorts": [
+    "5664 kB"
+   ],
+   "violations": []
+  },
+  {
+   "id": "Q9b",
+   "name": "analytics products, 365 days",
+   "ms": 2839.01,
+   "planningMs": 1.11,
+   "sharedHit": 710075,
+   "sharedRead": 93218,
+   "rowsScanned": 789662,
+   "seqScans": [],
+   "indexes": [
+    "orders_branch_updated_idx",
+    "order_lines_order_idx"
+   ],
+   "diskSorts": [
+    "67464 kB"
+   ],
+   "violations": []
+  },
+  {
+   "id": "C1",
+   "name": "customers page 1 (sort last order)",
+   "ms": 587.2,
+   "planningMs": 0.49,
+   "sharedHit": 323207,
+   "sharedRead": 0,
+   "rowsScanned": 310325,
+   "seqScans": [
+    "customers (70064 rows)"
+   ],
+   "indexes": [
+    "orders_customer_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "C2",
+   "name": "customers total count",
+   "ms": 33.12,
+   "planningMs": 0.27,
+   "sharedHit": 1277,
+   "sharedRead": 0,
+   "rowsScanned": 70069,
+   "seqScans": [
+    "customers (70064 rows)"
+   ],
+   "indexes": [],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "M1",
+   "name": "public menu branches",
+   "ms": 0.08,
+   "planningMs": 0.09,
+   "sharedHit": 1,
+   "sharedRead": 0,
+   "rowsScanned": 10,
+   "seqScans": [],
+   "indexes": [],
+   "diskSorts": [],
+   "violations": []
+  },
+  {
+   "id": "A1",
+   "name": "admin outbox counters",
+   "ms": 0.02,
+   "planningMs": 0.05,
+   "sharedHit": 1,
+   "sharedRead": 0,
+   "rowsScanned": 0,
+   "seqScans": [],
+   "indexes": [
+    "outbox_unpublished_idx"
+   ],
+   "diskSorts": [],
+   "violations": []
+  }
+ ]
+}

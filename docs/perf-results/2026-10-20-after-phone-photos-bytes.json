@@ -1,0 +1,76 @@
+{
+  "photos": [
+    {
+      "product": "Burrata & heirloom tomato",
+      "status": 201,
+      "uploadMs": 1877,
+      "originalBytes": 8672311,
+      "editorUrl": "61385d36-0d07-455f-a9c5-d0ca99593f6d.jpg",
+      "servedFile": "61385d36-0d07-455f-a9c5-d0ca99593f6d.w640.webp",
+      "servedBytes": 15200,
+      "srcset": [
+        "320w",
+        "640w",
+        "1280w"
+      ],
+      "dims": [
+        4032,
+        3024
+      ]
+    },
+    {
+      "product": "Roasted pumpkin soup",
+      "status": 201,
+      "uploadMs": 1060,
+      "originalBytes": 8818673,
+      "editorUrl": "c4fc041c-fa04-421f-9aa6-248287faa48c.jpg",
+      "servedFile": "c4fc041c-fa04-421f-9aa6-248287faa48c.w640.webp",
+      "servedBytes": 15196,
+      "srcset": [
+        "320w",
+        "640w",
+        "1280w"
+      ],
+      "dims": [
+        4032,
+        3024
+      ]
+    },
+    {
+      "product": "Grilled chicken supreme",
+      "status": 201,
+      "uploadMs": 1046,
+      "originalBytes": 9049518,
+      "editorUrl": "611d33a9-2dd7-43d2-bd9e-487dcae60eab.jpg",
+      "servedFile": "611d33a9-2dd7-43d2-bd9e-487dcae60eab.w640.webp",
+      "servedBytes": 17088,
+      "srcset": [
+        "320w",
+        "640w",
+        "1280w"
+      ],
+      "dims": [
+        4032,
+        3024
+      ]
+    },
+    {
+      "product": "Wild mushroom risotto",
+      "status": 201,
+      "uploadMs": 924,
+      "originalBytes": 9077114,
+      "editorUrl": "8aa288c2-79ad-4ee1-aadc-41e84a09f599.jpg",
+      "servedFile": "8aa288c2-79ad-4ee1-aadc-41e84a09f599.w640.webp",
+      "servedBytes": 17868,
+      "srcset": [
+        "320w",
+        "640w",
+        "1280w"
+      ],
+      "dims": [
+        4032,
+        3024
+      ]
+    }
+  ]
+}

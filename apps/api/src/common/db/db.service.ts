@@ -96,6 +96,14 @@ export class DbService implements OnModuleDestroy {
     await this.pool.end();
   }
 
+  /*
+   * Transaction callbacks (scoped / withMember / withTenant / withPlatform) must be free of external side effects:
+   * a serialization failure or deadlock (40001 / 40P01) re-runs the whole callback, and every callback holds one of a
+   * few pooled connections while it runs. Provider calls, storage uploads and URL signing therefore happen before or
+   * after the transaction (PCL-11): see MessagingService.sendOne (claim, send, record), StorageService.store/record
+   * and MediaUrls (sign after commit). test/side-effects-guard.test.ts flags adapter calls inside callbacks.
+   */
+
   /**
    * Runs in the strictest context available for this tenant actor: member mode
    * (membership-checked RLS) for staff users, tenant mode for MCP clients,

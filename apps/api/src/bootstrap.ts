@@ -1,6 +1,7 @@
 import { INestApplication, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { compressionMiddleware } from './common/http/compression';
 import { hardeningMiddleware, trustProxySetting } from './common/http/http-hardening';
 import { installOutboundRequestId } from './common/http/request-context';
 import { loadEnv } from './config/env';
@@ -20,6 +21,8 @@ export async function createApp(): Promise<INestApplication> {
   http.set('trust proxy', trustProxySetting(env));
   // Request id + context, security and cache headers, access log (see http-hardening.ts).
   app.use(hardeningMiddleware(env));
+  // Brotli/gzip for JSON/CSV bodies >= 1 kB (PCL-24); conditional GET (ETag / If-None-Match) is Express's default.
+  app.use(compressionMiddleware());
   app.enableShutdownHooks();
   return app;
 }

@@ -2,7 +2,7 @@ import { Controller, Get, Inject, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
-import { StorageService } from '../../common/storage/storage.service';
+import { StorageService, isPublicMediaPath } from '../../common/storage/storage.service';
 import { ENV, type Env } from '../../config/env';
 
 @Controller()
@@ -29,7 +29,11 @@ export class SystemController {
     const ext = objectPath.split('.').pop();
     const type = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' }[ext ?? ''] ?? 'application/octet-stream';
     res.setHeader('Content-Type', type);
-    res.setHeader('Cache-Control', 'private, max-age=300');
+    // Object keys are never reused (immutable content) and the URL is stable for its expiry window (PCL-14), so the
+    // response can be cached until the URL expires: publicly for guest-facing images (menu, studio), privately for
+    // documents (receipts, proofs, licences).
+    const maxAge = Math.max(0, Math.min(31_536_000, Math.floor(Number(exp) - Date.now() / 1000)));
+    res.setHeader('Cache-Control', `${isPublicMediaPath(objectPath) ? 'public' : 'private'}, max-age=${maxAge}, immutable`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     return res.send(bytes);
   }

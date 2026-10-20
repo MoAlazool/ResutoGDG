@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   availabilityToggle, categoryInput, categoryReorder, categoryUpdate, menuImportRequest, modifierGroupInput, modifierGroupUpdate,
@@ -10,7 +11,7 @@ import type { ResutoRequest, TenantContext } from '../../common/auth/context';
 import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
-import { MenuService } from './menu.service';
+import { MenuService, PUBLIC_MENU_CACHE_CONTROL, PUBLIC_MENU_NO_STORE } from './menu.service';
 
 interface UploadedImage { buffer: Buffer; mimetype: string; size: number; originalname: string }
 const uuidPipe = new ParseUUIDPipe();
@@ -166,10 +167,15 @@ export class PublicMenuController {
 
   @Public()
   @Get(':slug')
-  get(@Param('slug') slug: string, @Query('branch') branch: string | undefined, @Req() req: ResutoRequest) {
+  async get(@Param('slug') slug: string, @Query('branch') branch: string | undefined, @Req() req: ResutoRequest,
+    @Res({ passthrough: true }) res: Response) {
     this.limiter.hit(`public-menu:${req.ip}`, 120);
     const s = z.string().regex(/^[a-z0-9-]{1,60}$/).safeParse(slug);
     if (!s.success) return this.menu.publicMenu('__invalid__');
-    return this.menu.publicMenu(s.data, typeof branch === 'string' ? branch.slice(0, 60) : undefined);
+    // PCL-15: versioned ETag + public caching. Express answers a matching If-None-Match with 304 (no body).
+    const { menu, etag } = await this.menu.cachedPublicMenu(s.data, typeof branch === 'string' ? branch.slice(0, 60) : undefined);
+    if (etag) res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', etag ? PUBLIC_MENU_CACHE_CONTROL : PUBLIC_MENU_NO_STORE);
+    return menu;
   }
 }

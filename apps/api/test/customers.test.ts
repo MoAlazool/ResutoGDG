@@ -65,10 +65,13 @@ describe('CRM list', () => {
     expect(names(await t.http.get(`${base}?tag=vip`).set(owner()))).toEqual(['Omar Farouk']);
     const bad = await t.http.get(`${base}?minOrders=-1`).set(owner());
     expect(bad.status).toBe(400);
+    // Keyset pages (PCL-17): the cursor is opaque; a legacy offset cursor ("2") still pages the same way.
     const page = await t.http.get(`${base}?limit=2&sort=name`).set(owner());
-    expect(page.body.nextCursor).toBe('2');
-    const page2 = await t.http.get(`${base}?limit=2&sort=name&cursor=2`).set(owner());
+    expect(page.body.nextCursor).toMatch(/^k[A-Za-z0-9_-]+$/);
+    const page2 = await t.http.get(`${base}?limit=2&sort=name&cursor=${page.body.nextCursor}`).set(owner());
     expect(names(page2)).toEqual(['Sara N', 'Zed North']);
+    expect(page2.body.nextCursor).toBeNull();
+    expect(names(await t.http.get(`${base}?limit=2&sort=name&cursor=2`).set(owner()))).toEqual(['Sara N', 'Zed North']);
   });
 });
 
