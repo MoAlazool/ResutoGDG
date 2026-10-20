@@ -39,6 +39,12 @@ export default function OrdersPage() {
   const requests = useApi<{ items: Array<{ id: string; kind: string; tableLabel: string; createdAt: string }> }>(
     `/o/${org.id}/requests${branchId ? `?branchId=${branchId}` : ''}`, { pollMs: 5000 });
   const { call } = useSession();
+  // Keep the last failure on screen while a poll retries (useApi clears `error` during the request), so the strip
+  // does not flicker between the failure text and the skeleton.
+  const requestsErr = useRef<ApiRequestError | null>(null);
+  if (requests.data !== undefined) requestsErr.current = null;
+  else if (requests.error) requestsErr.current = requests.error;
+  const reqError = requestsErr.current;
 
   return (
     <ModuleGate module="core" permission="orders:read">
@@ -46,10 +52,15 @@ export default function OrdersPage() {
         actions={can('orders:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.orders.new')}</button>} />
       {/* Guest requests keep a fixed slot (VS-07): the strip is always there, so its arrival does not push the filters
           and the table down after the page has rendered. */}
-      <section className="card card-warm requests-strip" aria-label={t('core.orders.requests')} aria-busy={requests.data === undefined || undefined}>
+      <section className="card card-warm requests-strip" aria-label={t('core.orders.requests')} aria-busy={(requests.data === undefined && !reqError) || undefined}>
         <h2>{t('core.orders.requests')}</h2>
         <div className="row">
-          {requests.data === undefined ? <span className="skeleton" style={{ display: 'block', width: 220, height: 30 }} aria-hidden />
+          {requests.data === undefined ? (reqError
+            ? <span className="fine requests-error" role="status" data-kind={reqError.kind}>
+                {reqError.kind === 'forbidden' ? t('core.orders.requestsForbidden') : <>{t('core.orders.requestsFailed')}{' '}
+                  <button type="button" className="btn btn-sm" onClick={() => void requests.reload()}>{t('action.retry')}</button></>}
+              </span>
+            : <span className="skeleton" style={{ display: 'block', width: 220, height: 30 }} aria-hidden />)
             : requests.data.items.length === 0 ? <span className="fine">{t('core.orders.noRequests')}</span>
               : requests.data.items.map((r) => (
                 <span key={r.id} className="badge badge-warn request-chip">
