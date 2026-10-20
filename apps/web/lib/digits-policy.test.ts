@@ -23,8 +23,32 @@ function* files(dir: string, ext = /\.(ts|tsx)$/): Generator<string> {
   }
 }
 const SOURCE_AND_DATA = /\.(ts|tsx|mjs|cjs|js|sql|json)$/;
-/** Comments, and the ٠-٩ / ۰-۹ ranges of the regexes that detect or normalise these digits. */
-const stripAllowed = (src: string) => src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$|^\s*--.*$/gm, '').replace(/٠-٩|۰-۹/g, '');
+/**
+ * What may mention these digits: comments that start a line (`//`, `/* … *\/` blocks, SQL `--`), and the ٠-٩ / ۰-۹
+ * ranges inside the `[…]` character classes that detect or normalise them. Everything else is checked, including
+ * code that follows a string holding `//` (a URL) and comments that trail code on the same line, so a string literal
+ * can never be hidden by being mistaken for a comment. Lines keep their numbers (stripped lines become empty).
+ */
+export function stripAllowed(src: string): string {
+  let inBlock = false;
+  return src.split('\n').map((line) => {
+    let rest = line;
+    if (inBlock) {
+      const end = rest.indexOf('*/');
+      if (end < 0) return '';
+      inBlock = false;
+      rest = rest.slice(end + 2);
+    }
+    const t = rest.trimStart();
+    if (t.startsWith('//') || t.startsWith('--')) return '';
+    if (t.startsWith('/*')) {
+      const end = t.indexOf('*/', 2);
+      if (end < 0) { inBlock = true; return ''; }
+      rest = t.slice(end + 2);
+    }
+    return rest.replace(/\[(?:[^\]\n\\]|\\.)*\]/g, (cls) => cls.replace(/٠-٩|۰-۹/g, ''));
+  }).join('\n');
+}
 
 describe('Western digits policy', () => {
   it('no source file formats with a raw Arabic locale tag or the default browser locale', () => {
@@ -41,6 +65,19 @@ describe('Western digits policy', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('the comment and regex allowance cannot hide a string literal', () => {
+    const flagged = (src: string) => /[٠-٩۰-۹]/.test(stripAllowed(src));
+    // Review finding: a URL's `//` used to start a "comment" that swallowed the rest of the line.
+    expect(flagged("const link = 'https://resuto.app/menu'; const promo = 'خصم ١٠٪';")).toBe(true);
+    expect(flagged("const promo = 'خصم ١٠٪'; // promo")).toBe(true);
+    expect(flagged("const range = 'أرقام ٠-٩ فقط';")).toBe(true);
+    expect(flagged('/* ١٠ */ const x = "٣";')).toBe(true);
+    expect(flagged('// Arabic keyboards type ٠١٢…\nconst ok = 1;')).toBe(false);
+    expect(flagged('/**\n * Normalises ٠-٩ and ۰-۹ digits\n */\nconst re = /[٠-٩۰-۹]/g;')).toBe(false);
+    expect(flagged("-- seed note ١٢\nINSERT INTO t VALUES ('10%');")).toBe(false);
+    expect(stripAllowed('a\n/*\n x ١\n*/ b\nc').split('\n')).toEqual(['a', '', '', ' b', 'c']);
   });
 
   it('no Eastern Arabic digits are hard-coded in source, dictionaries, seeds, demo data or tools', () => {
