@@ -9,7 +9,7 @@ import { RateLimiter } from '../../common/http/rate-limiter';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { PaymentLedgerService } from '../kernel/payment-ledger.service';
 import { JOB_SELECT, decodeCursor, encodeCursor, toDriverView, toJobView, DRIVER_SELECT } from './delivery.mappers';
-import { DeliveryService, type Actor, type Coordinates } from './delivery.service';
+import { DeliveryService, OTP_MAX_ATTEMPTS, type Actor, type Coordinates } from './delivery.service';
 
 /** Location batches per driver per minute (the web app sends one every ~15 s). */
 export const LOCATION_BATCHES_PER_MINUTE = 12;
@@ -298,6 +298,13 @@ export class DriverAppService {
    * The cash amount must equal what is still due — overpayment is impossible.
    */
   async deliver(ctx: TenantContext, jobId: string, input: DeliverJob, key?: string) {
+    // The code is checked (and a wrong one counted) in its own transaction first: the delivery below rolls back on
+    // any error, which used to make the attempt limit per-process memory only (audit PS-08).
+    if (input.otp) {
+      this.limiter.hit(`delivery-otp:${jobId}`, OTP_MAX_ATTEMPTS * 2, 10 * 60_000);
+      const d = await this.db.scoped(ctx, (tx) => this.me(tx, ctx));
+      await this.delivery.verifyOtp(ctx.orgId, jobId, d.id, input.otp);
+    }
     return this.db.scoped(ctx, (tx) => this.delivery.withKey(tx, ctx, 'delivery.deliver', key, { jobId, ...input }, async () => {
       const d = await this.me(tx, ctx, true);
       const job = await this.ownJob(tx, ctx, d, jobId);
@@ -305,9 +312,10 @@ export class DriverAppService {
       if (input.proofMediaId && input.proofMediaId !== job.proof_media_id) throw invalid('proof_not_found', 'Upload the photo for this delivery first');
       let otpVerified = false;
       if (input.otp) {
-        if (!job.delivery_otp_hash) throw invalid('otp_not_set', 'This delivery has no delivery code');
-        this.limiter.hit(`delivery-otp:${job.id}`, 5, 10 * 60_000);
-        if (!safeEqual(this.delivery.otpHash(job.id, input.otp), job.delivery_otp_hash)) throw invalid('otp_invalid', 'The delivery code is not correct');
+        // Verified above; re-check against the locked row in case a new code was issued in between.
+        if (!job.delivery_otp_hash || job.otp_locked_at || !safeEqual(this.delivery.otpHash(job.id, input.otp), job.delivery_otp_hash)) {
+          throw invalid('otp_invalid', 'The delivery code is not correct');
+        }
         otpVerified = true;
       }
 

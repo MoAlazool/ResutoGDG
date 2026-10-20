@@ -5,6 +5,7 @@ import path from 'node:path';
 import { ENV, type Env } from '../../config/env';
 import type { TenantContext } from '../auth/context';
 import { safeEqual } from '../crypto/hash';
+import { purposeKey } from '../crypto/keys';
 import type { Tx } from '../db/db.service';
 import { invalid } from '../errors/domain-error';
 
@@ -34,10 +35,11 @@ export interface StoredMedia {
 @Injectable()
 export class StorageService {
   private readonly bucket = 'tenant-media';
-  private readonly signingKey: string;
+  /** Signs local-driver media URLs; its own derived key, never the JWT secret (audit PS-25). */
+  private readonly signingKey: Buffer;
 
   constructor(@Inject(ENV) private readonly env: Env) {
-    this.signingKey = env.SUPABASE_JWT_SECRET ?? 'resuto-local-media-signing-key-development-only';
+    this.signingKey = purposeKey(env, 'media-url');
     if (env.STORAGE_DRIVER === 'supabase' && (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY)) {
       throw new Error('STORAGE_DRIVER=supabase requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
     }

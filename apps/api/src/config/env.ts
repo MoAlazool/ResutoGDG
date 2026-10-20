@@ -35,6 +35,11 @@ export const envSchema = z.object({
 
   // 32-byte base64 key(s) for credential encryption: "keyId:base64,keyId2:base64"; first is active.
   CREDENTIALS_KEYS: z.string().optional(),
+  /**
+   * Optional master for purpose-bound HMAC keys (media URLs, delivery codes; common/crypto/keys.ts). Unset: derived
+   * from the active CREDENTIALS_KEYS entry. Never the JWT secret.
+   */
+  SIGNING_KEY: z.string().min(32).optional(),
   AI_SERVICE_URL: z.url().default('http://127.0.0.1:8000'),
   AI_SERVICE_TOKEN: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
