@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { PublicPlansResponse } from '@resuto/contracts';
 import { formatNumber } from '@resuto/contracts';
+import { langAlternates } from '@/components/landing/legacy-routes';
 import { PricingPage } from '@/components/landing/PricingPage';
 import { getLocale } from '@/lib/i18n/server';
 import { faq, fromPrice } from './pricing-model';
@@ -34,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(APP_ORIGIN),
     title: { absolute: title },
     description,
-    alternates: { canonical: '/pricing', languages: { en: '/pricing?lang=en', ar: '/pricing?lang=ar' } },
+    alternates: { canonical: '/pricing', languages: langAlternates('/pricing') },
     openGraph: { type: 'website', url: '/pricing', siteName: 'Resuto', title, description, locale: locale === 'ar' ? 'ar_EG' : 'en_US', images: [{ url: '/brand/og-resuto.png', width: 1200, height: 630, alt: 'Resuto' }] },
   };
 }

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { langParam, legacyRedirect } from './components/landing/legacy-routes';
 import { buildCsp, newNonce } from './lib/csp';
+import { LOCALE_COOKIE } from './lib/i18n/locale';
 
 /**
  * Sets the per-request Content-Security-Policy nonce on every page (lib/csp.ts), and does custom-domain routing
@@ -7,6 +9,10 @@ import { buildCsp, newNonce } from './lib/csp';
  * of the app hosts (APP_HOSTS, default localhost) are resolved through the
  * public by-host endpoint and rewritten to that tenant's /r/<slug> site.
  * Resolution is cached in memory per instance (60 s hits, 30 s misses).
+ *
+ * On the app hosts it also sends legacy page URLs (/restaurant, /menu, /burger, /manager, ...) to their new pages
+ * with the query kept (VP-15), and on every host a ?lang=ar|en link sets the language for this request and is
+ * remembered in the locale cookie (VP-16).
  */
 const API = (process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 const APP_HOSTS = new Set((process.env.APP_HOSTS ?? 'localhost,127.0.0.1').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean));
@@ -42,13 +48,29 @@ export async function middleware(req: NextRequest) {
   // to its own scripts; the browser gets the same policy on the response. Every return below goes through secure().
   const nonce = newNonce();
   const csp = buildCsp({ nonce, dev: CSP_DEV, apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL });
+  // ?lang=ar|en wins over the saved language: the request carries it as the locale cookie (so this render already
+  // uses it) and the response saves it, with the same attributes as the in-page language switcher.
+  const lang = langParam(req.nextUrl.searchParams);
+  if (lang) req.cookies.set(LOCALE_COOKIE, lang);
   const headers = new Headers(req.headers);
   headers.set('content-security-policy', csp);
-  const secure = (res: NextResponse) => { res.headers.set('Content-Security-Policy', csp); return res; };
+  const secure = (res: NextResponse) => {
+    res.headers.set('Content-Security-Policy', csp);
+    if (lang) res.cookies.set(LOCALE_COOKIE, lang, { path: '/', maxAge: 31_536_000, sameSite: 'lax' });
+    return res;
+  };
 
   const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '').split(',')[0]!.trim().toLowerCase().replace(/:\d+$/, '');
-  if (!host || isAppHost(host)) return secure(NextResponse.next({ request: { headers } }));
   const { pathname } = req.nextUrl;
+  if (!host || isAppHost(host)) {
+    const legacy = legacyRedirect(pathname);
+    if (legacy) {
+      const to = req.nextUrl.clone();
+      to.pathname = legacy.to;
+      return secure(NextResponse.redirect(to, legacy.permanent ? 308 : 307));
+    }
+    return secure(NextResponse.next({ request: { headers } }));
+  }
   if (PASS_THROUGH.test(pathname)) return secure(NextResponse.next({ request: { headers } }));
 
   const slug = await resolveHost(host);

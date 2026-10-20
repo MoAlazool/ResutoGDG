@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { LandingPage } from '@/components/landing/LandingPage';
 import { landingFloorFrom, SAMPLE_FLOOR, type LandingFloor } from '@/components/landing/floor-data';
+import { langAlternates } from '@/components/landing/legacy-routes';
 import { DEMO_SLUG } from '@/components/landing/links';
 import { landingPlansFrom, type LandingPlan } from '@/components/landing/plans';
 import { getT } from '@/lib/i18n/server';
@@ -16,6 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(APP_ORIGIN),
     title: { absolute: title },
     description,
+    // hreflang alternates are rendered by the page below: Next's metadata resolver drops the query of a root URL
+    // ('/?lang=ar' comes out as the bare origin).
     alternates: { canonical: '/' },
     openGraph: {
       type: 'website', url: '/', siteName: 'Resuto', title, description, locale: locale === 'ar' ? 'ar_EG' : 'en_US',
@@ -68,6 +71,7 @@ export default async function Home() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      {Object.entries(langAlternates(`${APP_ORIGIN}/`)).map(([hl, href]) => <link key={hl} rel="alternate" hrefLang={hl} href={href} />)}
       <LandingPage plans={plans} floor={floor} />
     </>
   );

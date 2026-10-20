@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import type { PublicMenu, PublicStorefront } from '@resuto/contracts';
+import { langAlternates } from '@/components/landing/legacy-routes';
 import { getT } from '@/lib/i18n/server';
 import { APP_ORIGIN, SERVER_API_URL } from '../_components/load-site';
 import { Storefront, type StorefrontMenu } from './Storefront';
@@ -43,7 +44,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: url, languages: { en: `${url}?lang=en`, ar: `${url}?lang=ar` } },
+    alternates: { canonical: url, languages: langAlternates(url) },
     openGraph: { type: 'website', title, description, url, siteName: name, locale: locale === 'ar' ? 'ar_EG' : 'en_US', ...(sf.brand.heroUrl ? { images: [{ url: sf.brand.heroUrl }] } : {}) },
     icons: sf.brand.logoUrl ? { icon: sf.brand.logoUrl } : undefined,
     robots: { index: true, follow: true },
