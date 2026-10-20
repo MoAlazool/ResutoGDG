@@ -388,16 +388,21 @@ describe('kitchen hand-over (KDS "Out for delivery")', () => {
     const [o] = await sql(`select status, payment_status from orders where id = $1`, [order.id]);
     expect(o).toMatchObject({ status: 'ready', payment_status: 'unpaid' });
     const feed = await t.http.get(K(`/${tenant.branchId}`)).set(auth(manager));
-    expect(feed.body.tickets.map((x: any) => x.id)).not.toContain(order.id);
+    // The bag left the kitchen: the ticket stays on the board in the "On the way" lane (legacy KDS, VS-10) until the
+    // driver delivers it. (It used to vanish from the board here, which hid deliveries in progress from the kitchen.)
+    expect(feed.body.tickets.find((x: any) => x.id === order.id)).toMatchObject({ status: 'ready', handedOff: true, driverJob: true });
     // The driver still picks up and delivers; delivery is what completes the order.
     expect((await t.http.post(D(`/jobs/${job.id}/pickup`)).set(auth(d1)).send({})).body.status).toBe('picked_up');
     const photo = await t.http.post(D(`/jobs/${job.id}/proof-photo`)).set(auth(d1)).attach('file', PNG, { filename: 'proof.png', contentType: 'image/png' });
     const done = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d1)).send({ proofMediaId: photo.body.mediaId, cashCollectedMinor: order.totalMinor });
     expect(done.status, JSON.stringify(done.body)).toBe(200);
     expect((await sql(`select status, payment_status from orders where id = $1`, [order.id]))[0]).toMatchObject({ status: 'delivered', payment_status: 'paid' });
+    const completed = await t.http.get(K(`/${tenant.branchId}`)).set(auth(manager));
+    expect(completed.body.tickets.map((x: any) => x.id)).not.toContain(order.id);
+    expect(completed.body.recent.map((x: any) => x.id)).toContain(order.id);
   });
 
-  it('takes the ticket off the board when the driver picks up without a kitchen hand-over', async () => {
+  it('moves the ticket to "On the way" when the driver picks up without a kitchen hand-over', async () => {
     const { order, job } = await freshJob();
     await t.http.post(M(`/jobs/${job.id}/assign`)).set(auth(manager)).send({ driverId: did(d1) });
     await t.http.post(D(`/jobs/${job.id}/accept`)).set(auth(d1)).send({});
@@ -415,7 +420,7 @@ describe('kitchen hand-over (KDS "Out for delivery")', () => {
     expect(events).toHaveLength(1);
     expect(events[0].details).toMatchObject({ deliveryJobId: job.id, linesServed: 1 });
     const after = await t.http.get(K(`/${tenant.branchId}`)).set(auth(manager));
-    expect(after.body.tickets.map((x: any) => x.id)).not.toContain(order.id);
+    expect(after.body.tickets.find((x: any) => x.id === order.id)).toMatchObject({ handedOff: true, driverJob: true });
   });
 });
 

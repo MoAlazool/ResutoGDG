@@ -7,7 +7,7 @@
 // on the seeded scale database by `node scripts/perf/explain.mjs --assert` (docs/PERFORMANCE.md).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OVERVIEW_LIVE_SQL } from '../src/modules/analytics/analytics.service';
-import { KDS_MARKER_SQL, KDS_TICKETS_SQL } from '../src/modules/kitchen/kitchen.service';
+import { KDS_MARKER_SQL, KDS_RECENT_SQL, KDS_TICKETS_SQL } from '../src/modules/kitchen/kitchen.service';
 import { ORDER_LIST_SQL, ORDER_PAYMENTS_SQL } from '../src/modules/orders/orders.service';
 import { bootTestApp, createTenant, seedMenu, sql, testDb, type TestApp, type TestTenant } from './helpers';
 
@@ -106,6 +106,10 @@ describe('open-order reads stay proportional to open orders (PCL-09)', () => {
     const tickets = await analyse(KDS_TICKETS_SQL, [tenant.branchId, null]);
     expect(tickets.scanned).toBeLessThan(50);
     expect(tickets.indexes.has('orders_open_branch_idx')).toBe(true);
+    // The Completed lane (VS-10) reads recent activity only, never the closed history.
+    const done = await analyse(KDS_RECENT_SQL, [tenant.branchId, null]);
+    expect(done.seqScans).not.toContain('orders');
+    expect(done.scanned).toBeLessThanOrEqual(2 * recent.n + 50);
   });
 
   it('overview live tiles', async () => {

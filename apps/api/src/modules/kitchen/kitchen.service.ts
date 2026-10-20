@@ -4,6 +4,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
+import { assertDeliveryConfirmable } from '../orders/delivery-confirm';
 
 const ACTIVE = `('placed', 'accepted', 'preparing', 'ready')`;
 const NEW_TICKET_SECONDS = 60;
@@ -17,15 +18,35 @@ export const KDS_MARKER_SQL = `select coalesce((extract(epoch from greatest(
             (select max(l.updated_at) from order_lines l join orders o on o.id = l.order_id
               where o.branch_id = $1 and o.status in ${ACTIVE}))) * 1000000)::bigint, 0)::text as cursor, now() as now`;
 
-/** KDS tickets: open orders of the branch, oldest first, through orders_open_branch_idx (PCL-09). */
-export const KDS_TICKETS_SQL = `select o.id, o.number, o.status, o.fulfillment, o.channel, o.customer_name, o.placed_at, o.accepted_at, o.notes, o.version,
-              t.label as table_label
+/** Ticket columns shared by the open board and the Completed lane. */
+const TICKET_COLUMNS = `o.id, o.number, o.status, o.fulfillment, o.channel, o.customer_name, o.placed_at, o.accepted_at, o.fulfilled_at, o.notes, o.version,
+              greatest(o.total_minor - (o.paid_minor - o.refunded_minor), 0)::bigint as due_minor, t.label as table_label,
+              (o.status = 'ready' and o.fulfillment = 'delivery'
+                and exists (select 1 from order_lines l where l.order_id = o.id and l.kitchen_status <> 'cancelled')
+                and not exists (select 1 from order_lines l where l.order_id = o.id and l.kitchen_status not in ('served', 'cancelled'))) as handed_off,
+              exists (select 1 from delivery_jobs j where j.order_id = o.id and j.status not in ('delivered', 'failed', 'cancelled')) as driver_job`;
+
+/**
+ * KDS tickets: open orders of the branch, oldest first, through orders_open_branch_idx (PCL-09). A delivery bag that
+ * left the kitchen (every line served, order still `ready`) stays on the board in the "On the way" lane until the
+ * delivery completes (VS-10, DF-02).
+ */
+export const KDS_TICKETS_SQL = `select ${TICKET_COLUMNS}
          from orders o left join dining_tables t on t.id = o.table_id
         where o.branch_id = $1 and o.status in ${ACTIVE}
-          and not (o.status = 'ready' and o.fulfillment = 'delivery' and not exists (
-            select 1 from order_lines l where l.order_id = o.id and l.kitchen_status not in ('served', 'cancelled')))
           and ($2::text is null or exists (select 1 from order_lines l where l.order_id = o.id and l.station = $2))
         order by o.placed_at, o.id limit 300`;
+
+/**
+ * "Completed" lane: the branch's last 12 fulfilled tickets of the last 12 hours, newest first (legacy: last 12).
+ * Bounded by recent activity through orders_org_branch_updated_idx, like the marker.
+ */
+export const KDS_RECENT_SQL = `select ${TICKET_COLUMNS}
+         from orders o left join dining_tables t on t.id = o.table_id
+        where o.branch_id = $1 and o.updated_at > now() - interval '12 hours' and o.status in ('served', 'picked_up', 'delivered')
+          and o.fulfilled_at > now() - interval '12 hours'
+          and ($2::text is null or exists (select 1 from order_lines l where l.order_id = o.id and l.station = $2))
+        order by o.fulfilled_at desc, o.id desc limit 12`;
 
 /**
  * Kitchen display (KDS). Order-level bumps are kernel transitions; line-level
@@ -46,15 +67,20 @@ export class KitchenService {
       const marker = await tx.one<{ cursor: string; now: Date }>(KDS_MARKER_SQL, [branchId]);
       const stations = (await tx.query<{ station: string }>(
         `select distinct station from products where org_id = $1 and is_active order by station`, [ctx.orgId])).map((s) => s.station);
+      const { service_mode: serviceMode } = await tx.one<{ service_mode: string }>('select service_mode from branches where id = $1', [branchId]);
       if (opts.since && BigInt(opts.since) >= BigInt(marker.cursor)) {
-        return { cursor: marker.cursor, serverTime: marker.now.toISOString(), unchanged: true, stations, tickets: [] };
+        return { cursor: marker.cursor, serverTime: marker.now.toISOString(), unchanged: true, stations, tickets: [], serviceMode };
       }
-      return { cursor: marker.cursor, serverTime: marker.now.toISOString(), stations, tickets: await this.tickets(tx, branchId, opts.station, marker.now) };
+      return {
+        cursor: marker.cursor, serverTime: marker.now.toISOString(), stations, serviceMode,
+        tickets: await this.tickets(tx, KDS_TICKETS_SQL, branchId, opts.station, marker.now),
+        recent: await this.tickets(tx, KDS_RECENT_SQL, branchId, opts.station, marker.now),
+      };
     });
   }
 
-  private async tickets(tx: Tx, branchId: string, station: string | undefined, now: Date): Promise<KitchenTicket[]> {
-    const orders = await tx.query<any>(KDS_TICKETS_SQL, [branchId, station ?? null]);
+  private async tickets(tx: Tx, sql: string, branchId: string, station: string | undefined, now: Date): Promise<KitchenTicket[]> {
+    const orders = await tx.query<any>(sql, [branchId, station ?? null]);
     if (!orders.length) return [];
     const lines = await tx.query<any>(
       `select l.id, l.order_id, l.name, l.name_ar, l.quantity, l.station, l.kitchen_status, l.notes, l.modifiers, p.prep_minutes
@@ -66,6 +92,7 @@ export class KitchenService {
       customerName: o.customer_name, placedAt: o.placed_at.toISOString(), acceptedAt: o.accepted_at?.toISOString() ?? null,
       ageSeconds: Math.max(0, Math.round((now.getTime() - o.placed_at.getTime()) / 1000)), notes: o.notes, version: o.version,
       isNew: o.status === 'placed' && now.getTime() - o.placed_at.getTime() < NEW_TICKET_SECONDS * 1000,
+      handedOff: o.handed_off, driverJob: o.driver_job, dueMinor: Number(o.due_minor), fulfilledAt: o.fulfilled_at?.toISOString() ?? null,
       lines: lines.filter((l) => l.order_id === o.id).map((l) => ({
         id: l.id, name: l.name, nameAr: l.name_ar, quantity: l.quantity, station: l.station, kitchenStatus: l.kitchen_status, notes: l.notes,
         modifiers: (l.modifiers as any[]).map((m) => m.option), prepMinutes: l.prep_minutes,
@@ -79,8 +106,14 @@ export class KitchenService {
       const o = await tx.maybeOne<{ branch_id: string; status: string }>('select branch_id, status from orders where id = $1', [orderId]);
       if (!o || !ctx.canAccessBranch(o.branch_id)) throw notFound('Order');
       if (to === 'delivered') {
-        const handOff = await this.handToDriver(tx, ctx, orderId, version);
-        if (handOff) return handOff;
+        const { fulfillment } = await tx.one<{ fulfillment: string }>('select fulfillment from orders where id = $1', [orderId]);
+        if (fulfillment === 'delivery') {
+          // "Out for delivery" while the bag is still in the kitchen is a hand-off, never a delivery (DF-02).
+          const handOff = await this.handOff(tx, ctx, orderId, version);
+          if (handOff) return handOff;
+          // The bag already left ("On the way"): this is the delivery confirmation (no driver job, nothing due).
+          await assertDeliveryConfirmable(tx, orderId);
+        }
       }
       const r = await this.kernel.transition(tx, ctx, orderId, to, { expectedVersion: version });
       if (to === 'preparing') await tx.query(`update order_lines set kitchen_started_at = coalesce(kitchen_started_at, now()) where order_id = $1 and kitchen_status <> 'cancelled'`, [orderId]);
@@ -94,21 +127,24 @@ export class KitchenService {
   }
 
   /**
-   * "Out for delivery" on a ticket that has an open driver job: the bag leaves the
-   * kitchen (lines served, ticket off the board) but the order stays `ready` —
-   * only the driver's delivery marks it delivered (and settles cash on delivery).
+   * "Out for delivery": the bag leaves the kitchen (lines served, the ticket moves to "On the way") but the order
+   * stays `ready`. With an open driver job the driver's delivery completes it (and settles cash on delivery); without
+   * one (no driver module, or a failed/cancelled job) staff confirm the delivery later, once it is paid (DF-02).
+   * Returns null when the bag already left (the caller then treats the bump as the delivery confirmation).
    */
-  private async handToDriver(tx: Tx, ctx: TenantContext, orderId: string, version?: number) {
+  private async handOff(tx: Tx, ctx: TenantContext, orderId: string, version?: number) {
     const o = await tx.one<{ status: string; version: number }>('select status, version from orders where id = $1 for update', [orderId]);
+    if (version !== undefined && o.version !== version) throw conflict('stale_order', 'This order changed. Refresh and try again.', { version: o.version });
+    if (o.status !== 'ready') throw conflict('invalid_transition', `Cannot hand an order over from ${o.status}`, { from: o.status, to: 'delivered' });
+    const inKitchen = await tx.maybeOne(`select 1 from order_lines where order_id = $1 and kitchen_status not in ('served', 'cancelled') limit 1`, [orderId]);
+    if (!inKitchen) return null;
     const job = await tx.maybeOne<{ id: string; status: string }>(
       `select id, status from delivery_jobs where order_id = $1 and status not in ('delivered', 'failed', 'cancelled') order by created_at desc limit 1`, [orderId]);
-    if (!job) return null;
-    if (version !== undefined && o.version !== version) throw conflict('stale_order', 'This order changed. Refresh and try again.', { version: o.version });
-    if (o.status !== 'ready') throw conflict('invalid_transition', `Cannot hand an order to the driver from ${o.status}`, { from: o.status, to: 'delivered' });
     await tx.query(`update order_lines set kitchen_status = 'served' where order_id = $1 and kitchen_status <> 'cancelled'`, [orderId]);
     const row = await tx.one<{ version: number }>('update orders set version = version + 1 where id = $1 returning version', [orderId]);
-    await this.kernel.event(tx, ctx, orderId, 'handed_to_driver', 'ready', 'ready', { deliveryJobId: job.id, jobStatus: job.status });
-    return { id: orderId, status: 'ready' as OrderStatus, version: row.version, changed: true, handedToDriver: true };
+    await this.kernel.event(tx, ctx, orderId, job ? 'handed_to_driver' : 'handed_to_courier', 'ready', 'ready',
+      job ? { deliveryJobId: job.id, jobStatus: job.status } : {});
+    return { id: orderId, status: 'ready' as OrderStatus, version: row.version, changed: true, handedOff: true, ...(job ? { handedToDriver: true } : {}) };
   }
 
   /** Line-level status (start, ready, recall). May advance the order; never moves it backwards. */
