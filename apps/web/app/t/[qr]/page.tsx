@@ -22,6 +22,7 @@ export default async function TablePage({ params }: { params: Promise<{ qr: stri
   const t = table.status === 'ok' ? table.data : null;
   const menu = t ? await serverRead<PublicMenu>(`/public/menu/${encodeURIComponent(t.org.slug)}?branch=${encodeURIComponent(t.branch.code)}`,
     { revalidate: 30, tags: [`menu:${t.org.slug}`] }) : null;
-  preload('/brand/olive-interior.webp', { as: 'image', fetchPriority: 'high' });
+  // The restaurant's own cover, when it has one (never a stock or another restaurant's photo).
+  if (t?.cover) preload(t.cover, { as: 'image', fetchPriority: 'high' });
   return <TableExperience qr={qr} table={t} initialMenu={menu?.status === 'ok' ? menu.data : null} />;
 }

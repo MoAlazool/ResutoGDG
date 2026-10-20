@@ -15,6 +15,8 @@ export interface PublicTableView {
   accepting: boolean;
   /** Why not: branch_closed | staff_seating | out_of_service | cleaning. */
   reason: string | null;
+  /** This restaurant's cover photo (its published website hero), or null for the plain brand treatment. */
+  cover: string | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -44,14 +44,16 @@ export function ConsumerFooter({ org }: { org: ShellOrg | null }) {
 }
 
 /**
- * Legacy menu-cover: the dining-room photograph darkened, an overline and the Georgia headline. The image is the
- * page's largest paint, so it is requested at high priority with its intrinsic size reserved (PCL-08).
+ * Legacy menu-cover: the restaurant's own photograph darkened, an overline and the Georgia headline. The photo is
+ * this restaurant's cover (its published website hero, from the API); without one the cover keeps its plain
+ * brand-ink panel, never another restaurant's picture. The image is the page's largest paint, so it is requested at
+ * high priority with its box reserved (PCL-08).
  */
-export function Cover({ overline, title, body }: { overline: ReactNode; title: ReactNode; body: ReactNode }) {
+export function Cover({ image, overline, title, body }: { image: string | null; overline: ReactNode; title: ReactNode; body: ReactNode }) {
   return (
-    <section className="gx-cover">
-      {/* eslint-disable-next-line @next/next/no-img-element -- static brand photo; explicit size, high priority */}
-      <img src="/brand/olive-interior.webp" alt="" width={1600} height={900} fetchPriority="high" decoding="async" />
+    <section className={`gx-cover${image ? '' : ' is-plain'}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- tenant media from the API (signed URL); explicit size, high priority */}
+      {image && <img src={image} alt="" width={1600} height={900} fetchPriority="high" decoding="async" />}
       <div>
         <span className="gx-overline">{overline}</span>
         <h1>{title}</h1>

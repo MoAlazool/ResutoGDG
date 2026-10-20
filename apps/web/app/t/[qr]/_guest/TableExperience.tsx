@@ -143,7 +143,7 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
       {header}
       {screen === 'menu' ? (
         <>
-          <Cover overline={org ? pick(locale, org.name, org.nameAr) : ''} title={t('core.guest.cover.title')} body={t('core.guest.cover.table')} />
+          <Cover image={table?.cover ?? null} overline={org ? pick(locale, org.name, org.nameAr) : ''} title={t('core.guest.cover.title')} body={t('core.guest.cover.table')} />
           <main className="gx-main">
             <div className="gx-context">
               <span>◉ {t('core.guest.tableLabel', { label: tableLabel })}</span>

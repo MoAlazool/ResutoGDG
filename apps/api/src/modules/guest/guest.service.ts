@@ -5,10 +5,12 @@ import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { EntitlementsService } from '../../common/entitlements/entitlements.service';
+import { StorageService } from '../../common/storage/storage.service';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
 import { PricingService, type Quote } from '../kernel/pricing.service';
 import { MenuService } from '../menu/menu.service';
+import { guestCoverUrl } from '../orders/guest-cover';
 import { orgCountry } from '../orders/org-country';
 import { VisitsService } from '../orders/visits.service';
 
@@ -43,6 +45,7 @@ export class GuestService {
     private readonly menu: MenuService,
     private readonly idempotency: IdempotencyService,
     private readonly entitlements: EntitlementsService,
+    private readonly storage: StorageService,
     @Optional() @Inject(CHECKOUT_PORT) private readonly checkout?: CheckoutPort,
   ) {}
 
@@ -133,8 +136,10 @@ export class GuestService {
     const org = await this.menu.resolveOrgBySlug(slug);
     // Offer online payment only when ResutoPay is deployed and this restaurant's plan includes it.
     const online = !!this.checkout && (await this.entitlements.isEnabled(org.id, 'pay'));
+    const cover = await this.db.withTenant(org.id, (tx) => guestCoverUrl(tx, org.id, this.storage), 'guest:cover');
     return {
       ...menu,
+      cover,
       payment: {
         payAtPickup: menu.branch.acceptsPickup,
         cashOnDelivery: menu.branch.acceptsDelivery,

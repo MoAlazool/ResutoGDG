@@ -12,7 +12,11 @@ import { CartSheet, useSuggestions } from '@/components/guest/cart';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart, type Cart } from '@/components/guest/menu';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 
-export type WebMenu = PublicMenu & { payment: { payAtPickup: boolean; cashOnDelivery: boolean; online: boolean } };
+export type WebMenu = PublicMenu & {
+  payment: { payAtPickup: boolean; cashOnDelivery: boolean; online: boolean };
+  /** This restaurant's cover photo (its published website hero), or null for the plain brand treatment. */
+  cover: string | null;
+};
 type Fulfillment = 'pickup' | 'delivery';
 interface QuoteView { subtotalMinor: number; discountMinor: number; deliveryFeeMinor: number; serviceChargeMinor: number; taxMinor: number; taxInclusive: boolean; totalMinor: number }
 
@@ -47,7 +51,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
   return (
     <div className="gx">
       <ConsumerHeader org={org} branch={b} menuHref={null} reserveHref={org && menu?.branches.some((x) => x.acceptsReservations) ? `/reserve/${org.slug}` : null} />
-      <Cover overline={org ? pick(locale, org.name, org.nameAr) : ''} title={t('core.guest.cover.title')} body={t('core.guest.cover.body')} />
+      <Cover image={menu?.cover ?? null} overline={org ? pick(locale, org.name, org.nameAr) : ''} title={t('core.guest.cover.title')} body={t('core.guest.cover.body')} />
       <main className="gx-main">
         {error && <div className="gx-note is-danger" role="alert">{error}</div>}
         {menu && b ? (

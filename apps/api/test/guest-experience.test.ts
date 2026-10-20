@@ -34,7 +34,7 @@ describe('read-only table lookup (CR-03)', () => {
     expect(res.body).toEqual({
       org: { name: 'Test Restaurant', nameAr: null, slug: tenant.slug, currency: 'EGP' },
       branch: { id: tenant.branchId, code: expect.any(String), name: 'Main branch', nameAr: null },
-      table: { label: 'Q1' }, accepting: true, reason: null,
+      table: { label: 'Q1' }, accepting: true, reason: null, cover: null,
     });
     expect(JSON.stringify(res.body)).not.toMatch(/token|visit/i);
     expect(await openVisits(tables.Q1!.id)).toBe(before); // no session side effects
@@ -43,6 +43,42 @@ describe('read-only table lookup (CR-03)', () => {
     expect(seated.body).toMatchObject({ accepting: false, reason: 'staff_seating' });
     expect((await t.http.get('/v1/public/tables/not-a-real-qr-token-123456')).status).toBe(404);
     expect((await t.http.get('/v1/public/tables/short')).status).toBe(404);
+  });
+});
+
+describe('guest cover photo (VP-07 review)', () => {
+  const media = async (orgId: string, name: string, type = 'image/webp') => (await sql(
+    `insert into media_assets(org_id, path, content_type, byte_size) values ($1, $2, $3, 1000) returning id`, [orgId, `${orgId}/${name}`, type]))[0].id as string;
+  const site = async (orgId: string, status: 'draft' | 'published', heroMediaId: string | null) => {
+    const w = (await sql(`insert into websites(org_id, status) values ($1, $2)
+      on conflict (org_id) do update set status = excluded.status returning id`, [orgId, status]))[0].id as string;
+    const next = (await sql('select coalesce(max(revision), 0) + 1 as n from website_revisions where website_id = $1', [w]))[0].n as number;
+    await sql(`insert into website_revisions(org_id, website_id, revision, snapshot) values ($1, $2, $3, $4)`,
+      [orgId, w, next, { template: 'olive', theme: { heroMediaId }, seo: {}, sections: [] }]);
+  };
+  const covers = async () => [
+    (await t.http.get(`/v1/public/tables/${tables.Q1!.qr}`).expect(200)).body.cover as string | null,
+    (await t.http.get(`/v1/public/order/${tenant.slug}`).expect(200)).body.cover as string | null,
+  ];
+
+  it('is the restaurant\'s own published website hero, never another restaurant\'s photo, else none', async () => {
+    // No website: no photo (the page keeps its plain brand panel).
+    expect(await covers()).toEqual([null, null]);
+    // Another restaurant's hero is never served, even if its id ends up in this restaurant's site.
+    const other = await createTenant(t, { country: 'EG' });
+    const foreign = await media(other.orgId, 'olive-room-interior.webp');
+    await site(tenant.orgId, 'published', foreign);
+    expect(await covers()).toEqual([null, null]);
+    // A draft (unpublished) hero is not public yet; a non-image asset is never a cover.
+    const own = await media(tenant.orgId, 'our-dining-room.webp');
+    await site(tenant.orgId, 'draft', own);
+    expect(await covers()).toEqual([null, null]);
+    await site(tenant.orgId, 'published', await media(tenant.orgId, 'menu.pdf', 'application/pdf'));
+    expect(await covers()).toEqual([null, null]);
+    // Published: both guest pages show this restaurant's photo through a signed media URL.
+    await site(tenant.orgId, 'published', own);
+    const [table, web] = await covers();
+    for (const url of [table, web]) expect(url).toMatch(new RegExp(`/v1/media/${encodeURIComponent(`${tenant.orgId}/our-dining-room.webp`)}\\?exp=\\d+&sig=`));
   });
 });
 

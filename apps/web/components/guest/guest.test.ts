@@ -110,3 +110,17 @@ describe('guest pages: bidi isolation and glyphs (DF-07)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('guest cover is the restaurant\'s own (VP-07 review)', () => {
+  it('no guest page shows or preloads a fixed photo from /public: the cover comes from the tenant, or stays plain', () => {
+    const bad: string[] = [];
+    for (const f of guestSources()) {
+      readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+        if (/['"`(]\/(?:brand|landing|images?|demo)\/[^'"`)]+\.(?:webp|png|jpe?g|avif)/.test(line)) bad.push(`${relative(repo, f)}:${i + 1}`);
+      });
+    }
+    expect(bad).toEqual([]);
+    const shell = readFileSync(join(repo, 'apps/web/components/guest/shell.tsx'), 'utf8');
+    expect(shell).toMatch(/\{image && <img src=\{image\}/);
+  });
+});

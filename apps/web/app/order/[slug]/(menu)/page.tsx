@@ -17,6 +17,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const code = typeof branch === 'string' && /^[a-z0-9-]{1,40}$/.test(branch) ? branch : undefined;
   const menu = await serverRead<WebMenu>(`/public/order/${encodeURIComponent(slug)}${code ? `?branch=${code}` : ''}`, { revalidate: 30, tags: [`menu:${slug}`] });
   if (menu.status === 'missing') notFound();
-  preload('/brand/olive-interior.webp', { as: 'image', fetchPriority: 'high' });
+  // The restaurant's own cover, when it has one (never a stock or another restaurant's photo).
+  if (menu.status === 'ok' && menu.data.cover) preload(menu.data.cover, { as: 'image', fetchPriority: 'high' });
   return <WebOrderExperience slug={slug} branchCode={code} initialMenu={menu.status === 'ok' ? menu.data : null} />;
 }

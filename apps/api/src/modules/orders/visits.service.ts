@@ -10,7 +10,9 @@ import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { ENV, type Env } from '../../config/env';
+import { StorageService } from '../../common/storage/storage.service';
 import { PaymentLedgerService } from '../kernel/payment-ledger.service';
+import { guestCoverUrl } from './guest-cover';
 import { GuestTokens } from './guest-tokens';
 
 export interface OpenVisitInput {
@@ -47,6 +49,7 @@ export class VisitsService {
     private readonly outbox: OutboxService,
     private readonly idempotency: IdempotencyService,
     @Inject(ENV) env: Env,
+    private readonly storage: StorageService,
   ) {
     this.tokens = new GuestTokens(env);
   }
@@ -198,6 +201,7 @@ export class VisitsService {
         org: { name: r.org_name, nameAr: r.org_name_ar, slug: r.slug, currency: r.currency },
         branch: { id: r.branch_id, code: r.code, name: r.name, nameAr: r.name_ar },
         table: { label: r.label }, accepting: reason === null, reason,
+        cover: await guestCoverUrl(tx, found.org_id, this.storage),
       };
     }, `guest:qr-lookup:${found.id}`);
   }
