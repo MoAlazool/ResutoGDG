@@ -26,6 +26,7 @@ export * from './finance';
 export * from './compliance';
 export * from './intelligence';
 export * from './insight-templates';
+export * from './notifications';
 export * from './mcp';
 export * from './studio';
 export * from './sales';

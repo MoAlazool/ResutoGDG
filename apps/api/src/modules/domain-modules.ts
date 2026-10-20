@@ -18,6 +18,7 @@ import { KitchenModule } from './kitchen/kitchen.module';
 import { MarketingModule } from './marketing/marketing.module';
 import { McpModule } from './mcp/mcp.module';
 import { MenuModule } from './menu/menu.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReservationsModule } from './reservations/reservations.module';
@@ -41,6 +42,7 @@ export const DOMAIN_MODULES: Type[] = [
   MarketingModule,
   McpModule,
   MenuModule,
+  NotificationsModule,
   OrdersModule,
   PaymentsModule,
   ReservationsModule,

@@ -11,6 +11,7 @@ import { ApiRequestError } from '@/lib/api';
 import { connectionState, subscribeConnection } from '@/lib/connection';
 import { pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
+import { NotificationBell } from './NotificationBell';
 import { ACTIVE_ORDER_STATUSES, NAV, navVisible, type NavItem } from '@/lib/nav';
 import { OrgProvider, type OrgInfo } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -157,7 +158,7 @@ function ShellTopbar({ timeZone }: { timeZone?: string }) {
   return (
     <Topbar title={t('shell.service')}
       status={<LiveStatus state={state} labels={{ live: t('shell.live'), reconnecting: t('shell.reconnecting'), offline: t('shell.offline') }} />}
-      date={now !== null && timeZone ? <time dateTime={new Date(now).toISOString()}>{dateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone }).format(now)}</time> : null} />
+      date={now !== null && timeZone ? <time dateTime={new Date(now).toISOString()}>{dateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone }).format(now)}</time> : null}><NotificationBell /></Topbar>
   );
 }
 
