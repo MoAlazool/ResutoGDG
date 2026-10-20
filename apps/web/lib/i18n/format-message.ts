@@ -18,6 +18,14 @@ const pluralRules = (locale: Locale) => {
   return r;
 };
 
+/** The numeric value of a count: numbers as is, numeric strings with optional grouping separators parsed. */
+function countOf(raw: string | number | undefined): number | null {
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== 'string') return null;
+  const clean = raw.replace(/[,\s\u00A0\u202F\u066C]/g, '');
+  return clean !== '' && Number.isFinite(Number(clean)) ? Number(clean) : null;
+}
+
 /** Index of the `}` matching the `{` at `open`, or -1. */
 function matchBrace(s: string, open: number): number {
   let depth = 0;
@@ -41,6 +49,7 @@ function selectBranch(body: string, n: number, locale: Locale): string | null {
     i = close + 1;
   }
   if (!branches.size) return null;
+  if (!Number.isFinite(n)) return branches.get('other') ?? null;
   return branches.get(`=${n}`) ?? branches.get(pluralRules(locale).select(n)) ?? branches.get('other') ?? null;
 }
 
@@ -58,10 +67,12 @@ export function formatMessage(template: string, locale: Locale, vars?: Record<st
     const plural = /^\s*(\w+)\s*,\s*plural\s*,([\s\S]*)$/.exec(inner);
     if (plural) {
       const raw = vars[plural[1]!];
-      const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(Number(raw)) ? Number(raw) : null;
-      const branch = n === null ? null : selectBranch(plural[2]!, n, locale);
+      const n = countOf(raw);
+      // A count the caller already formatted ("1,234") keeps its text for '#'; text that is not a number at all
+      // ("—") takes the `other` form, so a user never sees the raw plural syntax.
+      const branch = raw === undefined ? null : selectBranch(plural[2]!, n ?? Number.NaN, locale);
       if (branch === null) out += template.slice(open, close + 1);
-      else out += formatMessage(branch.replace(/#/g, formatNumber(n!, locale)), locale, vars);
+      else out += formatMessage(branch.replace(/#/g, typeof raw === 'string' ? raw : formatNumber(n!, locale)), locale, vars);
     } else {
       const name = inner.trim();
       out += /^\w+$/.test(name) && name in vars ? String(vars[name]) : template.slice(open, close + 1);

@@ -31,9 +31,9 @@ export const mcp = {
     'mcp.status.revoked': 'Revoked',
     'mcp.status.expired': 'Expired',
     'mcp.branches.all': 'All branches',
-    'mcp.branches.count': '{n} branch(es)',
+    'mcp.branches.count': '{n, plural, one {# branch} other {# branches}}',
     'mcp.never': 'Never',
-    'mcp.toolsCount': '{n} tools',
+    'mcp.toolsCount': '{n, plural, one {# tool} other {# tools}}',
 
     'mcp.form.title': 'New AI connection',
     'mcp.form.name': 'Connection name',
@@ -205,9 +205,9 @@ export const mcp = {
     'mcp.status.revoked': 'ملغى',
     'mcp.status.expired': 'منتهي الصلاحية',
     'mcp.branches.all': 'كل الفروع',
-    'mcp.branches.count': '{n} فرع',
+    'mcp.branches.count': '{n, plural, one {فرع واحد} two {فرعان} few {# فروع} many {# فرعًا} other {# فرع}}',
     'mcp.never': 'لم يُستخدم',
-    'mcp.toolsCount': '{n} أدوات',
+    'mcp.toolsCount': '{n, plural, one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة}}',
 
     'mcp.form.title': 'اتصال ذكاء اصطناعي جديد',
     'mcp.form.name': 'اسم الاتصال',

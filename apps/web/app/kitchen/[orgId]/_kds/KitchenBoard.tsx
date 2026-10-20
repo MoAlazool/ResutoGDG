@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KitchenFeed, KitchenTicket } from '@resuto/contracts';
 import { Notice } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
-import { pick } from '@/lib/format';
+import { formatElapsedMs, pick } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import './kds.css';
 
@@ -89,7 +89,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations }: { orgId: 
                   <article key={tk.id} className={cls} aria-busy={busy === tk.id}>
                     <div className="kds-tile-head">
                       <strong>#{tk.number.padStart(3, '0')}</strong>
-                      <span className="kds-age" aria-label={t('core.kds.age')}>{mins}:{String(age % 60).padStart(2, '0')}</span>
+                      <span className="kds-age" aria-label={t('core.kds.age')}>{mins < 60 ? `${mins}:${String(age % 60).padStart(2, '0')}` : formatElapsedMs(age * 1000, locale)}</span>
                     </div>
                     <div className="kds-where">
                       {tk.tableLabel ? t('core.kds.table', { label: tk.tableLabel }) : t(`core.web.${tk.fulfillment}`)}

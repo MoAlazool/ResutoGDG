@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { DeliveryJobView } from '@resuto/contracts';
 import { Card, EmptyState, Notice, Skeleton, Stat, useAction } from '@resuto/ui';
-import { money, time } from '@/lib/format';
+import { formatElapsed, money, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
@@ -10,7 +10,6 @@ import { useSession } from '@/lib/session';
 import { AssignControl, Availability, JobStatus, addressOf, type BoardData } from './shared';
 import { JobModal } from './JobModal';
 
-const ageMin = (iso: string) => Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
 
 /** Live dispatch board (polls every 10 s): waiting jobs, jobs on the road, drivers, recently closed. */
 export function Board({ branchId }: { branchId: string }) {
@@ -37,15 +36,15 @@ export function Board({ branchId }: { branchId: string }) {
         </button>
         <div className="row" style={{ gap: 6 }}>
           <JobStatus status={j.status} />
-          <span className="fine">{t('driver.dispatch.age', { m: ageMin(j.createdAt) })}</span>
+          <span className="fine">{t('driver.dispatch.age', { elapsed: formatElapsed(j.createdAt, locale) })}</span>
         </div>
       </div>
       <div style={{ fontSize: 14 }}><bdi>{addressOf(j) || '—'}</bdi></div>
       <div className="row fine" style={{ gap: 10 }}>
-        {j.driverName && <span>🛵 <bdi>{j.driverName}</bdi></span>}
+        {j.driverName && <span><bdi>{j.driverName}</bdi></span>}
         {j.offer && <span>{t('driver.dispatch.offerExpires', { t: time(j.offer.expiresAt, locale) })}</span>}
-        {j.etaAt && <span>⏱ {t('driver.eta', { t: time(j.etaAt, locale) })}</span>}
-        <span>{j.codAmountMinor > 0 && j.cashStatus !== 'none' ? `💵 ${money(j.codAmountMinor, j.currency, locale)}` : t('driver.prepaid')}</span>
+        {j.etaAt && <span>{t('driver.eta', { t: time(j.etaAt, locale) })}</span>}
+        <span>{j.codAmountMinor > 0 && j.cashStatus !== 'none' ? `${t('driver.cod')}: ${money(j.codAmountMinor, j.currency, locale)}` : t('driver.prepaid')}</span>
         <span>{t(`driver.orderState.${j.orderStatus}`)}</span>
         {j.failureReason && <span style={{ color: 'var(--danger)' }}>{t(`driver.fail.reasons.${j.failureReason}`)}</span>}
       </div>
@@ -89,7 +88,7 @@ export function Board({ branchId }: { branchId: string }) {
                   <div className="fine">
                     {t(`driver.vehicle.${d.vehicleType}`)}
                     {d.activeJobs ? ` · ${t('driver.dispatch.activeJobs', { n: d.activeJobs })}` : ''}
-                    {d.cashOnHandMinor ? ` · 💵 ${money(d.cashOnHandMinor, org.currency, locale)}` : ''}
+                    {d.cashOnHandMinor ? ` · ${t('driver.cash.onHand')}: ${money(d.cashOnHandMinor, org.currency, locale)}` : ''}
                   </div>
                   <div className="fine">{d.lastLocation ? t('driver.dispatch.lastSeen', { t: time(d.lastLocation.at, locale) }) : t('driver.dispatch.noLocation')}</div>
                 </div>

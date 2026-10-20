@@ -25,9 +25,16 @@ describe('formatMessage', () => {
     expect(formatMessage('{n, plural, one {# order at {table}} other {# orders at {table}}}', 'en', { n: '2', table: 'T4' })).toBe('2 orders at T4');
   });
 
-  it('keeps the template when the count is missing or not a number', () => {
+  it('keeps the template visible when the count is missing', () => {
     const m = '{n, plural, one {# item} other {# items}}';
     expect(formatMessage(m, 'en', {})).toBe(m);
-    expect(formatMessage(m, 'en', { n: 'many' })).toBe(m);
+  });
+
+  // Callers sometimes pass a count they already formatted. The raw plural syntax must never reach the screen.
+  it('accepts pre-formatted counts and uses the other form for non-numeric text', () => {
+    const m = '{n, plural, one {# item} other {# items}}';
+    expect(formatMessage(m, 'en', { n: '1,234' })).toBe('1,234 items');
+    expect(formatMessage(m, 'en', { n: '1' })).toBe('1 item');
+    expect(formatMessage(m, 'en', { n: '—' })).toBe('— items');
   });
 });

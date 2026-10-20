@@ -16,7 +16,7 @@ export const intelligence = {
     'intelligence.computedFrom': 'Computed from this restaurant’s recorded orders.',
 
     'intelligence.insights.refresh': 'Check now',
-    'intelligence.insights.refreshed': '{n} new insights',
+    'intelligence.insights.refreshed': '{n, plural, =0 {No new insights} one {# new insight} other {# new insights}}',
     'intelligence.insights.empty': 'No insights yet',
     'intelligence.insights.emptyBody': 'Insights appear when Resuto spots a revenue drop, an unusual item, a stock-out risk, quiet regulars or a slow kitchen.',
     'intelligence.insights.filter.open': 'Open',
@@ -49,8 +49,8 @@ export const intelligence = {
     'intelligence.forecast.chosen': 'chosen',
     'intelligence.forecast.fallback': 'Fallback: {reason}',
     'intelligence.forecast.backtest': 'Backtest on your history ({folds} folds × {horizon} days)',
-    'intelligence.forecast.coverage': '{days} days of history ({nonZero} with sales), {start} → {end}',
-    'intelligence.forecast.total': 'Next {days} days: {total} (range {lower}–{upper})',
+    'intelligence.forecast.coverage': '{days, plural, one {# day} other {# days}} of history ({nonZero} with sales), {start} → {end}',
+    'intelligence.forecast.total': 'Next {days, plural, one {day} other {# days}}: {total} (range {lower}–{upper})',
     'intelligence.forecast.ramadan': 'Ramadan dates are approximate (±1 day).',
     'intelligence.forecast.table': 'Show values',
     'intelligence.forecast.date': 'Date',
@@ -59,7 +59,7 @@ export const intelligence = {
     'intelligence.model.hist_gbm': 'Gradient boosting',
 
     'intelligence.segments.title': 'Customer segments (RFM)',
-    'intelligence.segments.total': '{n} customers with orders',
+    'intelligence.segments.total': '{n, plural, one {# customer with orders} other {# customers with orders}}',
     'intelligence.segments.members': 'Customers in this segment',
     'intelligence.segments.empty': 'No customers with orders yet',
     'intelligence.segments.noAccess': 'Your role cannot view customer lists.',
@@ -78,7 +78,7 @@ export const intelligence = {
     'intelligence.customer': 'Customer',
     'intelligence.risk': 'Risk',
     'intelligence.recency': 'Last order',
-    'intelligence.daysAgo': '{n} days ago',
+    'intelligence.daysAgo': '{n, plural, =0 {today} one {# day ago} other {# days ago}}',
     'intelligence.orders': 'Orders',
     'intelligence.spend': 'Spend',
 
@@ -102,7 +102,7 @@ export const intelligence = {
     'intelligence.routes.optimised': 'Planned route',
     'intelligence.routes.start': 'Start',
     'intelligence.routes.model': 'Straight-line distance × {factor} at {speed} km/h. Estimates, not live traffic.',
-    'intelligence.routes.skipped': '{n} jobs have no coordinates and were left out.',
+    'intelligence.routes.skipped': '{n, plural, one {# job has no coordinates and was left out.} other {# jobs have no coordinates and were left out.}}',
     'intelligence.routes.computed': 'Computed in {ms} ms',
 
     'intelligence.assistant.placeholder': 'Ask about sales, best sellers, stock, reservations or the forecast…',
@@ -145,7 +145,7 @@ export const intelligence = {
     'intelligence.computedFrom': 'محسوبة من الطلبات المسجّلة لهذا المطعم.',
 
     'intelligence.insights.refresh': 'افحص الآن',
-    'intelligence.insights.refreshed': '{n} رؤى جديدة',
+    'intelligence.insights.refreshed': '{n, plural, =0 {لا رؤى جديدة} one {رؤية جديدة واحدة} two {رؤيتان جديدتان} few {# رؤى جديدة} many {# رؤية جديدة} other {# رؤية جديدة}}',
     'intelligence.insights.empty': 'لا توجد رؤى بعد',
     'intelligence.insights.emptyBody': 'تظهر الرؤى عندما يرصد ريزوتو انخفاضًا في الإيراد أو صنفًا غير معتاد أو خطر نفاد مخزون أو عملاء دائمين غابوا أو بطئًا في المطبخ.',
     'intelligence.insights.filter.open': 'مفتوحة',
@@ -178,8 +178,8 @@ export const intelligence = {
     'intelligence.forecast.chosen': 'المختار',
     'intelligence.forecast.fallback': 'بديل احتياطي: {reason}',
     'intelligence.forecast.backtest': 'اختبار رجعي على بياناتك ({folds} فترات × {horizon} يومًا)',
-    'intelligence.forecast.coverage': '{days} يومًا من البيانات ({nonZero} بها مبيعات)، {start} ← {end}',
-    'intelligence.forecast.total': 'الأيام الـ{days} القادمة: {total} (النطاق {lower}–{upper})',
+    'intelligence.forecast.coverage': '{days, plural, one {يوم واحد} two {يومان} few {# أيام} many {# يومًا} other {# يوم}} من البيانات ({nonZero} بها مبيعات)، {start} ← {end}',
+    'intelligence.forecast.total': '{days, plural, one {اليوم القادم} two {اليومان القادمان} few {الأيام الـ# القادمة} many {الأيام الـ# القادمة} other {الأيام الـ# القادمة}}: {total} (النطاق {lower}–{upper})',
     'intelligence.forecast.ramadan': 'تواريخ رمضان تقريبية (±يوم).',
     'intelligence.forecast.table': 'عرض القيم',
     'intelligence.forecast.date': 'التاريخ',
@@ -188,7 +188,7 @@ export const intelligence = {
     'intelligence.model.hist_gbm': 'التعزيز المتدرج',
 
     'intelligence.segments.title': 'شرائح العملاء (RFM)',
-    'intelligence.segments.total': '{n} عميلًا لديهم طلبات',
+    'intelligence.segments.total': '{n, plural, one {عميل واحد لديه طلبات} two {عميلان لديهما طلبات} few {# عملاء لديهم طلبات} many {# عميلًا لديهم طلبات} other {# عميل لديهم طلبات}}',
     'intelligence.segments.members': 'عملاء هذه الشريحة',
     'intelligence.segments.empty': 'لا يوجد عملاء لديهم طلبات بعد',
     'intelligence.segments.noAccess': 'دورك لا يسمح بعرض قوائم العملاء.',
@@ -207,7 +207,7 @@ export const intelligence = {
     'intelligence.customer': 'العميل',
     'intelligence.risk': 'الخطر',
     'intelligence.recency': 'آخر طلب',
-    'intelligence.daysAgo': 'منذ {n} يومًا',
+    'intelligence.daysAgo': '{n, plural, =0 {اليوم} one {منذ يوم واحد} two {منذ يومين} few {منذ # أيام} many {منذ # يومًا} other {منذ # يوم}}',
     'intelligence.orders': 'الطلبات',
     'intelligence.spend': 'الإنفاق',
 
@@ -231,7 +231,7 @@ export const intelligence = {
     'intelligence.routes.optimised': 'المسار المخطط',
     'intelligence.routes.start': 'البداية',
     'intelligence.routes.model': 'مسافة خط مستقيم × {factor} بسرعة {speed} كم/س. تقديرات وليست حركة مرور فعلية.',
-    'intelligence.routes.skipped': '{n} توصيلات بلا إحداثيات وتم استبعادها.',
+    'intelligence.routes.skipped': '{n, plural, one {توصيلة واحدة بلا إحداثيات وتم استبعادها.} two {توصيلتان بلا إحداثيات وتم استبعادهما.} few {# توصيلات بلا إحداثيات وتم استبعادها.} many {# توصيلة بلا إحداثيات وتم استبعادها.} other {# توصيلة بلا إحداثيات وتم استبعادها.}}',
     'intelligence.routes.computed': 'حُسب في {ms} مللي ثانية',
 
     'intelligence.assistant.placeholder': 'اسأل عن المبيعات أو الأكثر مبيعًا أو المخزون أو الحجوزات أو التوقعات…',
