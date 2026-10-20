@@ -30,6 +30,12 @@ export const envSchema = z.object({
   SUPABASE_URL: z.url().optional(),
   SUPABASE_JWT_SECRET: z.string().min(32).optional(),
   SUPABASE_JWT_AUDIENCE: z.string().default('authenticated'),
+  /**
+   * Accept HS256 (shared-secret) tokens although the project publishes a JWKS (SUPABASE_URL set). Only for Supabase
+   * projects still on the legacy JWT secret; off by default so a leaked or reused secret cannot mint sessions for a
+   * JWKS project (audit PS-25). Without SUPABASE_URL (local dev, tests) HS256 is the only option and stays on.
+   */
+  AUTH_ALLOW_HS256: bool.default(false),
   // Local-only email/password issuer that mints Supabase-compatible JWTs.
   AUTH_DEV_MODE: bool.default(false),
 

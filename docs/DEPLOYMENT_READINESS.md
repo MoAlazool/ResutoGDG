@@ -27,15 +27,17 @@ Vercel `resuto` project + Firebase) is untouched and still deploys from `main`.
 3. Run `supabase/tests/rls.test.mjs` against a **branch/staging** database only
    (it resets the schema — never point it at production).
 4. Auth: enable email/password (and phone OTP later for drivers); set Site URL and
-   redirect URLs to the web origin; copy the JWT secret (HS256 projects) or rely on
-   JWKS (asymmetric signing keys). API env: `SUPABASE_URL`, `SUPABASE_JWT_SECRET`
-   (if HS256), `AUTH_DEV_MODE=false`.
+   redirect URLs to the web origin; rely on JWKS (asymmetric signing keys, preferred)
+   or, for a project still on the legacy JWT secret, set `SUPABASE_JWT_SECRET` **and**
+   `AUTH_ALLOW_HS256=true` (HS256 is refused next to a JWKS project otherwise). API env:
+   `SUPABASE_URL`, `AUTH_DEV_MODE=false`. Keep anonymous sign-ins off (the API refuses
+   `is_anonymous` sessions) and turn on leaked-password protection in the dashboard.
 5. Storage: bucket `tenant-media` is created by migration `…000700` when the storage
    schema exists; API env `STORAGE_DRIVER=supabase`, `SUPABASE_SERVICE_ROLE_KEY`
    (server only).
-6. Realtime: enable on `orders`, `order_lines`, `dining_tables`, `service_requests`,
-   `reservations`, `delivery_jobs`, `conversations`, `messages` (RLS restricts
-   subscribers to their tenants; clients get no write access).
+6. Realtime / Data API: not used. The web app uses supabase-js for Auth only; client
+   roles (`anon`, `authenticated`) hold no privilege on any table (migrations
+   `20261020020001`/`…0002`), so do not add tables to the Realtime publication.
 7. Backups: enable PITR on production; schedule logical dumps (`pg_dump --schema=public`)
    to separate storage; quarterly restore drill into a scratch project.
 

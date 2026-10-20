@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { JwtService } from '../src/common/auth/jwt.service';
 import { addMember, auth, bootTestApp, createTenant, signup, sql, type TestApp } from './helpers';
 
 let t: TestApp;
@@ -143,6 +144,10 @@ describe('tenant isolation and RBAC', () => {
     const inv = await t.http.post(`/v1/o/${tenant.orgId}/invitations`).set(auth(tenant.owner)).send({ email: 'someone@example.test', role: 'waiter' });
     const other = await signup(t, 'mallory');
     expect((await t.http.post('/v1/invitations/accept').set(auth(other)).send({ token: inv.body.token })).status).toBe(403);
+    // Audit PS-25: a session without an email (phone sign-in) used to skip the match entirely.
+    const noEmail = await t.app.get(JwtService).issue(other.userId, null);
+    expect((await t.http.post('/v1/invitations/accept').set({ Authorization: `Bearer ${noEmail}` }).send({ token: inv.body.token })).status).toBe(403);
+    expect(await sql(`select status from invitations where id = $1`, [inv.body.id])).toEqual([{ status: 'pending' }]);
   });
 
   it('records an audit trail readable only with audit permission', async () => {
