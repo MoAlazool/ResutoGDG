@@ -495,6 +495,39 @@ describe('access control', () => {
   });
 });
 
+describe('AI request quota (FT-10)', () => {
+  it('refuses model endpoints with 402 once ai_requests_per_month is used while deterministic insights keep working', async () => {
+    const Q = await createTenant(t, { planId: 'pro' });
+    const qMenu = await seedMenu(Q);
+    const ctxQ = new TenantContext(Q.orgId, 'owner', null, Q.owner.userId, 'user', Q.owner.userId);
+    const qOrder = await t.app.get(DbService).scoped(ctxQ, (tx) => t.app.get(OrdersKernelService).place(tx, ctxQ, {
+      branchId: Q.branchId, channel: 'staff', fulfillment: 'pickup', lines: [{ productId: qMenu.products.fries, quantity: 2 }],
+      customer: { name: 'Guest', phone: '+201234500001' } }));
+    // History before today, so the forecast has a series and would call the model.
+    await sql(`update orders set business_date = $2::date, placed_at = ($2::date + interval '13 hours') at time zone 'Africa/Cairo' where id = $1`, [qOrder.id, day(-3)]);
+    const [{ limits }] = await sql(`select p.limits from subscriptions s join plans p on p.id = s.plan_id where s.org_id = $1`, [Q.orgId]);
+    const cap = Number(limits.ai_requests_per_month);
+    expect(cap).toBeGreaterThan(0);
+    await sql(`insert into usage_events(org_id, metric, quantity) values ($1, 'ai_requests', $2)`, [Q.orgId, cap]);
+    const qb = `/v1/o/${Q.orgId}/intelligence`;
+    const fc = await t.http.get(`${qb}/forecast`).query({ branchId: Q.branchId }).set(auth(Q.owner));
+    expect(fc.status).toBe(402);
+    expect(fc.body.error).toMatchObject({ code: 'plan_limit_reached', details: { limit: 'ai_requests_per_month', current: cap, allowed: cap } });
+    expect((await t.http.get(`${qb}/segments`).set(auth(Q.owner))).status).toBe(402);
+    expect((await t.http.get(`${qb}/churn`).set(auth(Q.owner))).status).toBe(402);
+    expect((await t.http.get(`${qb}/recommendations`).query({ branchId: Q.branchId }).set(auth(Q.owner))).status).toBe(402);
+    // Nothing was metered for refused calls.
+    const [{ n }] = await sql(`select coalesce(sum(quantity), 0)::int as n from usage_events where org_id = $1 and metric = 'ai_requests'`, [Q.orgId]);
+    expect(n).toBe(cap);
+    // Insights: the model part is skipped and reported; deterministic rules are free.
+    const refresh = await t.http.post(`${qb}/insights/refresh`).set(auth(Q.owner));
+    expect(refresh.status).toBe(201);
+    expect(refresh.body.modelSkipped).toBe('plan_limit_reached');
+    // Rules-mode assistant and template copy do not use a model and stay available.
+    expect((await t.http.post(`${qb}/generate-copy`).set(auth(Q.owner)).send({ kind: 'caption', locale: 'en', productId: qMenu.products.fries })).status).toBe(201);
+  });
+});
+
 describe('AI service unavailable', () => {
   it('returns 503 for model endpoints while deterministic insights keep working', async () => {
     process.env.AI_SERVICE_URL = 'http://127.0.0.1:8199';

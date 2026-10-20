@@ -7,6 +7,7 @@ import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { recordUsage } from './ai-client.service';
 import { ASSISTANT_TOOLS, PERIODS, toolByName, type Period, type ToolEnv } from './assistant-tools';
 import { GeminiClient, type GeminiContent, type LlmClient } from './gemini.client';
+import { PlanLimitsService } from '../billing/plan-limits.service';
 import { IntelligenceService } from './intelligence.service';
 
 type Locale = 'en' | 'ar';
@@ -87,6 +88,7 @@ export class AssistantService {
     private readonly intelligence: IntelligenceService,
     private readonly gemini: GeminiClient,
     private readonly idem: IdempotencyService,
+    private readonly limits: PlanLimitsService,
   ) {}
 
   get mode(): 'gemini' | 'rules' {
@@ -107,6 +109,8 @@ export class AssistantService {
     }
     const { base, history } = await this.prepare(ctx, input);
 
+    // FT-10: the LLM path is metered against ai_requests_per_month; the rules path is free.
+    if (this.gemini.configured) await this.db.scoped(ctx, (tx) => this.limits.assertAiQuota(tx, ctx.orgId));
     const draft = this.gemini.configured
       ? await this.answerWithLlm(base, input.message, input.locale, this.gemini, history)
       : await this.answerWithRules(base, input.message, input.locale);

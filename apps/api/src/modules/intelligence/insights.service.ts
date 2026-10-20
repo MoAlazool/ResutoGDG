@@ -124,7 +124,8 @@ export class InsightsService {
         stats.model = model.length;
         candidates.push(...model);
       } catch (error) {
-        if (error instanceof DomainError && error.status === 503) stats.modelSkipped = error.code;
+        // 503: AI service down/not configured. 402: the plan's AI quota is used up (FT-10); deterministic rules stay free.
+        if (error instanceof DomainError && (error.status === 503 || error.code === 'plan_limit_reached')) stats.modelSkipped = error.code;
         else throw error;
       }
     }

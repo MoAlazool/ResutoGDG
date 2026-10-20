@@ -7,6 +7,7 @@ import { SEGMENT_KEYS } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService } from '../../common/db/db.service';
 import { DomainError, notFound } from '../../common/errors/domain-error';
+import { PlanLimitsService } from '../billing/plan-limits.service';
 import { AI_TIMEOUT_MS, AiServiceClient, recordUsage } from './ai-client.service';
 import { addDays, ramadanBetween, WEEKEND_DAYS, WEEKEND_NAMES } from './calendar';
 import { IntelligenceDataService, type ProductRef } from './data.service';
@@ -19,7 +20,17 @@ interface AiForecastResult { id: string; model: ItemForecast['model']; [k: strin
  */
 @Injectable()
 export class IntelligenceService {
-  constructor(private readonly db: DbService, private readonly data: IntelligenceDataService, private readonly ai: AiServiceClient) {}
+  constructor(
+    private readonly db: DbService,
+    private readonly data: IntelligenceDataService,
+    private readonly ai: AiServiceClient,
+    private readonly limits: PlanLimitsService,
+  ) {}
+
+  /** FT-10: every AI-service call counts against `ai_requests_per_month`; refuse before calling the model. */
+  private assertQuota(ctx: TenantContext) {
+    return this.db.scoped(ctx, (tx) => this.limits.assertAiQuota(tx, ctx.orgId));
+  }
 
   // -------------------------------------------------------------------------
   // Demand forecast
@@ -51,6 +62,7 @@ export class IntelligenceService {
     const series = ids.filter((id) => history.get(id)!.length > 0).map((id) => ({ id, history: history.get(id)! }));
     if (!series.length) return { ...base, items: [], computationMs: 0 };
 
+    await this.assertQuota(ctx);
     const res = await this.ai.post<{ results: AiForecastResult[]; computationMs: number }>('/forecast/demand', {
       series, horizon: q.horizon, end: asOf, weekendDays: WEEKEND_DAYS[b.country], ramadan, useRamadan: true, intervalLevel: 0.8, seed: 42,
     }, AI_TIMEOUT_MS.forecast);
@@ -84,6 +96,7 @@ export class IntelligenceService {
     if (!orders.length) {
       return { asOf, method: 'rfm_quintiles', totalCustomers: 0, predictionId: '', segments: SEGMENT_KEYS.map((key) => ({ key, count: 0 })) };
     }
+    await this.assertQuota(ctx);
     const res = await this.ai.post<{ customers: Array<{ customerId: string; segment: SegmentKey; r: number; f: number; m: number; recencyDays: number; frequency: number; monetaryMinor: number }>; segments: Record<SegmentKey, number> }>(
       '/customers/segment', { orders, asOf });
     const predictionId = await this.db.scoped(ctx, async (tx) => {
@@ -133,6 +146,7 @@ export class IntelligenceService {
       return { method: 'heuristic', isHeuristic: true, reason: 'no_customer_orders', windowDays, currency: org.currency,
         labelCohort: { cutoff: asOf, customers: 0, churned: 0, retained: 0 }, evaluation: null, customers: [] };
     }
+    await this.assertQuota(ctx);
     const res = await this.ai.post<Omit<ChurnResponse, 'currency'>>('/customers/churn', { orders, asOf, windowDays, seed: 42 });
     const top = res.customers.slice(0, limit);
     const names = await this.db.scoped(ctx, async (tx) => {
@@ -159,6 +173,7 @@ export class IntelligenceService {
       const items = q.productId ? [q.productId] : await this.data.topProducts(tx, ctx, q.branchId, addDays(b.today, -56), b.today, 5);
       return { baskets: await this.data.baskets(tx, ctx, q.branchId), unavailable: await this.data.unavailableProducts(tx, ctx, q.branchId), items };
     });
+    await this.assertQuota(ctx);
     type Rec = { itemId: string; source: RecommendedItem['source']; [k: string]: unknown };
     const res = await this.ai.post<{ method: string; weights: Record<string, number>; items: Record<string, Rec[]>; customers: Record<string, Rec[]>;
       popular: Rec[]; stats: RecommendationsResponse['stats'] }>('/recommend/items', {
@@ -207,6 +222,7 @@ export class IntelligenceService {
     const start = useDriver ? { lat: Number(driver.lat), lng: Number(driver.lng), source: 'driver_location' as const }
       : { lat: Number(b.lat), lng: Number(b.lng), source: 'branch' as const };
     const departAt = new Date().toISOString();
+    await this.assertQuota(ctx);
     const res = await this.ai.post<any>('/routing/optimize', {
       start: { lat: start.lat, lng: start.lng }, departAt, speedKmh: input.speedKmh, objective: input.objective,
       stops: routable.map((j) => ({ id: j.id, lat: j.lat, lng: j.lng, windowEnd: j.promised_at })),

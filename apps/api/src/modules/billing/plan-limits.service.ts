@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { DowngradeViolation } from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError } from '../../common/errors/domain-error';
-import { UsageService } from './usage.service';
+import { startOfMonth, UsageService } from './usage.service';
 
 /**
  * Synchronous plan-limit checks. Exported (BillingModule is global) so the
@@ -33,6 +33,32 @@ export class PlanLimitsService {
     if (n >= cap) {
       throw new DomainError('plan_limit_reached', `This restaurant's plan allows ${cap} orders per month. Upgrade to keep taking orders.`, 402,
         { limit: 'orders_per_month', current: n, allowed: cap });
+    }
+  }
+
+  /**
+   * Monthly AI request quota (`plans.limits.ai_requests_per_month`) for the
+   * current billing period, counted from metered `ai_requests` usage rows.
+   * Call it before every model-backed call (AI service or LLM); deterministic
+   * features (rule-based insights, template copy, rules assistant) are free.
+   * Throws 402 `plan_limit_reached` with `limit: 'ai_requests_per_month'` once
+   * `requests` more calls would exceed the cap. Plans without the limit are
+   * unlimited. The check and the metering run in separate transactions (the
+   * model call happens outside any transaction), so concurrent calls at the
+   * boundary can overshoot by at most the number of in-flight requests.
+   */
+  async assertAiQuota(tx: Tx, orgId: string, requests = 1): Promise<void> {
+    const { limits, periodStart } = await this.current(tx, orgId);
+    const cap = limits.ai_requests_per_month;
+    if (cap === undefined || cap === null) return;
+    const from = periodStart ?? startOfMonth(new Date());
+    const used = await this.usage.total(tx, orgId, 'ai_requests', from);
+    if (used + requests > cap) {
+      throw new DomainError('plan_limit_reached',
+        cap === 0
+          ? 'Resuto Intelligence is not included in this plan. Upgrade to use AI features.'
+          : `This restaurant's plan allows ${cap} AI requests per month and they have been used. Upgrade or wait for the next billing period.`,
+        402, { limit: 'ai_requests_per_month', current: used, allowed: cap });
     }
   }
 

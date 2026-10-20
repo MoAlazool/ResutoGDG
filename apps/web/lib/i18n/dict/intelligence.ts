@@ -13,6 +13,8 @@ export const intelligence = {
     'intelligence.branch': 'Branch',
     'intelligence.serviceDown': 'The intelligence service is unavailable right now. Deterministic insights still work; model results will return when it is back.',
     'intelligence.notConfigured': 'The intelligence service is not configured on this server.',
+    'intelligence.quotaReached': 'This month’s AI requests are used up ({allowed} included in your plan). Rule-based insights keep working; model results return next billing period or after an upgrade.',
+    'intelligence.quotaUpgrade': 'View plan and usage',
     'intelligence.computedFrom': 'Computed from this restaurant’s recorded orders.',
 
     'intelligence.insights.refresh': 'Check now',
@@ -142,6 +144,8 @@ export const intelligence = {
     'intelligence.branch': 'الفرع',
     'intelligence.serviceDown': 'خدمة الذكاء غير متاحة الآن. الرؤى المبنية على القواعد تعمل، ونتائج النماذج ستعود عند عودة الخدمة.',
     'intelligence.notConfigured': 'خدمة الذكاء غير مُعدّة على هذا الخادم.',
+    'intelligence.quotaReached': 'استُهلكت طلبات الذكاء الاصطناعي لهذا الشهر ({allowed} مشمولة في باقتك). تستمر الرؤى المبنية على القواعد؛ وتعود نتائج النماذج في فترة الفوترة التالية أو بعد الترقية.',
+    'intelligence.quotaUpgrade': 'عرض الباقة والاستخدام',
     'intelligence.computedFrom': 'محسوبة من الطلبات المسجّلة لهذا المطعم.',
 
     'intelligence.insights.refresh': 'افحص الآن',

@@ -324,4 +324,34 @@ describe('usage metering and plan limits', () => {
     expect(await sql(`select 1 from usage_events where org_id = $1`, [tenant.orgId])).toHaveLength(1);
     expect((await ents(tenant)).usage.orders).toBe(1);
   });
+
+  it('FT-10: enforces ai_requests_per_month from metered ai_requests in the current period', async () => {
+    const tenant = await createTenant(t, { planId: 'pro' });
+    const db = t.app.get(DbService);
+    const limits = t.app.get(PlanLimitsService);
+    const ctx = new TenantContext(tenant.orgId, 'owner', null, tenant.owner.userId, 'user', tenant.owner.userId);
+    const capPlan = unique('aicap').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
+    await sql(`insert into plans(id, name, is_public, limits) values ($1, 'AI cap', false, '{"branches":1,"staff":2,"ai_requests_per_month":2}')`, [capPlan]);
+    await sql(`insert into plan_modules(plan_id, module) values ($1, 'core'), ($1, 'intelligence')`, [capPlan]);
+    await sql(`update subscriptions set plan_id = $2 where org_id = $1`, [tenant.orgId, capPlan]);
+    const quota = () => db.scoped(ctx, (tx) => limits.assertAiQuota(tx, tenant.orgId));
+
+    await quota();
+    // Usage from before the current period does not count.
+    await sql(`insert into usage_events(org_id, metric, quantity, occurred_at) values ($1, 'ai_requests', 5, now() - interval '400 days')`, [tenant.orgId]);
+    await quota();
+    await sql(`insert into usage_events(org_id, metric, quantity) values ($1, 'ai_requests', 1)`, [tenant.orgId]);
+    await quota();
+    await sql(`insert into usage_events(org_id, metric, quantity) values ($1, 'ai_requests', 1)`, [tenant.orgId]);
+    await expect(quota()).rejects.toMatchObject({ status: 402, code: 'plan_limit_reached', details: { limit: 'ai_requests_per_month', current: 2, allowed: 2 } });
+    // Other metrics never count against the AI quota.
+    await sql(`update plans set limits = '{"ai_requests_per_month":3}' where id = $1`, [capPlan]);
+    await sql(`insert into usage_events(org_id, metric, quantity) values ($1, 'mcp_calls', 50)`, [tenant.orgId]);
+    await quota();
+    // A plan without the limit is unlimited; a zero limit refuses every model call.
+    await sql(`update plans set limits = '{}' where id = $1`, [capPlan]);
+    await quota();
+    await sql(`update plans set limits = '{"ai_requests_per_month":0}' where id = $1`, [capPlan]);
+    await expect(quota()).rejects.toMatchObject({ status: 402, details: { limit: 'ai_requests_per_month', allowed: 0 } });
+  });
 });
