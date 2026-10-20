@@ -52,6 +52,10 @@ describe('branch storefronts', () => {
 
     const saved = await t.http.put(`${studio()}/storefronts/${burgerBranch}`).set(auth(tenant.owner)).send(brand());
     expect(saved.status).toBe(200);
+    // Not public while the restaurant website itself is unpublished: its site and logo links would lead to a 404.
+    expect((await t.http.get(`/v1/public/sites/${tenant.slug}`)).status).toBe(404);
+    expect((await t.http.get(`/v1/public/sites/${tenant.slug}/storefronts/smash-and-co`)).status).toBe(404);
+    expect((await publish()).status).toBeLessThan(300);
     const pub = await t.http.get(`/v1/public/sites/${tenant.slug}/storefronts/smash-and-co`);
     expect(pub.status).toBe(200);
     expect(pub.body).toMatchObject({
@@ -74,6 +78,19 @@ describe('branch storefronts', () => {
     expect((await put(brand({ content: { sections: [{ categoryId: randomUUID() }] } }))).status).toBe(422);
     expect((await put(brand(), tenant.branchId)).status).toBe(409);
     expect((await put(brand(), randomUUID())).status).toBe(404);
+  });
+
+  it('goes offline again when the restaurant website is taken back to draft', async () => {
+    expect((await publish()).status).toBeLessThan(300);
+    expect((await t.http.get(`/v1/public/sites/${tenant.slug}/storefronts/smash-and-co`)).status).toBe(200);
+    await sql(`update websites set status = 'draft' where org_id = $1`, [tenant.orgId]);
+    try {
+      expect((await t.http.get(`/v1/public/sites/${tenant.slug}`)).status).toBe(404);
+      expect((await t.http.get(`/v1/public/sites/${tenant.slug}/storefronts/smash-and-co`)).status).toBe(404);
+    } finally {
+      await sql(`update websites set status = 'published' where org_id = $1`, [tenant.orgId]);
+    }
+    expect((await t.http.get(`/v1/public/sites/${tenant.slug}/storefronts/smash-and-co`)).status).toBe(200);
   });
 
   it('lists published storefronts on the restaurant website', async () => {

@@ -64,7 +64,7 @@ export class StorefrontsService {
     });
   }
 
-  /** Public storefront branding by restaurant slug + storefront slug; only published storefronts of active branches. */
+  /** Public storefront branding by restaurant slug + storefront slug; only published storefronts of active branches of a restaurant whose website is published. */
   async bySlug(orgSlug: string, storefrontSlug: string): Promise<PublicStorefront> {
     if (!/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/.test(orgSlug) || !/^[a-z0-9][a-z0-9-]{1,46}[a-z0-9]$/.test(storefrontSlug)) throw storefrontNotFound();
     const org = await this.db.withPlatform((tx) => tx.maybeOne<{ id: string }>(
@@ -77,7 +77,10 @@ export class StorefrontsService {
                 coalesce((o.onboarding->>'demo')::boolean, false) as demo,
                 b.code, b.name, b.name_ar, b.city, b.accepts_pickup, b.accepts_delivery, b.opening_hours, coalesce(b.timezone, o.timezone) as timezone
            from branch_storefronts s join branches b on b.id = s.branch_id join organizations o on o.id = s.org_id
-          where s.org_id = $1 and s.slug = $2 and s.is_published and b.is_active`, [org.id, storefrontSlug]);
+          where s.org_id = $1 and s.slug = $2 and s.is_published and b.is_active
+            -- The storefront links back to the restaurant website and shares its brand, so it is public only while
+            -- that website is published (a draft or unpublished site would leave the storefront's links dead).
+            and exists (select 1 from websites w where w.org_id = s.org_id and w.status = 'published')`, [org.id, storefrontSlug]);
       if (!r) throw storefrontNotFound();
       const media = await this.builder.mediaMap(tx, org.id, [r.logo_media_id, r.hero_media_id].filter((x): x is string => !!x));
       const order = `/order/${r.org_slug}?branch=${encodeURIComponent(r.code)}`;
