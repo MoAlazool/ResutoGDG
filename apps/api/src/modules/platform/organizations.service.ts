@@ -207,6 +207,29 @@ export class OrganizationsService {
     });
   }
 
+  /**
+   * Branch access a caller may grant (audit PS-09): an all-branch caller grants anything that exists; a
+   * branch-restricted admin grants only a subset of their own branches, and "all branches" (null) narrows to
+   * exactly their branches (the same rule as MCP keys).
+   */
+  private async grantableBranches(tx: Tx, ctx: TenantContext, branchIds: string[] | null | undefined): Promise<string[] | null> {
+    if (!branchIds) return ctx.branchFilter;
+    const unique = [...new Set(branchIds)];
+    if (!unique.length) return []; // no branch: within anyone's scope
+    if (!unique.every((b) => ctx.canAccessBranch(b))) throw forbidden('You can only give access to your own branches');
+    const { n: valid } = await tx.one<{ n: number }>('select count(*)::int as n from branches where org_id = $1 and id = any($2)', [ctx.orgId, unique]);
+    if (valid !== unique.length) throw invalid('unknown_branch', 'One or more branches do not exist');
+    return unique;
+  }
+
+  /** A branch-restricted admin manages only people whose access lies within their own branches. */
+  private assertWithinScope(ctx: TenantContext, branchIds: string[] | null) {
+    if (ctx.branchFilter === null) return;
+    if (branchIds === null || !branchIds.every((b) => ctx.canAccessBranch(b))) {
+      throw forbidden('This person has access beyond your branches; ask an owner or an all-branch admin');
+    }
+  }
+
   async invite(ctx: TenantContext, input: InviteMember) {
     if (!assignableRoles(ctx.role).includes(input.role as Role)) throw forbidden(`A ${ctx.role} cannot invite a ${input.role}`);
     const token = newToken(32);
@@ -218,15 +241,12 @@ export class OrganizationsService {
       if (input.role !== 'driver' && limits.staff !== undefined && Number(n) >= limits.staff) {
         throw new DomainError('plan_limit_reached', `Your plan allows ${limits.staff} staff accounts`, 402, { limit: 'staff' });
       }
-      if (input.branchIds?.length) {
-        const { n: valid } = await tx.one<{ n: number }>('select count(*)::int as n from branches where org_id = $1 and id = any($2)', [ctx.orgId, input.branchIds]);
-        if (valid !== new Set(input.branchIds).size) throw invalid('unknown_branch', 'One or more branches do not exist');
-      }
+      const branchIds = input.branchIds?.length || ctx.branchFilter !== null ? await this.grantableBranches(tx, ctx, input.branchIds) : (input.branchIds ?? null);
       const row = await tx.one<{ id: string; expires_at: string }>(
         `insert into invitations(org_id, email, phone, role, branch_ids, token_hash, expires_at, invited_by)
          values ($1, $2, $3, $4, $5, $6, now() + interval '7 days', $7) returning id, expires_at`,
-        [ctx.orgId, input.email ?? null, input.phone ?? null, input.role, input.branchIds, sha256(token), ctx.userId]);
-      await this.audit.record(tx, ctx, { action: 'member.invited', entityType: 'invitation', entityId: row.id, metadata: { role: input.role } });
+        [ctx.orgId, input.email ?? null, input.phone ?? null, input.role, branchIds, sha256(token), ctx.userId]);
+      await this.audit.record(tx, ctx, { action: 'member.invited', entityType: 'invitation', entityId: row.id, metadata: { role: input.role, branchIds } });
       await this.outbox.publish(tx, ctx.orgId, { type: 'member.invited', aggregateType: 'invitation', aggregateId: row.id, payload: { role: input.role, email: input.email ?? null } });
       // The token is returned once so the inviter can share the link; only its hash is stored.
       return { id: row.id, token, expiresAt: row.expires_at };
@@ -238,7 +258,9 @@ export class OrganizationsService {
       const inv = await tx.maybeOne<any>(
         `select * from invitations where token_hash = $1 for update`, [sha256(token)]);
       if (!inv || inv.status !== 'pending' || new Date(inv.expires_at) < new Date()) throw invalid('invitation_invalid', 'This invitation is invalid or has expired');
-      if (inv.email && user.email && inv.email.toLowerCase() !== user.email.toLowerCase()) {
+      // An emailed invitation binds to that address: a session without an email (phone-only, anonymous) cannot use it
+      // either (audit PS-25: the check was skipped when the token carried no email).
+      if (inv.email && (!user.email || inv.email.toLowerCase() !== user.email.toLowerCase())) {
         throw forbidden('This invitation was sent to a different email address');
       }
       await tx.query(`insert into profiles(id, email) values ($1, $2) on conflict (id) do update set email = coalesce(profiles.email, excluded.email)`, [user.userId, user.email]);
@@ -270,10 +292,13 @@ export class OrganizationsService {
       if (m.user_id === ctx.userId) throw forbidden('You cannot change your own access');
       const allowed = assignableRoles(ctx.role);
       if (!allowed.includes(m.role) || (patch.role && !allowed.includes(patch.role))) throw forbidden();
+      this.assertWithinScope(ctx, m.branch_ids);
+      const branchIds = patch.branchIds === undefined ? undefined
+        : ctx.branchFilter === null && patch.branchIds === null ? null : await this.grantableBranches(tx, ctx, patch.branchIds);
       const row = await tx.one<any>(
         `update memberships set role = coalesce($2, role), branch_ids = case when $3 then $4 else branch_ids end, status = coalesce($5, status)
           where id = $1 returning id, role, branch_ids, status`,
-        [membershipId, patch.role ?? null, patch.branchIds !== undefined, patch.branchIds ?? null, patch.status ?? null]);
+        [membershipId, patch.role ?? null, branchIds !== undefined, branchIds ?? null, patch.status ?? null]);
       await this.audit.record(tx, ctx, { action: 'member.updated', entityType: 'membership', entityId: membershipId, metadata: patch as any });
       return { id: row.id, role: row.role, branchIds: row.branch_ids, status: row.status };
     });
@@ -281,9 +306,10 @@ export class OrganizationsService {
 
   async revokeInvitation(ctx: TenantContext, invitationId: string) {
     return this.db.scoped(ctx, async (tx) => {
-      const inv = await tx.maybeOne<{ role: Role; status: string }>('select role, status from invitations where id = $1 for update', [invitationId]);
+      const inv = await tx.maybeOne<{ role: Role; status: string; branch_ids: string[] | null }>('select role, status, branch_ids from invitations where id = $1 for update', [invitationId]);
       if (!inv) throw notFound('Invitation');
       if (!assignableRoles(ctx.role).includes(inv.role)) throw forbidden();
+      this.assertWithinScope(ctx, inv.branch_ids);
       if (inv.status !== 'pending') throw conflict('invitation_not_pending', `This invitation is already ${inv.status}`);
       await tx.query(`update invitations set status = 'revoked' where id = $1`, [invitationId]);
       await this.audit.record(tx, ctx, { action: 'member.invitation_revoked', entityType: 'invitation', entityId: invitationId, metadata: { role: inv.role } });

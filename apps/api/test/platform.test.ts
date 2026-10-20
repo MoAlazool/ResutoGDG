@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { addMember, auth, bootTestApp, createTenant, signup, type TestApp } from './helpers';
+import { addMember, auth, bootTestApp, createTenant, signup, sql, type TestApp } from './helpers';
 
 let t: TestApp;
 beforeAll(async () => { t = await bootTestApp(); });
@@ -95,6 +95,47 @@ describe('tenant isolation and RBAC', () => {
     const members = await t.http.get(`/v1/o/${tenant.orgId}/members`).set(auth(tenant.owner));
     const ownerRow = members.body.members.find((m: any) => m.role === 'owner');
     expect((await t.http.patch(`/v1/o/${tenant.orgId}/members/${ownerRow.id}`).set(auth(admin)).send({ status: 'suspended' })).status).toBe(403);
+  });
+
+  // Audit PS-09: invite and updateMember only checked that branch ids existed, so an admin restricted to one branch
+  // could invite or promote people with all-branch (null) or other-branch access.
+  it('keeps a branch-restricted admin inside their own branches', async () => {
+    const tenant = await createTenant(t);
+    const north = (await t.http.post(`/v1/o/${tenant.orgId}/branches`).set(auth(tenant.owner)).send({ name: 'North' })).body.id as string;
+    const admin = await addMember(t, tenant, 'admin', [tenant.branchId]);
+    const invite = (body: Record<string, unknown>) => t.http.post(`/v1/o/${tenant.orgId}/invitations`).set(auth(admin)).send({ role: 'waiter', ...body });
+
+    expect((await invite({ email: 'n1@example.test', branchIds: [north] })).status).toBe(403);
+    expect((await invite({ email: 'n2@example.test', branchIds: [tenant.branchId, north] })).status).toBe(403);
+    const all = await invite({ email: 'n3@example.test', branchIds: null });
+    expect(all.status).toBe(201); // "all branches" narrows to the admin's own branches
+    const own = await invite({ email: 'n4@example.test', branchIds: [tenant.branchId] });
+    expect(own.status).toBe(201);
+    const invs = await sql(`select email, branch_ids from invitations where org_id = $1 and email like 'n%@example.test' order by email`, [tenant.orgId]);
+    expect(invs).toEqual([{ email: 'n3@example.test', branch_ids: [tenant.branchId] }, { email: 'n4@example.test', branch_ids: [tenant.branchId] }]);
+
+    // members: one inside the admin's branch, one with all-branch access, one in another branch
+    const inside = await addMember(t, tenant, 'waiter', [tenant.branchId]);
+    const everywhere = await addMember(t, tenant, 'waiter', null);
+    const elsewhere = await addMember(t, tenant, 'waiter', [north]);
+    const members = (await t.http.get(`/v1/o/${tenant.orgId}/members`).set(auth(tenant.owner))).body.members as any[];
+    const idOf = (u: { userId: string }) => members.find((m) => m.userId === u.userId).id as string;
+    const patch = (u: { userId: string }, body: Record<string, unknown>) => t.http.patch(`/v1/o/${tenant.orgId}/members/${idOf(u)}`).set(auth(admin)).send(body);
+
+    expect((await patch(inside, { branchIds: [north] })).status).toBe(403); // cannot widen to a branch they lack
+    expect((await patch(inside, { branchIds: null })).body.branchIds).toEqual([tenant.branchId]); // narrows, never all
+    expect((await patch(everywhere, { status: 'suspended' })).status).toBe(403); // all-branch member is out of scope
+    expect((await patch(elsewhere, { role: 'cashier' })).status).toBe(403);
+    expect((await t.http.delete(`/v1/o/${tenant.orgId}/members/${idOf(elsewhere)}`).set(auth(admin))).status).toBe(403);
+    expect((await patch(inside, { role: 'cashier' })).body.role).toBe('cashier');
+    const after = await sql(`select user_id, branch_ids, status from memberships where org_id = $1 and user_id = any($2)`, [tenant.orgId, [everywhere.userId, elsewhere.userId]]);
+    expect(after.every((m) => m.status === 'active')).toBe(true);
+
+    // an owner (all branches) still grants anything
+    expect((await t.http.patch(`/v1/o/${tenant.orgId}/members/${idOf(inside)}`).set(auth(tenant.owner)).send({ branchIds: null })).body.branchIds).toBeNull();
+    // invitations outside the admin's scope cannot be revoked by them
+    const ownerInv = await t.http.post(`/v1/o/${tenant.orgId}/invitations`).set(auth(tenant.owner)).send({ email: 'north@example.test', role: 'waiter', branchIds: [north] });
+    expect((await t.http.delete(`/v1/o/${tenant.orgId}/invitations/${ownerInv.body.id}`).set(auth(admin))).status).toBe(403);
   });
 
   it('rejects invitation tokens for a different email', async () => {
