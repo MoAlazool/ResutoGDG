@@ -96,7 +96,7 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
     config: [
       { key: 'pixelId', label: 'Pixel (dataset) id', labelKey: 'intg.field.pixelId', secret: false, required: true, pattern: '^\\d{6,20}$' },
       { key: 'testEventCode', label: 'Test Events code (test connections only)', labelKey: 'intg.field.testEventCode', secret: false, required: false,
-        pattern: '^TEST[A-Za-z0-9]{1,30}$', hint: 'Events Manager > Test events. Leave empty on the live connection.', hintKey: 'intg.field.testEventCodeHint' },
+        pattern: '^TEST[A-Za-z0-9]{1,30}$', hint: 'Events Manager > Test events. Used only while the connection is in Test; Live never sends it.', hintKey: 'intg.field.testEventCodeHint' },
       { key: 'codPurchase', label: 'Cash orders count as Purchase', labelKey: 'intg.field.codPurchase', secret: false, required: false, kind: 'select',
         options: ['on_completion', 'never'] },
       { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select',

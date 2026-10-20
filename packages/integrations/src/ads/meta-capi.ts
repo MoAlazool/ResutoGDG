@@ -27,8 +27,8 @@ export const metaCapiDescriptor: ProviderDescriptor = {
   activation: [
     'In Meta Events Manager, create (or pick) the Pixel / dataset for the restaurant website and copy its id.',
     'Events Manager > the dataset > Settings > Conversions API > Generate access token. Paste it here; Resuto stores it sealed and never shows it again.',
-    'First create a TEST connection with the Test Events code (Events Manager > Test events, "TEST…"). Use "Send test event" and check that it appears in Test events. Test events are still processed by Meta, so only synthetic data is sent from the test button.',
-    'Then create a LIVE connection without the test code. Guests see a consent prompt on the website; nothing is sent for guests who decline, for demo restaurants, or for test or simulated payments.',
+    'Create the connection in Test with the Test Events code (Events Manager > Test events, "TEST…"). Use "Send test event" and check that it appears in Test events. Test events are still processed by Meta, so only synthetic data is sent from the test button.',
+    'Then switch this same connection to Live (Integrations > the connection > Reconnect > Live); a restaurant has one Meta Pixel connection. Live never sends the Test Events code, so you can keep or clear it. Guests see a consent prompt on the website; nothing is sent for guests who decline, for demo restaurants, or for test or simulated payments.',
     'Purchase policy: prepaid orders count when the payment is captured; cash-on-delivery / pay-at-pickup orders count when completed (or never, if you choose).',
   ],
 };

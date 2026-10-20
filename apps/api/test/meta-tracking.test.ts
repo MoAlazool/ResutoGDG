@@ -219,7 +219,14 @@ describe('server Purchase (Conversions API)', () => {
     expect(diag.events.map((e: any) => [e.source, e.status, e.testMode])).toEqual([['order', 'sent', true], ['test', 'sent', true]]);
     expect(JSON.stringify(diag)).not.toContain('EAAG-capi-token');
 
-    await sql(`update integration_connections set environment = 'live' where id = $1`, [connectionId]);
+    // The documented path to Live: a second connection is refused (one per org); the same connection switches in place.
+    const second = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections`).set(auth(tenant.owner))
+      .send({ provider: 'meta_capi', environment: 'live', credentials: { accessToken: 'EAAG-capi-token-654321' }, config: { pixelId: '1234567890' } });
+    expect(second.status).toBe(409);
+    expect(second.body.error.code).toBe('connection_exists');
+    const toLive = await t.http.patch(`/v1/o/${tenant.orgId}/integrations/connections/${connectionId}`).set(auth(tenant.owner)).send({ environment: 'live' });
+    expect(toLive.status, JSON.stringify(toLive.body)).toBe(200);
+    expect(toLive.body.environment).toBe('live');
     expect((await t.http.post(`/v1/o/${tenant.orgId}/marketing/tracking/meta/test-event`).set(auth(tenant.owner))).body.error.code).toBe('test_connection_required');
   });
 });

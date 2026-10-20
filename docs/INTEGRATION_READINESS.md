@@ -201,6 +201,8 @@ life; update `META_VERSION_SUPPORT` when Meta publishes the v26.0 date.
   per restaurant). Never sent: guests who declined (no consented order context), demo restaurants
   (`organizations.onboarding.demo`), test or simulated payments, cancelled orders, events older than 7 days. Test
   connections send `test_event_code` on every event; live connections never do (Meta processes test events too).
+  A restaurant has one `meta_capi` connection (unique per org, provider and branch): the owner tests it in Test, then
+  switches the same connection to Live (Integrations > Reconnect); no second connection is created.
 - **Audiences, ad sets, creatives, Page / Instagram publishing (INT-22): deferred.** A Custom Audience *dry run*
   (`POST /v1/o/:org/marketing/segments/:id/meta-audience/dry-run`, Marketing > Segments) shows the consent-filtered,
   SHA-256-normalised, 10,000-row batches and the `customaudiences` request Resuto would make, and sends nothing. Uploading
