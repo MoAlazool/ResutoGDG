@@ -12,6 +12,8 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 /** Supabase Auth when configured; otherwise the API's local development issuer. */
 export const AUTH_MODE: 'supabase' | 'dev' = SUPABASE_URL && SUPABASE_ANON_KEY ? 'supabase' : 'dev';
+/** "Continue with Google" is offered only when Supabase Auth has the Google provider enabled for this deployment. */
+export const GOOGLE_AUTH = AUTH_MODE === 'supabase' && process.env.NEXT_PUBLIC_AUTH_GOOGLE === 'true';
 const STORAGE_KEY = 'resuto_session';
 
 // supabase-js (~50 KB gzip) is loaded only in Supabase mode and only by staff routes (SessionProvider is not in the
@@ -36,6 +38,8 @@ export interface SessionValue {
   signIn(email: string, password: string): Promise<void>;
   signUp(email: string, password: string, fullName?: string): Promise<void>;
   signOut(): Promise<void>;
+  /** Google sign-in through Supabase Auth (redirects away; only when GOOGLE_AUTH). Returns to /login?next=… */
+  signInWithGoogle(next?: string | null): Promise<void>;
   refreshMe(): Promise<MeResponse | null>;
   call<T = any>(path: string, opts?: Omit<ApiOptions, 'token'>): Promise<T>;
 }
@@ -218,11 +222,19 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     dropSession();
   }, [dropSession]);
 
+  const signInWithGoogle = useCallback(async (next?: string | null) => {
+    if (!GOOGLE_AUTH) throw new Error('Google sign-in is not enabled.');
+    const back = new URL('/login', window.location.origin);
+    if (next && next.startsWith('/') && !next.startsWith('//')) back.searchParams.set('next', next);
+    const { error } = await (await sb()).auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back.toString() } });
+    if (error) throw new Error(error.message);
+  }, []);
+
   const refreshMe = useCallback(() => loadMe(tokenRef.current), [loadMe]);
 
   const value = useMemo<SessionValue>(() => ({
-    ready, tokenReady, token, scope: scopeOfToken(token), me, meError, signIn, signUp, signOut, refreshMe, call,
-  }), [ready, tokenReady, token, me, meError, signIn, signUp, signOut, refreshMe, call]);
+    ready, tokenReady, token, scope: scopeOfToken(token), me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call,
+  }), [ready, tokenReady, token, me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
