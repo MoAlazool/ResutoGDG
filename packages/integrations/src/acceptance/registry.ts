@@ -3,5 +3,6 @@
 import './stripe';
 import './paymob';
 import './moyasar';
+import './meta';
 
 export { ACCEPTANCE_CHECKS } from './index';
