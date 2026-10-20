@@ -1,0 +1,86 @@
+/*
+ * Operations screens restored from the original Resuto workspace (legacy/public/style.css: .kitchen-board,
+ * .kitchen-column, .order-card, .request, .quiet, .visit-card, .mode-card, .setup-shell, .host-*). Colours come only
+ * from the design tokens (packages/ui/src/tokens.css); shades are color-mix() of tokens, never new hex literals.
+ */
+
+/* ---------- Kanban board (legacy kitchen board + kitchen-dnd.js) ---------- */
+.kanban { display: grid; grid-template-columns: repeat(var(--lanes, 5), minmax(0, 1fr)); gap: 18px; align-items: start; }
+.kanban[data-lanes='3'] { --lanes: 3; }
+.kanban[data-lanes='4'] { --lanes: 4; }
+.kanban[data-lanes='5'] { --lanes: 5; }
+.kanban-lane { background: color-mix(in srgb, var(--leaf-bg) 70%, var(--canvas)); border-radius: var(--radius-sm, 8px); padding: 14px;
+  min-height: 350px; transition: background .15s, box-shadow .15s, opacity .15s; }
+.kanban-lane.drop-ok { background: color-mix(in srgb, var(--herb) 14%, var(--card)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--herb) 55%, var(--card)); }
+.kanban-lane.drop-no { opacity: .5; }
+.kanban-lane.is-over { background: color-mix(in srgb, var(--herb) 24%, var(--card)); box-shadow: inset 0 0 0 3px var(--herb); }
+.kanban-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); margin: 3px 0 18px; }
+.kanban-head i { width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--sky)); flex: none; }
+.kanban-count { margin-inline-start: auto; font-size: 11px; color: var(--faint); }
+.kanban-cards { display: grid; gap: 12px; }
+.kanban-empty { text-align: center; font-size: 12px; color: var(--faint); padding: 50px 0; }
+[data-card] { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+[data-card]:active { cursor: grabbing; }
+[data-card].is-dragging { pointer-events: none; position: relative; z-index: 50; box-shadow: var(--shadow-float); opacity: .96; }
+.board-hint { font-size: 12px; color: var(--faint); margin: -6px 0 14px; }
+@media (max-width: 1200px) { .kanban { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .kanban { grid-template-columns: 1fr; }
+  .kanban-lane { min-height: 0; }
+  .kanban-empty { padding: 18px 0; }
+  .board-hint { display: none; }
+}
+
+/* ---------- Service requests (legacy .request / .quiet) ---------- */
+.ops-requests { display: grid; gap: 0; }
+.ops-request { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.ops-request:first-child { border-top: 0; }
+.ops-request strong { display: block; font-size: 14px; color: var(--ink); }
+.ops-request small { display: block; font-size: 12px; color: var(--fine-text); margin-top: 2px; }
+.ops-quiet { display: flex; align-items: center; gap: 12px; padding: 14px 0; color: var(--fine-text); font-size: 13px; }
+.ops-quiet > span { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--ok-bg); color: var(--ok); flex: none; }
+.ops-quiet small { display: block; font-size: 12px; color: var(--faint); }
+
+/* ---------- Ticket cards on the board (legacy .order-card) ---------- */
+.ticket { padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm, 8px); }
+.ticket.is-new { border-color: var(--ember); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ember) 18%, transparent); }
+.ticket.is-late { border-color: var(--gold); }
+.ticket.is-very-late { border-color: var(--danger); }
+.ticket.is-stale { border-style: dashed; }
+.ticket-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ticket-top strong { font-size: 16px; color: var(--ink); }
+.ticket-age { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--faint); white-space: nowrap; }
+.ticket.is-late .ticket-age { color: var(--warn); font-weight: 700; }
+.ticket.is-very-late .ticket-age { color: var(--danger); font-weight: 700; }
+.ticket-source { font-size: 13px; font-weight: 500; margin: 10px 0 12px; color: var(--text); overflow-wrap: anywhere; }
+.ticket-source span { font-size: 11px; font-weight: 400; color: var(--faint); }
+.ticket-line { display: flex; gap: 10px; width: 100%; text-align: start; font-size: 13px; padding: 9px 0; border: 0; border-top: 1px solid var(--line-soft);
+  background: transparent; line-height: 1.45; color: var(--text); font-family: inherit; }
+button.ticket-line { cursor: pointer; border-radius: 6px; }
+button.ticket-line:hover { background: var(--nav-hover); }
+.ticket-line b { height: 23px; min-width: 23px; background: var(--leaf-bg); border-radius: 4px; display: grid; place-items: center; font-size: 11px; color: var(--leaf-text); flex: none; }
+.ticket-line small { display: block; color: var(--faint); font-size: 11px; margin-top: 2px; }
+.ticket-line[data-status='preparing'] b { background: var(--warn-bg); color: var(--warn); }
+.ticket-line[data-status='ready'] b, .ticket-line[data-status='served'] b { background: var(--ok-bg); color: var(--ok); }
+.ticket-line[data-status='ready'] .ticket-name { text-decoration: line-through; }
+.ticket-note { font-size: 12px; background: var(--warn-bg); padding: 8px 10px; color: var(--warn); border-radius: 6px; margin: 6px 0 0; overflow-wrap: anywhere; }
+.ticket-actions { display: grid; gap: 6px; margin-top: 12px; }
+.ticket-actions .btn { width: 100%; }
+.ticket-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ticket.is-done { opacity: .85; }
+
+/* ---------- Small shared bits ---------- */
+.ops-link { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: start; }
+.ops-link:hover strong, .ops-link:focus-visible strong { text-decoration: underline; }
+.ops-skel { display: block; height: 60px; border-radius: var(--radius-sm, 8px); }
+.kds-toolbar { margin-bottom: 14px; }
+.kds-flash { font-size: 13px; color: var(--ok); }
+.kds-flash[data-tone='danger'] { color: var(--danger); }
+.kds-requests { margin-top: 18px; }
+.station-picker { gap: 6px; }
+
+/* ---------- Sold-out (86) drawer list ---------- */
+.soldout-list { display: grid; gap: 0; }
+.soldout-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.soldout-row:first-child { border-top: 0; }
+.soldout-row small { display: block; color: var(--faint); font-size: 12px; }

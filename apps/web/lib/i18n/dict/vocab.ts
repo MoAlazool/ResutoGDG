@@ -61,6 +61,11 @@ const enActions: Record<string, string> = {
   'fiscal_document.issued_manually': 'Tax document issued manually',
   'fiscal_document.resubmitted': 'Tax document resubmitted',
   'floor.qr_sheet_viewed': 'Table QR codes opened',
+  'floor.table_qr_viewed': 'Table QR code opened',
+  'branch.service_mode_changed': 'Service model changed',
+  'connect.message_resent': 'Message resent',
+  'menu.product.available': 'Dish back on',
+  'organization.launched': 'Restaurant launched',
   'floor.saved': 'Floor plan saved',
   'integration.conflict_resolved': 'Sync conflict resolved',
   'integration.connected': 'Integration connected',
@@ -229,6 +234,11 @@ const arActions: Record<string, string> = {
   'fiscal_document.issued_manually': 'أُصدر مستند ضريبي يدويًا',
   'fiscal_document.resubmitted': 'أُعيد إرسال مستند ضريبي',
   'floor.qr_sheet_viewed': 'فُتحت رموز QR للطاولات',
+  'floor.table_qr_viewed': 'فُتح رمز QR لطاولة',
+  'branch.service_mode_changed': 'تغيّر نمط الخدمة',
+  'connect.message_resent': 'أُعيد إرسال رسالة',
+  'menu.product.available': 'عاد طبق متاحًا',
+  'organization.launched': 'أُطلق المطعم',
   'floor.saved': 'حُفظ مخطط الصالة',
   'integration.conflict_resolved': 'حُلّ تعارض مزامنة',
   'integration.connected': 'رُبط تكامل',
@@ -342,7 +352,7 @@ const arActions: Record<string, string> = {
 };
 
 const enEntities: Record<string, string> = {
-  accounting_push: 'Accounting', ai_insight: 'Insight', branch: 'Branch', campaign: 'Campaign', checkout_session: 'Payment link',
+  accounting_push: 'Accounting', ai_insight: 'Insight', branch: 'Branch', message: 'Message', campaign: 'Campaign', checkout_session: 'Payment link',
   compliance_document: 'Document', conversation: 'Conversation', creative_asset: 'Marketing copy', custom_domain: 'Domain',
   customer: 'Customer', delivery_job: 'Delivery', dining_table: 'Table', driver: 'Driver', driver_cash_settlement: 'Driver cash',
   expense: 'Expense', expense_category: 'Expense category', financial_export: 'Finance export', fiscal_document: 'Tax document',
@@ -359,7 +369,7 @@ const enEntities: Record<string, string> = {
 };
 
 const arEntities: Record<string, string> = {
-  accounting_push: 'المحاسبة', ai_insight: 'رؤية', branch: 'فرع', campaign: 'حملة', checkout_session: 'رابط دفع',
+  accounting_push: 'المحاسبة', ai_insight: 'رؤية', branch: 'فرع', message: 'رسالة', campaign: 'حملة', checkout_session: 'رابط دفع',
   compliance_document: 'مستند', conversation: 'محادثة', creative_asset: 'نص تسويقي', custom_domain: 'نطاق',
   customer: 'عميل', delivery_job: 'توصيل', dining_table: 'طاولة', driver: 'سائق', driver_cash_settlement: 'نقدية السائق',
   expense: 'مصروف', expense_category: 'فئة مصروفات', financial_export: 'تصدير مالي', fiscal_document: 'مستند ضريبي',

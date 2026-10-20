@@ -87,7 +87,9 @@ export class QueryCache {
       (data) => {
         const cur = this.entries.get(key) as Entry<T> | undefined;
         if (cur && cur.gen === gen && !controller.signal.aborted) {
-          cur.data = data; cur.error = undefined; cur.updatedAt = this.now(); cur.stale = false; cur.failures = 0;
+          // Structural sharing (VS-20): an unchanged result keeps the previous object, so screens that depend on it
+          // (useMemo, effects) do not redo their work for a poll that brought nothing new.
+          cur.data = sameContent(cur.data, data) ? cur.data : data; cur.error = undefined; cur.updatedAt = this.now(); cur.stale = false; cur.failures = 0;
         }
         if (cur?.inflight?.promise === promise) cur.inflight = undefined;
         this.emit(key);
@@ -147,6 +149,18 @@ export class QueryCache {
   }
 
   get size() { return this.entries.size; }
+}
+
+/** Same JSON content (polled payloads are plain JSON). Large or unserialisable values count as different. */
+export function sameContent(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined || a === null || b === null || typeof a !== 'object' || typeof b !== 'object') return false;
+  try {
+    const x = JSON.stringify(a);
+    return x.length < 2_000_000 && x === JSON.stringify(b);
+  } catch {
+    return false;
+  }
 }
 
 /** Tenant prefix of an API path (`/o/<orgId>/`), or null for non-tenant paths. */
