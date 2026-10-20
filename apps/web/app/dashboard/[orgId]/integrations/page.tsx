@@ -1,5 +1,5 @@
 'use client';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { IntegrationConnectionView, ProviderCatalogEntry } from '@resuto/contracts';
 import { Badge, Card, DataTable, EmptyState, Field, KeyValueList, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, type Tone } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { beginOAuth } from '../../oauth/binding';
 
 interface FieldSpec {
   key: string; label: string; secret: boolean; required: boolean; hint?: string;
@@ -21,7 +22,10 @@ type CatalogItem = ProviderCatalogEntry & {
   fields: { credentials: FieldSpec[]; config: FieldSpec[] }; oauthConfigured: boolean | null;
   activationKeys?: string[]; webhookEvents?: string[]; readinessDetail?: ReadinessDetail | null;
 };
-interface WebhookInfo { url: string; events: string[]; registeredByMerchant: boolean }
+interface WebhookInfo { url: string; events: string[]; registeredByMerchant: boolean; verifyToken?: string | null }
+interface AccountChoice { id: string; name: string | null; currency: string | null; status: string | null }
+/** Config key of the chosen ad account per ads provider (INT-11 picker). */
+const ACCOUNT_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId' };
 type ConnectionView = IntegrationConnectionView & {
   webhook?: WebhookInfo | null; lastSuccessAt?: string | null; lastFailureAt?: string | null; lastWebhookAt?: string | null; account?: Record<string, string> | null;
 };
@@ -59,6 +63,8 @@ function localizedError(e: unknown, t: (k: string, v?: Record<string, string | n
 export default function IntegrationsPage() {
   const { t } = useT();
   const [tab, setTab] = useState<'catalog' | 'connections' | 'pos' | 'logs'>('catalog');
+  // Back from a provider's consent screen (PS-11 completion page): show the connections.
+  useEffect(() => { if (new URLSearchParams(window.location.search).has('connected')) setTab('connections'); }, []);
   return (
     <ModuleGate module="core" permission="integrations:manage">
       <PageHeader title={t('nav.integrations')} subtitle={t('connect.int.subtitle')} />
@@ -214,7 +220,10 @@ function ConnectModal({ provider, onClose, onDone }: { provider: CatalogItem; on
     }
   });
   const oauth = useAction(async () => {
-    const r = await session.call<{ url: string }>(`/o/${org.id}/integrations/oauth/${provider.id}/start`, { body: { redirectAfter: `/dashboard/${org.id}/integrations` } });
+    // PS-11: the browser keeps a nonce; only its SHA-256 goes to the API, and completing needs the nonce back.
+    const redirectAfter = `/dashboard/${org.id}/integrations`;
+    const browserBinding = await beginOAuth(provider.id, org.id, redirectAfter);
+    const r = await session.call<{ url: string }>(`/o/${org.id}/integrations/oauth/${provider.id}/start`, { body: { redirectAfter, browserBinding } });
     window.location.href = r.url;
   });
   if (created) {
@@ -276,6 +285,7 @@ function WebhookPanel({ webhook }: { webhook: WebhookInfo }) {
         <button type="button" className="btn btn-sm" onClick={copy}>{copied ? t('intg.webhook.copied') : t('intg.webhook.copy')}</button>
       </div>
       <p className="fine" style={{ margin: 0 }}>{webhook.registeredByMerchant ? t('intg.webhook.registerInDashboard') : t('intg.webhook.sentPerCheckout')}</p>
+      {webhook.verifyToken && <span className="fine">{t('intg.webhook.verifyToken')} <code dir="ltr" style={{ wordBreak: 'break-all' }}>{webhook.verifyToken}</code></span>}
       {webhook.events.length > 0 && <>
         <span className="fine">{t('intg.webhook.events')}</span>
         <ul className="fine" style={{ margin: 0, paddingInlineStart: 18 }}>{webhook.events.map((e) => <li key={e}><code dir="ltr">{e}</code></li>)}</ul>
@@ -292,12 +302,22 @@ function Connections() {
   const catalog = useApi<{ items: CatalogItem[] }>(`/o/${org.id}/integrations/catalog`);
   const [open, setOpen] = useState<ConnectionView | null>(null);
   const [editing, setEditing] = useState<{ c: ConnectionView; mode: 'credentials' | 'settings' } | null>(null);
+  const [picking, setPicking] = useState<string | null>(null);
+  const [revocation, setRevocation] = useState<{ attempted: boolean; revoked: boolean; note: string } | null>(null);
+  // Back from OAuth with several granted accounts: open the account picker (INT-11).
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get('choose'); if (id && /^[0-9a-f-]{36}$/i.test(id)) setPicking(id); }, []);
   const act = useAction(async (c: ConnectionView, action: 'health' | 'enable' | 'disable' | 'revoke' | 'delete') => {
     if (action === 'revoke' && !window.confirm(t('connect.int.revokeConfirm'))) return;
+    setRevocation(null);
     if (action === 'delete') await session.call(`/o/${org.id}/integrations/connections/${c.id}`, { method: 'DELETE' });
-    else await session.call(`/o/${org.id}/integrations/connections/${c.id}/${action}`, { method: 'POST' });
+    else {
+      const r = await session.call<{ providerRevocation?: { attempted: boolean; revoked: boolean; note: string } | null }>(`/o/${org.id}/integrations/connections/${c.id}/${action}`, { method: 'POST' });
+      if (action === 'revoke' && r.providerRevocation) setRevocation(r.providerRevocation);
+    }
     await list.reload();
   });
+  const needsAccount = (c: ConnectionView) => !!ACCOUNT_KEY[c.provider] && c.status !== 'revoked' && c.authType === 'oauth' && !c.config?.[ACCOUNT_KEY[c.provider]!];
+  const hasChoices = (c: ConnectionView) => !!ACCOUNT_KEY[c.provider] && c.status !== 'revoked' && c.authType === 'oauth';
   const setSot = useAction(async (c: ConnectionView, menu: string) => {
     await session.call(`/o/${org.id}/integrations/connections/${c.id}`, { method: 'PATCH', body: { sourceOfTruth: { menu } } });
     await list.reload();
@@ -307,6 +327,7 @@ function Connections() {
   return (
     <div className="stack">
       {act.error && <Notice tone="danger">{act.error}</Notice>}
+      {revocation && <Notice tone={revocation.revoked ? 'ok' : 'warn'}>{t(revocation.revoked ? 'intg.revoke.providerOk' : revocation.attempted ? 'intg.revoke.providerUnconfirmed' : 'intg.revoke.providerManual')} <bdi dir="ltr">{revocation.note}</bdi></Notice>}
       {setSot.error && <Notice tone="danger">{setSot.error}</Notice>}
       <DataTable rows={list.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('connect.int.noConnections')}>{t('connect.int.noConnectionsBody')}</EmptyState>} columns={[
         { key: 'p', header: t('connect.int.provider'), render: (c) => <><strong><bdi>{specOf(c)?.name ?? c.provider}</bdi></strong> <div className="row" style={{ gap: 4 }}>
@@ -321,6 +342,8 @@ function Connections() {
             <option value="resuto">{t('connect.int.sot.resuto')}</option><option value="provider">{t('connect.int.sot.provider')}</option></select>) : <span className="fine">{t('connect.int.sot.ordersResuto')}</span> },
         { key: 'a', header: '', align: 'end', render: (c) => (
           <div className="row" style={{ gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            {needsAccount(c) && <button className="btn btn-sm btn-primary" onClick={() => setPicking(c.id)}>{t('intg.account.choose')}</button>}
+            {!needsAccount(c) && hasChoices(c) && <button className="btn btn-sm btn-ghost" onClick={() => setPicking(c.id)}>{t('intg.account.change')}</button>}
             {c.status !== 'revoked' && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'health')}>{t('connect.int.check')}</button>}
             {c.status !== 'sandbox' && specOf(c) && <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ c, mode: 'credentials' })}>{t('intg.action.updateCredentials')}</button>}
             {c.status !== 'revoked' && c.status !== 'sandbox' && (specOf(c)?.fields.config.length ?? 0) > 0 && <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ c, mode: 'settings' })}>{t('intg.action.editSettings')}</button>}
@@ -332,9 +355,52 @@ function Connections() {
       ]} />
       <p className="fine">{t('connect.int.sot.rules')}</p>
       {open && <ConnectionDetail connection={open} spec={specOf(open)} onClose={() => setOpen(null)} />}
+      {picking && list.data.items.find((c) => c.id === picking) && <AccountPicker connection={list.data.items.find((c) => c.id === picking)!}
+        onClose={() => setPicking(null)} onSaved={async () => { setPicking(null); await list.reload(); }} />}
       {editing && specOf(editing.c) && <EditConnection connection={editing.c} spec={specOf(editing.c)!} mode={editing.mode} onClose={() => setEditing(null)}
         onSaved={async () => { setEditing(null); await list.reload(); }} />}
     </div>
+  );
+}
+
+/**
+ * INT-11: the owner picks which granted ad account / advertiser the connection uses. Choices come from the provider
+ * (stored at authorisation, refreshable here); the API refuses an account the provider did not grant.
+ */
+function AccountPicker({ connection, onClose, onSaved }: { connection: ConnectionView; onClose: () => void; onSaved: () => void }) {
+  const { t } = useT();
+  const { org } = useOrg();
+  const session = useSession();
+  const key = ACCOUNT_KEY[connection.provider]!;
+  const [choices, setChoices] = useState<AccountChoice[]>(((connection.config?.accountChoices as AccountChoice[] | undefined) ?? []));
+  const [value, setValue] = useState<string>(String(connection.config?.[key] ?? choices[0]?.id ?? ''));
+  const refresh = useAction(async () => {
+    const r = await session.call<{ accounts: AccountChoice[] }>(`/o/${org.id}/integrations/connections/${connection.id}/accounts`);
+    setChoices(r.accounts);
+    if (!r.accounts.some((a) => a.id === value)) setValue(r.accounts[0]?.id ?? '');
+  });
+  const save = useAction(async (e: FormEvent) => {
+    e.preventDefault();
+    await session.call(`/o/${org.id}/integrations/connections/${connection.id}/account`, { body: { accountId: value } });
+    onSaved();
+  });
+  return (
+    <Modal open onClose={onClose} title={t('intg.account.title')}>
+      <form onSubmit={save.run} className="stack">
+        <p className="fine" style={{ margin: 0 }}>{t('intg.account.help')}</p>
+        {choices.length === 0 ? <Notice tone="warn">{t('intg.account.none')}</Notice> : (
+          <SelectField label={t('intg.account.label')} value={value} onChange={(e) => setValue(e.target.value)}>
+            {choices.map((a) => <option key={a.id} value={a.id}>{[a.name ?? a.id, a.id, a.currency, a.status].filter(Boolean).join(' · ')}</option>)}
+          </SelectField>
+        )}
+        {refresh.error && <Notice tone="danger">{refresh.error}</Notice>}
+        {save.error && <Notice tone="danger">{save.error}</Notice>}
+        <div className="row" style={{ gap: 8 }}>
+          <button type="button" className="btn btn-ghost" disabled={refresh.pending} onClick={() => refresh.run()}>{t('intg.account.refresh')}</button>
+          <button className="btn btn-primary" disabled={save.pending || !value}>{t('intg.account.use')}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -395,7 +461,8 @@ function ConnectionDetail({ connection, spec, onClose }: { connection: Connectio
   const when = (v: string | null | undefined) => (v ? dateTime(v, locale) : t('intg.diag.never'));
   const account = connection.account ?? null;
   const accountText = account ? [account.name, account.id, account.country].filter(Boolean).join(' · ') : null;
-  const configItems = Object.entries(connection.config ?? {}).filter(([, v]) => v !== null && v !== '');
+  // Lists and server-owned objects (account choices) are not settings; the webhook verify token is shown with the webhook.
+  const configItems = Object.entries(connection.config ?? {}).filter(([k, v]) => v !== null && v !== '' && typeof v !== 'object' && k !== 'webhookVerifyToken');
   return (
     <Modal open onClose={onClose} title={<bdi>{spec?.name ?? connection.provider}</bdi>}>
       <div className="stack">

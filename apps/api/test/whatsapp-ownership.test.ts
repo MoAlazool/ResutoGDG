@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createHmac } from 'node:crypto';
 import { ProviderHttp } from '../src/modules/integrations/provider-http';
 import { scriptedFetch, type RecordedRequest } from './growth-helpers';
-import { auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant } from './helpers';
+import { addMember, auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant } from './helpers';
 
 const PLATFORM_SECRET = 'platform-app-secret-for-tests';
 process.env.WHATSAPP_APP_SECRET = PLATFORM_SECRET;
@@ -168,7 +168,6 @@ describe('INT-03: WhatsApp channel ownership', () => {
   });
 
   it('only connect:manage staff create or verify channels', async () => {
-    const { addMember } = await import('./helpers');
     const cashier = await addMember(t, a, 'cashier');
     expect((await t.http.post(`/v1/o/${a.orgId}/connect/channels`).set(auth(cashier)).send({ transport: 'sandbox', displayName: 'x' })).status).toBe(403);
     expect((await t.http.post(`/v1/o/${a.orgId}/connect/whatsapp/embedded-signup`).set(auth(cashier)).send({})).status).toBe(403);

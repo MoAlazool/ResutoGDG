@@ -1,29 +1,39 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { adsAdapterFor, type OAuthAppConfig } from '@resuto/integrations';
+import type { IntegrationOauthComplete } from '@resuto/contracts';
+import { adsAdapterFor, ProviderError, type AdAccountChoice, type OAuthAppConfig, type OAuthTokens } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { newToken, sha256 } from '../../common/crypto/hash';
 import { SecretBox } from '../../common/crypto/secret-box';
 import { DbService } from '../../common/db/db.service';
-import { DomainError, invalid } from '../../common/errors/domain-error';
+import { DomainError, conflict, invalid } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { ENV, type Env } from '../../config/env';
 import { credentialsHint } from './catalog';
-import { IntegrationConnectionsService } from './connections.service';
+import { credentialsAad, IntegrationConnectionsService, redactedError } from './connections.service';
+import { metaPlatform } from './meta-platform';
+import { OAUTH_APP_ENV, oauthApp } from './oauth-apps';
 import { ProviderHttp } from './provider-http';
 
-/**
- * Platform OAuth app credentials per provider. They are NOT in the validated env
- * schema yet (lead-owned config/env.ts); until they are added there they are read
- * from process.env here. Without them OAuth is refused with 503 and the activation
- * steps, and restaurants can still paste an access token into the connection form.
- */
-const APP_ENV: Record<string, { id: string; secret: string }> = {
-  meta_ads: { id: 'META_APP_ID', secret: 'META_APP_SECRET' },
-  tiktok_ads: { id: 'TIKTOK_APP_ID', secret: 'TIKTOK_APP_SECRET' },
-  snapchat_ads: { id: 'SNAPCHAT_CLIENT_ID', secret: 'SNAPCHAT_CLIENT_SECRET' },
-};
-const ACCOUNT_CONFIG_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId' };
+/** Config key holding the chosen ad account / advertiser per provider. */
+export const ACCOUNT_CONFIG_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId' };
+const MAX_CHOICES = 50;
 
+const iso = (secondsFromNow: number | null | undefined) => (secondsFromNow ? new Date(Date.now() + secondsFromNow * 1000).toISOString() : null);
+
+/**
+ * Ads OAuth (Meta, TikTok, Snapchat) — PS-11 / INT-11.
+ *
+ *   start     (signed-in user)  stores sha256(state) with the org, the user and the SHA-256 of a browser nonce;
+ *   provider  → redirects to the registered API callback, which only forwards code + state to the web app;
+ *   complete  (signed-in user)  the web app posts code + state + nonce; the state must belong to this org, this user
+ *             and this browser, unused and unexpired. Only then is the code exchanged.
+ *
+ * None of the three providers documents PKCE for these flows (Facebook Login manual flow, TikTok for Business
+ * authorization, Snapchat Marketing API OAuth — sources in the adapters), so the binding above is the CSRF control.
+ * Meta user tokens are exchanged for long-lived ones (expiry stored, reconnect reminder); a Facebook Login for
+ * Business configuration (META_ADS_LOGIN_CONFIG_ID) yields a non-expiring system user token. The provider's granted
+ * accounts are stored as choices and the owner picks one; a single grant is selected automatically.
+ */
 @Injectable()
 export class IntegrationOAuthService {
   constructor(
@@ -36,65 +46,139 @@ export class IntegrationOAuthService {
   ) {}
 
   appConfig(provider: string): OAuthAppConfig | null {
-    const keys = APP_ENV[provider];
-    const id = keys ? process.env[keys.id] : undefined;
-    const secret = keys ? process.env[keys.secret] : undefined;
-    if (!id || !secret) return null;
-    return { clientId: id, clientSecret: secret, redirectUri: `${this.env.API_ORIGIN}/v1/public/integrations/oauth/${provider}/callback` };
+    return oauthApp(provider, this.env.API_ORIGIN);
   }
 
-  async start(ctx: TenantContext, provider: string, redirectAfter?: string) {
+  private configId(provider: string) {
+    return provider === 'meta_ads' ? metaPlatform().adsLoginConfigId : null;
+  }
+
+  async start(ctx: TenantContext, provider: string, input: { redirectAfter?: string; browserBinding: string }) {
     const adapter = adsAdapterFor(provider);
     if (!adapter || adapter.descriptor.authType !== 'oauth') throw invalid('oauth_unsupported', `${provider} does not use OAuth`);
     const app = this.appConfig(provider);
     if (!app) {
       throw new DomainError('provider_app_not_configured', `${adapter.descriptor.name} OAuth is not configured on this Resuto server`, 503,
-        { activation: adapter.descriptor.activation, env: Object.values(APP_ENV[provider] ?? {}) });
+        { activation: adapter.descriptor.activation, env: Object.values(OAUTH_APP_ENV[provider] ?? {}) });
     }
+    if (!ctx.userId) throw new DomainError('forbidden', 'Only a signed-in person can authorise an ad account', 403);
     const state = newToken(24);
     await this.db.scoped(ctx, (tx) => tx.query(
-      `insert into integration_oauth_states(state_hash, org_id, provider, environment, redirect_after, created_by, expires_at)
-       values ($1, $2, $3, 'live', $4, $5, now() + interval '15 minutes')`, [sha256(state), ctx.orgId, provider, redirectAfter ?? null, ctx.userId]));
-    return { url: adapter.buildAuthUrl(app, state), expiresInSeconds: 900 };
+      `insert into integration_oauth_states(state_hash, org_id, provider, environment, redirect_after, created_by, expires_at, browser_binding_hash)
+       values ($1, $2, $3, 'live', $4, $5, now() + interval '15 minutes', $6)`,
+      [sha256(state), ctx.orgId, provider, input.redirectAfter ?? null, ctx.userId, input.browserBinding]));
+    return { url: adapter.buildAuthUrl(app, state, { configId: this.configId(provider) }), expiresInSeconds: 900 };
   }
 
-  /** Public callback: resolves the tenant from the single-use state, exchanges the code, seals the tokens. */
-  async callback(provider: string, code: string | undefined, state: string | undefined): Promise<string> {
-    const fail = (reason: string) => `${this.env.APP_ORIGIN}/dashboard?integration_error=${encodeURIComponent(reason)}`;
-    if (!code || !state || state.length > 200) return fail('missing_code');
+  /**
+   * Public provider callback. It no longer completes anything (PS-11): it forwards code and state to the web app's
+   * completion page, where the signed-in user who started the flow, in the browser that holds the nonce, completes it.
+   */
+  callbackRedirect(provider: string, query: { code?: string; state?: string; error?: string; error_description?: string }): string {
+    const page = `${this.env.APP_ORIGIN}/dashboard/oauth/${encodeURIComponent(provider)}`;
+    const fail = (reason: string) => `${page}?integration_error=${encodeURIComponent(reason)}`;
+    if (!this.appConfig(provider)) return fail('not_configured');
+    if (query.error) return fail(query.error === 'access_denied' ? 'access_denied' : 'provider_error');
+    // TikTok sends auth_code; Meta and Snapchat send code.
+    const code = query.code;
+    if (!code || !query.state || code.length > 2000 || query.state.length > 200) return fail('missing_code');
+    return `${page}?${new URLSearchParams({ code, state: query.state })}`;
+  }
+
+  async complete(ctx: TenantContext, provider: string, input: IntegrationOauthComplete) {
     const adapter = adsAdapterFor(provider);
     const app = this.appConfig(provider);
-    if (!adapter || !app) return fail('not_configured');
-    const row = await this.db.withPlatform((tx) => tx.maybeOne<{ org_id: string; created_by: string | null; redirect_after: string | null }>(
-      `update integration_oauth_states set used_at = now() where state_hash = $1 and provider = $2 and used_at is null and expires_at > now()
-        returning org_id, created_by, redirect_after`, [sha256(state), provider]));
-    if (!row) return fail('invalid_state');
-    const orgId = row.org_id;
-    let tokens;
-    try {
-      tokens = await adapter.exchangeCode({ fetch: this.http.fetch }, app, code);
-    } catch (e) {
-      await this.db.withTenant(orgId, (tx) => this.connections.log(tx, orgId, null, 'error', `OAuth exchange failed for ${provider}: ${(e as Error).message}`));
-      return `${this.env.APP_ORIGIN}/dashboard/${orgId}/integrations?integration_error=exchange_failed`;
+    if (!adapter || adapter.descriptor.authType !== 'oauth') throw invalid('oauth_unsupported', `${provider} does not use OAuth`);
+    if (!app) throw new DomainError('provider_app_not_configured', `${adapter.descriptor.name} OAuth is not configured on this Resuto server`, 503);
+    if (!ctx.userId) throw new DomainError('forbidden', 'Only a signed-in person can authorise an ad account', 403);
+    // Single use; bound to org, user and browser. A mismatch does not consume the state.
+    const row = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ redirect_after: string | null }>(
+      `update integration_oauth_states set used_at = now()
+        where state_hash = $1 and provider = $2 and org_id = $3 and created_by = $4 and browser_binding_hash = $5 and used_at is null and expires_at > now()
+        returning redirect_after`, [sha256(input.state), provider, ctx.orgId, ctx.userId, sha256(input.browserNonce)]));
+    if (!row) {
+      await this.db.scoped(ctx, (tx) => this.audit.record(tx, ctx, { action: 'integration.oauth_state_rejected', entityType: 'integration_oauth_state', metadata: { provider } }));
+      throw new DomainError('oauth_state_invalid', 'This authorisation was not started by you in this browser, was already used or has expired. Start again from Integrations.', 403);
     }
+    let tokens: OAuthTokens;
+    try {
+      tokens = await adapter.exchangeCode({ fetch: this.http.fetch }, app, input.code, { configId: this.configId(provider) });
+    } catch (e) {
+      await this.db.withTenant(ctx.orgId, (tx) => this.connections.log(tx, ctx.orgId, null, 'error', `OAuth exchange failed for ${provider}`, { error: redactedError(e) }));
+      throw new DomainError('oauth_exchange_failed', 'The provider did not accept the authorisation. Start again from Integrations.', 502, { provider: redactedError(e) });
+    }
+    const choices: AdAccountChoice[] = (tokens.accounts?.length ? tokens.accounts : (tokens.accountIds ?? []).map((id) => ({ id, name: null, currency: null, status: null })))
+      .slice(0, MAX_CHOICES);
     const creds: Record<string, string> = { accessToken: tokens.accessToken, ...(tokens.refreshToken ? { refreshToken: tokens.refreshToken } : {}) };
-    const config: Record<string, string> = {};
-    if (tokens.accountIds?.length === 1) config[ACCOUNT_CONFIG_KEY[provider]!] = tokens.accountIds[0]!;
-    await this.db.withTenant(orgId, async (tx) => {
-      const sealed = this.box.sealJson(creds, `${orgId}:${provider}`);
-      const id = (await tx.one<{ id: string }>(
+    const key = ACCOUNT_CONFIG_KEY[provider]!;
+    const config: Record<string, unknown> = {
+      tokenSource: 'platform_app', tokenKind: tokens.tokenKind ?? 'user', accountChoices: choices,
+      tokenExpiresAt: iso(tokens.expiresIn), refreshTokenExpiresAt: iso(tokens.refreshExpiresIn),
+      ...(tokens.identity?.userId ? { metaUserId: tokens.identity.userId } : {}), ...(tokens.identity?.businessId ? { businessId: tokens.identity.businessId } : {}),
+      lastTokenRefreshAt: new Date().toISOString(),
+    };
+    // Exactly one granted account: select it. Several: the owner picks (the previous selection is kept if still granted).
+    const autoPick = choices.length === 1 ? choices[0]!.id : null;
+    const id = await this.db.withTenant(ctx.orgId, async (tx) => {
+      const prev = await tx.maybeOne<{ config: Record<string, unknown> }>(
+        `select config from integration_connections where org_id = $1 and provider = $2 and branch_id is null`, [ctx.orgId, provider]);
+      const kept = prev?.config?.[key] && choices.some((c) => c.id === prev.config[key]) ? String(prev.config[key]) : null;
+      const selected = autoPick ?? kept;
+      const sealed = this.box.sealJson(creds, credentialsAad(ctx.orgId, provider));
+      const cfg = { ...config, ...(selected ? { [key]: selected } : {}) };
+      const connId = (await tx.one<{ id: string }>(
         `insert into integration_connections(org_id, provider, category, auth_type, environment, status, credentials_encrypted, credentials_hint, config,
             connected_by, connected_at)
          values ($1, $2, 'ads', 'oauth', 'live', 'pending', $3, $4, $5, $6, now())
          on conflict (org_id, provider, coalesce(branch_id, '00000000-0000-0000-0000-000000000000'::uuid))
          do update set credentials_encrypted = excluded.credentials_encrypted, credentials_hint = excluded.credentials_hint, status = 'pending', enabled = true,
-           config = integration_connections.config || excluded.config, connected_at = now(), last_error = null
-         returning id`, [orgId, provider, sealed, credentialsHint(creds), config, row.created_by])).id;
-      await this.connections.log(tx, orgId, id, 'info', 'OAuth authorisation completed', { accounts: tokens.accountIds?.length ?? null });
-      await tx.query(`insert into audit_logs(org_id, actor_type, actor_id, action, entity_type, entity_id, source, metadata)
-                      values ($1, 'user', $2, 'integration.oauth_connected', 'integration_connection', $3, 'webhook', $4)`,
-        [orgId, row.created_by, id, { provider }]);
-    }, 'integration');
-    return `${this.env.APP_ORIGIN}${row.redirect_after ?? `/dashboard/${orgId}/integrations`}?connected=${provider}`;
+           config = (integration_connections.config - $7::text) || excluded.config, connected_by = excluded.connected_by, connected_at = now(), last_error = null,
+           account_identity = '{}'::jsonb, health = '{}'::jsonb
+         returning id`, [ctx.orgId, provider, sealed, credentialsHint(creds), cfg, ctx.userId, key])).id;
+      await tx.query(`update integration_oauth_states set connection_id = $2 where state_hash = $1`, [sha256(input.state), connId]);
+      await this.connections.log(tx, ctx.orgId, connId, 'info', 'OAuth authorisation completed', { accounts: choices.length, tokenKind: config.tokenKind,
+        expiresAt: config.tokenExpiresAt });
+      await this.audit.record(tx, ctx, { action: 'integration.oauth_connected', entityType: 'integration_connection', entityId: connId,
+        metadata: { provider, accounts: choices.length, autoSelected: !!autoPick } });
+      return connId;
+    }, `${ctx.actorType}:${ctx.actorId}`);
+    const needsAccountSelection = !(await this.connections.get(ctx, id)).config[key];
+    const view = needsAccountSelection ? await this.connections.get(ctx, id) : await this.connections.healthCheck(ctx, id).catch(() => this.connections.get(ctx, id));
+    return { connection: view, needsAccountSelection, accounts: choices, redirectAfter: row.redirect_after };
+  }
+
+  /** The owner picks one of the granted accounts (validated against the provider's grant, re-listed when needed). */
+  async selectAccount(ctx: TenantContext, connectionId: string, accountId: string) {
+    const view = await this.connections.get(ctx, connectionId);
+    const key = ACCOUNT_CONFIG_KEY[view.provider];
+    if (!key) throw invalid('not_an_ad_account_connection', 'This connection has no ad account to choose');
+    if (view.status === 'revoked') throw conflict('connection_revoked', 'Reconnect first');
+    let choices = ((view.config.accountChoices as AdAccountChoice[] | undefined) ?? []);
+    if (!choices.some((c) => c.id === accountId)) choices = await this.listAccounts(ctx, connectionId).then((r) => r.accounts);
+    if (!choices.some((c) => c.id === accountId)) throw invalid('account_not_granted', 'That account was not granted to Resuto. Reconnect and grant it, or pick another.');
+    await this.db.withTenant(ctx.orgId, async (tx) => {
+      await tx.query(`update integration_connections set config = config || $2, status = case when status = 'revoked' then status else 'pending' end where id = $1`,
+        [connectionId, { [key]: accountId }]);
+      await this.connections.log(tx, ctx.orgId, connectionId, 'info', 'Ad account selected', { accountId });
+      await this.audit.record(tx, ctx, { action: 'integration.account_selected', entityType: 'integration_connection', entityId: connectionId, metadata: { provider: view.provider } });
+    }, `${ctx.actorType}:${ctx.actorId}`);
+    return this.connections.healthCheck(ctx, connectionId);
+  }
+
+  /** Re-lists the accounts the connection's token can use (fresh from the provider) and stores them as choices. */
+  async listAccounts(ctx: TenantContext, connectionId: string) {
+    const view = await this.connections.get(ctx, connectionId);
+    const adapter = adsAdapterFor(view.provider);
+    if (!adapter?.listAccounts) throw invalid('not_supported', 'This provider cannot list accounts');
+    if (view.status === 'revoked') throw conflict('connection_revoked', 'Reconnect first');
+    const conn = await this.connections.loadFresh(ctx.orgId, { id: connectionId });
+    let accounts: AdAccountChoice[];
+    try {
+      accounts = (await adapter.listAccounts(conn.adapter, this.appConfig(view.provider))).slice(0, MAX_CHOICES);
+    } catch (e) {
+      throw new DomainError('provider_error', e instanceof ProviderError ? redactedError(e).message : 'Could not list accounts', 502);
+    }
+    await this.db.withTenant(ctx.orgId, (tx) => tx.query(`update integration_connections set config = config || $2 where id = $1`, [connectionId, { accountChoices: accounts }]));
+    return { accounts };
   }
 }
