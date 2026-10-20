@@ -7,7 +7,7 @@ Status legend: ✅ verified here · 🟡 prepared, not executed here · ⛔ bloc
 | | Development | Staging | Production |
 |---|---|---|---|
 | Database / Auth / Storage | Local Postgres 16 + auth shim ✅, or `supabase start` 🟡 | Supabase `resuto-staging` (free): 22 migrations, real Supabase Auth (ES256/JWKS), private Storage ✅ | Supabase project `resuto-prod` ⛔ B-10 (owner approval) |
-| API + worker | `node dist/main.js`, `node dist/worker.js` ✅ | Render `resuto-2-staging-api` (free; worker loop in-process) ✅ | separate API and background worker, ≥2 instances 🟡 |
+| API + worker | `node dist/main.js`, `node dist/worker.js` ✅ | Render `resuto-2-staging-api` (free; worker loop in-process; default image target `staging`, which includes the demo loader) ✅ | separate API and background worker, ≥2 instances; image built with `--target production` (no demo loader, fixtures or media) 🟡 |
 | Web | `next dev` / `next start` ✅ | Vercel `resuto-2-staging-web` (private: Vercel Authentication on all URLs) ✅ | same 🟡 |
 | AI service | uvicorn | Render `resuto-2-staging-ai` (free) ✅ | same 🟡 |
 | MCP server | node | Render `resuto-2-staging-mcp` (free, HTTPS, key required) ✅ | same 🟡 |
@@ -46,7 +46,7 @@ Vercel `resuto` project + Firebase) is untouched and still deploys from `main`.
 API: `DATABASE_URL` (Supavisor pooler works in transaction mode: every request runs in one
 transaction and all role/claim settings are `SET LOCAL`/`set_config(..., true)`; the `pg`
 driver uses unnamed statements), `SUPABASE_URL`, `SUPABASE_JWT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, `CREDENTIALS_KEYS`
-(32-byte keys, rotate by prepending), `AI_SERVICE_TOKEN`, `MCP_INTERNAL_TOKEN`,
+(32-byte keys, rotate by prepending), `AI_SERVICE_TOKEN`,
 `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `GEMINI_API_KEY` (optional).
 Web: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 Provider credentials are **per restaurant** in `integration_connections` (encrypted),

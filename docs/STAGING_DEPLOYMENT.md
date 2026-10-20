@@ -45,7 +45,7 @@ All services deploy branch `claude/relaxed-mayer-omkl3f`.
 | `SUPABASE_SERVICE_ROLE_KEY` | **secret, set by the owner in Render** (Storage uploads and signed URLs) |
 | `SUPABASE_PUBLISHABLE_KEY` | publishable key (demo loader sign-in only) |
 | `STORAGE_DRIVER` | `supabase` (private bucket `tenant-media`, signed URLs) |
-| `CREDENTIALS_KEYS`, `AI_SERVICE_TOKEN`, `MCP_INTERNAL_TOKEN` | secrets generated for staging, stored only in Render |
+| `CREDENTIALS_KEYS`, `AI_SERVICE_TOKEN` | secrets generated for staging, stored only in Render (`MCP_INTERNAL_TOKEN` is no longer read; it can be deleted) |
 | `AI_SERVICE_URL` | `https://resuto-2-staging-ai.onrender.com` |
 | `RUN_WORKER_IN_PROCESS` | `true` |
 | `PAYMENT_MODE` | `sandbox` (simulated provider only) |

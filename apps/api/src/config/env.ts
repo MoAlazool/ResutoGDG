@@ -54,7 +54,6 @@ export const envSchema = z.object({
   PAYMENT_MODE: z.enum(['sandbox', 'live']).optional(),
   /** Runs the outbox/job loop inside the API process (single-service hosting without a separate worker). */
   RUN_WORKER_IN_PROCESS: bool.default(false),
-  MCP_INTERNAL_TOKEN: z.string().min(24).optional(),
   /** Required in staging/production; production must be `supabase` (local disk is ephemeral and not shared). */
   STORAGE_DRIVER: z.enum(['local', 'supabase']).optional(),
   STORAGE_LOCAL_DIR: z.string().default('.local/storage'),
