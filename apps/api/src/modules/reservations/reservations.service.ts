@@ -369,14 +369,14 @@ export class ReservationsService {
 
   async manageView(token: string | undefined) {
     return this.byToken(token, async (tx, r, orgId) => {
-      const org = await tx.one<any>('select name, name_ar, slug, currency from organizations where id = $1', [orgId]);
-      const branch = await tx.one<any>('select code, name, name_ar, address, phone from branches where id = $1', [r.branch_id]);
+      const org = await tx.one<any>('select name, name_ar, slug, currency, timezone from organizations where id = $1', [orgId]);
+      const branch = await tx.one<any>('select code, name, name_ar, address, phone, timezone from branches where id = $1', [r.branch_id]);
       const cancellable = ['held', 'pending_deposit', 'confirmed'].includes(r.status) && new Date(r.starts_at).getTime() > Date.now();
       const view = toReservation(r, org.currency);
       return {
         reservation: { ...view, guestPhone: null, guestEmail: null },
         org: { name: org.name, nameAr: org.name_ar, slug: org.slug },
-        branch: { code: branch.code, name: branch.name, nameAr: branch.name_ar, address: branch.address, phone: branch.phone },
+        branch: { code: branch.code, name: branch.name, nameAr: branch.name_ar, address: branch.address, phone: branch.phone, timeZone: branch.timezone ?? org.timezone },
         cancellable,
       };
     });

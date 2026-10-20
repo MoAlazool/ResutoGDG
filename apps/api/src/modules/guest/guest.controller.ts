@@ -60,7 +60,8 @@ export class GuestController {
   @Public()
   @Get('tables/:qrToken')
   table(@Param('qrToken') qrToken: string, @Req() req: ResutoRequest) {
-    this.limiter.hit(`guest:table:ip:${req.ip}`, 240);
+    // The web app reads this while rendering the QR page (cached 15 s per code), so one address serves many guests.
+    this.limiter.hit(`guest:table:ip:${req.ip}`, 600);
     if (!/^[A-Za-z0-9_-]{16,128}$/.test(qrToken)) throw notFound('Table');
     return this.visits.tablePublic(qrToken);
   }

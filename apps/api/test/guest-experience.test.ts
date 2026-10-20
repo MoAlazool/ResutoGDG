@@ -156,6 +156,7 @@ describe('resuming an unpaid reservation deposit (FT-11)', () => {
       // The guest closes the tab. Later the manage link shows the pending deposit with its expiry...
       const view = await t.http.get('/v1/public/reservations/manage').set({ 'X-Reservation-Token': token }).expect(200);
       expect(view.body.reservation).toMatchObject({ status: 'pending_deposit', depositStatus: 'required', holdExpiresAt: expect.any(String) });
+      expect(view.body.branch.timeZone).toBe('Africa/Cairo'); // times on the manage page are the restaurant's (VP-11)
       // ...and "Pay deposit" resumes the same open checkout instead of creating a second one.
       const resume = await t.http.post(`/v1/public/payments/reservations/${view.body.reservation.code}/checkout`).send({ token }).expect(200);
       expect(resume.body.url).toBe(firstUrl);
