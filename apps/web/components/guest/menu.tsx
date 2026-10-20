@@ -128,7 +128,7 @@ export function MenuBrowser({ menu, cart, onOpen, assistant, ordering }: {
       </div>
       <div className="gx-grid">
         {!products.length && <div className="gx-empty"><h2>{t('core.guest.noMatchTitle')}</h2><p>{t('core.guest.noMatchBody')}</p></div>}
-        {products.map((p, i) => {
+        {products.map((p) => {
           const name = pick(locale, p.name, p.nameAr);
           const n = inCart(p.id);
           const simple = !p.modifierGroups.length;
@@ -136,7 +136,7 @@ export function MenuBrowser({ menu, cart, onOpen, assistant, ordering }: {
           return (
             <article key={p.id} className={`gx-dish${n ? ' in-cart' : ''}${p.available ? '' : ' is-sold'}`}>
               <button type="button" className="gx-photo-btn" onClick={() => onOpen(p)} aria-label={t('core.guest.dish.details', { name })}>
-                <Photo src={p.imageUrl} name={name} size={420} eager={i < 3} />
+                <Photo src={p.imageUrl} name={name} size={420} />
               </button>
               <div className="gx-dish-body">
                 <DishTags p={p} />

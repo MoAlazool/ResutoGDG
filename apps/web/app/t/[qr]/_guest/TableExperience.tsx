@@ -107,6 +107,9 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
   };
 
   const ordering = phase === 'ready' && !!visit;
+  // While the table session opens, the server-rendered page already shows what ordering will offer (when the table
+  // accepts orders), so nothing jumps in above the menu once it is ready (PCL-08 CLS).
+  const willOrder = ordering || (phase === 'joining' && !!table?.accepting);
   const orders = view?.orders ?? [];
   const due = view?.totals.dueMinor ?? 0;
   const cartIds = cart.items.map((i) => i.productId);
@@ -146,7 +149,7 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
               <span>◉ {t('core.guest.tableLabel', { label: tableLabel })}</span>
               <span className="gx-actions-inline">
                 {orders.length > 0 && <button type="button" className="gx-chip" onClick={() => setScreen('status')}>{t('core.guest.viewOrder')}</button>}
-                {ordering && <button type="button" className="gx-chip" onClick={() => void request('waiter')}>{t('core.guest.callWaiter')}</button>}
+                {willOrder && <button type="button" className="gx-chip" disabled={!ordering} onClick={() => void request('waiter')}>{t('core.guest.callWaiter')}</button>}
               </span>
             </div>
             {phase === 'closed' && (
@@ -159,7 +162,7 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
             {view?.settling && <div className="gx-note is-warn">{t('core.guest.settling')}</div>}
             {menu ? (
               <MenuBrowser menu={menu} cart={cart} onOpen={setProduct} ordering={phase !== 'closed'}
-                assistant={ordering ? <AssistantCard onOpen={() => setSheet('assistant')} /> : null} />
+                assistant={willOrder ? <AssistantCard onOpen={() => setSheet('assistant')} /> : null} />
             ) : <div className="gx-note">{notice ?? t('core.guest.shell.loading')}</div>}
           </main>
         </>
