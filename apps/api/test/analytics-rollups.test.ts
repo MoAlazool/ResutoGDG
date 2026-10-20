@@ -38,6 +38,9 @@ async function expectEqualPaths() {
     expect(r.rolled).toEqual(r.raw);
   }
 }
+const staleOldDays = async () => (await sql(
+  `select count(*)::int as n from analytics_days d join branches b on b.id = d.branch_id join organizations o on o.id = d.org_id
+    where d.org_id = $1 and d.stale and d.local_date < (now() at time zone coalesce(b.timezone, o.timezone))::date - 3`, [tenant.orgId]))[0].n;
 const freshDays = async () => (await sql(`select count(*)::int as n from analytics_days where org_id = $1 and not stale`, [tenant.orgId]))[0].n;
 
 beforeAll(async () => {
@@ -69,9 +72,13 @@ describe('analytics rollups are exact', () => {
   });
 
   it('after the refresh job, old days come from rollups and the reports are unchanged', async () => {
-    const r = await t.app.get(AnalyticsRollupJobs).refresh();
-    expect(r.refreshed).toBeGreaterThan(10);
-    expect(await freshDays()).toBe(r.refreshed);
+    // The job serves every tenant (other test files leave stale days too): run it until this tenant has caught up.
+    await t.app.get(AnalyticsRollupJobs).refresh(0); // discovers the days that left the live window
+    const owed = await staleOldDays();
+    expect(owed).toBeGreaterThan(10);
+    for (let i = 0; i < 20 && (await staleOldDays()) > 0; i++) await t.app.get(AnalyticsRollupJobs).refresh();
+    expect(await staleOldDays()).toBe(0);
+    expect(await freshDays()).toBe(owed);
     // Only days older than the live window (local today − 3) are rolled up.
     const [{ newest }] = await sql(`select max(local_date)::text as newest from analytics_days where org_id = $1 and not stale`, [tenant.orgId]);
     expect(newest <= day(4)).toBe(true);
