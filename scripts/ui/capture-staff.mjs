@@ -7,7 +7,8 @@
 //     --accounts <demo-accounts.json> [--screens login,overview,reservations,settings,landing] [--no-legacy]
 //
 // Accounts JSON: { orgId, owner: { email, password } } (the demo loader's output). Legacy staff passwords come from
-// LEGACY_MANAGER_PASSWORD (default: the documented local value). Needs PLAYWRIGHT_BROWSERS_PATH for Chromium.
+// LEGACY_MANAGER_PASSWORD (required for the signed-in legacy screens; no default is kept in the repo). Needs
+// PLAYWRIGHT_BROWSERS_PATH for Chromium.
 import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -28,8 +29,12 @@ const WEB = String(args.web ?? 'http://127.0.0.1:3000');
 const API = String(args.api ?? 'http://127.0.0.1:4000/v1');
 const LEGACY = args['no-legacy'] ? null : String(args.legacy ?? 'http://127.0.0.1:3900');
 const ACCT = JSON.parse(readFileSync(String(args.accounts), 'utf8'));
-const LEGACY_PW = process.env.LEGACY_MANAGER_PASSWORD ?? 'legacy-manager-local';
+const LEGACY_PW = process.env.LEGACY_MANAGER_PASSWORD;
 const SCREENS = String(args.screens ?? 'login,overview,reservations,settings').split(',');
+if (LEGACY && !LEGACY_PW && SCREENS.some((s) => !['login', 'landing', 'notfound'].includes(s))) {
+  console.error('capture-staff: set LEGACY_MANAGER_PASSWORD to the legacy manager password of the instance at --legacy (or pass --no-legacy).');
+  process.exit(2);
+}
 mkdirSync(path.join(OUT, 'shots'), { recursive: true });
 mkdirSync(path.join(OUT, 'compare'), { recursive: true });
 
