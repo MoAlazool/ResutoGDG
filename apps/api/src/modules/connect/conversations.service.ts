@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { ConnectSandboxInbound, InboxConversationFilters, InboxStaffReply } from '@resuto/contracts';
 import { renderTemplateBody } from '@resuto/integrations';
 import { randomUUID } from 'node:crypto';
@@ -8,9 +8,11 @@ import { DomainError, conflict, invalid, notFound } from '../../common/errors/do
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
+import { ENV, type Env } from '../../config/env';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { hasArabic, textCommand } from './bot-copy';
 import { HandoffService } from './handoff.service';
+import { assertConnectSandbox } from './sandbox-gate';
 import { MessagingService, windowState, type ConversationRow } from './messaging.service';
 import { OrderingService, type InboundMessage } from './ordering.service';
 
@@ -38,6 +40,7 @@ export class ConversationsService {
     private readonly outbox: OutboxService,
     private readonly audit: AuditService,
     private readonly idempotency: IdempotencyService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -80,6 +83,7 @@ export class ConversationsService {
 
   /** Staff sandbox simulator: only sandbox channels, every message labelled sandbox. */
   async simulate(ctx: TenantContext, input: ConnectSandboxInbound) {
+    assertConnectSandbox(this.env);
     const channel = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ id: string; transport: string; branch_id: string | null }>(
       `select id, transport, branch_id from messaging_channels where id = $1 and org_id = $2`, [input.channelId, ctx.orgId]));
     if (!channel) throw notFound('Channel');

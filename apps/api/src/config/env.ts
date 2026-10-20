@@ -54,6 +54,11 @@ export const envSchema = z.object({
   GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
   /** Required in staging/production; production must be `live` (sandbox = simulated provider, guests settle for free). */
   PAYMENT_MODE: z.enum(['sandbox', 'live']).optional(),
+  /**
+   * Resuto Connect sandbox transport (simulated WhatsApp channels and the staff inbound simulator, which can drive the
+   * ordering bot into real orders). Default: on outside production, off in production, where enabling it is refused.
+   */
+  CONNECT_SANDBOX: bool.optional(),
   /** Runs the outbox/job loop inside the API process (single-service hosting without a separate worker). */
   RUN_WORKER_IN_PROCESS: bool.default(false),
   /** Required in staging/production; production must be `supabase` (local disk is ephemeral and not shared). */
@@ -115,8 +120,12 @@ export const envSchema = z.object({
   if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'local') {
     ctx.addIssue({ code: 'custom', path: ['STORAGE_DRIVER'], message: 'STORAGE_DRIVER=local is refused in production; use supabase' });
   }
+  if (env.NODE_ENV === 'production' && env.CONNECT_SANDBOX === true) {
+    ctx.addIssue({ code: 'custom', path: ['CONNECT_SANDBOX'], message: 'CONNECT_SANDBOX (simulated WhatsApp channels) is refused in production' });
+  }
 }).transform((env) => ({
   ...env,
+  CONNECT_SANDBOX: env.CONNECT_SANDBOX ?? env.NODE_ENV !== 'production',
   PAYMENT_MODE: env.PAYMENT_MODE ?? ('sandbox' as const),
   STORAGE_DRIVER: env.STORAGE_DRIVER ?? ('local' as const),
 }));

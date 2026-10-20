@@ -12,6 +12,7 @@ Status legend: ✅ verified here · 🟡 prepared, not executed here · ⛔ bloc
 | AI service | uvicorn | Render `resuto-2-staging-ai` (free) ✅ | same 🟡 |
 | MCP server | node | Render `resuto-2-staging-mcp` (free, HTTPS, key required) ✅ | same 🟡 |
 | Payments | `PAYMENT_MODE=sandbox` ✅ | provider sandboxes ⛔ B-3 | merchant live accounts ⛔ B-3 |
+| Connect (WhatsApp) | sandbox channels + simulator ✅ | sandbox channels + simulator ✅ | Cloud API channels only: `CONNECT_SANDBOX` is off and cannot be enabled (no simulated channels or injected inbound messages) ✅ |
 
 Staging is live and documented in `docs/STAGING_DEPLOYMENT.md` (verification in `docs/TEST_RESULTS.md`). Nothing deploys to production. The legacy production app (Render +
 Vercel `resuto` project + Firebase) is untouched and still deploys from `main`.

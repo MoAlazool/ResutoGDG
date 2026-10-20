@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { CreateMessagingChannel, MessageTemplateInput } from '@resuto/contracts';
 import { ProviderError, whatsappCloudAdapter } from '@resuto/integrations';
 import { z } from 'zod';
@@ -8,6 +8,8 @@ import { DomainError, conflict, invalid, notFound } from '../../common/errors/do
 import { AuditService } from '../../common/platform/audit.service';
 import { messageTemplateUpdate, updateMessagingChannel } from '@resuto/contracts';
 import { IntegrationConnectionsService } from '../integrations/connections.service';
+import { ENV, type Env } from '../../config/env';
+import { assertConnectSandbox } from './sandbox-gate';
 
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
 
@@ -26,7 +28,8 @@ const templateView = (r: any) => ({
 
 @Injectable()
 export class ChannelsService {
-  constructor(private readonly db: DbService, private readonly audit: AuditService, private readonly connections: IntegrationConnectionsService) {}
+  constructor(private readonly db: DbService, private readonly audit: AuditService, private readonly connections: IntegrationConnectionsService,
+    @Inject(ENV) private readonly env: Env) {}
 
   list(ctx: TenantContext) {
     return this.db.scoped(ctx, async (tx) => {
@@ -39,6 +42,7 @@ export class ChannelsService {
 
   create(ctx: TenantContext, input: CreateMessagingChannel) {
     ctx.assertBranch(input.branchId ?? null);
+    if (input.transport === 'sandbox') assertConnectSandbox(this.env);
     return this.db.scoped(ctx, async (tx) => {
       if (input.branchId) {
         const b = await tx.maybeOne(`select 1 from branches where id = $1 and org_id = $2`, [input.branchId, ctx.orgId]);
