@@ -30,8 +30,12 @@ const MORE_KINDS: Array<[AddKind, string]> = [['booth', '▬'], ['window', '═'
 
 const localStore = () => { try { return typeof window === 'undefined' ? null : window.sessionStorage; } catch { return null; } };
 
-export function FloorStudio({ orgId, branchId, branchName, currency, canWrite }: {
+export function FloorStudio({ orgId, branchId, branchName, currency, canWrite, backHref, choices }: {
   orgId: string; branchId: string; branchName: string; currency: string; canWrite: boolean;
+  /** Full-bleed editor (VS-23): "Back to service" link to the live floor. */
+  backHref?: string;
+  /** Show the legacy choice row: build manually, upload a floor plan, create from photos with AI. */
+  choices?: boolean;
 }) {
   const L = useFloorLabels();
   const { t } = L;
@@ -503,6 +507,7 @@ export function FloorStudio({ orgId, branchId, branchName, currency, canWrite }:
         <div className="studio-save">
           <span className="draft-status" role="status" data-dirty={dirty}>{dirty ? '● ' : '✓ '}{status}</span>
           {canWrite && <button type="button" onClick={() => void discard()} disabled={!dirty || saving}>{t('studio.floor.discard')}</button>}
+          {backHref && <a className="studio-back" href={backHref}>← {t('ops.studio.back')}</a>}
           {canWrite && (
             <button type="button" className="save-layout" onClick={() => void save()} disabled={saving || !dirty || errors.length > 0} aria-keyshortcuts="Control+S">
               {saving ? t('studio.floor.saving') : t('studio.floor.save')}
@@ -510,6 +515,13 @@ export function FloorStudio({ orgId, branchId, branchName, currency, canWrite }:
           )}
         </div>
       </header>
+      {choices && canWrite && (
+        <div className="studio-choices" role="group" aria-label={t('ops.studio.choices')}>
+          <button type="button" className="is-on" onClick={() => svgRef.current?.focus()}>▦ {t('ops.studio.manual')}</button>
+          <label className="studio-choice-upload">⤒ {t('ops.studio.upload')}<input type="file" accept="image/png,image/jpeg" onChange={onBackgroundFile} disabled={saving} /></label>
+          <button type="button" disabled title={t('ops.studio.aiSoon')}>✦ {t('ops.studio.ai')} <small>{t('ops.studio.aiSoon')}</small></button>
+        </div>
+      )}
       <div className="studio-context">
         <span>{branchName} <b>{t('studio.floor.units')}</b></span>
         <div>
