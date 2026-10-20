@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBasisPoints, parseMajor, splitEvenly, sum, taxFromInclusive } from './money';
+import { applyBasisPoints, formatMoney, parseMajor, splitEvenly, sum, taxFromInclusive } from './money';
 import { canTransitionOrder, derivePaymentStatus } from './state-machines';
 import { assignableRoles, can } from './permissions';
 
@@ -23,6 +23,16 @@ describe('money', () => {
     expect(taxFromInclusive(11500, 1500)).toBe(1500);
     expect(taxFromInclusive(11400, 1400)).toBe(1400);
     expect(taxFromInclusive(999, 1500)).toBe(130); // 130.30 → 130
+  });
+});
+
+describe('money display (VP-26)', () => {
+  it('drops .00 on whole amounts by default and keeps the minor digits when asked (guest-facing prices)', () => {
+    expect(formatMoney(14500, 'EGP', 'en')).toMatch(/EGP\s?145$/);
+    expect(formatMoney(14550, 'EGP', 'en')).toMatch(/EGP\s?145\.50$/);
+    expect(formatMoney(14500, 'EGP', 'en', { decimals: 'always' })).toMatch(/EGP\s?145\.00$/);
+    expect(formatMoney(14500, 'EGP', 'ar', { decimals: 'always' })).toMatch(/145[.٫]00/);
+    expect(formatMoney(14500, 'EGP', 'ar', { decimals: 'always' })).not.toMatch(/[٠-٩]/);
   });
 });
 

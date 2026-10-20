@@ -5,6 +5,7 @@ import { DomainsService } from './domains.service';
 import { PublicSitesController } from './public-sites.controller';
 import { PublicSitesService } from './public-sites.service';
 import { SiteBuilderService } from './site-builder.service';
+import { StorefrontsService } from './storefronts.service';
 import { StudioController } from './studio.controller';
 import { StudioService } from './studio.service';
 
@@ -17,7 +18,7 @@ import { StudioService } from './studio.service';
 @Module({
   controllers: [StudioController, PublicSitesController],
   providers: [
-    StudioService, SiteBuilderService, DomainsService, CreativeService, PublicSitesService,
+    StudioService, SiteBuilderService, DomainsService, CreativeService, PublicSitesService, StorefrontsService,
     { provide: DNS_RESOLVER, useValue: systemTxtResolver },
     { provide: DOMAIN_PROVIDER, useFactory: () => domainProviderFromEnv() },
   ],

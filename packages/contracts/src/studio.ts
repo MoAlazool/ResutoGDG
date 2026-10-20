@@ -28,6 +28,8 @@ export const websiteTheme = z.object({
   logoMediaId: uuid.nullable().optional(),
   heroMediaId: uuid.nullable().optional(),
   font: z.enum(['manrope', 'editorial']).optional(),
+  /** Short line under the restaurant name in the site header (legacy "Example restaurant" slot). */
+  tagline: studioText(80).optional(),
 }).strict();
 export type WebsiteTheme = z.infer<typeof websiteTheme>;
 
@@ -135,6 +137,96 @@ export interface CreativeAsset {
   createdAt: string;
 }
 
+// --- Branch storefronts (audit VP-05) ----------------------------------------
+/** URL segment under the restaurant site (/r/<org>/<slug>). Reserved words are route names of the site. */
+export const storefrontSlug = z.string().regex(/^[a-z0-9](?:[a-z0-9-]{1,46}[a-z0-9])$/, 'lowercase letters, digits and dashes (3–48)')
+  .refine((s) => !['revalidate', 'order', 'reserve', 'menu', 'pay', 'admin', 'api'].includes(s), 'this name is reserved');
+
+export const storefrontTheme = z.object({
+  primaryColor: hex,
+  accentColor: hex,
+  inkColor: hex.optional(),
+  paperColor: hex.optional(),
+}).strict();
+
+/** Copy for one menu category on the storefront ("Burgers that hit different."). */
+export const storefrontSection = z.object({
+  categoryId: uuid,
+  eyebrow: studioText(40).optional(),
+  title: studioText(80).optional(),
+  body: studioText(200).optional(),
+}).strict();
+
+export const storefrontContent = z.object({
+  headline: studioText(120).optional(),
+  body: studioText(400).optional(),
+  /** Caption on the hero photo ("Made for the messy bite."). */
+  heroNote: studioText(80).optional(),
+  /** Optional banner above the menu ("The Smash combo."); products pictured beside it (up to 3). */
+  promo: z.object({
+    title: studioText(80).optional(),
+    body: studioText(160).optional(),
+    ctaLabel: studioText(40).optional(),
+    ctaCategoryId: uuid.nullable().optional(),
+    productIds: z.array(uuid).max(3).optional(),
+  }).strict().optional(),
+  sections: z.array(storefrontSection).max(30).optional(),
+}).strict();
+export type StorefrontContent = z.infer<typeof storefrontContent>;
+
+export const upsertStorefront = z.object({
+  slug: storefrontSlug,
+  brandName: z.string().trim().min(1).max(80),
+  brandNameAr: z.string().trim().max(80).nullable().optional(),
+  tagline: studioText(120).optional(),
+  theme: storefrontTheme,
+  logoMediaId: uuid.nullable().optional(),
+  heroMediaId: uuid.nullable().optional(),
+  content: storefrontContent.default({}),
+  isPublished: z.boolean().default(false),
+}).strict();
+export type UpsertStorefront = z.infer<typeof upsertStorefront>;
+
+export interface StorefrontView {
+  branchId: string;
+  slug: string;
+  brandName: string;
+  brandNameAr: string | null;
+  tagline: LocalizedText;
+  theme: z.infer<typeof storefrontTheme>;
+  logoMediaId: string | null;
+  heroMediaId: string | null;
+  content: StorefrontContent;
+  isPublished: boolean;
+  updatedAt: string;
+}
+
+/** A published storefront as the restaurant site lists it. */
+export interface PublicStorefrontLink {
+  slug: string;
+  branchId: string;
+  branchCode: string;
+  name: string;
+  nameAr: string | null;
+  tagline: LocalizedText;
+  primaryColor: string;
+  accentColor: string;
+  logoUrl: string | null;
+  heroUrl: string | null;
+  /** Site-relative path: /r/<org slug>/<storefront slug>. */
+  path: string;
+}
+
+/** `GET /v1/public/sites/:slug/storefronts/:storefront`: branding only; the menu comes from the branch's live web menu. */
+export interface PublicStorefront {
+  slug: string;
+  org: { slug: string; name: string; nameAr: string | null; currency: string; demo: boolean };
+  branch: { id: string; code: string; name: string; nameAr: string | null; city: string | null; acceptsPickup: boolean; acceptsDelivery: boolean; openingHours: unknown; timezone: string };
+  brand: { name: string; nameAr: string | null; tagline: LocalizedText; primaryColor: string; accentColor: string; inkColor: string; paperColor: string; logoUrl: string | null; heroUrl: string | null };
+  content: StorefrontContent;
+  links: { site: string; order: string; menu: string };
+}
+
 // --- Public site ------------------------------------------------------------
 export interface PublicSiteSection {
   id: string;
@@ -147,9 +239,10 @@ export interface PublicSite {
   revision: number;
   publishedAt: string | null;
   preview: boolean;
-  org: { name: string; nameAr: string | null; currency: string; country: string; defaultLocale: 'en' | 'ar' };
+  /** demo: the platform's example tenant (labelled "Example restaurant", illustrations disclosed). */
+  org: { name: string; nameAr: string | null; currency: string; country: string; defaultLocale: 'en' | 'ar'; demo: boolean };
   template: WebsiteTemplate;
-  theme: { primaryColor: string; accentColor: string; backgroundColor: string; font: 'manrope' | 'editorial'; logoUrl: string | null; heroUrl: string | null };
+  theme: { primaryColor: string; accentColor: string; backgroundColor: string; font: 'manrope' | 'editorial'; logoUrl: string | null; heroUrl: string | null; tagline: LocalizedText };
   seo: { title: LocalizedText; description: LocalizedText; ogImageUrl: string | null };
   sections: PublicSiteSection[];
   branches: Array<{
@@ -163,4 +256,6 @@ export interface PublicSite {
   }>;
   canonicalHost: string | null;
   links: { reserve: string; order: string; site: string };
+  /** Published branch storefronts (a branch trading under its own brand), linked from the site. */
+  storefronts: PublicStorefrontLink[];
 }
