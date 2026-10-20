@@ -195,7 +195,9 @@ describe('S09 tenant isolation', () => {
     expect((await t.http.get(`/v1/media/${encodeURIComponent(`${A.tenant.orgId}/../${bObject}`)}${a.search}`)).status).toBe(404);
   });
 
-  it('6. a direct database session as `authenticated` (Supabase client) sees only its own tenant and cannot write', async () => {
+  // Audit PS-01/PCL-02: the `authenticated` role used to read its own tenant's rows across every branch (bypassing the
+  // API's roles, branch scope and PII rules). Direct Supabase clients now get no tenant data at all.
+  it('6. a direct database session as `authenticated` (Supabase client) reads no tenant data and cannot write', async () => {
     const c = await testDb().connect();
     const as = async <T>(fn: () => Promise<T>, forgedOrg?: string) => {
       await c.query('begin');
@@ -209,13 +211,11 @@ describe('S09 tenant isolation', () => {
       }
     };
     try {
-      const rows = await as(async () => (await c.query('select org_id from orders')).rows);
-      expect(rows.length).toBeGreaterThan(0);
-      expect(rows.every((r) => r.org_id === A.tenant.orgId)).toBe(true);
-      const forged = await as(async () => (await c.query('select org_id from orders where org_id = $1', [B.tenant.orgId])).rows, B.tenant.orgId);
-      expect(forged).toEqual([]);
-      const orgs = await as(async () => (await c.query('select id from organizations')).rows);
-      expect(orgs.map((r) => r.id)).toEqual([A.tenant.orgId]);
+      await expect(as(() => c.query('select org_id from orders'))).rejects.toThrow(/permission denied/);
+      await expect(as(() => c.query('select org_id from orders where org_id = $1', [B.tenant.orgId]), B.tenant.orgId)).rejects.toThrow(/permission denied/);
+      await expect(as(() => c.query('select id from organizations'))).rejects.toThrow(/permission denied/);
+      await expect(as(() => c.query('select guest_phone from reservations'))).rejects.toThrow(/permission denied/);
+      await expect(as(() => c.query('select body from messages'))).rejects.toThrow(/permission denied/);
       await expect(as(() => c.query(`update orders set total_minor = 0 where org_id = $1`, [A.tenant.orgId]))).rejects.toThrow(/permission denied/);
       await expect(as(() => c.query(`update orders set total_minor = 0 where org_id = $1`, [B.tenant.orgId]))).rejects.toThrow(/permission denied/);
       await expect(as(() => c.query('select * from payments'))).rejects.toThrow(/permission denied/);
