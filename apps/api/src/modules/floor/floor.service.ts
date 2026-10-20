@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { FloorLayout, FloorSaveInput, FloorTable, LiveFloor, PublicFloor, QrSheetItem } from '@resuto/contracts';
+import { VISIT_RULES, type FloorLayout, type FloorSaveInput, type FloorTable, type LiveFloor, type PublicFloor, type QrSheetItem, type VenueQr } from '@resuto/contracts';
 import QRCode from 'qrcode';
 import type { TenantContext } from '../../common/auth/context';
 import { newToken } from '../../common/crypto/hash';
@@ -120,13 +120,19 @@ export class FloorService {
       const f = await this.layoutRow(tx, ctx.orgId, branchId);
       const tables = await tx.query('select * from dining_tables where branch_id = $1 and is_active order by label', [branchId]);
       const visits = await tx.query<any>(
-        `select v.id, v.table_id, v.party_size, v.opened_at, (v.credit_minor - v.credit_used_minor)::bigint as credit,
+        `select v.id, v.table_id, v.party_size, v.opened_at, v.opened_via, (v.credit_minor - v.credit_used_minor)::bigint as credit,
                 count(o.id) filter (where o.status <> 'cancelled')::int as order_count,
+                count(o.id) filter (where o.status in ('placed', 'accepted', 'preparing'))::int as preparing,
+                count(o.id) filter (where o.status = 'ready')::int as ready,
+                exists (select 1 from payments p where p.visit_id = v.id and p.status in ('pending', 'requires_action', 'authorized'))
+                  or exists (select 1 from bill_splits b where b.visit_id = v.id and b.status = 'open') as locked,
+                (v.opened_via = 'qr' and v.opened_at > now() - make_interval(secs => $2)
+                  and not exists (select 1 from orders x where x.visit_id = v.id) and not exists (select 1 from payments x where x.visit_id = v.id)) as undoable,
                 coalesce(sum(o.total_minor) filter (where o.status <> 'cancelled'), 0)::bigint as total,
                 coalesce(sum(o.paid_minor - o.refunded_minor) filter (where o.status <> 'cancelled'), 0)::bigint as paid,
                 coalesce((select array_agg(distinct s.kind) from service_requests s where s.visit_id = v.id and s.status <> 'resolved'), '{}') as requests
            from visits v left join orders o on o.visit_id = v.id
-          where v.branch_id = $1 and v.status = 'open' group by v.id`, [branchId]);
+          where v.branch_id = $1 and v.status = 'open' group by v.id`, [branchId, VISIT_RULES.autoOpenUndoMs / 1000]);
       const reservations = await tx.query<any>(
         `select distinct on (r.table_id) r.id, r.table_id, r.starts_at, r.guest_name, r.party_size from reservations r
           where r.branch_id = $1 and r.table_id is not null and r.ends_at > now()
@@ -142,6 +148,8 @@ export class FloorService {
             visit: v ? {
               id: v.id, partySize: v.party_size, openedAt: v.opened_at.toISOString(), orderCount: v.order_count,
               dueMinor: Math.max(0, v.total - v.paid - v.credit), paidMinor: v.paid, requests: v.requests,
+              preparing: v.preparing, ready: v.ready, totalMinor: Number(v.total), openedVia: v.opened_via, undoable: v.undoable,
+              billingLocked: v.locked,
             } : null,
             nextReservation: r ? { id: r.id, startsAt: r.starts_at.toISOString(), guestName: r.guest_name, partySize: r.party_size } : null,
           };
@@ -168,6 +176,36 @@ export class FloorService {
       items.push({ tableId: t.id, label: t.label, url, svg });
     }
     return { items };
+  }
+
+  /**
+   * One table's QR for the floor side panel (VS-11: legacy "Table QR code" with Open guest view / Download QR).
+   * Same rule as the print sheet: only for floor:write, and every view is audited.
+   */
+  async tableQr(ctx: TenantContext, branchId: string, tableId: string): Promise<QrSheetItem> {
+    ctx.assertBranch(branchId);
+    const t = await this.db.scoped(ctx, async (tx) => {
+      const row = await tx.maybeOne<{ id: string; label: string; qr_token: string }>(
+        'select id, label, qr_token from dining_tables where id = $1 and branch_id = $2 and is_active', [tableId, branchId]);
+      if (!row) throw notFound('Table');
+      await this.audit.record(tx, ctx, { action: 'floor.table_qr_viewed', entityType: 'dining_table', entityId: row.id, branchId });
+      return row;
+    });
+    const url = `${this.env.APP_ORIGIN.replace(/\/$/, '')}/t/${t.qr_token}`;
+    return { tableId: t.id, label: t.label, url, svg: await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) };
+  }
+
+  /**
+   * The single venue QR of a counter branch (FT-07, legacy /qr/venue): the branch's public ordering page, where every
+   * scan starts that guest's own pickup order. It carries no secret (the page is public), so floor:read may print it.
+   */
+  async venueQr(ctx: TenantContext, branchId: string): Promise<VenueQr> {
+    ctx.assertBranch(branchId);
+    const b = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ code: string; slug: string }>(
+      `select b.code, o.slug from branches b join organizations o on o.id = b.org_id where b.id = $1 and b.org_id = $2`, [branchId, ctx.orgId]));
+    if (!b) throw notFound('Branch');
+    const url = `${this.env.APP_ORIGIN.replace(/\/$/, '')}/order/${b.slug}?branch=${encodeURIComponent(b.code)}`;
+    return { branchId, url, svg: await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) };
   }
 
   /** Sanitized geometry for reservation maps: no QR tokens, internal notes or live status. */

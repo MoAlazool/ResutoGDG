@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { RESERVATION_RULES, VISIT_RULES, type GuestSession, type GuestVisitLive, type PublicTableView } from '@resuto/contracts';
+import { RESERVATION_RULES, VISIT_RULES, type GuestSession, type GuestVisitLive, type PublicTableView, type VisitSummary } from '@resuto/contracts';
 import { randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
@@ -432,6 +432,45 @@ export class VisitsService {
           where id = $1 returning id, status, version`, [tableId]);
       await this.audit.record(tx, ctx, { action: 'table.cleaned', entityType: 'dining_table', entityId: tableId, branchId: t.branch_id });
       return { id: row.id, status: row.status, version: row.version };
+    });
+  }
+
+  /**
+   * Open visits for the legacy "Active visits" board (VS-13): one card per seated table with its bill. Totals use the
+   * same rule as the live floor (orders net of refunds, minus unused deposit credit). Branch-scoped by the caller's
+   * access and RLS.
+   */
+  async listOpen(ctx: TenantContext, branchId?: string): Promise<{ items: VisitSummary[] }> {
+    if (branchId) ctx.assertBranch(branchId);
+    return this.db.scoped(ctx, async (tx) => {
+      const rows = await tx.query<any>(
+        `select v.id, v.branch_id, v.table_id, t.label as table_label, v.party_size, v.opened_at, v.opened_via, v.reservation_id,
+                r.guest_name, o2.currency,
+                count(o.id) filter (where o.status <> 'cancelled')::int as order_count,
+                count(o.id) filter (where o.status not in ${FULFILLED})::int as open_orders,
+                coalesce(sum(o.total_minor) filter (where o.status <> 'cancelled'), 0)::bigint as total,
+                coalesce(sum(o.paid_minor - o.refunded_minor) filter (where o.status <> 'cancelled'), 0)::bigint as paid,
+                greatest(v.credit_minor - v.credit_used_minor, 0)::bigint as credit,
+                exists (select 1 from payments p where p.visit_id = v.id and p.status in ('pending', 'requires_action', 'authorized'))
+                  or exists (select 1 from bill_splits b where b.visit_id = v.id and b.status = 'open') as locked,
+                coalesce((select array_agg(distinct s.kind) from service_requests s where s.visit_id = v.id and s.status <> 'resolved'), '{}') as requests
+           from visits v
+           join organizations o2 on o2.id = v.org_id
+           left join dining_tables t on t.id = v.table_id
+           left join reservations r on r.id = v.reservation_id
+           left join orders o on o.visit_id = v.id
+          where v.org_id = $1 and v.status = 'open' and ($2::uuid is null or v.branch_id = $2) and ($3::uuid[] is null or v.branch_id = any($3::uuid[]))
+          group by v.id, t.label, r.guest_name, o2.currency
+          order by v.opened_at`, [ctx.orgId, branchId ?? null, ctx.branchFilter]);
+      return {
+        items: rows.map((v) => ({
+          id: v.id, branchId: v.branch_id, tableId: v.table_id, tableLabel: v.table_label, partySize: v.party_size,
+          openedAt: new Date(v.opened_at).toISOString(), openedVia: v.opened_via, reservationId: v.reservation_id, guestName: v.guest_name,
+          orderCount: v.order_count, openOrders: v.open_orders, totalMinor: Number(v.total), paidMinor: Number(v.paid),
+          creditMinor: Number(v.credit), dueMinor: Math.max(0, Number(v.total) - Number(v.paid) - Number(v.credit)),
+          billingLocked: v.locked, requests: v.requests, currency: v.currency,
+        })),
+      };
     });
   }
 

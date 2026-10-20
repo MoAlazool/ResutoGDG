@@ -31,7 +31,7 @@ export const toBranch = (r: any) => ({
   timezone: r.timezone, isActive: r.is_active, acceptsDineIn: r.accepts_dine_in, acceptsPickup: r.accepts_pickup, acceptsDelivery: r.accepts_delivery,
   acceptsReservations: r.accepts_reservations, deliveryFeeMinor: r.delivery_fee_minor, deliveryRadiusM: r.delivery_radius_m,
   minOrderMinor: r.min_order_minor, reservationDurationMin: r.reservation_duration_min, reservationBufferMin: r.reservation_buffer_min,
-  reservationDepositMinor: r.reservation_deposit_minor, openingHours: r.opening_hours,
+  reservationDepositMinor: r.reservation_deposit_minor, openingHours: r.opening_hours, serviceMode: r.service_mode ?? 'tables',
 });
 
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'main';
