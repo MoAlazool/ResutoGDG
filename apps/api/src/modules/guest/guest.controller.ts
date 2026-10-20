@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
 import {
-  guestOrderRequest, guestQuoteRequest, guestVisitPollQuery, serviceRequestInput, webOrderRequest, webQuoteRequest,
-  type GuestOrderRequest, type WebOrderRequest,
+  assistantRequest, guestOrderRequest, guestQuoteRequest, guestRatingInput, guestVisitPollQuery, serviceRequestInput, suggestionsRequest, webOrderRequest,
+  webQuoteRequest, type AssistantRequest, type GuestOrderRequest, type GuestRatingInput, type WebOrderRequest,
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { ResutoRequest } from '../../common/auth/context';
@@ -11,7 +11,9 @@ import { notFound } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { VisitsService } from '../orders/visits.service';
+import { GuestAssistantService } from './assistant.service';
 import { GuestService } from './guest.service';
+import { GuestRatingsService } from './ratings.service';
 
 const uuidPipe = new ParseUUIDPipe();
 const slugish = z.string().regex(/^[a-z0-9-]{1,60}$/);
@@ -35,7 +37,8 @@ const BAD_TOKEN_PER_IP = 60;
  */
 @Controller('public')
 export class GuestController {
-  constructor(private readonly guest: GuestService, private readonly visits: VisitsService, private readonly limiter: RateLimiter) {}
+  constructor(private readonly guest: GuestService, private readonly visits: VisitsService, private readonly limiter: RateLimiter,
+    private readonly assistant: GuestAssistantService, private readonly ratings: GuestRatingsService) {}
 
   private limit(req: ResutoRequest, scope: string, token: string | undefined, perIp: number, perToken: number) {
     this.limiter.hit(`guest:${scope}:ip:${req.ip}`, perIp);
@@ -105,6 +108,42 @@ export class GuestController {
     return this.read(req, token, () => this.guest.orderStatus(token, orderId));
   }
 
+  /** "Help me choose": a meal for the party and budget from the live menu (rules, no generative model). */
+  @Public()
+  @Post('visits/current/assistant')
+  @HttpCode(200)
+  visitAssistant(@Headers('x-visit-token') token: string | undefined, @Body(zod(assistantRequest)) body: AssistantRequest, @Req() req: ResutoRequest) {
+    this.limit(req, 'assistant', token, 120, 30);
+    return this.assistant.forVisit(token, body);
+  }
+
+  /** Something to go with the cart: dishes ordered together here, else a drink or a dessert. */
+  @Public()
+  @Post('visits/current/suggestions')
+  @HttpCode(200)
+  visitSuggestions(@Headers('x-visit-token') token: string | undefined, @Body(zod(suggestionsRequest)) body: z.infer<typeof suggestionsRequest>, @Req() req: ResutoRequest) {
+    this.limit(req, 'suggest', token, 240, 60);
+    return this.assistant.suggestForVisit(token, body.productIds);
+  }
+
+  /** Rate the visit once the bill is settled (one rating per table visit). */
+  @Public()
+  @Post('visits/current/rating')
+  @HttpCode(200)
+  rateVisit(@Headers('x-visit-token') token: string | undefined, @Body(zod(guestRatingInput)) body: GuestRatingInput, @Req() req: ResutoRequest) {
+    this.limit(req, 'rating', token, 30, 10);
+    return this.ratings.rateVisit(token, body);
+  }
+
+  /** Rate from a paid split share (the share link is its own credential). */
+  @Public()
+  @Post('shares/:token/rating')
+  @HttpCode(200)
+  rateShare(@Param('token') shareToken: string, @Body(zod(guestRatingInput)) body: GuestRatingInput, @Req() req: ResutoRequest) {
+    this.limit(req, 'rating', shareToken, 30, 10);
+    return this.ratings.rateShare(shareToken, body);
+  }
+
   @Public()
   @Post('visits/current/requests')
   request(@Headers('x-visit-token') token: string | undefined, @Body(zod(serviceRequestInput)) body: { kind: 'waiter' | 'bill' }, @Req() req: ResutoRequest) {
@@ -116,7 +155,8 @@ export class GuestController {
 /** Website pickup / delivery ordering (channel `web`). */
 @Controller('public/order')
 export class WebOrderController {
-  constructor(private readonly guest: GuestService, private readonly limiter: RateLimiter) {}
+  constructor(private readonly guest: GuestService, private readonly limiter: RateLimiter,
+    private readonly assistant: GuestAssistantService, private readonly ratings: GuestRatingsService) {}
 
   private slug(slug: string) {
     if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
@@ -144,6 +184,31 @@ export class WebOrderController {
     this.limiter.hit(`web-order:place:${req.ip}`, 20);
     this.limiter.hit(`web-order:phone:${sha256(body.customer.phone).slice(0, 24)}`, 10);
     return this.guest.webOrder(this.slug(slug), body, key);
+  }
+
+  @Public()
+  @Post(':slug/assistant')
+  @HttpCode(200)
+  assist(@Param('slug') slug: string, @Body(zod(assistantRequest)) body: AssistantRequest, @Req() req: ResutoRequest) {
+    this.limiter.hit(`web-order:assistant:${req.ip}`, 60);
+    return this.assistant.forWeb(this.slug(slug), body);
+  }
+
+  @Public()
+  @Post(':slug/suggestions')
+  @HttpCode(200)
+  suggestions(@Param('slug') slug: string, @Body(zod(suggestionsRequest)) body: z.infer<typeof suggestionsRequest>, @Req() req: ResutoRequest) {
+    this.limiter.hit(`web-order:suggest:${req.ip}`, 120);
+    return this.assistant.suggestForWeb(this.slug(slug), body.branch, body.productIds);
+  }
+
+  /** Rate a web order once it is paid online or handed over (the unguessable reference is the credential). */
+  @Public()
+  @Post(':slug/orders/:publicRef/rating')
+  @HttpCode(200)
+  rate(@Param('slug') slug: string, @Param('publicRef') ref: string, @Body(zod(guestRatingInput)) body: GuestRatingInput, @Req() req: ResutoRequest) {
+    this.limiter.hit(`web-order:rating:${req.ip}`, 30);
+    return this.ratings.rateWebOrder(this.slug(slug), ref, body);
   }
 
   @Public()

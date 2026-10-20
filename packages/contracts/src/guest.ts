@@ -60,7 +60,9 @@ export interface AssistantResult {
   mode: 'rules';
   /** What was understood (after reading the text), so the guest can see and correct it. */
   understood: { party: number; budgetMinor: number | null; vegetarian: boolean; mild: boolean; quick: boolean; exclude: string[] };
-  items: Array<{ productId: string; name: string; nameAr: string | null; imageUrl: string | null; priceMinor: number; quantity: number; reasons: AssistantReason[] }>;
+  /** priceMinor includes the cheapest choice of every required option group; `modifiers` are those choices. */
+  items: Array<{ productId: string; name: string; nameAr: string | null; imageUrl: string | null; priceMinor: number; quantity: number;
+    modifiers: Array<{ groupId: string; optionId: string }>; reasons: AssistantReason[] }>;
   estimatedTotalMinor: number;
   currency: string;
   /** over_budget: even the leanest meal costs more than the budget; no_match: nothing passes the filters. */
