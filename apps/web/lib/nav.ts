@@ -73,6 +73,5 @@ export function homePath(role: Role | string, orgId: string): string {
 /** Active-order statuses counted in the Orders navigation badge (as the legacy workspace did). */
 export const ACTIVE_ORDER_STATUSES = 'awaiting_payment,placed,accepted,preparing,ready';
 
-/** Only same-site paths are followed after sign-in (no protocol-relative or backslash tricks, no auth pages). */
-export const safeNext = (next: string | null | undefined) =>
-  next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') && !/^\/(login|signup)(\/|\?|$)/.test(next) ? next : null;
+/** Post-sign-in redirect validation lives in a dependency-free module so session.tsx can share it. */
+export { safeNext } from './safe-next';

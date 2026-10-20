@@ -6,6 +6,7 @@ import type { MeResponse } from '@resuto/contracts';
 import { api, ApiRequestError, type ApiOptions } from './api';
 import { createAuthRunner } from './auth-recovery';
 import { queryCache, scopeOfToken, tenantPrefix } from './query-cache';
+import { googleReturnUrl, loginUrl } from './safe-next';
 import { claimUserStorage, clearUserStorage } from './user-storage';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -68,13 +69,7 @@ const writeStored = (s: StoredSession) => { try { localStorage.setItem(STORAGE_K
 const keepSession = (k: string) => k === STORAGE_KEY || /^sb-[a-z0-9]+-auth-token/.test(k);
 const AUTH_PAGES = /^\/(login|signup)(\/|$)/;
 
-export const loginUrl = (next?: string | null, reason?: 'expired') => {
-  const q = new URLSearchParams();
-  if (next && next.startsWith('/') && !next.startsWith('//') && !AUTH_PAGES.test(next)) q.set('next', next);
-  if (reason) q.set('reason', reason);
-  const s = q.toString();
-  return `/login${s ? `?${s}` : ''}`;
-};
+export { loginUrl } from './safe-next';
 
 /**
  * Session for staff routes ((auth), dashboard, kitchen, driver, admin, onboarding, invite). `requireAuth` sends a
@@ -224,9 +219,8 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
 
   const signInWithGoogle = useCallback(async (next?: string | null) => {
     if (!GOOGLE_AUTH) throw new Error('Google sign-in is not enabled.');
-    const back = new URL('/login', window.location.origin);
-    if (next && next.startsWith('/') && !next.startsWith('//')) back.searchParams.set('next', next);
-    const { error } = await (await sb()).auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back.toString() } });
+    const back = googleReturnUrl(window.location.origin, next);
+    const { error } = await (await sb()).auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } });
     if (error) throw new Error(error.message);
   }, []);
 
