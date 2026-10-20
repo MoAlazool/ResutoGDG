@@ -40,6 +40,35 @@ describe('reading what the guest asked for', () => {
     expect(understand({ text: 'two of us, nut allergy, gluten-free' })).toMatchObject({ party: 2, exclude: ['gluten', 'tree_nuts', 'wheat'] });
     // Mentioning an ingredient is not avoiding it.
     expect(understand({ text: 'extra cheese, no onions' }).exclude).toEqual([]);
+    expect(understand({ text: 'I love cheese and want nuts on top' }).exclude).toEqual([]);
+  });
+
+  it('a "no" or an "allergy" covers every allergen in the list it introduces or closes (EN and AR)', () => {
+    const ex = (text: string) => understand({ text }).exclude;
+    expect(ex('no dairy or nuts')).toEqual(['milk', 'tree_nuts']);
+    expect(ex('no nuts, dairy or eggs')).toEqual(['eggs', 'milk', 'tree_nuts']);
+    expect(ex('without nuts and sesame')).toEqual(['sesame', 'tree_nuts']);
+    expect(ex('allergic to milk and peanuts')).toEqual(['milk', 'peanuts']);
+    expect(ex("I can't have gluten or shellfish")).toEqual(['gluten', 'shellfish', 'wheat']);
+    expect(ex('I can\u2019t eat fish, and also eggs')).toEqual(['eggs', 'fish']);
+    expect(ex('nuts and dairy allergy')).toEqual(['milk', 'tree_nuts']);
+    expect(ex('dairy, egg and gluten free please')).toEqual(['eggs', 'gluten', 'milk', 'wheat']);
+    expect(ex('بدون لبن ومكسرات')).toEqual(['milk', 'tree_nuts']);
+    expect(ex('من غير لبن ولا بيض ولا سمسم')).toEqual(['eggs', 'milk', 'sesame']);
+    expect(ex('عندي حساسية من الجلوتين والجمبري')).toEqual(['gluten', 'shellfish', 'wheat']);
+    expect(ex('بدون سمك أو فول سوداني')).toEqual(['fish', 'peanuts']);
+    // The list ends where the guest moves on to something else.
+    expect(ex('no onions, extra cheese')).toEqual([]);
+    expect(ex('no nuts, I would like cheese')).toEqual(['tree_nuts']);
+    expect(ex('عايز جبنة بس بدون مكسرات')).toEqual(['tree_nuts']);
+    // And a dish the plan proposes never carries any of them.
+    const plan = planMeal(candidates(olive, pop), understand({ text: 'for 4, allergic to fish and dairy' }), 'EGP');
+    const byId = new Map(olive.categories.flatMap((c) => c.products).map((x) => [x.id, x]));
+    expect(plan.items.length).toBeGreaterThan(0);
+    for (const i of plan.items) expect(byId.get(i.productId)!.allergens.filter((a) => a === 'fish' || a === 'milk')).toEqual([]);
+  });
+
+  it('explicit choices win over the text', () => {
     // Explicit choices win over the text; nothing said means a table for two with no budget.
     expect(understand({ text: 'for 6', party: 2, vegetarian: true })).toMatchObject({ party: 2, vegetarian: true });
     expect(understand({})).toMatchObject({ party: 2, budgetMinor: null, exclude: [] });

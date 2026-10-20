@@ -82,9 +82,43 @@ const ALLERGEN_WORDS: Array<[string, RegExp]> = [
   ['sesame', /sesame|tahini|سمسم|طحينة/],
   ['soy', /\bsoy|صويا/],
 ];
-/** Said just before the allergen ("no nuts", "بدون مكسرات") or just after it ("nut allergy", "gluten-free"). */
-const AVOID_BEFORE = /(?:\bno|without|avoid|allergic to|allergy to|can'?t eat|بدون|من غير|مش عايز|ماعدا|حساسية من|حساسية|ممنوع)\W{0,3}$/;
-const AVOID_AFTER = /^\W{0,3}(?:allerg|free|intoleran|حساسية)/;
+/**
+ * Saying you avoid something: just before the allergens ("no nuts", "allergic to milk and peanuts", "بدون لبن ومكسرات")
+ * or just after them ("nut allergy", "dairy and gluten free"). A cue covers the whole list it introduces or closes.
+ */
+const AVOID_BEFORE = /\b(?:no|without|avoid(?:ing)?|allergic to|allerg(?:y|ies) to|intolerant to|free of|can'?t (?:eat|have)|cannot (?:eat|have)|(?:don'?t|do not) (?:eat|have))\b|بدون|من غير|مش عايز|ماعدا|ما عدا|حساسية من|حساسية|ممنوع/g;
+const AVOID_AFTER = /allerg|\bfree\b|intoleran|حساسية/g;
+/** Words that keep a list of allergens going ("no nuts, dairy or eggs", "بدون لبن ولا بيض"). */
+const LIST_GLUE = new Set([
+  'and', 'or', 'nor', 'also', 'any', 'either', 'neither', 'plus', 'the', 'to', 'of', 'all', 'n',
+  'و', 'أو', 'او', 'ولا', 'لا', 'ال', 'وال', 'أي', 'اي', 'كمان', 'ايضا', 'أيضا',
+]);
+const isGlue = (gap: string) => gap.split(/[\s\p{P}\p{S}]+/u).every((w) => !w || LIST_GLUE.has(w));
+const ALLERGEN_SCAN = ALLERGEN_WORDS.map(([code, re]) => [code, new RegExp(re.source, 'g')] as const);
+
+/** Allergens the guest says to avoid. Mentioning an ingredient ("extra cheese") is not avoiding it. */
+export function avoidedAllergens(text: string): string[] {
+  const spans = ALLERGEN_SCAN.flatMap(([code, re]) => [...text.matchAll(re)].map((m) => ({ code, start: m.index, end: m.index + m[0].length })))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  const before = [...text.matchAll(AVOID_BEFORE)].map((m) => m.index + m[0].length);
+  const after = [...text.matchAll(AVOID_AFTER)].map((m) => m.index);
+  const out = new Set<string>();
+  // Forward: a cue, then allergens joined only by list words.
+  let chainEnd = -1;
+  for (const s of spans) {
+    const cued = before.some((e) => e <= s.start && isGlue(text.slice(e, s.start)));
+    const chained = chainEnd >= 0 && chainEnd <= s.start && isGlue(text.slice(chainEnd, s.start));
+    if (cued || chained) { out.add(s.code); chainEnd = s.end; } else if (s.start >= chainEnd) chainEnd = -1;
+  }
+  // Backward: allergens joined only by list words, then a cue ("nuts and dairy allergy", "gluten-free").
+  let chainStart = -1;
+  for (const s of [...spans].reverse()) {
+    const cued = after.some((b) => b >= s.end && isGlue(text.slice(s.end, b)));
+    const chained = chainStart >= 0 && chainStart >= s.end && isGlue(text.slice(s.end, chainStart));
+    if (cued || chained) { out.add(s.code); chainStart = s.start; } else if (s.end <= chainStart) chainStart = -1;
+  }
+  return [...out];
+}
 
 export interface Understood { party: number; budgetMinor: number | null; vegetarian: boolean; mild: boolean; quick: boolean; exclude: string[]; wants: Course[] }
 
@@ -94,7 +128,7 @@ const num = (raw: string) => {
 };
 
 export function understand(req: AssistantRequest): Understood {
-  const text = toWesternDigits(req.text ?? '').toLowerCase().replace(/\s+/g, ' ');
+  const text = toWesternDigits(req.text ?? '').toLowerCase().replace(/[\u2018\u2019\u02bc]/g, "'").replace(/\s+/g, ' ');
   const words = text.replace(/(\p{L}+)/gu, (w) => (WORDS[w] !== undefined ? String(WORDS[w]) : w));
   let party: number | null = null;
   const partyRe = [
@@ -114,14 +148,7 @@ export function understand(req: AssistantRequest): Understood {
   for (const re of budgetRe) { const m = re.exec(text); if (m) { budget = num(m[1]!); break; } }
 
   const exclude = new Set<string>(req.exclude ?? []);
-  for (const [allergen, re] of ALLERGEN_WORDS) {
-    const m = re.exec(text);
-    if (!m) continue;
-    // Only when the guest is avoiding it ("no nuts", "nut allergy", "بدون مكسرات", "حساسية لبن").
-    const before = text.slice(Math.max(0, m.index - 16), m.index);
-    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 14);
-    if (AVOID_BEFORE.test(before) || AVOID_AFTER.test(after)) exclude.add(allergen);
-  }
+  for (const allergen of avoidedAllergens(text)) exclude.add(allergen);
   // Wheat and gluten go together whichever the guest named.
   if (exclude.has('wheat') || exclude.has('gluten')) { exclude.add('wheat'); exclude.add('gluten'); }
   const wants: Course[] = [];
