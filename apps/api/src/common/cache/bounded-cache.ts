@@ -34,6 +34,14 @@ export class BoundedCache<V> {
 
   delete(key: string) { this.map.delete(key); }
 
+  /** Keys of the entries that have not expired (expired ones are dropped on the way). */
+  keys(): string[] {
+    const now = this.now();
+    const out: string[] = [];
+    for (const [k, e] of [...this.map]) if (e.expires > now) out.push(k); else this.map.delete(k);
+    return out;
+  }
+
   deleteWhere(test: (key: string) => boolean) {
     for (const k of [...this.map.keys()]) if (test(k)) this.map.delete(k);
   }

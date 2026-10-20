@@ -9,6 +9,8 @@ import { DbService } from '../src/common/db/db.service';
 import { CAMPAIGN_CHUNK, CampaignsService } from '../src/modules/marketing/campaigns.service';
 import { MessagingService, retryDelayMs } from '../src/modules/connect/messaging.service';
 import { IntegrationConnectionsService } from '../src/modules/integrations/connections.service';
+import { SegmentsService } from '../src/modules/marketing/segments.service';
+import { sandboxChannel } from './growth-helpers';
 import { auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant } from './helpers';
 
 let t: TestApp;
@@ -194,18 +196,20 @@ describe('sender lease fence and record step (PCL-11 review)', () => {
 
 describe('chunked campaign dispatch (PCL-11)', () => {
   const m = (tenant: TestTenant, path: string) => `/v1/o/${tenant.orgId}/marketing${path}`;
-  async function approvedCampaign(tenant: TestTenant, tag: string, recipients: number) {
-    await sql(`insert into customers(org_id, display_name, tags, marketing_consent) select $1, 'Guest ' || g, array[$2::text], false from generate_series(1, $3) g`,
-      [tenant.orgId, tag, recipients]);
+  /** `consentEvery` = n gives every n-th customer marketing consent (0: nobody). */
+  async function approvedCampaign(tenant: TestTenant, tag: string, recipients: number, consentEvery = 0) {
+    await sql(`insert into customers(org_id, display_name, tags, marketing_consent)
+               select $1, 'Guest ' || g, array[$2::text], $4::int > 0 and g % greatest($4::int, 1) = 0 from generate_series(1, $3) g`,
+      [tenant.orgId, tag, recipients, consentEvery]);
     const seg = (await t.http.post(m(tenant, '/segments')).set(auth(tenant.owner)).send({ name: tag, definition: { op: 'and', rules: [{ type: 'has_tag', tag }] } })).body;
     const c = (await t.http.post(m(tenant, '/campaigns')).set(auth(tenant.owner)).send({ name: tag, channel: 'whatsapp', segmentId: seg.id, content: { text: 'Hello' } })).body;
     await t.http.post(m(tenant, `/campaigns/${c.id}/submit`)).set(auth(tenant.owner)).expect(201);
     await t.http.post(m(tenant, `/campaigns/${c.id}/approve`)).set(auth(tenant.owner)).expect(201);
-    return c.id as string;
+    return { id: c.id as string, segmentId: seg.id as string };
   }
 
   it('sends the first chunk in the request and the dispatcher finishes the rest, one delivery per recipient', async () => {
-    const id = await approvedCampaign(a, 'bulk1', CAMPAIGN_CHUNK * 2 + 50);
+    const { id } = await approvedCampaign(a, 'bulk1', CAMPAIGN_CHUNK * 2 + 50);
     const sent = await t.http.post(m(a, `/campaigns/${id}/send`)).set(auth(a.owner));
     expect(sent.status).toBe(201);
     expect(sent.body).toMatchObject({ status: 'sending', delivery: { recipients: CAMPAIGN_CHUNK * 2 + 50, skippedNoConsent: CAMPAIGN_CHUNK, pending: CAMPAIGN_CHUNK + 50 } });
@@ -221,7 +225,7 @@ describe('chunked campaign dispatch (PCL-11)', () => {
   });
 
   it('concurrent dispatcher runs on a scheduled campaign never duplicate a delivery', async () => {
-    const id = await approvedCampaign(b, 'bulk2', CAMPAIGN_CHUNK + 120);
+    const { id } = await approvedCampaign(b, 'bulk2', CAMPAIGN_CHUNK + 120);
     await t.http.post(m(b, `/campaigns/${id}/schedule`)).set(auth(b.owner)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() }).expect(201);
     await sql(`update campaigns set scheduled_at = now() - interval '1 minute' where id = $1`, [id]);
     const svc = t.app.get(CampaignsService);
@@ -232,5 +236,51 @@ describe('chunked campaign dispatch (PCL-11)', () => {
     expect(c.status).toBe('sent');
     const [d] = await sql(`select count(*)::int as n, count(distinct customer_id)::int as people from campaign_deliveries where campaign_id = $1`, [id]);
     expect(d).toEqual({ n: CAMPAIGN_CHUNK + 120, people: CAMPAIGN_CHUNK + 120 });
+  });
+  it('consenting recipients get exactly one message each across chunks and concurrent dispatcher runs', async () => {
+    const c = await createTenant(t);
+    const channel = await sandboxChannel(t, c);
+    const total = CAMPAIGN_CHUNK * 2 + 30;
+    const { id } = await approvedCampaign(c, 'bulk3', total, 3); // every third customer has consent
+    // Consenting customers wrote to the restaurant on WhatsApp recently (open window: free-form text is allowed).
+    await sql(`insert into conversations(org_id, channel_id, customer_id, external_contact, status, last_inbound_at)
+               select $1, $2, id, '2019' || lpad(row_number() over (order by id)::text, 8, '0'), 'open', now()
+                 from customers where org_id = $1 and marketing_consent and 'bulk3' = any(tags)`, [c.orgId, channel.id]);
+    const [{ consenting }] = await sql(`select count(*)::int as consenting from customers where org_id = $1 and marketing_consent and 'bulk3' = any(tags)`, [c.orgId]);
+    expect(consenting).toBe(Math.floor(total / 3));
+    await t.http.post(m(c, `/campaigns/${id}/schedule`)).set(auth(c.owner)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() }).expect(201);
+    await sql(`update campaigns set scheduled_at = now() - interval '1 minute' where id = $1`, [id]);
+    const svc = t.app.get(CampaignsService);
+    const results = await Promise.allSettled([svc.dispatchDue(), svc.dispatchDue(), svc.dispatchDue()]);
+    expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
+    await svc.dispatchDue();
+    expect((await sql(`select status from campaigns where id = $1`, [id]))[0].status).toBe('sent');
+    const [msgs] = await sql(`select count(*)::int as n, count(distinct conversation_id)::int as people from messages where org_id = $1 and payload->>'reason' = $2`,
+      [c.orgId, `campaign:${id}`]);
+    expect(msgs).toEqual({ n: consenting, people: consenting });
+    const [d] = await sql(`select count(*)::int as n, count(distinct customer_id)::int as people, count(message_id)::int as with_message,
+                                  count(*) filter (where status = 'skipped_no_consent')::int as skipped
+                             from campaign_deliveries where campaign_id = $1`, [id]);
+    expect(d).toEqual({ n: total, people: total, with_message: consenting, skipped: total - consenting });
+    const [attr] = await sql(`select count(*)::int as n, count(distinct customer_id)::int as people from attribution_events where campaign_id = $1 and kind = 'message_sent'`, [id]);
+    expect(attr).toEqual({ n: consenting, people: consenting });
+  });
+
+  it('sends to the audience snapshotted at start, even if the segment is recomputed while sending', async () => {
+    const c = await createTenant(t);
+    const { id, segmentId } = await approvedCampaign(c, 'bulk4', CAMPAIGN_CHUNK + 40);
+    const first = await t.http.post(m(c, `/campaigns/${id}/send`)).set(auth(c.owner));
+    expect(first.body).toMatchObject({ status: 'sending', delivery: { recipients: CAMPAIGN_CHUNK + 40, pending: 40 } });
+    // Mid-send, more customers match and the segment is recomputed (an edit, a refresh or another campaign starting).
+    await sql(`insert into customers(org_id, display_name, tags, marketing_consent) select $1, 'Late ' || g, array['bulk4'], false from generate_series(1, 300) g`, [c.orgId]);
+    const recomputed = await t.app.get(DbService).withTenant(c.orgId, (tx) => t.app.get(SegmentsService).compute(tx, c.orgId, segmentId), 'test');
+    expect(recomputed).toBe(CAMPAIGN_CHUNK + 340);
+    await t.app.get(CampaignsService).dispatchDue();
+    expect((await sql(`select status from campaigns where id = $1`, [id]))[0].status).toBe('sent');
+    const [d] = await sql(`select count(*)::int as n, count(*) filter (where cu.display_name like 'Late %')::int as late
+                             from campaign_deliveries d join customers cu on cu.id = d.customer_id where d.campaign_id = $1`, [id]);
+    expect(d).toEqual({ n: CAMPAIGN_CHUNK + 40, late: 0 });
+    const after = (await t.http.get(m(c, `/campaigns/${id}`)).set(auth(c.owner))).body;
+    expect(after.status).toBe('sent');
   });
 });

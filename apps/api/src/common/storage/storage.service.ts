@@ -234,15 +234,26 @@ export class StorageService {
     return out;
   }
 
-  /** Reads an object's bytes server side (derivative backfill). */
+  /**
+   * Reads an object's bytes server side (derivative backfill). Returns null only when the object does not exist (404,
+   * or Supabase's 400 "not_found" body; ENOENT locally); any other failure (5xx, 429, timeout, network) throws, so a
+   * caller can tell a missing object from a transient outage and retry the latter.
+   */
   async read(objectPath: string): Promise<Buffer | null> {
     if (objectPath.includes('..')) return null;
     if (this.env.STORAGE_DRIVER === 'supabase') {
       const res = await fetch(`${this.env.SUPABASE_URL}/storage/v1/object/${this.bucket}/${objectPath}`, {
         headers: this.serviceAuth(), signal: AbortSignal.timeout(30_000) });
-      return res.ok ? Buffer.from(await res.arrayBuffer()) : null;
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+      if (res.status === 404) return null;
+      // Supabase Storage answers a missing object with 400 and {"statusCode":"404","error":"not_found"}.
+      if (res.status === 400 && /not_?found/i.test(await res.text().catch(() => ''))) return null;
+      throw new Error(`Storage read failed: ${res.status}`);
     }
-    return readFile(path.join(this.env.STORAGE_LOCAL_DIR, this.bucket, objectPath)).catch(() => null);
+    return readFile(path.join(this.env.STORAGE_LOCAL_DIR, this.bucket, objectPath)).catch((e: NodeJS.ErrnoException) => {
+      if (e.code === 'ENOENT') return null;
+      throw e;
+    });
   }
 
   /** Writes derivatives for an object already recorded (backfill job). */

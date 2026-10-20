@@ -185,6 +185,58 @@ describe('image derivatives (CR-12) and the public menu', () => {
     const again = await t.app.get(MediaDerivativeJobs).backfill(500);
     expect(again.derived).toBe(0);
   });
+
+  it('retries an object whose read failed transiently, and marks a missing one checked', async () => {
+    const storage = t.app.get(StorageService);
+    const jobs = t.app.get(MediaDerivativeJobs);
+    const path = `${tenant.orgId}/menu/${crypto.randomUUID()}.jpg`;
+    await (storage as any).write(path, await photo(800, 600), 'image/jpeg');
+    const missing = `${tenant.orgId}/menu/${crypto.randomUUID()}.jpg`; // recorded, but the object is gone
+    const [row] = await sql(`insert into media_assets(org_id, path, content_type, byte_size) values ($1, $2, 'image/jpeg', 1000) returning id`, [tenant.orgId, path]);
+    const [gone] = await sql(`insert into media_assets(org_id, path, content_type, byte_size) values ($1, $2, 'image/jpeg', 1000) returning id`, [tenant.orgId, missing]);
+    const real = storage.read.bind(storage);
+    const spy = vi.spyOn(storage, 'read').mockImplementation(async (p: string) => {
+      if (p === path) throw new Error('Storage read failed: 503');
+      return real(p);
+    });
+    try {
+      const out = await jobs.backfill(500);
+      expect(out.retry).toBeGreaterThanOrEqual(1);
+      const checked = async (id: string) => (await sql(`select variants_checked_at is not null as c, variants from media_assets where id = $1`, [id]))[0];
+      expect(await checked(row.id)).toMatchObject({ c: false }); // left for a later run
+      expect(await checked(gone.id)).toMatchObject({ c: true, variants: [] }); // 404: checked, no derivatives
+      await jobs.backfill(500); // inside the cool-down: not read again
+      expect(spy.mock.calls.filter(([p]) => p === path)).toHaveLength(1);
+      spy.mockRestore();
+      (jobs as any).coolingDown.clear(); // the cool-down has passed and storage is back
+      expect((await jobs.backfill(500)).derived).toBeGreaterThanOrEqual(1);
+      expect((await checked(row.id)).variants.map((v: any) => v.w)).toEqual([320, 640]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('tells a missing Supabase object from a transient failure', async () => {
+    const storage = new StorageService({ NODE_ENV: 'test', STORAGE_DRIVER: 'supabase', SUPABASE_URL: 'https://proj.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test', API_ORIGIN: 'http://api.test', STORAGE_LOCAL_DIR: '/nonexistent' } as any);
+    const replies = [
+      new Response('img', { status: 200 }),
+      new Response('{"statusCode":"404","error":"not_found","message":"Object not found"}', { status: 400 }),
+      new Response('', { status: 404 }),
+      new Response('busy', { status: 503 }),
+      new Response('slow down', { status: 429 }),
+    ];
+    vi.stubGlobal('fetch', vi.fn(async () => replies.shift()!));
+    try {
+      expect((await storage.read('o/menu/a.jpg'))?.toString()).toBe('img');
+      expect(await storage.read('o/menu/b.jpg')).toBeNull();
+      expect(await storage.read('o/menu/c.jpg')).toBeNull();
+      await expect(storage.read('o/menu/d.jpg')).rejects.toThrow(/503/);
+      await expect(storage.read('o/menu/e.jpg')).rejects.toThrow(/429/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('public menu HTTP caching (PCL-15)', () => {

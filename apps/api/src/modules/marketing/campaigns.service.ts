@@ -180,8 +180,10 @@ export class CampaignsService implements CampaignsPort {
   }
 
   /**
-   * Validates, marks the campaign `sending` and computes its segment (no messages yet). With `resume` a campaign that
-   * another run already started is left as it is (the scheduler, racing another run on the same due campaign).
+   * Validates, marks the campaign `sending`, computes its segment and snapshots the audience into campaign_recipients
+   * (no messages yet). Every chunk reads only that snapshot, so a segment recomputed while the campaign is sending
+   * cannot change its audience or take it past MAX_RECIPIENTS. With `resume` a campaign that another run already
+   * started is left as it is (the scheduler, racing another run on the same due campaign).
    */
   private async startDispatch(tx: Tx, ctx: TenantContext, id: string, opts: { resume?: boolean } = {}) {
     const r = await this.row(tx, ctx, id, true);
@@ -199,19 +201,22 @@ export class CampaignsService implements CampaignsPort {
     const n = await tx.one<{ n: number }>(`select count(*)::int as n from (select 1 from segment_members where segment_id = $1 limit $2) s`,
       [r.segment_id, MAX_RECIPIENTS + 1]);
     if (n.n > MAX_RECIPIENTS) throw invalid('segment_too_large', `Campaigns are limited to ${MAX_RECIPIENTS} recipients`);
+    await tx.query(
+      `insert into campaign_recipients(org_id, campaign_id, customer_id)
+       select $1, $2, customer_id from segment_members where segment_id = $3 on conflict do nothing`, [ctx.orgId, id, r.segment_id]);
   }
 
   /**
-   * Up to CAMPAIGN_CHUNK recipients without a delivery yet. Holds the campaign row lock for the chunk, so chunks of
+   * Up to CAMPAIGN_CHUNK recipients of the snapshot without a delivery yet. Holds the campaign row lock for the chunk, so chunks of
    * one campaign never run concurrently. Marks the campaign `sent` when no recipient is left; returns true then.
    */
   private async dispatchChunk(tx: Tx, ctx: TenantContext, id: string): Promise<boolean> {
-    const r = await tx.maybeOne<any>(`select id, status, segment_id, content, utm_campaign from campaigns where id = $1 and org_id = $2 for update`, [id, ctx.orgId]);
+    const r = await tx.maybeOne<any>(`select id, status, content, utm_campaign from campaigns where id = $1 and org_id = $2 for update`, [id, ctx.orgId]);
     if (!r || r.status !== 'sending') return true;
     const members = await tx.query<{ customer_id: string; marketing_consent: boolean }>(
-      `select m.customer_id, c.marketing_consent from segment_members m join customers c on c.id = m.customer_id
-        where m.segment_id = $1 and not exists (select 1 from campaign_deliveries d where d.campaign_id = $2 and d.customer_id = m.customer_id)
-        order by m.customer_id limit $3`, [r.segment_id, id, CAMPAIGN_CHUNK]);
+      `select m.customer_id, c.marketing_consent from campaign_recipients m join customers c on c.id = m.customer_id
+        where m.campaign_id = $1 and not exists (select 1 from campaign_deliveries d where d.campaign_id = $1 and d.customer_id = m.customer_id)
+        order by m.customer_id limit $2`, [id, CAMPAIGN_CHUNK]);
     const variables = Object.fromEntries((r.content?.variables ?? []).map((v: string, i: number) => [String(i + 1), v]));
     for (const m of members) {
       if (!m.marketing_consent) {
@@ -256,8 +261,8 @@ export class CampaignsService implements CampaignsPort {
               count(*) filter (where d.message_id is null and d.status = 'failed')::int as failed,
               count(*) filter (where coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null)::int as sandbox,
               count(*) filter (where not coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null)::int as live,
-              (select count(*)::int from segment_members sm join campaigns cc on cc.segment_id = sm.segment_id
-                where cc.id = $1 and not exists (select 1 from campaign_deliveries x where x.campaign_id = $1 and x.customer_id = sm.customer_id)) as pending
+              (select count(*)::int from campaign_recipients cr
+                where cr.campaign_id = $1 and not exists (select 1 from campaign_deliveries x where x.campaign_id = $1 and x.customer_id = cr.customer_id)) as pending
          from campaign_deliveries d left join messages m on m.id = d.message_id where d.campaign_id = $1`, [id]);
     return { recipients: c.handled + c.pending, queued: c.queued, skippedNoConsent: c.skipped, failed: c.failed, sandbox: c.sandbox, live: c.live,
       pending: c.pending };
