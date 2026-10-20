@@ -285,13 +285,20 @@ export class AdminService {
   async replayHandling(actor: PlatformAdminActor, eventId: string, handler: string, reason: string) {
     if (!UUID.test(eventId) || !/^[A-Za-z0-9._:-]{1,120}$/.test(handler)) throw notFound('Handler run');
     return this.db.withPlatform(async (tx) => {
-      const h = await tx.maybeOne<{ status: string; attempts: number; stuck: boolean; org_id: string | null; event_type: string }>(
-        `select h.status, h.attempts, (h.status = 'running' and h.lease_until < now()) as stuck, e.org_id, e.event_type
+      const h = await tx.maybeOne<{ status: string; attempts: number; stuck: boolean; held_until: Date | null; org_id: string | null; event_type: string }>(
+        `select h.status, h.attempts, (h.status = 'running' and h.lease_until < now()) as stuck,
+                case when h.status in ('failed', 'dead') and h.lease_until > now() then h.lease_until end as held_until, e.org_id, e.event_type
            from event_handlings h join outbox_events e on e.id = h.event_id
           where h.event_id = $1 and h.handler = $2 for update of h`, [eventId, handler]);
       if (!h) throw notFound('Handler run');
       if (!(h.status === 'dead' || h.status === 'failed' || h.stuck)) {
         throw conflict('not_replayable', 'Only dead-lettered, failed or stuck handler runs can be replayed');
+      }
+      // A run that timed out keeps its lease while it may still be working; replaying now would start a second copy
+      // next to it and lose its late success (recorded against the old claim token).
+      if (h.held_until) {
+        throw conflict('run_in_progress', `A timed-out run may still be in progress; retry after ${new Date(h.held_until).toISOString()}`,
+          { retryAfter: new Date(h.held_until).toISOString(), retryAfterSeconds: Math.max(1, Math.ceil((new Date(h.held_until).getTime() - Date.now()) / 1000)) });
       }
       await tx.query(
         `update event_handlings set status = 'failed', attempts = 0, next_attempt_at = now(), lease_until = null, claim_token = null, updated_at = now()

@@ -91,6 +91,26 @@ describe('dead-letter replay', () => {
     expect(log.metadata).toMatchObject({ previousStatus: 'dead', previousAttempts: 8, reason: 'provider fixed, resend' });
   });
 
+  // Review finding: replay cleared the lease of a timed-out run that may still be working, so the next tick started a
+  // second copy next to it and the original's late success could no longer be recorded.
+  it('refuses to replay a timed-out run while its lease is held', async () => {
+    const id = await event(null);
+    await sql(`insert into event_handlings(event_id, handler, status, attempts, last_error, claim_token, lease_until, next_attempt_at)
+               values ($1, 'x.timedout', 'failed', 1, 'x.timedout timed out after 30000 ms', gen_random_uuid(), now() + interval '2 minutes', now() + interval '30 seconds'),
+                      ($1, 'x.deadheld', 'dead', 8, 'timed out', gen_random_uuid(), now() + interval '2 minutes', null)`, [id]);
+    for (const handler of ['x.timedout', 'x.deadheld']) {
+      const res = await replay(superadmin, id, handler);
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('run_in_progress');
+      expect(new Date(res.body.error.details.retryAfter).getTime()).toBeGreaterThan(Date.now());
+    }
+    const [h] = await sql(`select attempts, lease_until > now() as held from event_handlings where event_id = $1 and handler = 'x.timedout'`, [id]);
+    expect(h).toEqual({ attempts: 1, held: true });
+    // once the hold ends (run settled or lease expired) the replay goes through
+    await sql(`update event_handlings set lease_until = now() - interval '1 second' where event_id = $1`, [id]);
+    expect((await replay(superadmin, id, 'x.timedout')).status).toBe(200);
+  });
+
   it('counts and replays a run left "running" after its lease ended (stopped worker)', async () => {
     const id = await event(null);
     await sql(`update outbox_events set available_at = now() + interval '1 hour' where id = $1`, [id]);
