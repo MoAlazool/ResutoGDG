@@ -7,7 +7,8 @@ export type T = (key: string, vars?: Record<string, string | number>) => string;
 export const loc = (v: { en?: string; ar?: string } | undefined | null, locale: SiteLocale) =>
   (locale === 'ar' ? v?.ar || v?.en : v?.en || v?.ar) ?? '';
 export const pickName = (locale: SiteLocale, en: string | null | undefined, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en ?? ar ?? '');
-export const price = (minor: number, currency: string, locale: SiteLocale) => formatMoney(minor, currency as Currency, locale);
+/** Guest-facing prices keep their minor digits ("EGP 145.00"), as the original site did (audit VP-26). */
+export const price = (minor: number, currency: string, locale: SiteLocale) => formatMoney(minor, currency as Currency, locale, { decimals: 'always' });
 
 export const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 export interface Hours { day: number; opens: string; closes: string }
