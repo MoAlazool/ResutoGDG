@@ -11,7 +11,7 @@ import type { ResutoRequest, TenantContext } from '../../common/auth/context';
 import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
-import { MenuService, PUBLIC_MENU_CACHE_CONTROL } from './menu.service';
+import { MenuService, PUBLIC_MENU_CACHE_CONTROL, PUBLIC_MENU_NO_STORE } from './menu.service';
 
 interface UploadedImage { buffer: Buffer; mimetype: string; size: number; originalname: string }
 const uuidPipe = new ParseUUIDPipe();
@@ -174,8 +174,8 @@ export class PublicMenuController {
     if (!s.success) return this.menu.publicMenu('__invalid__');
     // PCL-15: versioned ETag + public caching. Express answers a matching If-None-Match with 304 (no body).
     const { menu, etag } = await this.menu.cachedPublicMenu(s.data, typeof branch === 'string' ? branch.slice(0, 60) : undefined);
-    res.setHeader('ETag', etag);
-    res.setHeader('Cache-Control', PUBLIC_MENU_CACHE_CONTROL);
+    if (etag) res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', etag ? PUBLIC_MENU_CACHE_CONTROL : PUBLIC_MENU_NO_STORE);
     return menu;
   }
 }

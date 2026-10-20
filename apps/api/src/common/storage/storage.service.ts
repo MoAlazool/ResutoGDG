@@ -85,15 +85,21 @@ export class MediaUrls {
     return target;
   }
 
-  /** Signs every collected path in one call. Paths that cannot be signed resolve to null (the image is omitted). */
-  async resolve(): Promise<void> {
-    if (!this.pending.length) return;
+  /**
+   * Signs every collected path in one call. Paths that cannot be signed resolve to null (the image is omitted).
+   * Returns false when any path could not be signed (a transient storage failure): the caller must not cache that
+   * response or give it a validator that a correct response would share (see MenuService.cachedPublicMenu).
+   */
+  async resolve(): Promise<boolean> {
+    if (!this.pending.length) return true;
     const paths = new Set<string>();
     for (const p of this.pending) {
       paths.add(p.path);
       if (p.srcSetKey) for (const v of p.variants ?? []) paths.add(v.path);
     }
     const urls = await this.storage.signedUrls([...paths], this.ttlSeconds);
+    let complete = true;
+    for (const path of paths) if (!urls.has(path)) complete = false;
     for (const p of this.pending.splice(0)) {
       p.target[p.key] = urls.get(p.path) ?? null;
       if (p.srcSetKey) {
@@ -102,6 +108,7 @@ export class MediaUrls {
         p.target[p.srcSetKey] = parts.length ? parts.join(', ') : null;
       }
     }
+    return complete;
   }
 }
 

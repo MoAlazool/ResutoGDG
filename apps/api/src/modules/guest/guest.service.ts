@@ -136,7 +136,7 @@ export class GuestService {
     const { menu, etag, orgId } = await this.menu.cachedPublicMenu(slug, branchCode);
     // Offer online payment only when ResutoPay is deployed and this restaurant's plan includes it.
     const online = !!this.checkout && (await this.entitlements.isEnabled(orgId, 'pay'));
-    return { etag: etag.replace(/"$/, `-${online ? 1 : 0}"`).replace('W/"pm', 'W/"po'), body: {
+    return { etag: etag && etag.replace(/"$/, `-${online ? 1 : 0}"`).replace('W/"pm', 'W/"po'), body: {
       ...menu,
       payment: {
         payAtPickup: menu.branch.acceptsPickup,

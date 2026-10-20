@@ -6,8 +6,8 @@ import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
-import { StorageService } from '../../common/storage/storage.service';
-import { SiteBuilderService } from './site-builder.service';
+import { MediaUrls, StorageService } from '../../common/storage/storage.service';
+import { dropUnsigned, SiteBuilderService } from './site-builder.service';
 import { referencedMedia, toMedia, toSection, toWebsite, type SiteDocument } from './studio.mappers';
 import { escapeLike } from '../mcp/mcp.util';
 
@@ -26,11 +26,11 @@ export class StudioService {
 
   // --- Website ---------------------------------------------------------------
   async get(ctx: TenantContext) {
-    return this.db.scoped(ctx, async (tx) => this.view(tx, ctx));
+    return this.done(await this.db.scoped(ctx, async (tx) => this.view(tx, ctx)));
   }
 
   async update(ctx: TenantContext, patch: UpdateWebsite) {
-    return this.db.scoped(ctx, async (tx) => {
+    return this.done(await this.db.scoped(ctx, async (tx) => {
       const site = await this.site(tx, ctx, true);
       // theme and seo are replaced as whole documents (omitted keys fall back to template defaults).
       const theme = patch.theme ?? site.theme;
@@ -41,7 +41,7 @@ export class StudioService {
         [site.id, patch.template ?? site.template, theme, seo]);
       await this.audit.record(tx, ctx, { action: 'website.updated', entityType: 'website', entityId: site.id, metadata: { fields: Object.keys(patch) } });
       return this.view(tx, ctx);
-    });
+    }));
   }
 
   // --- Sections --------------------------------------------------------------
@@ -86,7 +86,7 @@ export class StudioService {
   }
 
   async reorder(ctx: TenantContext, ids: string[]) {
-    return this.db.scoped(ctx, async (tx) => {
+    return this.done(await this.db.scoped(ctx, async (tx) => {
       const site = await this.site(tx, ctx, true);
       const rows = await tx.query<{ id: string }>('select id from website_sections where website_id = $1', [site.id]);
       const current = new Set(rows.map((r) => r.id));
@@ -99,7 +99,7 @@ export class StudioService {
       await this.touch(tx, site.id);
       await this.audit.record(tx, ctx, { action: 'website.sections_reordered', entityType: 'website', entityId: site.id });
       return this.view(tx, ctx);
-    });
+    }));
   }
 
   // --- Publish & revisions ------------------------------------------------------
@@ -141,7 +141,7 @@ export class StudioService {
 
   /** Copies a published revision back into the draft (it is published again only on the next publish). */
   async restore(ctx: TenantContext, revision: number) {
-    return this.db.scoped(ctx, async (tx) => {
+    return this.done(await this.db.scoped(ctx, async (tx) => {
       const site = await this.site(tx, ctx, true);
       const rev = await tx.maybeOne<{ snapshot: SiteDocument }>('select snapshot from website_revisions where website_id = $1 and revision = $2', [site.id, revision]);
       if (!rev) throw notFound('Revision');
@@ -156,16 +156,17 @@ export class StudioService {
       }
       await this.audit.record(tx, ctx, { action: 'website.revision_restored', entityType: 'website', entityId: site.id, metadata: { revision } });
       return this.view(tx, ctx);
-    });
+    }));
   }
 
   /** Staff preview: the draft rendered exactly like the public site. */
   async preview(ctx: TenantContext) {
-    return this.db.scoped(ctx, async (tx) => {
+    const pending = await this.db.scoped(ctx, async (tx) => {
       const site = await this.site(tx, ctx);
       const doc = await this.document(tx, ctx, site, true);
-      return this.builder.build(tx, ctx.orgId, doc, { revision: site.publishedRevision, publishedAt: site.publishedAt, preview: true });
+      return this.builder.prepare(tx, ctx.orgId, doc, { revision: site.publishedRevision, publishedAt: site.publishedAt, preview: true });
     });
+    return this.builder.finish(pending);
   }
 
   // --- Media library -------------------------------------------------------------
@@ -248,19 +249,28 @@ export class StudioService {
     return toWebsite(row);
   }
 
+  /** Signs a view's media URLs after its transaction (PCL-11) and drops the ones that could not be signed. */
+  private async done<T extends { media: Record<string, { url: string | null }> }>(pending: { value: T; urls: MediaUrls }): Promise<T> {
+    await pending.urls.resolve();
+    dropUnsigned(pending.value.media);
+    return pending.value;
+  }
+
+  /** The editor view; its media URLs are collected, not signed (pass the result to done() after the transaction). */
   private async view(tx: Tx, ctx: TenantContext) {
     const site = await this.site(tx, ctx);
     const sections = (await tx.query('select * from website_sections where website_id = $1 order by sort_order, id', [site.id])).map(toSection);
     const last = await tx.maybeOne<{ snapshot: SiteDocument }>(
       'select snapshot from website_revisions where website_id = $1 order by revision desc limit 1', [site.id]);
     const org = await tx.one<{ slug: string }>('select slug from organizations where id = $1', [ctx.orgId]);
-    const media = await this.builder.mediaMap(tx, ctx.orgId, referencedMedia({ theme: site.theme, seo: site.seo, sections }));
-    return {
+    const urls = this.builder.urls();
+    const media = await this.builder.mediaMap(tx, ctx.orgId, referencedMedia({ theme: site.theme, seo: site.seo, sections }), urls);
+    return { urls, value: {
       website: { ...site, hasUnpublishedChanges: !last || last.snapshot.draftRevision !== site.draftRevision },
       sections,
       media: Object.fromEntries(media),
       publicPath: `/r/${org.slug}`,
-    };
+    } };
   }
 
   private async document(tx: Tx, ctx: TenantContext, site: ReturnType<typeof toWebsite>, visibleOnly: boolean): Promise<SiteDocument> {

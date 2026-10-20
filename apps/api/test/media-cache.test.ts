@@ -95,6 +95,16 @@ describe('stable signed URLs (PCL-14) and batch signing (PS-18)', () => {
       // A failed batch leaves the images out instead of failing the page.
       fetchMock.mockImplementationOnce(async () => new Response('nope', { status: 500 }));
       expect((await storage.signedUrls(['o/menu/e.jpg'], 3600)).size).toBe(0);
+      // ...and the collector reports it, so the caller can refuse to cache that response.
+      fetchMock.mockImplementationOnce(async () => new Response('nope', { status: 503 }));
+      const partial = storage.urls(3600);
+      const lost = partial.set({ imageUrl: null as string | null }, 'imageUrl', 'o/menu/f.jpg');
+      expect(await partial.resolve()).toBe(false);
+      expect(lost.imageUrl).toBeNull();
+      const whole = storage.urls(3600);
+      whole.set({ imageUrl: null as string | null }, 'imageUrl', 'o/menu/a.jpg');
+      expect(await whole.resolve()).toBe(true);
+      expect(await storage.urls(3600).resolve()).toBe(true); // nothing to sign
     } finally {
       vi.unstubAllGlobals();
     }
@@ -222,6 +232,30 @@ describe('public menu HTTP caching (PCL-15)', () => {
     expect(await version()).toBe(v1 + 2);
     await sql(`update organizations set updated_at = now() where id = $1`, [tenant.orgId]);
     expect(await version()).toBe(v1 + 2);
+  });
+
+  it('never caches or validates a menu whose image URLs could not be signed (transient storage failure)', async () => {
+    const storage = t.app.get(StorageService);
+    await sql(`update organizations set name = name || '.' where id = $1`, [tenant.orgId]); // a new version: nothing cached yet
+    const productImage = (body: any) => body.categories.flatMap((c: any) => c.products).find((p: any) => p.id === menu.products.burger).imageUrl;
+    const spy = vi.spyOn(storage, 'signedUrls').mockResolvedValueOnce(new Map()).mockResolvedValueOnce(new Map());
+    try {
+      const broken = await t.http.get(`/v1/public/menu/${tenant.slug}`);
+      expect(broken.status).toBe(200);
+      expect(productImage(broken.body)).toBeNull();
+      expect(broken.headers['cache-control']).toBe('no-store');
+      expect(broken.headers.etag ?? '').not.toMatch(/"pm/); // no versioned validator a correct menu would share
+      const web = await t.http.get(`/v1/public/order/${tenant.slug}`);
+      expect(web.headers['cache-control']).toBe('no-store');
+      expect(web.headers.etag ?? '').not.toMatch(/"po/);
+    } finally {
+      spy.mockRestore();
+    }
+    // Storage is back: the next request rebuilds (the broken menu was not cached) and gets the versioned ETag.
+    const ok = await t.http.get(`/v1/public/menu/${tenant.slug}`);
+    expect(productImage(ok.body)).toMatch(/\.w640\.webp\?exp=/);
+    expect(ok.headers.etag).toMatch(/^W\/"pm/);
+    expect(ok.headers['cache-control']).toContain('public, max-age=15');
   });
 
   it('never caches staff responses publicly', async () => {

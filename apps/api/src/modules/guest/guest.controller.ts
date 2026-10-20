@@ -12,7 +12,7 @@ import { notFound } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { VisitsService } from '../orders/visits.service';
-import { PUBLIC_MENU_CACHE_CONTROL } from '../menu/menu.service';
+import { PUBLIC_MENU_CACHE_CONTROL, PUBLIC_MENU_NO_STORE } from '../menu/menu.service';
 import { GuestService } from './guest.service';
 
 const uuidPipe = new ParseUUIDPipe();
@@ -104,8 +104,8 @@ export class WebOrderController {
     this.limiter.hit(`web-order:read:${req.ip}`, 120);
     // PCL-15: versioned ETag + public caching (same policy as /public/menu); a matching If-None-Match gets a 304.
     const { etag, body } = await this.guest.cachedWebMenu(this.slug(slug), typeof branch === 'string' ? branch.slice(0, 60) : undefined);
-    res.setHeader('ETag', etag);
-    res.setHeader('Cache-Control', PUBLIC_MENU_CACHE_CONTROL);
+    if (etag) res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', etag ? PUBLIC_MENU_CACHE_CONTROL : PUBLIC_MENU_NO_STORE);
     return body;
   }
 

@@ -10,6 +10,21 @@ const MEDIA_TTL_SECONDS = 6 * 3600;
 const HIGHLIGHT_LIMIT = 6;
 
 /**
+ * A site built inside a transaction whose media URLs are not signed yet (PCL-11): the caller passes it to
+ * SiteBuilderService.finish after the transaction, so no storage call runs while a pooled connection is held.
+ */
+export interface PendingSite {
+  urls: MediaUrls;
+  assemble: () => PublicSite;
+}
+
+/** Media entries whose URL could not be signed are left out (the image is omitted, as before). */
+export function dropUnsigned<M extends { url: string | null }>(media: Map<string, M> | Record<string, M>) {
+  if (media instanceof Map) { for (const [id, m] of media) if (!m.url) media.delete(id); }
+  else for (const id of Object.keys(media)) if (!media[id]!.url) delete media[id];
+}
+
+/**
  * Builds the guest-facing website payload from a site document (a published
  * revision snapshot or, for staff previews, the current draft) plus live
  * read-model data: branches, menu highlights and media URLs. Only public
@@ -19,7 +34,11 @@ const HIGHLIGHT_LIMIT = 6;
 export class SiteBuilderService {
   constructor(private readonly storage: StorageService) {}
 
-  async build(tx: Tx, orgId: string, doc: SiteDocument, meta: { revision: number; publishedAt: string | null; preview: boolean }): Promise<PublicSite> {
+  /**
+   * Reads everything the site needs inside the caller's transaction and collects its media URLs without signing
+   * them. Call finish() on the result after the transaction has returned.
+   */
+  async prepare(tx: Tx, orgId: string, doc: SiteDocument, meta: { revision: number; publishedAt: string | null; preview: boolean }): Promise<PendingSite> {
     const org = await tx.one<any>('select slug, name, name_ar, currency, country, default_locale from organizations where id = $1', [orgId]);
     const sections = doc.sections.slice().sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -31,7 +50,7 @@ export class SiteBuilderService {
     }
     // Every URL of the page is signed in one batch (PS-18): media rows and product images are read first.
     const urls = this.storage.urls(MEDIA_TTL_SECONDS);
-    const media = await this.mediaMap(tx, orgId, [...mediaIds], urls, false);
+    const media = await this.mediaMap(tx, orgId, [...mediaIds], urls);
     const urlOf = (id: string | null | undefined) => (id ? media.get(id)?.url ?? null : null);
 
     const branches = await tx.query<any>(
@@ -56,68 +75,77 @@ export class SiteBuilderService {
       id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar,
       priceMinor: Number(p.price_minor), currency: p.currency, dietary: p.dietary ?? [], imageUrl: null as string | null,
     }, 'imageUrl', p.image_path, { fallback: safeImageUrl(p.image_url), variants: p.image_variants, minWidth: 640 }));
-    await urls.resolve();
-    for (const [id, m] of media) if (!m.url) media.delete(id);
 
     const domain = await tx.maybeOne<{ hostname: string }>(
       `select hostname from custom_domains where org_id = $1 and status = 'active' order by activated_at nulls last limit 1`, [orgId]);
 
     const base = doc.template === 'smash' ? SMASH_THEME : DEFAULT_THEME;
-    return {
-      slug: org.slug,
-      revision: meta.revision,
-      publishedAt: meta.publishedAt,
-      preview: meta.preview,
-      org: { name: org.name, nameAr: org.name_ar, currency: org.currency, country: org.country, defaultLocale: org.default_locale },
-      template: doc.template,
-      theme: {
-        primaryColor: doc.theme?.primaryColor ?? base.primaryColor,
-        accentColor: doc.theme?.accentColor ?? base.accentColor,
-        backgroundColor: doc.theme?.backgroundColor ?? base.backgroundColor,
-        font: doc.theme?.font ?? 'manrope',
-        logoUrl: urlOf(doc.theme?.logoMediaId),
-        heroUrl: urlOf(doc.theme?.heroMediaId),
-      },
-      seo: {
-        title: doc.seo?.title ?? { en: org.name, ar: org.name_ar ?? org.name },
-        description: doc.seo?.description ?? {},
-        ogImageUrl: urlOf(doc.seo?.ogMediaId) ?? urlOf(doc.theme?.heroMediaId),
-      },
-      sections: sections.map((s): PublicSiteSection => ({
-        id: s.id,
-        kind: s.kind as SectionKind,
-        content: {
-          ...s.content,
-          media: s.content?.mediaId && media.get(s.content.mediaId) ? media.get(s.content.mediaId)! : null,
-          gallery: (s.content?.mediaIds ?? []).map((id) => media.get(id)).filter((m): m is { url: string; alt: string | null } => !!m),
+    // Runs after urls.resolve(): every URL below is final by then.
+    const assemble = (): PublicSite => {
+      dropUnsigned(media);
+      return {
+        slug: org.slug,
+        revision: meta.revision,
+        publishedAt: meta.publishedAt,
+        preview: meta.preview,
+        org: { name: org.name, nameAr: org.name_ar, currency: org.currency, country: org.country, defaultLocale: org.default_locale },
+        template: doc.template,
+        theme: {
+          primaryColor: doc.theme?.primaryColor ?? base.primaryColor,
+          accentColor: doc.theme?.accentColor ?? base.accentColor,
+          backgroundColor: doc.theme?.backgroundColor ?? base.backgroundColor,
+          font: doc.theme?.font ?? 'manrope',
+          logoUrl: urlOf(doc.theme?.logoMediaId),
+          heroUrl: urlOf(doc.theme?.heroMediaId),
         },
-      })),
-      branches: branches.map((b) => ({
-        id: b.id, code: b.code, name: b.name, nameAr: b.name_ar, address: b.address, city: b.city, phone: b.phone,
-        latitude: b.latitude === null ? null : Number(b.latitude), longitude: b.longitude === null ? null : Number(b.longitude),
-        openingHours: b.opening_hours, acceptsDineIn: b.accepts_dine_in, acceptsPickup: b.accepts_pickup,
-        acceptsDelivery: b.accepts_delivery, acceptsReservations: b.accepts_reservations,
-      })),
-      menuHighlights,
-      canonicalHost: domain?.hostname ?? null,
-      links: { reserve: `/reserve/${org.slug}`, order: `/order/${org.slug}`, site: `/r/${org.slug}` },
+        seo: {
+          title: doc.seo?.title ?? { en: org.name, ar: org.name_ar ?? org.name },
+          description: doc.seo?.description ?? {},
+          ogImageUrl: urlOf(doc.seo?.ogMediaId) ?? urlOf(doc.theme?.heroMediaId),
+        },
+        sections: sections.map((s): PublicSiteSection => ({
+          id: s.id,
+          kind: s.kind as SectionKind,
+          content: {
+            ...s.content,
+            media: s.content?.mediaId && media.get(s.content.mediaId) ? media.get(s.content.mediaId)! : null,
+            gallery: (s.content?.mediaIds ?? []).map((id) => media.get(id)).filter((m): m is { url: string; alt: string | null } => !!m),
+          },
+        })),
+        branches: branches.map((b) => ({
+          id: b.id, code: b.code, name: b.name, nameAr: b.name_ar, address: b.address, city: b.city, phone: b.phone,
+          latitude: b.latitude === null ? null : Number(b.latitude), longitude: b.longitude === null ? null : Number(b.longitude),
+          openingHours: b.opening_hours, acceptsDineIn: b.accepts_dine_in, acceptsPickup: b.accepts_pickup,
+          acceptsDelivery: b.accepts_delivery, acceptsReservations: b.accepts_reservations,
+        })),
+        menuHighlights,
+        canonicalHost: domain?.hostname ?? null,
+        links: { reserve: `/reserve/${org.slug}`, order: `/order/${org.slug}`, site: `/r/${org.slug}` },
+      };
     };
+    return { urls, assemble };
+  }
+
+  /** Signs a prepared site's media URLs in one batch (after the transaction) and returns the finished payload. */
+  async finish(pending: PendingSite): Promise<PublicSite> {
+    await pending.urls.resolve();
+    return pending.assemble();
+  }
+
+  /** A collector with the site media TTL (callers resolve it after their transaction). */
+  urls() {
+    return this.storage.urls(MEDIA_TTL_SECONDS);
   }
 
   /**
-   * Media by id with signed URLs (site imagery: the 1280 px derivative when there is one). With a collector the URLs
-   * are filled when the caller resolves it; otherwise they are signed here in one batch.
+   * Media by id (site imagery: the 1280 px derivative when there is one). The URLs are filled when the caller
+   * resolves `urls`, after its transaction; then dropUnsigned() removes entries that could not be signed.
    */
-  async mediaMap(tx: Tx, orgId: string, ids: string[], urls?: MediaUrls, resolve = true) {
+  async mediaMap(tx: Tx, orgId: string, ids: string[], urls: MediaUrls) {
     const out = new Map<string, { url: string; alt: string | null }>();
     if (!ids.length) return out;
-    const own = urls ?? this.storage.urls(MEDIA_TTL_SECONDS);
     const rows = await tx.query<any>('select id, path, alt, variants from media_assets where org_id = $1 and id = any($2::uuid[])', [orgId, ids]);
-    for (const r of rows) out.set(r.id, own.set({ url: '', alt: r.alt as string | null }, 'url', r.path, { variants: r.variants, minWidth: 1280 }) as { url: string; alt: string | null });
-    if (resolve) {
-      await own.resolve();
-      for (const [id, m] of out) if (!m.url) out.delete(id);
-    }
+    for (const r of rows) out.set(r.id, urls.set({ url: '', alt: r.alt as string | null }, 'url', r.path, { variants: r.variants, minWidth: 1280 }) as { url: string; alt: string | null });
     return out;
   }
 }
