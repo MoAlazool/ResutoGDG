@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { ApiRequestError } from './api';
-import { queryCache, resourceOf } from './query-cache';
+import { nextPollDelay, queryCache, resourceOf, SECOND, staleTimeFor } from './query-cache';
 import { useSession } from './session';
 
 export interface ApiState<T> {
@@ -17,24 +17,29 @@ export interface ApiState<T> {
   setData(next: T): void;
 }
 
-const asError = (e: unknown) => (e instanceof ApiRequestError ? e : new ApiRequestError(0, 'unknown', String(e)));
+const asError = (e: unknown) => (e instanceof ApiRequestError ? e : new ApiRequestError(0, 'unexpected', (e as Error)?.message ?? String(e)));
+const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
 
 /**
  * Loads an authenticated API resource through the shared query cache (lib/query-cache.ts). `path` null skips loading.
- * - Same-key data is shown immediately on remount and revalidated in the background (`refreshing`).
+ * - Reads start as soon as the stored session token is known (in parallel with /me), keyed by the token's user.
+ * - Same-key data is shown immediately on remount and revalidated in the background (`refreshing`) once it is older
+ *   than its resource class's stale time (staleTimeFor; override with `staleMs`).
  * - Changing filters or pages of the same resource keeps the previous result visible until the new one arrives;
  *   a different resource, tenant or user never shows another key's data.
- * - `pollMs` refreshes in the background while the tab is visible, and once when it becomes visible again.
+ * - `pollMs` refreshes in the background while the tab is visible and the browser is online, backing off
+ *   exponentially while requests fail; it catches up once when the tab becomes visible or the network returns.
+ * - Without polling, a stale entry is refreshed when the tab regains focus.
  * - Requests are shared between components, cancelled when nothing needs them, and mutations made through
- *   `useSession().call` invalidate the tenant's queries.
+ *   `useSession().call` invalidate the tenant's queries. A 401 is recovered (or sends the user to sign in) by the
+ *   session, not here.
  */
 export function useApi<T = any>(path: string | null, opts: { pollMs?: number; staleMs?: number } = {}): ApiState<T> {
-  const { call, token, ready, me } = useSession();
+  const { call, token, tokenReady, scope } = useSession();
   const [, force] = useReducer((x: number) => x + 1, 0);
-  const scope = me?.user?.id ?? (token ? `t:${token.slice(-24)}` : null);
-  const key = path && ready && token && scope ? `${scope}|${path}` : null;
+  const key = path && tokenReady && token && scope ? `${scope}|${path}` : null;
   const fetcher = useCallback((signal: AbortSignal) => call<T>(path!, { signal }), [call, path]);
-  const staleMs = opts.staleMs ?? 0;
+  const staleMs = opts.staleMs ?? (path ? staleTimeFor(path) : 0);
 
   useEffect(() => {
     if (!key) return;
@@ -45,18 +50,40 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
     return unsubscribe;
   }, [key, fetcher, staleMs]);
 
+  // Polling with backoff (live operations) or refresh-on-focus (everything else).
   useEffect(() => {
-    if (!key || !opts.pollMs) return;
+    if (!key) return;
     const pollMs = opts.pollMs;
-    const tick = () => { if (document.visibilityState === 'visible') queryCache.fetch(key, fetcher).catch(() => undefined); };
-    const timer = setInterval(tick, pollMs);
-    const onVisible = () => {
-      const e = queryCache.get(key);
-      if (document.visibilityState === 'visible' && (!e || Date.now() - e.updatedAt >= pollMs)) tick();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    const age = () => Date.now() - (queryCache.get(key)?.updatedAt ?? 0);
+    const refresh = () => queryCache.fetch(key, fetcher).catch(() => undefined);
+    const schedule = () => {
+      if (stopped || !pollMs) return;
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        if (document.visibilityState === 'visible' && online()) await refresh();
+        schedule();
+      }, nextPollDelay(pollMs, queryCache.get(key)?.failures ?? 0));
     };
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !online()) return;
+      if (pollMs) { if (age() >= pollMs) void refresh().then(schedule); return; }
+      // Focus refresh for non-polled reads: only when stale, and not more than every 30 s (quick tab switches).
+      if (age() >= Math.max(30 * SECOND, Math.min(staleMs || 30 * SECOND, 60 * SECOND))) void refresh();
+    };
+    schedule();
     document.addEventListener('visibilitychange', onVisible);
-    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
-  }, [key, fetcher, opts.pollMs]);
+    window.addEventListener('online', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, [key, fetcher, opts.pollMs, staleMs]);
 
   const entry = key ? queryCache.get<T>(key) : undefined;
   // Previous result of the same resource and scope (filter/page change): stays visible while the new one loads.

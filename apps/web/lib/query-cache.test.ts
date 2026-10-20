@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { QueryCache, resourceOf, tenantPrefix } from './query-cache';
+import { MINUTE, nextPollDelay, QueryCache, resourceOf, scopeOfToken, SECOND, staleTimeFor, tenantPrefix } from './query-cache';
 
 const deferred = <T,>() => {
   let resolve!: (v: T) => void; let reject!: (e: unknown) => void;
@@ -103,5 +103,50 @@ describe('path helpers', () => {
     expect(tenantPrefix('/o/123/orders?status=open')).toBe('/o/123/');
     expect(tenantPrefix('/admin/operations')).toBeNull();
     expect(resourceOf('/o/1/orders?cursor=abc')).toBe('/o/1/orders');
+  });
+});
+
+describe('cache policy', () => {
+  it('assigns stale times per resource class', () => {
+    // identity: 5 min
+    expect(staleTimeFor('/me')).toBe(5 * MINUTE);
+    expect(staleTimeFor('/o/abc')).toBe(5 * MINUTE);
+    expect(staleTimeFor('/o/abc/billing/entitlements')).toBe(5 * MINUTE);
+    // reference data and analytics: 60 s
+    expect(staleTimeFor('/o/abc/menu/items?category=1')).toBe(MINUTE);
+    expect(staleTimeFor('/o/abc/team')).toBe(MINUTE);
+    expect(staleTimeFor('/o/abc/integrations')).toBe(MINUTE);
+    expect(staleTimeFor('/o/abc/analytics/overview?from=1')).toBe(MINUTE);
+    // live operations: always revalidated
+    for (const p of ['/o/abc/orders?status=open', '/o/abc/kds/tickets', '/o/abc/floor/live', '/o/abc/inbox/conversations', '/o/abc/payments', '/o/abc/deliveries'])
+      expect(staleTimeFor(p)).toBe(0);
+  });
+
+  it('backs polls off exponentially while they fail and caps the delay', () => {
+    expect(nextPollDelay(10 * SECOND, 0)).toBe(10 * SECOND);
+    expect(nextPollDelay(10 * SECOND, 1)).toBe(20 * SECOND);
+    expect(nextPollDelay(10 * SECOND, 3)).toBe(80 * SECOND);
+    expect(nextPollDelay(10 * SECOND, 10)).toBe(5 * MINUTE);
+    expect(nextPollDelay(10 * MINUTE, 2)).toBe(10 * MINUTE); // never shorter than the normal interval
+  });
+
+  it('counts consecutive failures and resets them after a success', async () => {
+    const c = new QueryCache();
+    const k = 'u|/o/a/orders';
+    await c.fetch(k, async () => 1);
+    await c.refetch(k, async () => { throw new Error('503'); }).catch(() => undefined);
+    await c.refetch(k, async () => { throw new Error('503'); }).catch(() => undefined);
+    expect(c.get(k)?.failures).toBe(2);
+    await c.refetch(k, async () => 2);
+    expect(c.get(k)?.failures).toBe(0);
+  });
+
+  it('scopes the cache by the token subject, stable across token refreshes', () => {
+    const jwt = (sub: string, iat: number) => `h.${Buffer.from(JSON.stringify({ sub, iat })).toString('base64url')}.sig`;
+    expect(scopeOfToken(jwt('user-1', 1))).toBe('u:user-1');
+    expect(scopeOfToken(jwt('user-1', 2))).toBe(scopeOfToken(jwt('user-1', 1)));
+    expect(scopeOfToken(jwt('user-2', 1))).not.toBe(scopeOfToken(jwt('user-1', 1)));
+    expect(scopeOfToken('opaque-token-value')).toMatch(/^t:/);
+    expect(scopeOfToken(null)).toBeNull();
   });
 });
