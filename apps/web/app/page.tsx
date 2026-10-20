@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { LandingPage } from '@/components/landing/LandingPage';
-import type { LandingPlan } from '@/components/landing/Chrome';
+import { landingPlansFrom, type LandingPlan } from '@/components/landing/plans';
 import { getT } from '@/lib/i18n/server';
 
 const APP_ORIGIN = (process.env.NEXT_PUBLIC_APP_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
@@ -27,19 +27,13 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Public plan prices for the pricing teaser. Prices are data owned by the
  * billing module; if its public endpoint is unavailable the teaser links to
- * /pricing instead of showing numbers.
+ * /pricing instead of showing numbers. Parsing lives in components/landing/plans.ts (unit tested with the real shape).
  */
 async function loadPlans(): Promise<LandingPlan[] | null> {
   try {
     const res = await fetch(`${API}/v1/public/plans?country=EG`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(3000) });
     if (!res.ok) return null;
-    const body = await res.json();
-    const items: any[] = Array.isArray(body) ? body : body.items ?? body.plans ?? [];
-    const plans = items.filter((p) => p && typeof p.id === 'string' && p.id !== 'free').map((p): LandingPlan => {
-      const monthly = p.monthlyMinor ?? p.prices?.find((x: any) => (x.billingInterval ?? x.interval) === 'month' && (x.currency ?? 'EGP') === 'EGP')?.amountMinor;
-      return { id: p.id, name: p.name, nameAr: p.nameAr ?? null, monthlyMinor: typeof monthly === 'number' ? monthly : null, currency: 'EGP', description: p.description ?? null };
-    });
-    return plans.length ? plans : null;
+    return landingPlansFrom(await res.json());
   } catch {
     return null;
   }

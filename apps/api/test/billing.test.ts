@@ -52,6 +52,17 @@ describe('public plans and quotes', () => {
     expect((await t.http.get('/v1/public/plans?country=FR')).status).toBe(400);
   });
 
+  it('carries Arabic plan copy with the brand spelled ريسوتو (VP-22, VP-02)', async () => {
+    const res = await t.http.get('/v1/public/plans?country=EG&interval=month');
+    const byId = Object.fromEntries(res.body.plans.map((p: any) => [p.id, p]));
+    for (const id of ['free', 'starter', 'growth', 'pro', 'custom']) {
+      expect(byId[id].descriptionAr, id).toMatch(/[؀-ۿ]/);
+      expect(byId[id].descriptionAr).not.toBe(byId[id].description);
+    }
+    expect(byId.custom.nameAr).toBe('ابنِ ريسوتو الخاص بك');
+    expect(JSON.stringify(res.body)).not.toMatch(/ريزوتو/);
+  });
+
   it('quotes Egyptian plans with add-ons deterministically', async () => {
     const body = { planId: 'growth', country: 'EG', interval: 'month', addons: ['driver', 'connect', 'core', 'driver'] };
     const a = await t.http.post('/v1/public/pricing/quote').send(body);

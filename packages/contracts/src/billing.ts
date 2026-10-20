@@ -64,6 +64,8 @@ export interface PublicPlan {
   name: string;
   nameAr: string | null;
   description: string | null;
+  /** Arabic description (null until a platform admin or the reference data provides one). */
+  descriptionAr: string | null;
   isCustom: boolean;
   sortOrder: number;
   limits: Record<string, number>;

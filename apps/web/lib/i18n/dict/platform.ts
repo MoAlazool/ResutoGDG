@@ -447,6 +447,7 @@ const landing: Array<[string, string]> = [
   ["Egyptian pricing, from one room to three branches.", "أسعار مصرية، من صالة واحدة إلى ثلاثة فروع."],
   ["Monthly", "شهري"],
   ["Yearly · 2 months free", "سنوي · شهران مجانًا"],
+  ["Yearly", "سنوي"],
   ["EGP", "ج.م."],
   ["year", "سنة"],
   ["Most chosen", "الأكثر اختيارًا"],
@@ -798,6 +799,7 @@ const own = {
     'platform.sample': 'Sample data',
     'platform.pricingUnavailable': 'Plans and prices are on the pricing page.',
     'platform.seePricing': 'See plans and prices',
+    'platform.pricing.upToBranches': '{n, plural, one {One branch} other {Up to # branches}}',
   },
   ar: {
     'platform.meta.title': 'ريسوتو: حجوزات المطاعم وطلبات QR وشاشة المطبخ وتقسيم الفاتورة',
@@ -807,6 +809,7 @@ const own = {
     'platform.sample': 'بيانات تجريبية',
     'platform.pricingUnavailable': 'الخطط والأسعار في صفحة الأسعار.',
     'platform.seePricing': 'عرض الخطط والأسعار',
+    'platform.pricing.upToBranches': '{n, plural, one {فرع واحد} two {حتى فرعين} few {حتى # فروع} many {حتى # فرعًا} other {حتى # فرع}}',
   },
 };
 
