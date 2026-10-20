@@ -1,10 +1,11 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { canTransitionOrder, type Fulfillment, type OrderStatus } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError, invalid, notFound } from '../../common/errors/domain-error';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { PlanLimitsService } from '../billing/plan-limits.service';
+import { LOYALTY_PORT, type LoyaltyPort } from './ports';
 import { PricingService, type CartLineInput, type Quote } from './pricing.service';
 
 export type OrderChannel = 'qr' | 'web' | 'whatsapp' | 'staff' | 'pos' | 'mcp' | 'phone' | 'messenger' | 'instagram';
@@ -21,6 +22,9 @@ export interface PlaceOrderInput {
   deliveryAddress?: { line1: string; area?: string | null; city?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null } | null;
   notes?: string | null;
   promotionCode?: string | null;
+  /** FT-03: redeem a loyalty reward; only callers that established the customer's identity set `customerIdentified`. */
+  loyaltyRewardId?: string | null;
+  customerIdentified?: boolean;
   scheduledFor?: string | null;
   attribution?: Record<string, unknown>;
   conversationId?: string | null;
@@ -58,6 +62,7 @@ export class OrdersKernelService {
     private readonly outbox: OutboxService,
     /** Billing (Agent A) enforces plan order caps; optional so the kernel stays usable in isolation. */
     @Optional() private readonly planLimits?: PlanLimitsService,
+    @Optional() @Inject(LOYALTY_PORT) private readonly loyalty?: LoyaltyPort,
   ) {}
 
   async place(tx: Tx, ctx: TenantContext, input: PlaceOrderInput): Promise<PlacedOrder> {
@@ -80,7 +85,7 @@ export class OrdersKernelService {
     const customerId = input.customerId ?? (input.customer ? await this.resolveCustomer(tx, ctx.orgId, input.customer, input.channel) : null);
     const quote = await this.pricing.quote(tx, ctx.orgId, {
       branchId: input.branchId, fulfillment: input.fulfillment, lines: input.lines, promotionCode: input.promotionCode,
-      channel: input.channel, customerId,
+      channel: input.channel, customerId, loyaltyRewardId: input.loyaltyRewardId ?? null, customerIdentified: !!input.customerIdentified,
     });
     if (input.expectedTotalMinor !== undefined && input.expectedTotalMinor !== quote.totalMinor) {
       throw new DomainError('price_changed', 'Prices changed since you opened the menu. Review your cart.', 409, { totalMinor: quote.totalMinor });
@@ -149,6 +154,11 @@ export class OrdersKernelService {
       await tx.query(`insert into promotion_redemptions(org_id, promotion_id, order_id, customer_id, discount_minor) values ($1, $2, $3, $4, $5)`,
         [ctx.orgId, quote.promotion.id, order.id, customerId, quote.discountMinor]);
       await tx.query(`update promotions set redemption_count = redemption_count + 1 where id = $1`, [quote.promotion.id]);
+    }
+    if (quote.loyalty?.reward && customerId) {
+      // Points leave the balance in the order's own transaction (idempotent per order; refused if the balance changed).
+      await this.loyalty!.commitRedemption(tx, ctx, { orderId: order.id, customerId, rewardId: quote.loyalty.reward.id,
+        pointsCost: quote.loyalty.reward.pointsCost, discountMinor: quote.loyalty.reward.discountMinor });
     }
     if (input.campaignId || Object.keys(input.attribution ?? {}).length) {
       await tx.query(

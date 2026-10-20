@@ -28,6 +28,7 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/customers', label: 'nav.customers', glyph: 'customers', module: 'core', permission: 'customers:read' },
     { href: '/inbox', label: 'nav.inbox', glyph: 'inbox', module: 'connect', permission: 'connect:read' },
     { href: '/marketing', label: 'nav.marketing', glyph: 'marketing', module: 'marketing', permission: 'marketing:read' },
+    { href: '/loyalty', label: 'nav.loyalty', glyph: 'prices', module: 'marketing', permission: 'marketing:read' },
     { href: '/website', label: 'nav.website', glyph: 'website', module: 'studio', permission: 'studio:read' },
   ] },
   { group: 'nav.group.money', items: [

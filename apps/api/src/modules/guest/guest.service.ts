@@ -22,6 +22,10 @@ export const toQuoteView = (q: Quote) => ({
   currency: q.currency, fulfillment: q.fulfillment, subtotalMinor: q.subtotalMinor, discountMinor: q.discountMinor, deliveryFeeMinor: q.deliveryFeeMinor,
   serviceChargeMinor: q.serviceChargeMinor, taxMinor: q.taxMinor, taxInclusive: q.taxInclusive, vatRateBp: q.vatRateBp, totalMinor: q.totalMinor,
   promotion: q.promotion ? { code: q.promotion.code, name: q.promotion.name } : null,
+  // FT-03: the reward applied (already in discountMinor), points this order earns once paid, and the balance only
+  // when the channel identified the customer.
+  loyalty: q.loyalty ? { reward: q.loyalty.reward ? { id: q.loyalty.reward.id, name: q.loyalty.reward.name, nameAr: q.loyalty.reward.nameAr,
+    pointsCost: q.loyalty.reward.pointsCost, discountMinor: q.loyalty.reward.discountMinor } : null, earnPreview: q.loyalty.earnPreview, balance: q.loyalty.balance } : null,
   lines: q.lines.map((l) => ({
     productId: l.productId, name: l.name, nameAr: l.nameAr, quantity: l.quantity, unitPriceMinor: l.unitPriceMinor,
     modifiers: l.modifiers.map((m) => ({ groupId: m.groupId, optionId: m.optionId, option: m.option, optionAr: m.optionAr, priceDeltaMinor: m.priceDeltaMinor })),
@@ -72,11 +76,25 @@ export class GuestService {
     return menu;
   }
 
-  quote(token: string | undefined, body: { lines: CartLine[]; promotionCode?: string | null }) {
+  quote(token: string | undefined, body: { lines: CartLine[]; promotionCode?: string | null; loyaltyRewardId?: string | null }) {
     return this.visits.withGuest(token, async (tx, g) => toQuoteView(await this.pricing.quote(tx, g.ctx.orgId, {
       branchId: g.visit.branch_id, fulfillment: 'dine_in', lines: cartLines(body.lines), promotionCode: body.promotionCode ?? null, channel: 'qr',
-      customerId: g.visit.customer_id,
+      // A visit's customer is linked by staff (reservation/host), so the table may see that balance and redeem.
+      customerId: g.visit.customer_id, customerIdentified: !!g.visit.customer_id, loyaltyRewardId: body.loyaltyRewardId ?? null,
     })));
+  }
+
+  /** Active rewards of the restaurant (public names and costs only) for the guest checkout. */
+  async rewards(tx: Tx, orgId: string) {
+    const rows = await tx.query<any>(
+      `select r.id, r.name, r.name_ar, r.points_cost, r.kind, r.value, r.max_discount_minor, r.min_order_minor from loyalty_rewards r
+         join loyalty_programs p on p.org_id = r.org_id and p.is_active where r.org_id = $1 and r.is_active order by r.points_cost`, [orgId]);
+    return rows.map((r) => ({ id: r.id, name: r.name, nameAr: r.name_ar, pointsCost: r.points_cost, kind: r.kind, value: Number(r.value),
+      maxDiscountMinor: r.max_discount_minor === null ? null : Number(r.max_discount_minor), minOrderMinor: Number(r.min_order_minor) }));
+  }
+
+  visitRewards(token: string | undefined) {
+    return this.visits.withGuestRead(token, async (tx, g) => ({ identified: !!g.visit.customer_id, rewards: g.visit.customer_id ? await this.rewards(tx, g.ctx.orgId) : [] }));
   }
 
   placeOrder(token: string | undefined, body: GuestOrderRequest, key: string | undefined) {
@@ -88,6 +106,7 @@ export class GuestService {
       const placed = await this.kernel.place(tx, g.ctx, {
         branchId: g.visit.branch_id, channel: 'qr', fulfillment: 'dine_in', tableId: g.visit.table_id, visitId: g.visit.id,
         customerId: g.visit.customer_id, lines: cartLines(body.lines), notes: body.notes ?? null, promotionCode: body.promotionCode ?? null,
+        customerIdentified: !!g.visit.customer_id, loyaltyRewardId: body.loyaltyRewardId ?? null,
         expectedTotalMinor: body.expectedTotalMinor,
       });
       return { id: placed.id, number: placed.number, publicRef: placed.publicRef, status: placed.status, totalMinor: placed.totalMinor, currency: placed.currency };

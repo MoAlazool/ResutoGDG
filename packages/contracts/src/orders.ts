@@ -30,11 +30,13 @@ export const cartLine = z.object({
 export type CartLine = z.infer<typeof cartLine>;
 const lines = z.array(cartLine).min(1).max(60);
 
-export const guestQuoteRequest = z.object({ lines, promotionCode: optionalText(40) });
+/** `loyaltyRewardId` (FT-03) applies only when the table's visit is linked to a customer by staff (identified). */
+export const guestQuoteRequest = z.object({ lines, promotionCode: optionalText(40), loyaltyRewardId: z.uuid().nullable().optional() });
 export const guestOrderRequest = z.object({
   lines,
   notes: optionalText(500),
   promotionCode: optionalText(40),
+  loyaltyRewardId: z.uuid().nullable().optional(),
   /** The total the guest saw; a different server total is a 409 `price_changed`. */
   expectedTotalMinor: z.number().int().min(0).optional(),
 });

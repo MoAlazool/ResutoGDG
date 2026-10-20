@@ -43,11 +43,12 @@ const statusTone = (s: string) => (({ draft: 'neutral', pending_approval: 'warn'
 // ---------------------------------------------------------------------------
 // Segment builder (top-level and/or of rules; the API also accepts nested groups)
 // ---------------------------------------------------------------------------
-const RULE_TYPES: SegmentRule['type'][] = ['inactive_days_gte', 'orders_gte', 'spent_gte', 'has_tag', 'consent', 'branch', 'purchased_product', 'channel'];
+const RULE_TYPES: SegmentRule['type'][] = ['inactive_days_gte', 'orders_gte', 'spent_gte', 'has_tag', 'consent', 'branch', 'purchased_product', 'channel', 'points_balance_gte'];
 const defaultRule = (type: SegmentRule['type'], branchId: string): SegmentRule => ({
   inactive_days_gte: { type: 'inactive_days_gte', days: 30 }, orders_gte: { type: 'orders_gte', count: 2 }, spent_gte: { type: 'spent_gte', amountMinor: 50000 },
   has_tag: { type: 'has_tag', tag: 'vip' }, consent: { type: 'consent', value: true }, branch: { type: 'branch', branchId },
   purchased_product: { type: 'purchased_product', productId: '' }, channel: { type: 'channel', channel: 'whatsapp' },
+  points_balance_gte: { type: 'points_balance_gte', points: 100 },
 } as Record<SegmentRule['type'], SegmentRule>)[type];
 
 function RuleEditor({ rule, onChange, onRemove }: { rule: SegmentRule; onChange: (r: SegmentRule) => void; onRemove: () => void }) {
@@ -74,6 +75,8 @@ function RuleEditor({ rule, onChange, onRemove }: { rule: SegmentRule; onChange:
       {rule.type === 'purchased_product' && <Field label={t('marketing.seg.productId')} value={rule.productId} dir="ltr" onChange={(e) => onChange({ ...rule, productId: e.target.value.trim() })} />}
       {rule.type === 'channel' && <SelectField label={t('marketing.seg.channel')} value={rule.channel} onChange={(e) => onChange({ ...rule, channel: e.target.value as any })}>
         {['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone'].map((c) => <option key={c} value={c}>{t(`marketing.orderChannel.${c}`)}</option>)}</SelectField>}
+      {rule.type === 'points_balance_gte' && <Field label={t('marketing.seg.points')} type="number" inputMode="numeric" min={0} value={rule.points}
+        onChange={(e) => onChange({ ...rule, points: num(e.target.value) })} />}
       <button type="button" className="btn btn-sm btn-ghost btn-danger" onClick={onRemove} aria-label={t('action.delete')} style={{ marginBlockEnd: 14 }}>✕</button>
     </div>
   );

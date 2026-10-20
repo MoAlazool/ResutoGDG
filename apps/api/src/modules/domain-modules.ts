@@ -15,6 +15,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { IntelligenceModule } from './intelligence/intelligence.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { KitchenModule } from './kitchen/kitchen.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
 import { MarketingModule } from './marketing/marketing.module';
 import { McpModule } from './mcp/mcp.module';
 import { MenuModule } from './menu/menu.module';
@@ -39,6 +40,7 @@ export const DOMAIN_MODULES: Type[] = [
   IntelligenceModule,
   InventoryModule,
   KitchenModule,
+  LoyaltyModule,
   MarketingModule,
   McpModule,
   MenuModule,

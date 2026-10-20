@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { CustomerListQuery, CustomerProfile, CustomerSummary } from '@resuto/contracts';
 import type { anonymiseInput, consentUpdate, customerUpdate } from '@resuto/contracts';
 import { z } from 'zod';
@@ -7,6 +7,7 @@ import type { Tx } from '../../common/db/db.service';
 import { conflict, forbidden, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { branchScope, int, iso } from '../analytics/scope';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { escapeLike } from '../mcp/mcp.util';
 
 /** Orders that count towards customer value: confirmed and not cancelled. */
@@ -51,7 +52,7 @@ function decodeCursor(sort: Sort, cursor: string): unknown[] {
  */
 @Injectable()
 export class CustomersService {
-  constructor(private readonly audit: AuditService) {}
+  constructor(private readonly audit: AuditService, @Optional() private readonly loyalty?: LoyaltyService) {}
 
   /**
    * FROM/WHERE for list, count, export and profile. Organization-wide callers join customer_stats (every customer has
@@ -273,6 +274,14 @@ export class CustomersService {
       moved[table] = (await tx.query(`update ${table} set customer_id = $1 where customer_id = $2 returning 1`, [survivorId, duplicateId])).length;
     };
     for (const t of ['orders', 'visits', 'reservations', 'customer_identities', 'customer_addresses', 'customer_consent_events']) await move(t);
+    // Loyalty (FT-03): the ledger is append-only, so the duplicate's balance moves as two audited adjustment rows.
+    const points = (await tx.maybeOne<{ balance: number }>('select balance from loyalty_accounts where org_id = $1 and customer_id = $2', [ctx.orgId, duplicateId]))?.balance ?? 0;
+    if (points !== 0 && this.loyalty) {
+      const actor = `${ctx.actorType}:${ctx.actorId}`;
+      await this.loyalty.append(tx, ctx.orgId, { customerId: duplicateId, kind: 'adjust', points: -points, idempotencyKey: `merge-out:${duplicateId}`, actor, reason: `merged into ${survivorId}` });
+      await this.loyalty.append(tx, ctx.orgId, { customerId: survivorId, kind: 'adjust', points, idempotencyKey: `merge-in:${duplicateId}`, actor, reason: `merged from ${duplicateId}` });
+      moved.loyaltyPoints = points;
+    }
     // Release the duplicate's unique phone/email before the survivor may take them.
     await tx.query(`update customers set phone_e164 = null, email = null, merged_into_id = $2, tags = '{}' where id = $1`, [duplicateId, survivorId]);
     await tx.query(

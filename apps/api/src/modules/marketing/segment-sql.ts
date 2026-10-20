@@ -40,6 +40,8 @@ export function compileSegment(definition: unknown, firstParam = 2): CompiledSeg
         return `exists (select 1 from order_lines ol join orders o on o.id = ol.order_id where ${LIVE_ORDER} and ol.product_id = ${p(r.productId, 'uuid')}${within(r.withinDays)})`;
       case 'channel':
         return `exists (select 1 from orders o where ${LIVE_ORDER} and o.channel = ${p(r.channel, 'order_channel')})`;
+      case 'points_balance_gte':
+        return `coalesce((select la.balance from loyalty_accounts la where la.org_id = c.org_id and la.customer_id = c.id), 0) >= ${p(r.points, 'int')}`;
     }
   };
   const group = (g: SegmentGroup): string =>

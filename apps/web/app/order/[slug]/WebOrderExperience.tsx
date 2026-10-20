@@ -19,7 +19,9 @@ export type WebMenu = PublicMenu & {
   cover: string | null;
 };
 type Fulfillment = 'pickup' | 'delivery';
-interface QuoteView { subtotalMinor: number; discountMinor: number; deliveryFeeMinor: number; serviceChargeMinor: number; taxMinor: number; taxInclusive: boolean; totalMinor: number }
+interface QuoteView { subtotalMinor: number; discountMinor: number; deliveryFeeMinor: number; serviceChargeMinor: number; taxMinor: number; taxInclusive: boolean; totalMinor: number;
+  /** FT-03: points this order earns once paid (website orders cannot spend points: the phone is not verified). */
+  loyalty?: { earnPreview: number | null } | null }
 
 export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: string; branchCode?: string; initialMenu: WebMenu | null }) {
   const { t, locale } = useT();
@@ -216,6 +218,7 @@ function CheckoutSheet({ slug, menu, cart, onClose, onDone }: {
             {quote.deliveryFeeMinor > 0 && <MoneyRow fine label={t('core.bill.delivery')} value={m(quote.deliveryFeeMinor)} />}
             {quote.taxMinor > 0 && <MoneyRow fine label={quote.taxInclusive ? t('core.bill.vatIncluded') : t('core.bill.vat')} value={m(quote.taxMinor)} />}
             <MoneyRow grand label={t('core.bill.total')} value={m(quote.totalMinor)} />
+            {!!quote.loyalty?.earnPreview && <p className="gx-fine">{t('core.guest.loyalty.earn', { points: quote.loyalty.earnPreview })}</p>}
           </div>
         )}
         {cart.items.length > 0 && <p className="gx-fine">{t('core.guest.assistant.reviewCart')}</p>}

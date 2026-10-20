@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { applyBasisPoints, taxFromInclusive, type Fulfillment } from '@resuto/contracts';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import { applyBasisPoints, taxFromInclusive, type Fulfillment, type QuoteLoyalty } from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError, invalid } from '../../common/errors/domain-error';
+import { LOYALTY_PORT, type LoyaltyPort } from './ports';
 
 export interface CartLineInput {
   productId: string;
@@ -39,6 +40,8 @@ export interface Quote {
   vatRateBp: number;
   totalMinor: number;
   promotion: { id: string; code: string | null; name: string } | null;
+  /** Loyalty reward applied (its discount is included in discountMinor), earn preview and balance; null when loyalty is off. */
+  loyalty: QuoteLoyalty | null;
 }
 
 export interface QuoteInput {
@@ -48,6 +51,10 @@ export interface QuoteInput {
   promotionCode?: string | null;
   channel?: string;
   customerId?: string | null;
+  /** FT-03: redeem this loyalty reward (requires `customerIdentified`). */
+  loyaltyRewardId?: string | null;
+  /** The caller has established who `customerId` is (never true for an unverified phone typed on the website). */
+  customerIdentified?: boolean;
 }
 
 const MAX_LINES = 60;
@@ -59,6 +66,8 @@ const MAX_LINES = 60;
  */
 @Injectable()
 export class PricingService {
+  constructor(@Optional() @Inject(LOYALTY_PORT) private readonly loyalty?: LoyaltyPort) {}
+
   async quote(tx: Tx, orgId: string, input: QuoteInput): Promise<Quote> {
     if (!input.lines.length) throw invalid('cart_empty', 'Add at least one item');
     if (input.lines.length > MAX_LINES) throw invalid('cart_too_large', `At most ${MAX_LINES} lines per order`);
@@ -158,6 +167,17 @@ export class PricingService {
       }
       promotion = { id: promo.id, code: promo.code, name: promo.name };
     }
+    let loyalty: QuoteLoyalty | null = null;
+    if (this.loyalty) {
+      loyalty = await this.loyalty.priceOrder(tx, orgId, {
+        branchId: input.branchId, channel: input.channel, customerId: input.customerId ?? null, identified: !!input.customerIdentified,
+        rewardId: input.loyaltyRewardId ?? null, lines: lines.map((l) => ({ productId: l.productId, lineTotalMinor: l.lineTotalMinor })),
+        subtotalMinor: subtotal, discountMinor: discount,
+      });
+      if (loyalty?.reward) discount = Math.min(subtotal, discount + loyalty.reward.discountMinor);
+    } else if (input.loyaltyRewardId) {
+      throw new DomainError('module_unavailable', 'Loyalty is not available in this deployment', 503);
+    }
     const serviceCharge = input.fulfillment === 'dine_in' ? applyBasisPoints(subtotal - discount, tax?.service_charge_bp ?? 0) : 0;
     const taxable = subtotal - discount + serviceCharge + deliveryFee;
     const taxMinor = inclusive ? taxFromInclusive(taxable, vatRateBp) : applyBasisPoints(taxable, vatRateBp);
@@ -166,7 +186,7 @@ export class PricingService {
     return {
       branchId: input.branchId, currency: branch.currency, fulfillment: input.fulfillment, lines,
       subtotalMinor: subtotal, discountMinor: discount, deliveryFeeMinor: deliveryFee, serviceChargeMinor: serviceCharge,
-      taxMinor, taxInclusive: inclusive, vatRateBp, totalMinor: total, promotion,
+      taxMinor, taxInclusive: inclusive, vatRateBp, totalMinor: total, promotion, loyalty,
     };
   }
 

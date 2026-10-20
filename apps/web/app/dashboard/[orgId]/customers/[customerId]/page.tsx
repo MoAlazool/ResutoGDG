@@ -11,6 +11,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { CustomerLoyalty } from '../../loyalty/_components/CustomerLoyalty';
 
 export default function CustomerProfilePage() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -79,6 +80,7 @@ export default function CustomerProfilePage() {
             <Stat label={t('insights.kpi.aov')} value={f.money(c.totals.averageOrderMinor)} />
             <Stat label={t('insights.customers.lastOrder')} value={c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'} />
           </div>
+          {!c.anonymisedAt && <CustomerLoyalty customerId={c.id} />}
           <div className="grid grid-2" style={{ alignItems: 'start' }}>
             <Section title={t('insights.profile.details')}>
               <dl className="stack" style={{ gap: 8, margin: 0 }}>

@@ -71,6 +71,10 @@ const enActions: Record<string, string> = {
   'integration.sync': 'Integration synced',
   'integration.updated': 'Integration updated',
   'intelligence.insight.status': 'Insight status changed',
+  'loyalty.points.adjusted': 'Loyalty points adjusted',
+  'loyalty.program.saved': 'Loyalty rules saved',
+  'loyalty.reward.created': 'Loyalty reward added',
+  'loyalty.reward.updated': 'Loyalty reward updated',
   'inventory.item_created': 'Stock item added',
   'inventory.item_updated': 'Stock item updated',
   'inventory.movement_adjustment': 'Stock adjusted',
@@ -239,6 +243,10 @@ const arActions: Record<string, string> = {
   'integration.sync': 'زُومن تكامل',
   'integration.updated': 'عُدّل تكامل',
   'intelligence.insight.status': 'تغيّرت حالة رؤية',
+  'loyalty.points.adjusted': 'عُدّلت نقاط الولاء',
+  'loyalty.program.saved': 'حُفظت قواعد الولاء',
+  'loyalty.reward.created': 'أُضيفت مكافأة ولاء',
+  'loyalty.reward.updated': 'عُدّلت مكافأة ولاء',
   'inventory.item_created': 'أُضيف صنف مخزون',
   'inventory.item_updated': 'عُدّل صنف مخزون',
   'inventory.movement_adjustment': 'عُدّل رصيد المخزون',
@@ -342,7 +350,7 @@ const arActions: Record<string, string> = {
 };
 
 const enEntities: Record<string, string> = {
-  accounting_push: 'Accounting', ai_insight: 'Insight', branch: 'Branch', campaign: 'Campaign', checkout_session: 'Payment link',
+  accounting_push: 'Accounting', ai_insight: 'Insight', loyalty_program: 'Loyalty rules', loyalty_reward: 'Loyalty reward', branch: 'Branch', campaign: 'Campaign', checkout_session: 'Payment link',
   compliance_document: 'Document', conversation: 'Conversation', creative_asset: 'Marketing copy', custom_domain: 'Domain',
   customer: 'Customer', delivery_job: 'Delivery', dining_table: 'Table', driver: 'Driver', driver_cash_settlement: 'Driver cash',
   expense: 'Expense', expense_category: 'Expense category', financial_export: 'Finance export', fiscal_document: 'Tax document',
@@ -359,7 +367,7 @@ const enEntities: Record<string, string> = {
 };
 
 const arEntities: Record<string, string> = {
-  accounting_push: 'المحاسبة', ai_insight: 'رؤية', branch: 'فرع', campaign: 'حملة', checkout_session: 'رابط دفع',
+  accounting_push: 'المحاسبة', ai_insight: 'رؤية', loyalty_program: 'قواعد الولاء', loyalty_reward: 'مكافأة ولاء', branch: 'فرع', campaign: 'حملة', checkout_session: 'رابط دفع',
   compliance_document: 'مستند', conversation: 'محادثة', creative_asset: 'نص تسويقي', custom_domain: 'نطاق',
   customer: 'عميل', delivery_job: 'توصيل', dining_table: 'طاولة', driver: 'سائق', driver_cash_settlement: 'نقدية السائق',
   expense: 'مصروف', expense_category: 'فئة مصروفات', financial_export: 'تصدير مالي', fiscal_document: 'مستند ضريبي',
