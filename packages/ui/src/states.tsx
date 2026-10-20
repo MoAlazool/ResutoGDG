@@ -13,7 +13,10 @@ const T = {
   en: {
     updating: 'Updating…', updated: 'Updated', retry: 'Retry', retrying: 'Retrying…',
     offline: 'You appear to be offline. Showing what was last loaded; it will refresh when you reconnect.',
-    offlineTitle: 'No connection', session: 'Your session has ended. Sign in again to continue.', sessionTitle: 'Signed out',
+    offlineTitle: 'No connection',
+    offlineEmpty: 'You appear to be offline. Reconnect, then retry.',
+    unreachableTitle: 'Cannot reach Resuto', unreachable: 'Resuto is not responding right now. Your data is safe; retry in a moment.',
+    unreachableStale: 'Cannot reach Resuto. Showing data from', session: 'Your session has ended. Sign in again to continue.', sessionTitle: 'Signed out',
     forbidden: 'Your role does not have access to this.', forbiddenTitle: 'No access',
     plan: 'This module is not included in the restaurant’s plan.', planTitle: 'Not in your plan',
     notFound: 'This item no longer exists or was moved.', notFoundTitle: 'Not found',
@@ -25,7 +28,10 @@ const T = {
   ar: {
     updating: 'جارٍ التحديث…', updated: 'آخر تحديث', retry: 'إعادة المحاولة', retrying: 'جارٍ إعادة المحاولة…',
     offline: 'يبدو أنك غير متصل. نعرض آخر ما تم تحميله، وسيتم التحديث عند عودة الاتصال.',
-    offlineTitle: 'لا يوجد اتصال', session: 'انتهت جلستك. سجّل الدخول مرة أخرى للمتابعة.', sessionTitle: 'تم تسجيل الخروج',
+    offlineTitle: 'لا يوجد اتصال',
+    offlineEmpty: 'يبدو أنك غير متصل. أعد الاتصال ثم أعد المحاولة.',
+    unreachableTitle: 'تعذّر الوصول إلى ريسوتو', unreachable: 'ريسوتو لا يستجيب الآن. بياناتك آمنة؛ أعد المحاولة بعد قليل.',
+    unreachableStale: 'تعذّر الوصول إلى ريسوتو. نعرض بيانات من', session: 'انتهت جلستك. سجّل الدخول مرة أخرى للمتابعة.', sessionTitle: 'تم تسجيل الخروج',
     forbidden: 'دورك لا يتيح الوصول إلى هذا.', forbiddenTitle: 'لا توجد صلاحية',
     plan: 'هذه الوحدة غير مشمولة في باقة المطعم.', planTitle: 'غير مشمول في باقتك',
     notFound: 'هذا العنصر لم يعد موجودًا أو تم نقله.', notFoundTitle: 'غير موجود',
@@ -121,16 +127,29 @@ function RetryButton({ onRetry, locale }: { onRetry: () => Promise<unknown> | vo
   );
 }
 
+/**
+ * Copy for a request that got no answer, by cause: the device reports no network ('device'), or the device is online
+ * and Resuto itself did not answer ('api'). `hasData` says whether earlier data is still on screen; only then may the
+ * copy say "showing what was last loaded".
+ */
+export function noAnswerCopy(locale: UiLocale, online: boolean, hasData: boolean): { title: string; body: string } {
+  const s = T[locale];
+  if (!online) return { title: s.offlineTitle, body: hasData ? s.offline : s.offlineEmpty };
+  return { title: s.unreachableTitle, body: s.unreachable };
+}
+
 /** Full failure state for a section that has nothing to show. */
 export function ErrorState({ error, onRetry, locale = 'en' }: { error: UiError; onRetry?: () => Promise<unknown> | void; locale?: UiLocale }) {
   const s = T[locale];
+  const online = useOnline();
   const kind = failureKind(error);
-  const title = kind === 'validation' ? s.serverTitle : s[`${kind}Title` as const];
-  const body = kind === 'validation' ? error.message : s[kind];
+  const noAnswer = kind === 'offline' ? noAnswerCopy(locale, online, false) : null;
+  const title = noAnswer ? noAnswer.title : kind === 'validation' ? s.serverTitle : s[`${kind}Title` as const];
+  const body = noAnswer ? noAnswer.body : kind === 'validation' ? error.message : s[kind];
   const ref = requestIdOf(error);
   const retryable = kind === 'offline' || kind === 'server' || kind === 'rate' || kind === 'conflict';
   return (
-    <div className="empty error-state" role="alert" data-kind={kind}>
+    <div className="empty error-state" role="alert" data-kind={kind} data-cause={noAnswer ? (online ? 'unreachable' : 'device-offline') : undefined}>
       <strong>{title}</strong>
       <p>{body}</p>
       {ref && <small className="muted">{s.reference}: <bdi dir="ltr">{ref}</bdi></small>}
@@ -142,10 +161,12 @@ export function ErrorState({ error, onRetry, locale = 'en' }: { error: UiError; 
 /** Inline notice when a refresh failed but earlier data is still shown. */
 export function StaleNotice({ error, updatedAt, onRetry, locale = 'en', timeZone }: { error: UiError; updatedAt: number; onRetry?: () => Promise<unknown> | void; locale?: UiLocale; timeZone?: string }) {
   const s = T[locale];
+  const online = useOnline();
   const kind = failureKind(error);
+  const since = <bdi>{formatTime(updatedAt, locale, timeZone)}</bdi>;
   return (
     <div className="notice notice-warn stale-notice" role="status" data-kind={kind}>
-      <span>{kind === 'offline' ? s.offline : <>{s.refreshFailed} <bdi>{formatTime(updatedAt, locale, timeZone)}</bdi>.</>}</span>
+      <span>{kind === 'offline' && !online ? s.offline : <>{kind === 'offline' ? s.unreachableStale : s.refreshFailed} {since}.</>}</span>
       {onRetry && <RetryButton onRetry={onRetry} locale={locale} />}
     </div>
   );
