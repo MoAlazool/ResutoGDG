@@ -40,6 +40,23 @@ describe('public sales inquiries', () => {
     expect((await sql(`select count(*)::int as n from sales_inquiries where idempotency_key = $1`, [body.key]))[0].n).toBe(1);
     const reused = await t.http.post('/v1/public/sales-inquiries').set('X-Forwarded-For', from()).send({ ...body, email: 'someone-else@example.test' });
     expect(reused.status).toBe(409);
+    // Email case is not a change.
+    const sameish = await t.http.post('/v1/public/sales-inquiries').set('X-Forwarded-For', from()).send({ ...body, email: body.email.toUpperCase() });
+    expect(sameish.status).toBe(201);
+    expect(sameish.body.id).toBe(a.body.id);
+  });
+
+  it('refuses a reused key whose form was edited instead of silently keeping the old text', async () => {
+    const body = form();
+    const a = await t.http.post('/v1/public/sales-inquiries').set('X-Forwarded-For', from()).send(body);
+    expect(a.status).toBe(201);
+    for (const edit of [{ branches: 40 }, { requirements: 'second, changed' }, { planId: 'growth' }, { planId: null }, { locale: 'ar' }]) {
+      const res = await t.http.post('/v1/public/sales-inquiries').set('X-Forwarded-For', from()).send({ ...body, ...edit });
+      expect(res.status, JSON.stringify(edit)).toBe(409);
+    }
+    const [row] = await sql(`select branches, requirements, plan_id from sales_inquiries where id = $1`, [a.body.id]);
+    expect(row).toEqual({ branches: 4, requirements: body.requirements, plan_id: 'pro' });
+    expect((await sql(`select count(*)::int as n from sales_inquiries where idempotency_key = $1`, [body.key]))[0].n).toBe(1);
   });
 
   it('rejects invalid input, including a filled honeypot', async () => {

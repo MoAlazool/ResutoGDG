@@ -19,6 +19,11 @@ const view = (r: Row): SalesInquiryView => ({
   requirements: r.requirements, planId: r.plan_id, locale: r.locale, status: r.status, createdAt: new Date(r.created_at).toISOString(),
 });
 
+/** True when a stored inquiry holds exactly what was submitted (email compared case-insensitively). */
+export const sameInquiry = (r: Pick<Row, 'restaurant' | 'email' | 'branches' | 'requirements' | 'plan_id' | 'locale'>, input: SalesInquiryInput) =>
+  r.email.toLowerCase() === input.email.toLowerCase() && r.restaurant === input.restaurant && r.branches === input.branches
+  && r.requirements === input.requirements && (r.plan_id ?? null) === (input.planId ?? null) && (r.locale ?? null) === (input.locale ?? null);
+
 /**
  * Sales inquiries from the public pricing page (audit VP-09). Stored for the platform team, listed in platform
  * administration; no email is sent (the page says so). Platform mode: the table has no tenant.
@@ -31,8 +36,9 @@ export class SalesInquiriesService {
     return this.db.withPlatform(async (tx) => {
       const prior = await tx.maybeOne<Row>(`select * from sales_inquiries where idempotency_key = $1`, [input.key]);
       if (prior) {
-        // Same key, same form: the visitor resubmitted; anything else is a reused key.
-        if (prior.email.toLowerCase() !== input.email.toLowerCase() || prior.restaurant !== input.restaurant) {
+        // Same key, same form: the visitor resubmitted. A key reused with any field changed is refused rather than
+        // answered with the old receipt, which would report the edit as received while storing the earlier text.
+        if (!sameInquiry(prior, input)) {
           throw conflict('idempotency_key_reused', 'This request key was already used for a different inquiry');
         }
         return { id: prior.id, reference: salesInquiryReference(prior.id) };
@@ -51,6 +57,7 @@ export class SalesInquiriesService {
       );
       // A concurrent submit with the same key won the insert: return that one.
       const saved = row ?? (await tx.one<Row>(`select * from sales_inquiries where idempotency_key = $1`, [input.key]));
+      if (!row && !sameInquiry(saved, input)) throw conflict('idempotency_key_reused', 'This request key was already used for a different inquiry');
       return { id: saved.id, reference: salesInquiryReference(saved.id) };
     }, 'public:sales-inquiry');
   }
