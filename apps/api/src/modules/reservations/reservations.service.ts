@@ -250,7 +250,8 @@ export class ReservationsService {
     return r;
   }
 
-  async hold(slug: string, body: ReservationHoldRequest) {
+  /** `onPhone` sees the guest's number once normalised to E.164 (the controller's per-number abuse limit). */
+  async hold(slug: string, body: ReservationHoldRequest, onPhone?: (e164: string) => void) {
     return this.publicTenant(slug, async (tx, orgId) => {
       const ctx = new TenantContext(orgId, 'waiter', null, null, 'guest', 'web:reservation', 'web');
       const branch = await tx.maybeOne<{ id: string }>('select id from branches where id = $1 and org_id = $2 and is_active', [body.branchId, orgId]);
@@ -258,6 +259,7 @@ export class ReservationsService {
       // CR-06: the phone as typed (01x…, 05x…, Arabic-Indic digits) becomes E.164 for the restaurant's country.
       const phone = normalizePhone(body.guestPhone, await orgCountry(tx, orgId));
       if (!phone) throw invalid('phone_invalid', 'Enter a phone number the restaurant can call, e.g. 010 0123 4567.');
+      onPhone?.(phone);
       body = { ...body, guestPhone: phone };
       const { key, ...payload } = body;
       const result = await this.idempotency.run(tx, orgId, 'reservation-hold', key, payload, async () => {

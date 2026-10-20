@@ -123,8 +123,8 @@ export class PublicReservationsController {
   @Post(':slug/holds')
   hold(@Param('slug') slug: string, @Body(zod(reservationHoldRequest)) body: ReservationHoldRequest, @Req() req: ResutoRequest) {
     this.limiter.hit(`reservations:hold:${req.ip}`, 20);
-    this.limiter.hit(`reservations:hold:phone:${sha256(body.guestPhone).slice(0, 24)}`, 10);
     if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
-    return this.reservations.hold(slug, body);
+    // Per number, not per spelling: 010…, 10…, 20…, +20… and 0020… of one phone share a budget (CR-06).
+    return this.reservations.hold(slug, body, (e164) => this.limiter.hit(`reservations:hold:phone:${sha256(e164).slice(0, 24)}`, 10));
   }
 }

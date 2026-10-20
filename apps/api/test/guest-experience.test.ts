@@ -145,6 +145,28 @@ describe('guest phone numbers in local formats (CR-06)', () => {
     const [r] = await sql(`select guest_phone from reservations where id = $1`, [res.body.reservation.id]);
     expect(r.guest_phone).toBe('+201000001111');
   });
+
+  it('the per-number abuse limit counts one phone once, however it is spelled', async () => {
+    const spellings = ['01009998877', '1009998877', '201009998877', '+201009998877', '00201009998877'];
+    const day = (await sql(`select ((now() at time zone 'Africa/Cairo')::date + 12)::text as d`))[0].d; // away from the slot tests' days
+    const hold = (guestPhone: string, i: number) => t.http.post(`/v1/public/reservations/${tenant.slug}/holds`).send({
+      branchId: tenant.branchId, date: day, time: `${String(12 + (i % 10)).padStart(2, '0')}:00`, partySize: 2, guestName: 'Limit', guestPhone, key: key(`lim${i}`),
+    });
+    for (let i = 0; i < 10; i++) expect((await hold(spellings[i % 5]!, i)).status).not.toBe(429);
+    const over = await hold(spellings[2]!, 10);
+    expect(over.status).toBe(429);
+    expect(over.body.error.code).toBe('rate_limited');
+    expect((await hold('01007776655', 11)).status).not.toBe(429); // another number is unaffected
+
+    const m = await t.http.get(`/v1/public/order/${tenant.slug}`).expect(200);
+    const lines = [{ productId: menu.products.fries, quantity: 1 }];
+    const quote = await t.http.post(`/v1/public/order/${tenant.slug}/quote`).send({ branchId: m.body.branch.id, fulfillment: 'pickup', lines }).expect(200);
+    const order = (phone: string, i: number) => t.http.post(`/v1/public/order/${tenant.slug}/orders`).set('Idempotency-Key', key(`wlim${i}`))
+      .send({ branchId: m.body.branch.id, fulfillment: 'pickup', payment: 'pay_at_pickup', lines, expectedTotalMinor: quote.body.totalMinor,
+        customer: { name: 'Limit', phone, marketingConsent: false } });
+    for (let i = 0; i < 10; i++) expect((await order(spellings[i % 5]!, i)).status).toBe(201);
+    expect((await order(spellings[4]!, 10)).status).toBe(429);
+  });
 });
 
 describe('booking slots in the branch time zone (VP-08, VP-11)', () => {

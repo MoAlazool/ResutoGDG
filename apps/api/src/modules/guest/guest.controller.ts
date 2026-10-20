@@ -183,8 +183,8 @@ export class WebOrderController {
   @Post(':slug/orders')
   order(@Param('slug') slug: string, @Headers('idempotency-key') key: string | undefined, @Body(zod(webOrderRequest)) body: WebOrderRequest, @Req() req: ResutoRequest) {
     this.limiter.hit(`web-order:place:${req.ip}`, 20);
-    this.limiter.hit(`web-order:phone:${sha256(body.customer.phone).slice(0, 24)}`, 10);
-    return this.guest.webOrder(this.slug(slug), body, key);
+    // Per number, not per spelling: 010…, 10…, 20…, +20… and 0020… of one phone share a budget (CR-06).
+    return this.guest.webOrder(this.slug(slug), body, key, (e164) => this.limiter.hit(`web-order:phone:${sha256(e164).slice(0, 24)}`, 10));
   }
 
   @Public()
