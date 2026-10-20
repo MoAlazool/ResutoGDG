@@ -5,7 +5,8 @@
 //   node scripts/ui/hex-literals.mjs --write   refresh apps/web/lib/tokens-baseline.json (only after REMOVING literals)
 //
 // apps/web/lib/tokens-policy.test.ts fails when a file has more literals than its baseline entry, so colours are
-// added as tokens in docs/ui/design-tokens.json (→ packages/ui/src/tokens.css) and used through var(--…).
+// added as tokens in docs/ui/design-tokens.json (→ packages/ui/src/tokens.css) and used through var(--…). It also
+// fails when a file has FEWER literals than its entry, so every improvement is locked in with --write.
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

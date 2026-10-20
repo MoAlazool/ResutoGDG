@@ -21,6 +21,15 @@ describe('design token policy', () => {
     expect(grew).toEqual([]);
   });
 
+  it('the baseline is tightened whenever a file improves (run node scripts/ui/hex-literals.mjs --write)', () => {
+    const baseline: Record<string, number> = JSON.parse(readFileSync(BASELINE, 'utf8')).files;
+    const now: Record<string, number> = countHexLiterals();
+    const loose = Object.entries(baseline)
+      .filter(([f, n]) => (now[f] ?? 0) < n)
+      .map(([f, n]) => `${f}: baseline ${n}, now ${now[f] ?? 0}`);
+    expect(loose).toEqual([]);
+  });
+
   it('the workspace tokens are not shadowed by the landing scope', () => {
     const landing = readFileSync(`${__dirname}/../components/landing/landing.css`, 'utf8');
     expect(landing).not.toMatch(/--(ink|paper|muted|line|card|sand)(-[a-z0-9]+)?\s*:/);
