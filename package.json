@@ -2,7 +2,7 @@
   "name": "resuto",
   "version": "2.0.0-alpha.0",
   "private": true,
-  "description": "Resuto 2.0 — AI-native restaurant operating system (modular monolith monorepo)",
+  "description": "Resuto 2.0 \u2014 AI-native restaurant operating system (modular monolith monorepo)",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=22.12"
@@ -30,5 +30,11 @@
     "pg": "8.16.3",
     "turbo": "2.5.8",
     "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "multer": "2.4.0",
+      "postcss": "8.5.28"
+    }
   }
 }
