@@ -85,5 +85,8 @@ values reach the browser, and none of them is a secret. Build: `apps/web/vercel.
 - Render did not auto-deploy pushes to this branch during setup; deploys were triggered from the
   dashboard/API. Check the GitHub connection before relying on auto-deploy.
 - Supabase security advisors (19 Oct 2026): no errors; warnings for 11 `app.*` functions without a fixed
-  `search_path`, three extensions in `public`, and leaked-password protection disabled. Tracked in
-  `docs/OPEN_BLOCKERS.md`.
+  `search_path`, three extensions in `public`, and leaked-password protection disabled. The functions are fixed
+  (search_path and no PUBLIC execute, migrations `20261020010001`/`…020002`); the extensions stay in `public` on
+  purpose and leaked-password protection is an owner dashboard action (B-15 in `docs/OPEN_BLOCKERS.md`).
+- Client roles: the Data API and Realtime are not used; `anon`/`authenticated` hold no table privilege and there is
+  no member read policy on `storage.objects` (migration `20261020020001`, tests in `supabase/tests`).
