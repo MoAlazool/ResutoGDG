@@ -217,6 +217,51 @@ export class MessagingService implements MessagingPort {
     return { messageId: null, skipped: 'outside_window' };
   }
 
+  /**
+   * Staff "Resend" for an outbound message that failed for good (FT-12). The same message goes back to the queue
+   * (attempts reset, previous error kept in the payload) under the rules a new message would meet now: an approved
+   * template at any time; free text or interactive content only while the 24-hour window is open (Messenger /
+   * Instagram: a person's reply within 7 days). Idempotent: a message that is no longer failed is left as it is.
+   */
+  async resend(tx: Tx, ctx: TenantContext, messageId: string): Promise<{ messageId: string; status: string; resent: boolean }> {
+    const m = await tx.maybeOne<any>(
+      `select m.id, m.conversation_id, m.direction, m.status, m.kind, m.payload, m.error, m.attempts, m.is_automated
+         from messages m where m.id = $1 and m.org_id = $2 for update`, [messageId, ctx.orgId]);
+    if (!m || m.direction !== 'outbound') throw new DomainError('not_found', 'Message not found', 404);
+    if (m.status !== 'failed') return { messageId, status: m.status, resent: false };
+    const conv = await this.conversation(tx, m.conversation_id);
+    if (!conv) throw new DomainError('not_found', 'Conversation not found', 404);
+    if (conv.branch_id && !ctx.canAccessBranch(conv.branch_id)) throw new DomainError('not_found', 'Message not found', 404);
+    if (conv.channel_status === 'disabled') throw new DomainError('channel_disabled', 'This channel is disabled', 409);
+    const page = conv.transport === 'meta_page';
+    if (m.kind === 'template') {
+      const p = m.payload ?? {};
+      const t = await tx.maybeOne(`select 1 from message_templates where org_id = $1 and name = $2 and language = $3 and provider_status = any($4::text[])`,
+        [ctx.orgId, p.templateName, p.language, usableStatuses(conv.transport)]);
+      if (!t) throw new DomainError('template_not_approved', `Template ${p.templateName} is no longer approved for this channel`, 409);
+    } else {
+      const window = windowState(conv.last_inbound_at);
+      const humanAgent = page && !m.is_automated && !!conv.last_inbound_at && Date.now() - new Date(conv.last_inbound_at).getTime() < HUMAN_AGENT_WINDOW_MS;
+      if (!window.open && !humanAgent) {
+        throw new DomainError('outside_window', page
+          ? 'More than 7 days since the customer last wrote. Wait for the customer to write again.'
+          : 'More than 24 hours since the customer last wrote. Send an approved template instead.', 409, { closesAt: window.closesAt });
+      }
+    }
+    const history = Array.isArray(m.payload?.previousErrors) ? m.payload.previousErrors.slice(-4) : [];
+    await tx.query(
+      `update messages set status = 'queued', attempts = 0, next_attempt_at = now(), error = null,
+          payload = payload || jsonb_build_object('previousErrors', $2::jsonb, 'resentBy', $3::text, 'resentAt', now())
+        where id = $1`, [messageId, JSON.stringify([...history, { error: m.error, attempts: m.attempts }]), ctx.userId ?? ctx.actorId ?? null]);
+    if (conv.transport === 'sandbox') {
+      const { sandbox: _s, reason: _r, humanAgent: _h, previousErrors: _p, resentBy: _b, resentAt: _a, ...content } = m.payload ?? {};
+      const res = await messagingSandboxAdapter.send(this.providerPayload(conv, content as OutboundContent));
+      await tx.query(`update messages set status = 'delivered', provider_message_id = $2, attempts = 1, next_attempt_at = null where id = $1`, [messageId, res.messageId]);
+      return { messageId, status: 'delivered', resent: true };
+    }
+    return { messageId, status: 'queued', resent: true };
+  }
+
   // ---------------------------------------------------------------------------
   // Delivery status callbacks (verified webhooks only)
   // ---------------------------------------------------------------------------

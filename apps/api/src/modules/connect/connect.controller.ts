@@ -104,6 +104,20 @@ export class ConnectController {
     return this.conversations.resolveHandoff(ctx, id);
   }
 
+  /** Team members who can take a conversation (role with connect:reply). */
+  @Get('assignees')
+  @RequirePermission('connect:read')
+  assignees(@Tenant() ctx: TenantContext) {
+    return this.conversations.assignees(ctx);
+  }
+
+  /** Resend a failed outbound message (FT-12): window/template rules apply again; a non-failed message is left as is. */
+  @Post('messages/:id/resend')
+  @RequirePermission('connect:reply')
+  resend(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.conversations.resendMessage(ctx, id);
+  }
+
   @Post('conversations/:id/assign')
   @RequirePermission('connect:manage')
   assign(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(inboxAssignConversation)) body: z.infer<typeof inboxAssignConversation>) {

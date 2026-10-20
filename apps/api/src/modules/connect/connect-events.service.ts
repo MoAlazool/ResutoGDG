@@ -88,7 +88,10 @@ export class ConnectEventsService {
       .catch(() => null);
     const orderId = (e.payload?.orderId as string | undefined) ?? job?.order_id;
     const status = String(e.payload?.to ?? e.payload?.status ?? job?.status ?? '');
-    if (!orderId || !['picked_up', 'en_route'].includes(status)) return { skipped: 'not_applicable' };
+    // "On the way" is sent once per delivery (DF-14): every job passes through picked_up (the state machine has no
+    // other way to en_route or delivered), so en_route, which followed it within milliseconds, sent the same message
+    // a second time.
+    if (!orderId || status !== 'picked_up') return { skipped: 'not_applicable' };
     return this.notify(e.orgId, orderId, () => ({ key: 'delivery_on_the_way' }), 'delivery.status_changed');
   }
 
