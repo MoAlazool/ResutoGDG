@@ -25,12 +25,17 @@ export function parseMajor(value: string | number, currency: Currency): number {
   return assertMinor(m[1] ? -result : result);
 }
 
-export function formatMoney(amountMinor: number, currency: Currency, locale: 'en' | 'ar' = 'en'): string {
+/**
+ * Money for display. `decimals: 'auto'` (default, staff screens) drops ".00" on whole amounts; `'always'` keeps the
+ * currency's minor digits ("EGP 145.00"), as the original guest-facing pages did (audit VP-26): use it wherever a guest
+ * compares prices (menus, storefronts, carts, bills) so 145 and 145.50 line up.
+ */
+export function formatMoney(amountMinor: number, currency: Currency, locale: 'en' | 'ar' = 'en', opts: { decimals?: 'auto' | 'always' } = {}): string {
   const digits = MINOR_DIGITS[currency];
   return moneyNumberFormat(locale, {
     style: 'currency',
     currency,
-    minimumFractionDigits: amountMinor % 10 ** digits === 0 ? 0 : digits,
+    minimumFractionDigits: opts.decimals === 'always' || amountMinor % 10 ** digits !== 0 ? digits : 0,
     maximumFractionDigits: digits,
   }).format(amountMinor / 10 ** digits);
 }

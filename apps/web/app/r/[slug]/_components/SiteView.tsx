@@ -4,12 +4,18 @@
 // lighter "minimal" variant, all driven by published Studio data.
 import type { CSSProperties, ReactNode } from 'react';
 import type { PublicSite, PublicSiteSection } from '@resuto/contracts';
+import { DishImage as PublicDishImage } from '@/components/public/DishImage';
 import { LanguageToggle } from '@/lib/i18n/client';
-import { acceptsOrders, acceptsReservations, clock, DAY_KEYS, loc, openingHours, pickName, price, type SiteLocale, type T } from './site-utils';
+import { acceptsOrders, acceptsReservations, clock, DAY_KEYS, heroCopy, loc, openingHours, pickName, price, showsDemoStory, type SiteLocale, type T } from './site-utils';
 import './site.css';
 
 type Section = PublicSiteSection;
 interface Ctx { site: PublicSite; locale: SiteLocale; t: T; links: { order: string; reserve: string; home: string } }
+
+/** Header line under the name: the owner's tagline, "Example restaurant" for the demo tenant (legacy), else the city. */
+const tagline = ({ site, locale, t }: Ctx) => loc(site.theme.tagline, locale) || (site.org.demo ? t('studio.site.example') : site.branches[0]?.city || '');
+/** Storefront paths are /r/<org>/<store>; on the restaurant's own domain the site root is "/" instead of /r/<org>. */
+const storefrontHref = (ctx: Ctx, path: string) => (ctx.links.home === '/' ? path.replace(/^\/r\/[^/]+/, '') || '/' : path);
 
 export function SiteView({ site, locale, t, preview = false, hostLinks }: {
   site: PublicSite; locale: SiteLocale; t: T; preview?: boolean;
@@ -48,11 +54,12 @@ export function SiteView({ site, locale, t, preview = false, hostLinks }: {
       <header className="consumer-header">
         <a className="olive-logo" href={ctx.links.home}>
           {site.theme.logoUrl && <img src={site.theme.logoUrl} alt="" className="site-logo-img" />}
-          <span>{name}<small>{site.branches[0]?.city || ''}</small></span>
+          <span>{name}<small>{tagline(ctx)}</small></span>
         </a>
         <nav aria-label={t('studio.site.nav')}>
           {acceptsOrders(site) && <a href={ctx.links.order}>{t('studio.site.menu')}</a>}
           {acceptsReservations(site) && <a href={ctx.links.reserve}>{t('studio.site.reservations')}</a>}
+          {(site.storefronts ?? []).map((sf) => <a key={sf.slug} href={storefrontHref(ctx, sf.path)} className="site-storefront-link">{pickName(locale, sf.name, sf.nameAr)}</a>)}
           {!preview && <LanguageToggle />}
         </nav>
       </header>
@@ -66,7 +73,10 @@ function Footer({ ctx, className }: { ctx: Ctx; className: string }) {
   const { site, locale, t } = ctx;
   return (
     <footer className={className}>
-      <span>© {new Date().getFullYear()} {pickName(locale, site.org.name, site.org.nameAr)}{site.branches[0]?.city ? ` · ${site.branches[0].city}` : ''}</span>
+      {/* The demo tenant is labelled as the legacy page was: an example restaurant with illustrated (AI-generated) dishes. */}
+      {site.org.demo
+        ? <span>{t('studio.site.example')} · {t('studio.site.illustrations')}</span>
+        : <span>© <bdi>{new Date().getFullYear()}</bdi> {pickName(locale, site.org.name, site.org.nameAr)}{site.branches[0]?.city ? ` · ${site.branches[0].city}` : ''}</span>}
       <a href="/">{t('studio.site.poweredBy')}</a>
     </footer>
   );
@@ -114,16 +124,17 @@ function Ctas({ ctx, s, smash }: { ctx: Ctx; s: Section; smash?: boolean }) {
 }
 
 function OliveHero({ s, ctx }: { s: Section; ctx: Ctx }) {
-  const { site, locale } = ctx;
+  const { site } = ctx;
   const img = s.content.media?.url ?? site.theme.heroUrl;
-  const name = pickName(locale, site.org.name, site.org.nameAr);
+  const copy = heroCopy(s, ctx.site, ctx.locale, ctx.t);
   return (
     <section className={`restaurant-editorial${img ? '' : ' no-photo'}`} aria-labelledby={`h-${s.id}`}>
-      {img && <img src={img} alt={s.content.media?.alt ?? ''} fetchPriority="high" />}
+      {/* Without a photo the template draws its own backdrop (site.css .no-photo), never another restaurant's room. */}
+      {img ? <img src={img} alt={s.content.media?.alt ?? ''} fetchPriority="high" /> : <span className="site-hero-mark" aria-hidden>{copy.eyebrow.slice(0, 1)}</span>}
       <div>
-        <span className="overline">{loc(s.content.eyebrow, locale) || name}</span>
-        <h1 id={`h-${s.id}`}>{loc(s.content.headline, locale) || name}</h1>
-        {loc(s.content.body, locale) && <p>{loc(s.content.body, locale)}</p>}
+        <span className="overline">{copy.eyebrow}</span>
+        <h1 id={`h-${s.id}`}>{copy.headline}</h1>
+        {copy.body && <p>{copy.body}</p>}
         <Ctas ctx={ctx} s={s} />
       </div>
     </section>
@@ -165,43 +176,64 @@ function About({ s, ctx }: { s: Section; ctx: Ctx }) {
         {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
         {acceptsOrders(site) && <a className="site-link" href={ctx.links.order}>{ctx.t('studio.site.browseMenu')} <span aria-hidden>{locale === 'ar' ? '↖' : '↗'}</span></a>}
       </div>
-      {img ? <img className="dish-photo" src={img.url} alt={img.alt ?? ''} loading="lazy" /> : <span className="dish-photo dish-placeholder" aria-hidden>{pickName(locale, site.org.name, site.org.nameAr).slice(0, 1)}</span>}
+      {img ? <img className="dish-photo" src={img.url} alt={img.alt ?? ''} loading="lazy" /> : <span className="dish-photo dish-placeholder" aria-hidden>◌</span>}
     </section>
   );
 }
 
-function DishImage({ url, name }: { url: string | null; name: string }) {
-  return url ? <img className="dish-photo" src={url} alt={name} loading="lazy" /> : <span className="dish-photo dish-placeholder" aria-hidden>{name.slice(0, 1)}</span>;
+function DishImage({ url, name, englishName }: { url: string | null; name: string; englishName?: string }) {
+  return <PublicDishImage url={url} name={name} englishName={englishName} className="dish-photo" />;
 }
 
+/**
+ * Menu highlights in the olive template, as the legacy guest home showed them: the dishes (photo, name, price). The
+ * demo restaurant also gets the legacy "Dinner, without the back-and-forth." story beside the first dish photo; that
+ * is demo copy, not an owner-editable section, so other restaurants never see words they did not write. The minimal
+ * template keeps descriptions.
+ */
 function OliveMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
   const { site, locale, t } = ctx;
   if (!site.menuHighlights.length) return null;
+  const olive = site.template === 'olive';
+  const lead = site.menuHighlights.find((m) => m.imageUrl);
   return (
-    <section className="consumer-main" aria-labelledby={`h-${s.id}`}>
-      <div className="site-section-head">
-        <h2 id={`h-${s.id}`}>{heading(s, ctx, 'studio.site.menu')}</h2>
-        {acceptsOrders(site) && <a className="site-link" href={ctx.links.order}>{t('studio.site.fullMenu')} <span aria-hidden>{locale === 'ar' ? '←' : '→'}</span></a>}
-      </div>
-      {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
-      <div className="dish-grid">
-        {site.menuHighlights.map((m) => {
-          const name = pickName(locale, m.name, m.nameAr);
-          const desc = pickName(locale, m.description, m.descriptionAr);
-          const inner = (
-            <>
-              <DishImage url={m.imageUrl} name={name} />
-              <div className="dish-body">
-                <h3>{name}</h3>
-                {desc && <p>{desc}</p>}
-                <strong>{price(m.priceMinor, m.currency, locale)}</strong>
-              </div>
-            </>
-          );
-          return acceptsOrders(site) ? <a key={m.id} className="dish-card" href={ctx.links.order}>{inner}</a> : <article key={m.id} className="dish-card">{inner}</article>;
-        })}
-      </div>
-    </section>
+    <>
+      {olive && showsDemoStory(site) && lead && (
+        <section className="consumer-main restaurant-introduction" aria-labelledby={`h-${s.id}-story`}>
+          <div>
+            <span className="overline">{pickName(locale, site.org.name, site.org.nameAr)}</span>
+            <h2 id={`h-${s.id}-story`}>{t('studio.site.tpl.storyTitle')}</h2>
+            <p>{t('studio.site.tpl.storyBody')}</p>
+            <a className="site-link" href={ctx.links.order}>{t('studio.site.browseMenu')} <span aria-hidden>{locale === 'ar' ? '↖' : '↗'}</span></a>
+          </div>
+          <img className="dish-photo" src={lead.imageUrl!} alt={pickName(locale, lead.name, lead.nameAr)} loading="lazy" />
+        </section>
+      )}
+      <section className="consumer-main" aria-labelledby={`h-${s.id}`}>
+        <div className="site-section-head">
+          <h2 id={`h-${s.id}`}>{heading(s, ctx, 'studio.site.menu')}</h2>
+          {!olive && acceptsOrders(site) && <a className="site-link" href={ctx.links.order}>{t('studio.site.fullMenu')} <span aria-hidden>{locale === 'ar' ? '←' : '→'}</span></a>}
+        </div>
+        {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
+        <div className="dish-grid">
+          {site.menuHighlights.map((m) => {
+            const name = pickName(locale, m.name, m.nameAr);
+            const desc = pickName(locale, m.description, m.descriptionAr);
+            const inner = (
+              <>
+                <DishImage url={m.imageUrl} name={name} englishName={m.name} />
+                <div className="dish-body">
+                  <h3>{name}</h3>
+                  {!olive && desc && <p>{desc}</p>}
+                  <strong><bdi>{price(m.priceMinor, m.currency, locale)}</bdi></strong>
+                </div>
+              </>
+            );
+            return acceptsOrders(site) ? <a key={m.id} className="dish-card" href={ctx.links.order}>{inner}</a> : <article key={m.id} className="dish-card">{inner}</article>;
+          })}
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -221,7 +253,7 @@ function SmashMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
             const desc = pickName(locale, m.description, m.descriptionAr);
             return (
               <article key={m.id} className="bg-card">
-                <div className="bg-art">{m.imageUrl ? <img src={m.imageUrl} alt={name} loading="lazy" /> : <span className="dish-placeholder" aria-hidden>{name.slice(0, 1)}</span>}</div>
+                <div className="bg-art"><PublicDishImage url={m.imageUrl} name={name} englishName={m.name} /></div>
                 <div className="bg-body">
                   <div className="bg-tagrow">{m.dietary.includes('vegetarian') && <span className="bg-tag veg">{t('studio.site.veggie')}</span>}</div>
                   <h3>{name}</h3>
@@ -294,9 +326,13 @@ function Location({ s, ctx }: { s: Section; ctx: Ctx }) {
       <h2 id={`h-${s.id}`}>{heading(s, ctx, site.branches.length > 1 ? 'studio.site.locationsTitle' : 'studio.site.locationTitle')}</h2>
       {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
       <div className="site-branches">
-        {site.branches.map((b) => (
-          <article key={b.id} className="site-branch">
-            <h3>{pickName(locale, b.name, b.nameAr)}</h3>
+        {site.branches.map((b) => {
+          const sf = (site.storefronts ?? []).find((x) => x.branchId === b.id);
+          return (
+          <article key={b.id} className={`site-branch${sf ? ' has-storefront' : ''}`} style={sf ? ({ '--sf-primary': sf.primaryColor, '--sf-accent': sf.accentColor } as CSSProperties) : undefined}>
+            <h3>{sf ? pickName(locale, sf.name, sf.nameAr) : pickName(locale, b.name, b.nameAr)}</h3>
+            {sf && loc(sf.tagline, locale) && <p className="site-branch-tagline">{loc(sf.tagline, locale)}</p>}
+            {sf && <p><a className="site-link site-storefront-cta" href={storefrontHref(ctx, sf.path)}>{t('studio.site.visit', { name: pickName(locale, sf.name, sf.nameAr) })} <span aria-hidden>{locale === 'ar' ? '←' : '→'}</span></a></p>}
             {(b.address || b.city) && <p>{[b.address, b.city].filter(Boolean).join(', ')}</p>}
             {b.phone && <p><a href={`tel:${b.phone.replace(/[^+\d]/g, '')}`} dir="ltr">{b.phone}</a></p>}
             {b.latitude !== null && b.longitude !== null && (
@@ -310,7 +346,8 @@ function Location({ s, ctx }: { s: Section; ctx: Ctx }) {
             </ul>
             <HoursList hours={openingHours(b.openingHours)} ctx={ctx} />
           </article>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

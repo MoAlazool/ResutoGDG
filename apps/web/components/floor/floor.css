@@ -10,8 +10,11 @@
 .saved-floor>small{display:block;margin-top:10px;color:#6c786f;font-size:11px;letter-spacing:.02em}
 .canvas-base{fill:#fbfaf6;stroke:#d8ddd5;stroke-width:2}
 .floor-grid{pointer-events:none}
+/* Legacy floors also drew under pages.css (.floor-object/.svg-zone/.svg-text), which lightened zones to 55% and set the
+   caption colours and sizes below; those computed values are what every legacy floor showed (VP-13). */
+.svg-zone{fill-opacity:.55}
 .zone-surface{fill:var(--zone-color,#edf1e8);stroke:#173f3614;stroke-width:2}
-.zone-label{fill:#173f3690;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.zone-label{fill:#97a487;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
 .svg-table{cursor:pointer;outline:none}
 .svg-table .chair rect{fill:#315e51;stroke:#20483e;stroke-width:2;filter:url(#tiny-shadow)}
 .svg-table .chair path{fill:none;stroke:#dce8df;stroke-width:2;stroke-linecap:round}
@@ -40,10 +43,11 @@
 .window-frame{fill:#cce7ec;stroke:#4e8190;stroke-width:3}.window-glass{stroke:#fff;stroke-width:4}
 .opening-cut{fill:#fbfaf6}.door-leaf{stroke:#526158;stroke-width:5}.door-swing{fill:none;stroke:#8b9a91;stroke-width:2;stroke-dasharray:5 4}
 .counter-shadow{fill:#173f3622}.counter-surface{fill:#a68157;stroke:#6d5136;stroke-width:3}.counter-line{stroke:#ead8ba;stroke-width:4;stroke-linecap:round}
-.structure-label{fill:#fff;font-size:13px;font-weight:800;letter-spacing:.03em}
-.svg-door .structure-label,.svg-entrance .structure-label{fill:#425740}
+.structure-label{fill:#5d784c;font-size:22px;font-weight:800;letter-spacing:.03em}
+/* Captions printed on a wooden counter stay small and light, so they remain readable on the wood. */
+.svg-counter .structure-label,.svg-bar .structure-label,.svg-kitchen .structure-label{fill:#fff;font-size:14px}
 .plant-pot{fill:#ddcab1;stroke:#9e8062;stroke-width:2}.plant-leaves{fill:#648a58;stroke:#325934;stroke-width:1}
-.floor-text{fill:#173f36;font-size:22px;font-weight:750}.loose-chair{fill:#315e51}.svg-chair path{fill:none;stroke:#dce8df;stroke-width:4}
+.floor-text{fill:#87947b;font-size:20px;font-weight:750}.loose-chair{fill:#315e51}.svg-chair path{fill:none;stroke:#dce8df;stroke-width:4}
 .structure-surface{fill:#d9dfd7;stroke:#6f7b72;stroke-width:2}
 .floor-object.is-selected .table-surface{stroke:#175c45;stroke-width:6}
 .selection-box{fill:none;stroke:#167151;stroke-width:3;stroke-dasharray:9 6;pointer-events:none}

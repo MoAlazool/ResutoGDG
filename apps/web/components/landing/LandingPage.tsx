@@ -12,10 +12,11 @@ import { KitchenDemo } from './KitchenDemo';
 import { ReserveDemo } from './ReserveDemo';
 import { ServiceDemo } from './ServiceDemo';
 import { StudioDemo } from './StudioDemo';
+import type { LandingFloor } from './floor-data';
 import { useLanding } from './use-landing';
 import './landing.css';
 
-export function LandingPage({ plans }: { plans: LandingPlan[] | null }) {
+export function LandingPage({ plans, floor }: { plans: LandingPlan[] | null; floor: LandingFloor }) {
   const L = useLanding();
   const { t } = useT();
   const root = useRef<HTMLDivElement>(null);
@@ -40,7 +41,7 @@ export function LandingPage({ plans }: { plans: LandingPlan[] | null }) {
       <a className="skip-link" href="#lp-main">{L.rtl ? 'تخطَّ إلى المحتوى' : 'Skip to content'}</a>
       <Nav L={L} />
       <main className="lp-main" id="lp-main">
-        <Hero L={L} />
+        <Hero L={L} floor={floor} />
         <SystemBand L={L} />
         <StudioDemo L={L} />
         <ReserveDemo L={L} />
@@ -51,7 +52,7 @@ export function LandingPage({ plans }: { plans: LandingPlan[] | null }) {
         <ManagerDemo L={L} />
         <Connect L={L} />
         <Pricing L={L} plans={plans} ownT={t} />
-        <Cta L={L} ownT={t} />
+        <Cta L={L} ownT={t} floor={floor} />
       </main>
       <Footer L={L} ownT={t} />
     </div>

@@ -2,6 +2,7 @@
 import { INTL_LOCALE } from '@resuto/contracts';
 import { useMemo } from 'react';
 import { useT } from '@/lib/i18n/client';
+import { labelForms } from './labels';
 
 /** Localised labels for floor drawings: seat counts and the standard zone/object names. */
 export function useFloorLabels() {
@@ -9,9 +10,12 @@ export function useFloorLabels() {
   return useMemo(() => {
     const nf = new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-US');
     const labelOf = (label: string) => {
-      const key = `studio.floor.label.${label}`;
-      const v = t(key);
-      return v === key ? label : v;
+      for (const form of labelForms(label)) {
+        const key = `studio.floor.label.${form}`;
+        const v = t(key);
+        if (v !== key) return v;
+      }
+      return label;
     };
     return {
       locale,

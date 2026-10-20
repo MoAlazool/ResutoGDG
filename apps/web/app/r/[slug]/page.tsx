@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { langAlternates } from '@/components/landing/legacy-routes';
 import { getT } from '@/lib/i18n/server';
 import { canonicalUrl, loadSite } from './_components/load-site';
 import { SiteView } from './_components/SiteView';
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: url },
+    alternates: { canonical: url, languages: langAlternates(url) },
     openGraph: { type: 'website', title, description, url, siteName: name, locale: locale === 'ar' ? 'ar_EG' : 'en_US', ...(image ? { images: [{ url: image }] } : {}) },
     twitter: { card: image ? 'summary_large_image' : 'summary', title, description, ...(image ? { images: [image] } : {}) },
     icons: site.theme.logoUrl ? { icon: site.theme.logoUrl } : undefined,

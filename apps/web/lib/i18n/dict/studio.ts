@@ -180,7 +180,52 @@ const siteAr: Record<string, string> = {
   'studio.history.restored': 'تمت استعادة النسخة {n} إلى المسودة.', 'studio.history.emptyTitle': 'لم يُنشر بعد', 'studio.history.emptyBody': 'انشر موقعك لبدء سجله.',
 };
 
+// Restaurant-site template copy and branch storefronts (audits VP-05, VP-06): legacy/public/guest.js home(),
+// burger.js and their Arabic locale strings, with Western digits.
+const publicEn: Record<string, string> = {
+  'studio.site.tpl.headline': 'Good food. Long conversations.',
+  'studio.site.tpl.body': 'Seasonal plates, warm hospitality and a place at our table.',
+  'studio.site.tpl.storyTitle': 'Dinner, without the back-and-forth.',
+  'studio.site.tpl.storyBody': 'Choose confidently. Order at your pace.',
+  'studio.site.example': 'Example restaurant', 'studio.site.illustrations': 'Menu illustrations',
+  'studio.site.visit': 'Visit {name}', 'studio.site.storefrontOf': '{brand} · a {name} kitchen',
+  'studio.site.sf.title': '{name} · Order online', 'studio.site.sf.description': '{name}: order online for pickup or delivery.',
+  'studio.site.sf.openNow': 'Open now', 'studio.site.sf.closedNow': 'Closed now', 'studio.site.sf.hoursToday': 'Today {hours}',
+  'studio.site.sf.pickup': 'Pickup', 'studio.site.sf.delivery': 'Delivery', 'studio.site.sf.aboutMin': '≈ {n, plural, one {# min} other {# min}}',
+  'studio.site.sf.fulfillment': 'Fulfillment method', 'studio.site.sf.everything': 'Everything', 'studio.site.sf.categories': 'Menu categories',
+  'studio.site.sf.bag': 'Bag', 'studio.site.sf.yourBag': 'Your bag', 'studio.site.sf.checkout': 'Checkout', 'studio.site.sf.add': 'Add',
+  'studio.site.sf.soldOut': 'Sold out', 'studio.site.sf.removeOne': 'Remove one', 'studio.site.sf.addOne': 'Add one', 'studio.site.sf.close': 'Close',
+  'studio.site.sf.makeItYours': 'Make it yours', 'studio.site.sf.free': 'Free', 'studio.site.sf.addToBag': 'Add to bag',
+  'studio.site.sf.allergens': 'Listed allergens', 'studio.site.sf.crossContact': 'Ask staff about cross-contact.',
+  'studio.site.sf.chooseUpTo': '{n, plural, one {Choose up to # option} other {Choose up to # options}}', 'studio.site.sf.chooseExactly': '{n, plural, one {Choose # option} other {Choose # options}}', 'studio.site.sf.chooseRange': 'Choose {min} to {max}',
+  'studio.site.sf.comboFrom': 'Build yours from {price}', 'studio.site.sf.howWant': 'How do you want it?',
+  'studio.site.sf.bagEmpty': 'Your bag is empty.', 'studio.site.sf.loadError': 'The menu could not be loaded. Try again in a moment.',
+  'studio.site.sf.retry': 'Try again', 'studio.site.sf.demoNote': '{name} is a fictional example restaurant powered by Resuto. Product images are AI-generated food photography.',
+  'studio.site.sf.poweredBy': 'Powered by Resuto', 'studio.site.sf.home': '{name} home', 'studio.site.sf.notTaking': 'This kitchen is not taking orders online right now.',
+};
+const publicAr: Record<string, string> = {
+  'studio.site.tpl.headline': 'أكل جميل. وقعدة تحلى.',
+  'studio.site.tpl.body': 'أطباق موسمية وضيافة دافئة ومكانك على طاولتنا.',
+  'studio.site.tpl.storyTitle': 'تجربة عشاء بدون تعقيد.',
+  'studio.site.tpl.storyBody': 'اختر بثقة. واطلب براحتك.',
+  'studio.site.example': 'مطعم تجريبي', 'studio.site.illustrations': 'صور توضيحية للأطباق',
+  'studio.site.visit': 'زر {name}', 'studio.site.storefrontOf': '{brand} · مطبخ من {name}',
+  'studio.site.sf.title': '{name} · اطلب أونلاين', 'studio.site.sf.description': '{name}: اطلب أونلاين للاستلام أو التوصيل.',
+  'studio.site.sf.openNow': 'مفتوح الآن', 'studio.site.sf.closedNow': 'مغلق الآن', 'studio.site.sf.hoursToday': 'اليوم {hours}',
+  'studio.site.sf.pickup': 'استلام', 'studio.site.sf.delivery': 'توصيل', 'studio.site.sf.aboutMin': '≈ {n, plural, one {دقيقة واحدة} two {دقيقتان} few {# دقائق} other {# دقيقة}}',
+  'studio.site.sf.fulfillment': 'طريقة الاستلام', 'studio.site.sf.everything': 'الكل', 'studio.site.sf.categories': 'أقسام القائمة',
+  'studio.site.sf.bag': 'السلة', 'studio.site.sf.yourBag': 'سلّتك', 'studio.site.sf.checkout': 'إتمام الطلب', 'studio.site.sf.add': 'أضف',
+  'studio.site.sf.soldOut': 'نفد', 'studio.site.sf.removeOne': 'إنقاص واحد', 'studio.site.sf.addOne': 'إضافة واحد', 'studio.site.sf.close': 'إغلاق',
+  'studio.site.sf.makeItYours': 'خصّصها', 'studio.site.sf.free': 'مجاناً', 'studio.site.sf.addToBag': 'أضف للسلة',
+  'studio.site.sf.allergens': 'مسببات الحساسية المذكورة', 'studio.site.sf.crossContact': 'اسأل الفريق عن التلامس المتبادل.',
+  'studio.site.sf.chooseUpTo': '{n, plural, one {اختر خيارًا واحدًا على الأكثر} two {اختر حتى خيارين} few {اختر حتى # خيارات} other {اختر حتى # خيارًا}}', 'studio.site.sf.chooseExactly': '{n, plural, one {اختر خيارًا واحدًا} two {اختر خيارين} few {اختر # خيارات} other {اختر # خيارًا}}', 'studio.site.sf.chooseRange': 'اختر من {min} إلى {max}',
+  'studio.site.sf.comboFrom': 'كوّن وجبتك ابتداءً من {price}', 'studio.site.sf.howWant': 'كيف تريدها؟',
+  'studio.site.sf.bagEmpty': 'سلّتك فارغة.', 'studio.site.sf.loadError': 'تعذّر تحميل القائمة. حاول مرة أخرى بعد قليل.',
+  'studio.site.sf.retry': 'حاول مرة أخرى', 'studio.site.sf.demoNote': '{name} مطعم تجريبي مدعوم من ريسوتو. صور المنتجات مولّدة بالذكاء الاصطناعي.',
+  'studio.site.sf.poweredBy': 'مدعوم من ريسوتو', 'studio.site.sf.home': 'الرئيسية · {name}', 'studio.site.sf.notTaking': 'هذا المطبخ لا يستقبل طلبات أونلاين الآن.',
+};
+
 export const studio = {
-  en: { ...studioFloorEn, ...siteEn } as Record<string, string>,
-  ar: { ...studioFloorAr, ...siteAr } as Record<string, string>,
+  en: { ...studioFloorEn, ...siteEn, ...publicEn } as Record<string, string>,
+  ar: { ...studioFloorAr, ...siteAr, ...publicAr } as Record<string, string>,
 };

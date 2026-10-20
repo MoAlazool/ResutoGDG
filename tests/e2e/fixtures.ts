@@ -78,8 +78,8 @@ export async function uploadImage(request: APIRequestContext, t: Tenant, file: s
 export async function publishSite(request: APIRequestContext, t: Tenant, opts: { productIds?: string[] } = {}) {
   const h = auth(t.owner);
   const base = `${API_URL}/v1/o/${t.orgId}/studio`;
-  const hero = await uploadImage(request, t, path.join(ROOT, 'apps/web/public/landing/olive-interior.webp'), 'Dining room with olive banquettes');
-  const plate = await uploadImage(request, t, path.join(ROOT, 'apps/web/public/landing/olive-burrata.webp'), 'Burrata with heirloom tomatoes');
+  const hero = await uploadImage(request, t, path.join(ROOT, 'apps/web/public/brand/olive-interior.webp'), 'Dining room with olive banquettes');
+  const plate = await uploadImage(request, t, path.join(ROOT, 'apps/web/public/brand/olive-burrata.webp'), 'Burrata with heirloom tomatoes');
   expect((await request.patch(`${base}/website`, { headers: h, data: {
     template: 'olive', theme: { heroMediaId: hero },
     seo: { title: { en: 'The Olive Room · Zamalek', ar: 'غرفة الزيتون · الزمالك' }, description: { en: 'Seasonal plates and warm hospitality in Zamalek.', ar: 'أطباق موسمية وضيافة دافئة في الزمالك.' } },

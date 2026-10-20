@@ -10,7 +10,7 @@ type Country = 'EG' | 'SA';
 type Interval = 'month' | 'year';
 
 export interface PlanRow {
-  id: string; name: string; name_ar: string | null; description: string | null; is_custom: boolean; is_public: boolean;
+  id: string; name: string; name_ar: string | null; description: string | null; description_ar?: string | null; is_custom: boolean; is_public: boolean;
   sort_order: number; limits: Record<string, number>;
 }
 
@@ -67,7 +67,7 @@ export class CatalogService {
       currency: COUNTRY_DEFAULTS[country].currency,
       interval,
       plans: plans.map((p) => ({
-        id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, isCustom: p.is_custom, sortOrder: p.sort_order,
+        id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar ?? null, isCustom: p.is_custom, sortOrder: p.sort_order,
         limits: p.limits ?? {},
         modules: sortModules(modules.filter((m) => m.plan_id === p.id).map((m) => m.module)),
         price: prices.get(`${p.id}:${interval}`) ?? null,

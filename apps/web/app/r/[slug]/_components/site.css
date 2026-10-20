@@ -165,3 +165,18 @@
 @media(max-width:1020px){.bg-hero-inner{grid-template-columns:1fr 1fr;min-height:500px}.bg-hero-art{height:430px}.bg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.bg-head{height:60px;padding:0 14px}.bg-logo{font-size:16px}.bg-hero-inner{display:block;min-height:auto;padding:42px 16px 0}.bg-hero-inner.no-art{padding-bottom:42px}.bg-hero h1{font-size:50px}.bg-hero p{font-size:14px}.bg-hero-art{height:340px;margin:24px -16px 0}.bg-hero-art img,[dir=rtl] .bg-hero-art img{clip-path:none;border-radius:28% 0 0 0}.bg-hero-art:after,[dir=rtl] .bg-hero-art:after{background:linear-gradient(180deg,var(--red),transparent 28%)}.bg-hero-art span{display:none}.bg-main{padding:0 14px 40px}.bg-section-head{align-items:start;flex-direction:column;gap:8px}.bg-grid{grid-template-columns:1fr;gap:11px}.bg-card{min-height:155px;display:grid;grid-template-columns:142px 1fr}.bg-art{height:100%;aspect-ratio:auto}.bg-body{padding:13px}.bg-card p{min-height:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.bg-tagrow{display:none}.bg-app .restaurant-invitation{margin:40px 14px}.bg-app .restaurant-invitation h2{font-size:32px}}
 @media(prefers-reduced-motion:reduce){.dish-card,.bg-card,.bg-art img,.bg-btn,.site-root .button{transition:none}}
+
+/* ---------- template fallbacks and branch storefronts (audits VP-04, VP-05, DF-09) ---------- */
+/* No hero photo: a designed backdrop in the site colour with the restaurant's initial, never an empty block. */
+.restaurant-editorial.no-photo{height:560px}
+.site-hero-mark{position:absolute;inset-block:-8% 0;inset-inline-end:4%;display:grid;place-items:center;font:400 clamp(260px,38vw,520px)/1 Georgia,'Plex Arabic',serif;color:color-mix(in srgb,white 9%,transparent);pointer-events:none;user-select:none}
+.restaurant-editorial.no-photo::after{content:"";position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to top,color-mix(in srgb,black 22%,transparent),transparent);pointer-events:none}
+/* Dish pictures without a photo: the legacy flat illustration or the neutral placeholder (components/public/DishImage). */
+.dish-card .dish-art{display:block;width:100%;aspect-ratio:1;object-fit:contain;padding:14%;background:color-mix(in srgb,var(--paper) 90%,var(--ink))}
+.restaurant-introduction .dish-art{object-fit:contain;padding:12%;background:color-mix(in srgb,var(--paper) 90%,var(--ink))}
+.bg-art .dish-art{object-fit:contain;padding:12%}
+/* A branch that trades under its own brand: its colours on the branch card, a link to its storefront. */
+.site-branch.has-storefront{border-top:5px solid var(--sf-primary);background:linear-gradient(180deg,color-mix(in srgb,var(--sf-accent) 12%,white),white 46%)}
+.site-branch.has-storefront h3{color:var(--sf-primary);font-weight:800}
+.site-branch-tagline{font-weight:600}
+.site-storefront-cta{color:var(--sf-primary)}

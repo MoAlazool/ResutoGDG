@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addDomain, createSection, generateCreative, publishWebsite, reorderSections, reviewCreative, updateMedia, updateSection, updateWebsite,
+  upsertStorefront, type UpsertStorefront,
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -9,6 +10,7 @@ import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/dec
 import { zod } from '../../common/http/zod.pipe';
 import { CreativeService } from './creative.service';
 import { DomainsService } from './domains.service';
+import { StorefrontsService } from './storefronts.service';
 import { StudioService } from './studio.service';
 
 interface UploadedImage { buffer: Buffer; mimetype: string; size: number; originalname: string }
@@ -17,7 +19,7 @@ interface UploadedImage { buffer: Buffer; mimetype: string; size: number; origin
 @Controller('o/:orgId/studio')
 @RequiresModule('studio')
 export class StudioController {
-  constructor(private readonly studio: StudioService, private readonly domains: DomainsService, private readonly creative: CreativeService) {}
+  constructor(private readonly studio: StudioService, private readonly domains: DomainsService, private readonly creative: CreativeService, private readonly storefronts: StorefrontsService) {}
 
   // --- Website -----------------------------------------------------------------
   @Get('website')
@@ -84,6 +86,25 @@ export class StudioController {
   @RequirePermission('studio:read')
   products(@Tenant() ctx: TenantContext, @Query('q') q?: string) {
     return this.studio.products(ctx, typeof q === 'string' ? q.slice(0, 80) : undefined);
+  }
+
+  // --- Branch storefronts (VP-05) ---------------------------------------------------
+  @Get('storefronts')
+  @RequirePermission('studio:read')
+  listStorefronts(@Tenant() ctx: TenantContext) {
+    return this.storefronts.list(ctx);
+  }
+
+  @Get('storefronts/:branchId')
+  @RequirePermission('studio:read')
+  storefront(@Tenant() ctx: TenantContext, @Param('branchId', ParseUUIDPipe) branchId: string) {
+    return this.storefronts.get(ctx, branchId);
+  }
+
+  @Put('storefronts/:branchId')
+  @RequirePermission('studio:publish')
+  saveStorefront(@Tenant() ctx: TenantContext, @Param('branchId', ParseUUIDPipe) branchId: string, @Body(zod(upsertStorefront)) body: UpsertStorefront) {
+    return this.storefronts.upsert(ctx, branchId, body);
   }
 
   // --- Media library ---------------------------------------------------------------

@@ -130,7 +130,7 @@ export function ReserveDemo({ L }: { L: Landing }) {
   };
   return (
     <section className="lp-reserve" id="reserve">
-      <div className="lp-reserve-photo" aria-hidden><img src="/landing/olive-interior.webp" alt="" loading="lazy" decoding="async" width={1600} height={900} /></div>
+      <div className="lp-reserve-photo" aria-hidden><img src="/brand/olive-interior.webp" alt="" loading="lazy" decoding="async" width={1600} height={900} /></div>
       <div className={`lp-shell rsv${s.done ? ' is-done' : ''}${swap ? ' is-swap' : ''}`} id="rsv" data-step={s.step} ref={box}>
         <div className="rsv-left">
           <div className="lp-copy is-light" data-reveal>

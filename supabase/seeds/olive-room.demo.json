@@ -5,8 +5,15 @@
   "slug": "the-olive-room",
   "planId": "pro",
   "subscriptionStatus": "active",
-  "owner": { "email": "owner@olive-room.demo.test", "fullName": "Demo Owner — The Olive Room" },
-  "platformAdmin": { "email": "platform-admin@resuto.demo.test", "fullName": "Local platform admin (demo)", "role": "superadmin" },
+  "owner": {
+    "email": "owner@olive-room.demo.test",
+    "fullName": "Demo Owner — The Olive Room"
+  },
+  "platformAdmin": {
+    "email": "platform-admin@resuto.demo.test",
+    "fullName": "Local platform admin (demo)",
+    "role": "superadmin"
+  },
   "photos": {
     "_source": "Cropped from apps/web/public/brand/menu-photography.webp (the legacy menu photo sprite); tile i belongs to legacy menu item m<i>.",
     "m0": "media/olive-room/m0.webp",
@@ -17,5 +24,20 @@
     "m5": "media/olive-room/m5.webp",
     "m6": "media/olive-room/m6.webp",
     "m7": "media/olive-room/m7.webp"
+  },
+  "smash": {
+    "_source": "legacy/public/assets/smash/*.webp: AI-generated food photography for the fictional Smash & Co storefront (disclosed on the storefront). Legacy burger.js mapped them to menu items b0-b8.",
+    "photos": {
+      "b0": "media/smash/classic-smash.webp",
+      "b1": "media/smash/double-smash.webp",
+      "b2": "media/smash/crispy-chicken.webp",
+      "b3": "media/smash/veggie-smash.webp",
+      "b4": "media/smash/loaded-fries.webp",
+      "b5": "media/smash/classic-fries.webp",
+      "b6": "media/smash/onion-rings.webp",
+      "b7": "media/smash/chocolate-shake.webp",
+      "b8": "media/smash/cola.webp"
+    },
+    "hero": "media/smash/double-smash.webp"
   }
 }

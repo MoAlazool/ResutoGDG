@@ -7,20 +7,21 @@ import { FloorSceneContent, type SceneTable } from '../floor/FloorScene';
 import marks from './brand-marks';
 import logos from './company-logos';
 import { LINKS } from './links';
-import { SAMPLE } from './sample-data';
+import { BUSINESS_CARD, cardAmount, type LandingPlan } from './plans';
+import type { LandingFloor } from './floor-data';
 import type { Landing } from './use-landing';
 
-export interface LandingPlan { id: string; name: string; nameAr: string | null; monthlyMinor: number | null; currency: string; description?: string | null }
+export type { LandingPlan } from './plans';
 
 const NAV_LINKS: Array<[string, string]> = [['#studio', 'Floor Studio'], ['#service', 'Guest service'], ['#operations', 'Operations'], ['#connect', 'Connect'], ['#pricing', 'Pricing']];
 
-function Wordmark({ rtl }: { rtl: boolean }) {
+export function Wordmark({ rtl }: { rtl: boolean }) {
   return rtl
-    ? <img className="lp-logo-ar" src="/landing/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} />
+    ? <img className="lp-logo-ar" src="/brand/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} />
     : <><span className="lp-logo-mark" aria-hidden>r</span><span className="lp-logo-type">resuto<i>.</i></span></>;
 }
 
-function Switcher({ L }: { L: Landing }) {
+export function Switcher({ L }: { L: Landing }) {
   return (
     <button type="button" className="language-switch" lang={L.rtl ? 'en' : 'ar'} aria-label={L.rtl ? 'Switch to English' : 'التبديل إلى العربية'} onClick={() => setLocale(L.rtl ? 'en' : 'ar')}>
       {L.rtl ? 'EN' : 'العربية'}
@@ -131,43 +132,50 @@ const CARD_BULLETS: Record<string, string[]> = {
   pro: ['Everything in Growth', 'Up to three branches', 'AI operational insights'],
   business: ['Negotiated branch limits', 'Dedicated onboarding and migration', 'SLA, API and white label'],
 };
-const FALLBACK_PLANS: LandingPlan[] = [
-  { id: 'starter', name: 'Starter', nameAr: null, monthlyMinor: null, currency: 'EGP' },
-  { id: 'growth', name: 'Growth', nameAr: null, monthlyMinor: null, currency: 'EGP' },
-  { id: 'pro', name: 'Pro', nameAr: null, monthlyMinor: null, currency: 'EGP' },
-  { id: 'business', name: 'Business', nameAr: null, monthlyMinor: null, currency: 'EGP' },
-];
+const FALLBACK_PLANS: LandingPlan[] = ['starter', 'growth', 'pro'].map((id) => ({
+  id, name: id[0]!.toUpperCase() + id.slice(1), nameAr: null, monthlyMinor: null, yearlyMinor: null, currency: 'EGP',
+}));
 
-export function Pricing({ L, plans, ownT }: { L: Landing; plans: LandingPlan[] | null; ownT: (k: string) => string }) {
-  const { l, num, rtl, reduced } = L;
+/**
+ * Pricing teaser (legacy landing-pricing.js): Starter, Growth and Pro with their published monthly/yearly prices, then
+ * Business ("Let’s talk", quoted by the sales team). Plan names stay in Latin script in both languages, as on the
+ * legacy page; they are product names. Without prices (API unavailable) the cards link to /pricing instead.
+ */
+export function Pricing({ L, plans, ownT }: { L: Landing; plans: LandingPlan[] | null; ownT: (k: string, vars?: Record<string, string | number>) => string }) {
+  const { l, num, reduced } = L;
   const [yearly, setYearly] = useState(false);
   const priced = !!plans?.length;
-  const list = (priced ? plans! : FALLBACK_PLANS).slice(0, 4);
-  const amount = (p: LandingPlan) => (p.monthlyMinor === null ? null : Math.round(p.monthlyMinor / 100) * (yearly ? 10 : 1));
+  const list = [...(priced ? plans! : FALLBACK_PLANS).slice(0, 3), BUSINESS_CARD];
+  const hasYearly = priced && plans!.some((p) => p.yearlyMinor !== null);
+  // "2 months free" only while the published yearly prices really are ten monthly payments.
+  const twoFree = priced && plans!.every((p) => p.monthlyMinor === null || p.yearlyMinor === null || p.yearlyMinor === p.monthlyMinor * 10);
   return (
     <section className="lp-chapter lp-pricing" id="pricing">
       <div className="lp-shell">
         <div className="lp-pricing-head" data-reveal>
           <div><span className="lp-chapter-tag">{l('Pricing')}</span><h2>{l('Egyptian pricing, from one room to three branches.')}</h2></div>
-          {priced && (
+          {hasYearly && (
             <div className="lp-seg lp-seg-pill" role="group" aria-label={l('Billing period')}>
               <button type="button" className={yearly ? undefined : 'is-on'} aria-pressed={!yearly} onClick={() => setYearly(false)}>{l('Monthly')}</button>
-              <button type="button" className={yearly ? 'is-on' : undefined} aria-pressed={yearly} onClick={() => setYearly(true)}>{l('Yearly · 2 months free')}</button>
+              <button type="button" className={yearly ? 'is-on' : undefined} aria-pressed={yearly} onClick={() => setYearly(true)}>{twoFree ? l('Yearly · 2 months free') : l('Yearly')}</button>
             </div>
           )}
         </div>
         <div className="lp-plans" id="plan-grid">
           {list.map((p, i) => {
-            const a = priced ? amount(p) : null;
+            const a = priced ? cardAmount(p, yearly) : null;
+            const sales = p.id === BUSINESS_CARD.id;
             return (
-              <article key={p.id} className={`lp-plan${i === 1 ? ' is-featured' : ''}`} style={{ ['--i' as string]: i }}>
-                <h3>{rtl && p.nameAr ? p.nameAr : p.name}</h3>
+              <article key={p.id} className={`lp-plan${i === 1 ? ' is-featured' : ''}`} style={{ ['--i' as string]: i }} data-plan={p.id}>
+                <h3><bdi>{p.name}</bdi></h3>
                 <div className="lp-plan-price">
                   {a !== null ? <><CountUp value={a} num={num} animate={!reduced} /><small>{l('EGP')} / {yearly ? l('year') : l('month')}</small></>
-                    : <b className="lp-plan-talk">{priced ? l('Let’s talk') : ownT('platform.seePricing')}</b>}
+                    : <b className="lp-plan-talk">{sales || priced ? l('Let’s talk') : ownT('platform.seePricing')}</b>}
                 </div>
-                <ul>{(CARD_BULLETS[p.id] ?? (p.description ? [p.description] : [])).map((f) => <li key={f}>{l(f)}</li>)}</ul>
-                <a className={`lp-btn ${i === 1 ? 'lp-btn-solid' : 'lp-btn-line-ink'} lp-btn-full`} href={a !== null ? `${LINKS.pricing}?plan=${p.id}#compare` : LINKS.pricing}>{a !== null ? l('See what is included') : priced ? l('Talk to us') : l('See what is included')}</a>
+                <ul>{(CARD_BULLETS[p.id] ?? (p.description ? [p.description] : [])).map((f) => (
+                  <li key={f}>{f === 'Up to three branches' && p.branches ? ownT('platform.pricing.upToBranches', { n: p.branches }) : l(f)}</li>
+                ))}</ul>
+                <a className={`lp-btn ${i === 1 ? 'lp-btn-solid' : 'lp-btn-line-ink'} lp-btn-full`} href={sales ? `${LINKS.pricing}#sales` : a !== null ? `${LINKS.pricing}?plan=${p.id}#compare` : LINKS.pricing}>{sales ? l('Talk to us') : l('See what is included')}</a>
               </article>
             );
           })}
@@ -197,14 +205,14 @@ function CountUp({ value, num, animate }: { value: number; num: (n: number) => s
 }
 
 const HERO_CYCLE = ['available', 'occupied', 'preparing', 'available', 'ready', 'reserved', 'available', 'occupied', 'payment', 'available', 'cleaning', 'available'];
-export function Cta({ L, ownT }: { L: Landing; ownT: (k: string) => string }) {
+export function Cta({ L, ownT, floor }: { L: Landing; ownT: (k: string) => string; floor: LandingFloor }) {
   const { l, arrow, num } = L;
-  const tables = SAMPLE.floor.tables.map((x, i) => ({ ...x, minSpendMinor: null, internalNotes: null, state: HERO_CYCLE[i % HERO_CYCLE.length] })) as SceneTable[];
+  const tables = floor.tables.map((x, i) => ({ ...x, minSpendMinor: null, internalNotes: null, state: HERO_CYCLE[i % HERO_CYCLE.length] })) as SceneTable[];
   return (
     <section className="lp-cta">
       <div className="lp-cta-floor" aria-hidden>
-        <svg viewBox={`0 0 ${SAMPLE.floor.width} ${SAMPLE.floor.height}`}>
-          <FloorSceneContent layout={{ ...SAMPLE.floor, zones: SAMPLE.floor.zones.map((z) => ({ ...z, label: l(z.label) })), objects: SAMPLE.floor.objects.map((o) => ({ ...o, label: l(o.label) })), background: null, tables }}
+        <svg viewBox={`0 0 ${floor.width} ${floor.height}`}>
+          <FloorSceneContent layout={{ width: floor.width, height: floor.height, zones: floor.zones.map((z) => ({ ...z, label: l(z.label) })), objects: floor.objects.map((o) => ({ ...o, label: l(o.label) })), background: null, tables }}
             mode="operations" seatsLabel={(n) => `${num(n)} ${l('seats')}`} />
         </svg>
       </div>

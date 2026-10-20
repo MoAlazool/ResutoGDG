@@ -227,9 +227,11 @@ for (const m of fixture) {
   await must('PUT', O(`/menu/products/${p.id}/branches/${other.id}`), { token: OWNER.token, body: { isAvailable: false } });
   PRODUCTS[m.id] = { id: p.id, name: m.name, category: m.category, branch, priceMinor: m.price };
 }
-// Real dish photos exist only for the eight Zamalek dishes (m0–m7); burgers keep the neutral placeholder.
-const photos = JSON.parse(readFileSync(path.join(ROOT, 'supabase/seeds/olive-room.demo.json'), 'utf8')).photos;
-for (const [legacyId, rel] of Object.entries(photos)) {
+// Every dish has its own photo: the eight Zamalek dishes (m0–m7, cut from the legacy menu photography) and the nine
+// Smash & Co items (b0–b8, the legacy storefront's photography in supabase/seeds/media/smash). No dish falls back to a
+// shared sprite (audits VP-04, DF-08).
+const seedManifest = JSON.parse(readFileSync(path.join(ROOT, 'supabase/seeds/olive-room.demo.json'), 'utf8'));
+for (const [legacyId, rel] of [...Object.entries(seedManifest.photos), ...Object.entries(seedManifest.smash.photos)]) {
   if (legacyId.startsWith('_') || !PRODUCTS[legacyId]) continue;
   await upload(O(`/menu/products/${PRODUCTS[legacyId].id}/image`), OWNER.token, readFileSync(path.join(ROOT, 'supabase/seeds', rel)), `${legacyId}.webp`, 'image/webp', PRODUCTS[legacyId].name);
 }
@@ -243,7 +245,7 @@ for (const p of Object.values(PRODUCTS).filter((x) => x.category === 'Burgers'))
 }
 const menuOf = (branch) => Object.values(PRODUCTS).filter((p) => p.branch === branch);
 const byName = (re) => Object.values(PRODUCTS).find((p) => re.test(p.name));
-log(`menu: ${Object.keys(categories).length} categories (Arabic names), ${fixture.length} dishes, 8 photos, burger extras`);
+log(`menu: ${Object.keys(categories).length} categories (Arabic names), ${fixture.length} dishes with photos, burger extras`);
 
 // --- 5. floor plans -------------------------------------------------------------------------------------------
 const table = (label, cx, cy, zone, extra = {}) => ({ label, capacity: 4, zone, shape: 'square', cx, cy, width: 100, height: 100, rotation: 0,
@@ -379,7 +381,9 @@ for (const o of PLAN) {
       branchId: o.branch.id, fulfillment: 'pickup', lines: o.lines, customer: o.customer ? { name: o.customer.name, phone: o.customer.phone } : { name: 'Walk-in (demo)' },
     } });
     orderId = r.id;
-    if (!o.cancel) await must('POST', O(`/orders/${orderId}/collect`), { token: STAFF.cashier.token, headers: { 'Idempotency-Key': key('cash') }, body: { method: rand() < 0.7 ? 'cash' : 'instapay' } });
+    // Transfers need the reference staff verified (PAY-19); demo references are labelled and unique.
+    const method = o.cancel ? null : rand() < 0.7 ? 'cash' : 'instapay';
+    if (method) await must('POST', O(`/orders/${orderId}/collect`), { token: STAFF.cashier.token, headers: { 'Idempotency-Key': key('cash') }, body: method === 'cash' ? { method } : { method, reference: key('DEMO-IP') } });
   }
   const detail = await must('GET', O(`/orders/${orderId}`), { token: OWNER.token });
   const cancelled = o.cancel && detail.paymentStatus === 'unpaid'
@@ -559,6 +563,34 @@ await must('POST', O('/studio/website/publish'), { token: OWNER.token, body: { k
 await must('POST', O('/studio/creative'), { token: STAFF.marketing.token, body: { kind: 'caption', locale: 'en', brief: 'Instagram caption for our seabass with lemon butter', productId: seabass.id, tone: 'premium', variants: 2 } });
 await must('POST', O('/studio/creative'), { token: STAFF.marketing.token, body: { kind: 'caption', locale: 'ar', brief: 'منشور إنستجرام عن برجر سماش الكلاسيكي', productId: smash.id, tone: 'playful', variants: 2 } });
 log('studio: website published with a hero photo and chef’s favourites; 2 creative drafts (template mode)');
+
+// --- 14b. Smash & Co storefront branding (audit VP-05) -------------------------------------------------------------
+// The burger branch trades under its own brand. Its name, colours, hero and copy are branch storefront data, carried
+// over from the legacy /burger storefront (legacy/public/burger.js, burger.css); its menu, prices and ordering are the
+// branch's own live data.
+const smashHero = await upload(O('/studio/media'), OWNER.token, readFileSync(path.join(ROOT, 'supabase/seeds', seedManifest.smash.hero)), 'smash-hero.webp', 'image/webp', 'Double Smash burger (AI-generated food photography)');
+const smashPromo = ['b5', 'b0', 'b8'].map((id) => PRODUCTS[id].id);   // fries, burger, cola: "Any burger + classic fries + cola"
+await must('PUT', O(`/studio/storefronts/${SMASH.id}`), { token: OWNER.token, body: {
+  slug: 'smash-and-co', brandName: 'Smash & Co', brandNameAr: 'سماش آند كو',
+  tagline: { en: 'Smashed fresh. Served fast.', ar: 'طازج ومهروس. يُقدّم بسرعة.' },
+  theme: { primaryColor: '#b51218', accentColor: '#ffd52f', inkColor: '#17120f', paperColor: '#fff8ed' },
+  heroMediaId: smashHero.id ?? smashHero.mediaId,
+  content: {
+    headline: { en: 'Smashed fresh. Served fast.', ar: 'طازج ومهروس. يُقدّم بسرعة.' },
+    body: { en: 'Lacy-edged patties, crisp fries and thick shakes. Made to order and ready when you are.', ar: 'قطع لحم بحواف مقرمشة، بطاطس ساخنة، وميلك شيك كثيف. يُحضّر عند الطلب ويجهز في وقتك.' },
+    heroNote: { en: 'Made for the messy bite.', ar: 'مصنوع للقضمة الشهية.' },
+    promo: { title: { en: 'The Smash combo.', ar: 'كومبو سماش.' }, body: { en: 'Any burger + classic fries + cola', ar: 'أي برجر + بطاطس كلاسيك + كولا' },
+      ctaLabel: { en: 'Choose a burger', ar: 'اختر برجر' }, ctaCategoryId: categories.Burgers, productIds: smashPromo },
+    sections: [
+      { categoryId: categories.Burgers, eyebrow: { en: 'Our burgers', ar: 'برجرنا' }, title: { en: 'Burgers that hit different.', ar: 'برجر بطعم مختلف.' }, body: { en: '100% beef. Smashed to perfection.', ar: 'لحم بقري 100٪، مهروس بإتقان.' } },
+      { categoryId: categories.Sides, title: { en: 'More to love.', ar: 'المزيد لتحبه.' }, body: { en: 'Crisp, golden, made for dipping.', ar: 'مقرمش وذهبي ومثالي للصوص.' } },
+      { categoryId: categories.Shakes, title: { en: 'Shakes done right.', ar: 'ميلك شيك كما يجب.' }, body: { en: 'The perfect finish to your smash.', ar: 'الختام المثالي لوجبتك.' } },
+      { categoryId: categories.Drinks, title: { en: 'Keep it cold.', ar: 'خليه بارد.' }, body: { en: 'The perfect finish to your smash.', ar: 'الختام المثالي لوجبتك.' } },
+    ],
+  },
+  isPublished: true,
+} });
+log('storefront: Smash & Co branding on the burger branch (red/yellow, hero photo, combo, section copy), published at /r/the-olive-room/smash-and-co');
 
 // --- 15. intelligence and MCP ------------------------------------------------------------------------------------------------------
 await call('GET', O(`/intelligence/forecast?branchId=${MAIN.id}&horizon=14&top=5`), { token: OWNER.token });

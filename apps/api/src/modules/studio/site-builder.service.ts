@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PublicSite, PublicSiteSection, SectionKind } from '@resuto/contracts';
+import type { PublicSite, PublicSiteSection, PublicStorefrontLink, SectionKind } from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { StorageService } from '../../common/storage/storage.service';
 import type { SiteDocument } from './studio.mappers';
@@ -20,7 +20,9 @@ export class SiteBuilderService {
   constructor(private readonly storage: StorageService) {}
 
   async build(tx: Tx, orgId: string, doc: SiteDocument, meta: { revision: number; publishedAt: string | null; preview: boolean }): Promise<PublicSite> {
-    const org = await tx.one<any>('select slug, name, name_ar, currency, country, default_locale from organizations where id = $1', [orgId]);
+    const org = await tx.one<any>(
+      `select slug, name, name_ar, currency, country, default_locale, coalesce((onboarding->>'demo')::boolean, false) as demo
+         from organizations where id = $1`, [orgId]);
     const sections = doc.sections.slice().sort((a, b) => a.sortOrder - b.sortOrder);
 
     const mediaIds = new Set<string>();
@@ -38,6 +40,11 @@ export class SiteBuilderService {
          from branches where org_id = $1 and is_active order by created_at`, [orgId]);
 
     const pinned = [...new Set(sections.filter((s) => s.kind === 'menu_highlights').flatMap((s) => s.content?.productIds ?? []))];
+    const storefronts = await this.storefrontLinks(tx, orgId, org.slug);
+    // Highlights are dishes guests can actually order (audit DF-09): active, in an active menu that serves an active
+    // branch, and not switched off at every branch. Without pinned dishes, a branch that trades under its own brand
+    // (a published storefront, e.g. Smash & Co) is presented by its storefront, so dishes sold only there stay off the
+    // restaurant's own highlights. Pinned dishes keep the owner's order. Photos first.
     const products = await tx.query<any>(
       `select p.id, p.name, p.name_ar, p.description, p.description_ar, p.price_minor, p.currency, p.dietary,
               p.image_url, ma.path as image_path
@@ -47,9 +54,15 @@ export class SiteBuilderService {
          left join media_assets ma on ma.id = p.image_media_id
         where p.org_id = $1 and p.is_active
           and (cardinality($2::uuid[]) = 0 or p.id = any($2::uuid[]))
+          and exists (
+            select 1 from branches b
+             where b.org_id = p.org_id and b.is_active
+               and (m.branch_id is null or m.branch_id = b.id)
+               and not exists (select 1 from product_branch_settings s where s.product_id = p.id and s.branch_id = b.id and not s.is_available)
+               and (cardinality($2::uuid[]) > 0 or not (b.id = any($4::uuid[]))))
         order by case when cardinality($2::uuid[]) > 0 then array_position($2::uuid[], p.id) end,
                  (p.image_url is not null or p.image_media_id is not null) desc, c.sort_order, p.sort_order, p.created_at
-        limit $3`, [orgId, pinned, pinned.length || HIGHLIGHT_LIMIT]);
+        limit $3`, [orgId, pinned, pinned.length || HIGHLIGHT_LIMIT, storefronts.map((x) => x.branchId)]);
     const menuHighlights = await Promise.all(products.map(async (p) => ({
       id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar,
       priceMinor: Number(p.price_minor), currency: p.currency, dietary: p.dietary ?? [],
@@ -65,7 +78,7 @@ export class SiteBuilderService {
       revision: meta.revision,
       publishedAt: meta.publishedAt,
       preview: meta.preview,
-      org: { name: org.name, nameAr: org.name_ar, currency: org.currency, country: org.country, defaultLocale: org.default_locale },
+      org: { name: org.name, nameAr: org.name_ar, currency: org.currency, country: org.country, defaultLocale: org.default_locale, demo: org.demo === true },
       template: doc.template,
       theme: {
         primaryColor: doc.theme?.primaryColor ?? base.primaryColor,
@@ -74,6 +87,7 @@ export class SiteBuilderService {
         font: doc.theme?.font ?? 'manrope',
         logoUrl: urlOf(doc.theme?.logoMediaId),
         heroUrl: urlOf(doc.theme?.heroMediaId),
+        tagline: doc.theme?.tagline ?? {},
       },
       seo: {
         title: doc.seo?.title ?? { en: org.name, ar: org.name_ar ?? org.name },
@@ -98,7 +112,24 @@ export class SiteBuilderService {
       menuHighlights,
       canonicalHost: domain?.hostname ?? null,
       links: { reserve: `/reserve/${org.slug}`, order: `/order/${org.slug}`, site: `/r/${org.slug}` },
+      storefronts,
     };
+  }
+
+  /** Published branch storefronts (audit VP-05) for the site's branch list and navigation. */
+  async storefrontLinks(tx: Tx, orgId: string, orgSlug: string): Promise<PublicStorefrontLink[]> {
+    const rows = await tx.query<any>(
+      `select s.slug, s.branch_id, s.brand_name, s.brand_name_ar, s.tagline, s.theme, s.logo_media_id, s.hero_media_id, b.code
+         from branch_storefronts s join branches b on b.id = s.branch_id
+        where s.org_id = $1 and s.is_published and b.is_active order by s.brand_name`, [orgId]);
+    const media = await this.mediaMap(tx, orgId, rows.flatMap((r) => [r.logo_media_id, r.hero_media_id]).filter((x): x is string => !!x));
+    return rows.map((r) => ({
+      slug: r.slug, branchId: r.branch_id, branchCode: r.code, name: r.brand_name, nameAr: r.brand_name_ar, tagline: r.tagline ?? {},
+      primaryColor: r.theme?.primaryColor, accentColor: r.theme?.accentColor,
+      logoUrl: r.logo_media_id ? media.get(r.logo_media_id)?.url ?? null : null,
+      heroUrl: r.hero_media_id ? media.get(r.hero_media_id)?.url ?? null : null,
+      path: `/r/${orgSlug}/${r.slug}`,
+    }));
   }
 
   async mediaMap(tx: Tx, orgId: string, ids: string[]) {
