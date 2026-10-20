@@ -67,8 +67,8 @@ update public.webhook_inbox set payload = payload #- '{secret_token}' where payl
 update public.webhook_inbox set payload = jsonb_build_object('reason', payload->'reason', 'scrubbed', true)
  where status = 'rejected' and payload ? 'body';
 alter table public.webhook_inbox add column alerted_at timestamptz;
-create index webhook_inbox_retention_idx on public.webhook_inbox(received_at) where status in ('processed', 'ignored', 'rejected');
-create index idempotency_keys_created_idx on public.idempotency_keys(created_at);
+-- Retention scans use webhook_inbox_done_idx (same definition, created by 20261020020003_outbox_leases_and_ops).
+create index if not exists idempotency_keys_created_idx on public.idempotency_keys(created_at); -- also created by 20261020020003
 
 -- ---------------------------------------------------------------------------
 -- PAY-19: one manual transfer reference is recorded once per tenant and method.
@@ -94,6 +94,6 @@ end $$;
 select app.lockdown_public_grants();
 
 -- Reversal (manual): drop index payments_one_active_attempt_idx, refunds_provider_key_idx, refunds_pending_idx,
--- webhook_inbox_retention_idx, idempotency_keys_created_idx, payments_manual_reference_idx; drop the added columns;
+-- payments_manual_reference_idx; drop the added columns;
 -- restore payment_alerts_kind_check to its five original kinds. The two webhook_inbox scrubs are intentionally
 -- irreversible (they delete secrets and unauthenticated bodies).
