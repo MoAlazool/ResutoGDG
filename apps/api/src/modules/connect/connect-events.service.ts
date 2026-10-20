@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { formatMoney, INTL_LOCALE } from '@resuto/contracts';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
+import { onceForEvent } from '../../common/events/effects';
 import { OnDomainEvent, type OutboxEvent } from '../../common/events/events';
 import { copy, type CopyKey, type Locale } from './bot-copy';
 import { MessagingService } from './messaging.service';
@@ -39,6 +40,8 @@ export class ConnectEventsService {
       const l: Locale = o.locale ?? 'en';
       const msg = build(o, l);
       if (!msg) return { skipped: 'not_applicable' };
+      // At-least-once delivery: a retry after the message committed must not send it again (audit PCL-01).
+      if (!(await onceForEvent(tx, 'customer-message'))) return { skipped: 'already_sent' };
       const text = copy(l, msg.key, { number: o.number, ...msg.vars });
       const ctx = TenantContext.system(orgId, 'connect.notifications');
       return this.messaging.enqueueToCustomer(tx, ctx, { orderId, text, templateName: ORDER_UPDATE_TEMPLATE,
@@ -102,6 +105,7 @@ export class ConnectEventsService {
         `select locale from conversations where org_id = $1 and (($2::uuid is not null and customer_id = $2) or ($3::text is not null and external_contact = $3))
           order by last_inbound_at desc nulls last limit 1`, [orgId, r.customer_id, r.guest_phone?.replace(/^\+/, '') ?? null]);
       if (!conv) return { skipped: 'no_channel' };
+      if (!(await onceForEvent(tx, 'customer-message'))) return { skipped: 'already_sent' };
       const when = new Intl.DateTimeFormat(conv.locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: r.tz }).format(new Date(r.starts_at));
       const text = copy(conv.locale, 'reservationConfirmed', { party: r.party_size, when, code: r.code });
       return this.messaging.enqueueToCustomer(tx, TenantContext.system(orgId, 'connect.notifications'), {
