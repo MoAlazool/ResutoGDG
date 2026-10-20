@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import { Badge } from '@resuto/ui';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import './receipt.css';
+import { isSafeRedirect } from './redirect';
+
+export { isSafeRedirect, PROVIDER_CHECKOUT_HOSTS } from './redirect';
 
 /** Shared frame for guest payment pages (hosted checkout, bill share, table bill). */
 export function PayFrame({ merchant, sandbox, children }: { merchant?: string | null; sandbox?: boolean; children: ReactNode }) {
@@ -41,10 +44,7 @@ export function clearIntent(scope: string) {
   try { sessionStorage.removeItem(`resuto.intent.${scope}`); } catch { /* ignore */ }
 }
 
-/** Only follow redirects to https provider pages or back into this app. */
+/** Only follow redirects to a supported provider's checkout page or back into this app. */
 export function safeRedirect(url: string) {
-  try {
-    const u = new URL(url, window.location.href);
-    if (u.origin === window.location.origin || u.protocol === 'https:') window.location.assign(u.toString());
-  } catch { /* ignore */ }
+  if (isSafeRedirect(url, window.location.href)) window.location.assign(new URL(url, window.location.href).toString());
 }

@@ -115,6 +115,7 @@ export function Receipt({ r, actions }: { r: ReceiptView; actions?: ReactNode })
             {r.split && <div><dt>{t('pay.receipt.split')}</dt><dd>{t('pay.receipt.splitPaid', { paid: r.split.paidCount, n: r.split.participants })}</dd></div>}
           </dl>
           {r.payment.mode === 'test' && <p className="receipt-note">{t('pay.receipt.test')}</p>}
+          {r.payment.verification && <p className="receipt-note">{t(r.payment.verification === 'staff' ? 'pay.receipt.staffVerified' : 'pay.receipt.gatewayVerified')}</p>}
           <div className="receipt-rule dotted" aria-hidden />
           <footer className="receipt-foot">
             <p className="receipt-thanks">{t('pay.receipt.thanks')} <span aria-hidden>♥</span></p>
