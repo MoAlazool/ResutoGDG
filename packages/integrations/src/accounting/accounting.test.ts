@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { AdapterContext } from '../core';
+import { withEgressResolver } from '../net';
 import { assertBalanced, accountingMinorToDecimal, odooAccountingAdapter, qoyodAdapter, wafeqAdapter, type JournalEntry } from './index';
 
 function fakeFetch(responses: unknown[]) {
   const calls: Array<{ url: string; init: RequestInit }> = [];
-  const fn = (async (url: string, init: RequestInit) => {
+  // Tests run without DNS: the Odoo (tenant URL) adapter resolves hosts through this public address.
+  const fn = withEgressResolver((async (url: string, init: RequestInit) => {
     calls.push({ url: String(url), init });
     return new Response(JSON.stringify(responses.shift() ?? {}), { status: 200 });
-  }) as unknown as typeof fetch;
+  }) as unknown as typeof fetch, async () => [{ address: '93.184.215.14', family: 4 }]);
   return { fn, calls };
 }
 const accounts = { cash: 'A-CASH', card_clearing: 'A-CARD', sales: 'A-SALES', vat_output: 'A-VAT', discounts: 'A-DISC' };

@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { scriptedFetch } from '../messaging/testing/scripted-fetch';
+import { scriptedFetch as scripted } from '../messaging/testing/scripted-fetch';
+import { withEgressResolver } from '../net';
 import { foodicsAdapter, mapFoodicsProduct } from './foodics';
 import { odooAdapter, ODOO_PAGE_SIZE } from './odoo';
 import { posSandboxAdapter } from './sandbox';
+
+// Tests run without DNS: tenant-URL adapters (Odoo) resolve every host to one public address.
+const scriptedFetch = (...args: Parameters<typeof scripted>) => {
+  const f = scripted(...args);
+  return { ...f, fetch: withEgressResolver(f.fetch, async () => [{ address: '93.184.215.14', family: 4 }]) };
+};
 
 const ctx = (fetch: typeof globalThis.fetch, credentials: Record<string, string>, config: Record<string, unknown> = {}, environment: 'live' | 'sandbox' = 'live') =>
   ({ environment, credentials, config, fetch });

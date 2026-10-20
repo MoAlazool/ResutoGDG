@@ -2,7 +2,8 @@
 // Docs: https://www.odoo.com/documentation/19.0/developer/reference/external_api.html
 //   POST {base}/json/2/<model>/<method>, "Authorization: bearer <api key>", optional "X-Odoo-Database".
 // Readiness: implemented_unverified (no Odoo instance or API key available).
-import { providerRequest, ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
+import { providerRequest, ProviderError, type AdapterContext, type HttpOptions, type ProviderDescriptor } from '../core';
+import { guardedProviderCall } from '../net';
 import { cleanText, IMPORT_DEFAULT_STATION, majorToMinor, type MenuImportRow, type PosAdapter } from './types';
 
 export const ODOO_PAGE_SIZE = 200;
@@ -31,6 +32,15 @@ function endpoint(ctx: AdapterContext, path: string) {
   try { base = new URL(raw); } catch { throw new ProviderError('odoo', 'invalid Odoo URL', false); }
   if (base.protocol !== 'https:') throw new ProviderError('odoo', 'use an HTTPS Odoo URL', false);
   return new URL(path, base).toString();
+}
+
+/**
+ * The Odoo URL is tenant-supplied: every call goes through the egress guard (public HTTPS hosts only, redirects
+ * re-checked, capped body) and errors never carry the server's response body (audit INT-02).
+ */
+async function odooRequest<T>(ctx: AdapterContext, path: string, opts: HttpOptions): Promise<T> {
+  const url = endpoint(ctx, path);
+  return guardedProviderCall('odoo', ctx.fetch, url, (fetch) => providerRequest<T>('odoo', { fetch }, url, opts));
 }
 
 function headers(ctx: AdapterContext): Record<string, string> {
@@ -69,7 +79,7 @@ export const odooAdapter: PosAdapter = {
 
   async fetchMenuPage(ctx, input) {
     const offset = Math.max(0, Number(input.cursor ?? '0') || 0);
-    const res = await providerRequest<unknown>('odoo', ctx, endpoint(ctx, '/json/2/product.template/search_read'), {
+    const res = await odooRequest<unknown>(ctx, '/json/2/product.template/search_read', {
       method: 'POST', headers: headers(ctx), timeoutMs: 12_000,
       body: JSON.stringify({
         domain: [['sale_ok', '=', true]],
@@ -86,9 +96,11 @@ export const odooAdapter: PosAdapter = {
   },
 
   async healthCheck(ctx) {
-    const res = await providerRequest<Record<string, unknown>>('odoo', ctx, endpoint(ctx, '/json/2/res.users/context_get'), {
+    const res = await odooRequest<Record<string, unknown>>(ctx, '/json/2/res.users/context_get', {
       method: 'POST', headers: headers(ctx), body: JSON.stringify({}), retries: 1,
     });
-    return { ok: !!res && typeof res === 'object', details: { lang: (res as any)?.lang ?? null, tz: (res as any)?.tz ?? null } };
+    // Only well-formed locale/time-zone values are kept (nothing else from the response is echoed back).
+    const pick = (v: unknown, re: RegExp) => (typeof v === 'string' && re.test(v) ? v : null);
+    return { ok: !!res && typeof res === 'object', details: { lang: pick((res as any)?.lang, /^[a-z]{2,3}(_[A-Za-z]{2,4})?(@\w+)?$/), tz: pick((res as any)?.tz, /^[A-Za-z0-9_+\-/]{1,64}$/) } };
   },
 };
