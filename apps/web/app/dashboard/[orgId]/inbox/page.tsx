@@ -11,14 +11,17 @@ import { useApi } from '@/lib/use-api';
 import { ChannelKindBadge, EmbeddedSignupCard, PageChannelCard, VerifyCell } from './MetaChannels';
 
 interface Window { open: boolean; closesAt: string | null }
+/** Messenger / Instagram contacts have no phone number (their ids are page-scoped), so they are labelled by network. */
+const guestLabel = (t: (k: string) => string, kind?: string) =>
+  t(kind === 'messenger' || kind === 'instagram' ? `connect.inbox.guest.${kind}` : 'connect.inbox.guest.other');
 interface ConvItem {
-  id: string; channelName: string; sandbox: boolean; contact: string; name: string | null; status: string; unreadCount: number;
+  id: string; channelName: string; channelKind?: string; sandbox: boolean; contact: string | null; name: string | null; status: string; unreadCount: number;
   lastMessageAt: string | null; lastMessage: { body: string; direction: string } | null; window: Window; handoffOpen: boolean;
 }
 interface Message { id: string; direction: 'inbound' | 'outbound'; kind: string; body: string | null; status: string; error: string | null; automated: boolean;
   sandbox: boolean; interactive: any; createdAt: string }
 interface Detail {
-  id: string; status: string; channel: { id: string; name: string; sandbox: boolean; kind?: string; transport?: string }; humanReplyUntil?: string | null; contact: string; contactName: string | null; locale: string;
+  id: string; status: string; channel: { id: string; name: string; sandbox: boolean; kind?: string; transport?: string }; humanReplyUntil?: string | null; contact: string | null; contactName: string | null; locale: string;
   customer: { id: string; name: string | null; marketingConsent: boolean } | null; window: Window; botActive: boolean;
   handoff: { id: string; reason: string; status: string } | null;
   orderingSession: { step: string; fulfillment: string | null; totalMinor: number | null; currency: string | null; orderNumber: string | null; paymentMethod: string | null } | null;
@@ -80,7 +83,7 @@ function Conversations() {
               <button type="button" onClick={() => setSelected(c.id)} className="btn btn-ghost" aria-current={selected === c.id}
                 style={{ width: '100%', justifyContent: 'space-between', textAlign: 'start', minHeight: 60, padding: '8px 10px', background: selected === c.id ? 'var(--leaf-bg)' : undefined, whiteSpace: 'normal' }}>
                 <span style={{ minWidth: 0, display: 'grid', gap: 2 }}>
-                  <span className="row" style={{ gap: 6 }}><strong><bdi>{c.name ?? c.contact}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
+                  <span className="row" style={{ gap: 6 }}><strong><bdi>{c.name ?? c.contact ?? guestLabel(t, c.channelKind)}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
                     <Badge tone={statusTone(c.status)}>{t(`connect.status.${c.status}`)}</Badge></span>
                   <span className="fine" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                     {c.lastMessage ? <>{c.lastMessage.direction === 'outbound' ? '↩ ' : ''}<bdi>{c.lastMessage.body ?? ''}</bdi></> : ''}</span>
@@ -139,11 +142,11 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
 
   if (!d) return <section className="card">{detail.error ? <Notice tone="danger">{detail.error.message}</Notice> : <Skeleton lines={6} />}</section>;
   return (
-    <section className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 520, minWidth: 0 }} aria-label={d.contactName ?? d.contact}>
+    <section className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 520, minWidth: 0 }} aria-label={d.contactName ?? d.contact ?? guestLabel(t, d.channel.kind)}>
       <header style={{ padding: 14, borderBlockEnd: '1px solid var(--line-soft)' }} className="spread">
         <div>
-          <div className="row" style={{ gap: 6 }}><strong><bdi>{d.customer?.name ?? d.contactName ?? d.contact}</bdi></strong>
-            <span className="fine" dir="ltr">{d.contact}</span>
+          <div className="row" style={{ gap: 6 }}><strong><bdi>{d.customer?.name ?? d.contactName ?? d.contact ?? guestLabel(t, d.channel.kind)}</bdi></strong>
+            {d.contact && <span className="fine" dir="ltr">{d.contact}</span>}
             {d.channel.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             <Badge tone={statusTone(d.status)}>{t(`connect.status.${d.status}`)}</Badge>
             {d.customer && <Badge tone={d.customer.marketingConsent ? 'ok' : 'neutral'}>{t(d.customer.marketingConsent ? 'connect.inbox.consent' : 'connect.inbox.noConsent')}</Badge>}

@@ -3,6 +3,8 @@
 // the 7-day HUMAN_AGENT reply for staff, and webhook -> bot -> order on a Messenger channel.
 import { createHmac } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { TenantContext } from '../src/common/auth/context';
+import { DbService } from '../src/common/db/db.service';
 import { MessagingService } from '../src/modules/connect/messaging.service';
 import { ProviderHttp } from '../src/modules/integrations/provider-http';
 import { lastOutbound, outbound, scriptedFetch } from './growth-helpers';
@@ -135,6 +137,14 @@ describe('webhooks', () => {
     expect(convs).toEqual([{ external_contact: 'IGSID77', customer_id: null, kind: 'instagram' }, { external_contact: '2010012345678', customer_id: null, kind: 'messenger' }]);
     const list = (await t.http.get(`/v1/o/${tenant.orgId}/connect/conversations`).set(auth(tenant.owner))).body.items;
     expect(list.map((c: any) => c.channelKind).sort()).toEqual(['instagram', 'messenger']);
+    // A PSID / IGSID is not a phone number: never shown as "+<id>", and a phone lookup never matches it.
+    expect(list.map((c: any) => c.contact)).toEqual([null, null]);
+    const messengerConv = list.find((c: any) => c.channelKind === 'messenger');
+    const d = (await t.http.get(`/v1/o/${tenant.orgId}/connect/conversations/${messengerConv.id}`).set(auth(tenant.owner))).body;
+    expect(d.contact).toBeNull();
+    const notify = await t.app.get(DbService).withTenant(tenant.orgId, (tx) => t.app.get(MessagingService).enqueueToCustomer(tx, TenantContext.system(tenant.orgId, 'test'),
+      { phone: '+2010012345678', text: 'Your order is ready', reason: 'order.ready' }));
+    expect(notify).toEqual({ messageId: null, skipped: 'no_channel' });
   });
 
   it('webhook -> bot -> order on Messenger: quick replies, a typed address, the menu link as a button, the order on channel messenger', async () => {

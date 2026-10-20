@@ -102,8 +102,9 @@ export class ConnectEventsService {
            from reservations r join branches b on b.id = r.branch_id join organizations o on o.id = r.org_id where r.id = $1`, [e.aggregateId]);
       if (!r) return { skipped: 'not_found' };
       const conv = await tx.maybeOne<{ locale: Locale }>(
-        `select locale from conversations where org_id = $1 and (($2::uuid is not null and customer_id = $2) or ($3::text is not null and external_contact = $3))
-          order by last_inbound_at desc nulls last limit 1`, [orgId, r.customer_id, r.guest_phone?.replace(/^\+/, '') ?? null]);
+        `select c.locale from conversations c join messaging_channels ch on ch.id = c.channel_id
+          where c.org_id = $1 and (($2::uuid is not null and c.customer_id = $2) or ($3::text is not null and c.external_contact = $3 and ch.transport <> 'meta_page'))
+          order by c.last_inbound_at desc nulls last limit 1`, [orgId, r.customer_id, r.guest_phone?.replace(/^\+/, '') ?? null]);
       if (!conv) return { skipped: 'no_channel' };
       if (!(await onceForEvent(tx, 'customer-message'))) return { skipped: 'already_sent' };
       const when = new Intl.DateTimeFormat(conv.locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: r.tz }).format(new Date(r.starts_at));

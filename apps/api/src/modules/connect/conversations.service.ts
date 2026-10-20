@@ -29,6 +29,13 @@ const KIND: Record<InboundMessage['type'], string> = {
 };
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
 
+/**
+ * The contact's phone number for display, or null on Messenger / Instagram, whose page-scoped ids (PSID / IGSID) are
+ * not phone numbers (INT-21).
+ */
+export const phoneContact = (transport: string, externalContact: string): string | null =>
+  transport === 'meta_page' ? null : `+${externalContact.replace(/^\+/, '')}`;
+
 @Injectable()
 export class ConversationsService {
   constructor(
@@ -133,7 +140,7 @@ export class ConversationsService {
           f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, f.limit]);
       const items = rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => ({
         id: r.id, channelId: r.channel_id, channelName: r.channel_name, channelKind: r.channel_kind, sandbox: r.transport === 'sandbox', customerId: r.customer_id,
-        contact: `+${r.external_contact}`, name: r.customer_name ?? r.contact_name, status: r.status, assignedTo: r.assigned_to,
+        contact: phoneContact(r.transport, r.external_contact), name: r.customer_name ?? r.contact_name, status: r.status, assignedTo: r.assigned_to,
         unreadCount: r.unread_count, lastMessageAt: iso(r.last_message_at), lastMessage: r.last_body ? { body: r.last_body, direction: r.last_direction, kind: r.last_kind } : null,
         window: windowState(r.last_inbound_at), handoffOpen: r.handoff_open, locale: r.locale,
       }));
@@ -161,7 +168,7 @@ export class ConversationsService {
       const handoff = await tx.maybeOne(`select id, reason, status, requested_at, accepted_by, accepted_at from handoffs where conversation_id = $1 and status <> 'resolved'`, [id]);
       return {
         id, status: c.status, channel: { id: c.channel_id, name: extra.display_name, transport: c.transport, kind: c.channel_kind, sandbox: c.transport === 'sandbox' },
-        contact: `+${c.external_contact}`, contactName: c.contact_name, locale: c.locale, assignedTo: extra.assigned_to, unreadCount: extra.unread_count,
+        contact: phoneContact(c.transport, c.external_contact), contactName: c.contact_name, locale: c.locale, assignedTo: extra.assigned_to, unreadCount: extra.unread_count,
         customer: c.customer_id ? { id: c.customer_id, name: extra.customer_name, phone: extra.phone_e164, marketingConsent: extra.marketing_consent } : null,
         window: windowState(c.last_inbound_at), botActive: c.status === 'bot' && !handoff,
         // Messenger / Instagram: after 24 hours staff can still reply (HUMAN_AGENT tag) until this time; templates do not exist there.

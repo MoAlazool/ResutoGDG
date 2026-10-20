@@ -154,7 +154,8 @@ export class MessagingService implements MessagingPort {
     if (!convId && input.phone) {
       convId = (await tx.maybeOne<{ id: string }>(
         `select c.id from conversations c join messaging_channels ch on ch.id = c.channel_id
-          where c.org_id = $1 and c.external_contact = $2 and ch.status <> 'disabled' order by c.last_inbound_at desc nulls last limit 1`,
+          where c.org_id = $1 and c.external_contact = $2 and ch.status <> 'disabled' and ch.transport <> 'meta_page'
+          order by c.last_inbound_at desc nulls last limit 1`, // a phone never matches a Messenger / Instagram id
         [ctx.orgId, input.phone.replace(/^\+/, '')]))?.id ?? null;
     }
     if (!convId) return { messageId: null, skipped: 'no_channel' };
