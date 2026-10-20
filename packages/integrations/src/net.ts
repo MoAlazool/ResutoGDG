@@ -8,7 +8,9 @@
 //   * refuses local names (localhost, *.local, *.internal, metadata hosts) and IP literals in private, loopback,
 //     link-local, CGNAT, multicast, documentation, benchmarking and reserved ranges (IPv4, IPv6, mapped/NAT64/6to4);
 //   * resolves the host name and refuses it when ANY address is non-public;
-//   * follows at most a few redirects manually (redirect: 'manual'), re-checking each target;
+//   * follows at most a few redirects manually (redirect: 'manual'), re-checking each target, and by default refuses a
+//     redirect to another origin: the request carries the tenant's credentials (Authorization, X-Odoo-Database, or the
+//     API key inside a JSON-RPC body), which must never reach a host the Location header picked;
 //   * caps the response body size.
 // Residual risk: the HTTP client resolves the name again after our check (DNS rebinding). Requiring HTTPS on 443 with
 // certificate validation means a rebound name must still present a valid certificate for the attacker's own host
@@ -31,7 +33,18 @@ export interface EgressOptions {
   maxResponseBytes?: number;
   /** DNS resolver (default: the system resolver, all addresses). */
   resolve?: HostResolver;
+  /**
+   * Redirects to another origin (scheme, host or port): 'refuse' (default) fails the call; 'strip-credentials' follows
+   * them without Authorization, Cookie, Proxy-Authorization and `credentialHeaders`, and still refuses one that would
+   * resend the request body (307/308), since a body can carry credentials too.
+   */
+  crossOriginRedirects?: 'refuse' | 'strip-credentials';
+  /** Extra header names removed on a followed cross-origin redirect (case-insensitive). */
+  credentialHeaders?: string[];
 }
+
+/** Headers never forwarded to another origin (the fetch spec drops Authorization; we also drop these). */
+const CREDENTIAL_HEADERS = ['authorization', 'cookie', 'proxy-authorization', 'x-odoo-database', 'x-api-key', 'api-key', 'apikey'];
 
 /** The URL was refused before any connection was made (never retryable, safe to show to the tenant). */
 export class EgressBlockedError extends ProviderError {
@@ -196,16 +209,27 @@ export function egressFetch(base: typeof fetch, options: EgressOptions): typeof 
     let target = input instanceof Request ? input.url : String(input);
     let method = (init.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
     let body = init.body;
+    let headers = init.headers;
     for (let hop = 0; ; hop++) {
       const url = await assertEgressAllowed(target, policy);
-      const res = await base(url.toString(), { ...init, method, body, redirect: 'manual' });
+      const res = await base(url.toString(), { ...init, method, body, headers, redirect: 'manual' });
       const location = res.headers.get('location');
       if (res.status >= 300 && res.status < 400 && location) {
         await res.body?.cancel().catch(() => undefined);
         if (hop >= maxRedirects) throw new ProviderError(options.provider, 'too many redirects', false, res.status);
-        target = new URL(location, url).toString();
+        let next: URL;
+        try { next = new URL(location, url); } catch { throw new ProviderError(options.provider, 'invalid redirect', false, res.status); }
         // Per the fetch spec: 303 (and 301/302 after POST) continue as GET without a body.
         if (res.status === 303 || ((res.status === 301 || res.status === 302) && method === 'POST')) { method = 'GET'; body = undefined; }
+        if (next.origin !== url.origin) {
+          if ((options.crossOriginRedirects ?? 'refuse') === 'refuse') throw new EgressBlockedError(options.provider, 'redirect to another host');
+          if (body !== undefined && body !== null) throw new EgressBlockedError(options.provider, 'redirect to another host with the request body');
+          const strip = new Set([...CREDENTIAL_HEADERS, ...(options.credentialHeaders ?? []).map((h) => h.toLowerCase())]);
+          const kept = new Headers(headers);
+          for (const name of [...kept.keys()]) if (strip.has(name.toLowerCase())) kept.delete(name);
+          headers = kept;
+        }
+        target = next.toString();
         continue;
       }
       const buf = await readCapped(res, maxBytes, options.provider);
@@ -226,6 +250,7 @@ export async function guardedProviderCall<T>(provider: string, base: typeof fetc
   const guarded = egressFetch(base, policy);
   let blocked: EgressBlockedError | undefined;
   const tracked = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    if (blocked) throw blocked; // a refusal is final: providerRequest's retry must not call the server again
     try { return await guarded(input, init); } catch (error) {
       if (error instanceof EgressBlockedError) blocked = error; // e.g. a redirect into a private network
       throw error;
@@ -240,7 +265,9 @@ export async function guardedProviderCall<T>(provider: string, base: typeof fetc
 
 /**
  * Error text that is safe to store for the tenant: our own message, never the provider's response body. Used by the
- * adapters whose base URL the tenant chooses (the body could come from any server).
+ * adapters whose base URL the tenant chooses (the body could come from any server). Anything that is not a
+ * ProviderError (a SyntaxError from parsing a non-JSON body quotes the start of that body, a TypeError from an
+ * unexpected shape) becomes a generic "unexpected response" without its original message.
  */
 export function redactProviderError(provider: string, error: unknown): Error {
   if (error instanceof EgressBlockedError) return error;
@@ -249,5 +276,5 @@ export function redactProviderError(provider: string, error: unknown): Error {
     const msg = status ? `HTTP ${status}` : error.message.replace(/^[^:]+:\s*/, '').replace(/network error: .*/, 'network error').slice(0, 120);
     return new ProviderError(provider, msg, error.retryable, status, error.retryAfterMs);
   }
-  return error instanceof Error ? error : new Error(String(error));
+  return new ProviderError(provider, 'unexpected response from the server', false);
 }
