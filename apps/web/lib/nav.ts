@@ -1,4 +1,4 @@
-import { can, ROLES, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
+import { can, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
 import type { NavGlyphName } from '@resuto/ui';
 
 export interface NavItem {
@@ -52,23 +52,8 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
 export const navVisible = (item: NavItem, role: Role) =>
   item.anyPermission ? item.anyPermission.some((p) => can(role, p)) : !item.permission || can(role, item.permission);
 
-/**
- * Where a staff member lands after signing in or opening /dashboard, by role (VS-05): the kitchen team on the
- * full-screen kitchen display, drivers on the driver app, the front desk on the live floor (its front-desk screen
- * when that route exists), cashiers on orders, waiters on the floor, everyone with analytics on the overview.
- */
-export function homePath(role: Role | string, orgId: string): string {
-  const base = `/dashboard/${orgId}`;
-  if (!(ROLES as readonly string[]).includes(role)) return base;
-  switch (role as Role) {
-    case 'kitchen': return `/kitchen/${orgId}`;
-    case 'driver': return '/driver';
-    case 'host': return `${base}/floor`;
-    case 'waiter': return `${base}/floor`;
-    case 'cashier': return `${base}/orders`;
-    default: return can(role as Role, 'analytics:read') ? base : `${base}/orders`;
-  }
-}
+/** Role-aware landing (VS-05) lives in its own module so the sign-in pages do not import the navigation table. */
+export { homePath } from './home-path';
 
 /** Active-order statuses counted in the Orders navigation badge (as the legacy workspace did). */
 export const ACTIVE_ORDER_STATUSES = 'awaiting_payment,placed,accepted,preparing,ready';

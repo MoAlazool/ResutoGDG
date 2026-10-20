@@ -5,7 +5,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { MeResponse } from '@resuto/contracts';
 import { Field, Notice, Wordmark } from '@resuto/ui';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
-import { homePath, safeNext } from '@/lib/nav';
+import { homePath } from '@/lib/home-path';
+import { safeNext } from '@/lib/safe-next';
 import { AUTH_MODE, GOOGLE_AUTH, useSession } from '@/lib/session';
 
 const WORKSPACES = ['manager', 'kitchen', 'host'] as const;

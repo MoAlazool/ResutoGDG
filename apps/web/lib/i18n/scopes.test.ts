@@ -26,13 +26,14 @@ function resolveImport(from: string, spec: string): string | null {
   return null;
 }
 
-function guestFiles(): string[] {
+/** The route files under `roots` and every local module they import, stopping at other route groups' directories. */
+function routeFiles(roots: string[], stopDirs: string[]): string[] {
   const seen = new Set<string>();
-  const queue = GUEST_ROOTS.flatMap((r) => [...walk(join(WEB, r))]);
+  const queue = roots.flatMap((r) => [...walk(join(WEB, r))]);
   while (queue.length) {
     const f = queue.pop()!;
     const rel = relative(WEB, f);
-    if (seen.has(f) || rel.startsWith('lib/i18n/') || STAFF_DIRS.some((d) => rel.startsWith(d + '/'))) continue;
+    if (seen.has(f) || rel.startsWith('lib/i18n/') || stopDirs.some((d) => rel.startsWith(d + '/'))) continue;
     seen.add(f);
     for (const m of readFileSync(f, 'utf8').matchAll(/(?:from|import)\s*\(?\s*'([^']+)'/g)) {
       const r = resolveImport(f, m[1]!);
@@ -40,6 +41,18 @@ function guestFiles(): string[] {
     }
   }
   return [...seen];
+}
+const guestFiles = () => routeFiles(GUEST_ROOTS, STAFF_DIRS);
+
+/** Dictionary keys (literals) and key prefixes (`prefix.${…}` templates) a set of files can use. */
+function usedKeys(files: string[]): Array<{ file: string; key?: string; prefix?: string }> {
+  const out: Array<{ file: string; key?: string; prefix?: string }> = [];
+  for (const f of files) {
+    const src = readFileSync(f, 'utf8');
+    for (const m of src.matchAll(/'([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_-]+)+)'/g)) out.push({ file: relative(WEB, f), key: m[1]! });
+    for (const m of src.matchAll(/`([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_-]+)*\.)\$\{/g)) out.push({ file: relative(WEB, f), prefix: m[1]! });
+  }
+  return out;
 }
 
 describe('message scopes', () => {
@@ -65,6 +78,29 @@ describe('message scopes', () => {
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it('sign-in, sign-up, onboarding and invitation pages get only the auth scope, and it covers what they use', () => {
+    const AUTH_ROOTS = ['app/(auth)', 'app/onboarding', 'app/invite'];
+    const authFiles = routeFiles(AUTH_ROOTS, STAFF_DIRS.filter((d) => !AUTH_ROOTS.includes(d)));
+    expect(authFiles.some((f) => f.endsWith('AuthForm.tsx'))).toBe(true);
+    const ok = (k: string) => inScope(k, 'guest') || inScope(k, 'auth');
+    const missing: string[] = [];
+    for (const u of usedKeys(authFiles)) {
+      if (u.key && u.key in en && !ok(u.key)) missing.push(`${u.file}: ${u.key}`);
+      if (u.prefix) for (const k of Object.keys(en).filter((x) => x.startsWith(u.prefix!))) if (!ok(k)) missing.push(`${u.file}: ${u.prefix}* (${k})`);
+    }
+    expect(missing).toEqual([]);
+    for (const locale of ['en', 'ar'] as const) {
+      const a = messagesFor(locale, 'auth');
+      const s = messagesFor(locale, 'staff');
+      expect(Object.keys(a).every((k) => k in s)).toBe(true);
+      // The point of the scope: the entry pages' HTML does not carry every module's copy.
+      expect(JSON.stringify(a).length).toBeLessThan(JSON.stringify(s).length / 10);
+    }
+    for (const l of ['app/(auth)/layout.tsx', 'app/onboarding/layout.tsx', 'app/invite/layout.tsx']) {
+      expect(readFileSync(join(WEB, l), 'utf8')).toMatch(/<StaffProviders[^>]*scope="auth"/);
+    }
   });
 
   it('guest and staff scopes are disjoint and together cover every key except the landing copy', () => {

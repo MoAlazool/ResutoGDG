@@ -57,9 +57,20 @@ export const GUEST_SCOPE: RegExp[] = [
   /^pay\./, /^connect\.order\./, /^connect\.sandbox/, /^studio\.site\./, /^platform\.(?!lp\.)/,
 ];
 const LANDING = /^platform\.lp\./;
-export type MessageScope = 'guest' | 'staff';
-export const inScope = (key: string, scope: MessageScope) =>
-  !LANDING.test(key) && (scope === 'guest' ? GUEST_SCOPE.some((r) => r.test(key)) : !GUEST_SCOPE.some((r) => r.test(key)));
+/**
+ * Sign-in, sign-up, onboarding and invitation pages need only the auth copy on top of the guest scope the root layout
+ * already ships; the full staff scope (every module's copy, ~140 KB of text) is serialised into each staff HTML
+ * document, so these entry pages must not carry it. lib/i18n/scopes.test.ts checks their keys are covered.
+ */
+export const AUTH_SCOPE: RegExp[] = [/^auth\./];
+export type MessageScope = 'guest' | 'staff' | 'auth';
+export const inScope = (key: string, scope: MessageScope) => {
+  if (LANDING.test(key)) return false;
+  const guest = GUEST_SCOPE.some((r) => r.test(key));
+  if (scope === 'guest') return guest;
+  if (scope === 'auth') return !guest && AUTH_SCOPE.some((r) => r.test(key));
+  return !guest;
+};
 
 const scoped = new Map<string, Messages>();
 /** The messages a route group's client components need, for one locale, with English fallbacks applied. */
