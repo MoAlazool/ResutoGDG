@@ -27,15 +27,24 @@ export function landingFloorFrom(body: unknown): LandingFloor {
   return { width: b.width, height: b.height, zones: shapes(b.zones), objects: shapes(b.objects), tables, live: true };
 }
 
+/** The legacy phone crop of the hero floor: a portrait window (480 x 680) so tables stay large enough to tap. */
+const PORTRAIT = 480 / 680;
+
 /**
- * The phone crop of the hero floor. The recorded sample keeps the legacy portrait crop; a live floor is cropped to its
- * tables (legacy tightView) so a small room stays readable instead of floating in empty canvas.
+ * The phone crop of the hero floor. The recorded sample keeps the legacy crop. A live floor gets the same portrait
+ * shape and scale (at least 680 units tall), covering its tables top to bottom and starting at the first column of
+ * tables, as legacy did; a narrow room is centred instead of floating in empty canvas.
  */
 export function narrowView(f: LandingFloor, pad = 60): string {
   if (!f.live) return '140 60 480 680';
-  const xs = f.tables.map((t) => t.cx - t.width / 2), xe = f.tables.map((t) => t.cx + t.width / 2);
-  const ys = f.tables.map((t) => t.cy - t.height / 2), ye = f.tables.map((t) => t.cy + t.height / 2);
-  const x = Math.max(0, Math.min(...xs) - pad), y = Math.max(0, Math.min(...ys) - pad);
-  const w = Math.min(f.width, Math.max(...xe) + pad) - x, h = Math.min(f.height, Math.max(...ye) + pad) - y;
+  const minX = Math.min(...f.tables.map((t) => t.cx - t.width / 2)), maxX = Math.max(...f.tables.map((t) => t.cx + t.width / 2));
+  const minY = Math.min(...f.tables.map((t) => t.cy - t.height / 2)), maxY = Math.max(...f.tables.map((t) => t.cy + t.height / 2));
+  // At least the legacy crop's height, so tables are drawn at the legacy size; centred on the tables vertically.
+  const h = Math.min(f.height, Math.max(680, maxY - minY + 2 * pad));
+  const y = Math.min(Math.max(0, (minY + maxY) / 2 - h / 2), f.height - h);
+  const w = Math.min(f.width, h * PORTRAIT);
+  const spanW = maxX - minX + 2 * pad;
+  const left = spanW <= w ? (minX + maxX) / 2 - w / 2 : minX - pad;
+  const x = Math.min(Math.max(0, left), f.width - w);
   return `${Math.round(x)} ${Math.round(y)} ${Math.round(w)} ${Math.round(h)}`;
 }
