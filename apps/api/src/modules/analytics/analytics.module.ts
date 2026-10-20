@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InventoryModule } from '../inventory/inventory.module';
+import { AnalyticsRollupJobs } from './analytics-rollups.jobs';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 
@@ -7,7 +8,7 @@ import { AnalyticsService } from './analytics.service';
 @Module({
   imports: [InventoryModule],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService],
+  providers: [AnalyticsService, AnalyticsRollupJobs],
   exports: [AnalyticsService],
 })
 export class AnalyticsModule {}

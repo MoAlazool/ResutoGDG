@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { OrderDetail, OrderListQuery, OrderStatus, OrderSummary, StaffOrderRequest } from '@resuto/contracts';
+import { ORDER_STATUSES, type OrderDetail, type OrderListQuery, type OrderStatus, type OrderSummary, type StaffOrderRequest } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
@@ -21,6 +21,45 @@ export const toOrderSummary = (r: any): OrderSummary => ({
 });
 
 const csv = (s: string | undefined) => (s ? s.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20) : null);
+const KNOWN_STATUSES = new Set<string>(ORDER_STATUSES);
+
+/** Columns toOrderSummary reads (the list is polled every 5 s: no addresses, attribution or notes). */
+export const ORDER_SUMMARY_COLUMNS = `o.id, o.number, o.public_ref, o.branch_id, o.channel, o.fulfillment, o.status, o.payment_status, o.table_id,
+  o.visit_id, o.customer_name, o.currency, o.total_minor, o.paid_minor, o.refunded_minor, o.placed_at, o.business_date, o.version`;
+
+/**
+ * Staff order list. `status` is compared as the order_status enum (never `status::text`), so a filter on open
+ * statuses implies the predicate of the partial indexes orders_open_org_idx / orders_open_branch_idx (PCL-09) and
+ * reads only open orders instead of the whole history. Exported for the plan regression test.
+ */
+export const ORDER_LIST_SQL = `select ${ORDER_SUMMARY_COLUMNS}, t.label as table_label,
+         (select coalesce(sum(quantity), 0) from order_lines l where l.order_id = o.id) as item_count
+         from orders o left join dining_tables t on t.id = o.table_id
+        where o.org_id = $1
+          and ($2::uuid is null or o.branch_id = $2)
+          and ($3::uuid[] is null or o.branch_id = any($3::uuid[]))
+          and ($4::order_status[] is null or o.status = any($4::order_status[]))
+          and ($5::text[] is null or o.channel::text = any($5::text[]))
+          and ($6::text is null or o.fulfillment::text = $6)
+          and ($7::date is null or o.business_date = $7)
+          and ($8::timestamptz is null or o.placed_at >= $8)
+          and ($9::timestamptz is null or o.placed_at < $9)
+          and ($10::uuid is null or o.visit_id = $10)
+          and ($11::text is null or o.number = $11)
+          and ($12::timestamptz is null or (o.placed_at, o.id) < ($12::timestamptz, $13::uuid))
+        order by o.placed_at desc, o.id desc limit $14`;
+
+/**
+ * Payments of one order: direct payments plus those allocated to it (a visit payment split across orders). Two
+ * index lookups joined by UNION; the former `p.order_id = $1 or a.order_id = $1` over a LEFT JOIN read every payment
+ * of every tenant (PCL-16). Exported for the plan regression test.
+ */
+export const ORDER_PAYMENTS_SQL = `select p.id, p.method, p.provider, p.status, p.amount_minor, p.refunded_minor, p.is_test, p.created_at
+         from payments p where p.order_id = $1
+       union
+       select p.id, p.method, p.provider, p.status, p.amount_minor, p.refunded_minor, p.is_test, p.created_at
+         from payment_allocations a join payments p on p.id = a.payment_id where a.order_id = $1
+       order by created_at, id`;
 
 function encodeCursor(placedAt: Date, id: string) {
   return Buffer.from(`${new Date(placedAt).toISOString()}|${id}`).toString('base64url');
@@ -55,23 +94,11 @@ export class OrdersService implements OrdersQueryPort {
     if (f.branchId) ctx.assertBranch(f.branchId);
     const limit = Math.min(Math.max(Number(f.limit) || 50, 1), 200);
     const cursor = decodeCursor(f.cursor);
-    const statuses = Array.isArray(f.status) ? f.status : csv(f.status);
-    const rows = await tx.query<any>(
-      `select o.*, t.label as table_label, (select coalesce(sum(quantity), 0) from order_lines l where l.order_id = o.id) as item_count
-         from orders o left join dining_tables t on t.id = o.table_id
-        where o.org_id = $1
-          and ($2::uuid is null or o.branch_id = $2)
-          and ($3::uuid[] is null or o.branch_id = any($3::uuid[]))
-          and ($4::text[] is null or o.status::text = any($4::text[]))
-          and ($5::text[] is null or o.channel::text = any($5::text[]))
-          and ($6::text is null or o.fulfillment::text = $6)
-          and ($7::date is null or o.business_date = $7)
-          and ($8::timestamptz is null or o.placed_at >= $8)
-          and ($9::timestamptz is null or o.placed_at < $9)
-          and ($10::uuid is null or o.visit_id = $10)
-          and ($11::text is null or o.number = $11)
-          and ($12::timestamptz is null or (o.placed_at, o.id) < ($12::timestamptz, $13::uuid))
-        order by o.placed_at desc, o.id desc limit $14`,
+    const requested = Array.isArray(f.status) ? f.status : csv(f.status);
+    // Unknown status names match nothing (as the former text comparison did) instead of failing the enum cast.
+    const statuses = requested ? requested.filter((x) => KNOWN_STATUSES.has(x)) : null;
+    if (statuses && statuses.length === 0) return { items: [], nextCursor: null };
+    const rows = await tx.query<any>(ORDER_LIST_SQL,
       [ctx.orgId, f.branchId ?? null, ctx.branchFilter, statuses, csv(f.channel), f.fulfillment ?? null, f.date ?? null, f.from ?? null, f.to ?? null,
         f.visitId ?? null, f.q?.replace(/^#/, '') || null, cursor?.[0] ?? null, cursor?.[1] ?? null, limit + 1]);
     const page = rows.slice(0, limit);
@@ -83,15 +110,19 @@ export class OrdersService implements OrdersQueryPort {
 
   async get(tx: Tx, ctx: TenantContext, orderId: string): Promise<OrderDetail> {
     const o = await tx.maybeOne<any>(
-      `select o.*, t.label as table_label, (select coalesce(sum(quantity), 0) from order_lines l where l.order_id = o.id) as item_count
+      `select ${ORDER_SUMMARY_COLUMNS}, o.customer_id, o.customer_phone, o.delivery_address, o.notes, o.subtotal_minor, o.discount_minor,
+              o.delivery_fee_minor, o.service_charge_minor, o.tax_minor, o.tax_inclusive, o.accepted_at, o.ready_at, o.fulfilled_at,
+              o.cancelled_at, o.cancel_reason, o.scheduled_for, t.label as table_label,
+              (select coalesce(sum(quantity), 0) from order_lines l where l.order_id = o.id) as item_count
          from orders o left join dining_tables t on t.id = o.table_id where o.id = $1`, [orderId]);
     if (!o || !ctx.canAccessBranch(o.branch_id)) throw notFound('Order');
-    const lines = await tx.query<any>('select * from order_lines where order_id = $1 order by line_seq', [orderId]);
-    const events = await tx.query<any>('select * from order_events where order_id = $1 order by id', [orderId]);
-    const payments = await tx.query<any>(
-      `select distinct p.* from payments p left join payment_allocations a on a.payment_id = p.id
-        where p.order_id = $1 or a.order_id = $1 order by p.created_at`, [orderId]);
-    const allocations = await tx.query<any>('select * from payment_allocations where order_id = $1 order by id', [orderId]);
+    const lines = await tx.query<any>(
+      `select id, product_id, name, name_ar, quantity, unit_price_minor, modifiers, modifiers_total_minor, line_total_minor, station, kitchen_status, notes
+         from order_lines where order_id = $1 order by line_seq`, [orderId]);
+    const events = await tx.query<any>(
+      'select id, event_type, from_status, to_status, actor_type, created_at, details from order_events where order_id = $1 order by id', [orderId]);
+    const payments = await tx.query<any>(ORDER_PAYMENTS_SQL, [orderId]);
+    const allocations = await tx.query<any>('select payment_id, amount_minor, kind, created_at from payment_allocations where order_id = $1 order by id', [orderId]);
     // Customer contact details are only for roles with customers:read (kitchen sees the name, never the phone/address).
     const pii = ctx.can('customers:read');
     return {

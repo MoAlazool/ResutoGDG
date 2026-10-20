@@ -9,7 +9,7 @@
 // shared buffers hit/read, the top plan nodes and every Seq Scan on a large table. With --assert the run fails
 // when a query breaks its `expect` budget (no seq scan on the named tables, execution time under maxMs): this is
 // the regression check for the indexes and query shapes in docs/PERFORMANCE.md. Queries live in
-// sql/explain-suite.mjs and mirror the SQL in the API services. Read-only (every transaction is rolled back).
+// sql/explain-suite.mjs, which takes the SQL from the built API. Read-only (every transaction is rolled back).
 import { writeFileSync } from 'node:fs';
 import pg from 'pg';
 import { args, assertLocalDatabase } from './lib/guard.mjs';
@@ -38,7 +38,7 @@ const day = (n) => new Date(Date.parse(`${today}T00:00:00Z`) - n * 86_400_000).t
 const p = { ...ctx, today, from30: day(29), from365: day(364) };
 
 function walk(node, out, depth = 0) {
-  out.push({ depth, type: node['Node Type'], relation: node['Relation Name'] ?? null, index: node['Index Name'] ?? null,
+  out.push({ depth, type: node['Node Type'], relation: node['Relation Name'] ?? null, index: node['Index Name'] ?? null, sortKey: node['Sort Key'] ?? null,
     rows: node['Actual Rows'], loops: node['Actual Loops'], ms: node['Actual Total Time'], sort: node['Sort Method'] ?? null,
     removed: (node['Rows Removed by Filter'] ?? 0) + (node['Rows Removed by Index Recheck'] ?? 0),
     disk: node['Sort Space Type'] === 'Disk' ? node['Sort Space Used'] : null });
@@ -50,8 +50,9 @@ const results = [];
 let failed = 0;
 for (const q of suite) {
   if (only && !only.test(q.id)) continue;
-  const sql = typeof q.sql === 'function' ? q.sql(p) : q.sql;
-  const params = q.params ? q.params(p) : [];
+  const built = q.build ? await q.build(p) : null;
+  const sql = built ? built.sql : typeof q.sql === 'function' ? q.sql(p) : q.sql;
+  const params = built ? built.params : q.params ? q.params(p) : [];
   let best = null;
   for (let i = 0; i < runs; i++) {
     await client.query('begin');
@@ -72,12 +73,14 @@ for (const q of suite) {
   const seqScans = best.nodes.filter((n) => n.type === 'Seq Scan' && ((n.rows + n.removed) * n.loops > 2000 || (q.expect?.noSeqScanOn ?? []).includes(n.relation)))
     .map((n) => `${n.relation} (${(n.rows + n.removed) * n.loops} rows)`);
   const indexes = [...new Set(best.nodes.filter((n) => n.index).map((n) => n.index))];
-  const diskSorts = best.nodes.filter((n) => n.disk).map((n) => `${n.disk} kB`);
+  const diskSorts = best.nodes.filter((n) => n.disk).map((n) => `${n.disk} kB${a.verbose ? ` (${(n.sortKey ?? []).join(', ')})` : ''}`);
   // Rows the scans touched (returned + filtered out), over all loops: the cost a missing or unusable index shows up as.
-  const rowsScanned = best.nodes.filter((n) => /Scan/.test(n.type)).reduce((s, n) => s + (n.rows + n.removed) * n.loops, 0);
+  // Table and index reads only: CTE/subquery/function scans re-read rows already in memory.
+  const rowsScanned = best.nodes.filter((n) => /Scan/.test(n.type) && n.relation).reduce((s, n) => s + (n.rows + n.removed) * n.loops, 0);
   const violations = [];
   for (const rel of q.expect?.noSeqScanOn ?? []) if (best.nodes.some((n) => n.type === 'Seq Scan' && n.relation === rel)) violations.push(`seq scan on ${rel}`);
   if (q.expect?.maxMs !== undefined && best.ms > q.expect.maxMs) violations.push(`${best.ms.toFixed(1)} ms > ${q.expect.maxMs} ms`);
+  if (q.expect?.noDiskSort && diskSorts.length) violations.push(`on-disk sort ${diskSorts.join(', ')}`);
   for (const idx of q.expect?.usesIndex ?? []) if (!indexes.includes(idx)) violations.push(`does not use ${idx}`);
   if (violations.length) failed++;
   if (q.expect?.maxRowsScanned !== undefined && rowsScanned > q.expect.maxRowsScanned) violations.push(`${rowsScanned} rows scanned > ${q.expect.maxRowsScanned}`);

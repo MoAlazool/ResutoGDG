@@ -20,7 +20,8 @@ export const customerListQuery = z.object({
   includeAnonymised: z.enum(['true', 'false']).optional(),
   sort: z.enum(['last_order', 'spend', 'orders', 'name', 'created']).default('last_order'),
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  cursor: z.string().regex(/^\d+$/).optional(),
+  /** Opaque keyset cursor from the previous page (`k…`); plain digits are a legacy offset still accepted. */
+  cursor: z.string().regex(/^(\d{1,9}|k[A-Za-z0-9_-]{1,600})$/).optional(),
 });
 export type CustomerListQuery = z.infer<typeof customerListQuery>;
 

@@ -13,13 +13,36 @@ import { escapeLike } from '../mcp/mcp.util';
 const COUNTED = `o.status not in ('cancelled', 'awaiting_payment')`;
 const EXPORT_LIMIT = 50_000;
 
-const SORTS: Record<CustomerListQuery['sort'], string> = {
-  last_order: 'a.last_order_at desc nulls last, c.id',
-  spend: 'coalesce(a.spend_minor, 0) desc, c.id',
-  orders: 'coalesce(a.order_count, 0) desc, c.id',
-  name: 'lower(c.display_name) asc nulls last, c.id',
-  created: 'c.created_at desc, c.id',
+type Sort = CustomerListQuery['sort'];
+type Mode = 'org' | 'branch';
+
+/**
+ * Keyset sorts (PCL-17). Each sort is a tuple compared as a row value, so a page seeks straight into the matching
+ * index instead of skipping OFFSET rows: organization-wide lists walk customer_stats_{last_order,spend,orders}_idx,
+ * name and created walk the customers indexes. `key` is selected with every row so the cursor carries the exact
+ * value (timestamps as text, never through a JS Date). Ties break on the customer id in the same direction.
+ * Branch-scoped lists aggregate customer_branch_stats per customer (customers without orders there sort last).
+ */
+const SORT_KEYS: Record<Sort, { dir: 'desc' | 'asc'; cols: (m: Mode) => string[]; casts: string[] }> = {
+  last_order: { dir: 'desc', cols: (m) => [`coalesce(a.last_order_at, '-infinity'::timestamptz)`, idCol(m)], casts: ['timestamptz', 'uuid'] },
+  spend: { dir: 'desc', cols: (m) => [m === 'org' ? 'a.spend_minor' : 'coalesce(a.spend_minor, 0)', idCol(m)], casts: ['bigint', 'uuid'] },
+  orders: { dir: 'desc', cols: (m) => [m === 'org' ? 'a.order_count' : 'coalesce(a.order_count, 0)', idCol(m)], casts: ['int', 'uuid'] },
+  name: { dir: 'asc', cols: () => ['(c.display_name is null)', `coalesce(lower(c.display_name), '')`, 'c.id'], casts: ['boolean', 'text', 'uuid'] },
+  created: { dir: 'desc', cols: () => ['c.created_at', 'c.id'], casts: ['timestamptz', 'uuid'] },
 };
+function idCol(m: Mode) { return m === 'org' ? 'a.customer_id' : 'c.id'; }
+
+/** Opaque keyset cursor: "k" + base64url(JSON [sort, ...key values]). Plain digits are a legacy OFFSET cursor. */
+function encodeCursor(sort: Sort, key: unknown[]) {
+  return 'k' + Buffer.from(JSON.stringify([sort, ...key])).toString('base64url');
+}
+function decodeCursor(sort: Sort, cursor: string): unknown[] {
+  try {
+    const [s, ...key] = JSON.parse(Buffer.from(cursor.slice(1), 'base64url').toString('utf8')) as [string, ...unknown[]];
+    if (s === sort && key.length === SORT_KEYS[sort].casts.length && key.every((v) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) return key;
+  } catch { /* fall through */ }
+  throw invalid('invalid_cursor', 'Invalid cursor');
+}
 
 /**
  * CRM read model and the customer-owned mutations (profile edits, consent,
@@ -30,8 +53,14 @@ const SORTS: Record<CustomerListQuery['sort'], string> = {
 export class CustomersService {
   constructor(private readonly audit: AuditService) {}
 
-  private filterSql(ctx: TenantContext, q: Partial<CustomerListQuery>) {
+  /**
+   * FROM/WHERE for list, count, export and profile. Organization-wide callers join customer_stats (every customer has
+   * a row; triggers keep it exact); branch-scoped callers aggregate customer_branch_stats for their branches.
+   * `a` exposes order_count, spend_minor, last_order_at, first_order_at, any_orders either way.
+   */
+  private filterSql(ctx: TenantContext, q: Partial<CustomerListQuery>, opts: { countOnly?: boolean } = {}) {
     const scope = branchScope(ctx, q.branchId);
+    const mode: Mode = scope === null ? 'org' : 'branch';
     const qText = q.q?.trim() ? escapeLike(q.q.trim()) : null;
     const digits = qText ? qText.replace(/\D/g, '') : '';
     const params: unknown[] = [
@@ -39,17 +68,18 @@ export class CustomersService {
       q.consent === undefined ? null : q.consent === 'granted', q.lastOrderBefore ?? null, q.lastOrderAfter ?? null,
       q.minOrders ?? null, q.minSpendMinor ?? null, q.includeAnonymised === 'true', scope !== null,
     ];
+    const stats = mode === 'org'
+      // The list walks the stats indexes (inner join, org_id repeated for the index); a bare count joins nothing.
+      ? `${opts.countOnly ? 'left ' : ''}join customer_stats a on a.customer_id = c.id${opts.countOnly ? '' : ' and a.org_id = $1'}`
+      : `left join lateral (
+           select sum(b.order_count)::int as order_count, sum(b.spend_minor)::bigint as spend_minor, max(b.last_order_at) as last_order_at,
+                  min(b.first_order_at) as first_order_at, sum(b.any_orders)::int as any_orders
+             from customer_branch_stats b where b.customer_id = c.id and b.branch_id = any($2)
+         ) a on true`;
     const sql = `
       from customers c
       join organizations org on org.id = c.org_id
-      left join lateral (
-        select count(*) filter (where ${COUNTED})::int as order_count,
-               coalesce(sum(o.total_minor - o.refunded_minor) filter (where ${COUNTED}), 0)::bigint as spend_minor,
-               max(o.placed_at) filter (where ${COUNTED}) as last_order_at,
-               min(o.placed_at) filter (where ${COUNTED}) as first_order_at,
-               count(*)::int as any_orders
-          from orders o where o.customer_id = c.id and ($2::uuid[] is null or o.branch_id = any($2))
-      ) a on true
+      ${stats}
       where c.org_id = $1 and c.merged_into_id is null and ($11 or c.anonymized_at is null)
         and ($3::text is null or c.display_name ilike '%' || $3 || '%' or c.email::text ilike '%' || $3 || '%'
              or ($4::text is not null and c.phone_e164 like '%' || $4 || '%'))
@@ -61,25 +91,45 @@ export class CustomersService {
         and ($10::bigint is null or coalesce(a.spend_minor, 0) >= $10)
         and (not $12 or a.any_orders > 0 or exists (
               select 1 from reservations r where r.customer_id = c.id and r.branch_id = any($2)))`;
-    return { sql, params };
+    return { sql, params, mode };
+  }
+
+  private order(sort: Sort, mode: Mode) {
+    const k = SORT_KEYS[sort];
+    return k.cols(mode).map((c) => `${c} ${k.dir}`).join(', ');
+  }
+
+  /** Key columns of the sort, selected as text/number so a cursor round-trips exactly. */
+  private keySelect(sort: Sort, mode: Mode) {
+    return SORT_KEYS[sort].cols(mode).map((c, i) => `(${c})${SORT_KEYS[sort].casts[i] === 'timestamptz' ? '::text' : ''} as _k${i}`).join(', ');
   }
 
   async list(tx: Tx, ctx: TenantContext, q: CustomerListQuery) {
-    const { sql, params } = this.filterSql(ctx, q);
-    const offset = q.cursor ? Number(q.cursor) : 0;
+    const { sql, params, mode } = this.filterSql(ctx, q);
+    const k = SORT_KEYS[q.sort];
+    // Legacy numeric cursors (issued before keyset paging) keep working as offsets.
+    const offset = q.cursor && /^\d+$/.test(q.cursor) ? Number(q.cursor) : 0;
+    const after = q.cursor && !/^\d+$/.test(q.cursor) ? decodeCursor(q.sort, q.cursor) : null;
+    const seek = after
+      ? ` and (${k.cols(mode).join(', ')}) ${k.dir === 'desc' ? '<' : '>'} (${after.map((_, i) => `$${params.length + 3 + i}::${k.casts[i]}`).join(', ')})`
+      : '';
     const rows = await tx.query(
-      `select c.*, a.order_count, a.spend_minor, a.last_order_at, a.first_order_at ${sql}
-        order by ${SORTS[q.sort]} limit $${params.length + 1} offset $${params.length + 2}`,
-      [...params, q.limit, offset]);
-    const total = await tx.one<{ n: number }>(`select count(*)::int as n ${sql}`, params);
-    return { items: rows.map(mapSummary), nextCursor: rows.length === q.limit ? String(offset + q.limit) : null, total: total.n };
+      `select c.*, a.order_count, a.spend_minor, a.last_order_at, a.first_order_at, ${this.keySelect(q.sort, mode)} ${sql}${seek}
+        order by ${this.order(q.sort, mode)} limit $${params.length + 1} offset $${params.length + 2}`,
+      [...params, q.limit + 1, offset, ...(after ?? [])]);
+    const page = rows.slice(0, q.limit);
+    const last = page[page.length - 1];
+    const nextCursor = rows.length > q.limit ? encodeCursor(q.sort, k.casts.map((_, i) => last[`_k${i}`])) : null;
+    const { sql: countSql, params: countParams } = this.filterSql(ctx, q, { countOnly: true });
+    const total = await tx.one<{ n: number }>(`select count(*)::int as n ${countSql}`, countParams);
+    return { items: page.map(mapSummary), nextCursor, total: total.n };
   }
 
   /** CSV with the minimum PII needed for outreach. Caller must hold customers:export; audited. */
   async exportCsv(tx: Tx, ctx: TenantContext, q: CustomerListQuery): Promise<{ csv: string; rows: number; truncated: boolean }> {
-    const { sql, params } = this.filterSql(ctx, { ...q, includeAnonymised: 'false' });
+    const { sql, params, mode } = this.filterSql(ctx, { ...q, includeAnonymised: 'false' });
     const rows = await tx.query(
-      `select c.*, a.order_count, a.spend_minor, a.last_order_at, a.first_order_at ${sql} order by ${SORTS[q.sort]} limit $${params.length + 1}`,
+      `select c.*, a.order_count, a.spend_minor, a.last_order_at, a.first_order_at ${sql} order by ${this.order(q.sort, mode)} limit $${params.length + 1}`,
       [...params, EXPORT_LIMIT + 1]);
     const truncated = rows.length > EXPORT_LIMIT;
     const items = rows.slice(0, EXPORT_LIMIT).map(mapSummary);

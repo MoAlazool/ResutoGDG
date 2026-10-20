@@ -9,6 +9,25 @@ const ACTIVE = `('placed', 'accepted', 'preparing', 'ready')`;
 const NEW_TICKET_SECONDS = 60;
 
 /**
+ * KDS change marker (polled every 2 s per screen). The open-status list is a literal enum IN list, so it implies the
+ * predicate of orders_open_branch_idx and reads only the branch's open orders (PCL-09). Exported for the plan test.
+ */
+export const KDS_MARKER_SQL = `select coalesce((extract(epoch from greatest(
+            (select max(o.updated_at) from orders o where o.branch_id = $1 and o.updated_at > now() - interval '2 days'),
+            (select max(l.updated_at) from order_lines l join orders o on o.id = l.order_id
+              where o.branch_id = $1 and o.status in ${ACTIVE}))) * 1000000)::bigint, 0)::text as cursor, now() as now`;
+
+/** KDS tickets: open orders of the branch, oldest first, through orders_open_branch_idx (PCL-09). */
+export const KDS_TICKETS_SQL = `select o.id, o.number, o.status, o.fulfillment, o.channel, o.customer_name, o.placed_at, o.accepted_at, o.notes, o.version,
+              t.label as table_label
+         from orders o left join dining_tables t on t.id = o.table_id
+        where o.branch_id = $1 and o.status in ${ACTIVE}
+          and not (o.status = 'ready' and o.fulfillment = 'delivery' and not exists (
+            select 1 from order_lines l where l.order_id = o.id and l.kitchen_status not in ('served', 'cancelled')))
+          and ($2::text is null or exists (select 1 from order_lines l where l.order_id = o.id and l.station = $2))
+        order by o.placed_at, o.id limit 300`;
+
+/**
  * Kitchen display (KDS). Order-level bumps are kernel transitions; line-level
  * `kitchen_status` is owned here. The order state machine forbids
  * ready → preparing, so a *recall* is line-level only: the order stays `ready`
@@ -24,11 +43,7 @@ export class KitchenService {
     if (opts.since !== undefined && !/^\d{1,20}$/.test(opts.since)) throw invalid('invalid_cursor', 'Invalid cursor');
     return this.db.scoped(ctx, async (tx) => {
       if (!(await tx.maybeOne('select 1 from branches where id = $1', [branchId]))) throw notFound('Branch');
-      const marker = await tx.one<{ cursor: string; now: Date }>(
-        `select coalesce((extract(epoch from greatest(
-            (select max(o.updated_at) from orders o where o.branch_id = $1 and o.updated_at > now() - interval '2 days'),
-            (select max(l.updated_at) from order_lines l join orders o on o.id = l.order_id
-              where o.branch_id = $1 and o.status in ${ACTIVE}))) * 1000000)::bigint, 0)::text as cursor, now() as now`, [branchId]);
+      const marker = await tx.one<{ cursor: string; now: Date }>(KDS_MARKER_SQL, [branchId]);
       const stations = (await tx.query<{ station: string }>(
         `select distinct station from products where org_id = $1 and is_active order by station`, [ctx.orgId])).map((s) => s.station);
       if (opts.since && BigInt(opts.since) >= BigInt(marker.cursor)) {
@@ -39,14 +54,7 @@ export class KitchenService {
   }
 
   private async tickets(tx: Tx, branchId: string, station: string | undefined, now: Date): Promise<KitchenTicket[]> {
-    const orders = await tx.query<any>(
-      `select o.id, o.number, o.status, o.fulfillment, o.channel, o.customer_name, o.placed_at, o.accepted_at, o.notes, o.version, t.label as table_label
-         from orders o left join dining_tables t on t.id = o.table_id
-        where o.branch_id = $1 and o.status in ${ACTIVE}
-          and not (o.status = 'ready' and o.fulfillment = 'delivery' and not exists (
-            select 1 from order_lines l where l.order_id = o.id and l.kitchen_status not in ('served', 'cancelled')))
-          and ($2::text is null or exists (select 1 from order_lines l where l.order_id = o.id and l.station = $2))
-        order by o.placed_at, o.id limit 300`, [branchId, station ?? null]);
+    const orders = await tx.query<any>(KDS_TICKETS_SQL, [branchId, station ?? null]);
     if (!orders.length) return [];
     const lines = await tx.query<any>(
       `select l.id, l.order_id, l.name, l.name_ar, l.quantity, l.station, l.kitchen_status, l.notes, l.modifiers, p.prep_minutes
