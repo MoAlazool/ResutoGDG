@@ -100,10 +100,11 @@ describe('stable signed URLs (PCL-14) and batch signing (PS-18)', () => {
     }
   });
 
-  it('picks the smallest derivative wide enough, else the widest, else the original', () => {
+  it('picks the smallest derivative wide enough, else the original', () => {
     const v = [{ w: 1280, h: 1, path: 'x.w1280.webp', bytes: 1 }, { w: 320, h: 1, path: 'x.w320.webp', bytes: 1 }, { w: 640, h: 1, path: 'x.w640.webp', bytes: 1 }];
     expect(pickVariant('x.jpg', v, 600)).toBe('x.w640.webp');
-    expect(pickVariant('x.jpg', v, 2000)).toBe('x.w1280.webp');
+    expect(pickVariant('x.jpg', v, 2000)).toBe('x.jpg'); // the original is wider than every copy
+    expect(pickVariant('y.webp', [{ w: 320, h: 1, path: 'y.w320.webp', bytes: 1 }], 640)).toBe('y.webp'); // a 512 px original
     expect(pickVariant('x.jpg', [], 600)).toBe('x.jpg');
   });
 });

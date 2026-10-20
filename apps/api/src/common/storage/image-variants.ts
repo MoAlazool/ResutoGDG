@@ -80,11 +80,13 @@ export async function deriveImage(bytes: Buffer): Promise<DerivedImage> {
   });
 }
 
-/** Path of the smallest stored copy at least `minWidth` wide (else the widest copy, else the original). */
+/**
+ * Path of the smallest stored copy at least `minWidth` wide, else the original (copies are always narrower than the
+ * original, so when none is wide enough the original is the best available).
+ */
 export function pickVariant(originalPath: string, variants: MediaVariant[] | null | undefined, minWidth: number): string {
   const sorted = [...(variants ?? [])].sort((a, b) => a.w - b.w);
-  if (!sorted.length) return originalPath;
-  return (sorted.find((v) => v.w >= minWidth) ?? sorted[sorted.length - 1]!).path;
+  return sorted.find((v) => v.w >= minWidth)?.path ?? originalPath;
 }
 
 /** Object path of a derivative: next to the original, `<uuid>.w640.webp`. */
