@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AD_CHANNELS, type CampaignReport, type MarketingRecommendation, type SegmentGroup, type SegmentRule } from '@resuto/contracts';
 import { Badge, Card, DataTable, DateTimeInput, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
+import { createAttemptKeys } from '@/lib/attempt-keys';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -172,9 +173,14 @@ function Campaigns() {
     setForm({ ...form, name: '', text: '' });
     await list.reload();
   });
-  // PS-14: launches and sends carry an Idempotency-Key, so a retried click replays instead of acting twice.
-  const act = useAction(async (c: Campaign, action: string, body?: unknown, idempotencyKey?: string) => {
-    const res = await session.call<any>(`/o/${org.id}/marketing/campaigns/${c.id}/${action}`, { method: 'POST', body: body ?? {}, ...(idempotencyKey ? { idempotencyKey } : {}) });
+  // PS-14: launches and sends carry an Idempotency-Key that stays the same while the same attempt is retried (same
+  // campaign, action, mode and status), so a retried click replays instead of acting twice.
+  const attempts = useRef(createAttemptKeys()).current;
+  const act = useAction(async (c: Campaign, action: string, body?: unknown, idempotent = false) => {
+    const scope = `${c.id}:${action}:${(body as { mode?: string } | undefined)?.mode ?? ''}:${c.status}`;
+    const res = await session.call<any>(`/o/${org.id}/marketing/campaigns/${c.id}/${action}`, { method: 'POST', body: body ?? {},
+      ...(idempotent ? { idempotencyKey: attempts.key(scope) } : {}) });
+    if (idempotent) attempts.settled(scope);
     setNote(res?.note ?? (res?.delivery ? t('marketing.camp.sentSummary', res.delivery) : res?.imported !== undefined ? t('marketing.camp.imported', { n: res.imported }) : null));
     await list.reload();
   });
@@ -205,10 +211,10 @@ function Campaigns() {
                 <DateTimeInput type="datetime-local" style={{ width: 'auto', minHeight: 32 }} aria-label={t('marketing.camp.scheduleAt')}
                   value={scheduleFor[c.id] ?? ''} onChange={(e) => setScheduleFor({ ...scheduleFor, [c.id]: e.target.value })} />
                 <button className="btn btn-sm" disabled={act.pending || !scheduleFor[c.id]} onClick={() => act.run(c, 'schedule', { scheduledAt: new Date(scheduleFor[c.id]!).toISOString() })}>{t('marketing.camp.schedule')}</button>
-                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send', undefined, crypto.randomUUID()); }}>{t('marketing.camp.sendNow')}</button></>}
+                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send', undefined, true); }}>{t('marketing.camp.sendNow')}</button></>}
               {c.status === 'approved' && isAd(c) && can('marketing:write') && <>
-                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'live' }, crypto.randomUUID())}>{t('marketing.camp.launch')}</button>
-                <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'sandbox' }, crypto.randomUUID())}>{t('marketing.camp.launchSandbox')}</button></>}
+                <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'live' }, true)}>{t('marketing.camp.launch')}</button>
+                <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'launch', { mode: 'sandbox' }, true)}>{t('marketing.camp.launchSandbox')}</button></>}
               {c.status === 'launching' && c.launch?.error && can('marketing:approve') && <button className="btn btn-sm btn-ghost" disabled={act.pending}
                 onClick={async () => { if (await confirm({ title: t('marketing.camp.launchResetConfirm', { tag: `[rs:${c.launch!.token}]` }), confirmLabel: t('marketing.camp.launchReset') })) void act.run(c, 'launch/reset', { confirmNotCreated: true }); }}>{t('marketing.camp.launchReset')}</button>}
               {c.status === 'sent' && isAd(c) && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending}
