@@ -18,14 +18,13 @@ measurements, redeploy staging and re-verify.
 | Grounded audit (227 items; `docs/BACKLOG.md`, `docs/FEATURE_MATRIX.md`) | done |
 | P0 foundations: Western digits 0-9, verified DB TLS, Admin Auth demo provisioning, data layer, loading states | done |
 | Wave 1: security hardening, payments authenticity + activation, legacy staff shell | done, on staging (API) at `5274252` |
-| Wave 2: public pages + Smash storefront, guest ordering/reservations, performance, Meta growth | running |
+| Wave 2: public pages + Smash storefront, guest ordering/reservations, performance, Meta growth | done, on staging (API) at `85c176e` |
 | Wave 3+: operations UI (KDS, floor, host, setup), module features (loyalty, notifications, hours/zones…), Studio AI + MCP, other integrations, demo data + QA | pending |
 | P2: remaining integrations, Studio AI, MCP interop, advanced performance, research | pending |
 | Staging redeploy + full regression on the final commit | pending |
 
 ## Next executable task
-Integrate wave 2 (merge `ws/ws4a-public`, `ws/ws4b-guest`, `ws/ws6-perf`, `ws/ws7a-meta`; run the full suite sequentially;
-push; redeploy Render; run `scripts/staging/*`), then launch wave 3 from `docs/BACKLOG.md` (workstreams ws5, ws8, ws9,
+Launch wave 3 from `docs/BACKLOG.md` (workstreams ws5, ws8, ws9,
 ws7b, ws10).
 
 ## Owner prerequisites (batched; nothing here blocks internal work)

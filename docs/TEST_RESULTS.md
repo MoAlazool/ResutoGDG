@@ -88,3 +88,22 @@ before anything reached staging.
 | `node scripts/staging/mcp-check.mjs` | **7 / 7** |
 | Supabase security advisor | no errors; warnings: 3 extensions kept in `public` (documented), leaked-password protection off (owner setting) |
 | Web on Vercel | **not redeployed**: the Vercel connector lost access to the project's team; the web still serves the previous build. Owner action listed in `RESUME.md`. |
+
+## Continuation wave 2 — integrated (2026-10-20, `85c176e`)
+
+Public pages + Smash & Co storefront, guest ordering/reservations/ratings, measured performance work and Meta growth
+integrations, merged with two semantic conflict resolutions (media signing moved outside transactions on the site,
+storefront and guest menu; the WhatsApp sender's leased/fair architecture now also carries Messenger/Instagram).
+
+| Suite | Result |
+|---|---|
+| API integration (67 files) | **610 / 610** (one PCL-11 side-effects guard failure found after merging, fixed in `85c176e`) |
+| Database security / read models | **40 / 40** |
+| Integrations adapters + acceptance runner | **211 / 211** |
+| Web unit | **195 / 195** |
+| API typecheck, web typecheck, web production build | pass |
+
+Staging (Render API/AI/MCP at `85c176e`): 16 new migrations applied; `smoke.mjs` **39 / 39**; `mcp-check.mjs` **7 / 7**.
+The staging demo tenant predates the storefront seed, so the Smash & Co storefront exists only after a fresh demo load.
+The web app on Vercel is still not redeployed (connector access, see `RESUME.md`).
+Performance before/after numbers: `docs/PERFORMANCE.md` (local, not production capacity).
