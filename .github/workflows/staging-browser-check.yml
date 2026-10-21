@@ -1,0 +1,49 @@
+name: Staging browser check (manual)
+
+# DF-12: runs scripts/staging/browser-check.mjs against the deployed staging web app from a GitHub-hosted runner, which
+# does not go through the development sandbox's egress proxy. Compare its network.json (hop per 5xx/failed request,
+# x-vercel-id values) with a run from the sandbox to tell proxy failures from Vercel edge failures.
+# Manual only; reads staging, never deploys or changes it.
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Comma-separated page ids to re-check (empty = all pages)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  browser-check:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      WEB_URL: ${{ vars.STAGING_WEB_URL }}
+      API_URL: ${{ vars.STAGING_API_URL }}
+      SUPABASE_URL: ${{ vars.STAGING_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      VERCEL_BYPASS: ${{ secrets.STAGING_VERCEL_BYPASS }}
+      DEMO_OWNER_PASSWORD: ${{ secrets.STAGING_DEMO_OWNER_PASSWORD }}
+      DEMO_STAFF_PASSWORD: ${{ secrets.STAGING_DEMO_STAFF_PASSWORD }}
+      DEMO_ADMIN_PASSWORD: ${{ secrets.STAGING_DEMO_ADMIN_PASSWORD }}
+      OUT_DIR: staging-browser-check
+      ONLY: ${{ inputs.only }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Browser check (records server/via/x-vercel-* headers for every 5xx and failed request)
+        run: node scripts/staging/browser-check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-browser-check
+          path: staging-browser-check/
+          retention-days: 14
