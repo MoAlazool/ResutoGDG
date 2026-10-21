@@ -9,5 +9,6 @@ import './domains';
 import './gemini';
 import './maps';
 import './tracking';
+import './pos';
 
 export { ACCEPTANCE_CHECKS } from './index';

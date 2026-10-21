@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { IntegrationConnectionsService } from './connections.service';
 import { IntegrationsController } from './integrations.controller';
 import { IntegrationOAuthService } from './oauth.service';
+import { PosWebhooksService } from './pos-webhooks.service';
 import { ProviderHttp } from './provider-http';
 import { IntegrationSyncService } from './sync.service';
 
@@ -13,7 +14,7 @@ import { IntegrationSyncService } from './sync.service';
  */
 @Module({
   controllers: [IntegrationsController],
-  providers: [ProviderHttp, IntegrationConnectionsService, IntegrationSyncService, IntegrationOAuthService],
+  providers: [ProviderHttp, IntegrationConnectionsService, IntegrationSyncService, IntegrationOAuthService, PosWebhooksService],
   exports: [ProviderHttp, IntegrationConnectionsService],
 })
 export class IntegrationsModule {}
