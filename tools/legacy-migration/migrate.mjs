@@ -12,10 +12,16 @@
 //   --plan <planId>        subscription plan (default: document plan or "free")
 //   --status <s>           trialing | active (default: trialing for paid plans)
 //   --owner-email <email>  existing account to make the owner
+//   --media-dir <dir>      exported legacy media store (files named by media key, e.g. data/media of a SQLite install)
+//   --assets-dir <dir>     the legacy public/ folder (assets/… photos, incl. the Smash & Co storefront photos)
+//   --storage-dir <dir>    local tenant storage to copy photos into (the API's STORAGE_LOCAL_DIR); without it photos
+//                          are uploaded to Supabase Storage when SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set
+//   --no-storefront-photos do not carry the legacy storefront photos over to burger-branch items
 //   --dry-run              run everything inside a transaction, report, then roll back
 //   --report <file>        also write the JSON report to a file
 //   --confirm-remote       allow a non-local DATABASE_URL
 //
+// Every legacy photo must be copied and every venue QR token mapped, or the reconciliation fails (CR-13).
 // Exit codes: 0 ok · 1 reconciliation mismatch (nothing committed) · 2 usage · 3 error
 import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -29,7 +35,7 @@ export { loadPlan, reconcile, rollbackTenant } from './lib/load.mjs';
 const isLocal = (url) => ['127.0.0.1', 'localhost', '::1'].includes(new URL(url).hostname);
 
 /** Library entry point used by scripts/db/seed.mjs and the tests. */
-export async function migrateLegacy({ url, document, options = {}, dryRun = false, log = () => {} }) {
+export async function migrateLegacy({ url, document, options = {}, dryRun = false, log = () => {}, media = {} }) {
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   try {
@@ -40,7 +46,7 @@ export async function migrateLegacy({ url, document, options = {}, dryRun = fals
       ownerUserId = u.id;
     }
     const plan = buildPlan(document, { ...options, ownerUserId });
-    return await loadPlan(client, plan, { dryRun, ownerUserId, ownerEmail: options.ownerEmail ?? null, log });
+    return await loadPlan(client, plan, { dryRun, ownerUserId, ownerEmail: options.ownerEmail ?? null, log, media });
   } finally {
     await client.end();
   }
@@ -60,7 +66,7 @@ function parseArgs(argv) {
   const out = { flags: new Set() };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (['--dry-run', '--force', '--confirm-remote', '--help'].includes(a)) out.flags.add(a);
+    if (['--dry-run', '--force', '--confirm-remote', '--help', '--no-storefront-photos'].includes(a)) out.flags.add(a);
     else if (a.startsWith('--')) { out[a.slice(2)] = argv[++i]; if (out[a.slice(2)] === undefined) throw new Error(`${a} needs a value`); }
     else throw new Error(`unexpected argument ${a}`);
   }
@@ -111,7 +117,13 @@ async function main() {
     const document = JSON.parse(readFileSync(args.input, 'utf8'));
     const report = await migrateLegacy({
       url, document, dryRun: args.flags.has('--dry-run'), log: (m) => console.error(m),
-      options: { restaurantId: args['restaurant-id'], slug: args.slug, planId: args.plan, subscriptionStatus: args.status, ownerEmail: args['owner-email'] },
+      options: { restaurantId: args['restaurant-id'], slug: args.slug, planId: args.plan, subscriptionStatus: args.status, ownerEmail: args['owner-email'],
+        storefrontPhotos: !args.flags.has('--no-storefront-photos') },
+      media: {
+        mediaDir: args['media-dir'] ?? null, assetsDir: args['assets-dir'] ?? null, storageDir: args['storage-dir'] ?? null,
+        supabase: !args['storage-dir'] && process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+          ? { url: process.env.SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY } : null,
+      },
     });
     if (args.report) writeFileSync(args.report, `${JSON.stringify(report, null, 2)}\n`);
     console.log(formatReport(report));

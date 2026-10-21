@@ -20,7 +20,7 @@ from datetime import timezone
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from . import __version__
+from . import __version__, error_tracking
 from .core import customers as cust
 from .core import forecast as fc
 from .core import recommend as rec
@@ -101,16 +101,52 @@ class RequestId:
         async def send_with_id(message):
             if message["type"] == "http.response.start":
                 status["code"] = message["status"]
-                message = {**message, "headers": [*message.get("headers", []), (b"x-request-id", request_id.encode())]}
+                message = {**message, "headers": [*message.get("headers", []), (b"x-request-id", request_id.encode()),
+                                                   (b"x-build", _BUILD_HEADER)]}
             await send(message)
 
         try:
             await self.app(scope, receive, send_with_id)
+        except Exception as error:
+            # Unexpected error (the response is a 500): report it with the route PATTERN only (CR-14, optional).
+            route = getattr(scope.get("route"), "path", None) or "unmatched"
+            error_tracking.reporter().capture(error, route=route, request_id=request_id)
+            raise
         finally:
             path = scope.get("path", "")
             if not (path == "/v1/health" and status["code"] < 400):
                 _access.info(json.dumps({"requestId": request_id, "method": scope.get("method"), "path": path,
                                          "status": status["code"], "ms": round((time.perf_counter() - started) * 1000, 1)}))
+
+
+_SHA = re.compile(r"^[0-9a-fA-F]{7,40}$")
+_STARTED_AT = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def build_info(env: dict | None = None) -> dict:
+    """Deployed commit and build time (audit CR-07). Render sets RENDER_GIT_COMMIT; BUILD_TIME, when the build sets it,
+    wins over the modification time of this file (the image build writes it)."""
+    env = os.environ if env is None else env
+    raw = next((v.strip() for v in (env.get("RENDER_GIT_COMMIT"), env.get("GIT_COMMIT_SHA"), env.get("SOURCE_VERSION"))
+                if v and _SHA.match(v.strip())), None)
+    commit = raw.lower() if raw else None
+    built_at = env.get("BUILD_TIME") or None
+    if not built_at:
+        try:
+            built_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(os.path.getmtime(__file__)))
+        except OSError:
+            built_at = None
+    branch = (env.get("RENDER_GIT_BRANCH") or env.get("GIT_BRANCH") or "").strip()
+    return {"commit": commit, "branch": branch if re.match(r"^[\w./-]{1,100}$", branch) else None,
+            "builtAt": built_at, "startedAt": _STARTED_AT}
+
+
+def build_header(info: dict | None = None) -> bytes:
+    info = info or build_info()
+    return f"ai@{(info['commit'] or 'local')[:12]}".encode()
+
+
+_BUILD_HEADER = build_header()
 
 
 def create_app(token: str | None = None, allow_no_auth: bool | None = None) -> FastAPI:
@@ -136,7 +172,7 @@ def create_app(token: str | None = None, allow_no_auth: bool | None = None) -> F
 
     @app.get("/v1/health")
     def health():
-        return {"status": "ok", "version": __version__, "auth": expected is not None,
+        return {"status": "ok", "version": __version__, "auth": expected is not None, "build": build_info(),
                 "models": {"forecast": list(fc.MODEL_ORDER), "segment": "rfm_quintiles", "churn": ["logistic_regression", "heuristic"],
                            "recommend": "association_rules+popularity", "routing": "nearest_neighbour+2opt"}}
 

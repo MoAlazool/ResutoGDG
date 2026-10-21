@@ -34,9 +34,11 @@ start with `AUTH_DEV_MODE` in production.
    - `resuto_member` (API acting for a user): `org_id = app.org_id` **and** active
      membership of `auth.uid()` **and** branch scope.
    - `resuto_tenant` (guest, webhook, job, MCP): `org_id = app.org_id`.
-   - `authenticated` (direct Supabase client, e.g. Realtime): SELECT only on
-     orders, order_lines, dining_tables, service_requests, reservations,
-     delivery_jobs, conversations, messages, branches, own memberships/profile.
+   - `authenticated` (a direct Supabase client: Data API or Realtime): **no privilege on any
+     table** (migration `20261020020001_revoke_direct_client_reads.sql`, PS-01/PCL-02). The
+     earlier org-wide `realtime_member_read` policies ignored role and branch scope and were
+     dropped; staff screens read through the API and poll. Do not enable Realtime or add tables
+     to its publication until a branch- and role-aware design exists.
      All INSERT/UPDATE/DELETE privileges are revoked (`app.lockdown_public_grants()`).
    - `anon`: no privileges.
    Verified by `supabase/tests/rls.test.mjs` (forged org id, cross-tenant insert,

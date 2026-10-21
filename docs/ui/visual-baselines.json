@@ -1,0 +1,116 @@
+{
+  "_about": "CR-11 visual parity record. Each Playwright baseline (tests/e2e/__visual__/<env>/<surface>.png, tests/e2e/visual.spec.ts) is paired with the legacy capture it was compared against side by side (docs/ui/baseline/*.webp, the original Resuto app). Status \"approved\" may only be set by the owner after looking at the pair; \"candidate\" means the side-by-side was produced and reviewed by the implementing workstream but not yet approved. Composites: scratchpad evidence ws10a-data-qa/cr11-legacy-vs-new/.",
+  "environments": {
+    "local": {
+      "status": "recorded",
+      "recordedAt": "2026-10-21",
+      "by": "ws10a-data-qa",
+      "browser": "Chromium 1194 (Playwright 1.56.1) in the development container",
+      "determinism": "two consecutive runs against the same baselines passed within 1 % (maxDiffPixelRatio 0.01)"
+    },
+    "docker": {
+      "status": "not yet recorded",
+      "note": "Recorded by the CI job \"visual\" in mcr.microsoft.com/playwright:v1.56.1-noble: missing baselines are written and uploaded as the visual-baselines artifact; commit them after approval. Existing ones are enforced."
+    }
+  },
+  "surfaces": [
+    {
+      "surface": "landing-en-desktop",
+      "legacy": "docs/ui/baseline/landing-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Hero, nav, CTAs and the service-view demo match the legacy layout and type; the demo floor shows more tables and its feed timestamps are masked."
+    },
+    {
+      "surface": "landing-ar-mobile",
+      "legacy": "docs/ui/baseline/landing-ar-mobile.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "RTL hero and navigation follow the legacy Arabic mobile capture."
+    },
+    {
+      "surface": "pricing-en-desktop",
+      "legacy": "docs/ui/baseline/pricing-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Restored legacy pricing design (VP-09)."
+    },
+    {
+      "surface": "login-en-desktop",
+      "legacy": "docs/ui/baseline/manager-login-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "New staff sign-in replaces the legacy single-password manager login; same brand and palette, different form (accounts per person)."
+    },
+    {
+      "surface": "restaurant-en-desktop",
+      "legacy": "docs/ui/baseline/restaurant-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Restaurant site hero and story restored (VP-06); photos and copy come from the published Studio revision."
+    },
+    {
+      "surface": "restaurant-ar-mobile",
+      "legacy": "docs/ui/baseline/restaurant-ar-mobile.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Arabic RTL restaurant site at phone width."
+    },
+    {
+      "surface": "order-en-mobile",
+      "legacy": "docs/ui/baseline/order-mobile.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Web ordering at phone width; legacy order page layout with the 2.0 cart bar."
+    },
+    {
+      "surface": "reserve-en-mobile",
+      "legacy": "docs/ui/baseline/reserve-mobile.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Three-step booking (VP-08) at phone width."
+    },
+    {
+      "surface": "table-menu-en-mobile",
+      "legacy": "docs/ui/baseline/table-qr-mobile.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "QR table menu: hero, assistant card, search, categories and the bottom bill/cart bar match legacy; the 2.0 header shows the table and \"Call waiter\"."
+    },
+    {
+      "surface": "staff-overview-en",
+      "legacy": "docs/ui/baseline/manager-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Staff shell and overview; legacy manager view had one page, 2.0 splits it into sections with the same chrome."
+    },
+    {
+      "surface": "staff-floor-en",
+      "legacy": "docs/ui/baseline/manager-floor-editor-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Floor overview (live) beside the legacy floor editor capture; the editor itself is the Floor Studio tab."
+    },
+    {
+      "surface": "staff-orders-en",
+      "legacy": "docs/ui/baseline/manager-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Orders board; no direct legacy counterpart (legacy showed orders inside the manager view)."
+    },
+    {
+      "surface": "staff-settings-en",
+      "legacy": "docs/ui/baseline/manager-setup-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Settings beside the legacy setup page."
+    },
+    {
+      "surface": "kds-en",
+      "legacy": "docs/ui/baseline/kitchen-desktop.webp",
+      "status": "candidate",
+      "reviewedBy": "ws10a-data-qa",
+      "notes": "Kitchen display lanes and service requests match; 2.0 opens full screen without the legacy sidebar (an intentional change from ws5)."
+    }
+  ]
+}

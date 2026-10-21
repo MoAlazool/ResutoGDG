@@ -23,14 +23,67 @@ All services deploy branch `claude/relaxed-mayer-omkl3f`.
 | `https://resuto-2-staging-ai.onrender.com/v1/health` | Public health; every model route needs `AI_SERVICE_TOKEN` (called only by the API) |
 | `https://resuto-2-staging-mcp.onrender.com/mcp` | Needs an `rmcp_` client key (created by a restaurant owner, scoped, revocable) |
 
-## Free-plan behaviour (accepted for staging)
+## Free-plan behaviour (accepted for staging) and the always-on decision
 
 - Render free services **sleep after 15 minutes without traffic**; the first request after that takes
-  about a minute. The web app shows its loading state meanwhile.
+  about 20–60 seconds (a cold `/v1/health` measured 22.9 s, the AI service 23.7 s). The web app shows its
+  loading state meanwhile.
 - Render's free plan has no background workers, so the outbox/job loop runs **inside the API process**
-  (`RUN_WORKER_IN_PROCESS=true`). Events and scheduled jobs run while the API is awake. A paid plan
-  would run `node dist/worker.js` as a separate background worker (no code change).
+  (`RUN_WORKER_IN_PROCESS=true`). Events and scheduled jobs run only while the API is awake: reservation-hold
+  expiry, checkout expiry, 30-second delivery offers and outbox notifications stall while it sleeps, and
+  provider webhooks reach a sleeping API (providers retry). A paid plan would run `node dist/worker.js` as a
+  separate background worker (no code change).
 - Supabase free projects pause after a week without activity (restore from the dashboard).
+
+**Always-on is an owner cost decision (CR-07).** For provider acceptance windows the API (and its in-process
+worker) must stay awake. The supported options are a paid Render instance for the API (and a background worker),
+or the owner scheduling traffic for the window. This repository deliberately ships **no keep-alive pinger**:
+working around the free plan's sleep would bypass Render's free-plan terms. Until the owner decides, expect the
+cold starts above and say so in QA results.
+
+## Build identity on every service (CR-07)
+
+Each QA result must name the code it tested:
+
+| Service | Where | What |
+|---|---|---|
+| API | `GET /v1/health` → `build { commit, branch, builtAt, startedAt }`; `X-Build: api@<sha12>` on every response | Render's `RENDER_GIT_COMMIT` / `RENDER_GIT_BRANCH` |
+| AI | `GET /v1/health` → `build`; `X-Build: ai@<sha12>` | same |
+| MCP | `GET /health` → `build`; `/health?deep=1` also reports the API's `X-Build`; `X-Build: mcp@<sha12>` | same |
+| Web | `GET /api/version` → `{ commit, branch, builtAt }` (rendered at build time); `X-Build: web@<sha12>` | Vercel's `VERCEL_GIT_COMMIT_SHA` |
+
+`builtAt` is `BUILD_TIME` when the build sets it, otherwise the build time of the compiled code. A service that
+reports `commit: null` / `X-Build: …@local` was not built by the platform. `node scripts/staging/smoke.mjs` prints
+every service's build and fails with `EXPECT_COMMIT=<sha>` when one of them runs another commit;
+`SMOKE_REPORT=<file>` writes the results with the builds as JSON. Record that block in every QA row of
+`docs/TEST_RESULTS.md`.
+
+## Observability without a paid service (CR-14)
+
+- **Access log**: one JSON object per response on stdout in staging and production (`LOG_FORMAT=json` is the
+  default there): `ts, level, type: "access", service, build, requestId, method, route` (the route *pattern*,
+  never the raw path, which can hold guest or payment tokens), `status, ms, orgId, actor, ip`. Render's log
+  stream shows it; any log drain can parse it. The request id is the validated `X-Request-Id` (PS-15).
+- **Error tracking (optional)**: set `ERROR_TRACKING_DSN` to a Sentry-compatible DSN (Sentry's free tier, or a
+  self-hosted GlitchTip) on each service that should report: the API (and worker), the AI service, the MCP server
+  and the web app (Vercel, server-only variable; server render/route errors through `instrumentation.ts`,
+  `onRequestError`). Unset = off. Unexpected 500s and crashes are sent in the Sentry envelope format with no
+  new dependency, carrying only the error type, a scrubbed message and stack, the route pattern, the request id,
+  the commit and the environment — never bodies, headers, query strings, user ids, emails, phone numbers or
+  tokens (`apps/api/src/common/observability/error-tracking.ts`). A process crash (API or worker) always writes
+  one `{"level":"fatal","msg":"process crash",…}` JSON line on stderr (kept by the log stream even without a DSN),
+  waits up to 2 s for the error tracker, then exits 1 as Node would.
+- **Operational detail**: `GET /v1/health/details` returns `status: ok | degraded` with reasons, the outbox
+  backlog and the age of the oldest unpublished event, running/failed/dead event handlers, the last run and 24-hour
+  failures of every scheduled job, and webhook receipts and failures per provider in the last 24 hours (counts only).
+  It answers 404 unless called with `Authorization: Bearer <HEALTH_DETAILS_TOKEN>` (a secret of 24+ characters
+  set in Render) or by a platform admin.
+- **Uptime check the owner can enable** (free tiers of UptimeRobot, Better Stack or Cronitor): an HTTP monitor
+  every 5 minutes on `https://resuto-2-staging-api.onrender.com/v1/health/details` with the header
+  `Authorization: Bearer <HEALTH_DETAILS_TOKEN>`, alerting when the status code is not 200 **or** the body does not
+  contain `"status":"ok"`. On the free Render plan a monitor this frequent keeps the API awake, which is the
+  always-on question above: enable it only once the owner has accepted that (or point it at a paid instance).
+  A monitor on `/v1/health` (no token) checks reachability only.
 
 ## Configuration (no secret values here)
 
@@ -40,7 +93,8 @@ All services deploy branch `claude/relaxed-mayer-omkl3f`.
 |---|---|
 | `NODE_ENV` | `staging` (refuses `AUTH_DEV_MODE`, requires `SUPABASE_URL` and `CREDENTIALS_KEYS`) |
 | `AUTH_DEV_MODE` | `false` |
-| `DATABASE_URL` | **secret, set by the owner in Render**: Supabase *session pooler* URI (port 5432) with `?sslmode=no-verify`. The API holds no session state (per-transaction settings, scheduled jobs claimed through the `job_leases` table), so the transaction pooler (port 6543) also works. |
+| `DATABASE_URL` | **secret, set by the owner in Render**: Supabase *session pooler* URI (port 5432). The API holds no session state (per-transaction settings, transaction-scoped advisory locks only, scheduled jobs claimed through the `job_leases` table), so the transaction pooler (port 6543) also works. |
+| `DATABASE_SSL_CA` | **required in staging and production**: the PEM of Supabase's CA (`scripts/db/certs/supabase-prod-ca-2021.crt`), so the API verifies the pooler's certificate and host name. The API refuses to start with an unverified connection (`sslmode=no-verify` or no CA); any `sslmode` in the URL is ignored once the CA is set. |
 | `SUPABASE_URL` | `https://skvnznyfxpxfuzvuipju.supabase.co` (tokens verified with the project JWKS, issuer `<url>/auth/v1`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **secret, set by the owner in Render** (Storage uploads and signed URLs) |
 | `SUPABASE_PUBLISHABLE_KEY` | publishable key (demo loader sign-in only) |
@@ -52,7 +106,10 @@ All services deploy branch `claude/relaxed-mayer-omkl3f`.
 | `PAYMENT_MODE` | `sandbox` (simulated provider only) |
 | `APP_ORIGIN`, `API_ORIGIN`, `CORS_ORIGINS` | the staging web URLs and the API URL |
 | `DATABASE_POOL_MAX` | `6` (free session pooler) |
-| `DEMO_SEED_ON_BOOT`, `DEMO_TARGET`, `DEMO_*_PASSWORD` | demo data on boot (see below); passwords are secrets |
+| `DEMO_SEED_ON_BOOT`, `DEMO_TARGET`, `DEMO_*_PASSWORD` | demo data on boot (see below); passwords are secrets. The staging database is shared: the loader must run with `--demo-tenant-only` (it refuses otherwise) and only creates or updates the demo tenant |
+| `LOG_FORMAT` | `json` (default in staging) |
+| `ERROR_TRACKING_DSN` | optional Sentry-compatible DSN; unset = error tracking off. The same variable turns it on for the AI service, the MCP server and the web app (Vercel, server-only) |
+| `HEALTH_DETAILS_TOKEN` | optional secret (24+ characters) for the uptime monitor on `/v1/health/details` |
 
 Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, then the optional demo loader).
 
@@ -81,8 +138,8 @@ values reach the browser, and none of them is a secret. Build: `apps/web/vercel.
 
 ## Notes and limits
 
-- `sslmode=no-verify` encrypts the database connection but does not verify the pooler certificate
-  (Supabase's CA is not in Node's default store). Production should pin Supabase's CA.
+- Database TLS is verified (`DATABASE_SSL_CA`, `apps/api/src/common/db/pg-tls.ts`). The earlier staging setup used
+  `sslmode=no-verify`; that is refused now, so the CA must be set before the next deploy.
 - Render did not auto-deploy pushes to this branch during setup; deploys were triggered from the
   dashboard/API. Check the GitHub connection before relying on auto-deploy.
 - Supabase security advisors (19 Oct 2026): no errors; warnings for 11 `app.*` functions without a fixed

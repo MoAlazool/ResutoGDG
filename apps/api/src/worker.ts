@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { installOutboundRequestId } from './common/http/request-context';
+import { installCrashReporting } from './common/observability/error-tracking';
 import { runWorkerLoop } from './worker-loop';
 
 /**
@@ -15,6 +16,7 @@ async function main() {
   // Handler and job runs carry a request id (the HTTP request that caused the event, or evt:/job: ids); provider and
   // AI calls made while they run send it as X-Request-Id.
   installOutboundRequestId();
+  installCrashReporting();   // a crash: one JSON line on stderr, error tracking (bounded wait), exit 1
   const app = await NestFactory.createApplicationContext(AppModule);
   app.enableShutdownHooks();
   let stopping = false;

@@ -9,6 +9,13 @@
 //
 // Optional: VERCEL_BYPASS (Protection Bypass for Automation secret) to check the web app behind
 // Vercel Authentication. Exits non-zero when any check fails. Never prints secrets.
+//
+// Build identity (audit CR-07): the deployed commit and build time of the API, AI, MCP and web app are read from
+// their health/version endpoints and X-Build headers and printed with the results, so every QA row can name the code
+// it tested. EXPECT_COMMIT=<sha> fails the run when a service reports another commit. SMOKE_REPORT=<file> also writes
+// { at, builds, results } as JSON.
+import { writeFileSync } from 'node:fs';
+
 const env = process.env;
 for (const k of ['API_URL', 'SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'DEMO_OWNER_PASSWORD', 'DEMO_STAFF_PASSWORD', 'DEMO_ADMIN_PASSWORD']) {
   if (!env[k]) { console.error(`missing ${k}`); process.exit(2); }
@@ -32,17 +39,27 @@ async function signIn(email, password) {
 }
 const SECRET_PATTERNS = [/sb_secret_/i, /service_role/i, /SUPABASE_SERVICE_ROLE_KEY/, /CREDENTIALS_KEYS/, /encrypted_password/, /postgres(ql)?:\/\//i, /"qrToken"|qr_token/];
 const leaks = (text) => SECRET_PATTERNS.filter((p) => p.test(text)).map(String);
+const builds = {};
+const recordBuild = (service, r) => {
+  const b = r?.body?.build ?? {};
+  builds[service] = { commit: b.commit ?? null, builtAt: b.builtAt ?? null, startedAt: b.startedAt ?? null, header: r?.headers?.get?.('x-build') ?? null, http: r?.status ?? null };
+};
 
 // --- 1. health ------------------------------------------------------------------------------------
 const health = await api('GET', '/health');
 check('API health (database reachable)', health.status === 200 && health.body?.status === 'ok', `db latency ${health.body?.db?.latencyMs ?? '?'} ms`);
+recordBuild('api', health);
+check('API names its deployed commit (/v1/health build + X-Build)', !!health.body?.build?.commit && /^api@[0-9a-f]{12}$/.test(health.headers.get('x-build') ?? ''),
+  `${health.body?.build?.commit ?? 'no commit'} built ${health.body?.build?.builtAt ?? '?'}`);
 if (env.AI_URL) {
   const ai = await req('GET', `${env.AI_URL.replace(/\/$/, '')}/v1/health`);
   check('AI service health (auth required)', ai.status === 200 && ai.body?.auth === true);
+  recordBuild('ai', ai);
 }
 if (env.MCP_URL) {
   const m = await req('GET', `${env.MCP_URL.replace(/\/$/, '')}/health`);
   check('MCP server health', m.status === 200);
+  recordBuild('mcp', m);
   const noKey = await req('POST', `${env.MCP_URL.replace(/\/$/, '')}/mcp`, { headers: { accept: 'application/json, text/event-stream' }, body: { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '0' } } } });
   check('MCP server refuses a request without a client key', noKey.status === 401, `HTTP ${noKey.status}`);
 }
@@ -147,12 +164,26 @@ if (env.WEB_URL) {
   if (env.VERCEL_BYPASS) {
     const ok = await req('GET', `${web}/`, { headers: { 'x-vercel-protection-bypass': env.VERCEL_BYPASS } });
     check('Web app serves the landing page through the automation bypass', ok.status === 200 && /Resuto/.test(ok.text));
+    const v = await req('GET', `${web}/api/version`, { headers: { 'x-vercel-protection-bypass': env.VERCEL_BYPASS } });
+    recordBuild('web', { status: v.status, headers: v.headers, body: { build: v.body } });
+    check('Web app names its deployed commit (/api/version)', v.status === 200 && !!v.body?.commit, `${v.body?.commit ?? 'no commit'} built ${v.body?.builtAt ?? '?'}`);
   }
 }
 
 summary();
 function summary() {
+  console.log('\nDeployed builds:');
+  for (const [service, b] of Object.entries(builds)) {
+    console.log(`  ${service.padEnd(4)} commit ${b.commit ?? 'unknown'}  built ${b.builtAt ?? 'unknown'}  started ${b.startedAt ?? 'unknown'}  X-Build ${b.header ?? '-'}`);
+  }
+  if (env.EXPECT_COMMIT) {
+    const want = env.EXPECT_COMMIT.trim().toLowerCase();
+    for (const [service, b] of Object.entries(builds)) {
+      check(`${service} runs the expected commit ${want.slice(0, 12)}`, !!b.commit && (b.commit.startsWith(want) || want.startsWith(b.commit)), b.commit ?? 'unknown');
+    }
+  }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+  if (env.SMOKE_REPORT) writeFileSync(env.SMOKE_REPORT, `${JSON.stringify({ at: new Date().toISOString(), builds, results }, null, 2)}\n`);
   process.exit(failed.length ? 1 : 0);
 }

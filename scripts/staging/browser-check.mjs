@@ -7,9 +7,17 @@
 // Env: WEB_URL, API_URL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, VERCEL_BYPASS (automation bypass
 // secret for Vercel Authentication), DEMO_OWNER_PASSWORD, DEMO_STAFF_PASSWORD, DEMO_ADMIN_PASSWORD,
 // OUT_DIR, optional WA_TOKEN (hosted WhatsApp ordering page token). Never prints secrets.
+//
+// DF-12: every response with status >= 500 and every failed request (no response) is recorded with the headers
+// that tell which hop produced it (server, via, x-vercel-id, x-vercel-cache, x-vercel-error, age, content-type,
+// x-build, x-request-id; scripts/staging/lib/edge-evidence.mjs), per page load in results.json and summarized in
+// network.json together with whether the run went through an egress proxy. Run it from this sandbox (proxied) and
+// from a GitHub Actions runner (.github/workflows/staging-browser-check.yml, not proxied) to separate the proxy from
+// the Vercel edge; the x-vercel-id values can then be looked up in the Vercel logs.
 import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { failureEvidence, responseEvidence, summarize } from './lib/edge-evidence.mjs';
 
 const env = process.env;
 const req = createRequire(path.resolve('package.json'));
@@ -73,6 +81,7 @@ const ACCOUNTS = {
 
 const browser = await chromium.launch();
 const results = [];
+const network = [];   // DF-12 evidence across all page loads
 const storage = {};   // per role and device: signed-in browser storage state (real login, done once)
 async function context(locale, mobile, who) {
   const opts = mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } };
@@ -95,12 +104,16 @@ async function context(locale, mobile, who) {
 }
 async function shoot([id, group, url, who, opts = {}], locale, device) {
   const { ctx, p } = await context(locale, device === 'mobile', who);
-  const errors = [], failures = [];
+  const errors = [], failures = [], evidence = [];
   p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 240)); });
   p.on('pageerror', (e) => errors.push(`pageerror: ${e.message.slice(0, 240)}`));
   p.on('response', (r) => {
     if (r.url().startsWith(API) && r.status() >= 400 && r.request().method() !== 'OPTIONS') failures.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
     else if (r.status() >= 500) errors.push(`web ${r.status()} ${new URL(r.url()).pathname}${r.request().headers()['rsc'] ? ' (RSC)' : ''}`);
+    if (r.status() >= 500) evidence.push(responseEvidence({ url: r.url(), status: r.status(), method: r.request().method(), resourceType: r.request().resourceType(), headers: r.headers() }));
+  });
+  p.on('requestfailed', (rq) => {
+    evidence.push(failureEvidence({ url: rq.url(), method: rq.method(), resourceType: rq.resourceType(), failure: rq.failure()?.errorText }));
   });
   let status = 'ok', file = null, dir = null;
   try {
@@ -118,7 +131,9 @@ async function shoot([id, group, url, who, opts = {}], locale, device) {
     dir = await p.evaluate(() => document.querySelector('[dir]')?.getAttribute('dir') ?? document.documentElement.dir);
   } catch (e) { status = `error: ${e.message.slice(0, 160)}`; }
   await ctx.close();
-  results.push({ id, group, url: url.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g, '…'), who, locale, device, status, file, dir, errors, failures });
+  results.push({ id, group, url: url.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g, '…'), who, locale, device, status, file, dir, errors, failures, evidence });
+  network.push(...evidence.map((e) => ({ page: id, locale, device, ...e })));
+  for (const e of evidence) console.log(`    ${e.kind} ${e.status ?? ''} ${e.resourceType} ${e.url} hop=${e.hop} ${JSON.stringify(e.headers ?? { failure: e.failure })}`);
   console.log(`${status === 'ok' && !errors.length && !failures.length ? '✓' : '!'} ${id} ${locale}/${device} ${status} errors=${errors.length} api=${failures.join('|') || 0}`);
 }
 const ONLY = env.ONLY ? new Set(env.ONLY.split(',')) : null;   // re-check selected page ids
@@ -130,6 +145,9 @@ for (const page of PAGES) {
 }
 await browser.close();
 writeFileSync(path.join(OUT, ONLY ? 'results-recheck.json' : 'results.json'), JSON.stringify(results, null, 2));
+const net = { ...summarize(network, env), records: network };
+writeFileSync(path.join(OUT, ONLY ? 'network-recheck.json' : 'network.json'), JSON.stringify(net, null, 2));
+console.log(`network evidence: ${net.total} record(s) (${net.proxied ? 'through an egress proxy' : 'direct'}) ${JSON.stringify(net.byHop)}`);
 const bad = results.filter((r) => r.status !== 'ok' || r.errors?.length || r.failures?.length);
 console.log(`\n${results.length - bad.length}/${results.length} page loads clean`);
 process.exit(bad.length ? 1 : 0);

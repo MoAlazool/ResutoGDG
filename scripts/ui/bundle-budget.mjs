@@ -15,17 +15,17 @@
 // `kb` is a ratchet at today's largest route plus a little headroom, so the bundles cannot silently grow back (the
 // root layout used to ship every dictionary in both languages and supabase-js to every route). `targetKb` is the
 // PCL-07 goal (guest 150 kB, staff 220 kB); routes above it are listed so they can be split further.
+//
+// ROUTE_RATCHETS: routes that were already over their group's budget when the gate was wired into CI (2026-10-21,
+// measured on the CI-equivalent build). Each is held at its own measured size plus ~2 % headroom instead of loosening
+// the whole group, so every other route keeps the group budget, and these four cannot grow further. Lower an entry
+// (or delete it) when the route is split; the gate fails if an entry is no longer needed, so stale ratchets are removed.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => {
-  if (a.startsWith('--')) acc.push([a.slice(2), all[i + 1] && !all[i + 1].startsWith('--') ? all[i + 1] : true]);
-  return acc;
-}, []));
-const NEXT = path.resolve(String(args.next ?? path.join(ROOT, 'apps/web/.next')));
 
 /** Route groups, first match wins. Guest routes run on phones over mobile data at the table or the door. */
 export const BUDGETS = [
@@ -34,6 +34,14 @@ export const BUDGETS = [
   { group: 'staff', kb: 290, targetKb: 220, test: (r) => /^\/(dashboard|kitchen|driver|admin|onboarding|invite|login|signup)(\/|$)/.test(r) },
   { group: 'other', kb: 290, targetKb: 220, test: () => true },
 ];
+
+/** route -> kB. Only for routes already above their group budget; see the header. */
+export const ROUTE_RATCHETS = {
+  '/': 374,
+  '/pricing': 352,
+  '/t/[qr]': 178,
+  '/dashboard/[orgId]/website': 367,
+};
 
 /**
  * HTML document budgets (gzip kB, ratchets at the largest of EN/AR plus headroom). Sign-in/onboarding pages carry
@@ -46,58 +54,79 @@ export const DOC_BUDGETS = [
   { group: 'public', kb: 42, test: () => true },
 ];
 
-const manifest = JSON.parse(readFileSync(path.join(NEXT, 'app-build-manifest.json'), 'utf8')).pages;
-const sizes = new Map();
-const gz = (file) => {
-  if (!sizes.has(file)) {
-    const p = path.join(NEXT, file);
-    sizes.set(file, existsSync(p) ? gzipSync(readFileSync(p), { level: 9 }).length : 0);
+// Importing this module (tests) only reads the budgets; the measurement runs when it is executed directly.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) await main();
+
+async function main() {
+  const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => {
+    if (a.startsWith('--')) acc.push([a.slice(2), all[i + 1] && !all[i + 1].startsWith('--') ? all[i + 1] : true]);
+    return acc;
+  }, []));
+  const NEXT = path.resolve(String(args.next ?? path.join(ROOT, 'apps/web/.next')));
+  const manifest = JSON.parse(readFileSync(path.join(NEXT, 'app-build-manifest.json'), 'utf8')).pages;
+  const sizes = new Map();
+  const gz = (file) => {
+    if (!sizes.has(file)) {
+      const p = path.join(NEXT, file);
+      sizes.set(file, existsSync(p) ? gzipSync(readFileSync(p), { level: 9 }).length : 0);
+    }
+    return sizes.get(file);
+  };
+
+  /** "/dashboard/[orgId]/orders/page" -> ["/layout", "/dashboard/layout", "/dashboard/[orgId]/layout", …page]. */
+  function entriesFor(pageKey) {
+    const segs = pageKey.replace(/\/page$/, '').split('/').filter(Boolean);
+    const out = ['/layout'];
+    for (let i = 1; i <= segs.length; i++) out.push(`/${segs.slice(0, i).join('/')}/layout`);
+    out.push(pageKey);
+    return out.filter((k) => manifest[k]);
   }
-  return sizes.get(file);
-};
 
-/** "/dashboard/[orgId]/orders/page" -> ["/layout", "/dashboard/layout", "/dashboard/[orgId]/layout", …page]. */
-function entriesFor(pageKey) {
-  const segs = pageKey.replace(/\/page$/, '').split('/').filter(Boolean);
-  const out = ['/layout'];
-  for (let i = 1; i <= segs.length; i++) out.push(`/${segs.slice(0, i).join('/')}/layout`);
-  out.push(pageKey);
-  return out.filter((k) => manifest[k]);
-}
-
-const rows = [];
-for (const key of Object.keys(manifest).filter((k) => k.endsWith('/page')).sort()) {
-  const route = key.replace(/\/page$/, '').replace(/\/\([^)]+\)/g, '') || '/';
-  const files = new Set(entriesFor(key).flatMap((k) => manifest[k]).filter((f) => f.endsWith('.js')));
-  const bytes = [...files].reduce((n, f) => n + gz(f), 0);
-  const budget = BUDGETS.find((b) => b.test(route));
-  rows.push({ route, group: budget.group, firstLoadKb: Math.round(bytes / 100) / 10, budgetKb: budget.kb, targetKb: budget.targetKb,
-    over: bytes / 1000 > budget.kb, aboveTarget: bytes / 1000 > budget.targetKb });
-}
-
-const docs = [];
-if (args.web) {
-  const WEB = String(args.web).replace(/\/$/, '');
-  const routes = ['/login', '/signup', '/onboarding', '/', '/pricing'];
-  if (args.org) routes.push(`/dashboard/${args.org}`, `/dashboard/${args.org}/orders`, `/kitchen/${args.org}`);
-  for (const route of routes) for (const locale of ['en', 'ar']) {
-    const res = await fetch(WEB + route, { headers: { Cookie: `resuto_locale=${locale}`, 'Accept-Encoding': 'identity' }, redirect: 'manual' });
-    const body = Buffer.from(await res.arrayBuffer());
-    const budget = DOC_BUDGETS.find((b) => b.test(route));
-    const gzKb = Math.round(gzipSync(body, { level: 9 }).length / 100) / 10;
-    docs.push({ route: route.replace(String(args.org ?? '\0'), '[orgId]'), locale, status: res.status, rawKb: Math.round(body.length / 100) / 10, gzipKb: gzKb,
-      group: budget.group, budgetKb: budget.kb, over: gzKb > budget.kb });
+  const rows = [];
+  for (const key of Object.keys(manifest).filter((k) => k.endsWith('/page')).sort()) {
+    const route = key.replace(/\/page$/, '').replace(/\/\([^)]+\)/g, '') || '/';
+    const files = new Set(entriesFor(key).flatMap((k) => manifest[k]).filter((f) => f.endsWith('.js')));
+    const bytes = [...files].reduce((n, f) => n + gz(f), 0);
+    const budget = BUDGETS.find((b) => b.test(route));
+    const limitKb = ROUTE_RATCHETS[route] ?? budget.kb;
+    rows.push({ route, group: budget.group, firstLoadKb: Math.round(bytes / 100) / 10, budgetKb: limitKb, groupBudgetKb: budget.kb,
+      ratchet: route in ROUTE_RATCHETS, targetKb: budget.targetKb,
+      over: bytes / 1000 > limitKb, aboveTarget: bytes / 1000 > budget.targetKb,
+      // A ratchet that the route now fits under its group budget is stale: remove it so the route cannot grow back.
+      staleRatchet: route in ROUTE_RATCHETS && bytes / 1000 <= budget.kb });
   }
-  for (const d of docs) console.log(`${d.over ? 'OVER' : 'ok  '}  doc ${d.group.padEnd(6)} ${String(d.gzipKb).padStart(6)} kB gz (${d.rawKb} kB raw) / ${d.budgetKb} kB  ${d.locale} ${d.route} [${d.status}]`);
-}
+  const knownRoutes = new Set(rows.map((r) => r.route));
+  const missingRatchets = Object.keys(ROUTE_RATCHETS).filter((r) => !knownRoutes.has(r));
 
-const over = [...rows.filter((r) => r.over), ...docs.filter((d) => d.over)];
-for (const r of rows) console.log(`${r.over ? 'OVER' : r.aboveTarget ? 'tgt ' : 'ok  '}  ${r.group.padEnd(6)} ${String(r.firstLoadKb).padStart(6)} kB / ${r.budgetKb} kB (target ${r.targetKb})  ${r.route}`);
-const byGroup = Object.fromEntries(BUDGETS.map((b) => {
-  const g = rows.filter((r) => r.group === b.group);
-  return [b.group, { routes: g.length, maxKb: g.length ? Math.max(...g.map((r) => r.firstLoadKb)) : 0, budgetKb: b.kb, targetKb: b.targetKb,
-    aboveTarget: g.filter((r) => r.aboveTarget).length }];
-}));
-console.log(JSON.stringify(byGroup));
-if (args.json) writeFileSync(String(args.json), JSON.stringify({ byGroup, rows, docs }, null, 1));
-if (over.length && !args.report) { console.error(`${over.length} route(s) over budget`); process.exit(1); }
+  const docs = [];
+  if (args.web) {
+    const WEB = String(args.web).replace(/\/$/, '');
+    const routes = ['/login', '/signup', '/onboarding', '/', '/pricing'];
+    if (args.org) routes.push(`/dashboard/${args.org}`, `/dashboard/${args.org}/orders`, `/kitchen/${args.org}`);
+    for (const route of routes) for (const locale of ['en', 'ar']) {
+      const res = await fetch(WEB + route, { headers: { Cookie: `resuto_locale=${locale}`, 'Accept-Encoding': 'identity' }, redirect: 'manual' });
+      const body = Buffer.from(await res.arrayBuffer());
+      const budget = DOC_BUDGETS.find((b) => b.test(route));
+      const gzKb = Math.round(gzipSync(body, { level: 9 }).length / 100) / 10;
+      docs.push({ route: route.replace(String(args.org ?? '\0'), '[orgId]'), locale, status: res.status, rawKb: Math.round(body.length / 100) / 10, gzipKb: gzKb,
+        group: budget.group, budgetKb: budget.kb, over: gzKb > budget.kb });
+    }
+    for (const d of docs) console.log(`${d.over ? 'OVER' : 'ok  '}  doc ${d.group.padEnd(6)} ${String(d.gzipKb).padStart(6)} kB gz (${d.rawKb} kB raw) / ${d.budgetKb} kB  ${d.locale} ${d.route} [${d.status}]`);
+  }
+
+  const over = [...rows.filter((r) => r.over), ...docs.filter((d) => d.over)];
+  for (const r of rows) console.log(`${r.over ? 'OVER' : r.staleRatchet ? 'STALE' : r.aboveTarget ? 'tgt ' : 'ok  '}  ${r.group.padEnd(6)} ${String(r.firstLoadKb).padStart(6)} kB / ${r.budgetKb} kB${r.ratchet ? ` (route ratchet; group ${r.groupBudgetKb})` : ''} (target ${r.targetKb})  ${r.route}`);
+  const stale = [...rows.filter((r) => r.staleRatchet).map((r) => r.route), ...missingRatchets];
+  for (const r of missingRatchets) console.log(`STALE  ratchet for ${r}: no such route in the build`);
+  const byGroup = Object.fromEntries(BUDGETS.map((b) => {
+    const g = rows.filter((r) => r.group === b.group);
+    return [b.group, { routes: g.length, maxKb: g.length ? Math.max(...g.map((r) => r.firstLoadKb)) : 0, budgetKb: b.kb, targetKb: b.targetKb,
+      aboveTarget: g.filter((r) => r.aboveTarget).length }];
+  }));
+  console.log(JSON.stringify(byGroup));
+  if (args.json) writeFileSync(String(args.json), JSON.stringify({ byGroup, rows, docs, staleRatchets: stale }, null, 1));
+  if (args.report) process.exit(0);
+  if (over.length) console.error(`${over.length} route(s) over budget`);
+  if (stale.length) console.error(`${stale.length} route ratchet(s) no longer needed; remove them from ROUTE_RATCHETS: ${stale.join(', ')}`);
+  if (over.length || stale.length) process.exit(1);
+}

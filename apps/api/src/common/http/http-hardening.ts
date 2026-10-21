@@ -1,7 +1,7 @@
-import { Logger } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import type { Env } from '../../config/env';
 import type { ResutoRequest } from '../auth/context';
+import { writeAccessLog } from '../observability/log';
 import { acceptRequestId, requestContext } from './request-context';
 
 /** Request headers that change who the caller is; every response varies on them (PCL-04). */
@@ -22,8 +22,6 @@ export function trustProxySetting(env: Pick<Env, 'NODE_ENV' | 'TRUST_PROXY'>): b
   return raw;
 }
 
-const accessLogger = new Logger('Access');
-
 /** Route pattern (never the raw path: guest and payment tokens live in paths) for the access log. */
 function routeOf(req: Request): string {
   const route = (req as Request & { route?: { path?: string } }).route?.path;
@@ -38,7 +36,8 @@ function routeOf(req: Request): string {
  * - security headers; HSTS in deployed environments (PS-17);
  * - `Cache-Control: private, no-store` and `Vary` on the credential headers unless a controller sets its own policy
  *   (public sites do), so no proxy, CDN or shared browser cache keeps tenant data (PCL-04);
- * - one structured access-log line per response (method, route pattern, status, ms, request id, org, actor).
+ * - one structured access-log line per response (method, route pattern, status, ms, request id, org, actor); JSON
+ *   lines in staging and production (LOG_FORMAT, CR-14).
  */
 export function hardeningMiddleware(env: Pick<Env, 'NODE_ENV'>) {
   const deployed = env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';
@@ -56,13 +55,14 @@ export function hardeningMiddleware(env: Pick<Env, 'NODE_ENV'>) {
       if (req.path === '/v1/health' && res.statusCode < 400) return;
       const r = req as unknown as ResutoRequest;
       const p = r.principal;
-      accessLogger.log(JSON.stringify({
-        requestId: req.id, method: req.method, route: routeOf(req), status: res.statusCode,
+      // One JSON line per response in deployed environments (CR-14; see common/observability/log.ts).
+      writeAccessLog({
+        requestId: req.id ?? '', method: req.method, route: routeOf(req), status: res.statusCode,
         ms: Number((process.hrtime.bigint() - started) / 1_000_000n),
         orgId: r.tenant?.orgId ?? null,
         actor: p ? (p.kind === 'mcp' ? `mcp:${p.clientId}` : `user:${p.userId}`) : null,
         ip: req.ip ?? null,
-      }));
+      });
     });
     requestContext.run({ requestId: req.id, source: 'api' }, next);
   };

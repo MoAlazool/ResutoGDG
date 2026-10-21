@@ -96,6 +96,15 @@ export const envSchema = z.object({
   WEB_PUSH_VAPID_PUBLIC_KEY: z.string().optional(),
   WEB_PUSH_VAPID_PRIVATE_KEY: z.string().optional(),
   WEB_PUSH_SUBJECT: z.string().optional(),
+  /**
+   * Observability without a paid service (CR-14). ERROR_TRACKING_DSN: a Sentry-compatible DSN
+   * (https://<key>@<host>/<project>); unset = error reporting off. HEALTH_DETAILS_TOKEN: bearer token (24+ characters)
+   * that lets an uptime monitor read /v1/health/details; platform admins can always read it. LOG_FORMAT: one JSON
+   * object per line on stdout (default in staging and production) or Nest's text logger (default locally).
+   */
+  ERROR_TRACKING_DSN: z.url().optional(),
+  HEALTH_DETAILS_TOKEN: z.string().min(24).optional(),
+  LOG_FORMAT: z.enum(['json', 'text']).optional(),
 }).superRefine((env, ctx) => {
   // Deployed environments (staging included) only trust Supabase Auth.
   const deployed = env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';

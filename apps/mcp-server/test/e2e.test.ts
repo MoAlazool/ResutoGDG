@@ -280,8 +280,12 @@ describe('ResutoMCP over Streamable HTTP', () => {
 
   it('serves a health endpoint (with an optional API check)', async () => {
     const shallow = await fetch(`http://127.0.0.1:${MCP_PORT}/health`);
-    expect(await shallow.json()).toMatchObject({ status: 'ok', service: 'resuto-mcp' });
+    const body = await shallow.json();
+    expect(body).toMatchObject({ status: 'ok', service: 'resuto-mcp' });
+    // CR-07: the deployed commit is visible in the body and on every response.
+    expect(Object.keys(body.build).sort()).toEqual(['branch', 'builtAt', 'commit', 'startedAt']);
+    expect(shallow.headers.get('x-build')).toMatch(/^mcp@([0-9a-f]{12}|local)$/);
     const deep = await fetch(`http://127.0.0.1:${MCP_PORT}/health?deep=1`);
-    expect(await deep.json()).toMatchObject({ status: 'ok', api: 'ok' });
+    expect(await deep.json()).toMatchObject({ status: 'ok', api: 'ok', apiBuild: expect.stringMatching(/^api@/) });
   });
 });

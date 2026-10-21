@@ -25,7 +25,7 @@ Customer web (Next.js)      Owner dashboard        Kitchen display      Driver w
                Supabase PostgreSQL ── transactional outbox ── worker (same codebase)
                      |  Supabase Storage (tenant-media)          |  event handlers, scheduled jobs
                      |  Supabase Auth (JWT)                      |
-                     |  Supabase Realtime (read-only staff feeds) |
+                     |  (Realtime not used: staff screens poll)  |
                                     |
         ┌───────────────────────────┼─────────────────────────────┐
    ai-service (FastAPI)      provider adapters             mcp-server (MCP SDK)

@@ -23,3 +23,6 @@ reports/
 .venv
 # Local legacy comparison instance data (scripts/ui, workstream screenshots)
 .legacy-*.json*
+
+# Workstream-local dev env, logs and storage (never committed)
+.local-*/

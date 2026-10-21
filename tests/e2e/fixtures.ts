@@ -226,8 +226,23 @@ export async function apiAddMember(request: APIRequestContext, t: Tenant, role: 
 }
 
 /** A fresh browser context, optionally signed in as `user`, phone-sized and localised. */
+/**
+ * Phone contexts use the running project's device when it is a phone (the WebKit iPhone 13 project, CR-10), so the
+ * guest and driver flows run with that device's viewport, touch, pixel ratio and user agent; otherwise the 390 px
+ * Chromium profile.
+ */
+function phoneProfile() {
+  try {
+    const use = base.info().project.use;
+    if (use.isMobile && use.viewport) {
+      return { viewport: use.viewport, userAgent: use.userAgent, deviceScaleFactor: use.deviceScaleFactor, isMobile: true, hasTouch: use.hasTouch ?? true };
+    }
+  } catch { /* called outside a test */ }
+  return MOBILE;
+}
+
 export async function newContext(browser: Browser, opts: { user?: User; locale?: 'en' | 'ar'; mobile?: boolean } = {}): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext({ baseURL: WEB_URL, reducedMotion: 'reduce', ...(opts.mobile ? MOBILE : { viewport: { width: 1280, height: 860 } }) });
+  const context = await browser.newContext({ baseURL: WEB_URL, reducedMotion: 'reduce', ...(opts.mobile ? phoneProfile() : { viewport: { width: 1280, height: 860 } }) });
   await context.addCookies([{ name: 'resuto_locale', value: opts.locale ?? 'en', url: WEB_URL }]);
   const page = await context.newPage();
   if (opts.user) await signIn(page, opts.user, opts.locale ?? 'en');
