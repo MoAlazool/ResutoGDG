@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { writeSync } from 'node:fs';
 import { buildInfo } from './build-info';
 
 /**
@@ -126,3 +127,47 @@ export function errorReporter(): ErrorReporter {
   return reporter;
 }
 export function configureErrorReporter(next: ErrorReporter | null) { reporter = next; }
+
+/**
+ * Crash reporting that actually leaves the process (review finding on CR-14). A listener on 'uncaughtExceptionMonitor'
+ * cannot send anything: Node exits synchronously right after it returns, so an async POST never goes out. Instead an
+ * 'uncaughtException' handler keeps Node's crash semantics by hand: it prints the stack to stderr as Node would, writes
+ * one scrubbed JSON line (synchronously, so the log stream keeps it even if the network is down), waits for the error
+ * tracker for at most `timeoutMs`, and exits with code 1. A second failure while reporting exits at once. Unhandled
+ * promise rejections reach it too (Node's default --unhandled-rejections=throw raises them as uncaught exceptions).
+ */
+export interface CrashReportingOptions {
+  target?: Pick<NodeJS.Process, 'on' | 'off'>;
+  reporter?: () => ErrorReporter;
+  exit?: (code: number) => void;
+  write?: (text: string) => void;
+  timeoutMs?: number;
+}
+
+export function crashLine(error: unknown, origin: string): string {
+  const event = buildEvent(error, { source: origin }, process.env.NODE_ENV ?? 'development');
+  const ex = event.exception.values[0];
+  return JSON.stringify({
+    level: 'fatal', msg: 'process crash', origin, time: new Date().toISOString(), service: event.tags.service, release: event.release ?? null,
+    error: { type: ex.type, message: ex.value, frames: ex.stacktrace.frames.slice(-8).map((f) => `${f.function} (${f.filename}:${f.lineno})`) },
+  });
+}
+
+export function installCrashReporting(opts: CrashReportingOptions = {}): () => void {
+  const target = opts.target ?? process;
+  const exit = opts.exit ?? ((code: number) => process.exit(code));
+  const write = opts.write ?? ((text: string) => { try { writeSync(2, text); } catch { /* stderr closed */ } });
+  let crashing = false;
+  const handler = (error: unknown, origin: string = 'uncaughtException') => {
+    if (crashing) { exit(1); return; }
+    crashing = true;
+    write(`${(error as Error)?.stack ?? String(error)}\n`);
+    write(`${crashLine(error, origin)}\n`);
+    let done = false;
+    const finish = () => { if (!done) { done = true; exit(1); } };
+    const timer = setTimeout(finish, opts.timeoutMs ?? 2000);
+    (opts.reporter ?? errorReporter)().capture(error, { source: origin }).finally(() => { clearTimeout(timer); finish(); });
+  };
+  target.on('uncaughtException', handler as NodeJS.UncaughtExceptionListener);
+  return () => { target.off('uncaughtException', handler as NodeJS.UncaughtExceptionListener); };
+}

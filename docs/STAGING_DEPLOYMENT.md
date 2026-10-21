@@ -68,7 +68,9 @@ every service's build and fails with `EXPECT_COMMIT=<sha>` when one of them runs
   self-hosted GlitchTip). Unset = off. Unexpected 500s and crashes are sent in the Sentry envelope format with no
   new dependency, carrying only the error type, a scrubbed message and stack, the route pattern, the request id,
   the commit and the environment — never bodies, headers, query strings, user ids, emails, phone numbers or
-  tokens (`apps/api/src/common/observability/error-tracking.ts`).
+  tokens (`apps/api/src/common/observability/error-tracking.ts`). A process crash (API or worker) always writes
+  one `{"level":"fatal","msg":"process crash",…}` JSON line on stderr (kept by the log stream even without a DSN),
+  waits up to 2 s for the error tracker, then exits 1 as Node would.
 - **Operational detail**: `GET /v1/health/details` returns `status: ok | degraded` with reasons, the outbox
   backlog and the age of the oldest unpublished event, running/failed/dead event handlers, the last run and 24-hour
   failures of every scheduled job, and webhook receipts and failures per provider in the last 24 hours (counts only).

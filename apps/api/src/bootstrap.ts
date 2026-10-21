@@ -5,7 +5,7 @@ import { compressionMiddleware } from './common/http/compression';
 import { hardeningMiddleware, trustProxySetting } from './common/http/http-hardening';
 import { installOutboundRequestId } from './common/http/request-context';
 import { buildHeaderMiddleware, buildInfo } from './common/observability/build-info';
-import { errorReporter } from './common/observability/error-tracking';
+import { errorReporter, installCrashReporting } from './common/observability/error-tracking';
 import { loadEnv } from './config/env';
 import { runWorkerLoop } from './worker-loop';
 
@@ -38,8 +38,8 @@ export async function main() {
   const build = buildInfo();
   new Logger('Resuto').log(`API listening on :${env.PORT} (${env.NODE_ENV}; payments ${env.PAYMENT_MODE}, storage ${env.STORAGE_DRIVER}; `
     + `build ${build.shortCommit ?? 'local'} built ${build.builtAt ?? 'unknown'}; error tracking ${errorReporter().enabled ? 'on' : 'off'})`);
-  // A crash is reported (best effort) without changing Node's crash behaviour.
-  process.on('uncaughtExceptionMonitor', (error) => { void errorReporter().capture(error, { source: 'uncaught' }); });
+  // A crash is logged as one JSON line on stderr and sent to error tracking (bounded wait), then the process exits 1.
+  installCrashReporting();
   if (env.RUN_WORKER_IN_PROCESS) {
     // Single-service hosting (e.g. a free web service): the outbox/job loop shares this process.
     let stopping = false;
