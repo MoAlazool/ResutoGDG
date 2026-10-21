@@ -29,7 +29,7 @@ checks against a built API); the rest are review rules. The published descriptio
 | `PATCH` / `PUT` | 200 |
 | `DELETE` | 200 with the deleted or updated view, or 204 |
 
-The OpenAPI lint (`lintOpenApi` in `packages/contracts/src/openapi.ts`) fails a `POST` that answers 201 when its last
+The OpenAPI lint (`lintOpenApi` in `packages/contracts/src/openapi.ts`, subpath export `@resuto/contracts/openapi`) fails a `POST` that answers 201 when its last
 static path segment is an action (`ACTION_SEGMENTS`: approve, cancel, transition, verify, sync, …) unless the route is
 on the `CREATING_ACTIONS` allow-list (actions that do create something: `/invitations/accept` creates a membership,
 `/conversations/:id/reply` a message, `/payments/collect` a payment, `/ordering/:token/checkout` an order …).
@@ -54,8 +54,9 @@ on the `CREATING_ACTIONS` allow-list (actions that do create something: `/invita
   `pageOf()`, `cursorAt()`). Filters (branch scope, status …) are applied in SQL **before** the limit, so a page is
   never short because rows were dropped afterwards.
 - Every list has an enforced maximum (200). Lists that used to return everything now default to 200 per page and
-  return a real `nextCursor` when there are more. They answer the header `X-Resuto-List: full`; the web client
-  (`apps/web/lib/api.ts`) then follows `nextCursor` itself, so screens that show every row keep doing so.
+  return a real `nextCursor` when there are more. They answer the header `X-Resuto-List: full`; the staff web client
+  (`apiAll()` in `apps/web/lib/api.ts`, used by `useSession().call`) then follows `nextCursor` itself (bounded, in a
+  lazily loaded chunk), so screens that show every row keep doing so.
 - The lint requires `cursor` next to every `limit`, except for rankings whose `limit` is a "top N"
   (`TOP_N_LISTS`, e.g. the churn list).
 - Small configuration lists that are not pages (stations, branches, team members, MCP connections, the driver
