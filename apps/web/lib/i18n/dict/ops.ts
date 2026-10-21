@@ -81,7 +81,7 @@ const en: Record<string, string> = {
   'ops.menu.categories': 'Categories', 'ops.menu.itemsCount': '{n, plural, one {# dish} other {# dishes}}',
   'ops.menu.col.item': 'Menu item', 'ops.menu.col.price': 'Price', 'ops.menu.col.portions': 'Portions', 'ops.menu.col.status': 'Status',
   'ops.menu.col.actions': 'Actions', 'ops.menu.contains': 'Contains {list}', 'ops.menu.noAllergens': 'No listed allergens',
-  'ops.menu.notOffered': 'Not offered here', 'ops.menu.outOfStock': 'Out of stock', 'ops.menu.portionsUntracked': 'Not tracked: this dish has no recipe or stock count', 'ops.menu.portionsFromRecipe': 'From the ingredients in stock (recipe)', 'ops.menu.soldOutToday': 'Sold out today',
+  'ops.menu.notOffered': 'Not offered here', 'ops.menu.outOfStock': 'Out of stock', 'ops.menu.portionsUntracked': 'Not tracked: this dish has no recipe or stock count', 'ops.menu.portionsFromRecipe': 'From the ingredients in stock (recipe)', 'ops.menu.noIngredients': 'Out of ingredients', 'ops.menu.soldOutToday': 'Sold out today',
   'ops.menu.image': 'Image', 'ops.menu.offeredHere': 'Offered at {branch}',
   'ops.menu.offeredHint': 'Untick to take the dish off this branch’s menus. For “sold out today”, use the quick button instead.',
   // Import & export
@@ -240,7 +240,7 @@ const ar: Record<string, string> = {
   'ops.menu.categories': 'الأقسام', 'ops.menu.itemsCount': '{n, plural, =0 {لا أطباق} one {طبق واحد} two {طبقان} few {# أطباق} many {# طبقًا} other {# طبق}}',
   'ops.menu.col.item': 'الصنف', 'ops.menu.col.price': 'السعر', 'ops.menu.col.portions': 'الحصص', 'ops.menu.col.status': 'الحالة',
   'ops.menu.col.actions': 'الإجراءات', 'ops.menu.contains': 'يحتوي على {list}', 'ops.menu.noAllergens': 'لا توجد مسببات حساسية مسجلة',
-  'ops.menu.notOffered': 'غير متاح في هذا الفرع', 'ops.menu.outOfStock': 'نفد المخزون', 'ops.menu.portionsUntracked': 'غير متتبع: لا وصفة ولا عدد مخزون لهذا الطبق', 'ops.menu.portionsFromRecipe': 'حسب المكونات المتوفرة في المخزون (الوصفة)', 'ops.menu.soldOutToday': 'نفد اليوم',
+  'ops.menu.notOffered': 'غير متاح في هذا الفرع', 'ops.menu.outOfStock': 'نفد المخزون', 'ops.menu.portionsUntracked': 'غير متتبع: لا وصفة ولا عدد مخزون لهذا الطبق', 'ops.menu.portionsFromRecipe': 'حسب المكونات المتوفرة في المخزون (الوصفة)', 'ops.menu.noIngredients': 'نفدت المكونات', 'ops.menu.soldOutToday': 'نفد اليوم',
   'ops.menu.image': 'صورة', 'ops.menu.offeredHere': 'يُقدَّم في {branch}',
   'ops.menu.offeredHint': 'ألغِ التحديد لإزالة الطبق من قوائم هذا الفرع. لحالة «نفد اليوم» استخدم الزر السريع.',
   'ops.data.nav': 'الاستيراد والتصدير', 'ops.data.title': 'الاستيراد والتصدير', 'ops.data.subtitle': 'قائمة مراجَعة للداخل، وبيانات مفيدة للخارج.',

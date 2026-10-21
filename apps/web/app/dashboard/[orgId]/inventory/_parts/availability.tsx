@@ -1,10 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { formatNumber, type MenuEditorView, type Product } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Notice, Skeleton } from '@resuto/ui';
+import type { MenuEditorView, Product } from '@resuto/contracts';
+import { DataTable, EmptyState, Notice, Skeleton } from '@resuto/ui';
 import { Section } from '@/components/charts/insights';
-import { LOW_STOCK, portionsOf } from '@/components/ops/portions';
+import { DishStatus, PortionsCell } from '@/components/ops/DishStatus';
 import { branchState } from '@/components/ops/SoldOutDrawer';
 import { pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -50,33 +50,39 @@ export function AvailabilityTab() {
       <p className="fine" style={{ marginTop: 0 }}>{t('ops.avail.subtitle')}</p>
       {error && <Notice tone="danger">{error}</Notice>}
       {menu.error ? <Notice tone="danger">{menu.error.message}</Notice> : !m ? <Skeleton lines={6} /> : !rows.length ? <EmptyState title={t('core.menu.empty')}>{t('core.menu.emptyHint')}</EmptyState> : (
-        <DataTable rows={rows} rowKey={(p) => p.id} columns={[
-          { key: 'dish', header: t('ops.avail.col.dish'), render: (p) => <strong>{pick(locale, p.name, p.nameAr)}</strong> },
-          { key: 'portions', header: t('ops.avail.col.available'), render: (p) => {
-            const n = portionsOf(p, branchId);
-            return n === null
-              ? <span className="fine" title={t('ops.menu.portionsUntracked')}>—<span className="sr-only"> {t('ops.menu.portionsUntracked')}</span></span>
-              : <Badge tone={n.count < LOW_STOCK ? 'danger' : 'ok'}><span className="num">{formatNumber(n.count, locale)}</span></Badge>;
-          } },
-          { key: 'status', header: t('ops.menu.col.status'), render: (p) => {
-            const s = branchState(p, branchId);
-            return s.soldOut ? <Badge tone="danger">{t('core.menu.soldOut')}</Badge> : s.outOfStock ? <Badge tone="warn">{t('ops.menu.outOfStock')}</Badge> : <Badge tone="ok">{t('core.menu.available')}</Badge>;
-          } },
-          { key: 'options', header: t('ops.avail.col.options'), align: 'end', render: (p) => {
-            const s = branchState(p, branchId);
-            return (
-              <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
-                {can('menu:availability') && (
-                  <button type="button" className="btn btn-sm" disabled={pending === p.id} onClick={() => void toggle(p)}>
-                    {s.soldOut ? t('ops.soldOut.restore') : t('ops.menu.soldOutToday')}
-                  </button>
-                )}
-                {can('menu:write') && <Link className="btn btn-sm" href={`/dashboard/${org.id}/menu`}>{t('ops.avail.configure')}</Link>}
-              </div>
-            );
-          } },
-        ]} />
+        <AvailabilityTable rows={rows} branchId={branchId} timezone={org.timezone} pending={pending} onToggle={can('menu:availability') ? (p) => void toggle(p) : undefined}
+          configureHref={can('menu:write') ? `/dashboard/${org.id}/menu` : undefined} />
       )}
     </Section>
+  );
+}
+
+/**
+ * The per-dish rows: dish, portions (own count or recipe), status and the one-tap sold-out / Configure actions. A dish
+ * whose recipe makes 0 portions reads "Out of ingredients", never "Available" next to a red 0 (review of PAR-08).
+ */
+export function AvailabilityTable({ rows, branchId, timezone, pending, onToggle, configureHref }: {
+  rows: Product[]; branchId: string; timezone?: string; pending?: string | null; onToggle?: (p: Product) => void; configureHref?: string;
+}) {
+  const { t, locale } = useT();
+  return (
+    <DataTable rows={rows} rowKey={(p) => p.id} columns={[
+      { key: 'dish', header: t('ops.avail.col.dish'), render: (p) => <strong>{pick(locale, p.name, p.nameAr)}</strong> },
+      { key: 'portions', header: t('ops.avail.col.available'), render: (p) => <PortionsCell p={p} branchId={branchId} /> },
+      { key: 'status', header: t('ops.menu.col.status'), render: (p) => <DishStatus p={p} branchId={branchId} timezone={timezone} /> },
+      { key: 'options', header: t('ops.avail.col.options'), align: 'end', render: (p) => {
+        const s = branchState(p, branchId);
+        return (
+          <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+            {onToggle && (
+              <button type="button" className="btn btn-sm" disabled={pending === p.id} onClick={() => onToggle(p)}>
+                {s.soldOut ? t('ops.soldOut.restore') : t('ops.menu.soldOutToday')}
+              </button>
+            )}
+            {configureHref && <Link className="btn btn-sm" href={configureHref}>{t('ops.avail.configure')}</Link>}
+          </div>
+        );
+      } },
+    ]} />
   );
 }

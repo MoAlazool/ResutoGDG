@@ -1,15 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { Suspense, useMemo, useRef, useState, type FormEvent } from 'react';
-import { formatNumber, parseMajor, type Category, type MenuEditorView, type MenuImportPreview, type ModifierGroup, type Product } from '@resuto/contracts';
+import { parseMajor, type Category, type MenuEditorView, type MenuImportPreview, type ModifierGroup, type Product } from '@resuto/contracts';
 import { Badge, EmptyState, Field, Modal, Notice, PageHeading, SelectField, Skeleton, Tabs, TextareaField, initialOf, useConfirm, usePrompt } from '@resuto/ui';
-import { LOW_STOCK, portionsOf } from '@/components/ops/portions';
+import { DishStatus, PortionsCell } from '@/components/ops/DishStatus';
 import { branchState } from '@/components/ops/SoldOutDrawer';
 import '@/components/ops/ops.css';
 import { useUrlParam } from '@/components/ops/use-url-state';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
-import { money, pick, time } from '@/lib/format';
+import { money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -67,13 +67,6 @@ function MenuPageInner() {
     await run(() => call(`/o/${org.id}/menu/products/${id}/image`, { body: fd }), id);
   };
 
-  const status = (p: Product) => {
-    const s = branchState(p, branchId);
-    if (!s.offered) return <Badge>{t('ops.menu.notOffered')}</Badge>;
-    if (s.soldOut) return <Badge tone="danger">{s.until ? t('ops.soldOut.until', { time: time(s.until, locale, org.timezone) }) : t('core.menu.soldOut')}</Badge>;
-    if (s.outOfStock) return <Badge tone="warn">{t('ops.menu.outOfStock')}</Badge>;
-    return <Badge tone="ok">{t('core.menu.available')}</Badge>;
-  };
 
   return (
     <ModuleGate module="core" permission="menu:read">
@@ -116,10 +109,8 @@ function MenuPageInner() {
                         <td data-label={t('core.menu.category')}>{cat ? pick(locale, cat.name, cat.nameAr) : ''}</td>
                         <td data-label={t('core.menu.station')}>{stationLabel(t, p.station)}</td>
                         <td data-label={t('ops.menu.col.price')} className="num">{money(s.offered ? (p.branchSettings.find((b) => b.branchId === branchId)?.priceOverrideMinor ?? p.priceMinor) : p.priceMinor, p.currency, locale)}</td>
-                        <td data-label={t('ops.menu.col.portions')}>{((n) => n === null
-                          ? <span className="fine" title={t('ops.menu.portionsUntracked')}>—<span className="sr-only"> {t('ops.menu.portionsUntracked')}</span></span>
-                          : <Badge tone={n.count < LOW_STOCK ? 'danger' : 'ok'}><span className="num" title={n.source === 'recipe' ? t('ops.menu.portionsFromRecipe') : undefined}>{formatNumber(n.count, locale)}</span></Badge>)(portionsOf(p, branchId))}</td>
-                        <td data-label={t('ops.menu.col.status')}>{status(p)}</td>
+                        <td data-label={t('ops.menu.col.portions')}><PortionsCell p={p} branchId={branchId} /></td>
+                        <td data-label={t('ops.menu.col.status')}><DishStatus p={p} branchId={branchId} timezone={org.timezone} /></td>
                         <td className="menu-actions">
                           {can('menu:availability') && s.offered && (
                             <button type="button" className="btn btn-sm" disabled={pendingId === p.id}
