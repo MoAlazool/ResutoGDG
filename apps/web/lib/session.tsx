@@ -21,6 +21,21 @@ const STORAGE_KEY = 'resuto_session';
 // supabase-js (~50 KB gzip) is loaded only in Supabase mode and only by staff routes (SessionProvider is not in the
 // root layout), so guest pages and dev-auth builds never download it.
 let supabase: Promise<SupabaseClient> | null = null;
+/**
+ * CR-05: a password may be set without the current one only right after a recovery link (Supabase reports
+ * PASSWORD_RECOVERY), within 15 minutes, in this tab. Any other signed-in session must re-enter the current password.
+ */
+const RECOVERY_KEY = 'resuto.auth.recovery';
+const RECOVERY_TTL_MS = 15 * 60_000;
+export function markRecovery() { try { sessionStorage.setItem(RECOVERY_KEY, String(Date.now())); } catch { /* storage blocked: no recovery */ } }
+export function clearRecovery() { try { sessionStorage.removeItem(RECOVERY_KEY); } catch { /* ignore */ } }
+export function recoveryPending(now = Date.now()): boolean {
+  try {
+    const at = Number(sessionStorage.getItem(RECOVERY_KEY));
+    return Number.isFinite(at) && at > 0 && now - at < RECOVERY_TTL_MS;
+  } catch { return false; }
+}
+
 const sb = () => (supabase ??= import('@supabase/supabase-js').then(({ createClient }) =>
   createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, { auth: { persistSession: true } })));
 
@@ -163,13 +178,15 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
       let t: string | null = null;
       if (AUTH_MODE === 'supabase') {
         const client = await sb();
-        const { data } = await client.auth.getSession();
-        t = data.session?.access_token ?? null;
+        // Subscribe before reading the session: a recovery link is processed while the client initialises.
         const sub = client.auth.onAuthStateChange((e, s) => {
-          if (e === 'SIGNED_OUT' || !s) { clearUserStorage({ keep: keepSession }); queryCache.clear(); }
+          if (e === 'PASSWORD_RECOVERY') markRecovery();
+          if (e === 'SIGNED_OUT' || !s) { clearRecovery(); clearUserStorage({ keep: keepSession }); queryCache.clear(); }
           applyToken(s?.access_token ?? null);
         });
         off = () => sub.data.subscription.unsubscribe();
+        const { data } = await client.auth.getSession();
+        t = data.session?.access_token ?? null;
       } else {
         t = readStored()?.accessToken ?? null;
       }
@@ -241,6 +258,8 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
       return;
     }
     const client = await sb();
+    // Without the current password only a fresh recovery link may set a new one (see recoveryPending).
+    if (currentPassword === undefined && !recoveryPending()) throw new AuthFlowError('current_password_required');
     if (currentPassword !== undefined) {
       const { data: u } = await client.auth.getUser();
       const email = u.user?.email;
@@ -250,6 +269,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     }
     const { error } = await client.auth.updateUser({ password: newPassword });
     if (error) throw error;
+    clearRecovery();
   }, [withAuth]);
 
   const updateEmail = useCallback(async (email: string) => {
@@ -267,8 +287,10 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     const code = url.searchParams.get('code');
     // PKCE links carry ?code=; implicit links (#access_token=…) were already read by the client when it initialised.
     if (code) {
-      const { error } = await client.auth.exchangeCodeForSession(code);
+      const { data: ex, error } = await client.auth.exchangeCodeForSession(code);
       if (error) throw error;
+      // PKCE recovery links say so in the exchange (the code verifier was stored by resetPasswordForEmail).
+      if ((ex as { redirectType?: string | null } | null)?.redirectType === 'PASSWORD_RECOVERY') markRecovery();
     }
     const { data } = await client.auth.getSession();
     if (!data.session) throw new AuthFlowError('link_invalid');

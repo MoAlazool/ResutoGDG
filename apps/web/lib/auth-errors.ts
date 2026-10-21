@@ -5,7 +5,7 @@
  */
 export const AUTH_ERROR_CODES = [
   'invalid_credentials', 'current_password_incorrect', 'email_not_confirmed', 'email_taken', 'weak_password', 'same_password', 'rate_limited',
-  'reset_unavailable', 'email_change_unavailable', 'link_invalid', 'google_disabled', 'not_signed_in', 'network',
+  'reset_unavailable', 'email_change_unavailable', 'link_invalid', 'google_disabled', 'not_signed_in', 'network', 'current_password_required',
 ] as const;
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 

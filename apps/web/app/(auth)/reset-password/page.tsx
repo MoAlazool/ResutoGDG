@@ -6,7 +6,7 @@ import { Field, Notice, Skeleton } from '@resuto/ui';
 import { destinationFor } from '@/components/shell/AuthForm';
 import { authErrorText } from '@/lib/auth-errors';
 import { useT } from '@/lib/i18n/client';
-import { useSession } from '@/lib/session';
+import { AUTH_MODE, recoveryPending, useSession } from '@/lib/session';
 import { AuthPanel, MIN_PASSWORD } from '../_ui/AuthPanel';
 
 /** CR-05: set a new password after opening a recovery link (the link signed the user in through /auth/callback). */
@@ -41,6 +41,13 @@ export default function ResetPasswordPage() {
         <>
           <Notice tone="warn">{t('auth.resetNoSession')}</Notice>
           <div className="login-links"><Link href="/forgot-password">{t('auth.forgotSubmit')}</Link></div>
+        </>
+      ) : !done && AUTH_MODE === 'supabase' && !recoveryPending() ? (
+        // CR-05: a signed-in session that did not come from a recovery link changes the password on the account page,
+        // with the current password (this page would otherwise skip that check).
+        <>
+          <Notice tone="warn">{t('auth.resetNeedsLink')}</Notice>
+          <div className="login-links"><Link href="/account/security">{t('auth.goToAccount')}</Link><Link href="/forgot-password">{t('auth.forgotSubmit')}</Link></div>
         </>
       ) : done ? (
         <>
