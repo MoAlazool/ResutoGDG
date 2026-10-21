@@ -15,8 +15,9 @@ describe('CR-05 change password (dev issuer)', () => {
     expect((await t.http.post(url).set(auth(u)).send({ currentPassword: 'correct-horse-battery', newPassword: 'short' })).status).toBe(400);
     expect((await t.http.post(url).set(auth(u)).send({ currentPassword: 'correct-horse-battery', newPassword: 'another-long-password', extra: 1 })).status).toBe(400);
     const wrong = await t.http.post(url).set(auth(u)).send({ currentPassword: 'not-my-password', newPassword: 'another-long-password' });
-    expect(wrong.status).toBe(401);
-    expect(wrong.body.error.code).toBe('invalid_credentials');
+    // 400, not 401: the session itself is valid (a 401 would sign the user out in the web app).
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.error.code).toBe('current_password_incorrect');
     const same = await t.http.post(url).set(auth(u)).send({ currentPassword: 'correct-horse-battery', newPassword: 'correct-horse-battery' });
     expect(same.body.error.code).toBe('password_unchanged');
     const ok = await t.http.post(url).set(auth(u)).send({ currentPassword: 'correct-horse-battery', newPassword: 'another-long-password' });

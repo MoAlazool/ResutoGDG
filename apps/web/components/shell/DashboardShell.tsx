@@ -267,7 +267,7 @@ function SidebarBottom({ org, demo, payMode, onSignOut }: { org: OrgInfo; demo: 
   return (
     <div className="ws-sidebar-bottom">
       {roleCan(org.role, 'org:manage') && <Link className="ws-guest-link" href={`/dashboard/${org.id}/settings`}>✦ {t('shell.setup')}</Link>}
-      <Link className="ws-guest-link" href="/account">{t('auth.account.title')}</Link>
+      <Link className="ws-guest-link" href="/account/security">{t('auth.account.title')}</Link>
       <a className="ws-guest-link" href={`/r/${org.slug}`} target="_blank" rel="noopener noreferrer">↗ {tables ? t('shell.guest') : t('shell.guestOrdering')}</a>
       {payMode && (
         <div className="ws-mode-note">

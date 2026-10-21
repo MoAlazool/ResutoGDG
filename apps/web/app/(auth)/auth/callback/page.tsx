@@ -11,7 +11,7 @@ import { useSession } from '@/lib/session';
 import { AuthPanel } from '../../_ui/AuthPanel';
 
 /** Account pages an email link may continue to (they are excluded from safeNext as sign-in pages). */
-const LINK_TARGETS = new Set(['/reset-password', '/account']);
+const LINK_TARGETS = new Set(['/reset-password', '/account/security']);
 
 /**
  * CR-05: where Supabase email links return (sign-up confirmation, password recovery, email change, PKCE OAuth):

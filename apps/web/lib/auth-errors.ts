@@ -4,7 +4,7 @@
  * or, on older servers, its English message) or from Resuto itself (AuthFlowError).
  */
 export const AUTH_ERROR_CODES = [
-  'invalid_credentials', 'email_not_confirmed', 'email_taken', 'weak_password', 'same_password', 'rate_limited',
+  'invalid_credentials', 'current_password_incorrect', 'email_not_confirmed', 'email_taken', 'weak_password', 'same_password', 'rate_limited',
   'reset_unavailable', 'email_change_unavailable', 'link_invalid', 'google_disabled', 'not_signed_in', 'network',
 ] as const;
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
@@ -15,7 +15,7 @@ export class AuthFlowError extends Error {
 }
 
 const SUPABASE_CODES: Record<string, AuthErrorCode> = {
-  invalid_credentials: 'invalid_credentials', invalid_grant: 'invalid_credentials',
+  invalid_credentials: 'invalid_credentials', invalid_grant: 'invalid_credentials', current_password_incorrect: 'current_password_incorrect',
   email_not_confirmed: 'email_not_confirmed',
   user_already_exists: 'email_taken', email_exists: 'email_taken', email_taken: 'email_taken',
   weak_password: 'weak_password', same_password: 'same_password', password_unchanged: 'same_password',
@@ -23,7 +23,8 @@ const SUPABASE_CODES: Record<string, AuthErrorCode> = {
   otp_expired: 'link_invalid', flow_state_expired: 'link_invalid', flow_state_not_found: 'link_invalid', bad_code_verifier: 'link_invalid',
 };
 const MESSAGES: Array<[RegExp, AuthErrorCode]> = [
-  [/invalid login credentials|email or password is incorrect|current password is incorrect/i, 'invalid_credentials'],
+  [/current password is incorrect/i, 'current_password_incorrect'],
+  [/invalid login credentials|email or password is incorrect/i, 'invalid_credentials'],
   [/email not confirmed/i, 'email_not_confirmed'],
   [/already (registered|exists)/i, 'email_taken'],
   [/password should be|weak password|at least \d+ characters/i, 'weak_password'],

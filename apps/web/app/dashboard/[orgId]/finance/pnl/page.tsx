@@ -5,6 +5,7 @@ import { Card, Notice, Skeleton } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
+import { financeWarningText } from '@/lib/finance-warnings';
 import { PolicyCard } from '../_ui/AccountingSetup';
 import { FinanceFrame, pct, useMoney, usePeriod } from '../_ui/FinanceFrame';
 
@@ -63,7 +64,7 @@ function Pnl() {
       </Card>
       <div className="stack">
         <PolicyCard onSaved={() => reload()} />
-        {data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}</strong><ul style={{ margin: '6px 0 0', paddingInlineStart: 18 }}>{data.warnings.map((w) => <li key={w}>{w}</li>)}</ul></Notice>}
+        {data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}</strong><ul style={{ margin: '6px 0 0', paddingInlineStart: 18 }}>{data.warnings.map((w) => <li key={w}>{financeWarningText(w, t)}</li>)}</ul></Notice>}
         <Card title={t('finance.pnl.methodology')}>
           <ol className="fine" style={{ paddingInlineStart: 18, margin: 0 }}>{data.methodology.map((x) => <li key={x}>{x}</li>)}</ol>
         </Card>

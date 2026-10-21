@@ -246,7 +246,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
       const email = u.user?.email;
       if (!email) throw new AuthFlowError('not_signed_in');
       const { error: verify } = await client.auth.signInWithPassword({ email, password: currentPassword });
-      if (verify) throw verify;
+      if (verify) throw (verify as { code?: string }).code === 'invalid_credentials' ? new AuthFlowError('current_password_incorrect') : verify;
     }
     const { error } = await client.auth.updateUser({ password: newPassword });
     if (error) throw error;
@@ -254,7 +254,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
 
   const updateEmail = useCallback(async (email: string) => {
     if (AUTH_MODE !== 'supabase') throw new AuthFlowError('email_change_unavailable');
-    const { error } = await (await sb()).auth.updateUser({ email: email.trim().toLowerCase() }, { emailRedirectTo: callbackUrl('/account') });
+    const { error } = await (await sb()).auth.updateUser({ email: email.trim().toLowerCase() }, { emailRedirectTo: callbackUrl('/account/security') });
     if (error) throw error;
   }, []);
 

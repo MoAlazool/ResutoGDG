@@ -11,6 +11,7 @@ describe('CR-05 auth errors are localised codes', () => {
     expect(authErrorCode({ message: 'Email not confirmed' })).toBe('email_not_confirmed');
     expect(authErrorCode({ message: 'Email link is invalid or has expired' })).toBe('link_invalid');
     expect(authErrorCode(new AuthFlowError('reset_unavailable'))).toBe('reset_unavailable');
+    expect(authErrorCode({ code: 'current_password_incorrect', status: 400 })).toBe('current_password_incorrect');
     expect(authErrorCode({ message: 'Something unrelated' })).toBeNull();
     expect(authErrorCode(null)).toBeNull();
   });

@@ -51,7 +51,7 @@ describe('safeNext: same-origin paths only (VS-05 open-redirect regression)', ()
     expect(safeNext('/forgot-password', ORIGIN)).toBeNull();
     expect(safeNext('/reset-password', ORIGIN)).toBeNull();
     expect(safeNext('/auth/callback?next=/x', ORIGIN)).toBeNull();
-    expect(safeNext('/account', ORIGIN)).toBe('/account');
+    expect(safeNext('/account/security', ORIGIN)).toBe('/account/security');
     expect(safeNext('/login/', ORIGIN)).toBeNull();
     expect(safeNext('/loginx', ORIGIN)).toBe('/loginx');
     expect(safeNext(null)).toBeNull();

@@ -101,7 +101,8 @@ export class AuthController {
     await this.db.withPlatform(async (tx) => {
       const user = await tx.maybeOne<{ encrypted_password: string }>('select encrypted_password from auth.users where id = $1 for update', [principal.userId]);
       if (!user || !(await verifyPassword(body.currentPassword, user.encrypted_password))) {
-        throw new DomainError('invalid_credentials', 'Current password is incorrect', 401);
+        // 400, not 401: the session is valid; a 401 would make the web app treat it as expired and sign the user out.
+        throw new DomainError('current_password_incorrect', 'Current password is incorrect', 400);
       }
       if (body.currentPassword === body.newPassword) throw new DomainError('password_unchanged', 'Choose a password different from the current one', 400);
       await tx.query('update auth.users set encrypted_password = $2, updated_at = now() where id = $1', [principal.userId, await hashPassword(body.newPassword)]);

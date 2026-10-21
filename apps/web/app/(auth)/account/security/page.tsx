@@ -8,7 +8,7 @@ import { homePath } from '@/lib/home-path';
 import { useT } from '@/lib/i18n/client';
 import { loginUrl } from '@/lib/safe-next';
 import { AUTH_MODE, useSession } from '@/lib/session';
-import { AuthPanel, MIN_PASSWORD } from '../_ui/AuthPanel';
+import { AuthPanel, MIN_PASSWORD } from '../../_ui/AuthPanel';
 
 /**
  * CR-05: the signed-in account (legacy /account "Account home"): who you are, your restaurants, change password and
@@ -19,7 +19,7 @@ export default function AccountPage() {
   const session = useSession();
   const router = useRouter();
   useEffect(() => {
-    if (session.ready && !session.token) router.replace(loginUrl('/account'));
+    if (session.ready && !session.token) router.replace(loginUrl('/account/security'));
   }, [session.ready, session.token, router]);
   const me = session.me;
 
