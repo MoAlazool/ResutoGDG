@@ -1,13 +1,20 @@
-import { Controller, Get, Inject, Param, Query, Res } from '@nestjs/common';
+import { Controller, Get, Headers, Inject, Param, Query, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
+import type { ResutoRequest } from '../../common/auth/context';
 import { Public } from '../../common/auth/decorators';
+import { safeEqual } from '../../common/crypto/hash';
 import { DbService } from '../../common/db/db.service';
+import { DomainError } from '../../common/errors/domain-error';
+import { buildInfo } from '../../common/observability/build-info';
+import { errorReporter } from '../../common/observability/error-tracking';
 import { StorageService, isPublicMediaPath } from '../../common/storage/storage.service';
 import { ENV, type Env } from '../../config/env';
+import { HealthDetailsService } from './health-details.service';
 
 @Controller()
 export class SystemController {
-  constructor(private readonly db: DbService, private readonly storage: StorageService, @Inject(ENV) private readonly env: Env) {}
+  constructor(private readonly db: DbService, private readonly storage: StorageService, @Inject(ENV) private readonly env: Env,
+    private readonly details: HealthDetailsService) {}
 
   @Public()
   @Get('health')
@@ -15,8 +22,30 @@ export class SystemController {
     const started = Date.now();
     await this.db.withPlatform((tx) => tx.query('select 1'));
     // paymentMode lets operators (and the staff UI) see at a glance that a deployment runs simulated payments.
+    // build: the deployed commit and build time (CR-07), so every QA result can name the code it tested.
+    const b = buildInfo();
     return { status: 'ok', db: { latencyMs: Date.now() - started }, version: process.env.npm_package_version ?? '0.1.0',
-      environment: this.env.NODE_ENV, paymentMode: this.env.PAYMENT_MODE };
+      environment: this.env.NODE_ENV, paymentMode: this.env.PAYMENT_MODE,
+      build: { commit: b.commit, branch: b.branch, builtAt: b.builtAt, startedAt: b.startedAt } };
+  }
+
+  /**
+   * Operational detail for staging QA and uptime monitors (CR-14): outbox backlog and oldest pending age, dead event
+   * handlers, last run per scheduled job, webhook failures, error tracking on/off. Readable with
+   * `Authorization: Bearer <HEALTH_DETAILS_TOKEN>` (an uptime monitor) or by a platform admin; anyone else gets 404, so
+   * the route does not advertise itself. Counts only: no tenant data, payloads or error texts.
+   */
+  @Public()
+  @Get('health/details')
+  async healthDetails(@Req() req: ResutoRequest, @Headers('authorization') authorization?: string) {
+    const bearer = /^Bearer\s+(.+)$/i.exec(authorization ?? '')?.[1]?.trim();
+    let allowed = !!(bearer && this.env.HEALTH_DETAILS_TOKEN && safeEqual(bearer, this.env.HEALTH_DETAILS_TOKEN));
+    if (!allowed && req.principal?.kind === 'user') {
+      const userId = req.principal.userId;
+      allowed = !!(await this.db.withPlatform((tx) => tx.maybeOne('select 1 from platform_admins where user_id = $1', [userId]), 'system:health-details'));
+    }
+    if (!allowed) throw new DomainError('not_found', 'Not found', 404);
+    return { ...(await this.details.snapshot()), errorTracking: errorReporter().enabled ? 'on' : 'off' };
   }
 
   /** Local storage driver only: serves objects behind short-lived HMAC-signed URLs. */

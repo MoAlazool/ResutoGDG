@@ -2,6 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, Logger } from '@n
 import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { NotFoundInDb } from '../db/db.service';
+import { errorReporter } from '../observability/error-tracking';
 import { DomainError } from './domain-error';
 
 const PG_ERRORS: Record<string, [number, string, string]> = {
@@ -72,6 +73,9 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
     if (String((exception as any)?.message ?? '').includes('row-level security')) return send(403, 'forbidden', 'Access denied');
     this.logger.error({ requestId, err: exception }, (exception as Error)?.stack ?? String(exception));
+    // Optional error tracking (CR-14): scrubbed, route pattern only, never awaited.
+    const route = (req as Request & { route?: { path?: string } }).route?.path;
+    void errorReporter().capture(exception, { requestId, route: route ? `${req.baseUrl ?? ''}${route}` : null });
     return send(500, 'internal_error', 'Something went wrong. Please retry.');
   }
 }

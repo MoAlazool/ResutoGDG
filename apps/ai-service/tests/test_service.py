@@ -24,6 +24,25 @@ def test_health_is_public(client):
     assert r.json()["auth"] is True
 
 
+def test_health_names_the_build_and_every_response_carries_x_build(client):
+    # CR-07: the deployed commit must be verifiable from the health check and from any response.
+    r = client.get("/v1/health")
+    assert set(r.json()["build"]) == {"commit", "branch", "builtAt", "startedAt"}
+    assert r.headers["x-build"].startswith("ai@")
+    assert client.post("/v1/routing/optimize", json={}).headers["x-build"] == r.headers["x-build"]
+
+
+def test_build_info_reads_the_platform_commit_and_rejects_junk():
+    from app.main import build_header, build_info
+    info = build_info({"RENDER_GIT_COMMIT": "ABCDEF0123456789abcdef0123456789abcdef01", "BUILD_TIME": "2026-10-21T10:00:00Z", "RENDER_GIT_BRANCH": "main"})
+    assert info["commit"] == "abcdef0123456789abcdef0123456789abcdef01"
+    assert info["builtAt"] == "2026-10-21T10:00:00Z" and info["branch"] == "main"
+    assert build_header(info) == b"ai@abcdef012345"
+    junk = build_info({"RENDER_GIT_COMMIT": "<script>", "GIT_BRANCH": "a b"})
+    assert junk["commit"] is None and junk["branch"] is None
+    assert build_header(junk) == b"ai@local"
+
+
 @pytest.mark.parametrize("header", [None, "Bearer wrong-token-0000000000", "test-token-0123456789abcdef"])
 def test_rejects_missing_or_wrong_token(client, header):
     headers = {"Authorization": header} if header else {}
