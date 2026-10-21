@@ -31,6 +31,8 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/inbox', label: 'nav.inbox', glyph: 'inbox', module: 'connect', permission: 'connect:read' },
     { href: '/marketing', label: 'nav.marketing', glyph: 'marketing', module: 'marketing', permission: 'marketing:read' },
     { href: '/website', label: 'nav.website', glyph: 'website', module: 'studio', permission: 'studio:read' },
+    // Studio AI food photos (ws9, FT-04).
+    { href: '/studio-media', label: 'nav.foodPhotos', glyph: 'website', module: 'studio', permission: 'studio:read' },
   ] },
   { group: 'nav.group.money', items: [
     { href: '/payments', label: 'nav.payments', glyph: 'payments', module: 'pay', permission: 'payments:read' },

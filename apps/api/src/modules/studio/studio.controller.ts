@@ -2,8 +2,9 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patc
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addDomain, createSection, generateCreative, publishWebsite, reorderSections, reviewCreative, updateMedia, updateSection, updateWebsite,
-  upsertStorefront, type UpsertStorefront,
+  upsertStorefront, type UpsertStorefront, createPhotoJob, PHOTO_JOB_STATUSES, publishPhotoJob, reviewPhotoJob, type CreatePhotoJob, type PublishPhotoJob,
 } from '@resuto/contracts';
+import { StudioPhotosService } from './photos/photos.service';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
@@ -19,7 +20,8 @@ interface UploadedImage { buffer: Buffer; mimetype: string; size: number; origin
 @Controller('o/:orgId/studio')
 @RequiresModule('studio')
 export class StudioController {
-  constructor(private readonly studio: StudioService, private readonly domains: DomainsService, private readonly creative: CreativeService, private readonly storefronts: StorefrontsService) {}
+  constructor(private readonly studio: StudioService, private readonly domains: DomainsService, private readonly creative: CreativeService, private readonly storefronts: StorefrontsService,
+    private readonly photosService: StudioPhotosService) {}
 
   // --- Website -----------------------------------------------------------------
   @Get('website')
@@ -162,6 +164,49 @@ export class StudioController {
   @RequirePermission('studio:publish')
   removeDomain(@Tenant() ctx: TenantContext, @Param('domainId', ParseUUIDPipe) id: string) {
     return this.domains.remove(ctx, id);
+  }
+
+  // --- Food photos (FT-04): upload -> job -> review -> approve -> publish ------------
+  @Get('photos')
+  @RequirePermission('studio:read')
+  photos(@Tenant() ctx: TenantContext, @Query('status') status?: string) {
+    return this.photosService.list(ctx, z.enum(PHOTO_JOB_STATUSES).optional().parse(status || undefined));
+  }
+
+  @Post('photos')
+  @RequirePermission('studio:write')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024, files: 1 } }))
+  uploadPhoto(@Tenant() ctx: TenantContext, @UploadedFile() file: UploadedImage | undefined, @Body() body: Record<string, unknown>) {
+    let params: unknown = undefined;
+    if (typeof body?.params === 'string' && body.params) {
+      try { params = JSON.parse(body.params); } catch { params = '__invalid__'; }
+    }
+    const input = zod(createPhotoJob).transform({ productId: body?.productId || undefined, mode: body?.mode || undefined, params });
+    return this.photosService.create(ctx, file, input as CreatePhotoJob);
+  }
+
+  @Get('photos/:jobId')
+  @RequirePermission('studio:read')
+  photo(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string) {
+    return this.photosService.get(ctx, id);
+  }
+
+  @Post('photos/:jobId/review')
+  @RequirePermission('studio:write')
+  reviewPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string, @Body(zod(reviewPhotoJob)) body: z.infer<typeof reviewPhotoJob>) {
+    return this.photosService.review(ctx, id, body.decision, body.note);
+  }
+
+  @Post('photos/:jobId/publish')
+  @RequirePermission('studio:write')
+  publishPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string, @Body(zod(publishPhotoJob)) body: PublishPhotoJob) {
+    return this.photosService.publish(ctx, id, body);
+  }
+
+  @Post('photos/:jobId/retry')
+  @RequirePermission('studio:write')
+  retryPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string) {
+    return this.photosService.retry(ctx, id);
   }
 
   // --- Creative --------------------------------------------------------------------

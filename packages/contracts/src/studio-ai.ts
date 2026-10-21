@@ -138,6 +138,14 @@ export const photoEnhanceParams = z.object({
 });
 export type PhotoEnhanceParams = z.infer<typeof photoEnhanceParams>;
 
+export const createPhotoJob = z.object({
+  productId: z.uuid().optional(),
+  /** 'generative' is refused while no restaurant-owned image provider is configured (it never is by default). */
+  mode: z.enum(['deterministic', 'generative']).default('deterministic'),
+  params: photoEnhanceParams.default(photoEnhanceParams.parse({})),
+});
+export type CreatePhotoJob = z.infer<typeof createPhotoJob>;
+
 export const reviewPhotoJob = z.object({ decision: z.enum(['approve', 'reject']), note: z.string().trim().max(500).optional() });
 export const publishPhotoJob = z.object({
   target: z.enum(['product', 'website_section']),

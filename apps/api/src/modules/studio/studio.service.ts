@@ -319,7 +319,9 @@ export class StudioService {
     }
     const other = await tx.query<{ id: string }>(
       `select image_media_id as id from products where org_id = $1 and image_media_id is not null
-       union select media_id from creative_assets where org_id = $1 and media_id is not null`, [ctx.orgId]);
+       union select media_id from creative_assets where org_id = $1 and media_id is not null
+       union select source_media_id from studio_photo_jobs where org_id = $1
+       union select output_media_id from studio_photo_jobs where org_id = $1 and output_media_id is not null`, [ctx.orgId]);
     for (const r of other) used.add(r.id);
     return used;
   }

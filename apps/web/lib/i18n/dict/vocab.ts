@@ -35,6 +35,12 @@ const enActions: Record<string, string> = {
   'connect.template_updated': 'Message template updated',
   'creative.generated': 'Marketing copy generated',
   'menu_extraction.created': 'Menu import started',
+  'studio_photo.uploaded': 'Dish photo uploaded for enhancement',
+  'studio_photo.enhanced': 'Dish photo enhanced (waiting for review)',
+  'studio_photo.approved': 'Enhanced dish photo approved',
+  'studio_photo.rejected': 'Enhanced dish photo rejected',
+  'studio_photo.published': 'Enhanced dish photo published',
+  'studio_photo.failed': 'Dish photo enhancement failed',
   'menu_extraction.extracted': 'Menu import read',
   'menu_extraction.edited': 'Menu import draft edited',
   'menu_extraction.committed': 'Menu import added to the menu',
@@ -211,6 +217,12 @@ const arActions: Record<string, string> = {
   'connect.template_updated': 'عُدّل قالب رسالة',
   'creative.generated': 'أُنشئ نص تسويقي',
   'menu_extraction.created': 'بدأ استيراد قائمة',
+  'studio_photo.uploaded': 'رُفعت صورة طبق للتحسين',
+  'studio_photo.enhanced': 'حُسّنت صورة طبق (بانتظار المراجعة)',
+  'studio_photo.approved': 'اعتُمدت صورة طبق محسّنة',
+  'studio_photo.rejected': 'رُفضت صورة طبق محسّنة',
+  'studio_photo.published': 'نُشرت صورة طبق محسّنة',
+  'studio_photo.failed': 'تعذّر تحسين صورة طبق',
   'menu_extraction.extracted': 'قُرئت قائمة مستوردة',
   'menu_extraction.edited': 'عُدّلت مسودة استيراد القائمة',
   'menu_extraction.committed': 'أضيف استيراد القائمة إلى القائمة',
@@ -359,7 +371,7 @@ const arActions: Record<string, string> = {
 
 const enEntities: Record<string, string> = {
   accounting_push: 'Accounting', ai_insight: 'Insight', branch: 'Branch', campaign: 'Campaign', checkout_session: 'Payment link',
-  compliance_document: 'Document', conversation: 'Conversation', creative_asset: 'Marketing copy', custom_domain: 'Domain', menu_extraction_job: 'Menu import',
+  compliance_document: 'Document', conversation: 'Conversation', creative_asset: 'Marketing copy', custom_domain: 'Domain', menu_extraction_job: 'Menu import', studio_photo_job: 'Dish photo',
   customer: 'Customer', delivery_job: 'Delivery', dining_table: 'Table', driver: 'Driver', driver_cash_settlement: 'Driver cash',
   expense: 'Expense', expense_category: 'Expense category', financial_export: 'Finance export', fiscal_document: 'Tax document',
   floor_layout: 'Floor plan', integration_conflict: 'Sync conflict', integration_connection: 'Integration',
@@ -376,7 +388,7 @@ const enEntities: Record<string, string> = {
 
 const arEntities: Record<string, string> = {
   accounting_push: 'المحاسبة', ai_insight: 'رؤية', branch: 'فرع', campaign: 'حملة', checkout_session: 'رابط دفع',
-  compliance_document: 'مستند', conversation: 'محادثة', creative_asset: 'نص تسويقي', custom_domain: 'نطاق', menu_extraction_job: 'استيراد قائمة',
+  compliance_document: 'مستند', conversation: 'محادثة', creative_asset: 'نص تسويقي', custom_domain: 'نطاق', menu_extraction_job: 'استيراد قائمة', studio_photo_job: 'صورة طبق',
   customer: 'عميل', delivery_job: 'توصيل', dining_table: 'طاولة', driver: 'سائق', driver_cash_settlement: 'نقدية السائق',
   expense: 'مصروف', expense_category: 'فئة مصروفات', financial_export: 'تصدير مالي', fiscal_document: 'مستند ضريبي',
   floor_layout: 'مخطط الصالة', integration_conflict: 'تعارض مزامنة', integration_connection: 'تكامل',
