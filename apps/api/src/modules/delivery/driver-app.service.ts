@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { DeliverJob, DeviceRegistration, DriverAvailability, FailJob, LocationBatch, VehicleType } from '@resuto/contracts';
-import { nearestNeighbourSequencer, type RoutePoint } from '@resuto/integrations';
+import { type RoutePoint, type RouteSequenceInput } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { safeEqual } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
@@ -10,6 +10,7 @@ import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { PaymentLedgerService } from '../kernel/payment-ledger.service';
 import { JOB_SELECT, decodeCursor, encodeCursor, toDriverView, toJobView, DRIVER_SELECT } from './delivery.mappers';
 import { DeliveryService, OTP_MAX_ATTEMPTS, type Actor, type Coordinates } from './delivery.service';
+import { RoutingService } from './routing.service';
 
 /** Location batches per driver per minute (the web app sends one every ~15 s). */
 export const LOCATION_BATCHES_PER_MINUTE = 12;
@@ -29,7 +30,19 @@ export class DriverAppService {
     private readonly orders: OrdersKernelService,
     private readonly ledger: PaymentLedgerService,
     private readonly limiter: RateLimiter,
+    private readonly routing: RoutingService,
   ) {}
+
+  /** INT-29: provider ETA refinement after the transaction committed; failures keep the stored baseline ETA. */
+  private async refineEta(orgId: string, jobId: string | null | undefined, from: RoutePoint | null, vehicle: VehicleType, force = false): Promise<boolean> {
+    if (!jobId || !from) return false;
+    try {
+      return (await this.routing.refreshJobEta(orgId, jobId, from, vehicle, { force }))?.source === 'google_routes';
+    } catch {
+      // The baseline ETA written in the transaction stays; routing problems never fail a driver action.
+      return false;
+    }
+  }
 
   private async me(tx: Tx, ctx: TenantContext, lock = false) {
     const d = await tx.maybeOne<any>(`select * from drivers where org_id = $1 and user_id = $2${lock ? ' for update' : ''}`, [ctx.orgId, ctx.userId]);
@@ -101,7 +114,8 @@ export class DriverAppService {
    * hour or in the future are dropped. Updates the en-route ETA baseline.
    */
   async ingestLocations(ctx: TenantContext, batch: LocationBatch) {
-    return this.db.scoped(ctx, async (tx) => {
+    let refine: { jobId: string; from: RoutePoint; vehicle: VehicleType } | null = null;
+    const result = await this.db.scoped(ctx, async (tx) => {
       const d = await this.me(tx, ctx);
       this.limiter.hit(`driver-location:${d.id}`, LOCATION_BATCHES_PER_MINUTE, 60_000);
       const job = await tx.maybeOne<any>(
@@ -125,17 +139,21 @@ export class DriverAppService {
         if (job && (job.status === 'en_route' || job.status === 'picked_up')) {
           const eta = this.delivery.etaFrom(job, { latitude: last.latitude, longitude: last.longitude }, d.vehicle_type as VehicleType);
           if (eta) await tx.query('update delivery_jobs set eta_at = $2 where id = $1', [job.id, eta]);
+          refine = { jobId: job.id, from: { latitude: last.latitude, longitude: last.longitude }, vehicle: d.vehicle_type as VehicleType };
         }
       }
       return { accepted: points.length, dropped: batch.points.length - points.length, jobId: job?.id ?? null };
     });
+    const r = refine as { jobId: string; from: RoutePoint; vehicle: VehicleType } | null;
+    if (r) await this.refineEta(ctx.orgId, r.jobId, r.from, r.vehicle);
+    return result;
   }
 
   // ---------------------------------------------------------------------------
   // Jobs
   // ---------------------------------------------------------------------------
   async myJobs(ctx: TenantContext) {
-    return this.db.scoped(ctx, async (tx) => {
+    const { input, ...jobs } = await this.db.scoped(ctx, async (tx) => {
       const d = await this.me(tx, ctx);
       const active = await tx.query(`${JOB_SELECT} where j.driver_id = $1 and j.status in ('assigned', 'accepted', 'picked_up', 'en_route') order by j.assigned_at, j.created_at`, [d.id]);
       const offers = await tx.query(
@@ -146,9 +164,13 @@ export class DriverAppService {
         : active[0] && n(active[0].pickup_latitude) !== null ? { latitude: n(active[0].pickup_latitude)!, longitude: n(active[0].pickup_longitude)! } : null;
       const stops = active.filter((j) => n(j.dropoff_latitude) !== null && n(j.dropoff_longitude) !== null)
         .map((j) => ({ id: j.id, location: { latitude: n(j.dropoff_latitude)!, longitude: n(j.dropoff_longitude)! } }));
-      const route = origin && stops.length > 1 ? nearestNeighbourSequencer.sequence({ origin, stops, vehicle: d.vehicle_type }) : null;
-      return { active: active.map(toJobView), offers: offers.map(toJobView), route };
+      const input: RouteSequenceInput | null = origin && stops.length > 1 ? { origin, stops, vehicle: d.vehicle_type } : null;
+      return { active: active.map(toJobView), offers: offers.map(toJobView), input };
     });
+    // INT-29: Google Routes (restaurant key) when connected, else the nearest-neighbour baseline; `source` and
+    // `fallbackReason` say which. Computed after the transaction (no provider call holds a DB connection).
+    const route = input ? await this.routing.plan(ctx.orgId, input) : null;
+    return { ...jobs, route };
   }
 
   async history(ctx: TenantContext, q: { limit: number; cursor?: string }) {
@@ -248,7 +270,8 @@ export class DriverAppService {
    * the order stays `ready` until the driver delivers it.
    */
   async pickup(ctx: TenantContext, jobId: string, at: Coordinates) {
-    return this.db.scoped(ctx, async (tx) => {
+    let refine: { from: RoutePoint | null; vehicle: VehicleType } = { from: null, vehicle: 'motorbike' };
+    const view = await this.db.scoped(ctx, async (tx) => {
       const d = await this.me(tx, ctx);
       const job = await this.ownJob(tx, ctx, d, jobId);
       this.delivery.assertTransition(job.status, 'picked_up');
@@ -257,6 +280,7 @@ export class DriverAppService {
         throw new DomainError('order_not_ready', 'The kitchen has not marked this order ready yet', 409, { orderStatus: order.status });
       }
       const pickupPoint = n(job.pickup_latitude) !== null ? { latitude: n(job.pickup_latitude)!, longitude: n(job.pickup_longitude)! } : null;
+      refine = { from: pickupPoint, vehicle: d.vehicle_type };
       await this.delivery.move(tx, ctx.orgId, job, 'picked_up', this.actor(d), { picked_up_at: new Date(), eta_at: this.delivery.etaFrom(job, pickupPoint, d.vehicle_type) }, {}, at);
       const served = await tx.query<{ id: string }>(
         `update order_lines set kitchen_status = 'served' where order_id = $1 and kitchen_status not in ('served', 'cancelled') returning id`, [job.order_id]);
@@ -264,19 +288,26 @@ export class DriverAppService {
       await this.orders.event(tx, ctx, job.order_id, 'picked_up_by_driver', 'ready', 'ready', { deliveryJobId: job.id, driverId: d.id, linesServed: served.length });
       return this.delivery.viewOf(tx, job.id);
     });
+    if (await this.refineEta(ctx.orgId, jobId, refine.from, refine.vehicle, true)) return this.db.scoped(ctx, (tx) => this.delivery.viewOf(tx, jobId));
+    return view;
   }
 
   async enRoute(ctx: TenantContext, jobId: string, at: Coordinates) {
-    return this.db.scoped(ctx, async (tx) => {
+    let refine: { from: RoutePoint | null; vehicle: VehicleType } = { from: null, vehicle: 'motorbike' };
+    const view = await this.db.scoped(ctx, async (tx) => {
       const d = await this.me(tx, ctx);
       const job = await this.ownJob(tx, ctx, d, jobId);
       if (job.status === 'en_route') return this.delivery.viewOf(tx, job.id);
       const from = at.latitude != null && at.longitude != null ? { latitude: at.latitude, longitude: at.longitude } : null;
       const eta = this.delivery.etaFrom(job, from, d.vehicle_type);
+      refine = { from, vehicle: d.vehicle_type };
       await this.delivery.move(tx, ctx.orgId, job, 'en_route', this.actor(d), eta ? { eta_at: eta } : {}, {}, at);
       return this.delivery.viewOf(tx, job.id);
     });
+    if (await this.refineEta(ctx.orgId, jobId, refine.from, refine.vehicle, true)) return this.db.scoped(ctx, (tx) => this.delivery.viewOf(tx, jobId));
+    return view;
   }
+
 
   /** Stores a proof-of-delivery photo (StorageService folder delivery-proofs) and attaches it to the job. */
   async uploadProof(ctx: TenantContext, jobId: string, file: { buffer: Buffer; mimetype: string } | undefined) {

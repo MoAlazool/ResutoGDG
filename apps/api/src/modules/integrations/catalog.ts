@@ -103,6 +103,12 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
         options: ['on', 'off'] },
     ],
   },
+  // INT-29: the restaurant's own Google Cloud key (Routes API); Resuto stops at the daily cap and uses the baseline.
+  google_routes: {
+    credentials: [{ key: 'apiKey', label: 'Google Maps Platform API key (Routes API)', labelKey: 'intg.field.googleRoutesKey', secret: true, required: true }],
+    config: [{ key: 'dailyRequestCap', label: 'Daily request cap', labelKey: 'intg.field.dailyRequestCap', secret: false, required: false, kind: 'number',
+      pattern: '^\\d{1,6}$', hint: 'Resuto makes at most this many Routes requests per day (default 300), then uses the offline estimate.', hintKey: 'intg.field.dailyRequestCapHint' }],
+  },
   tiktok_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'advertiserId', label: 'Advertiser id', secret: false, required: true }] },
   snapchat_ads: {
     credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }, { key: 'refreshToken', label: 'Refresh token', secret: true, required: false }],

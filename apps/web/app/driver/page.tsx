@@ -73,7 +73,7 @@ export default function DriverHome() {
           )}
           <section className={s.section} aria-labelledby="active">
             <h2 id="active" className={s.sectionTitle}>{t('driver.active')}</h2>
-            {active.length > 1 && data?.route && <p className="fine" style={{ margin: 0 }}>{t('driver.route.hint')}</p>}
+            {active.length > 1 && data?.route && <p className="fine" style={{ margin: 0 }}>{t(data.route.source === 'google_routes' ? 'driver.route.hintProvider' : 'driver.route.hint')}</p>}
             {active.length ? active.map((j) => (
               <JobCard key={j.id} job={j} sequence={active.length > 1 && order.includes(j.id) ? order.indexOf(j.id) + 1 : undefined}>
                 {j.status === 'assigned' && (

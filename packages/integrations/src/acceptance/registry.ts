@@ -7,5 +7,6 @@ import './meta';
 // ws7b (wave 4): custom domains, tracking sinks, POS, accounting, tax, notifications, push, maps, LLM.
 import './domains';
 import './gemini';
+import './maps';
 
 export { ACCEPTANCE_CHECKS } from './index';

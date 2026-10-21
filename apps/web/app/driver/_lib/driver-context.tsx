@@ -14,7 +14,11 @@ export interface DriverProfile extends DriverView {
   pendingOffers: number;
   org: { id: string; name: string; nameAr: string | null; currency: string; timezone: string };
 }
-export interface RoutePlan { algorithm: string; order: string[]; legs: Array<{ stopId: string; distanceM: number; arrivalOffsetSeconds: number }> }
+/** INT-29: `source` says who planned it (Google Routes with the restaurant's key, or the offline baseline). */
+export interface RoutePlan {
+  algorithm: string; order: string[]; legs: Array<{ stopId: string; distanceM: number; arrivalOffsetSeconds: number }>;
+  source?: 'google_routes' | 'baseline'; fallbackReason?: string | null;
+}
 export interface MyJobs { active: DeliveryJobView[]; offers: DeliveryJobView[]; route: RoutePlan | null }
 
 interface DriverValue {
