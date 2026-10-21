@@ -74,6 +74,8 @@ const en: Record<string, string> = {
   'ops.host.noBookings': 'No bookings left for today.', 'ops.host.openBills': 'Open bills', 'ops.host.settled': 'Every table is settled.',
   'ops.host.billsHint': 'Guests settle from their own phone. Ask a manager for anything else.',
   // Menu & inventory
+  'ops.avail.tab': 'Dish availability', 'ops.avail.title': 'Dish availability', 'ops.avail.subtitle': 'Each dish offered at this branch with the portions left. Mark one sold out for today, or configure it in the menu.',
+  'ops.avail.col.dish': 'Menu item', 'ops.avail.col.available': 'Available', 'ops.avail.col.options': 'Options', 'ops.avail.configure': 'Configure',
   'ops.menu.title': 'Menu & inventory', 'ops.menu.subtitle': 'Current prices and portions, checked again on every order.',
   'ops.menu.importAi': 'Import menu', 'ops.menu.sync': 'Sync from integration if supported', 'ops.menu.add': 'Add menu item',
   'ops.menu.categories': 'Categories', 'ops.menu.itemsCount': '{n, plural, one {# dish} other {# dishes}}',
@@ -231,6 +233,8 @@ const ar: Record<string, string> = {
   'ops.host.arriving': 'قادمون اليوم', 'ops.host.checkIn': 'تسجيل وصول', 'ops.host.checkedIn': 'تم تسجيل وصول {name}',
   'ops.host.noBookings': 'لا توجد حجوزات متبقية اليوم.', 'ops.host.openBills': 'فواتير مفتوحة', 'ops.host.settled': 'كل الطاولات مسددة.',
   'ops.host.billsHint': 'الضيوف يدفعون من هواتفهم. لأي شيء آخر ارجع للمدير.',
+  'ops.avail.tab': 'توفر الأطباق', 'ops.avail.title': 'توفر الأطباق', 'ops.avail.subtitle': 'كل طبق متاح في هذا الفرع مع الحصص المتبقية. علّمه كنافد لليوم، أو اضبطه من القائمة.',
+  'ops.avail.col.dish': 'الصنف', 'ops.avail.col.available': 'المتاح', 'ops.avail.col.options': 'الخيارات', 'ops.avail.configure': 'ضبط',
   'ops.menu.title': 'القائمة والمخزون', 'ops.menu.subtitle': 'الأسعار والحصص الحالية، يُعاد التحقق منها مع كل طلب.',
   'ops.menu.importAi': 'استيراد القائمة', 'ops.menu.sync': 'مزامنة من تكامل إذا كان مدعومًا', 'ops.menu.add': 'إضافة صنف',
   'ops.menu.categories': 'الأقسام', 'ops.menu.itemsCount': '{n, plural, =0 {لا أطباق} one {طبق واحد} two {طبقان} few {# أطباق} many {# طبقًا} other {# طبق}}',
