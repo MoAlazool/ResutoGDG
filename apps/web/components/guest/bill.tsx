@@ -8,7 +8,7 @@ import { parseMajor, planSplit, SplitRuleError, type BillUnit, type SplitShareVi
 import { api, ApiRequestError } from '@/lib/api';
 import { visitHeaders, type GuestVisit } from '@/lib/guest-visit';
 import { useT } from '@/lib/i18n/client';
-import { formatWhen, money, pick } from '@/lib/format';
+import { formatWhen, guestMoney as money, pick } from '@/lib/format';
 import { clearIntent, intentKey, safeRedirect } from '@/app/pay/[token]/_ui/PayFrame';
 import type { BillView } from '@/app/t/[qr]/pay/bill';
 import { billStage } from './bill-state';

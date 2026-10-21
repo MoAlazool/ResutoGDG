@@ -3,7 +3,7 @@
 // horizontal tracker (1 Order received → 2 Preparing → 3 Ready → 4 Served / Picked up / Delivered) and its lines.
 import { toWesternDigits } from '@resuto/contracts';
 import { useT } from '@/lib/i18n/client';
-import { money, pick, time } from '@/lib/format';
+import { guestMoney as money, pick, time } from '@/lib/format';
 
 const STAGES: Record<string, string[]> = {
   dine_in: ['placed', 'preparing', 'ready', 'served'],

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PublicMenu, PublicMenuProduct } from '@resuto/contracts';
 import { useT } from '@/lib/i18n/client';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { Photo, Sheet, Stepper } from './shell';
 
 export interface CartItem {

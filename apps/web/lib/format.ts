@@ -9,6 +9,13 @@ import type { Locale } from './i18n/locale';
 export const money = (minor: number | null | undefined, currency: Currency | string = 'EGP', locale: Locale = 'en') =>
   minor === null || minor === undefined ? '—' : formatMoney(minor, currency as Currency, locale);
 
+/**
+ * Money on guest surfaces (menu, cart, bill, order status, payment, booking): always with its minor digits, like legacy
+ * ("EGP 145.00", PAR-07). Staff screens keep `money` (whole amounts without ".00"). Western digits in Arabic too.
+ */
+export const guestMoney = (minor: number | null | undefined, currency: Currency | string = 'EGP', locale: Locale = 'en') =>
+  minor === null || minor === undefined ? '—' : formatMoney(minor, currency as Currency, locale, { decimals: 'always' });
+
 export const dateTime = (iso: string | null | undefined, locale: Locale = 'en', timeZone?: string) => formatDateTime(iso, locale, timeZone);
 
 export const time = (iso: string | null | undefined, locale: Locale = 'en', timeZone?: string) => formatTime(iso, locale, timeZone);

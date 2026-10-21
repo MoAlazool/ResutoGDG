@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, ApiRequestError } from '@/lib/api';
-import { money } from '@/lib/format';
+import { guestMoney as money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { MetaPurchase } from '@/lib/tracking/MetaPixel';
 import { RatingSheet } from '@/components/guest/rating';

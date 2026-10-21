@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GuestSession, PublicMenu, PublicMenuProduct, PublicTableView, ReceiptView } from '@resuto/contracts';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { clearGuestVisit, loadGuestVisit, saveGuestVisit, visitHeaders, type GuestVisit } from '@/lib/guest-visit';
 import { useT } from '@/lib/i18n/client';
 import { Receipt } from '@/app/pay/[token]/_ui/Receipt';
@@ -287,6 +287,7 @@ function TableCart({ visit, ordering, settling, cart, products, currency, sugges
   const m = (v: number) => money(v, currency, locale);
   return (
     <CartSheet cart={cart} products={products} currency={currency} onClose={onClose} suggestions={suggestions} onSuggest={onSuggest}
+      total={ordering && quote ? quote.totalMinor : null}
       footer={ordering ? (
         <button type="button" className="gx-btn is-primary is-block" disabled={!quote || pending || settling || !cart.count} onClick={() => void place()}>
           {pending ? t('core.guest.cart.sending') : t('core.guest.cart.confirm')}
@@ -301,7 +302,6 @@ function TableCart({ visit, ordering, settling, cart, products, currency, sugges
               {quote.discountMinor > 0 && <MoneyRow fine label={t('core.bill.discount')} value={`−${m(quote.discountMinor)}`} />}
               {quote.serviceChargeMinor > 0 && <MoneyRow fine label={t('core.bill.service')} value={m(quote.serviceChargeMinor)} />}
               {quote.taxMinor > 0 && <MoneyRow fine label={quote.taxInclusive ? t('core.bill.vatIncluded') : t('core.bill.vat')} value={m(quote.taxMinor)} />}
-              <MoneyRow grand label={t('core.bill.total')} value={m(quote.totalMinor)} />
             </div>
           )}
         </>

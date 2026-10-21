@@ -5,7 +5,7 @@ import { INTL_LOCALE } from '@resuto/contracts';
 import { useRef, useState, type ReactNode } from 'react';
 import type { ReceiptView } from '@resuto/contracts';
 import { useT } from '@/lib/i18n/client';
-import { money } from '@/lib/format';
+import { guestMoney as money } from '@/lib/format';
 import './receipt.css';
 
 // Code 39 — self-checking; every receipt id is inside its charset.

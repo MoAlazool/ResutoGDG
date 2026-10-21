@@ -3,7 +3,7 @@
 // restaurant is, guest stepper with 2/4/6/8, Dinner/Lunch, sittings with "N free" — 2 your table — feature chips, the
 // zoomable floor plan and the table list — 3 your details; a sticky summary bar carries the next step. Confirming holds
 // the table, then confirms it or opens the deposit checkout; the confirmation card follows.
-import { GuestWordmark } from '@/components/guest/wordmark';
+import { GuestWordmark } from '@/components/brand/wordmark';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
@@ -11,7 +11,7 @@ import {
   type AvailabilityResult, type PublicFloor, type PublicMenu, type ReservationHoldResult, type ReservationSlotsView, type ReservationView,
 } from '@resuto/contracts';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import { FloorPreview } from '@/components/floor/FloorPreview';
 import { normalizeLayout } from '@/components/floor/model';

@@ -134,6 +134,12 @@
 .gx-sheet { width: min(600px, 100%); max-height: 90dvh; overflow: auto; padding: 28px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow-sheet); color: var(--ink);
   animation: gx-rise .22s var(--ease); }
 .gx-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-block-end: 20px; gap: 20px; }
+/* A sheet with a pinned footer: the head stays, the content scrolls, the footer (total + action) is always in view. */
+.gx-sheet.has-foot { display: flex; flex-direction: column; overflow: hidden; padding-block-end: 0; }
+.gx-sheet.has-foot > .gx-sheet-head { flex: none; }
+.gx-sheet-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; margin-inline: -28px; padding-inline: 28px; }
+.gx-sheet-foot { flex: none; margin-inline: -28px; padding: 14px 28px 20px; border-top: 1px solid var(--line); background: var(--card); display: grid; gap: 10px; }
+.gx-sheet-foot .gx-money-row { margin: 0; }
 .gx-sheet-head h2 { font-size: 25px; margin: 0; font-weight: 600; }
 .gx-sheet-close { border: 0; background: none; font-size: 15px; color: var(--muted); padding: 8px; }
 .gx-sheet .gx-fine { margin: 10px 0; }
@@ -180,6 +186,15 @@
 .gx-suggest-item small { font-size: 12.5px; color: var(--muted); }
 .gx-suggest-item i { margin-inline-start: auto; font-style: normal; font-size: 20px; color: var(--leaf-text); width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--leaf-bg); flex-shrink: 0; }
 .gx-suggest .gx-fine { margin: 12px 0 0; text-align: center; }
+/* Cart suggestions: one compact sideways row, so Confirm order is never pushed below the fold (PAR-07). */
+.gx-suggest.is-compact { padding: 12px; margin: 14px 0; }
+.gx-suggest.is-compact .gx-suggest-head { margin-bottom: 8px; }
+.gx-suggest.is-compact .gx-suggest-list { flex-direction: row; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 2px; scrollbar-width: thin; }
+.gx-suggest.is-compact .gx-suggest-item { flex: 0 0 auto; width: auto; max-width: 230px; min-height: 44px; padding: 6px 8px; gap: 8px; scroll-snap-align: start; }
+.gx-suggest.is-compact .gx-suggest-item .gx-photo { width: 32px; height: 32px; }
+.gx-suggest.is-compact .gx-suggest-item strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gx-suggest.is-compact .gx-suggest-item i { width: 26px; height: 26px; font-size: 18px; }
+.gx-suggest.is-compact .gx-fine { margin: 8px 0 0; text-align: start; font-size: 11.5px; }
 
 /* Order status (status-order + horizontal order-timeline) */
 .gx-status-page { max-width: 1000px; }
@@ -469,6 +484,9 @@
   .gx-main { padding-block-end: calc(120px + env(safe-area-inset-bottom)); }
   .gx-backdrop { place-items: end stretch; padding: 0; }
   .gx-sheet { width: 100%; max-width: none; border-radius: 22px 22px 0 0; padding: 22px 22px max(22px, env(safe-area-inset-bottom)); max-height: 93dvh; }
+  .gx-sheet.has-foot { padding-block-end: 0; }
+  .gx-sheet-scroll { margin-inline: -22px; padding-inline: 22px; }
+  .gx-sheet-foot { margin-inline: -22px; padding: 12px 22px max(14px, env(safe-area-inset-bottom)); }
   .gx-sheet.is-chat { height: 94dvh; max-height: 94dvh; }
   .gx-chat { height: calc(94dvh - 75px); }
   .gx-sheet-head h2 { font-size: 23px; }

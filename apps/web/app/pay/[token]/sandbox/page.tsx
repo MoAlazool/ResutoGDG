@@ -4,7 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Badge, Notice, Skeleton } from '@resuto/ui';
 import { api, ApiRequestError } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { PayFrame } from '../_ui/PayFrame';
 

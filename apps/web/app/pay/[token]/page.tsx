@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CheckoutView, ReceiptView, StartCheckoutResult } from '@resuto/contracts';
 import { Field, Notice, Skeleton } from '@resuto/ui';
 import { api, ApiRequestError } from '@/lib/api';
-import { dateTime, money, pick } from '@/lib/format';
+import { dateTime, guestMoney as money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { methodIcon, PayFrame, safeRedirect } from './_ui/PayFrame';
 import { Receipt, ReceiptFailed, ReceiptPending } from './_ui/Receipt';

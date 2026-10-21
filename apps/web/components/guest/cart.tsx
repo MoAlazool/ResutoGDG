@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { PublicMenuProduct, SuggestionsResult } from '@resuto/contracts';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { estimate, unitPrice, type Cart } from './menu';
 import { MoneyRow, Photo, Sheet, Stepper } from './shell';
 
@@ -41,12 +41,12 @@ export function CartLines({ cart, products, currency }: { cart: Cart; products: 
 }
 
 /** Legacy .suggest block: why (ordered together / a drink / a dessert), the dishes with + to add, and where it came from. */
-export function Suggestions({ result, currency, onAdd }: { result: SuggestionsResult | null; currency: string; onAdd: (productId: string) => void }) {
+export function Suggestions({ result, currency, onAdd, compact }: { result: SuggestionsResult | null; currency: string; onAdd: (productId: string) => void; compact?: boolean }) {
   const { t, locale } = useT();
   if (!result || !result.items.length) return null;
   const head = result.reason === 'together' ? t('core.guest.suggest.together') : result.reason === 'dessert' ? t('core.guest.suggest.dessert') : t('core.guest.suggest.drink');
   return (
-    <section className="gx-suggest" aria-label={head}>
+    <section className={`gx-suggest${compact ? ' is-compact' : ''}`} aria-label={head}>
       <div className="gx-suggest-head"><span className="gx-spark" aria-hidden>✧</span><strong>{head}</strong></div>
       <div className="gx-suggest-list">
         {result.items.map((s) => {
@@ -79,13 +79,19 @@ export function useSuggestions(endpoint: string | null, productIds: string[], he
   return result;
 }
 
-export function CartSheet({ cart, products, currency, onClose, suggestions, onSuggest, footer, children }: {
+/**
+ * The cart. On a phone the lines, suggestions and note scroll while the footer (the order total when known, then
+ * Confirm order / Checkout) stays pinned and in view; suggestions are a compact sideways row so they never push the
+ * order button down (gallery PAR-07).
+ */
+export function CartSheet({ cart, products, currency, onClose, suggestions, onSuggest, footer, total, children }: {
   cart: Cart; products: Map<string, PublicMenuProduct>; currency: string; onClose: () => void;
-  suggestions: SuggestionsResult | null; onSuggest: (productId: string) => void; footer: ReactNode; children?: ReactNode;
+  suggestions: SuggestionsResult | null; onSuggest: (productId: string) => void; footer: ReactNode; total?: number | null; children?: ReactNode;
 }) {
   const { t, locale } = useT();
+  const foot = <>{cart.items.length > 0 && total != null && <MoneyRow grand label={t('core.bill.total')} value={money(total, currency, locale)} />}{footer}</>;
   return (
-    <Sheet title={t('core.guest.yourOrder')} onClose={onClose}>
+    <Sheet title={t('core.guest.yourOrder')} onClose={onClose} foot={foot}>
       {cart.items.length ? <CartLines cart={cart} products={products} currency={currency} /> : (
         <div className="gx-empty" style={{ padding: '26px 0' }}>
           <p>{t('core.guest.cartEmpty')}</p>
@@ -93,9 +99,8 @@ export function CartSheet({ cart, products, currency, onClose, suggestions, onSu
         </div>
       )}
       {cart.items.length > 0 && <MoneyRow label={t('core.bill.subtotal')} value={money(estimate(cart, products), currency, locale)} />}
-      {cart.items.length > 0 && <Suggestions result={suggestions} currency={currency} onAdd={onSuggest} />}
+      {cart.items.length > 0 && <Suggestions result={suggestions} currency={currency} onAdd={onSuggest} compact />}
       {children}
-      <div style={{ marginTop: 16 }}>{footer}</div>
     </Sheet>
   );
 }
