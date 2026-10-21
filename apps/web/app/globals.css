@@ -192,7 +192,12 @@ table .badge { white-space: nowrap; overflow-wrap: normal; }
 
 .stat { display: grid; gap: 4px; }
 .stat { container-type: inline-size; }
-.stat strong { font-size: 26px; color: var(--ink); font-variant-numeric: tabular-nums; font-family: var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat strong { font-size: min(26px, calc(160cqi / var(--chars, 1))); color: var(--ink); font-variant-numeric: tabular-nums; font-family: var(--font-display); overflow-wrap: break-word; }
+/* KPI values (PAR-06 + review). A figure (.is-fig, set by Stat/StatsStrip: an amount with its currency, a count, a
+   percentage; --chars is its length) is one unit: it never wraps and its font shrinks with the tile and its own length
+   (the calc(… / var(--chars)) term); a last-resort ellipsis keeps the full value in the title. A text or date value
+   wraps like text, so nothing is hidden. */
+:is(.stat strong, .stats-value).is-fig { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat span { font-size: 12px; color: var(--muted); }
 .stat em { font-style: normal; font-size: 12px; }
 
@@ -203,7 +208,7 @@ table .badge { white-space: nowrap; overflow-wrap: normal; }
   border-inline-end: 1px solid var(--border); border-block-end: 1px solid var(--border); margin-inline-end: -1px; margin-block-end: -1px;
 }
 :where(.ws) .stat > span:first-child { font-size: 12px; color: var(--stat-label); }
-:where(.ws) .stat strong { font-family: var(--font-body-en); font-size: min(30px, 16cqi); font-weight: 550; letter-spacing: -1px; color: var(--text); margin: 10px 0 8px; line-height: 1.15; }
+:where(.ws) .stat strong { font-family: var(--font-body-en); font-size: min(30px, 16cqi, calc(160cqi / var(--chars, 1))); font-weight: 550; letter-spacing: -1px; color: var(--text); margin: 10px 0 8px; line-height: 1.15; }
 [lang='ar'] :where(.ws) .stat strong { font-family: var(--font-body-ar); letter-spacing: 0; font-weight: 600; }
 :where(.ws) .stat em { font-size: var(--t-sm); color: var(--fine-text); }
 
@@ -214,9 +219,9 @@ table .badge { white-space: nowrap; overflow-wrap: normal; }
 .stats-cell { padding: 22px 24px; min-width: 0; container-type: inline-size; border-inline-end: 1px solid var(--border); border-block-end: 1px solid var(--border); margin-inline-end: -1px; margin-block-end: -1px; }
 .stack > .stats-strip { margin-block-end: 0; }
 .stats-label { font-size: 12px; color: var(--stat-label); }
-/* A value is one unit: the amount and its currency ("7,420 ج.م.") never wrap apart; the figure scales down with its tile
-   instead (PAR-06, narrow 390 px tiles). Anything still too long is clipped with an ellipsis, never pushed out. */
-.stats-value { display: block; font-family: var(--font-body-en); font-size: min(32px, 16cqi); letter-spacing: -1px; font-weight: 550; margin: 12px 0 10px; color: var(--text); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The amount and its currency ("7,420 ج.م.") never wrap apart (no-break space from the formatter, .is-fig above); the
+   figure scales down with its tile instead (PAR-06, narrow 390 px tiles). */
+.stats-value { display: block; font-family: var(--font-body-en); font-size: min(32px, 16cqi, calc(160cqi / var(--chars, 1))); letter-spacing: -1px; font-weight: 550; margin: 12px 0 10px; color: var(--text); line-height: 1.2; overflow-wrap: break-word; }
 [lang='ar'] .stats-value { font-family: var(--font-body-ar); letter-spacing: 0; font-weight: 600; }
 .stats-value small { font-size: var(--t-xs); letter-spacing: 0; color: var(--stat-unit); font-weight: 400; margin-inline-start: 8px; }
 .stats-note { margin: 0; font-size: var(--t-sm); color: var(--fine-text); line-height: 1.5; }
@@ -452,11 +457,11 @@ body:has(.gx-dock, .bk-bar, .gx-sheet-foot) .ws-lang { inset-block-end: calc(88p
   .heading-actions > :is(.btn, button) { flex: 1; min-height: 40px; }
   .stats-strip { margin-block-end: 20px; }
   .stats-cell { padding: 16px; }
-  .stats-value { font-size: min(28px, 16cqi); }
+  .stats-value { font-size: min(28px, 16cqi, calc(160cqi / var(--chars, 1))); }
   .stats-label { font-size: 11px; }
   :where(.ws) :is(.grid, .grid-2, .grid-3, .grid-4):has(> .stat) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   :where(.ws) :is(.grid, .grid-2, .grid-3, .grid-4) > .card.stat { padding: 16px; }
-  :where(.ws) .stat strong { font-size: min(24px, 16cqi); }
+  :where(.ws) .stat strong { font-size: min(24px, 16cqi, calc(160cqi / var(--chars, 1))); }
   .panel-head { padding: 18px; }
   .panel-body { padding: 0 18px 18px; }
 }

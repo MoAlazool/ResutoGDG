@@ -9,7 +9,7 @@
 // primitives: PageHeading, PageEyebrowProvider, Breadcrumb, StatsStrip(+Skeleton), Panel, PanelHead
 // shell: Wordmark, NAV_GLYPHS/NavGlyph, NavBadge, RestaurantChip, Topbar, LiveStatus, WorkspaceFooter, ProfileButton,
 //        RouteProgress, initialOf
-// display (bidi): UserText, Ltr, Phone, Email, Code · order-ref: OrderRef
+// display (bidi): UserText, Ltr, Phone, Email, Code · order-ref: OrderRef · figure: figureOf (KPI values that never wrap)
 export * from './base';
 export * from './primitives';
 export * from './shell';
@@ -18,6 +18,7 @@ export * from './toast';
 export * from './inputs';
 export * from './display';
 export * from './order-ref';
+export { figureOf, plainText, type Figure } from './figure';
 export * from './states';
 export * from './locale';
 export { UiStyles } from './styles';
