@@ -48,7 +48,8 @@ export class CreativeService {
         if (!p) throw invalid('unknown_product', 'This menu item does not exist');
         product = {
           name: p.name, nameAr: p.name_ar,
-          description: input.locale === 'ar' ? p.description_ar ?? p.description : p.description,
+          // Same language only: an English description must not leak into Arabic copy (it could be applied to description_ar).
+          description: input.locale === 'ar' ? p.description_ar ?? null : p.description,
           priceLabel: formatMoney(Number(p.price_minor), p.currency as Currency, input.locale), dietary: p.dietary ?? [],
         };
       }

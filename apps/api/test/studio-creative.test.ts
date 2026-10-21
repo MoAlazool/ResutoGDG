@@ -106,7 +106,11 @@ describe('applying approved copy', () => {
   });
 
   it('writes Arabic copy to the Arabic description only', async () => {
+    await sql(`update products set description = 'Hand-cut and twice fried', description_ar = null where id = $1`, [menu.products.fries]);
     const gen = await generate(a, { kind: 'menu_description', locale: 'ar', brief: 'بطاطس مقرمشة مع ملح البحر', productId: menu.products.fries });
+    // Arabic copy is built from Arabic facts and the brief only; the English description never leaks in.
+    expect(gen.body.output.variants[0].text).not.toContain('Hand-cut');
+    expect(gen.body.output.variants[0].text).toContain('بطاطس مقرمشة');
     await approve(a, gen.body.id);
     const [before] = await sql<any>(`select description from products where id = $1`, [menu.products.fries]);
     const res = await apply(a, gen.body.id, { variant: 0, key: 'apply-desc-ar-0001', target: { kind: 'product_description', productId: menu.products.fries } });

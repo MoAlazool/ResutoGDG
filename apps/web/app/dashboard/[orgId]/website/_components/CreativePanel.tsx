@@ -62,11 +62,11 @@ export function CreativePanel({ orgId, canWrite }: { orgId: string; canWrite: bo
           <h2>{t('studio.creative.title')}</h2>
           <p className="fine">{t('studio.creative.hint')}</p>
           {caps.data && (
-            <Notice tone="info">
+            <div style={{ marginBlock: 12 }}><Notice tone="info">
               {caps.data.copyGeneration.mode === 'template' ? t('studio.creative.modeTemplate')
                 : t(caps.data.copyGeneration.keySource === 'restaurant' ? 'studio.creative.modeModelRestaurant' : 'studio.creative.modeModelResuto',
                   { model: caps.data.copyGeneration.model ?? '' })}
-            </Notice>
+            </Notice></div>
           )}
           <form onSubmit={generate}>
             <div className="form-row">
