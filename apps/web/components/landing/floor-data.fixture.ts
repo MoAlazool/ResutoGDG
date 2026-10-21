@@ -1,5 +1,5 @@
-// GET /v1/public/floor/the-olive-room/main from the repo demo loader (2026-10-20); ids shortened. No QR tokens or
-// internal fields are part of the public floor.
+// GET /v1/public/floor/the-olive-room/main from the repo demo loader (2026-10-20; room architecture as the loader adds
+// it since 2026-10-21, PAR-01); ids shortened. No QR tokens or internal fields are part of the public floor.
 export const DEMO_FLOOR_MAIN = {
  "branchId": "00000000-0000-4000-8000-000000000001",
  "branchCode": "main",
@@ -59,7 +59,12 @@ export const DEMO_FLOOR_MAIN = {
    "width": 90,
    "height": 20,
    "rotation": 0
-  }
+  },
+  { "x": 50, "y": 400, "id": "wall-left", "type": "wall", "label": "West wall", "width": 10, "height": 730, "rotation": 0 },
+  { "x": 1150, "y": 400, "id": "wall-right", "type": "wall", "label": "East wall", "width": 10, "height": 730, "rotation": 0 },
+  { "x": 600, "y": 760, "id": "wall-bottom", "type": "wall", "label": "South wall", "width": 1110, "height": 10, "rotation": 0 },
+  { "x": 600, "y": 40, "id": "window-north", "type": "window", "label": "Windows", "width": 440, "height": 12, "rotation": 0 },
+  { "x": 1060, "y": 220, "id": "counter-bar", "type": "counter", "label": "Service & bar", "width": 50, "height": 240, "rotation": 0 }
  ],
  "tables": [
   {

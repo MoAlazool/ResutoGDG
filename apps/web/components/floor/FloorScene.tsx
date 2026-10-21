@@ -215,6 +215,16 @@ function SceneObject({ o, selected, opts }: { o: SceneTable | FloorObject; selec
   );
 }
 
+/**
+ * Walls and dividers are the room's shell, so they are drawn first: doors, entrances and windows are openings cut into
+ * a wall and must sit on top of it whatever order the layout stores them in (a wall added after the door would
+ * otherwise paint over the opening). The sort is stable, so every other object keeps its stored order (PAR-01).
+ */
+export function inDrawOrder<T extends { type?: string }>(objects: T[]): T[] {
+  const shell = (o: T) => (o.type === 'wall' || o.type === 'divider' ? 0 : 1);
+  return objects.map((o, i) => [o, i] as const).sort((a, b) => shell(a[0]) - shell(b[0]) || a[1] - b[1]).map(([o]) => o);
+}
+
 /** The scene contents (place inside an <svg viewBox=…>). */
 export function FloorSceneContent({ layout, ...options }: { layout: SceneLayout } & SceneOptions) {
   const mode: SceneMode = options.mode ?? (options.editor ? 'editor' : 'reservation');
@@ -230,7 +240,7 @@ export function FloorSceneContent({ layout, ...options }: { layout: SceneLayout 
         <image data-background="true" x={bg.x || 0} y={bg.y || 0} width={bg.width || layout.width} height={bg.height || layout.height}
           href={bg.image} opacity={bg.opacity} preserveAspectRatio="none" style={{ pointerEvents: options.editor && !bg.locked ? 'all' : 'none' }} />
       )}
-      {[layout.zones, layout.objects, layout.tables].map((list, li) => (
+      {[layout.zones, inDrawOrder(layout.objects), layout.tables].map((list, li) => (
         <Fragment key={li}>{list.map((o) => <SceneObject key={o.id} o={o} selected={selected.has(o.id)} opts={opts} />)}</Fragment>
       ))}
     </>
