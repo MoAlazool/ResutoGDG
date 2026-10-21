@@ -40,55 +40,55 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | VS-05 | P0 | Restore legacy staff login layout and role-aware post-login routing | ws3-staff-shell | done (wave 1, 5274252) |
 | VS-06 | P0 | Western digits 0-9 everywhere in Arabic (verify the lead/p0-digits fix in the running build) | ws3-staff-shell | done (wave 1, 5274252) |
 | VS-07 | P0 | Loading foundations: chrome-first shell, route-level skeletons, navigation pending state, no layout shift | ws3-staff-shell | done (wave 1, 5274252) |
-| VS-08 | P0 | RTL floor SVG: restore direction:ltr on the scene and translate seeded zone/object labels | ws5-ops | done (wave 2, 85c176e) |
+| VS-08 | P0 | RTL floor SVG: restore direction:ltr on the scene and translate seeded zone/object labels | ws5-ops | done (wave 3, 93abad9) |
 | VS-09 | P0 | Bidi isolation for phones, emails, codes and user text in RTL | ws3-staff-shell | done (wave 1, 5274252) |
 | VS-24 | P0 | Mobile staff shell parity: horizontal chip nav and visible language switch instead of a hidden drawer | ws3-staff-shell | done (wave 1, 5274252) |
-| VS-10 | P1 | KDS parity: 5 lanes, drag-and-drop with forward-only validation, service requests, completed lane, sane timers | ws5-ops | planned |
-| VS-11 | P1 | Floor overview side panel and actions parity (QR, walk-in, resolve, kitchen states, KPI strip, default tab) | ws5-ops | planned |
-| VS-12 | P1 | Host front desk view and host routing | ws5-ops | planned |
-| VS-13 | P1 | Active visits list (including pickup/delivery visits) with close-visit flow | ws5-ops | planned |
-| VS-14 | P1 | Orders: add the legacy board view (kanban + drag + requests) alongside the list | ws5-ops | planned |
-| VS-15 | P1 | Overview parity: live floor, station load, operational insights ask box, low stock, legacy KPI strip | ws5-ops | planned |
-| VS-16 | P1 | Settings: service model cards and reservation/delivery policy; mode-driven nav | ws5-ops | planned |
-| VS-17 | P1 | Guided setup: 8-step wizard with step list and progress | ws5-ops | planned |
-| VS-18 | P1 | Menu & inventory table parity (portions/stock, image action, AR vocabulary) and native control styling | ws5-ops | planned |
+| VS-10 | P1 | KDS parity: 5 lanes, drag-and-drop with forward-only validation, service requests, completed lane, sane timers | ws5-ops | done (wave 3, 93abad9) |
+| VS-11 | P1 | Floor overview side panel and actions parity (QR, walk-in, resolve, kitchen states, KPI strip, default tab) | ws5-ops | done (wave 3, 93abad9) |
+| VS-12 | P1 | Host front desk view and host routing | ws5-ops | done (wave 3, 93abad9) |
+| VS-13 | P1 | Active visits list (including pickup/delivery visits) with close-visit flow | ws5-ops | done (wave 3, 93abad9) |
+| VS-14 | P1 | Orders: add the legacy board view (kanban + drag + requests) alongside the list | ws5-ops | done (wave 3, 93abad9) |
+| VS-15 | P1 | Overview parity: live floor, station load, operational insights ask box, low stock, legacy KPI strip | ws5-ops | done (wave 3, 93abad9) |
+| VS-16 | P1 | Settings: service model cards and reservation/delivery policy; mode-driven nav | ws5-ops | done (wave 3, 93abad9) |
+| VS-17 | P1 | Guided setup: 8-step wizard with step list and progress | ws5-ops | done (wave 3, 93abad9) |
+| VS-18 | P1 | Menu & inventory table parity (portions/stock, image action, AR vocabulary) and native control styling | ws5-ops | done (wave 3, 93abad9) |
 | VS-19 | P1 | Replace native window.confirm/prompt with styled Modal/useConfirm | ws3-staff-shell | done (wave 1, 5274252) |
-| VS-20 | P1 | Live/polling behaviour: pause while editing, skip unchanged revisions, global connection status | ws5-ops | planned |
+| VS-20 | P1 | Live/polling behaviour: pause while editing, skip unchanged revisions, global connection status | ws5-ops | done (wave 3, 93abad9) |
 | VS-21 | P1 | Untranslated operator-facing strings in Arabic (server-generated text, technical keys, vocabulary) | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
 | VS-22 | P1 | Plural-aware i18n (Arabic six forms) | ws3-staff-shell | done (wave 1, 5274252) |
-| VS-23 | P1 | Floor Studio as a full-bleed editor (not squeezed inside the dashboard shell) | ws5-ops | planned |
+| VS-23 | P1 | Floor Studio as a full-bleed editor (not squeezed inside the dashboard shell) | ws5-ops | done (wave 3, 93abad9) |
 | VS-27 | P1 | Guest satisfaction ratings missing end-to-end | ws4b-guest | planned |
-| VS-25 | P2 | Mobile overflow and clipping fixes (badges, data tables, KDS timers, chart labels) | ws5-ops | planned |
-| VS-26 | P2 | Studio AI: AI menu extraction review flow and AI floor import | ws9-studio-mcp | planned |
-| VS-28 | P2 | Consolidated Import & export hub | ws5-ops | planned |
+| VS-25 | P2 | Mobile overflow and clipping fixes (badges, data tables, KDS timers, chart labels) | ws5-ops | done (wave 3, 93abad9) |
+| VS-26 | P2 | Studio AI: AI menu extraction review flow and AI floor import | ws9-studio-mcp | partial (wave 3; remainder in follow-ups) |
+| VS-28 | P2 | Consolidated Import & export hub | ws5-ops | done (wave 3, 93abad9) |
 | VS-30 | P2 | Human-friendly durations and timestamps (Elapsed/When formatters) | ws3-staff-shell | done (wave 1, 5274252) |
-| VS-31 | P2 | New-only modules: migrate inline styles/local hex to shared components so they inherit the restored legacy language | ws5-ops | planned |
-| VS-32 | P2 | Integrations cards visual parity (provider tile/logo, filter chips) | ws5-ops | planned |
+| VS-31 | P2 | New-only modules: migrate inline styles/local hex to shared components so they inherit the restored legacy language | ws5-ops | partial (wave 3; remainder in follow-ups) |
+| VS-32 | P2 | Integrations cards visual parity (provider tile/logo, filter chips) | ws5-ops | done (wave 3, 93abad9) |
 | FT-01 | P0 | MCP keys bypass tool allowlist, approvals and MCP audit via @AllowMcp REST routes | ws1-security | done (wave 1, 5274252) |
-| FT-02 | P1 | Menu: temporary unavailability (86) conflated with branch assignment | ws5-ops | planned |
-| FT-03 | P1 | Loyalty missing: no earning/redemption rules, no auditable ledger, no UI | ws8-features | planned |
+| FT-02 | P1 | Menu: temporary unavailability (86) conflated with branch assignment | ws5-ops | done (wave 3, 93abad9) |
+| FT-03 | P1 | Loyalty missing: no earning/redemption rules, no auditable ledger, no UI | ws8-features | partial (wave 3; remainder in follow-ups) |
 | FT-05 | P1 | Connect: Messenger and Instagram channels missing | ws7a-meta | done (wave 2, 85c176e) |
-| FT-06 | P1 | Owner/staff notifications never delivered (licence expiry reminders marked 'sent', low stock, MCP approvals, invitations) | ws8-features | planned |
-| FT-07 | P1 | Counter / single venue QR mode (takeaway, cloud kitchen) not ported | ws5-ops | planned |
-| FT-08 | P1 | AI menu extraction from PDF/photo missing although the landing advertises it | ws9-studio-mcp | planned |
-| FT-09 | P1 | Pickup/delivery ordering ignores opening hours and delivery area; no delivery zones | ws8-features | planned |
-| FT-10 | P1 | ai_requests_per_month plan limit displayed but never enforced | ws8-features | planned |
+| FT-06 | P1 | Owner/staff notifications never delivered (licence expiry reminders marked 'sent', low stock, MCP approvals, invitations) | ws8-features | partial (wave 3; remainder in follow-ups) |
+| FT-07 | P1 | Counter / single venue QR mode (takeaway, cloud kitchen) not ported | ws5-ops | partial (wave 3; remainder in follow-ups) |
+| FT-08 | P1 | AI menu extraction from PDF/photo missing although the landing advertises it | ws9-studio-mcp | done (wave 3, 93abad9) |
+| FT-09 | P1 | Pickup/delivery ordering ignores opening hours and delivery area; no delivery zones | ws8-features | done (wave 3, 93abad9) |
+| FT-10 | P1 | ai_requests_per_month plan limit displayed but never enforced | ws8-features | done (wave 3, 93abad9) |
 | FT-11 | P1 | Guest cannot resume an unpaid reservation deposit | ws4b-guest | done (wave 2, 85c176e) |
-| FT-12 | P1 | Connect recovery: no resend of failed messages; conversation assignment API has no UI | ws5-ops | planned |
-| FT-13 | P1 | Onboarding: one-form creation + self-asserted checklist; legacy guided wizard not ported | ws5-ops | planned |
-| FT-15 | P1 | Intelligence insights are English-only inside the Arabic UI; evidence shown as raw JSON | ws8-features | planned |
-| FT-18 | P1 | Platform subscription invoices never collected (no billing provider) | ws8-features | planned |
-| FT-04 | P2 | Food-photo enhancement pipeline missing (upload -> processing job -> review -> approval -> publish) | ws9-studio-mcp | planned |
-| FT-14 | P2 | No customer-facing delivery ETA/tracking and no dispatcher map | ws8-features | planned |
-| FT-16 | P2 | Approved creative has no publish/apply path; copy-generation API has no UI | ws9-studio-mcp | planned |
-| FT-17 | P2 | MCP interop: tool coverage gaps (menu, finance, payments, delivery) and no OAuth 2.1 | ws9-studio-mcp | planned |
-| FT-19 | P2 | Platform fees not separated from pass-through costs (messaging, ads, payment fees, AI) in data/UI | ws8-features | planned |
+| FT-12 | P1 | Connect recovery: no resend of failed messages; conversation assignment API has no UI | ws5-ops | done (wave 3, 93abad9) |
+| FT-13 | P1 | Onboarding: one-form creation + self-asserted checklist; legacy guided wizard not ported | ws5-ops | done (wave 3, 93abad9) |
+| FT-15 | P1 | Intelligence insights are English-only inside the Arabic UI; evidence shown as raw JSON | ws8-features | done (wave 3, 93abad9) |
+| FT-18 | P1 | Platform subscription invoices never collected (no billing provider) | ws8-features | deferred (see results) |
+| FT-04 | P2 | Food-photo enhancement pipeline missing (upload -> processing job -> review -> approval -> publish) | ws9-studio-mcp | done (wave 3, 93abad9) |
+| FT-14 | P2 | No customer-facing delivery ETA/tracking and no dispatcher map | ws8-features | done (wave 3, 93abad9) |
+| FT-16 | P2 | Approved creative has no publish/apply path; copy-generation API has no UI | ws9-studio-mcp | done (wave 3, 93abad9) |
+| FT-17 | P2 | MCP interop: tool coverage gaps (menu, finance, payments, delivery) and no OAuth 2.1 | ws9-studio-mcp | done (wave 3, 93abad9) |
+| FT-19 | P2 | Platform fees not separated from pass-through costs (messaging, ads, payment fees, AI) in data/UI | ws8-features | done (wave 3, 93abad9) |
 | FT-20 | P2 | Guest-facing menu assistant and upsell suggestions not ported | ws4b-guest | planned |
 | FT-21 | P2 | Guest ratings/feedback after payment not ported | ws4b-guest | planned |
 | FT-22 | P2 | Driver devices registered but no push notifications | ws7b-integrations | planned |
-| FT-23 | P2 | Finance journals cover sales only; account mapping not editable; invoices push unused | ws8-features | planned |
+| FT-23 | P2 | Finance journals cover sales only; account mapping not editable; invoices push unused | ws8-features | done (wave 3, 93abad9) |
 | FT-24 | P2 | Regulator adapters are stubs: ZATCA Phase-2 signing/clearance and ETA submission | ws7b-integrations | planned |
-| FT-25 | P2 | Inventory bulk stocktake and supplier edit have API but no UI | ws5-ops | planned |
+| FT-25 | P2 | Inventory bulk stocktake and supplier edit have API but no UI | ws5-ops | done (wave 3, 93abad9) |
 | FT-26 | P2 | Connection health is manual only; payment and accounting adapters lack health checks | ws2-payments | partial (wave 1; remainder in follow-ups) |
 | FT-27 | P2 | SMS and email marketing channels have no provider | ws7b-integrations | planned |
 | INT-01 | P0 | Production can run simulated payments: PAYMENT_MODE defaults to sandbox with no deployed-env guard | ws1-security | done (wave 1, 5274252) |
@@ -188,9 +188,9 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | PCL-16 | P1 | Order detail payments query (OR across LEFT JOIN) seq-scans all payments; polled every 5 s while drawer open | ws6-perf | done (wave 2, 85c176e) |
 | PCL-17 | P1 | Customers list computes a lateral aggregate over every customer's orders per page (409 ms at 60k customers), OFFSET pagination, count repeats the work | ws6-perf | done (wave 2, 85c176e) |
 | PCL-18 | P1 | Guest QR polling (2.5 s, up to 48 req/min/phone) collides with per-IP read limit (240/min) on shared restaurant Wi-Fi | ws4b-guest | done (wave 2, 85c176e) |
-| PCL-19 | P1 | KDS client: no in-flight/sequence guard (station/branch switch can show wrong station until next order change), overlapping 2 s polls, isNew never clears | ws5-ops | planned |
-| PCL-20 | P1 | Branch/filter state not persisted or shared (resets on reload) and per-user prefs not cleared on sign-out (shared tablets) | ws5-ops | planned |
-| PCL-21 | P1 | Unprotected mutation buttons (no pending/disable/error handling) and sparse idempotency keys in UI | ws5-ops | planned |
+| PCL-19 | P1 | KDS client: no in-flight/sequence guard (station/branch switch can show wrong station until next order change), overlapping 2 s polls, isNew never clears | ws5-ops | done (wave 3, 93abad9) |
+| PCL-20 | P1 | Branch/filter state not persisted or shared (resets on reload) and per-user prefs not cleared on sign-out (shared tablets) | ws5-ops | done (wave 3, 93abad9) |
+| PCL-21 | P1 | Unprotected mutation buttons (no pending/disable/error handling) and sparse idempotency keys in UI | ws5-ops | done (wave 3, 93abad9) |
 | PCL-22 | P1 | Static /public assets served max-age=0; fonts are 1.13 MB of TTF (no woff2, subsetting, or preload) | ws6-perf | partial (wave 2; remainder in follow-ups) |
 | PCL-23 | P2 | Realtime is polling-only; add push 'change ticks' with reconnect reconciliation | ws6-perf | deferred (see results) |
 | PCL-24 | P2 | No API response compression and no conditional GET for polls | ws6-perf | partial (wave 2; remainder in follow-ups) |
@@ -202,14 +202,14 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | DF-08 | P0 | The full menu photo sprite (a grid of Olive Room dishes) is shown as the photo of every dish without an image; the Smash & Co ordering hero uses the Olive dining room | ws4a-public | partial (wave 2; remainder in follow-ups) |
 | DF-09 | P0 | Restaurant site hero is empty when no hero media is set (no template fallback); 'Chef's favourites' can show a dish from another concept or branch | ws4a-public | done (wave 2, 85c176e) |
 | DF-07 | P0 | User-entered names, phones and addresses are not direction-isolated outside the driver portal, dispatch board, KDS and inbox | ws3-staff-shell | done (wave 2, 85c176e) |
-| DF-01 | P1 | One is_available flag means both 'not sold at this branch' and 'temporarily unavailable'; a kitchen 86 hides the dish instead of showing it sold out, and staff and guest labels are inverted | ws5-ops | planned |
-| DF-02 | P1 | KDS 'Out for delivery' marks a delivery order delivered (terminal, fulfilled) when there is no active driver job | ws5-ops | planned |
-| DF-03 | P1 | Restocking leaves the low-stock AI insight open for up to an hour; same-day re-breach is suppressed; a continuing breach creates a duplicate insight each day with stale quantities | ws8-features | planned |
-| DF-04 | P1 | P&L double-counts COGS when ingredient purchases are recorded as 'Ingredients' (cogs) expenses alongside item-cost COGS; provider fees plus 'fees' expenses double-count with no warning | ws8-features | planned |
-| DF-05 | P1 | The forecast API says isSyntheticData:false for the demo restaurant (generated history); the UI shows no demo or synthetic label; fallback reason is raw English | ws8-features | planned |
+| DF-01 | P1 | One is_available flag means both 'not sold at this branch' and 'temporarily unavailable'; a kitchen 86 hides the dish instead of showing it sold out, and staff and guest labels are inverted | ws5-ops | done (wave 3, 93abad9) |
+| DF-02 | P1 | KDS 'Out for delivery' marks a delivery order delivered (terminal, fulfilled) when there is no active driver job | ws5-ops | done (wave 3, 93abad9) |
+| DF-03 | P1 | Restocking leaves the low-stock AI insight open for up to an hour; same-day re-breach is suppressed; a continuing breach creates a duplicate insight each day with stale quantities | ws8-features | done (wave 3, 93abad9) |
+| DF-04 | P1 | P&L double-counts COGS when ingredient purchases are recorded as 'Ingredients' (cogs) expenses alongside item-cost COGS; provider fees plus 'fees' expenses double-count with no warning | ws8-features | done (wave 3, 93abad9) |
+| DF-05 | P1 | The forecast API says isSyntheticData:false for the demo restaurant (generated history); the UI shows no demo or synthetic label; fallback reason is raw English | ws8-features | done (wave 3, 93abad9) |
 | DF-10 | P1 | Local demo data is inconsistent: stock history negative and stamped at load time, expenses cover only 3 of 8 weeks, stale live fixtures (443 h tickets, visit open 14 days, past reservations still confirmed) | ws10-data-quality | planned |
 | DF-11 | P1 | Repo demo loader books fixed monthly costs into partial months: the first month gets payroll only against 7 days of revenue, the current month gets no payroll; reconciliation period ends in the future | ws10-data-quality | planned |
-| DF-14 | P1 | WhatsApp sends 'Order is on the way' twice per delivery (on both picked_up and en_route) | ws5-ops | planned |
+| DF-14 | P1 | WhatsApp sends 'Order is on the way' twice per delivery (on both picked_up and en_route) | ws5-ops | done (wave 3, 93abad9) |
 | DF-12 | P2 | Intermittent Vercel staging 502s on static JS chunks: root cause unproven (Vercel edge vs sandbox egress proxy); harness lacks header capture; app lacks chunk-load recovery | ws10-data-quality | planned |
 | DF-13 | P2 | Every poller and the KDS board restart (and the KDS blanks) whenever the session value changes, such as a Supabase token refresh | ws10-data-quality | planned |
 | DF-15 | P2 | English strings in Arabic UI: unit codes (kg/pcs/l), server-generated insight titles and bodies, raw fallback reasons | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
@@ -221,7 +221,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | CR-02 | P0 | CI never runs the web unit tests (including the lead's Western-digits guard); there is no dependency audit and no lint | lead | done (lead 544bf7d) |
 | CR-03 | P0 | Error and not-found UX foundation is missing: unbranded English 404 in Arabic, no error or global-error boundaries, and soft-404 (HTTP 200) for unknown restaurants and tokens | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
 | CR-04 | P0 | Western digits: residual sources the lead fix and its guard do not cover (legacy copy to port, demo data, raw guest inputs, server side) | ws3-staff-shell | done (wave 1, 5274252) |
-| CR-05 | P1 | Account lifecycle missing: no password reset, no email-confirmation callback, no change password, no Google sign-in (legacy /account had them) | ws8-features | planned |
+| CR-05 | P1 | Account lifecycle missing: no password reset, no email-confirmation callback, no change password, no Google sign-in (legacy /account had them) | ws8-features | done (wave 3, 93abad9) |
 | CR-06 | P1 | Guest phone entry rejects local Egyptian/Saudi formats and Arabic-Indic digits (an English error), a regression from legacy | ws4b-guest | done (wave 2, 85c176e) |
 | CR-07 | P1 | Staging not fit for provider acceptance or traceable QA: sleeping API and worker, no deployed-commit identity, acceptance harness bypasses the product path | ws10-data-quality | planned |
 | CR-08 | P1 | Vulnerable production dependencies: multer DoS reachable on every upload route; postcss advisories via next | lead | done (lead 544bf7d) |

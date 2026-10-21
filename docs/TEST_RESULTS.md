@@ -107,3 +107,30 @@ Staging (Render API/AI/MCP at `85c176e`): 16 new migrations applied; `smoke.mjs`
 The staging demo tenant predates the storefront seed, so the Smash & Co storefront exists only after a fresh demo load.
 The web app on Vercel is still not redeployed (connector access, see `RESUME.md`).
 Performance before/after numbers: `docs/PERFORMANCE.md` (local, not production capacity).
+
+## Continuation wave 3 — integrated (2026-10-21, `93abad9`)
+
+Operations UI (legacy KDS lanes, floor overview, front desk, visits, order board, 8-step setup, menu & inventory
+table, stocktake, 86/sold-out), module features (loyalty ledger, notifications, AI quota, insight templates,
+opening hours + delivery zones, P&L policy, journals, billing costs, delivery tracking, account lifecycle) and
+Studio/MCP (menu extraction with review/commit, food-photo enhancement pipeline, approved-copy publishing, new MCP
+tools with approval binding and OAuth 2.1). Each lane was reviewed independently; the review findings (ws5: 2 major,
+5 minor; ws8: 4 major; ws9: 2 major, 3 minor) were fixed before merging. Two cross-lane fixes after merging:
+`list_menu` treats a sold-out (86) dish as unavailable (`e591548`); the INT-22 audience dry-run test no longer
+depends on row order (`93abad9`).
+
+| Suite | Result |
+|---|---|
+| API integration | **727 / 727** |
+| Database security / read models | **57 / 57** |
+| Contracts | **56 / 56** |
+| Integrations adapters + acceptance runner | **211 / 211** |
+| MCP server | **23 / 23** |
+| Web unit | **239 / 239** |
+| API typecheck, web typecheck, web production build | pass |
+
+Staging (Render API/AI/MCP at `93abad9`, deployed 2026-10-21 07:17 UTC): 15 new migrations applied
+(`20261021010001` … `20261021030006`); `smoke.mjs` **39 / 39**; `mcp-check.mjs` **7 / 7**.
+Partial items (remainders tracked in `docs/BACKLOG.md`): VS-25 mobile parity, VS-31 shared ops classes, FT-07
+service modes, PCL-21 optimistic actions, VS-26 AI floor-plan import.
+The web app on Vercel is still not redeployed (connector access, see `RESUME.md`).
