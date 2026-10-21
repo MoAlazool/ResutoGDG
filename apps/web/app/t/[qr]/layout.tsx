@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { PublicTableView } from '@resuto/contracts';
 import { plausible, serverRead } from '@/components/guest/server';
@@ -12,6 +12,12 @@ export default async function TableLayout({ children, params }: { children: Reac
   const { qr } = await params;
   if (!plausible(qr) || !/^[A-Za-z0-9_-]{16,128}$/.test(qr)) notFound();
   const table = await serverRead<PublicTableView>(`/public/tables/${encodeURIComponent(qr)}`, { revalidate: 15, tags: [`table:${qr}`] });
-  if (table.status === 'missing') notFound();
+  if (table.status === 'missing') {
+    // A venue (counter) QR printed by the legacy app also lives at /t/<token>: it opens the branch's ordering page
+    // (FT-07), resolved by the API from the migration's token map (CR-13). Anything else stays a 404.
+    const venue = await serverRead<{ path: string }>(`/public/venue/${encodeURIComponent(qr)}`, { revalidate: 300, tags: [`venue:${qr}`] });
+    if (venue.status === 'ok' && /^\/order\/[a-z0-9-]+\?branch=[a-z0-9-]+$/.test(venue.data.path)) redirect(venue.data.path);
+    notFound();
+  }
   return children;
 }
