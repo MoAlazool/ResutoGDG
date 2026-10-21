@@ -324,3 +324,22 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .integ-tile[data-tint='3'] { background: var(--leaf-bg); color: var(--leaf-text); }
 .integ-tile[data-tint='4'] { background: var(--warn-bg); color: var(--warn); }
 .integ-card .badge { align-self: flex-start; }
+
+/* ---------- Shared bits replacing inline styles in operations pages (VS-31) ---------- */
+.form-row[data-align='end'] { align-items: end; }
+.flush { margin: 0; }
+.ops-line { border-bottom: 1px solid var(--line-soft); padding: 8px 0; }
+.ops-seg { display: inline-flex; background: var(--line-soft); border-radius: var(--radius-pill, 99px); padding: 3px; }
+.ops-draft-line { padding: 12px; }
+.ops-qty { width: 80px; }
+.ops-fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+.ops-fieldset > legend { font-size: 13px; font-weight: 650; color: var(--ink); margin-bottom: 6px; }
+.ops-gap-top { margin-top: 10px; }
+.ops-mono { font-family: var(--font-mono); font-size: 13px; }
+.card[data-archived] { opacity: .55; }
+/* Reservations timeline (legacy reservation rows) */
+.res-timeline { list-style: none; padding: 0; margin: 12px 0 0; }
+.res-row { padding: 16px; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px; }
+.res-row[data-closed] { opacity: .6; }
+.res-time { font-size: 20px; }
+.res-body { gap: 6px; }

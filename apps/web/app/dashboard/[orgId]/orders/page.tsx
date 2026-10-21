@@ -116,7 +116,7 @@ function Orders() {
         </div>
         {resolveError && <Notice tone="danger">{resolveError}</Notice>}
       </section>
-      <div className="form-row" style={{ alignItems: 'end' }}>
+      <div className="form-row" data-align="end">
         {org.branches.length > 1 && (
           <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => { setBranchId(e.target.value); setCursor(undefined); }}>
             {org.branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
@@ -194,11 +194,11 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
             <Badge tone={o.paymentStatus === 'paid' ? 'ok' : 'pay'}>{t(`core.payment.${o.paymentStatus}`)}</Badge>
             <span className="fine">{t(`core.channel.${o.channel}`)} · {t(`core.web.${o.fulfillment}`)} · {dateTime(o.placedAt, locale, org.timezone)}</span>
           </div>
-          {(o.customerName || o.customerPhone) && <p style={{ margin: 0 }}><UserText>{o.customerName}</UserText>{o.customerName && o.customerPhone ? ' · ' : ''}<Phone value={o.customerPhone} link />{o.tableLabel ? ` · ${t('core.kds.table', { label: o.tableLabel })}` : ''}</p>}
-          {o.deliveryAddress != null && <p className="fine" style={{ margin: 0 }}><UserText>{String((o.deliveryAddress as { line1?: string }).line1 ?? '')}</UserText></p>}
+          {(o.customerName || o.customerPhone) && <p className="flush"><UserText>{o.customerName}</UserText>{o.customerName && o.customerPhone ? ' · ' : ''}<Phone value={o.customerPhone} link />{o.tableLabel ? ` · ${t('core.kds.table', { label: o.tableLabel })}` : ''}</p>}
+          {o.deliveryAddress != null && <p className="fine flush"><UserText>{String((o.deliveryAddress as { line1?: string }).line1 ?? '')}</UserText></p>}
           <div>
             {o.lines.map((l) => (
-              <div key={l.id} className="spread" style={{ borderBottom: '1px solid var(--line-soft)', padding: '8px 0' }}>
+              <div key={l.id} className="spread ops-line">
                 <span><strong>{l.quantity}×</strong> {pick(locale, l.name, l.nameAr)}
                   {l.modifiers.length > 0 && <small className="fine"> · {l.modifiers.map((m) => m.option).join(', ')}</small>}
                   {l.notes && <small className="fine"> · “<UserText>{l.notes}</UserText>”</small>}
@@ -289,7 +289,7 @@ function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onC
     </>}>
       {!menu.data ? <Skeleton lines={4} /> : (
         <div className="stack">
-          <div className="g-seg" role="group" aria-label={t('core.orders.fulfillment')} style={{ display: 'inline-flex', background: 'var(--line-soft)', borderRadius: 99, padding: 3 }}>
+          <div className="g-seg ops-seg" role="group" aria-label={t('core.orders.fulfillment')}>
             {(['dine_in', 'pickup', 'delivery'] as const).map((f) => (
               <button key={f} type="button" className={`btn btn-sm btn-pill ${fulfillment === f ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFulfillment(f)}>{t(`core.web.${f}`)}</button>
             ))}
@@ -310,10 +310,10 @@ function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onC
           {lines.map((l, i) => {
             const p = products.find((x) => x.id === l.productId);
             return (
-              <div key={i} className="card" style={{ padding: 12 }}>
+              <div key={i} className="card ops-draft-line">
                 <div className="spread"><strong>{p ? pick(locale, p.name, p.nameAr) : ''}</strong>
                   <span className="row">
-                    <input className="input" type="number" min={1} max={99} value={l.quantity} style={{ width: 80 }} aria-label={t('core.orders.qty')}
+                    <input type="number" min={1} max={99} value={l.quantity} className="input ops-qty" aria-label={t('core.orders.qty')}
                       onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, quantity: Math.max(1, Math.min(99, Number(e.target.value) || 1)) } : x)))} />
                     <button className="btn btn-sm btn-ghost" aria-label={t('action.delete')} onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>
                   </span>

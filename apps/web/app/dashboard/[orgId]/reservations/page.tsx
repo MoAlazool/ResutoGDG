@@ -2,6 +2,7 @@
 import { Suspense, useRef, useState, type FormEvent } from 'react';
 import type { AvailabilityResult, ReservationView } from '@resuto/contracts';
 import { Badge, Code, EmptyState, Field, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, UserText, useConfirm, type Tone } from '@resuto/ui';
+import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useUrlParam } from '@/components/ops/use-url-state';
 import { newIdempotencyKey } from '@/lib/api';
@@ -45,7 +46,7 @@ function Reservations() {
       {confirmDialog}
       <PageHeader title={t('nav.reservations')} subtitle={t('core.resdash.subtitle', { n: live.length, covers })}
         actions={can('reservations:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.resdash.new')}</button>} />
-      <div className="form-row" style={{ alignItems: 'end' }}>
+      <div className="form-row" data-align="end">
         <Field label={t('core.orders.date')} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         {org.branches.length > 1 && (
           <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
@@ -58,11 +59,11 @@ function Reservations() {
       {day.loading && !day.data ? <Skeleton lines={6} /> : !items.length ? (
         <div className="card"><EmptyState title={t('core.resdash.empty')}>{t('core.resdash.emptyHint')}</EmptyState></div>
       ) : (
-        <ol className="stack" style={{ listStyle: 'none', padding: 0, margin: '12px 0 0' }} aria-label={t('core.resdash.timeline')}>
+        <ol className="stack res-timeline" aria-label={t('core.resdash.timeline')}>
           {items.map((r) => (
-            <li key={r.id} className="card" style={{ padding: 16, display: 'grid', gridTemplateColumns: '72px minmax(0,1fr)', gap: 14, opacity: ['cancelled', 'expired', 'no_show'].includes(r.status) ? 0.6 : 1 }}>
-              <div><strong style={{ fontSize: 20 }} className="num">{time(r.startsAt, locale, org.timezone)}</strong><div className="fine">{time(r.endsAt, locale, org.timezone)}</div></div>
-              <div className="stack" style={{ gap: 6 }}>
+            <li key={r.id} className="card res-row" data-closed={['cancelled', 'expired', 'no_show'].includes(r.status) || undefined}>
+              <div><strong className="num res-time">{time(r.startsAt, locale, org.timezone)}</strong><div className="fine">{time(r.endsAt, locale, org.timezone)}</div></div>
+              <div className="stack res-body">
                 <div className="spread">
                   <span><strong><UserText>{r.guestName}</UserText></strong> · {t('core.res.guests', { n: r.partySize })}{r.tableLabel ? ` · ${t('core.kds.table', { label: r.tableLabel })}` : ''}</span>
                   <Badge tone={tone(r.status)}>{t(`core.res.status.${r.status}`)}</Badge>

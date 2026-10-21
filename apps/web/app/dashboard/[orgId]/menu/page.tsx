@@ -259,8 +259,8 @@ function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: Men
         <Field label={t('core.menu.dietary')} name="dietary" defaultValue={product?.dietary.join(', ')} hint="vegetarian, vegan, halal, gluten_free" />
         <Field label={t('core.menu.ingredients')} name="ingredients" defaultValue={product?.ingredients.join(', ')} />
         {menu.modifierGroups.filter((g) => g.isActive).length > 0 && (
-          <fieldset style={{ border: 0, padding: 0, margin: '0 0 14px' }}>
-            <legend className="fine" style={{ fontWeight: 650 }}>{t('core.menu.modifiers')}</legend>
+          <fieldset className="ops-fieldset">
+            <legend className="fine">{t('core.menu.modifiers')}</legend>
             <div className="row">
               {menu.modifierGroups.filter((g) => g.isActive).map((g) => (
                 <label key={g.id} className="check"><input type="checkbox" checked={groupIds.includes(g.id)}
@@ -341,13 +341,13 @@ function ModifiersTab({ menu, reload }: { menu: MenuEditorView; reload: () => Pr
       </form>
       {!menu.modifierGroups.length && <div className="card"><EmptyState title={t('core.menu.noGroups')} /></div>}
       {menu.modifierGroups.map((g) => (
-        <section key={g.id} className="card" style={{ opacity: g.isActive ? 1 : 0.55 }}>
+        <section key={g.id} className="card" data-archived={!g.isActive || undefined}>
           <div className="spread">
             <h2 style={{ margin: 0 }}>{pick(locale, g.name, g.nameAr)} <span className="fine">{t('core.menu.selectRange', { min: g.minSelect, max: g.maxSelect })}</span></h2>
             {g.isActive && <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => void run(() => call(`/o/${org.id}/menu/modifier-groups/${g.id}`, { method: 'DELETE' }))}>{t('core.menu.archive')}</button>}
           </div>
           {g.options.map((o) => (
-            <div key={o.id} className="spread" style={{ borderBottom: '1px solid var(--line-soft)', padding: '8px 0' }}>
+            <div key={o.id} className="spread ops-line">
               <span>{pick(locale, o.name, o.nameAr)} {o.priceDeltaMinor ? <span className="fine">+{money(o.priceDeltaMinor, currency, locale)}</span> : null}</span>
               <span className="row">
                 <label className="check"><input type="checkbox" checked={o.isAvailable} disabled={busy} onChange={(e) => void run(() => call(`/o/${org.id}/menu/modifier-options/${o.id}`, { method: 'PATCH', body: { isAvailable: e.target.checked } }))} /> {t('core.menu.available')}</label>
@@ -356,7 +356,7 @@ function ModifiersTab({ menu, reload }: { menu: MenuEditorView; reload: () => Pr
             </div>
           ))}
           {g.isActive && (
-            <form className="form-row" style={{ marginTop: 10, alignItems: 'end' }} onSubmit={(e) => void addOption(g, e)}>
+            <form className="form-row ops-gap-top" data-align="end" onSubmit={(e) => void addOption(g, e)}>
               <Field label={t('core.menu.option')} name="name" required maxLength={80} />
               <Field label={t('core.menu.nameAr')} name="nameAr" dir="rtl" maxLength={80} />
               <Field label={t('core.menu.delta', { currency })} name="delta" inputMode="decimal" pattern="\d+(\.\d{1,2})?" />
@@ -410,7 +410,7 @@ function ImportTab({ onDone }: { onDone: () => Promise<void> }) {
         <p className="fine">{t('core.menu.importHint')}</p>
         <code className="fine" style={{ display: 'block', marginBottom: 10 }}>externalId,name,nameAr,category,description,price,station,allergens,available</code>
         <input type="file" accept=".csv,text/csv" aria-label={t('core.menu.chooseCsv')} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setCsv(await f.text()); }} />
-        <TextareaField label={t('core.menu.pasteCsv')} value={csv} onChange={(e) => setCsv(e.target.value)} rows={8} style={{ fontFamily: 'monospace', fontSize: 13 }} />
+        <TextareaField label={t('core.menu.pasteCsv')} value={csv} onChange={(e) => setCsv(e.target.value)} rows={8} className="ops-mono" />
         <button className="btn btn-primary" disabled={!csv.trim() || pending} onClick={() => void doPreview()}>{t('core.menu.review')}</button>
       </section>
       {error && <Notice tone="danger">{error}</Notice>}
