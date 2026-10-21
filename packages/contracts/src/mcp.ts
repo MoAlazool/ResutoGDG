@@ -297,7 +297,11 @@ export const mcpToolOutputs = {
       itemId: z.string(), name: z.string(), unit: z.string(), branchId: z.string(), branchName: z.string(),
       quantity: z.number(), reorderLevel: z.number(), low: z.boolean(),
     })),
-    trackedProducts: z.array(z.object({ productId: z.string(), name: z.string(), branchId: z.string(), stockQty: z.number().int(), available: z.boolean() })),
+    // available = offered here, not 86'd (sold out) and in stock; offered / soldOut say which rule failed (FT-02 / DF-01).
+    trackedProducts: z.array(z.object({
+      productId: z.string(), name: z.string(), branchId: z.string(), stockQty: z.number().int(),
+      offered: z.boolean(), soldOut: z.boolean(), available: z.boolean(),
+    })),
   }),
   list_low_stock: z.object({
     items: z.array(z.object({

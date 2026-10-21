@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { TenantContext } from '../../common/auth/context';
 import type { Tx } from '../../common/db/db.service';
 import { notFound } from '../../common/errors/domain-error';
+import { IN_STOCK_SQL, OFFERED_SQL, SOLD_OUT_SQL } from '../menu/availability';
 
 /** Orders that count as demand/sales: everything except cancelled and unpaid online orders. */
 export const SOLD = `o.status not in ('cancelled', 'awaiting_payment')`;
@@ -82,11 +83,15 @@ export class IntelligenceDataService {
       [ctx.orgId, days, branchId, ctx.branchFilter, max]);
   }
 
-  /** Products the caller must never recommend at this branch (archived, switched off or sold out). */
+  /**
+   * Products the caller must never recommend at this branch: archived, not offered here, 86'd (sold out, until the
+   * restore time) or out of tracked stock. Same rules as ordering (menu/availability.ts), so a dish the kitchen 86'd
+   * is never suggested.
+   */
   async unavailableProducts(tx: Tx, ctx: TenantContext, branchId: string): Promise<string[]> {
     const rows = await tx.query<{ id: string }>(
       `select p.id from products p left join product_branch_settings s on s.product_id = p.id and s.branch_id = $2
-        where p.org_id = $1 and (not p.is_active or s.is_available = false or (p.track_stock and s.stock_qty is not null and s.stock_qty <= 0))`,
+        where p.org_id = $1 and (not p.is_active or not ${OFFERED_SQL} or ${SOLD_OUT_SQL} or not ${IN_STOCK_SQL})`,
       [ctx.orgId, branchId]);
     return rows.map((r) => r.id);
   }

@@ -7,6 +7,7 @@ import type { TenantContext } from '../../../common/auth/context';
 import {
   assertPeriod, branchScope, decodeCursor, encodeCursor, escapeLike, iso, maskEmail, maskName, maskPhone, piiVisible,
 } from '../mcp.util';
+import { OFFERED_SQL, SOLD_OUT_SQL } from '../../menu/availability';
 import { defineTool, type McpTool } from './types';
 
 const EXCLUDED = `('cancelled', 'awaiting_payment')`;
@@ -242,18 +243,20 @@ export const readTools: McpTool[] = [
           where s.org_id = $1 and i.is_active and ($2::uuid[] is null or s.branch_id = any($2))
           order by i.name, b.name limit $3`, [ctx.orgId, scope, input.limit]);
       const products = await tx.query<any>(
-        `select p.id, p.name, pbs.branch_id, pbs.stock_qty, pbs.is_available
-           from products p join product_branch_settings pbs on pbs.product_id = p.id
-          where p.org_id = $1 and p.is_active and p.track_stock and pbs.stock_qty is not null
-            and ($2::uuid[] is null or pbs.branch_id = any($2))
-          order by pbs.stock_qty, p.name limit $3`, [ctx.orgId, scope, input.limit]);
+        `select p.id, p.name, s.branch_id, s.stock_qty, ${OFFERED_SQL} as offered, ${SOLD_OUT_SQL} as sold_out
+           from products p join product_branch_settings s on s.product_id = p.id
+          where p.org_id = $1 and p.is_active and p.track_stock and s.stock_qty is not null
+            and ($2::uuid[] is null or s.branch_id = any($2))
+          order by s.stock_qty, p.name limit $3`, [ctx.orgId, scope, input.limit]);
       return {
         items: items.map((r) => {
           const quantity = Number(r.quantity), reorderLevel = Number(r.reorder_level);
           return { itemId: r.id, name: r.name, unit: r.unit, branchId: r.branch_id, branchName: r.branch_name, quantity, reorderLevel,
             low: quantity <= 0 || (reorderLevel > 0 && quantity <= reorderLevel) };
         }),
-        trackedProducts: products.map((p) => ({ productId: p.id, name: p.name, branchId: p.branch_id, stockQty: p.stock_qty, available: p.is_available && p.stock_qty > 0 })),
+        // FT-02 / DF-01: offered here, not 86'd and in stock (the ordering rules); soldOut / offered say which one failed.
+        trackedProducts: products.map((p) => ({ productId: p.id, name: p.name, branchId: p.branch_id, stockQty: p.stock_qty,
+          offered: p.offered, soldOut: p.sold_out, available: p.offered && !p.sold_out && p.stock_qty > 0 })),
       };
     },
   }),
