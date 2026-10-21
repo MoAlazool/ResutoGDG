@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { IntegrationOauthComplete } from '@resuto/contracts';
-import { adsAdapterFor, metaPagesOAuth, ProviderError, type AdAccountChoice, type AdsAdapter, type OAuthAppConfig, type OAuthTokens } from '@resuto/integrations';
+import {
+  adsAdapterFor, foodicsOAuth, metaPagesOAuth, pkcePair, ProviderError, type AdAccountChoice, type AdsAdapter, type AuthUrlOptions, type OAuthAppConfig, type OAuthTokens,
+} from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { newToken, sha256 } from '../../common/crypto/hash';
 import { SecretBox } from '../../common/crypto/secret-box';
@@ -11,15 +13,31 @@ import { ENV, type Env } from '../../config/env';
 import { credentialsHint } from './catalog';
 import { credentialsAad, IntegrationConnectionsService, redactedError } from './connections.service';
 import { metaPlatform } from './meta-platform';
-import { OAUTH_APP_ENV, oauthApp } from './oauth-apps';
+import { foodicsOAuthEnv, OAUTH_APP_ENV, oauthApp } from './oauth-apps';
 import { ProviderHttp } from './provider-http';
 
 /** Config key holding the chosen ad account / advertiser (or, for Messenger / Instagram, the Facebook Page) per provider. */
-export const ACCOUNT_CONFIG_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId' };
+export const ACCOUNT_CONFIG_KEY: Record<string, string> = {
+  meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId',
+  // INT-24: a Foodics token belongs to one business; its reference is confirmed by the owner and routes menu webhooks.
+  foodics: 'businessReference',
+};
 
-/** What the bound-state OAuth flow needs from a provider: the ads adapters, and the Facebook Page connection (INT-21). */
-type OAuthProvider = Pick<AdsAdapter, 'descriptor' | 'buildAuthUrl' | 'exchangeCode' | 'listAccounts'>;
-const oauthProvider = (provider: string): OAuthProvider | null => adsAdapterFor(provider) ?? (provider === 'meta_pages' ? metaPagesOAuth : null);
+/**
+ * What the bound-state OAuth flow needs from a provider: the ads adapters, the Facebook Page connection (INT-21) and
+ * Foodics (INT-24, through the generic helper in packages/integrations/src/oauth). `pkce` providers get an S256
+ * challenge whose verifier is sealed with the state row; `environment` is the provider environment the app lives in.
+ */
+type OAuthProvider = {
+  descriptor: AdsAdapter['descriptor'];
+  buildAuthUrl(app: OAuthAppConfig, state: string, opts?: AuthUrlOptions & { codeChallenge?: string | null }): string;
+  exchangeCode(ctx: { fetch: typeof fetch }, app: OAuthAppConfig, code: string, opts?: AuthUrlOptions & { codeVerifier?: string | null }): Promise<OAuthTokens>;
+  listAccounts?: AdsAdapter['listAccounts'];
+  pkce?: boolean;
+  environment?: 'sandbox' | 'live';
+};
+const oauthProvider = (provider: string): OAuthProvider | null =>
+  adsAdapterFor(provider) ?? (provider === 'meta_pages' ? metaPagesOAuth : provider === 'foodics' ? foodicsOAuth(foodicsOAuthEnv()) : null);
 const MAX_CHOICES = 50;
 
 const iso = (secondsFromNow: number | null | undefined) => (secondsFromNow ? new Date(Date.now() + secondsFromNow * 1000).toISOString() : null);
@@ -69,11 +87,14 @@ export class IntegrationOAuthService {
     }
     if (!ctx.userId) throw new DomainError('forbidden', 'Only a signed-in person can authorise an account', 403);
     const state = newToken(24);
+    const pkce = adapter.pkce ? pkcePair() : null;
+    const environment = adapter.environment ?? 'live';
     await this.db.scoped(ctx, (tx) => tx.query(
-      `insert into integration_oauth_states(state_hash, org_id, provider, environment, redirect_after, created_by, expires_at, browser_binding_hash)
-       values ($1, $2, $3, 'live', $4, $5, now() + interval '15 minutes', $6)`,
-      [sha256(state), ctx.orgId, provider, input.redirectAfter ?? null, ctx.userId, input.browserBinding]));
-    return { url: adapter.buildAuthUrl(app, state, { configId: this.configId(provider) }), expiresInSeconds: 900 };
+      `insert into integration_oauth_states(state_hash, org_id, provider, environment, redirect_after, created_by, expires_at, browser_binding_hash, pkce_verifier_sealed)
+       values ($1, $2, $3, $7, $4, $5, now() + interval '15 minutes', $6, $8)`,
+      [sha256(state), ctx.orgId, provider, input.redirectAfter ?? null, ctx.userId, input.browserBinding, environment,
+        pkce ? this.box.seal(pkce.verifier, `oauth-pkce:${sha256(state)}`) : null]));
+    return { url: adapter.buildAuthUrl(app, state, { configId: this.configId(provider), codeChallenge: pkce?.challenge ?? null }), expiresInSeconds: 900 };
   }
 
   /**
@@ -98,17 +119,18 @@ export class IntegrationOAuthService {
     if (!app) throw new DomainError('provider_app_not_configured', `${adapter.descriptor.name} OAuth is not configured on this Resuto server`, 503);
     if (!ctx.userId) throw new DomainError('forbidden', 'Only a signed-in person can authorise an ad account', 403);
     // Single use; bound to org, user and browser. A mismatch does not consume the state.
-    const row = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ redirect_after: string | null }>(
+    const row = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ redirect_after: string | null; environment: 'sandbox' | 'live'; pkce_verifier_sealed: string | null }>(
       `update integration_oauth_states set used_at = now()
         where state_hash = $1 and provider = $2 and org_id = $3 and created_by = $4 and browser_binding_hash = $5 and used_at is null and expires_at > now()
-        returning redirect_after`, [sha256(input.state), provider, ctx.orgId, ctx.userId, sha256(input.browserNonce)]));
+        returning redirect_after, environment, pkce_verifier_sealed`, [sha256(input.state), provider, ctx.orgId, ctx.userId, sha256(input.browserNonce)]));
     if (!row) {
       await this.db.scoped(ctx, (tx) => this.audit.record(tx, ctx, { action: 'integration.oauth_state_rejected', entityType: 'integration_oauth_state', metadata: { provider } }));
       throw new DomainError('oauth_state_invalid', 'This authorisation was not started by you in this browser, was already used or has expired. Start again from Integrations.', 403);
     }
     let tokens: OAuthTokens;
     try {
-      tokens = await adapter.exchangeCode({ fetch: this.http.fetch }, app, input.code, { configId: this.configId(provider) });
+      const codeVerifier = row.pkce_verifier_sealed ? this.box.open(row.pkce_verifier_sealed, `oauth-pkce:${sha256(input.state)}`) : null;
+      tokens = await adapter.exchangeCode({ fetch: this.http.fetch }, app, input.code, { configId: this.configId(provider), codeVerifier });
     } catch (e) {
       await this.db.withTenant(ctx.orgId, (tx) => this.connections.log(tx, ctx.orgId, null, 'error', `OAuth exchange failed for ${provider}`, { error: redactedError(e) }));
       throw new DomainError('oauth_exchange_failed', 'The provider did not accept the authorisation. Start again from Integrations.', 502, { provider: redactedError(e) });
@@ -147,12 +169,13 @@ export class IntegrationOAuthService {
       const connId = (await tx.one<{ id: string }>(
         `insert into integration_connections(org_id, provider, category, auth_type, environment, status, credentials_encrypted, credentials_hint, config,
             connected_by, connected_at)
-         values ($1, $2, $8, 'oauth', 'live', 'pending', $3, $4, $5, $6, now())
+         values ($1, $2, $8, 'oauth', $9, 'pending', $3, $4, $5, $6, now())
          on conflict (org_id, provider, coalesce(branch_id, '00000000-0000-0000-0000-000000000000'::uuid))
          do update set credentials_encrypted = excluded.credentials_encrypted, credentials_hint = excluded.credentials_hint, status = 'pending', enabled = true,
+           environment = excluded.environment,
            config = (integration_connections.config - $7::text[]) || excluded.config, connected_by = excluded.connected_by, connected_at = now(), last_error = null,
            account_identity = '{}'::jsonb, health = '{}'::jsonb
-         returning id`, [ctx.orgId, provider, sealed, credentialsHint(creds), cfg, ctx.userId, dropped, adapter.descriptor.category])).id;
+         returning id`, [ctx.orgId, provider, sealed, credentialsHint(creds), cfg, ctx.userId, dropped, adapter.descriptor.category, row.environment ?? 'live'])).id;
       await tx.query(`update integration_oauth_states set connection_id = $2 where state_hash = $1`, [sha256(input.state), connId]);
       await this.connections.log(tx, ctx.orgId, connId, 'info', 'OAuth authorisation completed', { accounts: choices.length, tokenKind: config.tokenKind,
         expiresAt: config.tokenExpiresAt });

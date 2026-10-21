@@ -26,7 +26,7 @@ type CatalogItem = ProviderCatalogEntry & {
 interface WebhookInfo { url: string; events: string[]; registeredByMerchant: boolean; verifyToken?: string | null }
 interface AccountChoice { id: string; name: string | null; currency: string | null; status: string | null }
 /** Config key of the chosen ad account per ads provider (INT-11 picker). */
-const ACCOUNT_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId' };
+const ACCOUNT_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId', foodics: 'businessReference' };
 /** Picker wording: a Facebook Page for Messenger / Instagram (INT-21), an ad account otherwise. */
 const pickerKey = (provider: string, k: 'title' | 'help' | 'label' | 'none' | 'use' | 'choose' | 'change') => `intg.${provider === 'meta_pages' ? 'page' : 'account'}.${k}`;
 type ConnectionView = IntegrationConnectionView & {

@@ -28,7 +28,9 @@ export interface PosAdapter {
   descriptor: ProviderDescriptor;
   /** Fetches one page of the provider's sellable products. `currency` is the restaurant's currency. */
   fetchMenuPage(ctx: AdapterContext, input: { cursor: string | null; currency: string }): Promise<MenuPage>;
-  healthCheck(ctx: AdapterContext): Promise<{ ok: boolean; details: Record<string, unknown> }>;
+  healthCheck(ctx: AdapterContext): Promise<{ ok: boolean; details: Record<string, unknown>; account?: { id?: string | null; name?: string | null; country?: string | null } | null }>;
+  /** Revokes the stored token at the provider when the connection is disconnected (optional). */
+  revokeAccess?(ctx: AdapterContext): Promise<{ attempted: boolean; revoked: boolean; note: string }>;
 }
 
 /** Imported rows start unavailable so staff review them before guests can order (legacy behaviour). */

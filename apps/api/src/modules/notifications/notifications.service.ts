@@ -3,7 +3,9 @@ import { ROLE_PERMISSIONS, type NotificationKind, type NotificationsPage, type P
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { notFound } from '../../common/errors/domain-error';
+import { createHash } from 'node:crypto';
 import { EMAIL_PROVIDER, maskEmail, type EmailProvider } from './email.provider';
+import { OutboundChannelsService } from './outbound.service';
 
 export interface RaiseNotification {
   branchId?: string | null;
@@ -31,7 +33,7 @@ export interface RaiseNotification {
 export class NotificationsService {
   private readonly logger = new Logger('Notifications');
 
-  constructor(private readonly db: DbService, @Inject(EMAIL_PROVIDER) private email: EmailProvider) {}
+  constructor(private readonly db: DbService, @Inject(EMAIL_PROVIDER) private email: EmailProvider, private readonly outbound: OutboundChannelsService) {}
 
   /** Inserts the notification (idempotent on dedupeKey). Returns its id and whether it was new. Runs in the caller's tenant tx. */
   async raise(tx: Tx, orgId: string, n: RaiseNotification): Promise<{ id: string; created: boolean }> {
@@ -51,10 +53,49 @@ export class NotificationsService {
    * Without a configured provider one 'not_configured' delivery is recorded; with one, 'sent' is recorded only
    * after the provider accepted the message, otherwise 'failed' with the error. Returns the recorded status.
    */
-  async deliverEmail(orgId: string, notificationId: string, message: { subject: string; text: string }): Promise<'not_configured' | 'sent' | 'failed' | 'skipped'> {
+  async deliverEmail(orgId: string, notificationId: string, message: { subject: string; text: string }): Promise<'not_configured' | 'queued' | 'sent' | 'delivered' | 'failed' | 'skipped'> {
     const already = await this.db.withTenant(orgId, (tx) => tx.maybeOne<{ status: string }>(
       `select status from notification_deliveries where notification_id = $1 and channel = 'email'`, [notificationId]), 'system:notifications');
     if (already) return already.status as any;
+    if (!this.email.configured) return this.deliverThroughRestaurantEmail(orgId, notificationId, message);
+    return this.deliverThroughPlatformProvider(orgId, notificationId, message);
+  }
+
+  /**
+   * INT-28: the restaurant's own Resend connection (when connected): one queue row per recipient, sent right away
+   * with retries by the outbound job; the delivery reads 'queued' until the provider accepted every message.
+   */
+  private async deliverThroughRestaurantEmail(orgId: string, notificationId: string, message: { subject: string; text: string }) {
+    const conn = await this.db.withTenant(orgId, (tx) => this.outbound.activeConnection(tx, orgId, 'email'), 'system:notifications');
+    if (!conn) {
+      await this.recordDelivery(orgId, notificationId, { status: 'not_configured', provider: this.email.name, recipientHint: null });
+      return 'not_configured';
+    }
+    const recipients = await this.recipientEmails(orgId, notificationId);
+    if (!recipients.length) {
+      await this.recordDelivery(orgId, notificationId, { status: 'skipped', provider: 'resend', recipientHint: null, error: 'no_recipient_with_email' });
+      return 'skipped';
+    }
+    const ids = await this.db.withTenant(orgId, async (tx) => {
+      const out: string[] = [];
+      for (const to of recipients) {
+        const r = await this.outbound.enqueue(tx, orgId, { channel: 'email', purpose: 'staff', connection: conn, to, notificationId, subject: message.subject, text: message.text,
+          idempotencyKey: `notification:${notificationId}:${createHash('sha256').update(to.toLowerCase()).digest('hex').slice(0, 24)}` });
+        if ('id' in r) out.push(r.id);
+      }
+      await tx.query(
+        `insert into notification_deliveries(org_id, notification_id, channel, recipient_hint, provider, status)
+         values ($1, $2, 'email', $3, 'resend', $4) on conflict (notification_id, channel) do nothing`,
+        [orgId, notificationId, recipients.map(maskEmail).join(', ').slice(0, 300), out.length ? 'queued' : 'skipped']);
+      return out;
+    }, 'system:notifications');
+    if (ids.length) await this.outbound.send({ orgId, ids });
+    const final = await this.db.withTenant(orgId, (tx) => tx.one<{ status: string }>(
+      `select status from notification_deliveries where notification_id = $1 and channel = 'email'`, [notificationId]), 'system:notifications');
+    return final.status as 'queued' | 'sent' | 'delivered' | 'failed' | 'skipped';
+  }
+
+  private async deliverThroughPlatformProvider(orgId: string, notificationId: string, message: { subject: string; text: string }): Promise<'not_configured' | 'sent' | 'failed' | 'skipped'> {
     if (!this.email.configured) {
       await this.recordDelivery(orgId, notificationId, { status: 'not_configured', provider: this.email.name, recipientHint: null });
       return 'not_configured';

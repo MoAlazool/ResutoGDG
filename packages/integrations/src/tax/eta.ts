@@ -149,12 +149,12 @@ export const ETA_DESCRIPTOR: ProviderDescriptor = {
   readiness: 'implemented_unverified',
   docsUrl: 'https://sdk.invoicing.eta.gov.eg/ereceiptapi/',
   activation: [
-    'Register the taxpayer for the e-receipt system and register each POS device (serial, activity code, branch code).',
-    'Obtain the POS client id/secret and store them encrypted (SecretBox).',
-    'Register item codes (EGS) and map products to them.',
-    'Verify UUID derivation and payloads against ETA preprod, then switch submissions to sandbox_api / production_api.',
+    'Implementation incomplete and not certified: Resuto builds receipts, signs batches (CAdES-BES) and calls the e-receipt APIs, but no ETA preprod submission has been made yet.',
+    'Register the taxpayer for e-receipts (B2C tag) and register each POS in the ETA portal: you receive the POS client id / secret and pre-shared key.',
+    'Enter the POS serial, OS version, model framework, client id, secret and pre-shared key, and upload the eSeal (signing) certificate and its private key; all are stored sealed.',
+    'Register item codes (EGS) and map products to them; submit to preprod first and check the submission status, then switch to production.',
   ],
-  capabilities: ['receipt_builder', 'uuid_derivation', 'receipt_qr_url', 'submission_stub'],
+  capabilities: ['receipt_builder', 'uuid_derivation', 'receipt_qr_url', 'pos_token_client', 'cades_bes_signature', 'batched_submission', 'status_polling', 'not_certified'],
 };
 
 export class EtaSandboxStubClient implements EtaClient {

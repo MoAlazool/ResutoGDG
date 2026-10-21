@@ -6,6 +6,7 @@ import { money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { LocationPill, useDriver } from './_lib/driver-context';
 import { JobCard } from './_lib/job-card';
+import { PushToggle } from './_lib/push';
 import s from './driver.module.css';
 
 function Countdown({ until }: { until: string }) {
@@ -51,6 +52,7 @@ export default function DriverHome() {
         </div>
         {act.error && <Notice tone="danger">{act.error}</Notice>}
         {location.state === 'denied' && <Notice tone="warn">{t('driver.location.deniedHelp')}</Notice>}
+        <PushToggle />
       </div>
 
       {jobs.loading && !data ? <Skeleton lines={4} /> : jobs.error ? (
@@ -73,7 +75,7 @@ export default function DriverHome() {
           )}
           <section className={s.section} aria-labelledby="active">
             <h2 id="active" className={s.sectionTitle}>{t('driver.active')}</h2>
-            {active.length > 1 && data?.route && <p className="fine" style={{ margin: 0 }}>{t('driver.route.hint')}</p>}
+            {active.length > 1 && data?.route && <p className="fine" style={{ margin: 0 }}>{t(data.route.source === 'google_routes' ? 'driver.route.hintProvider' : 'driver.route.hint')}</p>}
             {active.length ? active.map((j) => (
               <JobCard key={j.id} job={j} sequence={active.length > 1 && order.includes(j.id) ? order.indexOf(j.id) + 1 : undefined}>
                 {j.status === 'assigned' && (

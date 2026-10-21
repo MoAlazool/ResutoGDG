@@ -7,11 +7,23 @@ import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { zod } from '../../common/http/zod.pipe';
+import { FiscalAuthorityService } from './fiscal-authority.service';
 import { FiscalService } from './fiscal.service';
 import { LicencesService } from './licences.service';
 import { TaxProfileService } from './tax-profile.service';
 
 type Upload = { buffer: Buffer; mimetype: string; size: number; originalname: string } | undefined;
+const egsInput = z.object({
+  branchId: z.uuid(),
+  environment: z.enum(['sandbox', 'simulation', 'production']),
+  commonName: z.string().trim().min(1).max(200),
+  organizationUnit: z.string().trim().min(1).max(200),
+  egsSerial: z.string().trim().regex(/^1-[^|]+\|2-[^|]+\|3-[^|]+$/).max(200),
+  invoiceType: z.string().regex(/^[01]{4}$/).refine((v) => v !== '0000'),
+  location: z.string().trim().min(1).max(200),
+  industry: z.string().trim().min(1).max(200),
+}).strict();
+const otpInput = z.object({ otp: z.string().regex(/^\d{6}$/) }).strict();
 const licenceQuery = z.object({ status: z.enum(['expired', 'expiring', 'valid', 'no_expiry']).optional(), branchId: z.uuid().optional() });
 
 @Controller('o/:orgId/compliance')
@@ -22,7 +34,31 @@ export class ComplianceController {
     private readonly profiles: TaxProfileService,
     private readonly fiscal: FiscalService,
     private readonly licences: LicencesService,
+    private readonly authority: FiscalAuthorityService,
   ) {}
+
+  // --- ZATCA Phase-2 onboarding (INT-26; implementation incomplete, not certified) ---------------------------------
+  @Get('zatca/egs')
+  @RequirePermission('compliance:read')
+  egsList(@Tenant() ctx: TenantContext) { return this.authority.listEgs(ctx); }
+
+  @Post('zatca/egs')
+  @RequirePermission('compliance:write')
+  egsCreate(@Tenant() ctx: TenantContext, @Body(zod(egsInput)) body: z.infer<typeof egsInput>) { return this.authority.createEgs(ctx, body); }
+
+  @Post('zatca/egs/:id/compliance-csid')
+  @RequirePermission('compliance:write')
+  egsComplianceCsid(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(otpInput)) body: z.infer<typeof otpInput>) {
+    return this.authority.complianceCsid(ctx, id, body.otp);
+  }
+
+  @Post('zatca/egs/:id/compliance-checks')
+  @RequirePermission('compliance:write')
+  egsChecks(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.authority.complianceChecks(ctx, id); }
+
+  @Post('zatca/egs/:id/production-csid')
+  @RequirePermission('compliance:write')
+  egsProduction(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.authority.productionCsid(ctx, id); }
 
   // --- Overview ---------------------------------------------------------------
   @Get('summary')

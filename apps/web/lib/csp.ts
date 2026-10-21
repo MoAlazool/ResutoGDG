@@ -28,6 +28,12 @@ export interface CspOptions {
    */
   metaPixel?: boolean;
   /**
+   * Restaurant website pages (INT-23): the TikTok and Snap Pixels, also consent-gated and loaded by nonce'd code. Only
+   * their event hosts are added to connect-src (their scripts come in through 'strict-dynamic'; beacons use img-src).
+   */
+  tiktokPixel?: boolean;
+  snapPixel?: boolean;
+  /**
    * Inbox > Channels (INT-13): WhatsApp Embedded Signup runs Meta's JavaScript SDK (loaded by trusted code), whose
    * login dialog talks to www.facebook.com through a hidden frame. Only that page gets these hosts.
    */
@@ -50,6 +56,10 @@ export function documentAllowsMetaSdk(loadedUrl: string | null | undefined): boo
 }
 
 export const META_PIXEL_CONNECT = ['https://www.facebook.com', 'https://connect.facebook.net'];
+/** TikTok Pixel script and event host (analytics.tiktok.com/i18n/pixel/events.js, events to the same host). */
+export const TIKTOK_PIXEL_CONNECT = ['https://analytics.tiktok.com'];
+/** Snap Pixel script host and event host (sc-static.net/scevent.min.js, tr.snapchat.com). */
+export const SNAP_PIXEL_CONNECT = ['https://sc-static.net', 'https://tr.snapchat.com'];
 
 const originOf = (url: string | undefined) => {
   try { return url ? new URL(url).origin : null; } catch { return null; }
@@ -71,7 +81,8 @@ export function buildCsp(o: CspOptions): string {
     "style-src 'self' 'unsafe-inline'",
     list("img-src 'self' data: blob: https:", api, supabase),
     "font-src 'self' data:",
-    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : []), ...(o.metaSdk ? META_SDK_HOSTS : [])),
+    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : []),
+      ...(o.tiktokPixel ? TIKTOK_PIXEL_CONNECT : []), ...(o.snapPixel ? SNAP_PIXEL_CONNECT : []), ...(o.metaSdk ? META_SDK_HOSTS : [])),
     list("media-src 'self' blob: https:", api),
     "worker-src 'self' blob:",
     "manifest-src 'self'",

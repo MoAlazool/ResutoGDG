@@ -78,7 +78,7 @@ export class CreativeService {
           variants: result.variants, tone: input.tone, productId: input.productId ?? null,
           ...(result.fallbackReason ? { fallbackReason: result.fallbackReason, fallbackCode: result.fallbackCode } : {}),
         }, result.provider, result.model, result.isFallback, result.isFallback ? null : keySource, ctx.userId]);
-      if (keySource === 'resuto' && result.provider === 'gemini' && !result.isFallback) await recordUsage(tx, ctx, { endpoint: 'studio-creative', provider: 'gemini' });
+      if (keySource === 'resuto' && result.provider === 'gemini' && !result.isFallback) await recordUsage(tx, ctx, { endpoint: 'studio-creative', provider: 'gemini', usage: result.usage ?? null });
       await this.audit.record(tx, ctx, { action: 'creative.generated', entityType: 'creative_asset', entityId: row.id,
         metadata: { kind: input.kind, provider: result.provider, isFallback: result.isFallback, keySource: result.isFallback ? null : keySource } });
       return toCreative(row);

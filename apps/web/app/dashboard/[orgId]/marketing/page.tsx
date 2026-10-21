@@ -10,6 +10,7 @@ import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { AudienceDryRunButton, MetaTracking } from './MetaTracking';
+import { QuietHours } from './QuietHours';
 
 type TabKey = 'campaigns' | 'segments' | 'promotions' | 'links' | 'recommendations' | 'meta';
 interface Segment { id: string; name: string; memberCount: number; source: string; definition: SegmentGroup; lastComputedAt: string | null }
@@ -28,7 +29,7 @@ export default function MarketingPage() {
     <ModuleGate module="marketing" permission="marketing:read">
       <PageHeader title={t('marketing.title')} subtitle={t('marketing.subtitle')} />
       <Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations', 'meta'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />
-      {tab === 'campaigns' && <Campaigns />}
+      {tab === 'campaigns' && <><Campaigns /><QuietHours /></>}
       {tab === 'segments' && <Segments />}
       {tab === 'promotions' && <Promotions />}
       {tab === 'links' && <Links />}
@@ -160,7 +161,7 @@ function Campaigns() {
   const templates = useApi<{ items: Array<{ name: string; language: string; providerStatus: string }> }>(`/o/${org.id}/connect/templates`);
   const [editing, setEditing] = useState(false);
   const [report, setReport] = useState<Campaign | null>(null);
-  const [form, setForm] = useState({ name: '', channel: 'whatsapp', objective: 'retention', segmentId: '', text: '', templateName: '', budget: '' });
+  const [form, setForm] = useState({ name: '', channel: 'whatsapp', objective: 'retention', segmentId: '', text: '', templateName: '', budget: '', subject: '' });
   const [note, setNote] = useState<string | null>(null);
   const [scheduleFor, setScheduleFor] = useState<Record<string, string>>({});
 
@@ -169,7 +170,8 @@ function Campaigns() {
     const isAd = AD_CHANNELS.includes(form.channel as any);
     await session.call(`/o/${org.id}/marketing/campaigns`, { body: {
       name: form.name, channel: form.channel, objective: form.objective, segmentId: form.segmentId || null,
-      content: isAd ? {} : { ...(form.text.trim() ? { text: form.text.trim() } : {}), ...(form.templateName ? { templateName: form.templateName } : {}) },
+      content: isAd ? {} : { ...(form.text.trim() ? { text: form.text.trim() } : {}), ...(form.templateName && form.channel === 'whatsapp' ? { templateName: form.templateName } : {}),
+        ...(form.channel === 'email' && form.subject.trim() ? { subject: form.subject.trim() } : {}) },
       budgetMinor: isAd && form.budget ? Math.round(Number(form.budget) * 100) : null,
     } });
     setEditing(false);
@@ -236,17 +238,18 @@ function Campaigns() {
             <SelectField label={t('marketing.camp.objective')} value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })}>
               {['retention', 'reactivation', 'acquisition', 'upsell', 'awareness', 'reservations'].map((o) => <option key={o} value={o}>{t(`marketing.objective.${o}`)}</option>)}</SelectField>
           </div>
-          {(form.channel === 'sms' || form.channel === 'email') && <Notice tone="warn">{t('marketing.camp.noProvider')}</Notice>}
+          {(form.channel === 'sms' || form.channel === 'email') && <Notice>{t('marketing.camp.outboundProvider', { provider: form.channel === 'email' ? 'Resend' : 'Twilio' })}</Notice>}
           {AD_CHANNELS.includes(form.channel as any) ? (
             <Field label={t('marketing.camp.budget', { currency: org.currency })} type="number" min={0} step="0.01" value={form.budget} onChange={(e) => setForm({ ...form, budget: e.target.value })}
               hint={t('marketing.camp.adHint')} />
           ) : form.channel !== 'organic' && <>
             <SelectField label={t('marketing.camp.segment')} value={form.segmentId} onChange={(e) => setForm({ ...form, segmentId: e.target.value })}>
               <option value="">—</option>{segments.data?.items.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.memberCount})</option>)}</SelectField>
+            {form.channel === 'email' && <Field label={t('marketing.camp.subject')} value={form.subject} maxLength={200} onChange={(e) => setForm({ ...form, subject: e.target.value })} />}
             <TextareaField label={t('marketing.camp.text')} value={form.text} maxLength={1024} onChange={(e) => setForm({ ...form, text: e.target.value })} hint={t('marketing.camp.textHint')} />
-            <SelectField label={t('marketing.camp.template')} value={form.templateName} onChange={(e) => setForm({ ...form, templateName: e.target.value })}>
+            {form.channel === 'whatsapp' && <SelectField label={t('marketing.camp.template')} value={form.templateName} onChange={(e) => setForm({ ...form, templateName: e.target.value })}>
               <option value="">—</option>{templates.data?.items.filter((x) => ['approved', 'sandbox'].includes(x.providerStatus)).map((x) => <option key={`${x.name}-${x.language}`} value={x.name}>{x.name} ({x.language}) · {x.providerStatus}</option>)}
-            </SelectField>
+            </SelectField>}
             <p className="fine">{t('marketing.camp.consentNote')}</p>
           </>}
           {create.error && <Notice tone="danger">{create.error}</Notice>}

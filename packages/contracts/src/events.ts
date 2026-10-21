@@ -20,5 +20,7 @@ export const DOMAIN_EVENTS = [
   'mcp.approval_requested',
   'customer.merged', 'customer.anonymised',
   'website.published',
+  // ws7b (wave 4): a POS reported a menu change (Foodics menu.updated nudge) → schedule a pull sync.
+  'integration.menu_changed',
 ] as const;
 export type DomainEventType = (typeof DOMAIN_EVENTS)[number];

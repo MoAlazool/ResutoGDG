@@ -37,3 +37,6 @@ export async function geminiByokHealthCheck(ctx: AdapterContext): Promise<Health
 }
 
 export const aiAdapters = [{ descriptor: geminiByokDescriptor, healthCheck: geminiByokHealthCheck }];
+
+// INT-30: the shared generateContent client (timeouts, retries, usage) used by every Gemini caller.
+export * from './gemini';

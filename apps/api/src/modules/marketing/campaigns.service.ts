@@ -14,12 +14,16 @@ import { OutboxService } from '../../common/platform/outbox.service';
 import type { CampaignsPort } from '../kernel/ports';
 import { MessagingService } from '../connect/messaging.service';
 import { IntegrationConnectionsService } from '../integrations/connections.service';
+import { CHANNEL_PROVIDER, OutboundChannelsService, type OutboundChannel } from '../notifications/outbound.service';
 import { SegmentsService } from './segments.service';
 
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
 const MAX_RECIPIENTS = 5000;
 /** Recipients handled per transaction (PCL-11); the first chunk runs in the request, the dispatcher job does the rest. */
 export const CAMPAIGN_CHUNK = 200;
+/** Email/SMS handed to the provider inside the send request; the outbound job sends the rest within 30 s. */
+const OUTBOUND_IN_REQUEST = 20;
+const isOutbound = (channel: string): channel is OutboundChannel => channel === 'sms' || channel === 'email';
 /** Time the dispatcher job spends on chunks per run before leaving the rest to the next run. */
 const DISPATCH_BUDGET_MS = 20_000;
 const OBJECTIVE_TO_ADS: Record<string, AdsObjective> = {
@@ -58,6 +62,7 @@ export class CampaignsService implements CampaignsPort {
     private readonly segments: SegmentsService,
     private readonly connections: IntegrationConnectionsService,
     private readonly idempotency: IdempotencyService,
+    private readonly outbound: OutboundChannelsService,
   ) {}
 
   private async row(tx: Tx, ctx: TenantContext, id: string, lock = false) {
@@ -189,6 +194,8 @@ export class CampaignsService implements CampaignsPort {
       await this.idempotency.run(tx, ctx.orgId, `marketing.send:${id}`, idempotencyKey, { id }, async () => { await this.startDispatch(tx, ctx, id); return { started: true }; });
     }, actor);
     await this.db.withTenant(ctx.orgId, (tx) => this.dispatchChunk(tx, ctx, id), actor);
+    // After commit (provider calls never run inside a transaction).
+    await this.outbound.send({ orgId: ctx.orgId, limit: OUTBOUND_IN_REQUEST });
     const delivery = await this.db.withTenant(ctx.orgId, (tx) => this.deliverySummary(tx, id), actor);
     return { ...(await this.get(ctx, id)), delivery };
   }
@@ -205,9 +212,16 @@ export class CampaignsService implements CampaignsPort {
     if (!['approved', 'scheduled'].includes(r.status)) {
       throw new DomainError('campaign_not_approved', 'A campaign must be approved before it can be sent', 409, { status: r.status });
     }
-    if (r.channel !== 'whatsapp') {
-      throw new DomainError('channel_unavailable', r.channel === 'sms' || r.channel === 'email'
-        ? `No ${r.channel.toUpperCase()} provider is integrated yet; this campaign cannot be sent` : 'Ad campaigns are launched, not sent', 409);
+    if (isOutbound(r.channel)) {
+      // INT-28: SMS / email go through the restaurant's own connected Twilio / Resend account; without one nothing is sent.
+      if (!(await this.outbound.activeConnection(tx, ctx.orgId, r.channel))) {
+        throw new DomainError('channel_unavailable', r.channel === 'email'
+          ? 'Connect an email provider (Resend) in Integrations and pass its health check before sending this campaign'
+          : 'Connect an SMS provider (Twilio) in Integrations and pass its health check before sending this campaign', 409, { provider: CHANNEL_PROVIDER[r.channel as OutboundChannel] });
+      }
+      if (!r.content?.text) throw invalid('content_required', 'Add the message text');
+    } else if (r.channel !== 'whatsapp') {
+      throw new DomainError('channel_unavailable', 'Ad campaigns are launched, not sent', 409);
     }
     if (!r.segment_id) throw invalid('segment_required', 'Choose a segment');
     await tx.query(`update campaigns set status = 'sending' where id = $1`, [id]);
@@ -225,16 +239,21 @@ export class CampaignsService implements CampaignsPort {
    * one campaign never run concurrently. Marks the campaign `sent` when no recipient is left; returns true then.
    */
   private async dispatchChunk(tx: Tx, ctx: TenantContext, id: string): Promise<boolean> {
-    const r = await tx.maybeOne<any>(`select id, status, content, utm_campaign from campaigns where id = $1 and org_id = $2 for update`, [id, ctx.orgId]);
+    const r = await tx.maybeOne<any>(`select id, name, channel, status, content, utm_campaign from campaigns where id = $1 and org_id = $2 for update`, [id, ctx.orgId]);
     if (!r || r.status !== 'sending') return true;
-    const members = await tx.query<{ customer_id: string; marketing_consent: boolean }>(
-      `select m.customer_id, c.marketing_consent from campaign_recipients m join customers c on c.id = m.customer_id
+    const members = await tx.query<{ customer_id: string; marketing_consent: boolean; email: string | null; phone_e164: string | null }>(
+      `select m.customer_id, c.marketing_consent, c.email::text as email, c.phone_e164 from campaign_recipients m join customers c on c.id = m.customer_id
         where m.campaign_id = $1 and not exists (select 1 from campaign_deliveries d where d.campaign_id = $1 and d.customer_id = m.customer_id)
         order by m.customer_id limit $2`, [id, CAMPAIGN_CHUNK]);
     const variables = Object.fromEntries((r.content?.variables ?? []).map((v: string, i: number) => [String(i + 1), v]));
+    const outboundConn = isOutbound(r.channel) ? await this.outbound.activeConnection(tx, ctx.orgId, r.channel) : null;
     for (const m of members) {
       if (!m.marketing_consent) {
         await tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, status) values ($1, $2, $3, 'skipped_no_consent')`, [ctx.orgId, id, m.customer_id]);
+        continue;
+      }
+      if (isOutbound(r.channel)) {
+        await this.queueOutbound(tx, ctx, r, m, outboundConn);
         continue;
       }
       await tx.query('savepoint campaign_member');
@@ -266,20 +285,50 @@ export class CampaignsService implements CampaignsPort {
     return true;
   }
 
+  /**
+   * INT-28: one email/SMS queue row per consenting recipient (opt-outs, missing or invalid addresses recorded as such).
+   * Quiet hours and the provider call are the outbound service's job; the delivery follows the row's status.
+   */
+  private async queueOutbound(tx: Tx, ctx: TenantContext, r: any, m: { customer_id: string; email: string | null; phone_e164: string | null },
+    conn: Awaited<ReturnType<OutboundChannelsService['activeConnection']>>) {
+    const fail = (error: string) => tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, status, error) values ($1, $2, $3, 'failed', $4)`,
+      [ctx.orgId, r.id, m.customer_id, error]);
+    if (!conn) return fail('channel_unavailable');
+    const to = r.channel === 'email' ? m.email : m.phone_e164;
+    if (!to) return fail('no_address');
+    const q = await this.outbound.enqueue(tx, ctx.orgId, { channel: r.channel, purpose: 'marketing', connection: conn, to, customerId: m.customer_id, campaignId: r.id,
+      subject: r.channel === 'email' ? (r.content?.subject ?? r.name) : null, text: r.content.text, idempotencyKey: `campaign:${r.id}:${m.customer_id}` });
+    if ('skipped' in q) {
+      if (q.skipped === 'unsubscribed') {
+        await tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, status) values ($1, $2, $3, 'skipped_unsubscribed')`, [ctx.orgId, r.id, m.customer_id]);
+        return;
+      }
+      return fail(q.skipped);
+    }
+    await tx.query(`insert into campaign_deliveries(org_id, campaign_id, customer_id, outbound_id, status) values ($1, $2, $3, $4, 'queued')`,
+      [ctx.orgId, r.id, m.customer_id, q.id]);
+    await tx.query(`insert into attribution_events(org_id, kind, campaign_id, customer_id, utm) values ($1, 'message_sent', $2, $3, $4)`,
+      [ctx.orgId, r.id, m.customer_id, { utm_source: r.channel, utm_medium: 'campaign', utm_campaign: r.utm_campaign, sandbox: conn.environment === 'sandbox' }]);
+  }
+
   /** Delivery counts from the recorded deliveries (exact across chunks, runs and restarts). */
   private async deliverySummary(tx: Tx, id: string) {
     const c = await tx.one<any>(
       `select count(*)::int as handled,
-              count(*) filter (where d.message_id is not null)::int as queued,
+              count(*) filter (where d.message_id is not null or d.outbound_id is not null)::int as queued,
               count(*) filter (where d.status = 'skipped_no_consent')::int as skipped,
-              count(*) filter (where d.message_id is null and d.status = 'failed')::int as failed,
-              count(*) filter (where coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null)::int as sandbox,
-              count(*) filter (where not coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null)::int as live,
+              count(*) filter (where d.status = 'skipped_unsubscribed')::int as unsubscribed,
+              count(*) filter (where d.status = 'failed' and d.message_id is null and d.outbound_id is null)::int as failed,
+              count(*) filter (where d.status = 'failed' and d.outbound_id is not null)::int as provider_failed,
+              count(*) filter (where d.status = 'delivered')::int as delivered,
+              count(*) filter (where (coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null) or o.sandbox)::int as sandbox,
+              count(*) filter (where (not coalesce((m.payload->>'sandbox')::boolean, false) and d.message_id is not null) or o.sandbox = false)::int as live,
               (select count(*)::int from campaign_recipients cr
                 where cr.campaign_id = $1 and not exists (select 1 from campaign_deliveries x where x.campaign_id = $1 and x.customer_id = cr.customer_id)) as pending
-         from campaign_deliveries d left join messages m on m.id = d.message_id where d.campaign_id = $1`, [id]);
-    return { recipients: c.handled + c.pending, queued: c.queued, skippedNoConsent: c.skipped, failed: c.failed, sandbox: c.sandbox, live: c.live,
-      pending: c.pending };
+         from campaign_deliveries d left join messages m on m.id = d.message_id left join outbound_messages o on o.id = d.outbound_id
+        where d.campaign_id = $1`, [id]);
+    return { recipients: c.handled + c.pending, queued: c.queued, skippedNoConsent: c.skipped, skippedUnsubscribed: c.unsubscribed, failed: c.failed,
+      providerFailed: c.provider_failed, delivered: c.delivered, sandbox: c.sandbox, live: c.live, pending: c.pending };
   }
 
   /**
@@ -295,7 +344,7 @@ export class CampaignsService implements CampaignsPort {
     if (!['draft', 'pending_approval', 'approved'].includes(r.status)) {
       throw new DomainError('invalid_campaign_transition', `Cannot send a ${r.status} campaign`, 409, { status: r.status });
     }
-    if (r.channel !== 'whatsapp') throw invalid('channel_unavailable', 'Only WhatsApp campaigns can be sent through this port');
+    if (!['whatsapp', 'sms', 'email'].includes(r.channel)) throw invalid('channel_unavailable', 'Only messaging campaigns (WhatsApp, SMS, email) can be sent through this port');
     if (!r.segment_id) throw invalid('segment_required', 'Choose a segment before sending');
     if (!r.content?.text && !r.content?.templateName) throw invalid('content_required', 'Add a message or an approved template');
     if (input.scheduledAt && new Date(input.scheduledAt).getTime() < Date.now() - 60_000) throw invalid('schedule_in_past', 'Choose a time in the future');

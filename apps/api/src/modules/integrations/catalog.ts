@@ -53,6 +53,20 @@ export interface FieldSpec {
   labelKey?: string; hintKey?: string; kind?: 'text' | 'secret' | 'number' | 'select'; pattern?: string; options?: string[]; placeholder?: string;
 }
 
+/** Odoo settings shared by Odoo POS and Odoo Accounting (INT-25: one connection model, JSON-2 transport). */
+const ODOO_API_KEY: FieldSpec = { key: 'apiKey', label: 'Odoo API key', labelKey: 'intg.field.odooApiKey', secret: true, required: true };
+const ODOO_SITE: FieldSpec[] = [
+  { key: 'url', label: 'Odoo URL (https://…)', labelKey: 'intg.field.odooUrl', secret: false, required: true, pattern: '^https://[^\\s/]+(/[^\\s]*)?$' },
+  { key: 'database', label: 'Database name', labelKey: 'intg.field.odooDatabase', secret: false, required: false, pattern: '^[A-Za-z0-9_.-]{1,63}$' },
+];
+/** INT-25: how sales are posted and whether the previous day is pushed automatically. */
+const ACCOUNTING_POSTING: FieldSpec[] = [
+  { key: 'salesPosting', label: 'Sales posting', labelKey: 'intg.field.salesPosting', secret: false, required: false, kind: 'select', options: ['journal', 'summary_invoice'],
+    hint: 'Daily sales journal (default), or a daily summary invoice plus a receipts journal. Revenue is recorded once either way.', hintKey: 'intg.field.salesPostingHint' },
+  { key: 'autoPush', label: 'Automatic push', labelKey: 'intg.field.autoPush', secret: false, required: false, kind: 'select', options: ['off', 'daily'],
+    hint: 'Daily: the previous business day is pushed after 04:00 restaurant time; documents already pushed are skipped.', hintKey: 'intg.field.autoPushHint' },
+];
+
 /**
  * Connection form fields for the providers this module integrates. Providers
  * owned by other agents fall back to a single API key; their modules may read
@@ -82,11 +96,43 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
   },
   foodics: { credentials: [{ key: 'accessToken', label: 'Foodics access token', secret: true, required: true }], config: [] },
   odoo: {
-    credentials: [{ key: 'apiKey', label: 'Odoo API key', secret: true, required: true }],
+    credentials: [ODOO_API_KEY],
     config: [
-      { key: 'url', label: 'Odoo URL (https://…)', secret: false, required: true },
-      { key: 'database', label: 'Database name', secret: false, required: false },
+      ...ODOO_SITE,
       { key: 'currency', label: 'Company currency (EGP/SAR)', secret: false, required: false, hint: 'Prices import only when this matches your restaurant currency.' },
+    ],
+  },
+  // INT-25: accounting connections. Account roles are mapped in Finance > Accounting (config.accounts).
+  wafeq: {
+    credentials: [{ key: 'apiKey', label: 'Wafeq API key', labelKey: 'intg.field.wafeqApiKey', secret: true, required: true }],
+    config: [
+      ...ACCOUNTING_POSTING,
+      { key: 'customerContactId', label: 'Walk-in customer contact id (summary invoices)', labelKey: 'intg.field.customerContactId', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{1,80}$' },
+      { key: 'taxRateId', label: 'VAT tax rate id (summary invoices)', labelKey: 'intg.field.taxRateId', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{1,80}$' },
+      { key: 'invoiceStatus', label: 'Invoice status', labelKey: 'intg.field.invoiceStatus', secret: false, required: false, kind: 'select', options: ['DRAFT', 'SENT', 'FINALIZED'] },
+    ],
+  },
+  qoyod: {
+    credentials: [{ key: 'apiKey', label: 'Qoyod API key', labelKey: 'intg.field.qoyodApiKey', secret: true, required: true }],
+    config: [
+      ...ACCOUNTING_POSTING,
+      { key: 'contactId', label: 'Walk-in customer id (summary invoices)', labelKey: 'intg.field.qoyodContactId', secret: false, required: false, pattern: '^\\d{1,12}$' },
+      { key: 'inventoryId', label: 'Inventory id (summary invoices)', labelKey: 'intg.field.qoyodInventoryId', secret: false, required: false, pattern: '^\\d{1,12}$' },
+      { key: 'productId', label: 'Restaurant sales product id (summary invoices)', labelKey: 'intg.field.qoyodProductId', secret: false, required: false, pattern: '^\\d{1,12}$' },
+      { key: 'invoiceStatus', label: 'Invoice status', labelKey: 'intg.field.invoiceStatus', secret: false, required: false, kind: 'select', options: ['Draft', 'Approved'] },
+    ],
+  },
+  // One Odoo connection model for POS and Accounting (url + database in settings, API key sealed).
+  odoo_accounting: {
+    credentials: [ODOO_API_KEY],
+    config: [
+      ...ODOO_SITE,
+      ...ACCOUNTING_POSTING,
+      { key: 'journalId', label: 'Journal id for Resuto entries', labelKey: 'intg.field.odooJournalId', secret: false, required: true, pattern: '^\\d{1,9}$' },
+      { key: 'partnerId', label: 'Walk-in partner id (summary invoices)', labelKey: 'intg.field.odooPartnerId', secret: false, required: false, pattern: '^\\d{1,9}$' },
+      { key: 'taxId', label: 'Sales tax id (summary invoices)', labelKey: 'intg.field.odooTaxId', secret: false, required: false, pattern: '^\\d{1,9}$' },
+      // INT-25 review: Odoo 17 / 18 have no JSON-2; with the login the adapter falls back to the legacy /jsonrpc API.
+      { key: 'login', label: 'Login of the API key user (Odoo 17 / 18 only)', labelKey: 'intg.field.odooLogin', secret: false, required: false, pattern: '^[^\\s]{1,200}$' },
     ],
   },
   meta_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'adAccountId', label: 'Ad account id (act_…)', secret: false, required: true }] },
@@ -101,6 +147,78 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
         options: ['on_completion', 'never'] },
       { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select',
         options: ['on', 'off'] },
+    ],
+  },
+  // INT-29: the restaurant's own Google Cloud key (Routes API); Resuto stops at the daily cap and uses the baseline.
+  google_routes: {
+    credentials: [{ key: 'apiKey', label: 'Google Maps Platform API key (Routes API)', labelKey: 'intg.field.googleRoutesKey', secret: true, required: true }],
+    config: [{ key: 'dailyRequestCap', label: 'Daily request cap', labelKey: 'intg.field.dailyRequestCap', secret: false, required: false, kind: 'number',
+      pattern: '^\\d{1,6}$', hint: 'Resuto makes at most this many Routes requests per day (default 300), then uses the offline estimate.', hintKey: 'intg.field.dailyRequestCapHint' }],
+  },
+  // INT-23: TikTok Pixel + Events API (one per restaurant). The Test event code is also used by the health check on Live.
+  tiktok_events: {
+    credentials: [{ key: 'accessToken', label: 'Events API access token', labelKey: 'intg.field.tiktokEventsToken', secret: true, required: true }],
+    config: [
+      { key: 'pixelCode', label: 'Pixel code', labelKey: 'intg.field.tiktokPixelCode', secret: false, required: true, pattern: '^[A-Z0-9]{10,40}$' },
+      { key: 'testEventCode', label: 'Test event code', labelKey: 'intg.field.tiktokTestEventCode', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{4,40}$',
+        hint: 'Events Manager > the Pixel > Test events. Test connections send it with every event; the health check uses it on Live too, so checks never count as conversions.',
+        hintKey: 'intg.field.tiktokTestEventCodeHint' },
+      { key: 'codPurchase', label: 'Cash orders count as Purchase', labelKey: 'intg.field.codPurchase', secret: false, required: false, kind: 'select', options: ['on_completion', 'never'] },
+      { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select', options: ['on', 'off'] },
+    ],
+  },
+  // INT-23: Snap Pixel + Conversions API v3. Test connections only call Snap's /validate endpoint.
+  snap_capi: {
+    credentials: [{ key: 'accessToken', label: 'Conversions API token', labelKey: 'intg.field.snapCapiToken', secret: true, required: true }],
+    config: [
+      { key: 'pixelId', label: 'Snap Pixel id', labelKey: 'intg.field.snapPixelId', secret: false, required: true,
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' },
+      { key: 'testEventCode', label: 'Test event code (optional, test connections only)', labelKey: 'intg.field.snapTestEventCode', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{1,60}$' },
+      { key: 'codPurchase', label: 'Cash orders count as Purchase', labelKey: 'intg.field.codPurchase', secret: false, required: false, kind: 'select', options: ['on_completion', 'never'] },
+      { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select', options: ['on', 'off'] },
+    ],
+  },
+  // INT-28: the restaurant's own Resend account (transactional + consented marketing email).
+  resend: {
+    credentials: [
+      { key: 'apiKey', label: 'Resend API key', labelKey: 'intg.field.resendApiKey', secret: true, required: true, pattern: '^re_[A-Za-z0-9_]{8,200}$' },
+      { key: 'webhookSecret', label: 'Webhook signing secret (whsec_…)', labelKey: 'intg.field.resendWebhookSecret', secret: true, required: false, pattern: '^whsec_[A-Za-z0-9+/=]{8,200}$',
+        hint: 'Resend → Webhooks → the endpoint shown below → Signing secret. Without it delivery status stays "accepted".', hintKey: 'intg.field.resendWebhookSecretHint' },
+    ],
+    config: [
+      { key: 'from', label: 'From address', labelKey: 'intg.field.emailFrom', secret: false, required: true, placeholder: 'Olive Room <hello@olive.example>',
+        hint: 'An address on a domain verified in Resend.', hintKey: 'intg.field.emailFromHint' },
+      { key: 'replyTo', label: 'Reply-to address (optional)', labelKey: 'intg.field.emailReplyTo', secret: false, required: false },
+    ],
+  },
+  // INT-28: the restaurant's own Twilio account (SMS). The Auth Token also verifies status callbacks.
+  twilio_sms: {
+    credentials: [
+      { key: 'accountSid', label: 'Account SID (AC…)', labelKey: 'intg.field.twilioAccountSid', secret: false, required: true, pattern: '^AC[0-9a-fA-F]{32}$' },
+      { key: 'authToken', label: 'Auth Token', labelKey: 'intg.field.twilioAuthToken', secret: true, required: true },
+      { key: 'apiKeySid', label: 'API key SID (SK…, optional)', labelKey: 'intg.field.twilioApiKeySid', secret: false, required: false, pattern: '^SK[0-9a-fA-F]{32}$' },
+      { key: 'apiKeySecret', label: 'API key secret (optional)', labelKey: 'intg.field.twilioApiKeySecret', secret: true, required: false },
+    ],
+    config: [
+      { key: 'messagingServiceSid', label: 'Messaging Service SID (MG…)', labelKey: 'intg.field.twilioMessagingService', secret: false, required: false, pattern: '^MG[0-9a-fA-F]{32}$',
+        hint: 'Recommended in Saudi Arabia and Egypt: a Messaging Service with your registered alphanumeric Sender ID. Otherwise set From.', hintKey: 'intg.field.twilioMessagingServiceHint' },
+      { key: 'from', label: 'From (registered Sender ID or number)', labelKey: 'intg.field.smsFrom', secret: false, required: false, pattern: '^(\\+[1-9]\\d{6,14}|[A-Za-z0-9 ]{1,11})$' },
+    ],
+  },
+  // INT-26: ETA e-receipt POS (Egypt). Implementation incomplete — not certified.
+  eta_ereceipt: {
+    credentials: [
+      { key: 'clientId', label: 'POS client id', labelKey: 'intg.field.etaClientId', secret: true, required: true },
+      { key: 'clientSecret', label: 'POS client secret', labelKey: 'intg.field.etaClientSecret', secret: true, required: true },
+      { key: 'presharedKey', label: 'POS pre-shared key', labelKey: 'intg.field.etaPresharedKey', secret: true, required: true },
+      { key: 'signingKeyPem', label: 'eSeal private key (PEM)', labelKey: 'intg.field.etaSigningKey', secret: true, required: true,
+        hint: 'The private key of the eSeal certificate used for the issuer signature (CAdES-BES). Stored sealed.', hintKey: 'intg.field.etaSigningKeyHint' },
+    ],
+    config: [
+      { key: 'posSerial', label: 'POS serial number', labelKey: 'intg.field.etaPosSerial', secret: false, required: true, pattern: '^.{1,100}$' },
+      { key: 'posOsVersion', label: 'POS OS version', labelKey: 'intg.field.etaPosOsVersion', secret: false, required: true, pattern: '^.{1,50}$' },
+      { key: 'posModelFramework', label: 'POS model framework', labelKey: 'intg.field.etaPosModelFramework', secret: false, required: true, pattern: '^.{1,10}$' },
+      { key: 'signingCertificatePem', label: 'eSeal certificate (PEM)', labelKey: 'intg.field.etaSigningCert', secret: false, required: true },
     ],
   },
   tiktok_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'advertiserId', label: 'Advertiser id', secret: false, required: true }] },
@@ -136,6 +254,14 @@ export function webhookFor(provider: string, connectionId: string, apiOrigin: st
       registeredByMerchant: true,
       verifyToken: typeof config.webhookVerifyToken === 'string' ? config.webhookVerifyToken : null,
     };
+  }
+  // INT-28: delivery status. Resend: the merchant adds this endpoint in Resend → Webhooks; Twilio: Resuto sets it on every message.
+  if (provider === 'resend') {
+    return { url: `${apiOrigin.replace(/\/$/, '')}/v1/webhooks/resend/${connectionId}`, registeredByMerchant: true,
+      events: ['email.sent', 'email.delivered', 'email.delivery_delayed', 'email.bounced', 'email.complained', 'email.failed', 'email.suppressed'] };
+  }
+  if (provider === 'twilio_sms') {
+    return { url: `${apiOrigin.replace(/\/$/, '')}/v1/webhooks/twilio/status/${connectionId}`, registeredByMerchant: false, events: ['StatusCallback (MessageStatus)'] };
   }
   const a = adapterFor(provider);
   if (a?.descriptor.category !== 'payments' || a.descriptor.readiness === 'simulated') return null;

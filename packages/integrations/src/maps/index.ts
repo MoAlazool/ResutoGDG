@@ -1,7 +1,9 @@
 // Maps utilities for ResutoDriver. Owner: Agent D2.
 //
-// No map provider is called: distances are great-circle (haversine) and ETAs
-// are a documented speed baseline. Navigation links open Google Maps through
+// Baseline (always available, no provider): distances are great-circle (haversine) and ETAs
+// are a documented speed baseline. INT-29 adds an optional provider behind the same interface:
+// Google Routes with the restaurant's own key (./google-routes) through the RoutingEngine
+// (./routing), which caches, enforces the daily cap and falls back to this labelled baseline. Navigation links open Google Maps through
 // its public URL scheme (https://developers.google.com/maps/documentation/urls),
 // which needs no API key.
 //
@@ -132,8 +134,12 @@ export const MAPS_PROVIDERS: ProviderDescriptor[] = [{
   countries: ['EG', 'SA'],
   authType: 'none',
   readiness: 'simulated',
-  activation: ['None: offline haversine distance and speed baseline. A routing provider (Google Routes, Mapbox) requires a merchant API key.'],
+  activation: ['None: offline haversine distance and speed baseline, used whenever Google Routes (restaurant-owned key) is not connected, over its daily cap or failing.'],
   capabilities: ['distance', 'eta_baseline', 'multi_drop_sequence', 'navigation_link'],
 }];
 
 export const mapsAdapters = [nearestNeighbourSequencer] as const;
+
+// INT-29: optional provider + engine (exported last: they import the baseline above).
+export * from './google-routes';
+export * from './routing';

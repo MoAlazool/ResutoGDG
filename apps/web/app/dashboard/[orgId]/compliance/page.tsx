@@ -9,6 +9,7 @@ import { useApi } from '@/lib/use-api';
 import { FiscalDocuments } from './_components/FiscalDocuments';
 import { ExpiryBadge, Licences } from './_components/Licences';
 import { TaxProfileForm } from './_components/TaxProfileForm';
+import { ZatcaOnboarding } from './_components/ZatcaOnboarding';
 
 type Tab = 'overview' | 'profile' | 'documents' | 'licences';
 
@@ -86,7 +87,7 @@ export default function CompliancePage() {
         { key: 'licences', label: t('compliance.tab.licences') },
       ]} />
       {tab === 'overview' && <Overview go={setTab} />}
-      {tab === 'profile' && <TaxProfileForm />}
+      {tab === 'profile' && <><TaxProfileForm /><ZatcaOnboarding /></>}
       {tab === 'documents' && <FiscalDocuments />}
       {tab === 'licences' && <Licences />}
     </ModuleGate>

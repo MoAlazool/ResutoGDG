@@ -8,6 +8,7 @@
 import type { ProviderDescriptor } from '../core';
 import { ETA_DESCRIPTOR, EtaSandboxStubClient } from './eta';
 import { ZATCA_DESCRIPTOR, ZatcaSandboxStubClient } from './zatca';
+import { EtaReceiptClient } from './eta-ereceipt';
 
 export * from './model';
 export * from './zatca';
@@ -48,3 +49,23 @@ export const LICENSING_REGISTRIES: ProviderDescriptor[] = [
 export const TAX_PROVIDERS: ProviderDescriptor[] = [ZATCA_DESCRIPTOR, ETA_DESCRIPTOR];
 
 export const taxAdapters = [ZatcaSandboxStubClient, EtaSandboxStubClient] as const;
+export * from './zatca-phase2';
+export * from './eta-ereceipt';
+export * as der from './der';
+
+/**
+ * ETA e-receipt as a tenant connection (INT-26): POS credentials + eSeal certificate/key; the health check is a POS
+ * login (no receipt is sent). ZATCA is onboarded per EGS unit in Compliance, not as a connection.
+ */
+export const fiscalAdapters = [{
+  descriptor: ETA_DESCRIPTOR,
+  requiredCredentials: ['clientId', 'clientSecret', 'presharedKey'],
+  async healthCheck(ctx: import('../core').AdapterContext) {
+    const c = new EtaReceiptClient(ctx.environment === 'live' ? 'production' : 'preprod', {
+      clientId: ctx.credentials.clientId ?? '', clientSecret: ctx.credentials.clientSecret ?? '', presharedKey: ctx.credentials.presharedKey ?? '',
+      posSerial: String(ctx.config.posSerial ?? ''), posOsVersion: String(ctx.config.posOsVersion ?? ''), posModelFramework: String(ctx.config.posModelFramework ?? ''),
+    }, ctx.fetch);
+    await c.accessToken(true);
+    return { ok: true, details: { posLogin: 'ok', environment: ctx.environment === 'live' ? 'production' : 'preprod' } };
+  },
+}] as const;

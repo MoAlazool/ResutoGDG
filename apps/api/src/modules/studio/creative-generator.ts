@@ -1,4 +1,5 @@
 import type { GenerateCreative } from '@resuto/contracts';
+import { GeminiLlm, geminiJson, ProviderError, type LlmUsage } from '@resuto/integrations';
 import { z } from 'zod';
 
 export interface CreativeContext {
@@ -14,6 +15,8 @@ export interface CreativeResult {
   fallbackReason?: string;
   /** Why the template was used: no model key at all, or the model call failed. */
   fallbackCode?: 'not_configured' | 'model_failed';
+  /** Tokens Google reported for the call (INT-30), for metering. */
+  usage?: LlmUsage | null;
 }
 
 const geminiOutput = z.object({
@@ -32,7 +35,7 @@ const KIND_BRIEF: Record<GenerateCreative['kind'], string> = {
 };
 
 /**
- * Gemini (generativelanguage.googleapis.com generateContent, JSON response mode) when a model key is available (the
+ * Gemini (generateContent, JSON response mode, through the shared client in packages/integrations/src/ai/gemini.ts) when a model key is available (the
  * restaurant's own BYOK key first, then the operator's GEMINI_API_KEY); otherwise, or if the call fails, a
  * deterministic template generator whose output is labelled as a template (fallbackCode says why).
  */
@@ -43,7 +46,8 @@ export async function generateCreativeCopy(input: GenerateCreative, context: Cre
     return await gemini(input, context, opts.apiKey, opts.model, opts.fetch ?? fetch);
   } catch (e) {
     // The provider's response body is never echoed; only a short, key-free reason is kept.
-    const reason = e instanceof z.ZodError || e instanceof SyntaxError ? 'unreadable model output' : (e as Error).message.slice(0, 120);
+    const reason = e instanceof z.ZodError || e instanceof SyntaxError || (e instanceof ProviderError && /JSON|schema/.test(e.message)) ? 'unreadable model output'
+      : (e as Error).message.replace(/^gemini: /, '').slice(0, 120);
     return { ...templateCopy(input, context), fallbackReason: `The model request failed (${reason})`, fallbackCode: 'model_failed' };
   }
 }
@@ -58,20 +62,11 @@ async function gemini(input: GenerateCreative, context: CreativeContext, apiKey:
 Tone: ${input.tone}. Owner brief: ${input.brief}
 Facts you may use (do not invent prices, discounts, awards, reviews or ingredients beyond these): ${facts}
 Return JSON: {"variants":[{"title":string optional,"text":string,"hashtags":string[] optional}]}`;
-  const res = await http(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.8, maxOutputTokens: 2048 },
-    }),
-    signal: AbortSignal.timeout(25_000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body: any = await res.json();
-  const text = body?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? '').join('') ?? '';
-  const parsed = geminiOutput.parse(JSON.parse(text));
-  return { provider: 'gemini', model, isFallback: false, variants: parsed.variants.slice(0, input.variants) };
+  // INT-30: one shared Gemini client (timeouts, one retry on 429/5xx, no response bodies in errors, usage metadata).
+  const llm = new GeminiLlm({ apiKey, model, fetch: http, timeoutMs: 25_000, retries: 1 });
+  const { value: parsed, result } = await geminiJson(llm, { contents: [{ role: 'user', parts: [{ text: prompt }] }], temperature: 0.8, maxOutputTokens: 2048 },
+    (v) => geminiOutput.parse(v));
+  return { provider: 'gemini', model, isFallback: false, variants: parsed.variants.slice(0, input.variants), usage: result.usage };
 }
 
 /** Deterministic copy from the owner's brief and real menu facts. Clearly labelled as fallback output. */

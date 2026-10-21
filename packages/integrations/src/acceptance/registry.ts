@@ -4,5 +4,14 @@ import './stripe';
 import './paymob';
 import './moyasar';
 import './meta';
+// ws7b (wave 4): custom domains, tracking sinks, POS, accounting, tax, notifications, push, maps, LLM.
+import './domains';
+import './gemini';
+import './maps';
+import './tracking';
+import './pos';
+import './accounting';
+import './notify';
+import './tax';
 
 export { ACCEPTANCE_CHECKS } from './index';

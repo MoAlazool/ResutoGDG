@@ -10,11 +10,14 @@ import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/dec
 import { zod } from '../../common/http/zod.pipe';
 import { DeliveryService } from './delivery.service';
 import { DriverAppService } from './driver-app.service';
+import { DriverPushService } from './driver-push.service';
 
 type Upload = { buffer: Buffer; mimetype: string; size: number; originalname: string } | undefined;
 const uploadLimits = FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024, files: 1 } });
 const historyQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(30), cursor: z.string().max(200).optional() });
 const optionalBody = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => v ?? {}, s);
+const deviceIdSchema = z.string().trim().min(8).max(200);
+const pushSubscribe = z.object({ deviceId: deviceIdSchema, subscription: z.unknown(), appVersion: z.string().trim().max(40).optional().nullable() });
 
 /** Dispatch board and driver management (managers: delivery:dispatch). */
 @Controller('o/:orgId/delivery')
@@ -103,7 +106,32 @@ export class DispatchController {
 @Controller('o/:orgId/driver')
 @RequiresModule('driver')
 export class DriverController {
-  constructor(private readonly app: DriverAppService) {}
+  constructor(private readonly app: DriverAppService, private readonly push: DriverPushService) {}
+
+  /** FT-22: whether Web Push is available (VAPID public key) and this device is subscribed. */
+  @Get('me/push')
+  @RequirePermission('delivery:drive')
+  pushConfig(@Tenant() ctx: TenantContext, @Query('deviceId') deviceId?: string) {
+    return this.push.config(ctx, deviceId ? deviceIdSchema.parse(deviceId) : null);
+  }
+
+  @Post('me/push')
+  @RequirePermission('delivery:drive')
+  pushSubscribe(@Tenant() ctx: TenantContext, @Body(zod(pushSubscribe)) body: z.infer<typeof pushSubscribe>) {
+    return this.push.subscribe(ctx, body);
+  }
+
+  @Delete('me/push/:deviceId')
+  @RequirePermission('delivery:drive')
+  pushUnsubscribe(@Tenant() ctx: TenantContext, @Param('deviceId') deviceId: string) {
+    return this.push.unsubscribe(ctx, deviceIdSchema.parse(deviceId));
+  }
+
+  @Post('me/push/:deviceId/test')
+  @RequirePermission('delivery:drive')
+  pushTest(@Tenant() ctx: TenantContext, @Param('deviceId') deviceId: string) {
+    return this.push.test(ctx, deviceIdSchema.parse(deviceId));
+  }
 
   @Get('me')
   @RequirePermission('delivery:drive')

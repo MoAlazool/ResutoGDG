@@ -11,6 +11,7 @@ import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { IntegrationConnectionsService } from './connections.service';
 import { IntegrationOAuthService } from './oauth.service';
+import { PosWebhooksService } from './pos-webhooks.service';
 import { IntegrationSyncService } from './sync.service';
 
 const limitOf = (v?: string, d = 50) => Math.min(Math.max(Number(v) || d, 1), 200);
@@ -26,6 +27,7 @@ export class IntegrationsController {
     private readonly sync: IntegrationSyncService,
     private readonly oauth: IntegrationOAuthService,
     private readonly limiter: RateLimiter,
+    private readonly posWebhooks: PosWebhooksService,
   ) {}
 
   @Get('o/:orgId/integrations/catalog')
@@ -175,5 +177,17 @@ export class IntegrationsController {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.redirect(302, target);
+  }
+
+  /**
+   * Foodics webhook (INT-24): one URL per Foodics app, with Resuto's secret as the last path segment. Foodics signs
+   * nothing, so the payload only schedules a menu pull (PosWebhooksService). 404 for a wrong or unconfigured secret.
+   */
+  @Post('webhooks/foodics/:token')
+  @Public()
+  async foodicsWebhook(@Param('token') token: string, @Body() body: unknown, @Res() res: Response) {
+    this.limiter.hit(`foodics-webhook:${res.req.ip}`, 300);
+    const { status, result } = await this.posWebhooks.foodics(String(token).slice(0, 200), body);
+    res.status(status).json(result);
   }
 }

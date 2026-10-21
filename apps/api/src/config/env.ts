@@ -89,6 +89,13 @@ export const envSchema = z.object({
   TIKTOK_APP_SECRET: z.string().optional(),
   SNAPCHAT_CLIENT_ID: z.string().optional(),
   SNAPCHAT_CLIENT_SECRET: z.string().optional(),
+  /**
+   * FT-22 Web Push for the driver app: one VAPID key pair per environment (base64url raw P-256 public key and private
+   * scalar) and a contact (mailto: or https:). Unset: drivers are told notifications are unavailable; nothing is sent.
+   */
+  WEB_PUSH_VAPID_PUBLIC_KEY: z.string().optional(),
+  WEB_PUSH_VAPID_PRIVATE_KEY: z.string().optional(),
+  WEB_PUSH_SUBJECT: z.string().optional(),
 }).superRefine((env, ctx) => {
   // Deployed environments (staging included) only trust Supabase Auth.
   const deployed = env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';

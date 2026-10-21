@@ -10,7 +10,12 @@ export const OAUTH_APP_ENV: Record<string, { id: string; secret: string }> = {
   meta_pages: { id: 'META_APP_ID', secret: 'META_APP_SECRET' },
   tiktok_ads: { id: 'TIKTOK_APP_ID', secret: 'TIKTOK_APP_SECRET' },
   snapchat_ads: { id: 'SNAPCHAT_CLIENT_ID', secret: 'SNAPCHAT_CLIENT_SECRET' },
+  // INT-24: Foodics developer app (one per Foodics environment; FOODICS_OAUTH_ENV says which: sandbox | live).
+  foodics: { id: 'FOODICS_CLIENT_ID', secret: 'FOODICS_CLIENT_SECRET' },
 };
+
+/** Which Foodics environment the configured app belongs to (Foodics registers sandbox and production apps separately). */
+export const foodicsOAuthEnv = (): 'sandbox' | 'live' => (process.env.FOODICS_OAUTH_ENV === 'live' ? 'live' : 'sandbox');
 
 /**
  * The provider's registered redirect URI stays the API callback (no change for owners who already registered it).

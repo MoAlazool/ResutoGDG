@@ -16,6 +16,7 @@ import { finance } from './dict/finance';
 import { guest } from './dict/guest';
 import { insights } from './dict/insights';
 import { integrations } from './dict/integrations';
+import { integrationsWave4 } from './dict/integrations-wave4';
 import { intelligence } from './dict/intelligence';
 import { marketing } from './dict/marketing';
 import { loyalty } from './dict/loyalty';
@@ -30,7 +31,7 @@ import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff];
+const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {
