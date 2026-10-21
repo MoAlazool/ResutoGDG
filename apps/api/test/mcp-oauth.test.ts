@@ -134,6 +134,10 @@ describe('authorization requests', () => {
     const waiter = await addMember(t, a, 'waiter');
     expect((await t.http.post(`/v1/o/${a.orgId}/mcp/oauth/requests/${ok.body.requestId}/approve`).set(auth(waiter))
       .send({ actingRole: 'waiter', allowedTools: ['list_menu'] })).status).toBe(403);
+    // Staff who could not approve anywhere can neither view nor decline the request (it stays pending).
+    expect((await t.http.get(`/v1/mcp/oauth/requests/${ok.body.requestId}`).set(auth(waiter))).status).toBe(403);
+    expect((await t.http.post(`/v1/mcp/oauth/requests/${ok.body.requestId}/deny`).set(auth(waiter)).send({})).status).toBe(403);
+    expect(await sql(`select status from mcp_oauth_requests where id = $1`, [ok.body.requestId])).toEqual([{ status: 'pending' }]);
     const tooMuch = await t.http.post(`/v1/o/${a.orgId}/mcp/oauth/requests/${ok.body.requestId}/approve`).set(auth(a.owner))
       .send({ actingRole: 'manager', allowedTools: ['list_menu', 'update_product_availability'] });
     expect(tooMuch.status).toBe(400);

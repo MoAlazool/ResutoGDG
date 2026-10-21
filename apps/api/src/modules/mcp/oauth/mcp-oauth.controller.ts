@@ -68,7 +68,7 @@ export class McpOAuthController {
   @Get('requests/:requestId')
   describe(@Param('requestId', ParseUUIDPipe) id: string, @Principal() p: AuthPrincipal) {
     if (p.kind !== 'user') throw new DomainError('forbidden', 'Staff only', 403);
-    return this.oauth.describeRequest(id);
+    return this.oauth.describeRequest(p.userId, id);
   }
 
   @Post('requests/:requestId/deny')

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { MCP_TOOLS, type CreateMcpClient, type McpToolName } from '@resuto/contracts';
+import { can, MCP_TOOLS, ROLE_PERMISSIONS, type CreateMcpClient, type McpToolName, type Role } from '@resuto/contracts';
 import { egressFetch, ProviderError } from '@resuto/integrations';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { TenantContext } from '../../../common/auth/context';
@@ -244,9 +244,10 @@ export class McpOAuthService {
   }
 
   /** What the consent screen shows: who asks, where the browser returns to, what is asked. No tenant data. */
-  async describeRequest(id: string) {
+  async describeRequest(userId: string, id: string) {
     this.assertEnabledDomain();
     return this.db.withPlatform(async (tx) => {
+      await this.assertCanConsent(tx, userId);
       const r = await this.pending(tx, id);
       const redirect = new URL(r.redirect_uri);
       return {
@@ -255,6 +256,18 @@ export class McpOAuthService {
         scopes: r.scopes as string[], tools: scopesToTools(r.scopes), resource: r.resource, expiresAt: new Date(r.expires_at).toISOString(),
       };
     }, 'mcp.oauth');
+  }
+
+  /**
+   * Only staff who could approve (mcp:manage in at least one active restaurant, the same rule as the picker page) may
+   * view or decline an authorization request; anyone else signed in gets 403 and the request is left untouched.
+   */
+  private async assertCanConsent(tx: Tx, userId: string) {
+    const roles = (Object.keys(ROLE_PERMISSIONS) as Role[]).filter((r) => can(r, 'mcp:manage'));
+    const ok = await tx.maybeOne(
+      `select 1 from memberships m join organizations o on o.id = m.org_id
+        where m.user_id = $1 and m.status = 'active' and o.status not in ('closed', 'suspended') and m.role::text = any($2::text[]) limit 1`, [userId, roles]);
+    if (!ok) throw new DomainError('forbidden', 'Only a restaurant owner or admin who manages AI connections can decide this request', 403);
   }
 
   private assertEnabledDomain() {
@@ -305,6 +318,7 @@ export class McpOAuthService {
   async deny(userId: string, id: string) {
     this.assertEnabledDomain();
     return this.db.withPlatform(async (tx) => {
+      await this.assertCanConsent(tx, userId);
       const r = await this.pending(tx, id);
       if (r.status !== 'pending') throw new DomainError('oauth_request_closed', `This authorization request is ${r.status}`, 409);
       await tx.query(`update mcp_oauth_requests set status = 'denied', decided_by = $2, decided_at = now() where id = $1`, [id, userId]);
