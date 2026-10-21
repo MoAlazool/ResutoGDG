@@ -184,6 +184,11 @@ export interface Product {
   dietary: string[]; allergens: string[]; ingredients: string[]; calories: number | null; imageUrl: string | null; imageMediaId: string | null;
   isActive: boolean; trackStock: boolean; sortOrder: number; externalRef: string | null; version: number;
   branchSettings: ProductBranchSettingView[]; modifierGroupIds: string[];
+  /**
+   * Portions the ingredients on hand can make, per active branch (the scarcest ingredient of the recipe decides,
+   * gallery PAR-03). Null when the dish has no recipe, so its portions are not tracked by ingredients.
+   */
+  recipePortions?: Array<{ branchId: string; portions: number }> | null;
 }
 export interface Category { id: string; menuId: string; name: string; nameAr: string | null; description: string | null; defaultStation: string | null; sortOrder: number; isActive: boolean }
 export interface MenuEditorView {

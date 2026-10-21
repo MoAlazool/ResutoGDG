@@ -1,8 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { Suspense, useMemo, useRef, useState, type FormEvent } from 'react';
-import { parseMajor, type Category, type MenuEditorView, type MenuImportPreview, type ModifierGroup, type Product } from '@resuto/contracts';
+import { formatNumber, parseMajor, type Category, type MenuEditorView, type MenuImportPreview, type ModifierGroup, type Product } from '@resuto/contracts';
 import { Badge, EmptyState, Field, Modal, Notice, PageHeading, SelectField, Skeleton, Tabs, TextareaField, initialOf, useConfirm, usePrompt } from '@resuto/ui';
+import { LOW_STOCK, portionsOf } from '@/components/ops/portions';
 import { branchState } from '@/components/ops/SoldOutDrawer';
 import '@/components/ops/ops.css';
 import { useUrlParam } from '@/components/ops/use-url-state';
@@ -18,8 +19,6 @@ import { allergenLabel, stationLabel } from '@/lib/vocab';
 type Tab = 'items' | 'categories' | 'modifiers' | 'import';
 const TABS: readonly Tab[] = ['items', 'categories', 'modifiers', 'import'];
 const list = (s: FormDataEntryValue | null) => String(s ?? '').split(',').map((x) => x.trim()).filter(Boolean);
-/** Legacy "Portions" badge: low stock under 6 portions. */
-const LOW_STOCK = 6;
 
 /**
  * Menu & inventory (VS-18), restored from the legacy menu tab: one table of dishes (allergens, category, station, price,
@@ -117,8 +116,9 @@ function MenuPageInner() {
                         <td data-label={t('core.menu.category')}>{cat ? pick(locale, cat.name, cat.nameAr) : ''}</td>
                         <td data-label={t('core.menu.station')}>{stationLabel(t, p.station)}</td>
                         <td data-label={t('ops.menu.col.price')} className="num">{money(s.offered ? (p.branchSettings.find((b) => b.branchId === branchId)?.priceOverrideMinor ?? p.priceMinor) : p.priceMinor, p.currency, locale)}</td>
-                        <td data-label={t('ops.menu.col.portions')}>{s.stock === null ? <span className="fine">—</span>
-                          : <Badge tone={s.stock < LOW_STOCK ? 'danger' : 'ok'}><span className="num">{s.stock}</span></Badge>}</td>
+                        <td data-label={t('ops.menu.col.portions')}>{((n) => n === null
+                          ? <span className="fine" title={t('ops.menu.portionsUntracked')}>—<span className="sr-only"> {t('ops.menu.portionsUntracked')}</span></span>
+                          : <Badge tone={n.count < LOW_STOCK ? 'danger' : 'ok'}><span className="num" title={n.source === 'recipe' ? t('ops.menu.portionsFromRecipe') : undefined}>{formatNumber(n.count, locale)}</span></Badge>)(portionsOf(p, branchId))}</td>
                         <td data-label={t('ops.menu.col.status')}>{status(p)}</td>
                         <td className="menu-actions">
                           {can('menu:availability') && s.offered && (

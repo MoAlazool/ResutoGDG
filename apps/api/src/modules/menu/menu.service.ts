@@ -129,6 +129,16 @@ export class MenuService {
     const settings = await tx.query<any>(
       `select s.*, ${SOLD_OUT_SQL} as sold_out_now from product_branch_settings s where s.product_id = any($1::uuid[])`, [productIds]);
     const groups = await tx.query<any>('select product_id, group_id from product_modifier_groups where product_id = any($1::uuid[]) order by sort_order', [productIds]);
+    // Ingredient-tracked portions (legacy "Portions" column, PAR-03): per branch, the scarcest recipe ingredient decides
+    // (stock on hand / quantity per portion, rounded down, never below zero). Stock levels follow branch scope (RLS).
+    const portions = await tx.query<{ product_id: string; branch_id: string; portions: number }>(
+      `select rc.product_id, b.id as branch_id,
+              min(floor(greatest(coalesce(sl.quantity, 0), 0) / rc.quantity))::int as portions
+         from recipe_components rc
+         join branches b on b.org_id = rc.org_id and b.is_active
+         left join stock_levels sl on sl.branch_id = b.id and sl.item_id = rc.item_id
+        where rc.org_id = $1 and rc.product_id = any($2::uuid[])
+        group by rc.product_id, b.id order by b.id`, [orgId, productIds]);
     const out: Product[] = [];
     for (const r of rows) {
       out.push(own.set({
@@ -143,6 +153,7 @@ export class MenuService {
           soldOutReason: s.sold_out_now ? s.sold_out_reason : null,
         })),
         modifierGroupIds: groups.filter((g) => g.product_id === r.id).map((g) => g.group_id),
+        recipePortions: ((xs) => (xs.length ? xs.map((x) => ({ branchId: x.branch_id, portions: Number(x.portions) })) : null))(portions.filter((x) => x.product_id === r.id)),
       } as Product, 'imageUrl', r.media_path, { fallback: r.image_url ?? null }));
     }
     return out;
