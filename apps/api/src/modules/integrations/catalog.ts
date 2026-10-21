@@ -53,6 +53,20 @@ export interface FieldSpec {
   labelKey?: string; hintKey?: string; kind?: 'text' | 'secret' | 'number' | 'select'; pattern?: string; options?: string[]; placeholder?: string;
 }
 
+/** Odoo settings shared by Odoo POS and Odoo Accounting (INT-25: one connection model, JSON-2 transport). */
+const ODOO_API_KEY: FieldSpec = { key: 'apiKey', label: 'Odoo API key', labelKey: 'intg.field.odooApiKey', secret: true, required: true };
+const ODOO_SITE: FieldSpec[] = [
+  { key: 'url', label: 'Odoo URL (https://…)', labelKey: 'intg.field.odooUrl', secret: false, required: true, pattern: '^https://[^\\s/]+(/[^\\s]*)?$' },
+  { key: 'database', label: 'Database name', labelKey: 'intg.field.odooDatabase', secret: false, required: false, pattern: '^[A-Za-z0-9_.-]{1,63}$' },
+];
+/** INT-25: how sales are posted and whether the previous day is pushed automatically. */
+const ACCOUNTING_POSTING: FieldSpec[] = [
+  { key: 'salesPosting', label: 'Sales posting', labelKey: 'intg.field.salesPosting', secret: false, required: false, kind: 'select', options: ['journal', 'summary_invoice'],
+    hint: 'Daily sales journal (default), or a daily summary invoice plus a receipts journal. Revenue is recorded once either way.', hintKey: 'intg.field.salesPostingHint' },
+  { key: 'autoPush', label: 'Automatic push', labelKey: 'intg.field.autoPush', secret: false, required: false, kind: 'select', options: ['off', 'daily'],
+    hint: 'Daily: the previous business day is pushed after 04:00 restaurant time; documents already pushed are skipped.', hintKey: 'intg.field.autoPushHint' },
+];
+
 /**
  * Connection form fields for the providers this module integrates. Providers
  * owned by other agents fall back to a single API key; their modules may read
@@ -82,11 +96,41 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
   },
   foodics: { credentials: [{ key: 'accessToken', label: 'Foodics access token', secret: true, required: true }], config: [] },
   odoo: {
-    credentials: [{ key: 'apiKey', label: 'Odoo API key', secret: true, required: true }],
+    credentials: [ODOO_API_KEY],
     config: [
-      { key: 'url', label: 'Odoo URL (https://…)', secret: false, required: true },
-      { key: 'database', label: 'Database name', secret: false, required: false },
+      ...ODOO_SITE,
       { key: 'currency', label: 'Company currency (EGP/SAR)', secret: false, required: false, hint: 'Prices import only when this matches your restaurant currency.' },
+    ],
+  },
+  // INT-25: accounting connections. Account roles are mapped in Finance > Accounting (config.accounts).
+  wafeq: {
+    credentials: [{ key: 'apiKey', label: 'Wafeq API key', labelKey: 'intg.field.wafeqApiKey', secret: true, required: true }],
+    config: [
+      ...ACCOUNTING_POSTING,
+      { key: 'customerContactId', label: 'Walk-in customer contact id (summary invoices)', labelKey: 'intg.field.customerContactId', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{1,80}$' },
+      { key: 'taxRateId', label: 'VAT tax rate id (summary invoices)', labelKey: 'intg.field.taxRateId', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{1,80}$' },
+      { key: 'invoiceStatus', label: 'Invoice status', labelKey: 'intg.field.invoiceStatus', secret: false, required: false, kind: 'select', options: ['DRAFT', 'SENT', 'FINALIZED'] },
+    ],
+  },
+  qoyod: {
+    credentials: [{ key: 'apiKey', label: 'Qoyod API key', labelKey: 'intg.field.qoyodApiKey', secret: true, required: true }],
+    config: [
+      ...ACCOUNTING_POSTING,
+      { key: 'contactId', label: 'Walk-in customer id (summary invoices)', labelKey: 'intg.field.qoyodContactId', secret: false, required: false, pattern: '^\\d{1,12}$' },
+      { key: 'inventoryId', label: 'Inventory id (summary invoices)', labelKey: 'intg.field.qoyodInventoryId', secret: false, required: false, pattern: '^\\d{1,12}$' },
+      { key: 'productId', label: 'Restaurant sales product id (summary invoices)', labelKey: 'intg.field.qoyodProductId', secret: false, required: false, pattern: '^\\d{1,12}$' },
+      { key: 'invoiceStatus', label: 'Invoice status', labelKey: 'intg.field.invoiceStatus', secret: false, required: false, kind: 'select', options: ['Draft', 'Approved'] },
+    ],
+  },
+  // One Odoo connection model for POS and Accounting (url + database in settings, API key sealed).
+  odoo_accounting: {
+    credentials: [ODOO_API_KEY],
+    config: [
+      ...ODOO_SITE,
+      ...ACCOUNTING_POSTING,
+      { key: 'journalId', label: 'Journal id for Resuto entries', labelKey: 'intg.field.odooJournalId', secret: false, required: true, pattern: '^\\d{1,9}$' },
+      { key: 'partnerId', label: 'Walk-in partner id (summary invoices)', labelKey: 'intg.field.odooPartnerId', secret: false, required: false, pattern: '^\\d{1,9}$' },
+      { key: 'taxId', label: 'Sales tax id (summary invoices)', labelKey: 'intg.field.odooTaxId', secret: false, required: false, pattern: '^\\d{1,9}$' },
     ],
   },
   meta_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'adAccountId', label: 'Ad account id (act_…)', secret: false, required: true }] },

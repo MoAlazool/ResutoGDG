@@ -3,7 +3,8 @@
 // Resuto pushes deterministic, balanced journal entries (daily sales summaries)
 // and sales invoices to the restaurant's own accounting system. Account ids are
 // mapped per connection in config.accounts (role → provider account id/code).
-import { providerRequest, ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
+import { createHash } from 'node:crypto';
+import { providerRequest, ProviderError, type AdapterContext, type HttpOptions, type ProviderDescriptor } from '../core';
 import { guardedProviderCall } from '../net';
 
 export const ACCOUNT_ROLES = ['cash', 'card_clearing', 'wallet_clearing', 'bank', 'receivables', 'sales', 'delivery_income', 'discounts', 'vat_output', 'payment_fees', 'refunds',
@@ -21,21 +22,43 @@ export interface JournalEntry {
   memo: string;
   lines: JournalLine[];
 }
+/**
+ * A sales invoice. Resuto pushes one DAILY SUMMARY invoice per business day (walk-in customer, one line per income
+ * role) when the connection posts sales as invoices (config.salesPosting = "summary_invoice"); amounts are net of VAT
+ * (tax exclusive) and the provider applies its configured VAT rate.
+ */
 export interface SalesInvoice {
   reference: string;
   date: string;
   currency: string;
   customerName: string;
-  lines: Array<{ description: string; quantity: number; unitPriceMinor: number; taxRateBp: number }>;
+  lines: Array<{ description: string; quantity: number; unitPriceMinor: number; taxRateBp: number; role?: AccountRole }>;
   taxInclusive: boolean;
+  /** Summary invoice covering a period (Wafeq is_summary); null for a single-sale invoice. */
+  summaryPeriod?: { start: string; end: string } | null;
 }
-export interface PushResult { externalId: string; raw?: Record<string, unknown> }
+/** externalId of the provider document; `existing` when the document was already there (found by its Resuto reference). */
+export interface PushResult { externalId: string; existing?: boolean; raw?: Record<string, unknown> }
 
 export interface AccountingAdapter {
   readonly descriptor: ProviderDescriptor;
   readonly requiredCredentials: readonly string[];
+  /** Creates the journal unless one with the same Resuto reference already exists at the provider. */
   pushJournalEntry(ctx: AdapterContext, entry: JournalEntry): Promise<PushResult>;
+  /** Creates the invoice unless one with the same Resuto reference already exists at the provider. */
   pushInvoice(ctx: AdapterContext, invoice: SalesInvoice): Promise<PushResult>;
+}
+
+/**
+ * A stable UUID (version-4 layout) derived from a Resuto reference, for providers whose idempotency header must be a
+ * UUID v4 (Wafeq). The same reference always gives the same key, so a retry after a lost response is replayed.
+ */
+export function referenceUuid(seed: string): string {
+  const h = createHash('sha256').update(`resuto-accounting:${seed}`).digest('hex').split('');
+  h[12] = '4';
+  h[16] = ((parseInt(h[16]!, 16) & 0x3) | 0x8).toString(16);
+  const x = h.join('');
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
 }
 
 /** Integer minor units → "123.45" without floating point. */
@@ -65,160 +88,240 @@ const account = (ctx: AdapterContext, provider: string, role: AccountRole): stri
 };
 
 // ---------------------------------------------------------------------------
-// Wafeq (KSA/UAE) — https://developer.wafeq.com
+// Wafeq (KSA/UAE) — docs checked 2026-10-21 (Markdown export of developer.wafeq.com):
+//   Auth "Authorization: Api-Key <key>": https://developer.wafeq.com/reference/authentication
+//   POST /v1/manual-journals/ { date, reference, external_id, notes, line_items[{ account, amount, amount_to_bcy,
+//     currency, description, contact? }] } — one signed amount per line (positive = debit, negative = credit, as in
+//     the guide's balanced example): https://developer.wafeq.com/reference/manual_journals_create ·
+//     https://developer.wafeq.com/docs/post-journals-and-read-financial-reports
+//   POST /v1/invoices/ { contact, currency, invoice_date, invoice_due_date, invoice_number, reference, external_id,
+//     tax_amount_type, status DRAFT|SENT|FINALIZED, is_summary + summary_period_start/end, line_items[{ account,
+//     description, quantity, unit_amount, tax_rate }] }: https://developer.wafeq.com/reference/invoices_create
+//   GET lists filter by external_id (manual journals, invoices) — used to find a document already pushed.
+//   X-Wafeq-Idempotency-Key: a UUID v4, replayed for 1 hour: https://developer.wafeq.com/reference/idempotency ·
+//     https://developer.wafeq.com/docs/design-a-reliable-integration
 // ---------------------------------------------------------------------------
 export const wafeqDescriptor: ProviderDescriptor = {
   id: 'wafeq', name: 'Wafeq', category: 'accounting', countries: ['SA', 'EG'], authType: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://developer.wafeq.com',
   activation: [
-    'In Wafeq: Settings → API keys → create a key; store it in the connection as "apiKey".',
-    'Map Resuto account roles (cash, card_clearing, sales, vat_output, discounts, payment_fees, refunds …) to Wafeq account ids in config.accounts.',
-    'For invoices, set config.customerContactId (walk-in customer contact) and config.taxRateId for the VAT rate.',
-    'Push one day to a test organisation in Wafeq and compare the trial balance before enabling scheduled pushes.',
+    'In Wafeq: Settings → API keys (app.wafeq.com/c/api-keys) → create a key; paste it as the API key.',
+    'Finance → Accounting: map Resuto account roles (cash, card_clearing, sales, vat_output, receivables …) to Wafeq account ids. The Wafeq organisation base currency must be the restaurant currency.',
+    'To post sales as daily summary invoices instead of a daily sales journal, set "Sales posting" to summary invoices and fill the walk-in customer contact id and the VAT tax rate id. Invoices are created as DRAFT unless you choose otherwise.',
+    'Push one day to a test organisation and compare the trial balance before turning on the daily automatic push.',
   ],
-  capabilities: ['journal_entries', 'invoices'],
+  capabilities: ['journal_entries', 'invoices', 'idempotent_push', 'daily_push'],
 };
 const WAFEQ_API = 'https://api.wafeq.com/v1';
-const wafeqAuth = (ctx: AdapterContext) => {
+const wafeqHeaders = (ctx: AdapterContext, idempotencySeed?: string): Record<string, string> => {
   if (!ctx.credentials.apiKey) throw new ProviderError('wafeq', 'apiKey is not configured', false);
-  return { Authorization: `Api-Key ${ctx.credentials.apiKey}`, 'Content-Type': 'application/json' };
+  return { Authorization: `Api-Key ${ctx.credentials.apiKey}`, 'Content-Type': 'application/json',
+    ...(idempotencySeed ? { 'X-Wafeq-Idempotency-Key': referenceUuid(idempotencySeed) } : {}) };
 };
+/** Amounts as JSON numbers built from exact decimal strings (no float arithmetic on minor units). */
+const decimalNumber = (minor: number) => Number(accountingMinorToDecimal(minor));
+async function wafeqFind(ctx: AdapterContext, path: 'manual-journals' | 'invoices', externalId: string): Promise<string | null> {
+  const r = await providerRequest<{ results?: Array<{ id?: string; external_id?: string }> }>('wafeq', ctx,
+    `${WAFEQ_API}/${path}/?${new URLSearchParams({ external_id: externalId, page_size: '1' })}`, { headers: wafeqHeaders(ctx), retries: 1 });
+  const hit = (r.results ?? []).find((x) => x.external_id === externalId && x.id);
+  return hit?.id ? String(hit.id) : null;
+}
 export const wafeqAdapter: AccountingAdapter = {
   descriptor: wafeqDescriptor,
   requiredCredentials: ['apiKey'],
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
-    const r = await providerRequest<any>('wafeq', ctx, `${WAFEQ_API}/manual-journals/`, {
-      method: 'POST', headers: wafeqAuth(ctx), retries: 0,
-      body: JSON.stringify({
-        date: entry.date, reference: entry.reference, notes: entry.memo, currency: entry.currency,
-        line_items: entry.lines.map((l) => ({ account: account(ctx, 'wafeq', l.role), description: l.description, debit: accountingMinorToDecimal(l.debitMinor), credit: accountingMinorToDecimal(l.creditMinor) })),
-      }),
+    const lines = entry.lines.map((l) => {
+      const amount = l.debitMinor > 0 ? decimalNumber(l.debitMinor) : -decimalNumber(l.creditMinor);
+      const contact = l.role === 'receivables' && typeof ctx.config.customerContactId === 'string' && ctx.config.customerContactId ? { contact: ctx.config.customerContactId } : {};
+      return { account: account(ctx, 'wafeq', l.role), description: l.description, amount, amount_to_bcy: amount, currency: entry.currency, ...contact };
     });
+    const found = await wafeqFind(ctx, 'manual-journals', entry.reference);
+    if (found) return { externalId: found, existing: true };
+    const r = await providerRequest<any>('wafeq', ctx, `${WAFEQ_API}/manual-journals/`, {
+      method: 'POST', headers: wafeqHeaders(ctx, `journal:${entry.reference}`), retries: 1,
+      body: JSON.stringify({ date: entry.date, reference: entry.reference, external_id: entry.reference, notes: entry.memo, line_items: lines }),
+    });
+    if (!r?.id) throw new ProviderError('wafeq', 'unexpected response (no id)', false);
     return { externalId: String(r.id) };
   },
   async pushInvoice(ctx, inv) {
+    const contact = ctx.config.customerContactId;
+    if (typeof contact !== 'string' || !contact) throw new ProviderError('wafeq', 'Set the walk-in customer contact id (customerContactId)', false);
+    const taxRate = typeof ctx.config.taxRateId === 'string' && ctx.config.taxRateId ? ctx.config.taxRateId : null;
+    if (!taxRate && inv.lines.some((l) => l.taxRateBp > 0)) throw new ProviderError('wafeq', 'Set the VAT tax rate id (taxRateId)', false);
+    const lineItems = inv.lines.map((l) => ({ account: account(ctx, 'wafeq', l.role ?? 'sales'), description: l.description, quantity: l.quantity,
+      unit_amount: decimalNumber(l.unitPriceMinor), ...(l.taxRateBp > 0 && taxRate ? { tax_rate: taxRate } : {}) }));
+    const found = await wafeqFind(ctx, 'invoices', inv.reference);
+    if (found) return { externalId: found, existing: true };
+    const status = ['DRAFT', 'SENT', 'FINALIZED'].includes(String(ctx.config.invoiceStatus)) ? String(ctx.config.invoiceStatus) : 'DRAFT';
     const r = await providerRequest<any>('wafeq', ctx, `${WAFEQ_API}/invoices/`, {
-      method: 'POST', headers: wafeqAuth(ctx), retries: 0,
+      method: 'POST', headers: wafeqHeaders(ctx, `invoice:${inv.reference}`), retries: 1,
       body: JSON.stringify({
-        contact: ctx.config.customerContactId, currency: inv.currency, invoice_date: inv.date, invoice_due_date: inv.date,
-        invoice_number: inv.reference, tax_amount_type: inv.taxInclusive ? 'TAX_INCLUSIVE' : 'TAX_EXCLUSIVE',
-        line_items: inv.lines.map((l) => ({ account: account(ctx, 'wafeq', 'sales'), description: l.description, quantity: l.quantity, unit_amount: accountingMinorToDecimal(l.unitPriceMinor), tax_rate: ctx.config.taxRateId })),
+        contact, currency: inv.currency, invoice_date: inv.date, invoice_due_date: inv.date, invoice_number: inv.reference, reference: inv.reference,
+        external_id: inv.reference, tax_amount_type: inv.taxInclusive ? 'TAX_INCLUSIVE' : 'TAX_EXCLUSIVE', status, line_items: lineItems,
+        ...(inv.summaryPeriod ? { is_summary: true, summary_period_start: inv.summaryPeriod.start, summary_period_end: inv.summaryPeriod.end } : {}),
       }),
     });
+    if (!r?.id) throw new ProviderError('wafeq', 'unexpected response (no id)', false);
     return { externalId: String(r.id) };
   },
 };
 
 // ---------------------------------------------------------------------------
-// Qoyod (KSA) — https://apidoc.qoyod.com
+// Qoyod (KSA) — Postman documentation published at https://apidoc.qoyod.com (collection "Qoyod API", checked
+// 2026-10-21): header API-KEY; base https://api.qoyod.com/2.0 (the overview; request samples show www.qoyod.com/2.0);
+//   POST /journal_entries { journal_entry: { description, date, debit_amounts[{ account_id, amount, comment }],
+//     credit_amounts[…] } } (no reference field: Resuto puts its reference first in the description);
+//   POST /invoices { invoice: { contact_id, reference (unique), issue_date, due_date, status Draft|Approved,
+//     inventory_id, line_items[{ product_id, description, quantity, unit_price, tax_percent }] } };
+//   index endpoints search with ransack (q[<field>_<predicate>]) — used to find a document already pushed.
 // ---------------------------------------------------------------------------
 export const qoyodDescriptor: ProviderDescriptor = {
   id: 'qoyod', name: 'Qoyod', category: 'accounting', countries: ['SA'], authType: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://apidoc.qoyod.com',
   activation: [
-    'In Qoyod: General settings → API → generate an API key; store it as "apiKey".',
-    'Map Resuto account roles to Qoyod account ids in config.accounts.',
-    'For invoices, set config.contactId, config.inventoryId and config.productId (a "restaurant sales" service product).',
-    'Push one day and verify the journal in Qoyod before enabling scheduled pushes.',
+    'In Qoyod: General settings → API → generate an API key; paste it as the API key.',
+    'Finance → Accounting: map Resuto account roles to Qoyod account ids.',
+    'For daily summary invoices, set the walk-in customer (contactId), the inventory (inventoryId) and a "restaurant sales" service product (productId). Invoices are created as Draft unless you choose Approved.',
+    'Push one day and verify the journal in Qoyod before turning on the daily automatic push.',
   ],
-  capabilities: ['journal_entries', 'invoices'],
+  capabilities: ['journal_entries', 'invoices', 'idempotent_push', 'daily_push'],
 };
 const QOYOD_API = 'https://api.qoyod.com/2.0';
 const qoyodAuth = (ctx: AdapterContext) => {
   if (!ctx.credentials.apiKey) throw new ProviderError('qoyod', 'apiKey is not configured', false);
   return { 'API-KEY': ctx.credentials.apiKey, 'Content-Type': 'application/json' };
 };
+const qoyodId = (v: string) => (/^\d+$/.test(v) ? Number(v) : v);
 export const qoyodAdapter: AccountingAdapter = {
   descriptor: qoyodDescriptor,
   requiredCredentials: ['apiKey'],
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
     const side = (pick: (l: JournalLine) => number) => entry.lines.filter((l) => pick(l) > 0)
-      .map((l) => ({ account_id: Number(account(ctx, 'qoyod', l.role)) || account(ctx, 'qoyod', l.role), amount: accountingMinorToDecimal(pick(l)) }));
+      .map((l) => ({ account_id: qoyodId(account(ctx, 'qoyod', l.role)), amount: decimalNumber(pick(l)), comment: l.description.slice(0, 200) }));
+    const description = `${entry.reference} — ${entry.memo}`;
+    const debit = side((l) => l.debitMinor);
+    const credit = side((l) => l.creditMinor);
+    const list = await providerRequest<{ journal_entries?: Array<{ id?: number; description?: string }> }>('qoyod', ctx,
+      `${QOYOD_API}/journal_entries?${new URLSearchParams({ 'q[description_start]': entry.reference })}`, { headers: qoyodAuth(ctx), retries: 1 });
+    const hit = (list.journal_entries ?? []).find((j) => typeof j.description === 'string' && j.description.startsWith(`${entry.reference} `));
+    if (hit?.id) return { externalId: String(hit.id), existing: true };
     const r = await providerRequest<any>('qoyod', ctx, `${QOYOD_API}/journal_entries`, {
       method: 'POST', headers: qoyodAuth(ctx), retries: 0,
-      body: JSON.stringify({ journal_entry: { date: entry.date, description: `${entry.reference} — ${entry.memo}`, debit_amounts: side((l) => l.debitMinor), credit_amounts: side((l) => l.creditMinor) } }),
+      body: JSON.stringify({ journal_entry: { date: entry.date, description, debit_amounts: debit, credit_amounts: credit } }),
     });
-    return { externalId: String(r.journal_entry?.id ?? r.id) };
+    const id = r?.journal_entry?.id ?? r?.id;
+    if (!id) throw new ProviderError('qoyod', 'unexpected response (no id)', false);
+    return { externalId: String(id) };
   },
   async pushInvoice(ctx, inv) {
+    for (const k of ['contactId', 'inventoryId', 'productId']) {
+      if (!ctx.config[k]) throw new ProviderError('qoyod', `Set ${k} in the connection settings`, false);
+    }
+    const list = await providerRequest<{ invoices?: Array<{ id?: number; reference?: string }> }>('qoyod', ctx,
+      `${QOYOD_API}/invoices?${new URLSearchParams({ 'q[reference_eq]': inv.reference })}`, { headers: qoyodAuth(ctx), retries: 1 });
+    const hit = (list.invoices ?? []).find((i) => i.reference === inv.reference);
+    if (hit?.id) return { externalId: String(hit.id), existing: true };
+    const status = ctx.config.invoiceStatus === 'Approved' ? 'Approved' : 'Draft';
     const r = await providerRequest<any>('qoyod', ctx, `${QOYOD_API}/invoices`, {
       method: 'POST', headers: qoyodAuth(ctx), retries: 0,
       body: JSON.stringify({ invoice: {
-        contact_id: ctx.config.contactId, reference: inv.reference, issue_date: inv.date, due_date: inv.date, status: 'Approved',
-        inventory_id: ctx.config.inventoryId, tax_inclusive: inv.taxInclusive,
-        line_items: inv.lines.map((l) => ({ product_id: ctx.config.productId, description: l.description, quantity: l.quantity, unit_price: accountingMinorToDecimal(l.unitPriceMinor), tax_percent: (l.taxRateBp / 100).toFixed(2) })),
+        contact_id: qoyodId(String(ctx.config.contactId)), reference: inv.reference, description: inv.summaryPeriod ? `Resuto daily sales ${inv.summaryPeriod.start}` : inv.reference,
+        issue_date: inv.date, due_date: inv.date, status, inventory_id: qoyodId(String(ctx.config.inventoryId)),
+        line_items: inv.lines.map((l) => ({ product_id: qoyodId(String(ctx.config.productId)), description: l.description, quantity: l.quantity,
+          unit_price: decimalNumber(l.unitPriceMinor), tax_percent: l.taxRateBp / 100 })),
       } }),
     });
-    return { externalId: String(r.invoice?.id ?? r.id) };
+    const id = r?.invoice?.id ?? r?.id;
+    if (!id) throw new ProviderError('qoyod', 'unexpected response (no id)', false);
+    return { externalId: String(id) };
   },
 };
 
 // ---------------------------------------------------------------------------
-// Odoo (any hosted/on-prem instance) — JSON-RPC external API
-// https://www.odoo.com/documentation/17.0/developer/reference/external_api.html
+// Odoo Accounting — External JSON-2 API (Odoo 19+), the same transport and connection model as Odoo POS
+// (packages/integrations/src/pos/odoo.ts): url + database in config, API key in credentials.
+//   POST {url}/json/2/<model>/<method>, "Authorization: bearer <api key>", optional "X-Odoo-Database", JSON body of
+//   named parameters (ids, context, and the method's own: domain/limit for search, vals_list for create); 200 with the
+//   JSON return value, 4xx/5xx with { name, message, … }.
+//   /xmlrpc and /jsonrpc are scheduled for removal in Odoo 22 (fall 2028) / Odoo Online 21.1 (winter 2027).
+//   API keys last at most three months (rotate them). External API access needs a Custom Odoo plan.
+//   https://www.odoo.com/documentation/19.0/developer/reference/external_api.html
+// Moves are created as drafts (state "draft"); an accountant posts them in Odoo.
 // ---------------------------------------------------------------------------
 export const odooAccountingDescriptor: ProviderDescriptor = {
   id: 'odoo_accounting', name: 'Odoo Accounting', category: 'accounting', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
-  docsUrl: 'https://www.odoo.com/documentation/17.0/developer/reference/external_api.html',
+  docsUrl: 'https://www.odoo.com/documentation/19.0/developer/reference/external_api.html',
   activation: [
-    'In Odoo: Preferences → Account security → New API key for an accounting user; store "url" (https://<company>.odoo.com), "db", "login" and "apiKey".',
-    'Set config.journalId (a miscellaneous journal for Resuto summaries) and map account roles to Odoo account ids in config.accounts.',
-    'For invoices, set config.partnerId (walk-in customer) and optionally config.taxId.',
-    'Push one day to a staging database first and compare the general ledger.',
+    'Use Odoo 19 or later (External JSON-2 API) over HTTPS on a plan that includes the external API. Create an API key for an accounting user (Preferences → Account Security → New API Key; keys last at most three months).',
+    'Enter the Odoo URL and database (the same settings as the Odoo POS connection) and paste the API key.',
+    'Set the journal id for Resuto summaries, map account roles in Finance → Accounting, and for invoices the walk-in partner id (and optionally the tax id).',
+    'Entries are created as drafts. Push one day to a staging database first and compare the general ledger.',
   ],
-  capabilities: ['journal_entries', 'invoices'],
+  capabilities: ['journal_entries', 'invoices', 'idempotent_push', 'daily_push'],
 };
-/** "odoo.exceptions.AccessDenied" → "AccessDenied"; anything that is not a plain exception name → null. */
-const odooErrorName = (name: unknown) => (typeof name === 'string' && /^[A-Za-z_][\w.]{0,100}$/.test(name) ? name.split('.').pop()! : null);
+/** Shared Odoo connection settings (POS and Accounting): url/database in config; legacy accounting rows kept them in credentials. */
+export function odooSettings(ctx: AdapterContext, provider: string) {
+  const url = String(ctx.config.url ?? ctx.credentials.url ?? '').replace(/\/$/, '');
+  if (!/^https:\/\//.test(url)) throw new ProviderError(provider, 'Set the Odoo URL (https://…)', false);
+  const key = ctx.credentials.apiKey;
+  if (!key) throw new ProviderError(provider, 'missing API key', false);
+  const database = typeof ctx.config.database === 'string' && ctx.config.database ? ctx.config.database : ctx.credentials.db || null;
+  return { url, key, database };
+}
 
 /**
- * The Odoo URL is tenant-supplied (audit INT-02): calls go through the egress guard (public HTTPS hosts only,
- * redirects re-checked, capped body) and errors keep only the HTTP status or the Odoo exception name, never the
- * server's text, because they are stored and shown on the connection.
+ * One JSON-2 call. The URL is tenant-supplied (audit INT-02): the egress guard applies and errors keep only the HTTP
+ * status or the Odoo exception name, never the server's text.
  */
-async function odooCall(ctx: AdapterContext, service: string, method: string, args: unknown[]) {
-  const url = String(ctx.credentials.url ?? '').replace(/\/$/, '');
-  if (!/^https:\/\//.test(url)) throw new ProviderError('odoo_accounting', 'Set the Odoo "url" (https://…)', false);
-  const r = await guardedProviderCall('odoo_accounting', ctx.fetch, `${url}/jsonrpc`, (fetch) => providerRequest<any>('odoo_accounting', { fetch }, `${url}/jsonrpc`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, retries: 0,
-    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args }, id: Date.now() }),
-  }));
-  if (r?.error) {
-    const name = odooErrorName(r.error.data?.name);
-    throw new ProviderError('odoo_accounting', name ? `Odoo rejected the request (${name})` : 'Odoo rejected the request', false);
-  }
-  return r?.result;
-}
-async function odooUid(ctx: AdapterContext): Promise<number> {
-  if (ctx.config.uid) return Number(ctx.config.uid);
-  const { db, login, apiKey } = ctx.credentials;
-  if (!db || !login || !apiKey) throw new ProviderError('odoo_accounting', 'db, login and apiKey are required', false);
-  const uid = await odooCall(ctx, 'common', 'authenticate', [db, login, apiKey, {}]);
-  if (!uid) throw new ProviderError('odoo_accounting', 'Authentication failed', false);
-  return Number(uid);
+async function odooJson2<T>(ctx: AdapterContext, model: string, method: string, body: Record<string, unknown>): Promise<T> {
+  const { url, key, database } = odooSettings(ctx, 'odoo_accounting');
+  const target = `${url}/json/2/${model}/${method}`;
+  const headers: Record<string, string> = { Authorization: `bearer ${key}`, 'Content-Type': 'application/json; charset=utf-8', 'User-Agent': 'Resuto' };
+  if (database) headers['X-Odoo-Database'] = database;
+  const opts: HttpOptions = { method: 'POST', headers, body: JSON.stringify(body), retries: 0 };
+  // guardedProviderCall redacts failures to "HTTP <status>" (the body could come from any server).
+  return guardedProviderCall('odoo_accounting', ctx.fetch, target, (fetch) => providerRequest<T>('odoo_accounting', { fetch }, target, opts));
 }
 const odooAmount = (minor: number) => Number(accountingMinorToDecimal(minor));
+const firstId = (r: unknown): string => {
+  const v = Array.isArray(r) ? r[0] : r;
+  if (typeof v !== 'number' && !(typeof v === 'string' && /^\d+$/.test(v))) throw new ProviderError('odoo_accounting', 'unexpected response (no id)', false);
+  return String(v);
+};
+async function odooFindMove(ctx: AdapterContext, reference: string, moveType: string): Promise<string | null> {
+  const ids = await odooJson2<unknown[]>(ctx, 'account.move', 'search', { domain: [['ref', '=', reference], ['move_type', '=', moveType]], limit: 1 });
+  return Array.isArray(ids) && ids.length ? firstId(ids) : null;
+}
 export const odooAccountingAdapter: AccountingAdapter = {
   descriptor: odooAccountingDescriptor,
-  requiredCredentials: ['url', 'db', 'login', 'apiKey'],
+  requiredCredentials: ['apiKey'],
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
-    const uid = await odooUid(ctx);
-    const id = await odooCall(ctx, 'object', 'execute_kw', [ctx.credentials.db, uid, ctx.credentials.apiKey, 'account.move', 'create', [{
-      move_type: 'entry', date: entry.date, ref: entry.reference, journal_id: Number(ctx.config.journalId), narration: entry.memo,
-      line_ids: entry.lines.map((l) => [0, 0, { account_id: Number(account(ctx, 'odoo', l.role)), name: l.description, debit: odooAmount(l.debitMinor), credit: odooAmount(l.creditMinor) }]),
-    }]]);
-    return { externalId: String(id) };
+    const lines = entry.lines.map((l) => [0, 0, { account_id: Number(account(ctx, 'odoo', l.role)), name: l.description, debit: odooAmount(l.debitMinor), credit: odooAmount(l.creditMinor) }]);
+    if (!ctx.config.journalId) throw new ProviderError('odoo_accounting', 'Set the journal id (journalId)', false);
+    const found = await odooFindMove(ctx, entry.reference, 'entry');
+    if (found) return { externalId: found, existing: true };
+    const r = await odooJson2<unknown>(ctx, 'account.move', 'create', { vals_list: [{
+      move_type: 'entry', date: entry.date, ref: entry.reference, journal_id: Number(ctx.config.journalId), narration: entry.memo, line_ids: lines,
+    }] });
+    return { externalId: firstId(r) };
   },
   async pushInvoice(ctx, inv) {
-    const uid = await odooUid(ctx);
-    const id = await odooCall(ctx, 'object', 'execute_kw', [ctx.credentials.db, uid, ctx.credentials.apiKey, 'account.move', 'create', [{
+    if (!ctx.config.partnerId) throw new ProviderError('odoo_accounting', 'Set the walk-in partner id (partnerId)', false);
+    const found = await odooFindMove(ctx, inv.reference, 'out_invoice');
+    if (found) return { externalId: found, existing: true };
+    const r = await odooJson2<unknown>(ctx, 'account.move', 'create', { vals_list: [{
       move_type: 'out_invoice', partner_id: Number(ctx.config.partnerId), invoice_date: inv.date, ref: inv.reference,
-      invoice_line_ids: inv.lines.map((l) => [0, 0, { name: l.description, quantity: l.quantity, price_unit: odooAmount(l.unitPriceMinor), ...(ctx.config.taxId ? { tax_ids: [[6, 0, [Number(ctx.config.taxId)]]] } : {}) }]),
-    }]]);
-    return { externalId: String(id) };
+      invoice_line_ids: inv.lines.map((l) => [0, 0, {
+        name: l.description, quantity: l.quantity, price_unit: odooAmount(l.unitPriceMinor),
+        ...(l.role && (ctx.config.accounts as Record<string, unknown> | undefined)?.[l.role] ? { account_id: Number(account(ctx, 'odoo', l.role)) } : {}),
+        ...(ctx.config.taxId && l.taxRateBp > 0 ? { tax_ids: [[6, 0, [Number(ctx.config.taxId)]]] } : { tax_ids: [[6, 0, []]] }),
+      }]),
+    }] });
+    return { externalId: firstId(r) };
   },
 };
 

@@ -85,7 +85,7 @@ describe('Foodics OAuth (INT-24)', () => {
 });
 
 describe('Foodics menu.updated webhook (INT-24)', () => {
-  const post = (token: string, body: unknown) => t.http.post(`/v1/webhooks/foodics/${token}`).send(body);
+  const post = (token: string, body: object) => t.http.post(`/v1/webhooks/foodics/${token}`).send(body);
   const nudge = { timestamp: 1760000000, event: 'menu.updated', business: { name: 'Olive Foodics', reference: 771234 } };
 
   it('fails closed without the configured secret or with a wrong one', async () => {

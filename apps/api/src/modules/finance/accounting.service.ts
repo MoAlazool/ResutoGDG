@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { FinancePayout, FinancePolicy } from '@resuto/contracts';
-import { accountingAdapter, ACCOUNTING_ADAPTERS, type AccountRole, type JournalEntry, type JournalLine } from '@resuto/integrations';
-import type { TenantContext } from '../../common/auth/context';
+import { accountingAdapter, ACCOUNTING_ADAPTERS, ProviderError, type AccountRole, type JournalEntry, type JournalLine, type SalesInvoice } from '@resuto/integrations';
+import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { EntitlementsService } from '../../common/entitlements/entitlements.service';
+import { Scheduled } from '../../common/events/events';
 import { AuditService } from '../../common/platform/audit.service';
+import { ProviderHttp } from '../integrations/provider-http';
 import { PaymentProvidersService } from '../payments/providers.service';
 import { loadFinancePolicy } from './policy';
 
@@ -36,15 +39,32 @@ const share = (part: number, whole: number, of: number) => (whole > 0 ? Math.rou
 export class AccountingService {
   private readonly logger = new Logger('Accounting');
 
-  constructor(private readonly db: DbService, private readonly providers: PaymentProvidersService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly db: DbService,
+    private readonly providers: PaymentProvidersService,
+    private readonly audit: AuditService,
+    private readonly http: ProviderHttp,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   async journal(ctx: TenantContext, q: { from: string; to: string; branchId?: string }) {
     if (q.branchId) ctx.assertBranch(q.branchId);
     return this.db.scoped(ctx, (tx) => this.buildEntries(tx, ctx.orgId, q));
   }
 
-  async buildEntries(tx: Tx, orgId: string, q: { from: string; to: string; branchId?: string }): Promise<{ currency: string; entries: JournalEntry[] }> {
+  /**
+   * Journals for a period. `salesPosting: 'summary_invoice'` (INT-25) replaces each RSJ daily sales journal by an RSI
+   * daily summary invoice (walk-in customer: sales and delivery net of VAT, the provider applies its VAT rate, which
+   * debits receivables) plus an RSR receipts journal (payments by method against receivables, refunds as in RSJ), so
+   * revenue is recorded once either way.
+   */
+  async buildEntries(tx: Tx, orgId: string, q: { from: string; to: string; branchId?: string }, opts: { salesPosting?: 'journal' | 'summary_invoice' } = {})
+    : Promise<{ currency: string; entries: JournalEntry[]; invoices: SalesInvoice[]; warnings: string[] }> {
+    const asInvoices = opts.salesPosting === 'summary_invoice';
+    const invoices: SalesInvoice[] = [];
+    const warnings: string[] = [];
     const org = await tx.one<any>('select currency, slug from organizations where id = $1', [orgId]);
+    const vatRateBp = asInvoices ? (await tx.maybeOne<{ r: number }>('select vat_rate_bp as r from tax_profiles where org_id = $1', [orgId]))?.r ?? null : null;
     const suffix = q.branchId ? `-${q.branchId.slice(0, 8)}` : '';
     const days = await tx.query<any>(
       `select business_date::text as d, sum(total_minor)::bigint as total, sum(tax_minor)::bigint as tax, sum(delivery_fee_minor)::bigint as delivery, count(*)::int as n from orders
@@ -83,11 +103,33 @@ export class AccountingService {
       }
       if (unpaid < 0) lines.push({ role: 'receivables', description: 'Overpayment adjustment', debitMinor: 0, creditMinor: -unpaid });
       if (!lines.length) continue;
-      entries.push({ reference: `RSJ-${org.slug}-${day.d}${suffix}`, date: day.d, currency: org.currency, memo: `Resuto daily sales ${day.d}`, lines });
+      if (!asInvoices) {
+        entries.push({ reference: `RSJ-${org.slug}-${day.d}${suffix}`, date: day.d, currency: org.currency, memo: `Resuto daily sales ${day.d}`, lines });
+        continue;
+      }
+      // Summary-invoice posting: the invoice books receivables against sales, delivery and VAT; RSR clears receivables.
+      if (Number(day.tax) > 0 && vatRateBp === null) throw invalid('vat_rate_missing', 'Set the VAT rate in Compliance > Tax profile before pushing invoices');
+      const rate = vatRateBp ?? 0;
+      const invLines: SalesInvoice['lines'] = [
+        ...(salesExVat > 0 ? [{ description: `Food & beverage sales (${day.n} orders)`, quantity: 1, unitPriceMinor: salesExVat, taxRateBp: Number(day.tax) > 0 ? rate : 0, role: 'sales' as AccountRole }] : []),
+        ...(deliveryExVat > 0 ? [{ description: 'Delivery fees', quantity: 1, unitPriceMinor: deliveryExVat, taxRateBp: Number(day.tax) > 0 ? rate : 0, role: 'delivery_income' as AccountRole }] : []),
+      ];
+      if (invLines.length) {
+        invoices.push({ reference: `RSI-${org.slug}-${day.d}${suffix}`, date: day.d, currency: org.currency, customerName: 'Walk-in customers', taxInclusive: false,
+          summaryPeriod: { start: day.d, end: day.d }, lines: invLines });
+        const providerVat = invLines.reduce((sum, l) => sum + Math.round((l.unitPriceMinor * l.taxRateBp) / 10_000), 0);
+        if (providerVat !== Number(day.tax)) warnings.push(`${day.d}: the accounting system computes VAT ${providerVat} on the summary invoice; Resuto recorded ${Number(day.tax)} (per-order rounding). The difference stays on receivables.`);
+      }
+      const receipts: JournalLine[] = [];
+      for (const [role, v] of debit) if (role !== 'receivables' && v > 0) receipts.push({ role, description: `Collected (${role})`, debitMinor: v, creditMinor: 0 });
+      const collected = receipts.reduce((sum, l) => sum + l.debitMinor, 0);
+      if (collected > 0) receipts.push({ role: 'receivables', description: 'Daily sales collected', debitMinor: 0, creditMinor: collected });
+      for (const l of lines.filter((x) => x.description.startsWith('Refunds'))) receipts.push(l);
+      if (receipts.length) entries.push({ reference: `RSR-${org.slug}-${day.d}${suffix}`, date: day.d, currency: org.currency, memo: `Resuto daily receipts ${day.d}`, lines: receipts });
     }
     entries.push(...await this.costEntries(tx, orgId, q, org, suffix));
     entries.sort((a, b) => a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference));
-    return { currency: org.currency, entries };
+    return { currency: org.currency, entries, invoices, warnings };
   }
 
   /** FT-23: expense, cost-of-sales, payment-fee and payout journals for the period (policy-aware, DF-04). */
@@ -251,42 +293,101 @@ export class AccountingService {
   }
 
 
+  /**
+   * Pushes a period's journals (and, in summary-invoice mode, daily summary invoices) to the connection. Idempotent at
+   * three levels: the request key (same push returned), the per-reference ledger accounting_push_items (references the
+   * connection already accepted are skipped) and the adapters (they look the reference up at the provider first).
+   * Provider calls run outside any transaction; each accepted document is recorded right away.
+   */
   async push(ctx: TenantContext, body: { connectionId: string; from: string; to: string; branchId?: string; key: string }) {
     if (body.branchId) ctx.assertBranch(body.branchId);
     const existing = await this.db.scoped(ctx, (tx) => tx.maybeOne<any>('select * from accounting_pushes where org_id = $1 and idempotency_key = $2', [ctx.orgId, body.key]));
     if (existing) return this.toPush(existing);
     const conn = await this.db.scoped(ctx, (tx) => tx.maybeOne<any>(
-      `select id, provider, status from integration_connections where id = $1 and category = 'accounting'`, [body.connectionId]));
+      `select id, provider, status, enabled, config from integration_connections where id = $1 and org_id = $2 and category = 'accounting'`, [body.connectionId, ctx.orgId]));
     if (!conn) throw notFound('Accounting connection');
     const adapter = accountingAdapter(conn.provider);
     if (!adapter) throw invalid('unsupported_provider', `Resuto cannot push to ${conn.provider}`);
-    if (!['connected', 'sandbox'].includes(conn.status)) throw conflict('not_connected', 'Finish connecting this accounting system first');
+    if (!['connected', 'sandbox'].includes(conn.status) || conn.enabled === false) throw conflict('not_connected', 'Finish connecting this accounting system first');
     const creds = await this.providers.credentials(ctx.orgId, conn.id);
     if (!creds) throw conflict('not_connected', 'The connection has no usable credentials');
-    const { entries } = await this.db.scoped(ctx, (tx) => this.buildEntries(tx, ctx.orgId, body));
-    const results: Array<{ reference: string; externalId: string | null; error: string | null }> = [];
-    for (const e of entries) {
+    const salesPosting = conn.config?.salesPosting === 'summary_invoice' ? 'summary_invoice' : 'journal';
+    const { entries, invoices, warnings } = await this.db.scoped(ctx, (tx) => this.buildEntries(tx, ctx.orgId, body, { salesPosting }));
+    const docs = [...invoices.map((d) => ({ kind: 'invoice' as const, reference: d.reference, doc: d })), ...entries.map((d) => ({ kind: 'journal' as const, reference: d.reference, doc: d }))];
+    const done = new Map((await this.db.scoped(ctx, (tx) => tx.query<{ reference: string; external_id: string }>(
+      `select reference, external_id from accounting_push_items where connection_id = $1 and reference = any($2::text[])`, [conn.id, docs.map((d) => d.reference)])))
+      .map((r) => [r.reference, r.external_id]));
+    const actx = { environment: creds.environment, credentials: creds.credentials, config: creds.config, fetch: this.http.fetch };
+    const results: Array<{ reference: string; kind: 'journal' | 'invoice'; externalId: string | null; error: string | null; skipped?: string }> = [];
+    for (const d of docs) {
+      const before = done.get(d.reference);
+      if (before) { results.push({ reference: d.reference, kind: d.kind, externalId: before, error: null, skipped: 'already_pushed' }); continue; }
       try {
-        const r = await adapter.pushJournalEntry({ environment: creds.environment, credentials: creds.credentials, config: creds.config, fetch }, e);
-        results.push({ reference: e.reference, externalId: r.externalId, error: null });
+        const r = d.kind === 'invoice' ? await adapter.pushInvoice(actx, d.doc as SalesInvoice) : await adapter.pushJournalEntry(actx, d.doc as JournalEntry);
+        await this.db.scoped(ctx, (tx) => tx.query(
+          `insert into accounting_push_items(org_id, connection_id, reference, kind, external_id, found_existing) values ($1, $2, $3, $4, $5, $6)
+           on conflict (connection_id, reference) do nothing`, [ctx.orgId, conn.id, d.reference, d.kind, r.externalId, !!r.existing]));
+        results.push({ reference: d.reference, kind: d.kind, externalId: r.externalId, error: null, ...(r.existing ? { skipped: 'found_at_provider' } : {}) });
       } catch (error) {
-        this.logger.warn(`accounting push ${e.reference} failed: ${(error as Error).message}`);
-        results.push({ reference: e.reference, externalId: null, error: (error as Error).message.slice(0, 300) });
+        const msg = error instanceof ProviderError ? error.message : 'unexpected error';
+        this.logger.warn(`accounting push ${d.reference} failed: ${msg}`);
+        results.push({ reference: d.reference, kind: d.kind, externalId: null, error: msg.slice(0, 300) });
       }
     }
     const ok = results.filter((r) => !r.error).length;
-    const status = !entries.length || ok === results.length ? 'succeeded' : ok ? 'partial' : 'failed';
+    const status = !docs.length || ok === results.length ? 'succeeded' : ok ? 'partial' : 'failed';
     return this.db.scoped(ctx, async (tx) => {
       const row = await tx.one<any>(
         `insert into accounting_pushes(org_id, connection_id, provider, kind, period_start, period_end, status, entries, external_ids, error, idempotency_key, created_by)
-         values ($1, $2, $3, 'journal', $4, $5, $6, $7, $8, $9, $10, $11)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          on conflict (org_id, idempotency_key) do update set idempotency_key = excluded.idempotency_key returning *`,
-        [ctx.orgId, conn.id, conn.provider, body.from, body.to, status,
-          JSON.stringify(entries.map((e) => ({ reference: e.reference, date: e.date, debitMinor: e.lines.reduce((s, l) => s + l.debitMinor, 0) }))),
-          JSON.stringify(results), results.find((r) => r.error)?.error ?? null, body.key, ctx.userId]);
-      await this.audit.record(tx, ctx, { action: 'accounting.pushed', entityType: 'accounting_push', entityId: row.id, metadata: { provider: conn.provider, status, entries: entries.length } });
-      return this.toPush(row);
+        [ctx.orgId, conn.id, conn.provider, invoices.length ? 'invoice' : 'journal', body.from, body.to, status,
+          JSON.stringify([
+            ...invoices.map((e) => ({ reference: e.reference, date: e.date, kind: 'invoice', netMinor: e.lines.reduce((sum, l) => sum + l.unitPriceMinor * l.quantity, 0) })),
+            ...entries.map((e) => ({ reference: e.reference, date: e.date, kind: 'journal', debitMinor: e.lines.reduce((sum, l) => sum + l.debitMinor, 0) })),
+          ]),
+          JSON.stringify(results), results.find((r) => r.error)?.error ?? (warnings[0] ?? null), body.key, ctx.userId]);
+      await tx.query(`update accounting_push_items set push_id = $2 where connection_id = $1 and push_id is null and reference = any($3::text[])`,
+        [conn.id, row.id, results.filter((r) => !r.error && !r.skipped).map((r) => r.reference)]);
+      await this.audit.record(tx, ctx, { action: 'accounting.pushed', entityType: 'accounting_push', entityId: row.id,
+        metadata: { provider: conn.provider, status, entries: entries.length, invoices: invoices.length, salesPosting, warnings: warnings.length } });
+      return { ...this.toPush(row), warnings };
     });
+  }
+
+  /**
+   * Daily automatic push (INT-25): connections with config.autoPush = "daily" get the previous business day pushed
+   * once, after 04:00 restaurant time (late-closing orders). The key auto:<connection>:<date> makes it idempotent;
+   * a failed day is retried on the next run with a new attempt key only after the previous attempt is recorded.
+   */
+  @Scheduled('finance.accounting-daily-push', 3600, { timeoutMs: 300_000 })
+  async dailyPush() {
+    const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; day: string }>(
+      `select c.id, c.org_id, ((now() at time zone o.timezone)::date - 1)::text as day
+         from integration_connections c join organizations o on o.id = c.org_id
+        where c.category = 'accounting' and c.enabled and c.status in ('connected', 'sandbox') and c.config->>'autoPush' = 'daily'
+          and extract(hour from (now() at time zone o.timezone)) >= 4
+          and not exists (select 1 from accounting_pushes p where p.org_id = c.org_id and p.connection_id = c.id
+                           and p.idempotency_key like 'auto:' || c.id::text || ':' || ((now() at time zone o.timezone)::date - 1)::text || '%'
+                           and p.status = 'succeeded')
+          and (select count(*) from accounting_pushes p where p.org_id = c.org_id and p.connection_id = c.id
+                and p.idempotency_key like 'auto:' || c.id::text || ':' || ((now() at time zone o.timezone)::date - 1)::text || '%') < 3
+        limit 200`), 'finance:auto-push');
+    let pushed = 0;
+    for (const c of due) {
+      if (!(await this.entitlements.isEnabled(c.org_id, 'finance'))) continue;
+      const ctx = TenantContext.system(c.org_id, 'finance:auto-push');
+      const attempt = await this.db.withTenant(c.org_id, (tx) => tx.one<{ n: number }>(
+        `select count(*)::int as n from accounting_pushes where org_id = $1 and connection_id = $2 and idempotency_key like $3`,
+        [c.org_id, c.id, `auto:${c.id}:${c.day}%`]), 'finance:auto-push');
+      try {
+        await this.push(ctx, { connectionId: c.id, from: c.day, to: c.day, key: `auto:${c.id}:${c.day}:${attempt.n + 1}` });
+        pushed++;
+      } catch (e) {
+        this.logger.warn(`automatic accounting push for ${c.id} ${c.day} failed: ${(e as Error).message}`);
+      }
+    }
+    return { due: due.length, pushed };
   }
 
   async listPushes(ctx: TenantContext) {
@@ -298,6 +399,7 @@ export class AccountingService {
 
   private toPush(r: any) {
     return { id: r.id, connectionId: r.connection_id, provider: r.provider, kind: r.kind, periodStart: r.period_start, periodEnd: r.period_end, status: r.status,
+      automatic: typeof r.idempotency_key === 'string' && r.idempotency_key.startsWith('auto:'),
       entries: r.entries, results: r.external_ids, error: r.error, createdAt: new Date(r.created_at).toISOString() };
   }
 }
