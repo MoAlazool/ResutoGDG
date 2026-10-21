@@ -66,6 +66,13 @@ describe('menu, finance, payments and delivery tools', () => {
     expect(atMaadi.body.output.items).toEqual([expect.objectContaining({ name: 'Fries', available: false, priceMinor: 5000, basePriceMinor: 4500 })]);
     const onlyAvailable = await call(c.key, 'list_menu', { branchId: branch2, availableOnly: true });
     expect(onlyAvailable.body.output.items.map((i: any) => i.name)).not.toContain('Fries');
+    // A sold-out (86) dish stays offered (is_available) but is not available to order (FT-02 / DF-01).
+    await sql(`insert into product_branch_settings(org_id, product_id, branch_id, is_available, sold_out) values ($1, $2, $3, true, true)`,
+      [a.orgId, menu.products.soda, branch2]);
+    const soda = (await call(c.key, 'list_menu', { branchId: branch2, query: 'soda' })).body.output.items[0];
+    expect(soda).toMatchObject({ productId: menu.products.soda, available: false });
+    expect((await call(c.key, 'list_menu', { query: 'soda' })).body.output.items[0].unavailableAtBranchIds).toEqual([branch2]);
+    await sql(`delete from product_branch_settings where product_id = $1 and branch_id = $2`, [menu.products.soda, branch2]);
     const page = await call(c.key, 'list_menu', { limit: 2 });
     const next = await call(c.key, 'list_menu', { limit: 2, cursor: page.body.output.nextCursor });
     expect([...page.body.output.items, ...next.body.output.items].map((i: any) => i.productId)).toHaveLength(4);
@@ -194,8 +201,9 @@ describe('approvals bound to the reviewed scope and data', () => {
     const ok = await t.http.post(`/v1/o/${a.orgId}/mcp/approvals/${second}/approve`).set(auth(a.owner)).send({ previewDigest: shown });
     expect(ok.status).toBe(201);
     expect(ok.body).toMatchObject({ status: 'executed', result: { available: false } });
-    expect(await sql(`select is_available from product_branch_settings where product_id = $1 and branch_id = $2`, [menu.products.soda, a.branchId]))
-      .toEqual([{ is_available: false }]);
+    // ws5 (FT-02 / DF-01): "unavailable" is the temporary 86 (sold_out); the dish stays offered at the branch.
+    expect(await sql(`select is_available, sold_out from product_branch_settings where product_id = $1 and branch_id = $2`, [menu.products.soda, a.branchId]))
+      .toEqual([{ is_available: true, sold_out: true }]);
     const manager = await addMember(t, a, 'manager');
     expect(manager.userId).toBeTruthy();
   });

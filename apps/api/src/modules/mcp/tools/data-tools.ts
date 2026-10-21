@@ -5,6 +5,7 @@ import { ORDER_STATUSES, QUERY_DATASETS, type QueryDataset } from '@resuto/contr
 import { DomainError } from '../../../common/errors/domain-error';
 import type { Tx } from '../../../common/db/db.service';
 import type { TenantContext } from '../../../common/auth/context';
+import { OFFERED_SQL, SOLD_OUT_SQL } from '../../menu/availability';
 import { assertPeriod, branchScope, decodeCursor, encodeCursor, escapeLike, invalidInput, iso, maskName, piiVisible } from '../mcp.util';
 import { defineTool, type McpTool } from './types';
 
@@ -91,9 +92,9 @@ export const dataTools: McpTool[] = [
       const pattern = input.query ? `%${escapeLike(input.query)}%` : null;
       const rows = await tx.query<any>(
         `select p.id, p.name, p.name_ar, p.price_minor, p.dietary, p.allergens, p.track_stock, c.name as category, c.name_ar as category_ar, c.sort_order, p.sort_order as psort,
-                s.is_available as branch_available, s.price_override_minor, s.stock_qty,
-                (select coalesce(array_agg(x.branch_id::text order by x.branch_id), '{}') from product_branch_settings x
-                  where x.product_id = p.id and not x.is_available and ($3::uuid[] is null or x.branch_id = any($3))) as unavailable_at,
+                (${OFFERED_SQL} and not ${SOLD_OUT_SQL}) as branch_available, s.price_override_minor, s.stock_qty,
+                (select coalesce(array_agg(s.branch_id::text order by s.branch_id), '{}') from product_branch_settings s
+                  where s.product_id = p.id and (not ${OFFERED_SQL} or ${SOLD_OUT_SQL}) and ($3::uuid[] is null or s.branch_id = any($3))) as unavailable_at,
                 (select count(*)::int from product_modifier_groups g where g.product_id = p.id) as groups
            from products p join menu_categories c on c.id = p.category_id
            left join product_branch_settings s on s.product_id = p.id and s.branch_id = $2
@@ -104,6 +105,8 @@ export const dataTools: McpTool[] = [
           order by c.sort_order, p.sort_order, p.id limit $9`,
         [ctx.orgId, input.branchId ?? null, scope, pattern, input.category ?? null, cur ? Number(cur[0]) : null, cur ? Number(cur[1]) : null, cur?.[2] ?? null,
           (input.limit + 1) * (input.availableOnly ? 3 : 1)]);
+      // FT-02 / DF-01 (ws5): "available" means offered at the branch and not sold out (86), the same rule ordering and
+      // update_product_availability use; the subquery's `s` is product_branch_settings, as the shared fragments expect.
       const items = rows.map((r) => {
         const available = input.branchId ? r.branch_available ?? true : null;
         return {
