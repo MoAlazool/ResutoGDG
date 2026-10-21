@@ -24,7 +24,7 @@ export function normalisePem(s: string): string {
   return `-----BEGIN ${m[1]}-----\n${body.replace(/.{1,64}/g, '$&\n')}-----END ${m[1]}-----\n`;
 }
 
-export interface EgsInput { environment: ZatcaEnvironment; commonName: string; organizationUnit: string; egsSerial: string; invoiceType: string; location: string; industry: string }
+export interface EgsInput { branchId: string; environment: ZatcaEnvironment; commonName: string; organizationUnit: string; egsSerial: string; invoiceType: string; location: string; industry: string }
 
 /**
  * ZATCA Phase-2 onboarding and reporting/clearance, ETA e-receipt submission and status polling (INT-26 / FT-24).
@@ -52,7 +52,8 @@ export class FiscalAuthorityService {
   // ---------------------------------------------------------------------------
   private view(r: any) {
     return {
-      id: r.id, environment: r.environment, status: r.status, commonName: r.common_name, egsSerial: r.egs_serial, invoiceType: r.invoice_type,
+      id: r.id, branchId: r.branch_id, environment: r.environment, status: r.status, commonName: r.common_name, egsSerial: r.egs_serial, invoiceType: r.invoice_type,
+      activatedAt: r.activated_at ? new Date(r.activated_at).toISOString() : null,
       csrPem: r.csr_pem, complianceRequestId: r.compliance_request_id, complianceChecks: r.compliance_checks ?? [],
       hasComplianceCsid: !!r.compliance_csid_sealed, hasProductionCsid: !!r.production_csid_sealed, certificatePem: r.certificate_pem ?? null,
       lastError: r.last_error, createdAt: new Date(r.created_at).toISOString(), updatedAt: new Date(r.updated_at).toISOString(),
@@ -64,15 +65,22 @@ export class FiscalAuthorityService {
     return this.db.scoped(ctx, async (tx) => ({ items: (await tx.query('select * from zatca_egs_units where org_id = $1 order by created_at desc', [ctx.orgId])).map((r) => this.view(r)) }));
   }
 
-  /** Generates the EGS key (sealed) and the CSR from the validated tax profile. Replaces an unfinished unit of that environment. */
+  /**
+   * Generates the EGS key (sealed) and the CSR from the validated tax profile. One unit per BRANCH and environment:
+   * the PIH / ICV chain the unit reports is the branch's ZATCA series. Replaces an unfinished unit of that branch and
+   * environment.
+   */
   createEgs(ctx: TenantContext, input: EgsInput) {
     return this.db.scoped(ctx, async (tx) => {
       const p = await tx.maybeOne<any>('select * from tax_profiles where org_id = $1', [ctx.orgId]);
       if (!p || p.regime !== 'zatca') throw invalid('regime_not_zatca', 'Set the tax regime to ZATCA first');
       if (!p.vat_number || !p.registered_name) throw invalid('tax_profile_incomplete', 'Complete the VAT number and registered name in the tax profile first');
-      const active = await tx.maybeOne(`select 1 from zatca_egs_units where org_id = $1 and environment = $2 and status = 'active'`, [ctx.orgId, input.environment]);
-      if (active) throw conflict('egs_active', 'An active EGS unit exists for this environment');
-      await tx.query(`update zatca_egs_units set status = 'retired' where org_id = $1 and environment = $2 and status <> 'retired'`, [ctx.orgId, input.environment]);
+      const branch = await tx.maybeOne('select 1 from branches where id = $1 and org_id = $2', [input.branchId, ctx.orgId]);
+      if (!branch) throw notFound('Branch');
+      ctx.assertBranch(input.branchId);
+      const active = await tx.maybeOne(`select 1 from zatca_egs_units where org_id = $1 and branch_id = $2 and environment = $3 and status = 'active'`, [ctx.orgId, input.branchId, input.environment]);
+      if (active) throw conflict('egs_active', 'This branch already has an active EGS unit for this environment');
+      await tx.query(`update zatca_egs_units set status = 'retired' where org_id = $1 and branch_id = $2 and environment = $3 and status <> 'retired'`, [ctx.orgId, input.branchId, input.environment]);
       const keys = generateZatcaKeyPair();
       let csr: ReturnType<typeof buildZatcaCsr>;
       try {
@@ -82,10 +90,10 @@ export class FiscalAuthorityService {
       }
       const id = randomUUID();
       const row = await tx.one(
-        `insert into zatca_egs_units(id, org_id, environment, common_name, egs_serial, invoice_type, private_key_sealed, csr_pem)
-         values ($1, $2, $3, $4, $5, $6, $7, $8) returning *`,
-        [id, ctx.orgId, input.environment, input.commonName, input.egsSerial, input.invoiceType, this.box.seal(keys.privateKeyPem, aad(ctx.orgId, id, 'key')), csr.pem]);
-      await this.audit.record(tx, ctx, { action: 'compliance.zatca_egs_created', entityType: 'zatca_egs_unit', entityId: id, metadata: { environment: input.environment } });
+        `insert into zatca_egs_units(id, org_id, branch_id, environment, common_name, egs_serial, invoice_type, private_key_sealed, csr_pem)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning *`,
+        [id, ctx.orgId, input.branchId, input.environment, input.commonName, input.egsSerial, input.invoiceType, this.box.seal(keys.privateKeyPem, aad(ctx.orgId, id, 'key')), csr.pem]);
+      await this.audit.record(tx, ctx, { action: 'compliance.zatca_egs_created', entityType: 'zatca_egs_unit', entityId: id, branchId: input.branchId, metadata: { environment: input.environment } });
       return this.view(row);
     });
   }
@@ -167,7 +175,8 @@ export class FiscalAuthorityService {
       const csid = await new FatooraClient(r.environment, this.http.fetch).productionCsid({ ...auth, requestId: r.compliance_request_id });
       const certificatePem = certificateFromBinarySecurityToken(csid.binarySecurityToken);
       const row = await this.record(ctx.orgId, id, {
-        status: 'active', certificate_pem: certificatePem,
+        // Reporting covers documents issued from this moment on (never the history issued before onboarding).
+        status: 'active', certificate_pem: certificatePem, activated_at: new Date().toISOString(),
         production_csid_sealed: this.box.sealJson({ binarySecurityToken: csid.binarySecurityToken, secret: csid.secret }, aad(ctx.orgId, id, 'production')),
       }, null);
       await this.db.scoped(ctx, (tx) => this.audit.record(tx, ctx, { action: 'compliance.zatca_egs_activated', entityType: 'zatca_egs_unit', entityId: id, metadata: { environment: r.environment } }));
@@ -182,8 +191,10 @@ export class FiscalAuthorityService {
   // ZATCA reporting / clearance (job)
   // ---------------------------------------------------------------------------
   /**
-   * Stamps and sends issued ZATCA documents of organisations with an active EGS unit whose environment matches the
-   * tax profile: simplified invoices and notes to reporting, standard invoices to clearance, oldest first.
+   * Stamps and sends issued ZATCA documents of branches with an active EGS unit whose environment matches the tax
+   * profile: simplified invoices and notes to reporting, standard invoices to clearance, oldest first. Only the unit's
+   * own branch chain, only documents issued since the unit was activated, and only documents issued under the unit's
+   * environment — stub-era history and documents issued while the profile was in another environment are never sent.
    */
   @Scheduled('compliance.zatca-submit', 300, { timeoutMs: 240_000 })
   async submitZatcaDue(scope: { orgId?: string; limit?: number } = {}) {
@@ -195,9 +206,10 @@ export class FiscalAuthorityService {
     for (const u of units) {
       const docs = await this.db.withTenant(u.org_id, (tx) => tx.query<any>(
         `select d.* from fiscal_documents d
-          where d.org_id = $1 and d.authority = 'zatca' and d.status in ('issued', 'error')
+          where d.org_id = $1 and d.branch_id = $3 and d.authority = 'zatca' and d.status in ('issued', 'error')
+            and d.created_at >= $4::timestamptz and d.meta->>'environment' = $5
             and not exists (select 1 from government_submissions g where g.document_id = d.id and g.mode <> 'sandbox_stub' and g.status = 'accepted')
-          order by d.issued_at, d.counter_value limit $2`, [u.org_id, scope.limit ?? 50]), 'system:fiscal');
+          order by d.issued_at, d.counter_value limit $2`, [u.org_id, scope.limit ?? 50, u.branch_id, u.activated_at, u.environment]), 'system:fiscal');
       if (!docs.length) continue;
       const key = this.box.open(u.private_key_sealed, aad(u.org_id, u.id, 'key'));
       const auth = this.box.openJson<{ binarySecurityToken: string; secret: string }>(u.production_csid_sealed, aad(u.org_id, u.id, 'production'));
@@ -239,11 +251,16 @@ export class FiscalAuthorityService {
   // ---------------------------------------------------------------------------
   // ETA e-receipts (jobs)
   // ---------------------------------------------------------------------------
-  /** Sends issued receipts of organisations with a connected ETA POS, one signed batch per organisation and run. */
+  /**
+   * Sends issued receipts of organisations with a connected ETA POS, one signed batch per organisation and run: only
+   * receipts issued since the connection was connected in its current environment (environment_connected_at), under
+   * the matching ETA environment (preprod for a test connection, production for a live one).
+   */
   @Scheduled('compliance.eta-submit', 120, { timeoutMs: 240_000 })
   async submitEtaDue(scope: { orgId?: string; limit?: number } = {}) {
-    const conns = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string }>(
-      `select id, org_id from integration_connections where provider = 'eta_ereceipt' and enabled and status = 'connected' and ($1::uuid is null or org_id = $1)`,
+    const conns = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; environment_connected_at: Date }>(
+      `select id, org_id, environment_connected_at from integration_connections
+        where provider = 'eta_ereceipt' and enabled and status = 'connected' and environment_connected_at is not null and ($1::uuid is null or org_id = $1)`,
       [scope.orgId ?? null]), 'system:fiscal');
     const totals = { batches: 0, accepted: 0, rejected: 0, errors: 0 };
     for (const c of conns) {
@@ -252,8 +269,9 @@ export class FiscalAuthorityService {
       const docs = await this.db.withTenant(c.org_id, (tx) => tx.query<any>(
         `select d.* from fiscal_documents d
           where d.org_id = $1 and d.authority = 'eta' and d.status in ('issued', 'error')
+            and d.created_at >= $3::timestamptz and d.meta->>'environment' = $4
             and not exists (select 1 from government_submissions g where g.document_id = d.id and g.mode <> 'sandbox_stub' and g.status in ('submitted', 'accepted'))
-          order by d.issued_at, d.counter_value limit $2`, [c.org_id, scope.limit ?? 100]), 'system:fiscal');
+          order by d.issued_at, d.counter_value limit $2`, [c.org_id, scope.limit ?? 100, c.environment_connected_at, env]), 'system:fiscal');
       if (!docs.length) continue;
       const cr = conn.adapter.credentials;
       const cfg = conn.config as Record<string, unknown>;

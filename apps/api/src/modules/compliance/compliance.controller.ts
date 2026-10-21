@@ -14,6 +14,7 @@ import { TaxProfileService } from './tax-profile.service';
 
 type Upload = { buffer: Buffer; mimetype: string; size: number; originalname: string } | undefined;
 const egsInput = z.object({
+  branchId: z.uuid(),
   environment: z.enum(['sandbox', 'simulation', 'production']),
   commonName: z.string().trim().min(1).max(200),
   organizationUnit: z.string().trim().min(1).max(200),

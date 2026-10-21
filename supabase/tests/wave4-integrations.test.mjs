@@ -93,15 +93,39 @@ test('widened delivery statuses: skipped_unsubscribed for campaigns, queued for 
   assert.match(byName.notification_deliveries_status_check, /queued/);
 });
 
-test('one live ZATCA EGS unit per organisation and environment, with a well-formed serial', async () => {
-  const egs = (org, env, serial, status = 'key_generated') => q(
-    `insert into zatca_egs_units(org_id, environment, status, common_name, egs_serial, invoice_type, private_key_sealed, csr_pem)
-     values ($1, $2, $3, 'EGS', $4, '0100', 'sealed', 'csr') returning id`, [org, env, status, serial]);
-  await egs(ids.A.org, 'sandbox', '1-a|2-b|3-c');
-  await assert.rejects(egs(ids.A.org, 'sandbox', '1-a|2-b|3-d'), /duplicate key/);
-  await egs(ids.A.org, 'sandbox', '1-a|2-b|3-e', 'retired');
-  await egs(ids.A.org, 'production', '1-a|2-b|3-c');
-  await assert.rejects(egs(ids.B.org, 'sandbox', 'serial-only'), /check constraint/);
-  const rows = await as('resuto_tenant', { org: ids.B.org }, (c) => c.query('select id from zatca_egs_units'));
-  assert.equal(rows.rowCount, 0);
+test('one live ZATCA EGS unit per branch and environment (the branch chain it reports), with a well-formed serial', async () => {
+  const branch = async (org, code) => (await q(`insert into branches(org_id, code, name) values ($1, $2, $2) returning id`, [org, code]))[0].id;
+  const a1 = await branch(ids.A.org, 'egs-a1');
+  const a2 = await branch(ids.A.org, 'egs-a2');
+  const b1 = await branch(ids.B.org, 'egs-b1');
+  const egs = (org, br, env, serial, status = 'key_generated', activatedAt = null) => q(
+    `insert into zatca_egs_units(org_id, branch_id, environment, status, common_name, egs_serial, invoice_type, private_key_sealed, csr_pem, activated_at)
+     values ($1, $2, $3, $4, 'EGS', $5, '0100', 'sealed', 'csr', $6) returning id`, [org, br, env, status, serial, activatedAt]);
+  await egs(ids.A.org, a1, 'sandbox', '1-a|2-b|3-c');
+  await assert.rejects(egs(ids.A.org, a1, 'sandbox', '1-a|2-b|3-d'), /duplicate key/);
+  await egs(ids.A.org, a2, 'sandbox', '1-a|2-b|3-d'); // another branch: its own unit
+  await egs(ids.A.org, a1, 'sandbox', '1-a|2-b|3-e', 'retired');
+  await egs(ids.A.org, a1, 'production', '1-a|2-b|3-c');
+  await assert.rejects(egs(ids.B.org, b1, 'sandbox', 'serial-only'), /check constraint/);
+  // An active unit records when it was activated; a unit never points at another organisation's branch.
+  await assert.rejects(egs(ids.B.org, b1, 'simulation', '1-a|2-b|3-f', 'active'), /zatca_egs_units_active_has_activation/);
+  await egs(ids.B.org, b1, 'simulation', '1-a|2-b|3-f', 'active', new Date());
+  await assert.rejects(egs(ids.B.org, a1, 'sandbox', '1-a|2-b|3-g'), /does not belong to organisation/);
+  const rows = await as('resuto_tenant', { org: ids.B.org }, (c) => c.query('select branch_id from zatca_egs_units'));
+  assert.deepEqual(rows.rows.map((r) => r.branch_id), [b1]);
+});
+
+test('a connection records when it was first connected in its current environment; changing the environment restarts it', async () => {
+  const [c] = await q(
+    `insert into integration_connections(org_id, provider, category, auth_type, environment, status) values ($1, 'eta_ereceipt', 'tax', 'oauth', 'sandbox', 'pending') returning id, environment_connected_at`,
+    [ids.A.org]);
+  assert.equal(c.environment_connected_at, null);
+  const [first] = await q(`update integration_connections set status = 'connected' where id = $1 returning environment_connected_at`, [c.id]);
+  assert.ok(first.environment_connected_at);
+  const [again] = await q(`update integration_connections set status = 'error' where id = $1 returning environment_connected_at`, [c.id]);
+  assert.deepEqual(again.environment_connected_at, first.environment_connected_at); // an outage does not move it
+  const [reconnected] = await q(`update integration_connections set status = 'connected' where id = $1 returning environment_connected_at`, [c.id]);
+  assert.deepEqual(reconnected.environment_connected_at, first.environment_connected_at);
+  const [switched] = await q(`update integration_connections set environment = 'live', status = 'pending' where id = $1 returning environment_connected_at`, [c.id]);
+  assert.equal(switched.environment_connected_at, null);
 });

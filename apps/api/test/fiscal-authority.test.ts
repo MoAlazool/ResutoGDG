@@ -32,12 +32,12 @@ function selfSigned(privateKey: KeyObject, cn: string): string {
   const tbs = seq(ctx(0, int(2)), int(42), sigAlg, name, seq(time(new Date('2026-01-01T00:00:00Z')), time(new Date('2030-01-01T00:00:00Z'))), name, spki);
   return seq(tbs, sigAlg, bitString(sign('sha256', tbs, privateKey))).toString('base64');
 }
-async function paidOrder(tt: TestTenant, m: SeededMenu) {
+async function paidOrder(tt: TestTenant, m: SeededMenu, branchId = tt.branchId) {
   const ctx = new TenantContext(tt.orgId, 'owner', null, tt.owner.userId, 'user', tt.owner.userId);
   const db = t.app.get(DbService);
-  const o = await db.scoped(ctx, (tx) => t.app.get(OrdersKernelService).place(tx, ctx, { branchId: tt.branchId, channel: 'staff', fulfillment: 'pickup', lines: [{ productId: m.products.fries, quantity: 2 }] }));
+  const o = await db.scoped(ctx, (tx) => t.app.get(OrdersKernelService).place(tx, ctx, { branchId, channel: 'staff', fulfillment: 'pickup', lines: [{ productId: m.products.fries, quantity: 2 }] }));
   const currency = (await sql(`select currency from organizations where id = $1`, [tt.orgId]))[0].currency;
-  await db.scoped(ctx, (tx) => t.app.get(PaymentLedgerService).recordSucceeded(tx, ctx, { branchId: tt.branchId, orderId: o.id, method: 'cash', provider: 'manual', amountMinor: o.totalMinor, currency }));
+  await db.scoped(ctx, (tx) => t.app.get(PaymentLedgerService).recordSucceeded(tx, ctx, { branchId, orderId: o.id, method: 'cash', provider: 'manual', amountMinor: o.totalMinor, currency }));
   await t.app.get(EventDispatcher).drain();
   return (await sql(`select * from fiscal_documents where order_id = $1`, [o.id]))[0];
 }
@@ -52,7 +52,7 @@ describe('ZATCA Phase-2 (INT-26, implementation incomplete)', () => {
       registeredAddress: { street: 'King Fahd Rd', buildingNumber: '1234', district: 'Olaya', city: 'Riyadh', postalCode: '12345' },
     }).expect(200);
     const created = await t.http.post(C(sa, '/zatca/egs')).set(auth(sa.owner)).send({
-      environment: 'sandbox', commonName: 'EGS1-RIYADH', organizationUnit: 'Riyadh Branch', egsSerial: '1-Resuto|2-2.0|3-0001', invoiceType: '0100', location: 'RRRD2929', industry: 'Restaurants',
+      branchId: sa.branchId, environment: 'sandbox', commonName: 'EGS1-RIYADH', organizationUnit: 'Riyadh Branch', egsSerial: '1-Resuto|2-2.0|3-0001', invoiceType: '0100', location: 'RRRD2929', industry: 'Restaurants',
     });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body).toMatchObject({ status: 'key_generated', hasComplianceCsid: false, notice: expect.stringContaining('not certified') });
@@ -118,7 +118,7 @@ describe('ZATCA Phase-2 (INT-26, implementation incomplete)', () => {
     const sa = await createTenant(t, { country: 'SA' });
     await t.http.put(C(sa, '/tax-profile')).set(auth(sa.owner)).send({ regime: 'zatca', vatNumber: '310122393500003', registeredName: 'Resuto', zatcaEnvironment: 'sandbox', zatcaEgsSerial: '1-a|2-b|3-c',
       registeredAddress: { street: 'King Fahd Rd', buildingNumber: '1234', district: 'Olaya', city: 'Riyadh', postalCode: '12345' } }).expect(200);
-    const created = await t.http.post(C(sa, '/zatca/egs')).set(auth(sa.owner)).send({ environment: 'sandbox', commonName: 'EGS', organizationUnit: 'Main', egsSerial: '1-a|2-b|3-c', invoiceType: '0100', location: 'X', industry: 'Food' });
+    const created = await t.http.post(C(sa, '/zatca/egs')).set(auth(sa.owner)).send({ branchId: sa.branchId, environment: 'sandbox', commonName: 'EGS', organizationUnit: 'Main', egsSerial: '1-a|2-b|3-c', invoiceType: '0100', location: 'X', industry: 'Food' });
     http.fetch = scriptedFetch([{ status: 400, body: { errors: ['Invalid-OTP'] } }]).fetch;
     const r = await t.http.post(C(sa, `/zatca/egs/${created.body.id}/compliance-csid`)).set(auth(sa.owner)).send({ otp: '654321' });
     expect(r.status).toBe(502);
@@ -146,6 +146,132 @@ async function etaTenant() {
 }
 const tokenResponse = { body: { access_token: 'a.b.c', token_type: 'Bearer', expires_in: 3600 } };
 const receiptUuidsOf = (req: RecordedRequest) => JSON.parse(req.body!).receipts.map((r: any) => r.header.uuid as string);
+
+const ZATCA_PROFILE = {
+  regime: 'zatca', vatNumber: '310122393500003', registeredName: 'Resuto Riyadh LLC', zatcaEnvironment: 'sandbox', zatcaEgsSerial: '1-Resuto|2-Web|3-0001',
+  registeredAddress: { street: 'King Fahd Rd', buildingNumber: '1234', district: 'Olaya', city: 'Riyadh', postalCode: '12345' },
+};
+/** Onboards an EGS unit for one branch through the API (authority scripted) and returns its id. */
+async function activeEgs(sa: TestTenant, branchId: string, serial: string) {
+  const created = await t.http.post(C(sa, '/zatca/egs')).set(auth(sa.owner)).send({
+    branchId, environment: 'sandbox', commonName: `EGS-${serial}`, organizationUnit: 'Branch', egsSerial: `1-Resuto|2-2.0|3-${serial}`, invoiceType: '0100', location: 'RRRD2929', industry: 'Restaurants',
+  });
+  expect(created.status, JSON.stringify(created.body)).toBe(201);
+  const id = created.body.id as string;
+  const [row] = await sql(`select private_key_sealed from zatca_egs_units where id = $1`, [id]);
+  const keyPem = t.app.get(SecretBox).open(row.private_key_sealed, `zatca-egs:${sa.orgId}:${id}:key`);
+  const token = Buffer.from(selfSigned(createPrivateKey(keyPem), `EGS-${serial}`)).toString('base64');
+  http.fetch = scriptedFetch([{ body: { requestID: 1234567890123, binarySecurityToken: token, secret: 'compliance-secret' } }]).fetch;
+  await t.http.post(C(sa, `/zatca/egs/${id}/compliance-csid`)).set(auth(sa.owner)).send({ otp: '123345' }).expect(201);
+  http.fetch = scriptedFetch([{ body: { validationResults: { status: 'PASS', warningMessages: [], errorMessages: [] }, reportingStatus: 'REPORTED' } }]).fetch;
+  await t.http.post(C(sa, `/zatca/egs/${id}/compliance-checks`)).set(auth(sa.owner)).expect(201);
+  http.fetch = scriptedFetch([{ body: { requestID: 99, binarySecurityToken: token, secret: 'production-secret' } }]).fetch;
+  const prod = await t.http.post(C(sa, `/zatca/egs/${id}/production-csid`)).set(auth(sa.owner));
+  expect(prod.body).toMatchObject({ status: 'active', branchId, activatedAt: expect.any(String) });
+  return id;
+}
+const reportOk = () => scriptedFetch([{ body: { validationResults: { status: 'PASS', warningMessages: [], errorMessages: [] }, reportingStatus: 'REPORTED' } }]);
+
+describe('what the ZATCA job may report (INT-26 review)', () => {
+  it('never reports documents issued before onboarding or under another environment, and reports each branch\'s chain through that branch\'s own unit', async () => {
+    const sa = await createTenant(t, { country: 'SA' });
+    const menu = await seedMenu(sa);
+    await t.http.put(C(sa, '/tax-profile')).set(auth(sa.owner)).send(ZATCA_PROFILE).expect(200);
+    const [east] = await sql(`insert into branches(org_id, code, name) values ($1, 'east', 'East') returning id`, [sa.orgId]);
+    await sql(`insert into order_counters(branch_id, org_id) values ($1, $2)`, [east.id, sa.orgId]);
+    // Stub-era history: issued before any EGS unit existed.
+    const before = await paidOrder(sa, menu);
+    const eastBefore = await paidOrder(sa, menu, east.id);
+    expect([before.status, eastBefore.status]).toEqual(['issued', 'issued']);
+
+    // An EGS unit per branch: two branches, two units in the same environment.
+    const mainUnit = await activeEgs(sa, sa.branchId, '0001');
+    // A unit for a branch of another organisation is refused.
+    const other = await createTenant(t, { country: 'SA' });
+    expect((await t.http.post(C(sa, '/zatca/egs')).set(auth(sa.owner)).send({
+      branchId: other.branchId, environment: 'sandbox', commonName: 'X', organizationUnit: 'X', egsSerial: '1-a|2-b|3-c', invoiceType: '0100', location: 'X', industry: 'X',
+    })).status).toBe(404);
+    const svc = t.app.get(FiscalAuthorityService);
+    let f = reportOk();
+    http.fetch = f.fetch;
+    expect(await svc.submitZatcaDue({ orgId: sa.orgId })).toMatchObject({ units: 1, sent: 0 });
+    expect(f.calls).toHaveLength(0);
+
+    // Issued after activation: reported, through the main branch's unit only.
+    const after = await paidOrder(sa, menu);
+    const eastAfter = await paidOrder(sa, menu, east.id);
+    f = reportOk();
+    http.fetch = f.fetch;
+    expect(await svc.submitZatcaDue({ orgId: sa.orgId })).toMatchObject({ units: 1, sent: 1, accepted: 1 });
+    expect(JSON.parse(f.calls[0]!.body!).uuid).toBe(after.document_uuid);
+
+    // The east branch gets its own unit: its post-activation documents go through it, its history does not.
+    await activeEgs(sa, east.id, '0002');
+    const eastLater = await paidOrder(sa, menu, east.id);
+    f = reportOk();
+    http.fetch = f.fetch;
+    expect(await svc.submitZatcaDue({ orgId: sa.orgId })).toMatchObject({ units: 2, sent: 1 });
+    expect(JSON.parse(f.calls[0]!.body!).uuid).toBe(eastLater.document_uuid);
+    const units = await sql(`select id, branch_id from zatca_egs_units where org_id = $1 and status = 'active' order by activated_at`, [sa.orgId]);
+    expect(units.map((u: any) => u.branch_id)).toEqual([sa.branchId, east.id]);
+    expect(units[0].id).toBe(mainUnit);
+
+    // The profile moves to the simulation environment: documents issued now belong to simulation, not to the sandbox
+    // units, and are not reported by them.
+    await t.http.put(C(sa, '/tax-profile')).set(auth(sa.owner)).send({ ...ZATCA_PROFILE, zatcaEnvironment: 'simulation' }).expect(200);
+    const simDoc = await paidOrder(sa, menu);
+    expect(simDoc.meta.environment).toBe('simulation');
+    await t.http.put(C(sa, '/tax-profile')).set(auth(sa.owner)).send(ZATCA_PROFILE).expect(200);
+    f = reportOk();
+    http.fetch = f.fetch;
+    expect(await svc.submitZatcaDue({ orgId: sa.orgId })).toMatchObject({ sent: 0 });
+
+    // Nothing from before onboarding (or under another environment) was ever sent.
+    const sentDocs = await sql(`select document_id from government_submissions where org_id = $1 and mode <> 'sandbox_stub'`, [sa.orgId]);
+    expect(sentDocs.map((r: any) => r.document_id).sort()).toEqual([after.id, eastLater.id].sort());
+    void eastAfter;
+  });
+});
+
+describe('what the ETA job may submit (INT-26 review)', () => {
+  it('submits only receipts issued since the connection was connected in its environment, under the matching ETA environment', async () => {
+    const eg = await createTenant(t, { country: 'EG' });
+    const menu = await seedMenu(eg);
+    await t.http.put(C(eg, '/tax-profile')).set(auth(eg.owner)).send({
+      vatNumber: '123456789', registeredName: 'Resuto Cairo SAE', etaActivityCode: '5610', etaBranchCode: '0', etaPosSerial: 'POS-001', etaEnvironment: 'preprod',
+      registeredAddress: { governate: 'Cairo', regionCity: 'Nasr City', street: 'Abbas El Akkad', buildingNumber: '10' },
+    }).expect(200);
+    const history = await paidOrder(eg, menu); // issued before any ETA connection
+    const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const certPem = `-----BEGIN CERTIFICATE----- ${selfSigned(privateKey, 'Resuto eSeal')} -----END CERTIFICATE-----`;
+    const creds = { clientId: 'pos-client', clientSecret: 'pos-secret', presharedKey: 'psk-123', signingKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() };
+    const [conn] = await sql(
+      `insert into integration_connections(org_id, provider, category, auth_type, environment, status, credentials_encrypted, config)
+       values ($1, 'eta_ereceipt', 'tax', 'oauth', 'sandbox', 'pending', $2, $3) returning id, environment_connected_at`,
+      [eg.orgId, t.app.get(SecretBox).sealJson(creds, `${eg.orgId}:eta_ereceipt`), { posSerial: 'POS-001', posOsVersion: 'android-14', posModelFramework: '1', signingCertificatePem: certPem }]);
+    expect(conn.environment_connected_at).toBeNull();
+    const pendingEra = await paidOrder(eg, menu); // connection not connected yet
+    await sql(`update integration_connections set status = 'connected' where id = $1`, [conn.id]);
+    const live = await paidOrder(eg, menu);
+    const svc = t.app.get(FiscalAuthorityService);
+    let f = scriptedFetch([tokenResponse, (req) => ({ status: 202, body: { submissionUUID: 'SUBMISSIONEEEEEEEEEEEEEEE5', acceptedDocuments: receiptUuidsOf(req).map((uuid: string) => ({ uuid })) } })]);
+    http.fetch = f.fetch;
+    expect(await svc.submitEtaDue({ orgId: eg.orgId })).toMatchObject({ accepted: 1 });
+    expect(receiptUuidsOf(f.calls[1]!)).toEqual([live.authority_ref]);
+
+    // Switching the connection to live (production) starts over: preprod receipts are never sent to production.
+    await sql(`update integration_connections set environment = 'live' where id = $1`, [conn.id]);
+    expect((await sql(`select environment_connected_at from integration_connections where id = $1`, [conn.id]))[0].environment_connected_at).not.toBeNull(); // still connected → restarted now
+    const preprodLater = await paidOrder(eg, menu);
+    f = scriptedFetch([tokenResponse, { status: 202, body: { submissionUUID: 'X', acceptedDocuments: [] } }]);
+    http.fetch = f.fetch;
+    expect(await svc.submitEtaDue({ orgId: eg.orgId })).toMatchObject({ accepted: 0, batches: 0 });
+    expect(f.calls).toHaveLength(0);
+    const sent = await sql(`select document_id from government_submissions where org_id = $1 and mode <> 'sandbox_stub'`, [eg.orgId]);
+    expect(sent.map((r: any) => r.document_id)).toEqual([live.id]);
+    void history; void pendingEra; void preprodLater;
+  });
+});
 
 describe('ETA batches split by MaximumSizeExceeded (INT-26 review)', () => {
   it('links each receipt to the submission it went in, settles both from their own submission, and keeps accepted results when a later half fails', async () => {
