@@ -82,7 +82,7 @@ export function OutcomeBadge({ outcome }: { outcome: string }) {
   return <Badge tone={OUTCOME_TONE[outcome] ?? 'neutral'}>{t(`mcp.outcome.${outcome}`)}</Badge>;
 }
 
-const APPROVAL_TONE: Record<string, Tone> = { pending: 'info', approved: 'ok', executed: 'ok', rejected: 'neutral', expired: 'warn', failed: 'danger' };
+const APPROVAL_TONE: Record<string, Tone> = { pending: 'info', approved: 'ok', executed: 'ok', rejected: 'neutral', expired: 'warn', failed: 'danger', invalidated: 'warn' };
 export function ApprovalStatusBadge({ status }: { status: string }) {
   const { t } = useT();
   return <Badge tone={APPROVAL_TONE[status] ?? 'neutral'}>{t(`mcp.status.${status}`)}</Badge>;

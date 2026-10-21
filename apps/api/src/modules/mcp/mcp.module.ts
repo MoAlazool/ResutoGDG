@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FinanceModule } from '../finance/finance.module';
 import { McpCallFilter } from './mcp-call.filter';
 import { McpClientsService } from './mcp-clients.service';
 import { McpExecutionService } from './mcp-execution.service';
@@ -12,6 +13,8 @@ import { McpRuntimeController } from './mcp-runtime.controller';
  * through apps/mcp-server, which holds no database access.
  */
 @Module({
+  // FinanceModule: get_finance_summary reuses FinanceService.pnlTx (FT-17).
+  imports: [FinanceModule],
   controllers: [McpController, McpRuntimeController],
   providers: [McpClientsService, McpExecutionService, McpJobs, McpCallFilter],
   exports: [McpExecutionService],

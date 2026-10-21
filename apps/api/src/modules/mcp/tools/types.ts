@@ -1,4 +1,4 @@
-import { MCP_TOOLS, mcpToolInputs, mcpToolOutputs, type McpToolMeta, type McpToolName } from '@resuto/contracts';
+import { MCP_TOOLS, mcpToolInputs, mcpToolOutputs, type FinancePeriod, type McpToolMeta, type McpToolName, type ProfitAndLoss } from '@resuto/contracts';
 import type { ZodType } from 'zod';
 import type { TenantContext } from '../../../common/auth/context';
 import type { Tx } from '../../../common/db/db.service';
@@ -12,6 +12,8 @@ export interface McpPortSet {
   campaigns: CampaignsPort | null;
   campaignSend: CampaignSendPort | null;
   menuAvailability: MenuAvailabilityPort | null;
+  /** The finance module's P&L (get_finance_summary): the same computation as the dashboard, in the caller's transaction. */
+  finance: { pnlTx(tx: Tx, p: FinancePeriod): Promise<ProfitAndLoss> } | null;
 }
 
 /** Human-readable view of what a sensitive request would change (approvals queue diff). */
