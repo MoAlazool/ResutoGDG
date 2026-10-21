@@ -88,7 +88,7 @@ describe('rate limits shared across instances (PS-13)', () => {
 
   it('brute-force limits use the authoritative guard(): sign-in, OTP, org creation, holds, web orders, verification', async () => {
     const { readFileSync } = await import('node:fs');
-    const src = (f: string) => readFileSync(new URL(`../src/modules/${f}`, import.meta.url), 'utf8');
+    const src = (f: string) => readFileSync(`${__dirname}/../src/modules/${f}`, 'utf8');
     const expectGuard = (f: string, key: string) => expect(src(f), `${f} ${key}`).toMatch(new RegExp(`await this\\.limiter\\.guard\\(\`${key}`));
     expectGuard('auth/auth.controller.ts', 'dev-login:');
     expectGuard('auth/auth.controller.ts', 'dev-signup:');
