@@ -6,6 +6,7 @@ import type { MeResponse } from '@resuto/contracts';
 import { Field, Notice, Wordmark } from '@resuto/ui';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import { authErrorText } from '@/lib/auth-errors';
+import { MAX_PASSWORD, MIN_PASSWORD } from '@/lib/auth/password-policy';
 import { homePath } from '@/lib/home-path';
 import { safeNext } from '@/lib/safe-next';
 import { AUTH_MODE, GOOGLE_AUTH, useSession } from '@/lib/session';
@@ -91,7 +92,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           {params.get('reason') === 'expired' && mode === 'login' && <Notice tone="warn">{t('auth.expired')}</Notice>}
           {mode === 'signup' && <Field label={t('auth.fullName')} name="fullName" autoComplete="name" />}
           <Field label={t('auth.email')} name="email" type="email" required autoComplete="email" dir="ltr" />
-          <Field label={t('auth.password')} name="password" type="password" required minLength={10}
+          <Field label={t('auth.password')} name="password" type="password" required minLength={MIN_PASSWORD}
+            maxLength={mode === 'signup' ? MAX_PASSWORD : undefined} hint={mode === 'signup' ? t('auth.passwordHint') : undefined}
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}
           {confirmFor && <Notice tone="ok">{tn('auth.confirmSent', { email: <bdi dir="ltr">{confirmFor}</bdi> })}</Notice>}

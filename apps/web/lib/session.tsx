@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { MeResponse } from '@resuto/contracts';
 import { api, ApiRequestError, type ApiOptions } from './api';
 import { AuthFlowError } from './auth-errors';
+import { checkNewPassword } from './auth/password-policy';
 import { createAuthRunner } from './auth-recovery';
 import { queryCache, scopeOfToken, tenantPrefix } from './query-cache';
 import { googleReturnUrl, loginUrl } from './safe-next';
@@ -96,6 +97,16 @@ const AUTH_PAGES = /^\/(login|signup|forgot-password|reset-password|auth\/callba
 /** Where email links come back to (CR-05): the callback page finishes the session, then continues to `next`. */
 const callbackUrl = (next: string) => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
+/**
+ * AUTH-01: every new password (sign-up, reset, change) passes Resuto's compensating checks first: length, very common
+ * passwords, the account's email and the product name, and the Pwned Passwords k-anonymity lookup (an unreachable
+ * lookup does not block). Client-side only; see lib/auth/password-policy.ts and docs/SECURITY_AUTH.md.
+ */
+async function assertPasswordAllowed(password: string, email: string | null | undefined) {
+  const verdict = await checkNewPassword(password, { email });
+  if (verdict.issue) throw new AuthFlowError(verdict.issue);
+}
+
 export { loginUrl } from './safe-next';
 
 /**
@@ -116,6 +127,8 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   const expiring = useRef(false);
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
+  const meRef = useRef<MeResponse | null>(null);
+  meRef.current = me;
 
   const applyToken = useCallback((t: string | null) => {
     const scope = scopeOfToken(t);
@@ -234,6 +247,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   }, [applyToken, loadMe]);
 
   const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
+    await assertPasswordAllowed(password, email);
     if (AUTH_MODE === 'supabase') {
       const { data, error } = await (await sb()).auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: callbackUrl('/onboarding') } });
       if (error) throw error;
@@ -259,6 +273,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
 
   const updatePassword = useCallback(async (newPassword: string, currentPassword?: string) => {
     if (!tokenRef.current) throw new AuthFlowError('not_signed_in');
+    await assertPasswordAllowed(newPassword, meRef.current?.user.email);
     if (AUTH_MODE !== 'supabase') {
       await withAuth((t) => api('/auth/dev/password', { token: t, body: { currentPassword: currentPassword ?? '', newPassword } }));
       return;

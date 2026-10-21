@@ -16,7 +16,8 @@ describe('page policy (with nonce)', () => {
     expect(directive(csp, 'script-src-attr')).toBe("script-src-attr 'none'");
   });
   it('keeps connections, framing, plugins, base and forms locked down', () => {
-    expect(directive(csp, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://ref.supabase.co wss://ref.supabase.co");
+    // AUTH-01 added the Pwned Passwords range API (breached-password check, k-anonymity prefix only).
+    expect(directive(csp, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://ref.supabase.co wss://ref.supabase.co https://api.pwnedpasswords.com");
     expect(directive(csp, 'frame-ancestors')).toBe("frame-ancestors 'none'");
     expect(directive(csp, 'object-src')).toBe("object-src 'none'");
     expect(directive(csp, 'base-uri')).toBe("base-uri 'self'");
@@ -32,6 +33,16 @@ describe('page policy (with nonce)', () => {
     const dev = buildCsp({ ...opts, nonce: 'n', dev: true });
     expect(directive(dev, 'script-src')).toBe("script-src 'self' 'nonce-n' 'strict-dynamic' 'unsafe-eval'");
     expect(directive(dev, 'connect-src')).toContain('ws: wss:');
+  });
+});
+
+describe('AUTH-01 breached-password check host', () => {
+  it('is reachable from every document (auth pages are entered by client-side navigation), and only that host is added', () => {
+    for (const o of [{ nonce: 'n', dev: false }, { nonce: null, dev: false }, { nonce: 'n', dev: false, metaPixel: true }]) {
+      const connect = directive(buildCsp({ ...opts, ...o }), 'connect-src')!;
+      expect(connect.split(' ')).toContain('https://api.pwnedpasswords.com');
+      expect(connect).not.toMatch(/haveibeenpwned|pwnedpasswords\.com\/|\*/);
+    }
   });
 });
 

@@ -57,10 +57,10 @@ describe('CSP for the TikTok and Snap Pixels', () => {
   const directive = (csp: string, name: string) => csp.split('; ').find((d) => d.startsWith(`${name} `));
   it('adds only their event hosts, only when asked (guest pages), and keeps script-src nonce + strict-dynamic', () => {
     const site = buildCsp({ nonce: 'n1', dev: false, apiUrl: 'https://api.resuto.app', metaPixel: true, tiktokPixel: true, snapPixel: true });
-    expect(directive(site, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://www.facebook.com https://connect.facebook.net "
+    expect(directive(site, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://api.pwnedpasswords.com https://www.facebook.com https://connect.facebook.net "
       + 'https://analytics.tiktok.com https://sc-static.net https://tr.snapchat.com');
     expect(directive(site, 'script-src')).toBe("script-src 'self' 'nonce-n1' 'strict-dynamic'");
     const staff = buildCsp({ nonce: 'n1', dev: false, apiUrl: 'https://api.resuto.app' });
-    expect(directive(staff, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app");
+    expect(directive(staff, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://api.pwnedpasswords.com"); // AUTH-01 breach check
   });
 });

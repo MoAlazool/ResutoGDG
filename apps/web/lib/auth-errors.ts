@@ -6,6 +6,9 @@
 export const AUTH_ERROR_CODES = [
   'invalid_credentials', 'current_password_incorrect', 'email_not_confirmed', 'email_taken', 'weak_password', 'same_password', 'rate_limited',
   'reset_unavailable', 'email_change_unavailable', 'link_invalid', 'google_disabled', 'not_signed_in', 'network', 'current_password_required',
+  // AUTH-01: Resuto's compensating password checks (lib/auth/password-policy.ts) and Supabase's own weak_password reasons.
+  'password_too_short', 'password_too_long', 'password_common', 'password_contains_email', 'password_contains_brand', 'password_breached',
+  'weak_password_characters',
 ] as const;
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 
@@ -39,6 +42,13 @@ export function authErrorCode(err: unknown): AuthErrorCode | null {
   if (!err || typeof err !== 'object') return null;
   const e = err as { code?: unknown; status?: unknown; message?: unknown };
   if (err instanceof AuthFlowError) return err.code;
+  if (e.code === 'weak_password' || (err as { name?: unknown }).name === 'AuthWeakPasswordError') {
+    // Supabase lists why (AuthWeakPasswordError.reasons): 'length', 'characters' (dashboard character rules), 'pwned'.
+    const reasons = (err as { reasons?: unknown }).reasons;
+    if (Array.isArray(reasons) && reasons.includes('pwned')) return 'password_breached';
+    if (Array.isArray(reasons) && reasons.includes('characters')) return 'weak_password_characters';
+    return 'weak_password';
+  }
   if (typeof e.code === 'string' && SUPABASE_CODES[e.code]) return SUPABASE_CODES[e.code]!;
   if (e.status === 429) return 'rate_limited';
   const msg = typeof e.message === 'string' ? e.message : '';

@@ -8,7 +8,7 @@ import { homePath } from '@/lib/home-path';
 import { useT } from '@/lib/i18n/client';
 import { loginUrl } from '@/lib/safe-next';
 import { AUTH_MODE, useSession } from '@/lib/session';
-import { AuthPanel, MIN_PASSWORD } from '../../_ui/AuthPanel';
+import { AuthPanel, MAX_PASSWORD, MIN_PASSWORD } from '../../_ui/AuthPanel';
 
 /**
  * CR-05: the signed-in account (legacy /account "Account home"): who you are, your restaurants, change password and
@@ -77,8 +77,9 @@ function PasswordCard() {
     <Card title={t('auth.account.passwordTitle')}>
       <form onSubmit={submit} className="stack" style={{ gap: 10 }} aria-busy={pending || undefined}>
         <Field label={t('auth.currentPassword')} name="current" type="password" required autoComplete="current-password" dir="ltr" />
-        <Field label={t('auth.newPassword')} name="password" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" dir="ltr" />
-        <Field label={t('auth.confirmPassword')} name="confirm" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" dir="ltr" />
+        <Field label={t('auth.newPassword')} name="password" type="password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
+          hint={t('auth.passwordHint')} autoComplete="new-password" dir="ltr" />
+        <Field label={t('auth.confirmPassword')} name="confirm" type="password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD} autoComplete="new-password" dir="ltr" />
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
         <button className="btn btn-primary" disabled={pending}>{pending ? t('state.loading') : t('auth.account.passwordSubmit')}</button>
       </form>
