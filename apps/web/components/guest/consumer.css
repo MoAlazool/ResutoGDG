@@ -310,6 +310,7 @@
 .gx-wordmark { display: inline-flex; align-items: center; gap: 8px; font-size: 23px; font-weight: 700; letter-spacing: -.055em; color: var(--brand-ink); }
 .gx-wordmark i { width: 29px; height: 29px; border-radius: 9px; display: grid; place-items: center; background: var(--brand-ink); color: var(--mark-text); font: italic 20px var(--font-mark); }
 .gx-wordmark b { color: var(--herb); font-weight: 700; }
+.gx-wordmark.is-ar img { display: block; height: 32px; width: auto; }
 .bk-page { max-width: 1180px; margin-inline: auto; padding: clamp(20px, 4vw, 40px) clamp(16px, 4vw, 40px) 132px; }
 .bk-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 650; color: var(--brand-muted); margin-block-end: 14px; }
 .bk-head h1 { font-size: clamp(27px, 5.4vw, 42px); font-weight: 600; letter-spacing: -.035em; line-height: 1.08; margin: 0; color: var(--brand-ink); }

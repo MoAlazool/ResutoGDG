@@ -2,7 +2,7 @@
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useRef, useState } from 'react';
 import type { LoyaltyReward, MenuEditorView, OrderDetail, OrderSummary, FloorLayout } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt, OrderRef } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { Tabs } from '@resuto/ui';
 import '@/components/ops/ops.css';
@@ -151,7 +151,7 @@ function Orders() {
         <DataTable rows={list.data?.items ?? []} rowKey={(o) => o.id} onRowClick={(o) => setSelected(o.id)} busy={list.pending}
           empty={<EmptyState title={t('core.orders.empty')}>{t('core.orders.emptyHint')}</EmptyState>}
           columns={[
-            { key: 'n', header: '#', render: (o) => <strong>#{o.number}</strong> },
+            { key: 'n', header: '#', render: (o) => <strong><OrderRef n={o.number} /></strong> },
             { key: 'time', header: t('core.orders.placed'), render: (o) => <span className="num">{formatWhen(o.placedAt, locale, org.timezone)}</span> },
             { key: 'where', header: t('core.orders.where'), render: (o) => o.tableLabel ? t('core.kds.table', { label: o.tableLabel }) : <>{t(`core.web.${o.fulfillment}`)}{o.customerName ? <> · <UserText>{o.customerName}</UserText></> : null}</> },
             { key: 'channel', header: t('core.orders.channel'), render: (o) => t(`core.channel.${o.channel}`) },

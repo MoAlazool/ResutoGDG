@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { kitchenLaneOf, kitchenPathTo, type KitchenFeed, type KitchenLane, type KitchenTicket } from '@resuto/contracts';
-import { Badge, Notice, usePrompt } from '@resuto/ui';
+import { Badge, Notice, usePrompt, OrderRef } from '@resuto/ui';
 import { KanbanBoard } from '@/components/ops/KanbanBoard';
 import { isNewTicket, lateness, ticketAge, type AgeUnits } from '@/components/ops/elapsed';
 import { ServiceRequestList, useServiceRequests } from '@/components/ops/ServiceRequests';
@@ -159,7 +159,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations, timezone, c
     return (
       <article key={tk.id} className={cls} data-card={live && lane !== 'out' || (lane === 'out' && !tk.driverJob) ? tk.id : undefined} aria-busy={off || undefined}>
         <div className="ticket-top">
-          <strong>#{tk.number.padStart(3, '0')}</strong>
+          <strong><OrderRef n={tk.number.padStart(3, '0')} /></strong>
           <span className="ticket-age" title={t('ops.kds.placedAt', { time: time(tk.placedAt, locale, timezone) })}>
             {live ? <>{time(tk.placedAt, locale, timezone)} · <span aria-label={t('core.kds.age')}>{ticketAge(age, ageUnits)}</span></> : time(tk.fulfilledAt ?? tk.placedAt, locale, timezone)}
           </span>

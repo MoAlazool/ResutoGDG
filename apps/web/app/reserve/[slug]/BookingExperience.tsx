@@ -3,6 +3,7 @@
 // restaurant is, guest stepper with 2/4/6/8, Dinner/Lunch, sittings with "N free" — 2 your table — feature chips, the
 // zoomable floor plan and the table list — 3 your details; a sticky summary bar carries the next step. Confirming holds
 // the table, then confirms it or opens the deposit checkout; the confirmation card follows.
+import { GuestWordmark } from '@/components/guest/wordmark';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
@@ -172,7 +173,7 @@ export function BookingExperience({ slug, info, branchCode, initialSlots, initia
   const orgName = info ? pick(locale, info.org.name, info.org.nameAr) : '';
   const top = (
     <header className="gx-topbar">
-      <Link className="gx-wordmark" href="/"><i aria-hidden>r</i><span>resuto<b>.</b></span></Link>
+      <GuestWordmark locale={locale} />
       <nav>{info && <Link href={`/r/${info.org.slug}`}>{orgName}</Link>}<LanguageToggle className="lang-toggle" /></nav>
     </header>
   );

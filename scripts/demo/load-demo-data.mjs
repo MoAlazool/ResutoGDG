@@ -195,6 +195,11 @@ const ITEM_DEFS = [   // name, unit, cost/unit, reorder level, supplier key
   ['Potatoes', 'kg', 1800, 15, 'produce'], ['Tomatoes', 'kg', 2200, 6, 'produce'], ['Arborio rice', 'kg', 9500, 3, 'produce'],
   ['Brioche buns', 'pcs', 650, 40, null], ['Frying oil', 'l', 9500, 10, null], ['Burrata', 'pcs', 6500, 6, null], ['Mushrooms', 'kg', 16000, 2, 'produce'],
 ];
+// Arabic names of the ingredients: the inventory reads in Arabic on Arabic pages (gallery PAR-06).
+const ITEM_AR = {
+  'Beef patty mix': 'خلطة لحم البرجر', 'Chicken breast': 'صدور دجاج', 'Seabass fillet': 'فيليه قاروص', Potatoes: 'بطاطس', Tomatoes: 'طماطم',
+  'Arborio rice': 'أرز أربوريو', 'Brioche buns': 'خبز بريوش', 'Frying oil': 'زيت قلي', Burrata: 'جبنة بوراتا', Mushrooms: 'مشروم',
+};
 // Quantities in the item's base unit (kg, l, pcs) per portion.
 const RECIPES = {
   'Classic Smash': [['Beef patty mix', 0.15], ['Brioche buns', 1]], 'Double Smash': [['Beef patty mix', 0.3], ['Brioche buns', 1]],
@@ -304,7 +309,7 @@ async function createTenant() {
     meat: (await must('POST', O('/inventory/suppliers'), { token: C.OWNER.token, body: { name: 'Nile Meats (demo)', phone: '+20223450002' } })).id,
   };
   for (const [name, unit, cost, reorder, sup] of ITEM_DEFS) {
-    C.ITEMS[name] = (await must('POST', O('/inventory/items'), { token: C.OWNER.token, body: { name, unit, costPerUnitMinor: cost, reorderLevel: reorder, ...(sup ? { supplierId: suppliers[sup] } : {}) } })).id;
+    C.ITEMS[name] = (await must('POST', O('/inventory/items'), { token: C.OWNER.token, body: { name, nameAr: ITEM_AR[name] ?? null, unit, costPerUnitMinor: cost, reorderLevel: reorder, ...(sup ? { supplierId: suppliers[sup] } : {}) } })).id;
   }
   for (const [dish, comps] of Object.entries(RECIPES)) {
     const p = byName(new RegExp(`^${dish.replace(/[&()]/g, '.')}$`));
@@ -867,6 +872,17 @@ async function ensureStorefrontSignals() {
   if (Object.keys(patch).length || prep) log(`storefront: Smash & Co ${Object.keys(patch).join(', ') || 'branch unchanged'}; ${prep} dish preparation time(s)`);
 }
 
+/** Ingredients created by an older loader have no Arabic name; they get one through the API (PAR-06). */
+async function ensureInventoryArabicNames() {
+  let n = 0;
+  for (const r of await q(`select id, name from inventory_items where org_id = $1 and coalesce(btrim(name_ar), '') = ''`, [C.ORG])) {
+    if (!ITEM_AR[r.name]) continue;
+    await must('PATCH', O(`/inventory/items/${r.id}`), { token: C.OWNER.token, body: { nameAr: ITEM_AR[r.name] } });
+    n++;
+  }
+  if (n) log(`inventory: Arabic names for ${n} ingredient(s)`);
+}
+
 async function ensureBranding() {
   // Arabic names for every category (Arabic pages never fall back to English).
   for (const c of await q(`select id, name from menu_categories where org_id = $1 and coalesce(btrim(name_ar), '') = ''`, [C.ORG])) {
@@ -1044,6 +1060,7 @@ try {
     await ensureBranding();
     await ensureFloorArchitecture();
     await ensureStorefrontSignals();
+    await ensureInventoryArabicNames();
     await repairOlderLoaderRows();
     await call('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
   }

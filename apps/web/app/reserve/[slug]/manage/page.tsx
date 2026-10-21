@@ -2,6 +2,7 @@
 // The guest's manage link (legacy reservations.js confirmation() + manage): the booking card in the restaurant's
 // time zone, and what the guest can still do — pay an unpaid deposit while the hold lasts (FT-11), add it to the
 // calendar, or cancel it. The token lives in the URL fragment, so it never reaches server logs.
+import { GuestWordmark } from '@/components/guest/wordmark';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -87,7 +88,7 @@ export default function ManageReservationPage() {
   const orgName = view ? pick(locale, view.org.name, view.org.nameAr) : '';
   const top = (
     <header className="gx-topbar">
-      <Link className="gx-wordmark" href="/"><i aria-hidden>r</i><span>resuto<b>.</b></span></Link>
+      <GuestWordmark locale={locale} />
       <nav><Link href={`/r/${slug}`}>{orgName || t('core.res.title')}</Link><LanguageToggle className="lang-toggle" /></nav>
     </header>
   );

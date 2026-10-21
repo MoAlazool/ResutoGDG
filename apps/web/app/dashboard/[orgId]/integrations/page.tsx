@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { IntegrationConnectionView, ProviderCatalogEntry } from '@resuto/contracts';
-import { Badge, Card, DataTable, EmptyState, Field, KeyValueList, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, type Tone } from '@resuto/ui';
+import { Badge, Card, DataTable, EmptyState, Field, KeyValueList, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, type Tone, OrderRef } from '@resuto/ui';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { ApiRequestError } from '@/lib/api';
@@ -512,7 +512,7 @@ function ConnectionDetail({ connection, spec, onClose }: { connection: Connectio
         {spec?.readinessDetail && <CapabilityTable detail={spec.readinessDetail} />}
         {connection.category === 'pos' && <><h3>{t('connect.int.syncRuns')}</h3>
           {(runs.data?.items ?? []).length === 0 ? <p className="fine">{t('state.empty')}</p> : <ul className="fine">{runs.data!.items.map((r) => (
-            <li key={r.id}>{dateTime(r.startedAt, locale)} · <Badge tone={r.status === 'succeeded' ? 'ok' : r.status === 'failed' ? 'danger' : 'warn'}>{r.status}</Badge> · #{r.attempt} · {r.stats?.fetched ?? 0} / {r.stats?.conflicts ?? 0} {r.error ? `· ${r.error}` : ''}</li>))}</ul>}</>}
+            <li key={r.id}>{dateTime(r.startedAt, locale)} · <Badge tone={r.status === 'succeeded' ? 'ok' : r.status === 'failed' ? 'danger' : 'warn'}>{r.status}</Badge> · <OrderRef n={r.attempt} /> · {r.stats?.fetched ?? 0} / {r.stats?.conflicts ?? 0} {r.error ? `· ${r.error}` : ''}</li>))}</ul>}</>}
         <h3>{t('connect.int.logs')}</h3>
         <ul className="fine">{(logs.data?.items ?? []).map((l) => <li key={l.id}><Badge tone={l.level === 'error' ? 'danger' : l.level === 'warn' ? 'warn' : 'neutral'}>{l.level}</Badge> {dateTime(l.createdAt, locale)} — <bdi>{l.message}</bdi></li>)}</ul>
       </div>

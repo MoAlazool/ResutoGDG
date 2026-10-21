@@ -156,12 +156,13 @@ export const CHECKS = [
   },
   {
     name: 'arabic_names_present',
-    description: 'The restaurant, its branches, menu categories and dishes all have Arabic names (Arabic pages never fall back to English)',
+    description: 'The restaurant, its branches, menu categories, dishes and inventory ingredients all have Arabic names (Arabic pages never fall back to English)',
     sql: `with m as (
         select 'organization' as what from organizations where id = $1 and coalesce(btrim(name_ar), '') = ''
         union all select 'branch ' || name from branches where org_id = $1 and coalesce(btrim(name_ar), '') = ''
         union all select 'category ' || name from menu_categories where org_id = $1 and coalesce(btrim(name_ar), '') = ''
         union all select 'product ' || name from products where org_id = $1 and is_active and coalesce(btrim(name_ar), '') = ''
+        union all select 'ingredient ' || name from inventory_items where org_id = $1 and is_active and coalesce(btrim(name_ar), '') = ''
       ) select count(*)::int as violations, coalesce((array_agg(what))[1:5], '{}') as sample from m`,
   },
   {
