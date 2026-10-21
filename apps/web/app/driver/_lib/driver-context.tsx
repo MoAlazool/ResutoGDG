@@ -41,6 +41,8 @@ export const useDriver = () => {
 const ORG_KEY = 'resuto_driver_org';
 const DEVICE_KEY = 'resuto_driver_device';
 const readLocal = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+/** This browser's device id (registered with the API on start; Web Push subscriptions hang off it). */
+export const driverDeviceId = () => readLocal(DEVICE_KEY);
 const writeLocal = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
 /** Signed-in driver shell: auth redirect, restaurant picker, polling, location sharing, bottom navigation. */
@@ -127,7 +129,7 @@ function DriverRuntime({ orgId, memberships, onSwitch, children }: {
   const upload = useCallback((points: Fix[]) => session.call(`${base}/me/locations`, { body: { points } }), [session, base]);
   const location = useLocationSharing(onRoad, upload);
 
-  // Register this browser as a device (push token support arrives with native apps / web push).
+  // Register this browser as a device (Web Push subscriptions attach to it: see _lib/push.tsx).
   useEffect(() => {
     let id = readLocal(DEVICE_KEY);
     if (!id) { id = `web-${crypto.randomUUID()}`; writeLocal(DEVICE_KEY, id); }

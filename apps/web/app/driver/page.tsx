@@ -6,6 +6,7 @@ import { money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { LocationPill, useDriver } from './_lib/driver-context';
 import { JobCard } from './_lib/job-card';
+import { PushToggle } from './_lib/push';
 import s from './driver.module.css';
 
 function Countdown({ until }: { until: string }) {
@@ -51,6 +52,7 @@ export default function DriverHome() {
         </div>
         {act.error && <Notice tone="danger">{act.error}</Notice>}
         {location.state === 'denied' && <Notice tone="warn">{t('driver.location.deniedHelp')}</Notice>}
+        <PushToggle />
       </div>
 
       {jobs.loading && !data ? <Skeleton lines={4} /> : jobs.error ? (

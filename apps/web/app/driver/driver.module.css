@@ -71,3 +71,4 @@
 .stat { display: grid; gap: 2px; background: #fff; border: 1px solid var(--line-soft); border-radius: 16px; padding: 14px; }
 .stat strong { font-size: 24px; color: var(--ink); font-variant-numeric: tabular-nums; }
 .stat span { font-size: 12px; color: var(--muted); font-weight: 650; }
+.pushCard { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--paper); }
