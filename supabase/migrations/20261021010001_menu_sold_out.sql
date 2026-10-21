@@ -12,7 +12,9 @@
 --
 -- Backfill: a row that is currently not offered because of an 86 (its latest availability audit entry for that branch
 -- is menu.product.unavailable) becomes offered + sold out; every other is_available = false row keeps meaning
--- "not offered" (that was what the per-branch setting wrote).
+-- "not offered" (that was what the per-branch setting wrote). A per-branch edit (menu.product.branch_updated) counts
+-- as an availability entry only when it set isAvailable (metadata.fields): a later price or stock edit must not mask
+-- the 86 that is still in force.
 --
 -- Reverse: update product_branch_settings set is_available = false where sold_out; drop the five sold_out_* columns;
 --          restore app.menu_version_touch() from 20261020080005_menu_versions.sql.
@@ -34,7 +36,9 @@ with latest as (
   select distinct on (a.entity_id, a.metadata->>'branchId') a.entity_id::uuid as product_id, (a.metadata->>'branchId')::uuid as branch_id,
          a.action, a.created_at, a.actor_type, a.actor_id, a.metadata->>'reason' as reason
     from public.audit_logs a
-   where a.action in ('menu.product.available', 'menu.product.unavailable', 'menu.product.branch_updated')
+   where (a.action in ('menu.product.available', 'menu.product.unavailable')
+          or (a.action = 'menu.product.branch_updated'
+              and (jsonb_typeof(a.metadata->'fields') is distinct from 'array' or a.metadata->'fields' ? 'isAvailable')))
      and a.entity_type = 'product' and a.metadata ? 'branchId'
      and a.entity_id ~ '^[0-9a-f-]{36}$' and a.metadata->>'branchId' ~ '^[0-9a-f-]{36}$'
    order by a.entity_id, a.metadata->>'branchId', a.created_at desc, a.id desc
