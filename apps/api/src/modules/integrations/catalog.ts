@@ -203,6 +203,22 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
       { key: 'from', label: 'From (registered Sender ID or number)', labelKey: 'intg.field.smsFrom', secret: false, required: false, pattern: '^(\\+[1-9]\\d{6,14}|[A-Za-z0-9 ]{1,11})$' },
     ],
   },
+  // INT-26: ETA e-receipt POS (Egypt). Implementation incomplete — not certified.
+  eta_ereceipt: {
+    credentials: [
+      { key: 'clientId', label: 'POS client id', labelKey: 'intg.field.etaClientId', secret: true, required: true },
+      { key: 'clientSecret', label: 'POS client secret', labelKey: 'intg.field.etaClientSecret', secret: true, required: true },
+      { key: 'presharedKey', label: 'POS pre-shared key', labelKey: 'intg.field.etaPresharedKey', secret: true, required: true },
+      { key: 'signingKeyPem', label: 'eSeal private key (PEM)', labelKey: 'intg.field.etaSigningKey', secret: true, required: true,
+        hint: 'The private key of the eSeal certificate used for the issuer signature (CAdES-BES). Stored sealed.', hintKey: 'intg.field.etaSigningKeyHint' },
+    ],
+    config: [
+      { key: 'posSerial', label: 'POS serial number', labelKey: 'intg.field.etaPosSerial', secret: false, required: true, pattern: '^.{1,100}$' },
+      { key: 'posOsVersion', label: 'POS OS version', labelKey: 'intg.field.etaPosOsVersion', secret: false, required: true, pattern: '^.{1,50}$' },
+      { key: 'posModelFramework', label: 'POS model framework', labelKey: 'intg.field.etaPosModelFramework', secret: false, required: true, pattern: '^.{1,10}$' },
+      { key: 'signingCertificatePem', label: 'eSeal certificate (PEM)', labelKey: 'intg.field.etaSigningCert', secret: false, required: true },
+    ],
+  },
   tiktok_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'advertiserId', label: 'Advertiser id', secret: false, required: true }] },
   snapchat_ads: {
     credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }, { key: 'refreshToken', label: 'Refresh token', secret: true, required: false }],

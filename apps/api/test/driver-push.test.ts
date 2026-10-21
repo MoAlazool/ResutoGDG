@@ -46,7 +46,7 @@ function pushService(status: number) {
   const calls: Array<{ url: string; headers: Record<string, string>; body: Buffer }> = [];
   const fetch = (async (url: string, init: RequestInit) => {
     const headers: Record<string, string> = {};
-    new Headers(init.headers as HeadersInit).forEach((v, k) => { headers[k] = v; });
+    new Headers(init.headers as ConstructorParameters<typeof Headers>[0]).forEach((v, k) => { headers[k] = v; });
     calls.push({ url: String(url), headers, body: Buffer.from(init.body as Uint8Array) });
     return new Response(null, { status });
   }) as unknown as typeof globalThis.fetch;
