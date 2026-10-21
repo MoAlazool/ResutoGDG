@@ -39,7 +39,7 @@ export function useVisitActions(orgId: string, canForce: boolean, after: () => u
   afterRef.current = after;
   const actions = useMemo(() => {
     const raw = visitActions({
-      orgId, canForce, t, confirm, newKey: newIdempotencyKey,
+      orgId, canForce, t, ask: confirm, newKey: newIdempotencyKey,
       call: (path, init) => session.call(path, init),
       notify: (message, tone) => toast.show({ message, tone }),
       after: () => afterRef.current(),

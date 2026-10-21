@@ -29,7 +29,7 @@ function harness(opts: { canForce?: boolean; confirm?: boolean; fail?: (path: st
       if (err) throw err;
       return {};
     },
-    async confirm(o) { confirms.push(o.title); return opts.confirm ?? true; },
+    async ask(o) { confirms.push(o.title); return opts.confirm ?? true; },
     notify: (message, tone) => { notes.push({ message, tone }); },
     after: () => { after++; },
   };

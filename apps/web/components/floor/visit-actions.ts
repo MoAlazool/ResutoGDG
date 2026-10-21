@@ -23,7 +23,8 @@ type Translate = (key: string, vars?: Record<string, string | number>) => string
 export interface VisitActionDeps {
   orgId: string;
   call(path: string, init: { body: unknown; idempotencyKey?: string }): Promise<unknown>;
-  confirm(o: { title: string; body: string; confirmLabel: string; tone?: 'danger' }): Promise<boolean>;
+  /** The styled confirm (useConfirm), never the native dialog. */
+  ask(o: { title: string; body: string; confirmLabel: string; tone?: 'danger' }): Promise<boolean>;
   notify(message: string, tone: 'ok' | 'danger'): void;
   /** Runs after every successful action (reload the floor, bookings, visits). */
   after(): unknown;
@@ -55,7 +56,7 @@ export function visitActions(d: VisitActionDeps): VisitActions {
     release: async (table) => {
       if (!table.visit) return;
       const visitId = table.visit.id;
-      if (!(await d.confirm({ title: d.t('studio.live.undoTitle'), body: d.t('studio.live.undoBody'), confirmLabel: d.t('ops.floor.release') }))) return;
+      if (!(await d.ask({ title: d.t('studio.live.undoTitle'), body: d.t('studio.live.undoBody'), confirmLabel: d.t('ops.floor.release') }))) return;
       await run(() => d.call(`/o/${d.orgId}/visits/${visitId}/undo`, { body: {} }), d.t('studio.live.undone', { label: table.label }));
     },
     close: async ({ visitId, label }) => {
@@ -73,7 +74,7 @@ export function visitActions(d: VisitActionDeps): VisitActions {
           d.notify(`${messageOf(e)} ${d.t('ops.visits.settleFirst')}`, 'danger');
           return;
         }
-        const ok = await d.confirm({ title: d.t('studio.live.forceTitle'), body: `${messageOf(e)} ${d.t('ops.visits.forceBody')}`,
+        const ok = await d.ask({ title: d.t('studio.live.forceTitle'), body: `${messageOf(e)} ${d.t('ops.visits.forceBody')}`,
           confirmLabel: d.t('studio.live.forceClose'), tone: 'danger' });
         if (ok) await run(() => d.call(`/o/${d.orgId}/visits/${visitId}/close`, { body: { force: true } }), done);
       }
