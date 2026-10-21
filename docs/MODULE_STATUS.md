@@ -51,7 +51,7 @@ for CI but has not run anywhere yet (CR-10). Test counts: `docs/TEST_RESULTS.md`
 | Observability | Working (no paid service) | Build identity on every service (CR-07), JSON access log, optional error tracking DSN, `/v1/health/details` (CR-14) |
 | Visual parity gate | Partial | 14 restored surfaces captured deterministically; local baselines recorded; Docker baselines and owner approval pending (CR-11) |
 | API quality | Planned | PS-19 OpenAPI, PS-20 error contract, PS-21 validation, PS-22 pagination, PS-23 HTTP semantics |
-| Web performance | Partial | Bundle budget now enforced in CI; 4 routes currently over their group budget (/, /pricing, /t/[qr], website editor) |
+| Web performance | Partial | Bundle budget enforced in CI (green): 4 routes already over their group budget (/, /pricing, /t/[qr], website editor) are held at their measured size by per-route ratchets until they are split |
 
 ## Semester-1 research tracks
 
