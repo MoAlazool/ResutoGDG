@@ -194,3 +194,29 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .studio-choice-upload:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 @media (max-width: 700px) { .studio-choices { padding: 12px; } }
 [dir='rtl'] .detail-tip > span, [dir='rtl'] .studio-back { display: inline-block; } [dir='rtl'] .detail-tip > span { transform: scaleX(-1); }
+
+/* ---------- Menu & inventory table (legacy menu tab); cards under 700 px (VS-18 / VS-25) ---------- */
+.menu-item-cell { display: flex; align-items: center; gap: 12px; }
+.menu-item-cell img { border-radius: 8px; object-fit: cover; flex: none; }
+.menu-item-cell small { display: block; font-size: 11px; color: var(--faint); margin-top: 3px; }
+.menu-actions { white-space: nowrap; text-align: end; }
+.menu-actions .btn + .btn { margin-inline-start: 6px; }
+.menu-offered { margin: 6px 0 14px; align-items: flex-start; }
+@media (max-width: 700px) {
+  .menu-table thead { display: none; }
+  .menu-table, .menu-table tbody, .menu-table tr, .menu-table td { display: block; width: 100%; }
+  .menu-table tr { border-bottom: 1px solid var(--border); padding: 12px 14px; }
+  .menu-table td { border: 0; padding: 4px 0; }
+  .menu-table td[data-label]:not(:first-child) { display: flex; justify-content: space-between; gap: 10px; }
+  .menu-table td[data-label]:not(:first-child)::before { content: attr(data-label); color: var(--faint); font-size: 12px; }
+  .menu-actions { text-align: start; white-space: normal; display: flex !important; flex-wrap: wrap; gap: 6px; padding-top: 8px !important; }
+  .menu-actions .btn + .btn { margin-inline-start: 0; }
+}
+
+/* ---------- Import & export hub (legacy data workspace) ---------- */
+.data-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
+.data-card { display: flex; flex-direction: column; gap: 8px; padding: 22px; }
+.data-card h2 { font-size: 16px; margin: 0; display: flex; align-items: center; gap: 10px; }
+.data-card h2 span { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--leaf-bg); color: var(--leaf-text); }
+.data-card p { margin: 0; font-size: 13px; color: var(--subtle); line-height: 1.6; flex: 1; }
+.data-card .row { margin-top: 6px; }
