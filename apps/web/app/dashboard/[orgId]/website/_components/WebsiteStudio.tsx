@@ -82,14 +82,7 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
     }
   };
 
-  if (site.error) return <div className="card"><Notice tone="danger">{site.error.message}</Notice><button className="btn" style={{ marginBlockStart: 12 }} onClick={() => void site.reload()}>{t('action.retry')}</button></div>;
-  if (!site.data) return <div className="card"><Skeleton lines={6} /></div>;
-  const w = site.data.website;
-  const tabs: Array<{ key: Tab; label: string }> = [
-    { key: 'sections', label: t('studio.tab.sections') }, { key: 'design', label: t('studio.tab.design') }, { key: 'seo', label: t('studio.tab.seo') },
-    { key: 'media', label: t('studio.tab.media') }, { key: 'domains', label: t('studio.tab.domains') }, { key: 'creative', label: t('studio.tab.creative') },
-    { key: 'history', label: t('studio.tab.history') },
-  ];
+  // Hooks stay above the early returns below (React error #310 otherwise, once the site has loaded).
   // The page language's strings come from useT(); the other language is loaded on demand when the preview switches
   // to it, so the editor's first load does not carry every module's copy in both languages.
   const [otherTranslate, setOtherTranslate] = useState<typeof import('@/lib/i18n/messages').translate | null>(null);
@@ -99,6 +92,15 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
     void import('@/lib/i18n/messages').then((m) => { if (live) setOtherTranslate(() => m.translate); });
     return () => { live = false; };
   }, [previewLocale, locale, otherTranslate]);
+
+  if (site.error) return <div className="card"><Notice tone="danger">{site.error.message}</Notice><button className="btn" style={{ marginBlockStart: 12 }} onClick={() => void site.reload()}>{t('action.retry')}</button></div>;
+  if (!site.data) return <div className="card"><Skeleton lines={6} /></div>;
+  const w = site.data.website;
+  const tabs: Array<{ key: Tab; label: string }> = [
+    { key: 'sections', label: t('studio.tab.sections') }, { key: 'design', label: t('studio.tab.design') }, { key: 'seo', label: t('studio.tab.seo') },
+    { key: 'media', label: t('studio.tab.media') }, { key: 'domains', label: t('studio.tab.domains') }, { key: 'creative', label: t('studio.tab.creative') },
+    { key: 'history', label: t('studio.tab.history') },
+  ];
   const previewT = (k: string, v?: Record<string, string | number>) =>
     previewLocale === locale || !otherTranslate ? t(k, v) : otherTranslate(previewLocale, k, v);
   const showPreview = tab === 'sections' || tab === 'design' || tab === 'seo';
