@@ -141,6 +141,43 @@ describe('driver app with Google Routes', () => {
     expect(f.calls).toHaveLength(1);
   });
 
+  it('a moving driver polling every 10 s does not re-ask Google for the same jobs; a changed job set does (review: daily cap)', async () => {
+    // Same two jobs as above, already planned once; the driver now moves ~150 m between polls.
+    const f = scriptedFetch([route([[300, 1500], [420, 2100]])]);
+    http.fetch = f.fetch;
+    const before = await used(tenant.orgId);
+    for (let i = 1; i <= 6; i++) {
+      await sql(`update drivers set last_latitude = $2, last_longitude = $3, last_location_at = now() where id = $1`, [driverId, 30.0444 + i * 0.0014, 31.2357]);
+      const res = await t.http.get(`/v1/o/${tenant.orgId}/driver/jobs`).set(auth(driver));
+      expect(res.body.route).toMatchObject({ source: 'google_routes', cached: true });
+    }
+    expect(f.calls).toHaveLength(0);
+    expect(await used(tenant.orgId)).toBe(before);
+    // Far from where it was planned (> 2 km): planned again, once.
+    await sql(`update drivers set last_latitude = 30.0700, last_longitude = 31.2600 where id = $1`, [driverId]);
+    expect((await t.http.get(`/v1/o/${tenant.orgId}/driver/jobs`).set(auth(driver))).body.route).toMatchObject({ source: 'google_routes', cached: false });
+    expect(f.calls).toHaveLength(1);
+    await t.http.get(`/v1/o/${tenant.orgId}/driver/jobs`).set(auth(driver));
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it('route plans use at most half of the daily cap, so ETA refinements keep their own budget', async () => {
+    const other = await createTenant(t);
+    await connectRoutes(other, { dailyRequestCap: 4 });
+    const f = scriptedFetch([route([[100, 900], [100, 900]])]);
+    http.fetch = f.fetch;
+    const stops = (k: number) => [{ id: `a${k}`, location: drop }, { id: `b${k}`, location: { latitude: 30.0366, longitude: 31.2316 } }];
+    const answers = [];
+    for (let k = 0; k < 4; k++) answers.push(await routing.plan(other.orgId, { origin, stops: stops(k), vehicle: 'car' }));
+    expect(answers.map((a) => a.source)).toEqual(['google_routes', 'google_routes', 'baseline', 'baseline']);
+    expect(answers[2]).toMatchObject({ fallbackReason: 'quota_exhausted' });
+    // ETA requests still get the rest of the cap.
+    http.fetch = scriptedFetch([route([[200, 1000]])]).fetch;
+    expect((await routing.eta(other.orgId, origin, drop, 'car')).source).toBe('google_routes');
+    expect((await routing.eta(other.orgId, origin, { latitude: 30.05, longitude: 31.25 }, 'car')).source).toBe('google_routes');
+    expect((await routing.eta(other.orgId, origin, { latitude: 30.06, longitude: 31.26 }, 'car')).fallbackReason).toBe('quota_exhausted');
+  });
+
   it('refines the en-route ETA with Google after the transaction, and keeps the baseline when Google fails', async () => {
     const { orderId, jobId } = await acceptedJob(30.0626, 31.2197);
     for (const s of ['accepted', 'preparing', 'ready'] as const) {

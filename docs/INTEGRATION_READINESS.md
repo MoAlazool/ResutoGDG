@@ -408,7 +408,7 @@ Docs: [computeRoutes](https://developers.google.com/maps/documentation/routes/co
 
 | Capability | Implemented code | Supported mode | Configuration required | Local test evidence | External test | Last verified | Limitations |
 |---|---|---|---|---|---|---|---|
-| ETA + optimised multi-drop plan | computeRoutes with field mask; baseline fallback labelled with `source` / `fallbackReason` | live (restaurant's own key) | Routes API key, daily cap (default 300) | `maps.test.ts`, `routing.test.ts`, `apps/api/test/delivery-routing.test.ts` | `google_routes.eta_and_plan` | not run | Billed by Google to the restaurant's project |
+| ETA + optimised multi-drop plan | computeRoutes with field mask; baseline fallback labelled with `source` / `fallbackReason`. A plan is kept per stop set (job ids + drop-offs) for 10 min or until the driver is 2 km from where it was planned (the 10 s jobs poll does not call Google); plans may use at most half the daily cap, ETAs (≤ 1 per job per 2 min) the rest | live (restaurant's own key) | Routes API key, daily cap (default 300) | `maps.test.ts`, `routing.test.ts`, `apps/api/test/delivery-routing.test.ts` | `google_routes.eta_and_plan` | not run | Billed by Google to the restaurant's project |
 
 ### Gemini (INT-30)
 
