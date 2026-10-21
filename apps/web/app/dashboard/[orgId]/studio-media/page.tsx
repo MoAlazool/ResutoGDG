@@ -92,6 +92,11 @@ function UploadCard({ onCreated }: { onCreated: (j: PhotoJobView) => Promise<voi
   const products = useApi<{ items: Product[] }>(`/o/${org.id}/studio/products`);
   const [file, setFile] = useState<File | null>(null);
   const [productId, setProductId] = useState('');
+  // Opened from the menu editor ("Enhance a photo of this item"): preselect that item once the list is loaded.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('product');
+    if (wanted && products.data?.items.some((x) => x.id === wanted)) setProductId((cur) => cur || wanted);
+  }, [products.data]);
   const [p, setP] = useState({ aspect: '4:3' as (typeof PHOTO_ASPECTS)[number], trimBorder: true, exposure: 0, whiteBalance: true, contrast: 0.35, sharpen: 0.5 });
   const [busy, setBusy] = useState(false);
   const send = async () => {
