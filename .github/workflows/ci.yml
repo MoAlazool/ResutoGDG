@@ -57,8 +57,19 @@ jobs:
         run: node --test scripts/staging/test/*.test.mjs scripts/ui/test/*.test.mjs
       - name: API typecheck
         run: pnpm --filter @resuto/api typecheck
+      # PS-19/PS-23: GET /v1/openapi.json is generated from the router; fails when a controller route is missing from it,
+      # when docs/api/openapi.json drifts (regenerate: UPDATE_OPENAPI=1 npx vitest run test/openapi.test.ts in apps/api)
+      # or when a route breaks docs/API_STYLE.md (action POSTs answer 200, bounded list limits with a cursor, no examples).
+      - name: API contract (OpenAPI 3.1 drift and style lint, error envelope)
+        run: cd apps/api && npx vitest run test/openapi.test.ts test/error-contract.test.ts
       - name: API integration tests
         run: pnpm --filter @resuto/api test
+      # PS-16: the same suite with the API connected as the NOINHERIT, NOBYPASSRLS resuto_api login (per-run password on
+      # this disposable cluster), proving no request path needs the owner or BYPASSRLS.
+      - name: API integration tests as the restricted runtime role
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test_restricted
+        run: cd apps/api && npx vitest run -c vitest.restricted.config.ts
       - name: MCP server tests (SDK client end-to-end against the API)
         env:
           MCP_E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test_mcp
