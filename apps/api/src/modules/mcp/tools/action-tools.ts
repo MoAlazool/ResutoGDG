@@ -6,6 +6,7 @@ import type { TenantContext } from '../../../common/auth/context';
 import type { Tx } from '../../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../../common/errors/domain-error';
 import { requirePort } from '../../kernel/ports';
+import { OFFERED_SQL, SOLD_OUT_SQL } from '../../menu/availability';
 import { maskName } from '../mcp.util';
 import { defineTool, type McpTool } from './types';
 
@@ -54,9 +55,9 @@ async function paymentTarget(tx: Tx, ctx: TenantContext, input: { orderId?: stri
 
 async function productAtBranch(tx: Tx, ctx: TenantContext, productId: string, branchId: string) {
   const row = await tx.maybeOne<any>(
-    `select p.name, b.name as branch_name, coalesce(pbs.is_available, true) as available
+    `select p.name, b.name as branch_name, (${OFFERED_SQL} and not ${SOLD_OUT_SQL}) as available
        from products p join branches b on b.org_id = p.org_id and b.id = $3
-       left join product_branch_settings pbs on pbs.product_id = p.id and pbs.branch_id = b.id
+       left join product_branch_settings s on s.product_id = p.id and s.branch_id = b.id
       where p.org_id = $1 and p.id = $2 and p.is_active`, [ctx.orgId, productId, branchId]);
   if (!row) throw notFound('Product');
   return row as { name: string; branch_name: string; available: boolean };

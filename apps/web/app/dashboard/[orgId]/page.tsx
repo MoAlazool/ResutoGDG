@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { LaunchCard, OperationalInsights, OverviewFloor } from '@/components/ops/OverviewOps';
+import '@/components/ops/ops.css';
 import type { AnalyticsMeta, Permission } from '@resuto/contracts';
 import { Badge, NavGlyph, Notice, PageHeader, StatsStrip, StatsStripSkeleton, type NavGlyphName } from '@resuto/ui';
 import { LineChart } from '@/components/charts';
@@ -55,12 +57,17 @@ function QuickLinks() {
 
 export default function OverviewPage() {
   const { t, locale, dir } = useT();
-  const { org, can } = useOrg();
+  const { org, can, hasModule, branchId: shellBranch } = useOrg();
   const f = useFormat();
   const branchName = useBranchName();
   const [branchId, setBranchId] = useState('');
   const allowed = can('analytics:read');
   const { data, error, loading, reload } = useApi<Overview>(allowed ? `/o/${org.id}/analytics/overview${qs({ branchId })}` : null, { pollMs: 60_000 });
+  // Guest satisfaction today (VS-27 ratings); "—" until a guest has rated, never a made-up score.
+  const ratings = useApi<{ count: number; averages: { overall: number | null } }>(allowed && data ? `/o/${org.id}/analytics/ratings${qs({ from: data.date, to: data.date, branchId, compare: 'none' })}` : null, { pollMs: 60_000 });
+  // The floor / launch card shows one branch: the one picked here, else the one chosen in the shell.
+  const floorBranch = org.branches.find((b) => b.id === (branchId || shellBranch)) ?? org.branches[0];
+  const mode = (floorBranch?.serviceMode ?? 'tables') as 'tables' | 'counter' | 'online';
 
   const trend = useMemo(() => {
     if (!data) return null;
@@ -92,24 +99,36 @@ export default function OverviewPage() {
   const deltaNote = (pct: number | null, value: string) => <span className="row" style={{ gap: 6 }}><Delta value={pct} /> {t('insights.overview.vsLastWeek', { value })}</span>;
   return (
     <InsightsPage>
-      <PageHeader title={t('nav.overview')}
-        subtitle={data ? t('insights.overview.asOf', { date: f.date(data.date), time: data.localTime, tz: data.meta.timezone }) : t('state.loading')}
-        actions={<BranchSelect value={branchId} onChange={setBranchId} />} />
+      <PageHeader overline={t(`ops.mode.${mode}`)} title={t('nav.overview')}
+        subtitle={data ? <>{t('ops.overview.measured')} · {t('insights.overview.asOf', { date: f.date(data.date), time: data.localTime, tz: data.meta.timezone })}</> : t('state.loading')}
+        actions={<>
+          <BranchSelect value={branchId} onChange={setBranchId} />
+          {mode === 'tables' && can('floor:write') && floorBranch && <Link className="btn btn-primary" href={`/dashboard/${org.id}/floor?tab=studio&branch=${floorBranch.id}`}>{t('ops.overview.plan')} ↗</Link>}
+        </>} />
       <LoadError error={error} retry={reload} />
-      {loading && !data && <StatsStripSkeleton count={6} />}
+      {loading && !data && <StatsStripSkeleton count={4} />}
       {data && (
         <div className="stack" style={{ gap: 16 }}>
+          {/* Legacy KPI strip: today's revenue, active tables, orders today, guest satisfaction. */}
           <StatsStrip label={t('nav.overview')} items={[
-            { key: 'net', label: t('insights.overview.netToday'), value: f.money(data.today.netMinor), note: deltaNote(data.changePct.netMinor, f.money(data.lastWeekSameTime.netMinor)) },
-            { key: 'orders', label: t('insights.overview.ordersToday'), value: f.num(data.today.orders), note: deltaNote(data.changePct.orders, f.num(data.lastWeekSameTime.orders)) },
-            { key: 'aov', label: t('insights.kpi.aov'), value: f.money(data.today.averageOrderMinor), note: deltaNote(data.changePct.averageOrderMinor, f.money(data.lastWeekSameTime.averageOrderMinor)) },
-            { key: 'open', label: t('insights.overview.openOrders'), value: f.num(data.live.openOrders),
-              note: oldest !== null ? t('insights.overview.oldest', { elapsed: oldest }) : t('insights.overview.noneOpen'),
+            { key: 'net', label: t('ops.overview.revenue'), value: f.money(data.today.netMinor), note: deltaNote(data.changePct.netMinor, f.money(data.lastWeekSameTime.netMinor)) },
+            { key: 'tables', label: t('ops.overview.activeTables'), value: f.num(data.live.openVisits),
+              note: t('ops.overview.openOrdersNote', { n: data.live.openOrders }) + (oldest !== null ? ` · ${t('insights.overview.oldest', { elapsed: oldest })}` : ''),
               tone: oldestMinutes !== null && oldestMinutes > 45 ? 'warn' : undefined },
-            { key: 'tables', label: t('insights.overview.openTables'), value: f.num(data.live.openVisits) },
-            { key: 'res', label: t('insights.overview.reservationsToday'), value: f.num(data.reservationsToday.total),
-              note: t('insights.overview.guests', { count: data.reservationsToday.guests }) },
+            { key: 'orders', label: t('insights.overview.ordersToday'), value: f.num(data.today.orders), note: deltaNote(data.changePct.orders, f.num(data.lastWeekSameTime.orders)) },
+            { key: 'csat', label: t('ops.overview.satisfaction'),
+              value: ratings.data?.count && ratings.data.averages.overall !== null ? f.num(Math.round(ratings.data.averages.overall * 10) / 10) : '—',
+              unit: ratings.data?.count ? '/ 5' : undefined,
+              note: ratings.data ? (ratings.data.count ? t('ops.overview.ratings', { n: ratings.data.count }) : t('ops.overview.noRatings')) : undefined },
           ]} />
+
+          <div className="ops-overview">
+            {floorBranch && (mode === 'tables'
+              ? (can('floor:read') ? <OverviewFloor key={floorBranch.id} orgId={org.id} branchId={floorBranch.id} canEdit={can('floor:write')} /> : <span />)
+              : <LaunchCard orgId={org.id} branchId={floorBranch.id} mode={mode} slug={org.slug} />)}
+            <OperationalInsights orgId={org.id} branchId={floorBranch?.id ?? null} canAsk={can('ai:use') && hasModule('intelligence')}
+              canKitchen={can('kitchen:operate')} lowStock={data.lowStock.items} inventoryHref={can('inventory:read') ? `/dashboard/${org.id}/inventory?tab=alerts` : null} />
+          </div>
 
           <div className="grid grid-2">
             <Section title={t('insights.overview.trend')}>
@@ -123,6 +142,8 @@ export default function OverviewPage() {
             </Section>
 
             <Section title={t('insights.overview.alerts')}>
+              <p className="fine" style={{ marginTop: 0 }}>{t('insights.overview.reservationsToday')}: <span className="num">{f.num(data.reservationsToday.total)}</span> · {t('insights.overview.guests', { count: data.reservationsToday.guests })}
+                {' · '}{t('insights.kpi.aov')}: <span className="num">{f.money(data.today.averageOrderMinor)}</span></p>
               <div className="stack" style={{ gap: 10 }}>
                 {data.live.byStatus.awaitingPayment > 0 && <Notice tone="warn">{t('insights.overview.awaitingPayment', { count: data.live.byStatus.awaitingPayment })}</Notice>}
                 {oldest !== null && oldestMinutes !== null && oldestMinutes > 45 && <Notice tone="warn">{t('insights.overview.slowOrder', { elapsed: oldest })}</Notice>}
@@ -144,7 +165,6 @@ export default function OverviewPage() {
               </div>
             </Section>
           </div>
-          <QuickLinks />
           <MetaPanel meta={data.meta} />
         </div>
       )}

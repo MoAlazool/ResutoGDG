@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DbService } from '../src/common/db/db.service';
 import { readPublicMenu } from '../src/modules/connect/menu-read-model';
+import { PricingService } from '../src/modules/kernel/pricing.service';
+import { MenuService } from '../src/modules/menu/menu.service';
 import { VisitsService } from '../src/modules/orders/visits.service';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
 import { key, qrTokenFor, saveFloor, table } from './ops-fixtures';
@@ -220,8 +222,11 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
   });
 });
 
-describe('branch menus: not offered vs sold out', () => {
-  it('omits products a branch does not offer and shows sold out only when tracked stock is 0, on every public menu', async () => {
+describe('branch menus: not offered vs sold out (86) vs out of stock', () => {
+  // FT-02 / DF-01: three states. Not offered at a branch → hidden there. Sold out (the kitchen's 86) or tracked stock
+  // at 0 → listed as sold out (available: false) under the explicit SOLD_OUT_DISPLAY policy. Ordering refuses both.
+  // (Before, the 86 wrote the "offered" flag, so it hid the dish exactly like "not offered".)
+  it('omits products a branch does not offer and lists 86\'d or out-of-stock dishes as sold out, on every public menu', async () => {
     const shop = await createTenant(t, { country: 'EG' });
     const m = await seedMenu(shop);
     const [east] = await sql(`insert into branches(org_id, code, name) values ($1, 'east', 'East') returning id, code`, [shop.orgId]);
@@ -229,8 +234,14 @@ describe('branch menus: not offered vs sold out', () => {
     await sql(`insert into product_branch_settings(org_id, product_id, branch_id, is_available) values ($1, $2, $3, false), ($1, $4, $5, false)`,
       [shop.orgId, m.products.soda, shop.branchId, m.products.fries, east.id]);
     await sql(`update product_branch_settings set stock_qty = 0 where product_id = $1 and branch_id = $2`, [m.products.limited, shop.branchId]);
+    // The kitchen 86es the burger at the main branch only, until the end of the branch's day.
+    const off = await t.http.post(`/v1/o/${shop.orgId}/menu/products/${m.products.burger}/availability`).set(auth(shop.owner))
+      .send({ branchId: shop.branchId, available: false, until: 'end_of_day', reason: 'Ran out of buns' });
+    expect(off.status).toBe(201);
+    expect(off.body).toMatchObject({ available: false, offered: true, soldOut: true });
+    expect(new Date(off.body.soldOutUntil).getTime()).toBeGreaterThan(Date.now());
     const shown = (body: any) => Object.fromEntries(body.categories.flatMap((c: any) => c.products).map((p: any) => [p.name, p.available]));
-    const main = { 'Smash burger': true, Fries: true, 'Limited special': false };
+    const main = { 'Smash burger': false, Fries: true, 'Limited special': false };
     const eastMenu = { 'Smash burger': true, Soda: true, 'Limited special': true };
 
     expect(shown((await t.http.get(`/v1/public/menu/${shop.slug}`)).body)).toEqual(main);
@@ -246,5 +257,42 @@ describe('branch menus: not offered vs sold out', () => {
     const db = t.app.get(DbService);
     expect(shown(await db.withTenant(shop.orgId, (tx) => readPublicMenu(tx, shop.orgId, shop.branchId)))).toEqual(main);
     expect(shown(await db.withTenant(shop.orgId, (tx) => readPublicMenu(tx, shop.orgId, east.id)))).toEqual(eastMenu);
+    // The guest menu says why: sold out (86) vs out of stock.
+    const reasons = Object.fromEntries((await t.http.get(`/v1/public/menu/${shop.slug}`)).body.categories.flatMap((c: any) => c.products)
+      .map((p: any) => [p.name, p.unavailableReason]));
+    expect(reasons).toMatchObject({ 'Smash burger': 'sold_out', 'Limited special': 'out_of_stock', Fries: null });
+    // Ordering refuses both, and says which.
+    const db2 = t.app.get(DbService);
+    const pricing = t.app.get(PricingService);
+    const quote = (productId: string) => db2.withTenant(shop.orgId, (tx) => pricing.quote(tx, shop.orgId, {
+      branchId: shop.branchId, fulfillment: 'pickup', lines: [{ productId, quantity: 1, modifiers: productId === m.products.burger ? [{ groupId: m.groups.size, optionId: m.options.large }] : [] }],
+    })).then(() => null, (e: any) => ({ code: e.code, reason: e.details?.reason }));
+    expect(await quote(m.products.burger)).toEqual({ code: 'item_unavailable', reason: 'sold_out' });
+    expect(await quote(m.products.soda)).toEqual({ code: 'item_unavailable', reason: 'not_offered' });
+    // The staff editor shows the 86 separately from the branch assignment.
+    const editor = await t.http.get(`/v1/o/${shop.orgId}/menu`).set(auth(shop.owner));
+    const burgerMain = editor.body.products.find((p: any) => p.id === m.products.burger).branchSettings.find((b: any) => b.branchId === shop.branchId);
+    expect(burgerMain).toMatchObject({ isAvailable: true, soldOut: true, soldOutReason: 'Ran out of buns' });
+    // Restoring brings it back; an expired 86 is cleared by the restore job.
+    await t.http.post(`/v1/o/${shop.orgId}/menu/products/${m.products.burger}/availability`).set(auth(shop.owner)).send({ branchId: shop.branchId, available: true });
+    expect(shown((await t.http.get(`/v1/public/menu/${shop.slug}`)).body)['Smash burger']).toBe(true);
+  });
+
+  it('restores an 86 automatically when its time passes, and bumps the menu version', async () => {
+    const shop = await createTenant(t, { country: 'EG' });
+    const m = await seedMenu(shop);
+    await t.http.post(`/v1/o/${shop.orgId}/menu/products/${m.products.fries}/availability`).set(auth(shop.owner))
+      .send({ branchId: shop.branchId, available: false, until: new Date(Date.now() + 3_600_000).toISOString() }).expect(201);
+    const before = (await t.http.get(`/v1/public/menu/${shop.slug}`)).headers.etag;
+    await sql(`update product_branch_settings set sold_out_until = now() - interval '1 second' where product_id = $1 and branch_id = $2`, [m.products.fries, shop.branchId]);
+    const r = await t.app.get(MenuService).restoreExpired();
+    expect(r.restored).toBeGreaterThanOrEqual(1);
+    const [row] = await sql(`select sold_out, sold_out_until from product_branch_settings where product_id = $1 and branch_id = $2`, [m.products.fries, shop.branchId]);
+    expect(row).toEqual({ sold_out: false, sold_out_until: null });
+    const after = await t.http.get(`/v1/public/menu/${shop.slug}`);
+    expect(after.headers.etag).not.toBe(before);
+    expect(after.body.categories.flatMap((c: any) => c.products).find((p: any) => p.id === m.products.fries).available).toBe(true);
+    const [audit] = await sql(`select actor_type, action from audit_logs where org_id = $1 and entity_id = $2 order by id desc limit 1`, [shop.orgId, m.products.fries]);
+    expect(audit).toEqual({ actor_type: 'system', action: 'menu.product.available' });
   });
 });

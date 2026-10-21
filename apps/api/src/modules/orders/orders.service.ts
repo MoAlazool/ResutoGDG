@@ -8,6 +8,7 @@ import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { PaymentLedgerService } from '../kernel/payment-ledger.service';
 import type { OrdersQueryPort } from '../kernel/ports';
+import { assertDeliveryConfirmable } from './delivery-confirm';
 import { VisitsService } from './visits.service';
 
 const iso = (d: Date | null | undefined) => (d ? new Date(d).toISOString() : null);
@@ -185,8 +186,10 @@ export class OrdersService implements OrdersQueryPort {
 
   async transition(ctx: TenantContext, orderId: string, to: OrderStatus, version?: number) {
     return this.db.scoped(ctx, async (tx) => {
-      const before = await tx.maybeOne<{ branch_id: string }>('select branch_id from orders where id = $1', [orderId]);
+      const before = await tx.maybeOne<{ branch_id: string; fulfillment: string }>('select branch_id, fulfillment from orders where id = $1', [orderId]);
       if (!before || !ctx.canAccessBranch(before.branch_id)) throw notFound('Order');
+      // Staff never complete a delivery the driver is handling or one whose cash was not recorded (DF-02).
+      if (to === 'delivered' && before.fulfillment === 'delivery') await assertDeliveryConfirmable(tx, orderId);
       const r = await this.kernel.transition(tx, ctx, orderId, to, { expectedVersion: version });
       if (r.changed) await this.audit.record(tx, ctx, { action: 'order.status_changed', entityType: 'order', entityId: orderId, branchId: before.branch_id, metadata: { to } });
       return r;

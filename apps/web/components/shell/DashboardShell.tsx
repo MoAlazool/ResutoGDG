@@ -11,7 +11,7 @@ import { ApiRequestError } from '@/lib/api';
 import { connectionState, subscribeConnection } from '@/lib/connection';
 import { pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
-import { ACTIVE_ORDER_STATUSES, NAV, navVisible, type NavItem } from '@/lib/nav';
+import { ACTIVE_ORDER_STATUSES, NAV, navForBranch, navVisible, type NavItem } from '@/lib/nav';
 import { OrgProvider, type OrgInfo } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import {
@@ -174,7 +174,8 @@ function ShellNav({ org, orgId, modules, openOrders }: { org: OrgInfo; orgId: st
   return (
     <nav className="ws-nav" ref={navRef} aria-label={t('shell.nav')}>
       {NAV.map((group) => {
-        const items = group.items.filter((i) => navVisible(i, org.role));
+        // org.branches lists the branch chosen in the restaurant chip first; its service model drives the nav (VS-16).
+        const items = group.items.filter((i) => navVisible(i, org.role) && navForBranch(i, org.branches[0]));
         if (!items.length) return null;
         return (
           <div className="ws-nav-group" key={group.group} role="group" aria-labelledby={`nav-${group.group}`}>
@@ -265,7 +266,7 @@ function SidebarBottom({ org, demo, payMode, onSignOut }: { org: OrgInfo; demo: 
   const name = me?.user.fullName || me?.user.email || t(`role.${org.role}`);
   return (
     <div className="ws-sidebar-bottom">
-      {roleCan(org.role, 'org:manage') && <Link className="ws-guest-link" href={`/dashboard/${org.id}/settings`}>✦ {t('shell.setup')}</Link>}
+      {roleCan(org.role, 'org:manage') && <Link className="ws-guest-link" href={`/dashboard/${org.id}/setup`}>✦ {t('shell.setup')}</Link>}
       <a className="ws-guest-link" href={`/r/${org.slug}`} target="_blank" rel="noopener noreferrer">↗ {tables ? t('shell.guest') : t('shell.guestOrdering')}</a>
       {payMode && (
         <div className="ws-mode-note">

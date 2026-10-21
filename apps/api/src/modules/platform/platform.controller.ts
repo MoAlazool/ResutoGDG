@@ -6,10 +6,11 @@ import { z } from 'zod';
 import type { AuthPrincipal, ResutoRequest, TenantContext } from '../../common/auth/context';
 import { Principal, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
-import { forbidden } from '../../common/errors/domain-error';
+import { DomainError, forbidden } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { OrganizationsService } from './organizations.service';
+import { SetupService } from './setup.service';
 
 /** Restaurant sign-ups: a few per account and per address each hour (audit PS-13; each org seeds menus, plans …). */
 const ORG_CREATE_PER_USER_HOUR = 5;
@@ -22,7 +23,7 @@ const user = (p: AuthPrincipal) => {
 
 @Controller()
 export class PlatformController {
-  constructor(private readonly orgs: OrganizationsService, private readonly db: DbService, private readonly limiter: RateLimiter) {}
+  constructor(private readonly orgs: OrganizationsService, private readonly db: DbService, private readonly limiter: RateLimiter, private readonly setup: SetupService) {}
 
   @Post('orgs')
   create(@Principal() principal: AuthPrincipal, @Req() req: ResutoRequest, @Body(zod(createOrganization)) body: z.infer<typeof createOrganization>) {
@@ -48,10 +49,17 @@ export class PlatformController {
     return this.orgs.update(ctx, body);
   }
 
+  /**
+   * Former self-asserted checklist (FT-13): steps are now derived from data (GET /o/:orgId/setup). Only "launched"
+   * remains, and it is gated on the required steps; any other step answers 409 setup_step_derived.
+   */
   @Post('o/:orgId/onboarding/:step')
   @RequirePermission('org:manage')
-  onboardingStep(@Tenant() ctx: TenantContext, @Param('step') step: string) {
-    return this.orgs.completeOnboardingStep(ctx, z.enum(['profile', 'branch', 'menu', 'floor', 'website', 'payments', 'launched']).parse(step));
+  async onboardingStep(@Tenant() ctx: TenantContext, @Param('step') step: string) {
+    const s = z.enum(['profile', 'branch', 'menu', 'floor', 'website', 'payments', 'launched']).parse(step);
+    if (s !== 'launched') throw new DomainError('setup_step_derived', 'This step is checked automatically from your restaurant data.', 409, { step: s });
+    const r = await this.setup.launch(ctx);
+    return { onboarding: { launched: r.launchedAt }, status: r.status };
   }
 
   @Post('o/:orgId/branches')

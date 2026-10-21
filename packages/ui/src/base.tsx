@@ -175,13 +175,18 @@ export function DataTable<T>({ rows, columns, rowKey, empty, onRowClick, busy }:
 }) {
   if (!rows.length) return <div className="card" aria-busy={busy || undefined}>{empty ?? <EmptyState title="Nothing here yet" />}</div>;
   return (
-    <div className="table-wrap" aria-busy={busy || undefined} data-busy={busy || undefined}>
+    <div className="table-wrap dt-stack" aria-busy={busy || undefined} data-busy={busy || undefined}>
       <table className="data">
         <thead><tr>{columns.map((c) => <th key={c.key} style={{ textAlign: c.align === 'end' ? 'end' : 'start' }}>{c.header}</th>)}</tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={rowKey(r)} onClick={onRowClick ? () => onRowClick(r) : undefined} style={onRowClick ? { cursor: 'pointer' } : undefined}>
-              {columns.map((c) => <td key={c.key} style={{ textAlign: c.align === 'end' ? 'end' : 'start' }}>{c.render(r)}</td>)}
+              {/* .dt-label repeats the header for the stacked card layout under 700px (VS-25); hidden otherwise. */}
+              {columns.map((c) => (
+                <td key={c.key} style={{ textAlign: c.align === 'end' ? 'end' : 'start' }}>
+                  {c.header ? <span className="dt-label" aria-hidden="true">{c.header}</span> : null}<div className="dt-cell">{c.render(r)}</div>
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

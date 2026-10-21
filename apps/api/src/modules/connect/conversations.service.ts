@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ConnectSandboxInbound, InboxConversationFilters, InboxStaffReply } from '@resuto/contracts';
+import { can, type ConnectSandboxInbound, type InboxConversationFilters, type InboxStaffReply, type Role } from '@resuto/contracts';
 import { renderTemplateBody } from '@resuto/integrations';
 import { randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
@@ -240,12 +240,37 @@ export class ConversationsService {
     });
   }
 
+  /** Staff "Resend" on a failed outbound message (FT-12): re-queued under the current window rules, audited. */
+  resendMessage(ctx: TenantContext, messageId: string) {
+    return this.db.scoped(ctx, async (tx) => {
+      const r = await this.messaging.resend(tx, ctx, messageId);
+      if (r.resent) {
+        const c = await tx.one<{ id: string; branch_id: string | null }>(
+          `select c.id, c.branch_id from messages m join conversations c on c.id = m.conversation_id where m.id = $1`, [messageId]);
+        await this.audit.record(tx, ctx, { action: 'connect.message_resent', entityType: 'message', entityId: messageId, branchId: c.branch_id,
+          metadata: { conversationId: c.id } });
+      }
+      return r;
+    });
+  }
+
+  /** People a conversation can be assigned to: active members whose role can reply in the inbox (connect:reply). */
+  assignees(ctx: TenantContext) {
+    return this.db.scoped(ctx, async (tx) => {
+      const rows = await tx.query<{ user_id: string; role: Role; full_name: string | null; email: string | null }>(
+        `select m.user_id, m.role, p.full_name, p.email from memberships m left join profiles p on p.id = m.user_id
+          where m.org_id = $1 and m.status = 'active' order by coalesce(p.full_name, p.email)`, [ctx.orgId]);
+      return { items: rows.filter((r) => can(r.role, 'connect:reply')).map((r) => ({ userId: r.user_id, role: r.role, name: r.full_name ?? r.email ?? r.role })) };
+    });
+  }
+
   assign(ctx: TenantContext, id: string, userId: string | null) {
     return this.db.scoped(ctx, async (tx) => {
       const c = await this.conv(tx, ctx, id);
       if (userId) {
-        const m = await tx.maybeOne(`select 1 from memberships where org_id = $1 and user_id = $2 and status = 'active'`, [ctx.orgId, userId]);
+        const m = await tx.maybeOne<{ role: Role }>(`select role from memberships where org_id = $1 and user_id = $2 and status = 'active'`, [ctx.orgId, userId]);
         if (!m) throw invalid('not_a_member', 'Assign to an active team member');
+        if (!can(m.role, 'connect:reply')) throw invalid('cannot_reply', 'This person\'s role cannot reply to customers');
       }
       await tx.query(`update conversations set assigned_to = $2 where id = $1`, [id, userId]);
       await this.audit.record(tx, ctx, { action: 'connect.assigned', entityType: 'conversation', entityId: id, branchId: c.branch_id, metadata: { userId } });

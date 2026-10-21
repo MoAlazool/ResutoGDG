@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { ApiRequestError } from './api';
+import { interactionPaused } from './live-pause';
 import { nextPollDelay, queryCache, resourceOf, SECOND, staleTimeFor } from './query-cache';
 import { useSession } from './session';
 
@@ -24,6 +25,8 @@ export interface ApiState<T> {
 
 const asError = (e: unknown) => (e instanceof ApiRequestError ? e : new ApiRequestError(0, 'unexpected', (e as Error)?.message ?? String(e)));
 const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
+/** While polling is paused for an interaction, how often to check whether it ended. */
+const PAUSE_RECHECK_MS = 750;
 
 /**
  * Loads an authenticated API resource through the shared query cache (lib/query-cache.ts). `path` null skips loading.
@@ -34,12 +37,16 @@ const online = () => typeof navigator === 'undefined' || navigator.onLine !== fa
  *   a different resource, tenant or user never shows another key's data.
  * - `pollMs` refreshes in the background while the tab is visible and the browser is online, backing off
  *   exponentially while requests fail; it catches up once when the tab becomes visible or the network returns.
+ * - Polls hold still while staff type in a field, work in an open dialog or drag a ticket (lib/live-pause.ts, VS-20)
+ *   and catch up as soon as that ends; `pauseWhileEditing: false` opts out (a dialog's own live data).
+ * - A poll that returns the same content keeps the previous object (query-cache structural sharing), so an
+ *   unchanged revision does not re-render the screen.
  * - Without polling, a stale entry is refreshed when the tab regains focus.
  * - Requests are shared between components, cancelled when nothing needs them, and mutations made through
  *   `useSession().call` invalidate the tenant's queries. A 401 is recovered (or sends the user to sign in) by the
  *   session, not here.
  */
-export function useApi<T = any>(path: string | null, opts: { pollMs?: number; staleMs?: number } = {}): ApiState<T> {
+export function useApi<T = any>(path: string | null, opts: { pollMs?: number; staleMs?: number; pauseWhileEditing?: boolean } = {}): ApiState<T> {
   const { call, token, tokenReady, scope } = useSession();
   const [, force] = useReducer((x: number) => x + 1, 0);
   const key = path && tokenReady && token && scope ? `${scope}|${path}` : null;
@@ -59,6 +66,7 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
   useEffect(() => {
     if (!key) return;
     const pollMs = opts.pollMs;
+    const pausable = opts.pauseWhileEditing !== false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     const age = () => Date.now() - (queryCache.get(key)?.updatedAt ?? 0);
@@ -66,10 +74,21 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
     const schedule = () => {
       if (stopped || !pollMs) return;
       clearTimeout(timer);
+      const due = nextPollDelay(pollMs, queryCache.get(key)?.failures ?? 0);
       timer = setTimeout(async () => {
+        if (pausable && interactionPaused()) {
+          // Check again shortly and refresh as soon as the interaction ends (the data may be due by then).
+          clearTimeout(timer);
+          timer = setTimeout(function wait() {
+            if (stopped) return;
+            if (interactionPaused()) { timer = setTimeout(wait, PAUSE_RECHECK_MS); return; }
+            void (async () => { if (document.visibilityState === 'visible' && online() && age() >= pollMs) await refresh(); schedule(); })();
+          }, PAUSE_RECHECK_MS);
+          return;
+        }
         if (document.visibilityState === 'visible' && online()) await refresh();
         schedule();
-      }, nextPollDelay(pollMs, queryCache.get(key)?.failures ?? 0));
+      }, due);
     };
     const onVisible = () => {
       if (document.visibilityState !== 'visible' || !online()) return;
@@ -88,7 +107,7 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
       window.removeEventListener('online', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [key, fetcher, opts.pollMs, staleMs]);
+  }, [key, fetcher, opts.pollMs, opts.pauseWhileEditing, staleMs]);
 
   const entry = key ? queryCache.get<T>(key) : undefined;
   // Previous result of the same resource and scope (filter/page change): stays visible while the new one loads.

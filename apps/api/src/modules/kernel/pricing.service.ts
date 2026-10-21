@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { applyBasisPoints, taxFromInclusive, type Fulfillment } from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError, invalid } from '../../common/errors/domain-error';
+import { OFFERED_SQL, SOLD_OUT_SQL } from '../menu/availability';
 
 export interface CartLineInput {
   productId: string;
@@ -75,7 +76,7 @@ export class PricingService {
     const productIds = [...new Set(input.lines.map((l) => l.productId))];
     const products = await tx.query<any>(
       `select p.id, p.name, p.name_ar, p.price_minor, p.cost_minor, p.station, p.track_stock, p.is_active, p.currency,
-              coalesce(s.is_available, true) as available, s.price_override_minor, s.stock_qty, c.is_active as category_active
+              ${OFFERED_SQL} as offered, ${SOLD_OUT_SQL} as sold_out, s.price_override_minor, s.stock_qty, c.is_active as category_active
          from products p
          join menu_categories c on c.id = p.category_id
          join menus m on m.id = c.menu_id
@@ -98,7 +99,9 @@ export class PricingService {
     const lines: PricedLine[] = input.lines.map((l) => {
       const p = byId.get(l.productId);
       if (!p || !p.is_active || !p.category_active) throw new DomainError('item_unavailable', 'An item in your cart is no longer on the menu', 409, { productId: l.productId });
-      if (!p.available) throw new DomainError('item_unavailable', `${p.name} is unavailable right now`, 409, { productId: p.id });
+      // Not offered at this branch and sold out (86) are both refused; the reason tells the two apart (FT-02).
+      if (!p.offered) throw new DomainError('item_unavailable', `${p.name} is not served at this branch`, 409, { productId: p.id, reason: 'not_offered' });
+      if (p.sold_out) throw new DomainError('item_unavailable', `${p.name} is sold out right now`, 409, { productId: p.id, reason: 'sold_out' });
       if (p.currency !== branch.currency) throw new Error(`product ${p.id} currency mismatch`);
       const productGroups = groups.filter((g) => g.product_id === p.id);
       const chosen = l.modifiers ?? [];

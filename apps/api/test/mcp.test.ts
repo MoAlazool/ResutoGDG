@@ -279,6 +279,20 @@ describe('tool execution', () => {
     expect((await call(t, c.key, a.orgId, 'list_insights')).body.output).toEqual({ items: [] });
   });
 
+  it('reports an 86\'d tracked dish as unavailable (sold out is not "offered = false"; FT-02 / DF-01)', async () => {
+    const c = await createClient(t, a, { name: 'Stock reader' });
+    const tracked = async () => (await call(t, c.key, a.orgId, 'get_inventory_status', { branchId: a.branchId })).body.output.trackedProducts
+      .find((p: any) => p.productId === menu.products.limited && p.branchId === a.branchId);
+    expect(await tracked()).toMatchObject({ stockQty: 2, offered: true, soldOut: false, available: true });
+    // The kitchen 86 writes sold_out and leaves is_available (offered here) untouched.
+    await sql(`update product_branch_settings set sold_out = true, sold_out_until = null where product_id = $1 and branch_id = $2`, [menu.products.limited, a.branchId]);
+    expect(await tracked()).toMatchObject({ stockQty: 2, offered: true, soldOut: true, available: false });
+    // An 86 whose restore time has passed no longer counts.
+    await sql(`update product_branch_settings set sold_out_until = now() - interval '1 minute' where product_id = $1 and branch_id = $2`, [menu.products.limited, a.branchId]);
+    expect(await tracked()).toMatchObject({ soldOut: false, available: true });
+    await sql(`update product_branch_settings set sold_out = false, sold_out_until = null where product_id = $1 and branch_id = $2`, [menu.products.limited, a.branchId]);
+  });
+
   it('validates input and records invalid calls', async () => {
     const c = await createClient(t, a, { name: 'Sloppy' });
     const bad = await call(t, c.key, a.orgId, 'list_orders', { limit: 1000 });

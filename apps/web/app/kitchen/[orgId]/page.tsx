@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { can } from '@resuto/contracts';
 import { Notice, Skeleton } from '@resuto/ui';
 import { pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
@@ -62,7 +63,12 @@ export default function KitchenScreen() {
         </div>
       </header>
       <div style={{ marginBottom: 12 }}><StationPicker stations={stations} value={station} onChange={setStation} /></div>
-      {branchId ? <KitchenBoard orgId={orgId} branchId={branchId} station={station} onStations={setStations} /> : <Notice tone="warn">{t('core.kds.noBranch')}</Notice>}
+      {branchId ? (
+        <KitchenBoard orgId={orgId} branchId={branchId} station={station} onStations={setStations} timezone={org.timezone} currency={org.currency}
+          canCancel={can(org.role, 'orders:cancel')} can86={can(org.role, 'menu:availability')}
+          canResolve={can(org.role, 'orders:read') && (can(org.role, 'floor:seat') || can(org.role, 'orders:status'))}
+          ordersHref={can(org.role, 'payments:collect') ? `/dashboard/${orgId}/orders` : null} />
+      ) : <Notice tone="warn">{t('core.kds.noBranch')}</Notice>}
     </main>
   );
 }

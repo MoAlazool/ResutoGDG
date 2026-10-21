@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { connectionState, reportConnection, resetConnection, subscribeConnection } from './connection';
-import { homePath } from './nav';
+import { NAV, homePath, navForBranch } from './nav';
 import type { OrgInfo } from './org-context';
 import { dropShellSnapshot, readShellSnapshot, SNAPSHOT_MAX_AGE_MS, withPreferredBranch, writeShellSnapshot } from './shell-snapshot';
 import { USER_KEY_PATTERNS } from './user-storage';
@@ -71,9 +71,35 @@ describe('role-aware landing (VS-05)', () => {
     expect(homePath('manager', 'o1')).toBe('/dashboard/o1');
     expect(homePath('kitchen', 'o1')).toBe('/kitchen/o1');
     expect(homePath('driver', 'o1')).toBe('/driver');
-    expect(homePath('host', 'o1')).toBe('/dashboard/o1/floor');
+    expect(homePath('host', 'o1')).toBe('/dashboard/o1/host'); // VS-12: the front desk screen now exists
     expect(homePath('cashier', 'o1')).toBe('/dashboard/o1/orders');
     expect(homePath('marketing', 'o1')).toBe('/dashboard/o1');
     expect(homePath('something-new', 'o1')).toBe('/dashboard/o1');
+  });
+});
+
+describe('service model drives the navigation (VS-16)', () => {
+  const items = NAV.flatMap((g) => g.items);
+  const hrefs = (branch: Parameters<typeof navForBranch>[1]) => items.filter((i) => navForBranch(i, branch)).map((i) => i.href);
+  it('table service keeps the floor, front desk and reservations', () => {
+    expect(hrefs({ serviceMode: 'tables', acceptsReservations: true })).toEqual(expect.arrayContaining(['/floor', '/host', '/reservations']));
+  });
+  it('counter and online-only venues drop the floor, front desk and reservations', () => {
+    for (const serviceMode of ['counter', 'online']) {
+      const h = hrefs({ serviceMode, acceptsReservations: false });
+      expect(h).not.toContain('/floor');
+      expect(h).not.toContain('/host');
+      expect(h).not.toContain('/reservations');
+      expect(h).toContain('/orders');
+      expect(h).toContain('/menu');
+    }
+  });
+  it('a table-service branch that takes no reservations hides only reservations', () => {
+    const h = hrefs({ serviceMode: 'tables', acceptsReservations: false });
+    expect(h).toContain('/floor');
+    expect(h).not.toContain('/reservations');
+  });
+  it('an unknown branch (still loading) hides nothing', () => {
+    expect(hrefs(undefined)).toHaveLength(items.length);
   });
 });

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { assignableRoles, type Role, INTL_LOCALE } from '@resuto/contracts';
 import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Code, Email, Phone, UserText } from '@resuto/ui';
+import '@/components/ops/ops.css';
 import { ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -24,8 +25,8 @@ function BranchPicker({ value, onChange, branches, s, locale }: {
   s: (typeof TEAM_STRINGS)['en']; locale: 'en' | 'ar';
 }) {
   return (
-    <fieldset style={{ border: 0, padding: 0, margin: '0 0 14px' }}>
-      <legend style={{ fontSize: 13, fontWeight: 650, color: 'var(--ink)', marginBlockEnd: 6 }}>{s.branches}</legend>
+    <fieldset className="ops-fieldset">
+      <legend>{s.branches}</legend>
       <div className="row" style={{ gap: 14 }}>
         <label className="check"><input type="radio" checked={value === null} onChange={() => onChange(null)} /> {s.allBranches}</label>
         <label className="check"><input type="radio" checked={value !== null} onChange={() => onChange(branches[0] ? [branches[0].id] : [])} /> {s.someBranches}</label>

@@ -36,7 +36,7 @@ export default function OnboardingPage() {
         },
       });
       await session.refreshMe();
-      router.push(`/dashboard/${org.id}/menu?welcome=1`);
+      router.push(`/dashboard/${org.id}/setup?step=profile`); // the guided 8-step setup continues from here (VS-17)
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -48,14 +48,15 @@ export default function OnboardingPage() {
   return (
     <main className="center-page">
       <form className="auth-card rise" onSubmit={submit} style={{ width: 'min(560px, 100%)' }}>
-        <div className="spread"><span className="overline">{ar ? 'الخطوة 1 من 3' : 'Step 1 of 3'}</span><LanguageToggle /></div>
+        <div className="spread"><span className="overline">{ar ? 'ريسوتو / الإعداد' : 'Resuto / Setup'}</span><LanguageToggle /></div>
         <h1 style={{ fontSize: 26 }}>{ar ? 'أنشئ مطعمك' : 'Create your restaurant'}</h1>
         <Field label={ar ? 'اسم المطعم' : 'Restaurant name'} value={name} required maxLength={120}
           onChange={(e) => { setName(e.target.value); if (!slugEdited) setSlug(toSlug(e.target.value)); }} />
         <Field label={ar ? 'الاسم بالعربية (اختياري)' : 'Arabic name (optional)'} name="nameAr" dir="rtl" maxLength={120} />
         <Field label={ar ? 'رابط موقعك' : 'Your Resuto web address'} value={slug} required pattern="[a-z0-9][a-z0-9-]{1,46}[a-z0-9]"
           hint={`resuto.app/r/${slug || '…'}`} onChange={(e) => { setSlug(toSlug(e.target.value)); setSlugEdited(true); }} />
-        <div className="form-row">
+        {/* align to the top: the plan hint below its select must not push the two selects out of line */}
+        <div className="form-row" style={{ alignItems: 'start' }}>
           <SelectField label={ar ? 'الدولة' : 'Country'} name="country" defaultValue="EG">
             <option value="EG">{ar ? 'مصر (جنيه مصري)' : 'Egypt (EGP)'}</option>
             <option value="SA">{ar ? 'السعودية (ريال)' : 'Saudi Arabia (SAR)'}</option>

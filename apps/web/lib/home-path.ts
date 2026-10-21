@@ -11,7 +11,7 @@ export function homePath(role: Role | string, orgId: string): string {
   switch (role as Role) {
     case 'kitchen': return `/kitchen/${orgId}`;
     case 'driver': return '/driver';
-    case 'host': return `${base}/floor`;
+    case 'host': return `${base}/host`;
     case 'waiter': return `${base}/floor`;
     case 'cashier': return `${base}/orders`;
     default: return can(role as Role, 'analytics:read') ? base : `${base}/orders`;

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Badge, Card, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
+import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime, time, formatWhen } from '@/lib/format';
@@ -24,6 +25,7 @@ interface Detail {
   id: string; status: string; channel: { id: string; name: string; sandbox: boolean; kind?: string; transport?: string }; humanReplyUntil?: string | null; contact: string | null; contactName: string | null; locale: string;
   customer: { id: string; name: string | null; marketingConsent: boolean } | null; window: Window; botActive: boolean;
   handoff: { id: string; reason: string; status: string } | null;
+  assignedTo?: string | null;
   orderingSession: { step: string; fulfillment: string | null; totalMinor: number | null; currency: string | null; orderNumber: string | null; paymentMethod: string | null } | null;
   messages: Message[];
 }
@@ -56,10 +58,10 @@ export default function InboxPage() {
 function Conversations() {
   const { t, locale } = useT();
   const { org } = useOrg();
-  const [filter, setFilter] = useState<{ status: string; unread: boolean; mine: boolean; q: string }>({ status: '', unread: false, mine: false, q: '' });
+  const [filter, setFilter] = useState<{ status: string; unread: boolean; mine: boolean; unassigned: boolean; q: string }>({ status: '', unread: false, mine: false, unassigned: false, q: '' });
   const [selected, setSelected] = useState<string | null>(null);
   const qs = new URLSearchParams({ limit: '50', ...(filter.status ? { status: filter.status } : {}), ...(filter.unread ? { unread: 'true' } : {}),
-    ...(filter.mine ? { assigned: 'me' } : {}), ...(filter.q.trim() ? { q: filter.q.trim() } : {}) });
+    ...(filter.mine ? { assigned: 'me' } : filter.unassigned ? { assigned: 'unassigned' } : {}), ...(filter.q.trim() ? { q: filter.q.trim() } : {}) });
   const list = useApi<{ items: ConvItem[] }>(`/o/${org.id}/connect/conversations?${qs}`, { pollMs: 5000 });
 
   return (
@@ -73,7 +75,8 @@ function Conversations() {
               {['bot', 'open', 'handoff', 'closed'].map((s) => <option key={s} value={s}>{t(`connect.status.${s}`)}</option>)}
             </select>
             <label className="check"><input type="checkbox" checked={filter.unread} onChange={(e) => setFilter({ ...filter, unread: e.target.checked })} /> {t('connect.inbox.unread')}</label>
-            <label className="check"><input type="checkbox" checked={filter.mine} onChange={(e) => setFilter({ ...filter, mine: e.target.checked })} /> {t('connect.inbox.mine')}</label>
+            <label className="check"><input type="checkbox" checked={filter.mine} onChange={(e) => setFilter({ ...filter, mine: e.target.checked, unassigned: false })} /> {t('connect.inbox.mine')}</label>
+            <label className="check"><input type="checkbox" checked={filter.unassigned} onChange={(e) => setFilter({ ...filter, unassigned: e.target.checked, mine: false })} /> {t('ops.inbox.unassigned')}</label>
           </div>
         </div>
         {list.loading && !list.data && <Skeleton lines={5} />}
@@ -121,6 +124,19 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
   useEffect(() => { if (d?.id && d.messages.length) bottom.current?.scrollIntoView({ block: 'end' }); }, [d?.id, d?.messages.length]);
   useEffect(() => { void session.call(`/o/${org.id}/connect/conversations/${id}/read`, { method: 'POST' }).then(onChanged).catch(() => undefined); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // FT-12: assignee picker (connect:manage) and Resend on failed outbound messages (connect:reply).
+  const assignees = useApi<{ items: Array<{ userId: string; name: string; role: string }> }>(can('connect:manage') ? `/o/${org.id}/connect/assignees` : null, { staleMs: 5 * 60_000 });
+  const assign = useAction(async (userId: string) => {
+    await session.call(`/o/${org.id}/connect/conversations/${id}/assign`, { body: { userId: userId || null } });
+    await detail.reload();
+    onChanged();
+  });
+  const [resendNote, setResendNote] = useState<string | null>(null);
+  const resend = useAction(async (messageId: string) => {
+    const r = await session.call<{ resent: boolean; status: string }>(`/o/${org.id}/connect/messages/${messageId}/resend`, { method: 'POST' });
+    setResendNote(r.resent ? t('ops.inbox.resent') : t('ops.inbox.notResent', { status: t(`connect.msg.${r.status}`) }));
+    await detail.reload();
+  });
   const act = useAction(async (path: string, body?: unknown) => {
     await session.call(`/o/${org.id}/connect/conversations/${id}/${path}`, { method: 'POST', body: body ?? {} });
     await detail.reload();
@@ -163,7 +179,18 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
           <button className="btn btn-sm btn-ghost" onClick={onClose} aria-label={t('action.close')}>✕</button>
         </div>
       </header>
+      {can('connect:manage') && (
+        <div className="inbox-assign">
+          <SelectField label={t('ops.inbox.assignee')} value={d.assignedTo ?? ''} disabled={assign.pending || !assignees.data} onChange={(e) => void assign.run(e.target.value)}>
+            <option value="">{t('ops.inbox.unassigned')}</option>
+            {(assignees.data?.items ?? []).map((a) => <option key={a.userId} value={a.userId}>{a.name} · {t(`role.${a.role}`)}</option>)}
+          </SelectField>
+        </div>
+      )}
       {act.error && <div style={{ padding: '8px 14px' }}><Notice tone="danger">{act.error}</Notice></div>}
+      {assign.error && <div style={{ padding: '8px 14px' }}><Notice tone="danger">{assign.error}</Notice></div>}
+      {resend.error && <div style={{ padding: '8px 14px' }}><Notice tone="danger">{resend.error}</Notice></div>}
+      {resendNote && !resend.error && <div style={{ padding: '8px 14px' }}><Notice tone="info">{resendNote}</Notice></div>}
       {d.orderingSession && (
         <div style={{ padding: '8px 14px', background: 'var(--surface-warm)' }} className="spread">
           <span className="fine">{t('connect.inbox.session', { step: t(`connect.step.${d.orderingSession.step}`) })}
@@ -184,7 +211,10 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
             </div>
             <div className="fine" style={{ textAlign: msg.direction === 'outbound' ? 'end' : 'start' }}>
               {time(msg.createdAt, locale)}{msg.automated ? ` · ${t('connect.inbox.bot')}` : ''}{msg.direction === 'outbound' ? ` · ${t(`connect.msg.${msg.status}`)}` : ''}
-              {msg.sandbox ? ` · ${t('connect.sandbox.badge')}` : ''}{msg.error ? ` · ${msg.error}` : ''}
+              {msg.sandbox ? ` · ${t('connect.sandbox.badge')}` : ''}{msg.error ? <> · <bdi>{msg.error}</bdi></> : ''}
+              {msg.direction === 'outbound' && msg.status === 'failed' && can('connect:reply') && (
+                <> · <button type="button" className="ops-link" disabled={resend.pending} onClick={() => void resend.run(msg.id)}>{t('ops.inbox.resend')}</button></>
+              )}
             </div>
           </div>
         ))}

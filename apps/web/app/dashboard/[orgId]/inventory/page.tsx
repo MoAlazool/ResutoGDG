@@ -6,8 +6,10 @@ import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { AlertsTab, HistoryTab, ItemsTab, LevelsTab, MovementTab, RecipesTab, ValueWasteTab } from './_parts/tabs';
+import { StocktakeTab } from './_parts/stocktake';
+import '@/components/ops/ops.css';
 
-const TABS = ['levels', 'movement', 'items', 'recipes', 'alerts', 'waste', 'history'] as const;
+const TABS = ['levels', 'movement', 'stocktake', 'items', 'recipes', 'alerts', 'waste', 'history'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function InventoryPage() {
@@ -19,15 +21,16 @@ export default function InventoryPage() {
     if (q && (TABS as readonly string[]).includes(q)) setTab(q as Tab);
   }, []);
   const writable = can('inventory:write');
-  const visible = TABS.filter((k) => writable || k !== 'movement');
+  const visible = TABS.filter((k) => writable || (k !== 'movement' && k !== 'stocktake'));
   return (
     <ModuleGate module="core" permission="inventory:read"><InsightsPage>
       <PageHeader overline={t('nav.inventory')} title={t('insights.inventory.title')} subtitle={t('insights.inventory.subtitle')} />
       <div style={{ overflowX: 'auto' }}>
-        <Tabs tabs={visible.map((k) => ({ key: k, label: t(`insights.inventory.tab.${k}`) }))} value={tab} onChange={setTab} />
+        <Tabs tabs={visible.map((k) => ({ key: k, label: k === 'stocktake' ? t('ops.stock.tab') : t(`insights.inventory.tab.${k}`) }))} value={tab} onChange={setTab} />
       </div>
       {tab === 'levels' && <LevelsTab onRecord={writable ? () => setTab('movement') : undefined} />}
       {tab === 'movement' && writable && <MovementTab />}
+      {tab === 'stocktake' && writable && <StocktakeTab />}
       {tab === 'items' && <ItemsTab />}
       {tab === 'recipes' && <RecipesTab />}
       {tab === 'alerts' && <AlertsTab />}

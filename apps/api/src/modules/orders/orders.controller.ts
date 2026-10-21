@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
-  closeVisitRequest, collectPaymentRequest, orderCancelRequest, orderListQuery, orderTransitionRequest, seatVisitRequest, staffOrderRequest,
+  closeVisitRequest, collectPaymentRequest, orderCancelRequest, orderListQuery, orderTransitionRequest, seatVisitRequest, staffOrderRequest, visitListQuery,
   type OrderListQuery, type StaffOrderRequest,
 } from '@resuto/contracts';
 import { z } from 'zod';
@@ -75,6 +75,13 @@ export class VisitsController {
   @RequirePermission('floor:seat')
   seat(@Tenant() ctx: TenantContext, @Body(zod(seatVisitRequest)) body: z.infer<typeof seatVisitRequest>) {
     return this.visits.seat(ctx, body);
+  }
+
+  /** Open visits with their bills (legacy "Active visits"). */
+  @Get('visits')
+  @RequirePermission('floor:read')
+  list(@Tenant() ctx: TenantContext, @Query(zod(visitListQuery)) q: z.infer<typeof visitListQuery>) {
+    return this.visits.listOpen(ctx, q.branchId);
   }
 
   @Get('visits/:visitId')

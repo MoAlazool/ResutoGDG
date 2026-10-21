@@ -38,6 +38,20 @@ export class FloorController {
   qr(@Tenant() ctx: TenantContext, @Param('branchId', uuidPipe) branchId: string) {
     return this.floor.qrSheet(ctx, branchId);
   }
+
+  /** One table's QR for the live floor side panel (audited, floor:write like the print sheet). */
+  @Get(':branchId/qr/:tableId')
+  @RequirePermission('floor:write')
+  tableQr(@Tenant() ctx: TenantContext, @Param('branchId', uuidPipe) branchId: string, @Param('tableId', uuidPipe) tableId: string) {
+    return this.floor.tableQr(ctx, branchId, tableId);
+  }
+
+  /** The counter's single venue QR (public ordering page; FT-07). */
+  @Get(':branchId/venue-qr')
+  @RequirePermission('floor:read')
+  venueQr(@Tenant() ctx: TenantContext, @Param('branchId', uuidPipe) branchId: string) {
+    return this.floor.venueQr(ctx, branchId);
+  }
 }
 
 const slugish = z.string().regex(/^[a-z0-9-]{1,60}$/);

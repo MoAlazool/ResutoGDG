@@ -16,8 +16,6 @@
   "apps/web/app/dashboard/[orgId]/website/_components/website.css": 8,
   "apps/web/app/driver/driver.module.css": 14,
   "apps/web/app/driver/layout.tsx": 1,
-  "apps/web/app/kitchen/[orgId]/_kds/kds.css": 13,
-  "apps/web/app/kitchen/[orgId]/_kds/KitchenBoard.tsx": 3,
   "apps/web/app/layout.tsx": 1,
   "apps/web/app/o/[token]/OrderingClient.tsx": 4,
   "apps/web/app/pay/[token]/_ui/receipt.css": 38,
@@ -26,8 +24,6 @@
   "apps/web/components/floor/floor.css": 221,
   "apps/web/components/floor/FloorScene.tsx": 6,
   "apps/web/components/floor/FloorStudio.tsx": 2,
-  "apps/web/components/floor/live.ts": 14,
-  "apps/web/components/floor/LiveFloor.tsx": 2,
   "apps/web/components/floor/model.ts": 4,
   "apps/web/lib/i18n/dict/platform.ts": 5,
   "packages/ui/src/styles.tsx": 34

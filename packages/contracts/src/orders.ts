@@ -190,6 +190,18 @@ export interface GuestVisitView {
 export interface KitchenTicket {
   id: string; number: string; status: string; fulfillment: string; channel: string; tableLabel: string | null; customerName: string | null;
   placedAt: string; acceptedAt: string | null; ageSeconds: number; notes: string | null; version: number; isNew: boolean;
+  /** Delivery bag left the kitchen (driver or courier): the "On the way" lane. The order stays `ready` until delivered. */
+  handedOff?: boolean;
+  /** An active driver job exists: only the driver's delivery completes it. */
+  driverJob?: boolean;
+  dueMinor?: number;
+  fulfilledAt?: string | null;
   lines: Array<{ id: string; name: string; nameAr: string | null; quantity: number; station: string; kitchenStatus: string; notes: string | null; modifiers: string[]; prepMinutes: number | null }>;
 }
-export interface KitchenFeed { cursor: string; serverTime: string; unchanged?: boolean; stations: string[]; tickets: KitchenTicket[] }
+export interface KitchenFeed {
+  cursor: string; serverTime: string; unchanged?: boolean; stations: string[]; tickets: KitchenTicket[];
+  /** Last fulfilled tickets (newest first, at most 12, last 12 hours): the "Completed" lane. */
+  recent?: KitchenTicket[];
+  /** Branch service model (counter branches label pickup tickets "Counter"). */
+  serviceMode?: string;
+}

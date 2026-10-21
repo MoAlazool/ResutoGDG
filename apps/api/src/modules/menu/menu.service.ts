@@ -12,10 +12,17 @@ import { createHash } from 'node:crypto';
 import { BoundedCache } from '../../common/cache/bounded-cache';
 import { MediaUrls, StorageService, stableExpiry } from '../../common/storage/storage.service';
 import { csvToRows, previewRows } from './menu-import';
+import { IN_STOCK_SQL, OFFERED_SQL, SOLD_OUT_SQL } from './availability';
+import { Scheduled } from '../../common/events/events';
 
 /** Cross-module port for ResutoMCP; the lead's kernel/ports.ts declares the same Symbol.for token. */
 export const MENU_AVAILABILITY_PORT = Symbol.for('resuto.MENU_AVAILABILITY_PORT');
-export interface MenuAvailabilityInput { productId: string; branchId: string; available: boolean; reason?: string | null; source: 'staff' | 'mcp' | 'ai' }
+/** `available: false` is the temporary 86 (sold out), never "not offered at this branch" (FT-02 / DF-01). */
+export interface MenuAvailabilityInput {
+  productId: string; branchId: string; available: boolean; reason?: string | null; source: 'staff' | 'mcp' | 'ai';
+  /** Automatic restore: 'end_of_day' (the branch's next local midnight) or an ISO time; null/undefined = until cleared. */
+  until?: string | null;
+}
 
 const PRODUCT_COLUMNS: Record<string, string> = {
   categoryId: 'category_id', name: 'name', nameAr: 'name_ar', description: 'description', descriptionAr: 'description_ar',
@@ -42,7 +49,7 @@ export const PUBLIC_MENU_CACHE_CONTROL = 'public, max-age=15, s-maxage=30, stale
 /** For a public menu built while some image URLs could not be signed: nobody may keep it, so the next request rebuilds it. */
 export const PUBLIC_MENU_NO_STORE = 'no-store';
 /** Bump when the public menu response shape changes, so cached copies from an older build are not revalidated. */
-const PUBLIC_MENU_SHAPE = 2;
+const PUBLIC_MENU_SHAPE = 3;
 
 /** Branch columns the public menu exposes (toPublicBranch) plus the lookup code (PCL-28: no select *). */
 const PUBLIC_BRANCH_COLUMNS = `id, code, name, name_ar, accepts_dine_in, accepts_pickup, accepts_delivery, accepts_reservations, delivery_fee_minor,
@@ -119,7 +126,8 @@ export class MenuService {
         where p.org_id = $1 and ($2::uuid[] is null or p.id = any($2::uuid[])) order by p.sort_order, p.created_at`, [orgId, ids]);
     if (!rows.length) return [];
     const productIds = rows.map((r) => r.id);
-    const settings = await tx.query<any>('select * from product_branch_settings where product_id = any($1::uuid[])', [productIds]);
+    const settings = await tx.query<any>(
+      `select s.*, ${SOLD_OUT_SQL} as sold_out_now from product_branch_settings s where s.product_id = any($1::uuid[])`, [productIds]);
     const groups = await tx.query<any>('select product_id, group_id from product_modifier_groups where product_id = any($1::uuid[]) order by sort_order', [productIds]);
     const out: Product[] = [];
     for (const r of rows) {
@@ -131,6 +139,8 @@ export class MenuService {
         sortOrder: r.sort_order, externalRef: r.external_ref, version: r.version,
         branchSettings: settings.filter((s) => s.product_id === r.id).map((s) => ({
           branchId: s.branch_id, isAvailable: s.is_available, priceOverrideMinor: s.price_override_minor, stockQty: s.stock_qty,
+          soldOut: s.sold_out_now, soldOutUntil: s.sold_out_now && s.sold_out_until ? new Date(s.sold_out_until).toISOString() : null,
+          soldOutReason: s.sold_out_now ? s.sold_out_reason : null,
         })),
         modifierGroupIds: groups.filter((g) => g.product_id === r.id).map((g) => g.group_id),
       } as Product, 'imageUrl', r.media_path, { fallback: r.image_url ?? null }));
@@ -317,27 +327,77 @@ export class MenuService {
     });
   }
 
-  /** Quick 86 / un-86 from the kitchen or floor (`menu:availability`). */
-  async toggleAvailability(ctx: TenantContext, productId: string, branchId: string, available: boolean) {
+  /** Quick 86 / restore from the kitchen, floor or menu (`menu:availability`): sold out, never "not offered". */
+  async toggleAvailability(ctx: TenantContext, productId: string, branchId: string, available: boolean, opts: { until?: string | null; reason?: string | null } = {}) {
     ctx.assertBranch(branchId);
-    return this.db.scoped(ctx, (tx) => this.setAvailability(tx, ctx, { productId, branchId, available, source: 'staff' }));
+    return this.db.scoped(ctx, (tx) => this.setAvailability(tx, ctx, { productId, branchId, available, source: 'staff', until: opts.until, reason: opts.reason }));
   }
 
   /**
-   * MENU_AVAILABILITY_PORT implementation (ResutoMCP, AI flows): marks a product
-   * available/unavailable at one branch inside the caller's tenant transaction.
+   * MENU_AVAILABILITY_PORT implementation (ResutoMCP, AI flows, KDS): marks a product sold out (86) or restores it at
+   * one branch inside the caller's tenant transaction. Whether the branch offers the dish is unchanged (that is the
+   * per-branch setting). `available` in the result is what guests can order now: offered and not sold out.
    */
-  async setAvailability(tx: Tx, ctx: TenantContext, input: MenuAvailabilityInput): Promise<{ productId: string; branchId: string; available: boolean }> {
+  async setAvailability(tx: Tx, ctx: TenantContext, input: MenuAvailabilityInput): Promise<{ productId: string; branchId: string; available: boolean; offered: boolean; soldOut: boolean; soldOutUntil: string | null }> {
     ctx.assertBranch(input.branchId);
     if (!(await tx.maybeOne('select 1 from products where id = $1 and org_id = $2', [input.productId, ctx.orgId]))) throw notFound('Product');
-    if (!(await tx.maybeOne('select 1 from branches where id = $1 and org_id = $2', [input.branchId, ctx.orgId]))) throw notFound('Branch');
-    await tx.query(
-      `insert into product_branch_settings(org_id, product_id, branch_id, is_available) values ($1, $2, $3, $4)
-       on conflict (product_id, branch_id) do update set is_available = $4, updated_at = now()`,
-      [ctx.orgId, input.productId, input.branchId, input.available]);
+    const branch = await tx.maybeOne<{ tz: string }>(
+      `select coalesce(b.timezone, o.timezone) as tz from branches b join organizations o on o.id = b.org_id where b.id = $1 and b.org_id = $2`,
+      [input.branchId, ctx.orgId]);
+    if (!branch) throw notFound('Branch');
+    let until: string | null = null;
+    if (!input.available && input.until) {
+      if (input.until === 'end_of_day') {
+        until = (await tx.one<{ at: Date }>(`select (date_trunc('day', now() at time zone $1) + interval '1 day') at time zone $1 as at`, [branch.tz])).at.toISOString();
+      } else {
+        const at = new Date(input.until);
+        if (Number.isNaN(at.getTime()) || at.getTime() <= Date.now()) throw invalid('invalid_until', 'Choose a time in the future to bring the dish back.');
+        if (at.getTime() > Date.now() + 14 * 864e5) throw invalid('invalid_until', 'A dish can be marked sold out for at most 14 days.');
+        until = at.toISOString();
+      }
+    }
+    const actor = `${ctx.actorType}:${ctx.actorId ?? ''}`.slice(0, 120);
+    const row = await tx.one<{ is_available: boolean; sold_out: boolean; sold_out_until: Date | null }>(
+      `insert into product_branch_settings(org_id, product_id, branch_id, sold_out, sold_out_until, sold_out_reason, sold_out_at, sold_out_by)
+       values ($1, $2, $3, $4, $5, $6, case when $4 then now() end, case when $4 then $7 end)
+       on conflict (product_id, branch_id) do update set sold_out = $4, sold_out_until = $5, sold_out_reason = $6,
+         sold_out_at = case when $4 then now() end, sold_out_by = case when $4 then $7 end, updated_at = now()
+       returning is_available, sold_out, sold_out_until`,
+      [ctx.orgId, input.productId, input.branchId, !input.available, input.available ? null : until,
+        input.available ? null : input.reason?.trim().slice(0, 200) || null, actor]);
     await this.changed(tx, ctx, input.available ? 'menu.product.available' : 'menu.product.unavailable', 'product', input.productId,
-      { branchId: input.branchId, available: input.available, source: input.source, reason: input.reason ?? null });
-    return { productId: input.productId, branchId: input.branchId, available: input.available };
+      { branchId: input.branchId, available: input.available, source: input.source, reason: input.reason ?? null, until });
+    return {
+      productId: input.productId, branchId: input.branchId, offered: row.is_available, soldOut: row.sold_out,
+      soldOutUntil: row.sold_out_until ? new Date(row.sold_out_until).toISOString() : null, available: row.is_available && !row.sold_out,
+    };
+  }
+
+  /** Restores dishes whose 86 has expired (sold_out_until passed). Clearing the flag bumps each menu's version. */
+  @Scheduled('menu.restore_86', 60)
+  async restoreExpiredJob() {
+    return this.restoreExpired();
+  }
+
+  async restoreExpired() {
+    const rows = await this.db.withPlatform((tx) => tx.query<{ org_id: string; product_id: string; branch_id: string }>(
+      `with cleared as (
+         update product_branch_settings set sold_out = false, sold_out_until = null, sold_out_reason = null, sold_out_at = null, sold_out_by = null,
+                updated_at = now()
+          where sold_out and sold_out_until is not null and sold_out_until <= now()
+          returning org_id, product_id, branch_id)
+       , logged as (
+         insert into audit_logs(org_id, branch_id, actor_type, actor_id, action, entity_type, entity_id, source, metadata)
+         select org_id, branch_id, 'system', 'menu.restore_86', 'menu.product.available', 'product', product_id::text, 'worker',
+                jsonb_build_object('branchId', branch_id, 'available', true, 'source', 'schedule')
+           from cleared)
+       select org_id, product_id, branch_id from cleared`), 'system:menu-restore-86');
+    for (const r of rows) {
+      await this.db.withTenant(r.org_id, (tx) => this.outbox.publish(tx, r.org_id, {
+        type: 'menu.updated', aggregateType: 'product', aggregateId: r.product_id, payload: { action: 'menu.product.available', branchId: r.branch_id, source: 'schedule' },
+      }), 'system:menu-restore-86');
+    }
+    return { restored: rows.length };
   }
 
   // ---------------------------------------------------------------------------
@@ -583,16 +643,16 @@ export class MenuService {
       `select c.id, c.name, c.name_ar from menu_categories c join menus m on m.id = c.menu_id
         where c.org_id = $1 and c.is_active and m.is_active and (m.branch_id is null or m.branch_id = $2) order by m.sort_order, c.sort_order, c.created_at`,
       [orgId, branch.id]);
-    // Products the branch does not offer (is_available = false) are not listed;
-    // `available: false` means sold out (tracked stock reached 0).
+    // SOLD_OUT_DISPLAY: products the branch does not offer (is_available = false) are not listed; a dish that is
+    // sold out (86) or out of tracked stock is listed with `available: false` and its reason.
     const products = await tx.query<any>(
       `select p.id, p.category_id, p.name, p.name_ar, p.description, p.description_ar, coalesce(s.price_override_minor, p.price_minor) as price_minor,
               p.image_url, m.path as media_path, m.variants as media_variants, m.width as media_width, m.height as media_height, p.allergens, p.dietary, p.spice_level, p.prep_minutes,
-              (not p.track_stock or s.stock_qty is null or s.stock_qty > 0) as available
+              ${SOLD_OUT_SQL} as sold_out, ${IN_STOCK_SQL} as in_stock
          from products p
          left join product_branch_settings s on s.product_id = p.id and s.branch_id = $2
          left join media_assets m on m.id = p.image_media_id
-        where p.org_id = $1 and p.is_active and coalesce(s.is_available, true) and p.category_id = any($3::uuid[]) order by p.sort_order, p.created_at`,
+        where p.org_id = $1 and p.is_active and ${OFFERED_SQL} and p.category_id = any($3::uuid[]) order by p.sort_order, p.created_at`,
       [orgId, branch.id, categories.map((c) => c.id)]);
     const links = products.length
       ? await tx.query<any>('select product_id, group_id from product_modifier_groups where product_id = any($1::uuid[]) order by sort_order', [products.map((p) => p.id)])
@@ -607,7 +667,8 @@ export class MenuService {
           id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar, priceMinor: p.price_minor,
           imageUrl: null as string | null, imageSrcSet: null as string | null,
           imageWidth: p.media_path ? p.media_width ?? null : null, imageHeight: p.media_path ? p.media_height ?? null : null,
-          allergens: p.allergens, dietary: p.dietary, spiceLevel: p.spice_level, available: p.available,
+          allergens: p.allergens, dietary: p.dietary, spiceLevel: p.spice_level, available: !p.sold_out && p.in_stock,
+          unavailableReason: p.sold_out ? 'sold_out' as const : !p.in_stock ? 'out_of_stock' as const : null,
           prepMinutes: p.prep_minutes,
           modifierGroups: links.filter((l) => l.product_id === p.id).map((l) => groupById.get(l.group_id)).filter((g): g is ModifierGroup => !!g)
             .map((g) => ({

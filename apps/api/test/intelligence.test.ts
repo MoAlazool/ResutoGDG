@@ -224,6 +224,23 @@ describe('recommendations', () => {
     expect(after.body.customer.nextItems.length).toBe(3);
     await sql(`delete from product_branch_settings where product_id = $1 and branch_id = $2`, [menu.products.fries, A.branchId]);
   });
+
+  it("never recommends a dish the kitchen 86'd, while it stays offered (FT-02 / DF-01)", async () => {
+    const fbw = async () => {
+      const res = await t.http.get(`${base()}/recommendations`).query({ branchId: A.branchId, productId: menu.products.burger, k: 3 }).set(auth(A.owner));
+      expect(res.status).toBe(200);
+      return res.body.items[0].frequentlyBoughtWith.map((r: any) => r.productId) as string[];
+    };
+    expect(await fbw()).toContain(menu.products.fries);
+    // The 86 as menu.service writes it: offered here (is_available true), sold out until the end of the day.
+    await sql(`insert into product_branch_settings(org_id, product_id, branch_id, is_available, sold_out, sold_out_until)
+               values ($1, $2, $3, true, true, now() + interval '6 hours')`, [A.orgId, menu.products.fries, A.branchId]);
+    expect(await fbw()).not.toContain(menu.products.fries);
+    // Once the restore time passes the dish is recommended again.
+    await sql(`update product_branch_settings set sold_out_until = now() - interval '1 minute' where product_id = $1 and branch_id = $2`, [menu.products.fries, A.branchId]);
+    expect(await fbw()).toContain(menu.products.fries);
+    await sql(`delete from product_branch_settings where product_id = $1 and branch_id = $2`, [menu.products.fries, A.branchId]);
+  });
 });
 
 describe('route planning', () => {

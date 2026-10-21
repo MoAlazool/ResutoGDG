@@ -1,4 +1,4 @@
-import { can, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
+import { can, type ModuleKey, type Permission, type Role, type ServiceMode } from '@resuto/contracts';
 import type { NavGlyphName } from '@resuto/ui';
 
 export interface NavItem {
@@ -10,6 +10,13 @@ export interface NavItem {
   permission?: Permission;
   /** Visible when the role has any of these (used instead of `permission`). */
   anyPermission?: Permission[];
+  /**
+   * Service models the entry belongs to (VS-16, legacy shell: counter and online-only venues drop the floor and
+   * reservations; reservations also need "Accept table reservations"). Omitted = every model.
+   */
+  modes?: ServiceMode[];
+  /** Hidden when the current branch takes no table reservations. */
+  needsReservations?: boolean;
 }
 
 /** Dashboard navigation. Each entry's page directory is owned by one agent (MODULE_CONTRACTS.md). */
@@ -18,8 +25,9 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '', label: 'nav.overview', glyph: 'overview', module: 'core', permission: 'analytics:read' },
     { href: '/orders', label: 'nav.orders', glyph: 'orders', module: 'core', permission: 'orders:read' },
     { href: '/kitchen', label: 'nav.kitchen', glyph: 'kitchen', module: 'core', permission: 'kitchen:operate' },
-    { href: '/floor', label: 'nav.floor', glyph: 'floor', module: 'core', permission: 'floor:read' },
-    { href: '/reservations', label: 'nav.reservations', glyph: 'reservations', module: 'core', permission: 'reservations:read' },
+    { href: '/floor', label: 'nav.floor', glyph: 'floor', module: 'core', permission: 'floor:read', modes: ['tables'] },
+    { href: '/host', label: 'ops.host.nav', glyph: 'frontdesk', module: 'core', permission: 'floor:seat', modes: ['tables'] },
+    { href: '/reservations', label: 'nav.reservations', glyph: 'reservations', module: 'core', permission: 'reservations:read', modes: ['tables'], needsReservations: true },
     { href: '/menu', label: 'nav.menu', glyph: 'menu', module: 'core', permission: 'menu:read' },
     { href: '/inventory', label: 'nav.inventory', glyph: 'inventory', module: 'core', permission: 'inventory:read' },
     { href: '/delivery', label: 'nav.delivery', glyph: 'delivery', module: 'driver', permission: 'delivery:dispatch' },
@@ -44,6 +52,7 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/settings', label: 'nav.settings', glyph: 'settings', module: 'core', permission: 'org:manage' },
     { href: '/team', label: 'nav.team', glyph: 'team', module: 'core', permission: 'members:manage' },
     { href: '/integrations', label: 'nav.integrations', glyph: 'integrations', module: 'core', permission: 'integrations:manage' },
+    { href: '/data', label: 'ops.data.nav', glyph: 'data', module: 'core', anyPermission: ['menu:write', 'customers:export', 'finance:read'] },
     { href: '/billing', label: 'nav.billing', glyph: 'billing', module: 'core', permission: 'billing:manage' },
     { href: '/audit', label: 'nav.audit', glyph: 'audit', module: 'core', permission: 'audit:read' },
   ] },
@@ -51,6 +60,15 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
 
 export const navVisible = (item: NavItem, role: Role) =>
   item.anyPermission ? item.anyPermission.some((p) => can(role, p)) : !item.permission || can(role, item.permission);
+
+/** Whether an entry applies to the branch's service model (VS-16). Unknown mode = table service (the default). */
+export const navForBranch = (item: NavItem, branch: { serviceMode?: string | null; acceptsReservations?: boolean } | null | undefined) => {
+  if (!branch) return true;
+  const mode = (branch.serviceMode ?? 'tables') as ServiceMode;
+  if (item.modes && !item.modes.includes(mode)) return false;
+  if (item.needsReservations && branch.acceptsReservations === false) return false;
+  return true;
+};
 
 /** Role-aware landing (VS-05) lives in its own module so the sign-in pages do not import the navigation table. */
 export { homePath } from './home-path';

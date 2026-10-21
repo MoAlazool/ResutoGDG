@@ -1,8 +1,12 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import type { MenuEditorView, OrderDetail, OrderSummary, FloorLayout } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
+import { Tabs } from '@resuto/ui';
+import '@/components/ops/ops.css';
+import { useUrlParam } from '@/components/ops/use-url-state';
+import { KitchenBoard } from '../../../kitchen/[orgId]/_kds/KitchenBoard';
 import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { dateTime, formatWhen, money, pick, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -18,14 +22,31 @@ const NEXT: Record<string, Record<string, string[]>> = {
   delivery: { placed: ['accepted', 'preparing'], accepted: ['preparing'], preparing: ['ready'], ready: ['delivered'] },
 };
 
+type View = 'list' | 'board';
+const VIEWS: readonly View[] = ['list', 'board'];
+
 export default function OrdersPage() {
+  return <ModuleGate module="core" permission="orders:read"><Suspense fallback={<Skeleton lines={6} />}><Orders /></Suspense></ModuleGate>;
+}
+
+/**
+ * Orders (legacy manager "Order board" + the filterable list). The board is the kitchen's five lanes with drag and
+ * drop and service requests (VS-14); the list keeps filters. View, branch and filters live in the URL, so a reload or
+ * a shared link keeps them (PCL-20); the branch defaults to the one chosen in the shell.
+ */
+function Orders() {
   const { t, locale } = useT();
-  const { org, can } = useOrg();
-  const [branchId, setBranchId] = useState(org.branches[0]?.id ?? '');
-  const [status, setStatus] = useState('active');
-  const [channel, setChannel] = useState('');
-  const [fulfillment, setFulfillment] = useState('');
-  const [date, setDate] = useState('');
+  const { org, can, branchId: shellBranch } = useOrg();
+  const canBoard = can('kitchen:operate');
+  const [view, setView] = useUrlParam<View>('view', 'list', canBoard ? VIEWS : ['list']);
+  const [branchParam, setBranchId] = useUrlParam<string>('branch', '');
+  const branchId = org.branches.some((b) => b.id === branchParam) ? branchParam : (shellBranch ?? org.branches[0]?.id ?? '');
+  const [status, setStatus] = useUrlParam<string>('status', 'active');
+  const [channel, setChannel] = useUrlParam<string>('channel', '');
+  const [fulfillment, setFulfillment] = useUrlParam<string>('fulfillment', '');
+  const [date, setDate] = useUrlParam<string>('date', '');
+  const [resolving, setResolving] = useState<string | null>(null);
+  const [resolveError, setResolveError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | undefined>();
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -35,9 +56,9 @@ export default function OrdersPage() {
     ...(status === 'active' ? { status: 'awaiting_payment,placed,accepted,preparing,ready' } : status ? { status } : {}),
     ...(channel ? { channel } : {}), ...(fulfillment ? { fulfillment } : {}), ...(date ? { date } : {}), ...(cursor ? { cursor } : {}),
   });
-  const list = useApi<{ items: OrderSummary[]; nextCursor: string | null }>(`/o/${org.id}/orders?${qs}`, { pollMs: cursor ? undefined : 5000 });
+  const list = useApi<{ items: OrderSummary[]; nextCursor: string | null }>(view === 'list' ? `/o/${org.id}/orders?${qs}` : null, { pollMs: cursor ? undefined : 3000 });
   const requests = useApi<{ items: Array<{ id: string; kind: string; tableLabel: string; createdAt: string }> }>(
-    `/o/${org.id}/requests${branchId ? `?branchId=${branchId}` : ''}`, { pollMs: 5000 });
+    view === 'list' ? `/o/${org.id}/requests${branchId ? `?branchId=${branchId}` : ''}` : null, { pollMs: 3000 });
   const { call } = useSession();
   // Keep the last failure on screen while a poll retries (useApi clears `error` during the request), so the strip
   // does not flicker between the failure text and the skeleton.
@@ -46,10 +67,34 @@ export default function OrdersPage() {
   else if (requests.error) requestsErr.current = requests.error;
   const reqError = requestsErr.current;
 
+  /** One resolve at a time; a failure stays visible instead of becoming an unhandled rejection (PCL-21). */
+  const resolve = async (id: string) => {
+    if (resolving) return;
+    setResolving(id); setResolveError(null);
+    try { await call(`/o/${org.id}/requests/${id}/resolve`, { body: { status: 'resolved' } }); await requests.reload(); }
+    catch (e) { setResolveError((e as Error).message); }
+    finally { setResolving(null); }
+  };
+
   return (
-    <ModuleGate module="core" permission="orders:read">
+    <>
       <PageHeader title={t('nav.orders')} subtitle={t('core.orders.subtitle')}
         actions={can('orders:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.orders.new')}</button>} />
+      {canBoard && (
+        <div className="orders-views">
+          <Tabs<View> value={view} onChange={setView} label={t('nav.orders')} tabs={[{ key: 'list', label: t('ops.orders.list') }, { key: 'board', label: t('ops.orders.board') }]} />
+          {org.branches.length > 1 && view === 'board' && (
+            <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+              {org.branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
+            </SelectField>
+          )}
+        </div>
+      )}
+      {view === 'board' ? (
+        <KitchenBoard key={branchId} orgId={org.id} branchId={branchId} station={null} timezone={org.timezone} currency={org.currency}
+          canCancel={can('orders:cancel')} canResolve={can('floor:seat') || can('orders:status')} can86={can('menu:availability')}
+          onOpen={(id) => setSelected(id)} />
+      ) : <>
       {/* Guest requests keep a fixed slot (VS-07): the strip is always there, so its arrival does not push the filters
           and the table down after the page has rendered. */}
       <section className="card card-warm requests-strip" aria-label={t('core.orders.requests')} aria-busy={(requests.data === undefined && !reqError) || undefined}>
@@ -65,12 +110,13 @@ export default function OrdersPage() {
               : requests.data.items.map((r) => (
                 <span key={r.id} className="badge badge-warn request-chip">
                   {t('core.kds.table', { label: r.tableLabel })} · {t(`core.request.${r.kind}`)} · <span className="num">{formatWhen(r.createdAt, locale, org.timezone)}</span>
-                  <button className="btn btn-sm" aria-label={t('core.orders.resolveRequest')} onClick={async () => { await call(`/o/${org.id}/requests/${r.id}/resolve`, { body: { status: 'resolved' } }); void requests.reload(); }}>✓</button>
+                  <button className="btn btn-sm" aria-label={t('core.orders.resolveRequest')} disabled={resolving !== null} aria-busy={resolving === r.id || undefined} onClick={() => void resolve(r.id)}>✓</button>
                 </span>
               ))}
         </div>
+        {resolveError && <Notice tone="danger">{resolveError}</Notice>}
       </section>
-      <div className="form-row" style={{ alignItems: 'end' }}>
+      <div className="form-row" data-align="end">
         {org.branches.length > 1 && (
           <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => { setBranchId(e.target.value); setCursor(undefined); }}>
             {org.branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
@@ -109,9 +155,10 @@ export default function OrdersPage() {
         {cursor && <button className="btn btn-sm" onClick={() => setCursor(undefined)}>{t('core.orders.latest')}</button>}
         {list.data?.nextCursor && <button className="btn btn-sm" onClick={() => setCursor(list.data!.nextCursor!)}>{t('core.orders.older')}</button>}
       </div>
+      </>}
       {selected && <OrderDrawer orderId={selected} onClose={() => setSelected(null)} onChanged={() => void list.reload()} />}
       {creating && <NewOrderModal branchId={branchId} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setSelected(id); void list.reload(); }} />}
-    </ModuleGate>
+    </>
   );
 }
 
@@ -147,11 +194,11 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
             <Badge tone={o.paymentStatus === 'paid' ? 'ok' : 'pay'}>{t(`core.payment.${o.paymentStatus}`)}</Badge>
             <span className="fine">{t(`core.channel.${o.channel}`)} · {t(`core.web.${o.fulfillment}`)} · {dateTime(o.placedAt, locale, org.timezone)}</span>
           </div>
-          {(o.customerName || o.customerPhone) && <p style={{ margin: 0 }}><UserText>{o.customerName}</UserText>{o.customerName && o.customerPhone ? ' · ' : ''}<Phone value={o.customerPhone} link />{o.tableLabel ? ` · ${t('core.kds.table', { label: o.tableLabel })}` : ''}</p>}
-          {o.deliveryAddress != null && <p className="fine" style={{ margin: 0 }}><UserText>{String((o.deliveryAddress as { line1?: string }).line1 ?? '')}</UserText></p>}
+          {(o.customerName || o.customerPhone) && <p className="flush"><UserText>{o.customerName}</UserText>{o.customerName && o.customerPhone ? ' · ' : ''}<Phone value={o.customerPhone} link />{o.tableLabel ? ` · ${t('core.kds.table', { label: o.tableLabel })}` : ''}</p>}
+          {o.deliveryAddress != null && <p className="fine flush"><UserText>{String((o.deliveryAddress as { line1?: string }).line1 ?? '')}</UserText></p>}
           <div>
             {o.lines.map((l) => (
-              <div key={l.id} className="spread" style={{ borderBottom: '1px solid var(--line-soft)', padding: '8px 0' }}>
+              <div key={l.id} className="spread ops-line">
                 <span><strong>{l.quantity}×</strong> {pick(locale, l.name, l.nameAr)}
                   {l.modifiers.length > 0 && <small className="fine"> · {l.modifiers.map((m) => m.option).join(', ')}</small>}
                   {l.notes && <small className="fine"> · “<UserText>{l.notes}</UserText>”</small>}
@@ -242,7 +289,7 @@ function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onC
     </>}>
       {!menu.data ? <Skeleton lines={4} /> : (
         <div className="stack">
-          <div className="g-seg" role="group" aria-label={t('core.orders.fulfillment')} style={{ display: 'inline-flex', background: 'var(--line-soft)', borderRadius: 99, padding: 3 }}>
+          <div className="g-seg ops-seg" role="group" aria-label={t('core.orders.fulfillment')}>
             {(['dine_in', 'pickup', 'delivery'] as const).map((f) => (
               <button key={f} type="button" className={`btn btn-sm btn-pill ${fulfillment === f ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFulfillment(f)}>{t(`core.web.${f}`)}</button>
             ))}
@@ -263,10 +310,10 @@ function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onC
           {lines.map((l, i) => {
             const p = products.find((x) => x.id === l.productId);
             return (
-              <div key={i} className="card" style={{ padding: 12 }}>
+              <div key={i} className="card ops-draft-line">
                 <div className="spread"><strong>{p ? pick(locale, p.name, p.nameAr) : ''}</strong>
                   <span className="row">
-                    <input className="input" type="number" min={1} max={99} value={l.quantity} style={{ width: 80 }} aria-label={t('core.orders.qty')}
+                    <input type="number" min={1} max={99} value={l.quantity} className="input ops-qty" aria-label={t('core.orders.qty')}
                       onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, quantity: Math.max(1, Math.min(99, Number(e.target.value) || 1)) } : x)))} />
                     <button className="btn btn-sm btn-ghost" aria-label={t('action.delete')} onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>
                   </span>

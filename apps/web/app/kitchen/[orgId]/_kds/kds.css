@@ -1,39 +1,12 @@
-/* Kitchen display: large touch targets, high contrast, works on tablets and in RTL. */
+/* Kitchen display chrome. The lanes and ticket cards are the shared kanban board (components/ops/ops.css), restored
+   from the legacy kitchen board; this file keeps the KDS bar and the full-screen wall layout. Tokens only. */
 .kds { display: grid; gap: 14px; }
 .kds-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .kds-bar .kds-live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
-.kds-bar .kds-live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #6f9a4c; }
+.kds-bar .kds-live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--live); }
 .kds-bar .kds-live[data-stale='true']::before { background: var(--danger); }
-.kds-cols { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 14px; align-items: start; overflow-x: auto; }
-.kds-col { background: #f1f2ec; border-radius: 18px; padding: 12px; min-height: 240px; }
-.kds-col > header { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px 10px; font-weight: 700; color: var(--ink); }
-.kds-col > header::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--dot, #5a8598); margin-inline-end: 8px; }
-.kds-col > header span:first-child { margin-inline-end: auto; }
-.kds-tiles { display: grid; gap: 12px; }
-.kds-tile { background: #fff; border-radius: 16px; padding: 14px; box-shadow: 0 4px 18px #1f3a2f12; border: 2px solid transparent; }
-.kds-tile.is-new { border-color: var(--ember); animation: kds-pulse 1.6s ease-in-out 3; }
-.kds-tile.is-late { border-color: #e2a33d; }
-.kds-tile.is-very-late { border-color: var(--danger); }
-@keyframes kds-pulse { 50% { box-shadow: 0 0 0 6px #c85e3333; } }
-.kds-tile-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.kds-tile-head strong { font-size: 24px; font-family: var(--font-display); color: var(--ink); }
-.kds-age { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px; color: var(--muted); }
-.kds-tile.is-late .kds-age { color: #9a6a12; }
-.kds-tile.is-very-late .kds-age { color: var(--danger); }
-.kds-where { font-size: 15px; color: var(--muted); margin: 2px 0 8px; }
-.kds-line { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: start; padding: 10px 6px; border: 0; border-top: 1px solid var(--line-soft);
-  background: transparent; cursor: pointer; border-radius: 8px; font-size: 17px; min-height: 52px; }
-.kds-line:hover { background: #f7f8f3; }
-.kds-line .kds-qty { min-width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--line-soft); font-weight: 800; }
-.kds-line[data-status='ready'] { color: #2f6238; }
-.kds-line[data-status='ready'] .kds-qty { background: var(--ok-bg); }
-.kds-line[data-status='ready'] .kds-name { text-decoration: line-through; text-decoration-thickness: 2px; }
-.kds-line[data-status='preparing'] .kds-qty { background: var(--warn-bg); }
-.kds-line small { display: block; font-size: 13px; color: var(--muted); }
-.kds-line .kds-note { color: #9a5a23; font-weight: 600; }
-.kds-ticket-note { background: #fbf6e8; color: #6b5a26; border-radius: 10px; padding: 8px 10px; font-size: 14px; margin-top: 6px; }
-.kds-actions { display: flex; gap: 8px; margin-top: 12px; }
-.kds-actions .btn { min-height: 52px; flex: 1; font-size: 16px; }
-.kds-empty { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
 .kds-full { min-height: 100dvh; background: var(--paper); padding: 16px clamp(12px, 2vw, 28px); }
-@media (max-width: 900px) { .kds-cols { grid-template-columns: repeat(3, minmax(250px, 82vw)); scroll-snap-type: x mandatory; } .kds-col { scroll-snap-align: start; } }
+/* Wall tablets: bigger touch targets and type on the full-screen display. */
+.kds-full .ticket-line { font-size: 15px; min-height: 44px; }
+.kds-full .ticket-top strong { font-size: 20px; }
+.kds-full .ticket-actions .btn { min-height: 48px; font-size: 15px; }

@@ -64,11 +64,22 @@ describe('menu CRUD', () => {
     const p = await t.http.post(`${base()}/products`).set(auth(tenant.owner)).send({ categoryId, name: 'Molokhia', priceMinor: 7000 });
     const off = await t.http.post(`${base()}/products/${p.body.id}/availability`).set(auth(kitchen)).send({ branchId: tenant.branchId, available: false });
     expect(off.status).toBe(201);
-    expect(off.body).toMatchObject({ available: false });
-    // Not offered at this branch → not listed (sold out is reserved for tracked stock at 0).
+    expect(off.body).toMatchObject({ available: false, offered: true, soldOut: true });
+    // An 86 is "sold out", not "not offered": the dish stays on the guest menu, shown as sold out (FT-02 / DF-01;
+    // this test used to expect it to disappear, which is what made a kitchen 86 look like a menu change to guests).
     const pub = await t.http.get(`/v1/public/menu/${tenant.slug}`);
     const item = pub.body.categories.flatMap((c: any) => c.products).find((x: any) => x.id === p.body.id);
-    expect(item).toBeUndefined();
+    expect(item).toMatchObject({ available: false, unavailableReason: 'sold_out' });
+    // Taking a dish off this branch is the menu editor's branch setting (menu:write), which the kitchen cannot do.
+    const unassign = await t.http.put(`${base()}/products/${p.body.id}/branches/${tenant.branchId}`).set(auth(kitchen)).send({ isAvailable: false });
+    expect(unassign.status).toBe(403);
+    const assigned = await t.http.put(`${base()}/products/${p.body.id}/branches/${tenant.branchId}`).set(auth(tenant.owner)).send({ isAvailable: false });
+    expect(assigned.body).toMatchObject({ isAvailable: false });
+    const hidden = await t.http.get(`/v1/public/menu/${tenant.slug}`);
+    expect(hidden.body.categories.flatMap((c: any) => c.products).find((x: any) => x.id === p.body.id)).toBeUndefined();
+    const bad = await t.http.post(`${base()}/products/${p.body.id}/availability`).set(auth(kitchen))
+      .send({ branchId: tenant.branchId, available: false, until: new Date(Date.now() - 60_000).toISOString() });
+    expect(bad.status).toBe(422);
     const edit = await t.http.patch(`${base()}/products/${p.body.id}`).set(auth(kitchen)).send({ version: 0, priceMinor: 1 });
     expect(edit.status).toBe(403);
     const create = await t.http.post(`${base()}/products`).set(auth(kitchen)).send({ categoryId, name: 'X', priceMinor: 1 });
@@ -138,9 +149,10 @@ describe('MENU_AVAILABILITY_PORT (ResutoMCP)', () => {
     const p = await t.http.post(`${base()}/products`).set(auth(tenant.owner)).send({ categoryId, name: 'Sobia', priceMinor: 3000 });
     const mcp = new TenantContext(tenant.orgId, 'manager', null, null, 'mcp_client', 'client-1', 'mcp');
     const r = await db.scoped(mcp, (tx) => port.setAvailability(tx, mcp, { productId: p.body.id, branchId: tenant.branchId, available: false, reason: 'Out of dates', source: 'mcp' }));
-    expect(r).toEqual({ productId: p.body.id, branchId: tenant.branchId, available: false });
-    const [s] = await sql('select is_available from product_branch_settings where product_id = $1 and branch_id = $2', [p.body.id, tenant.branchId]);
-    expect(s.is_available).toBe(false);
+    // The port writes the 86 (sold out), not the branch assignment (FT-02 / DF-01).
+    expect(r).toEqual({ productId: p.body.id, branchId: tenant.branchId, available: false, offered: true, soldOut: true, soldOutUntil: null });
+    const [s] = await sql('select is_available, sold_out, sold_out_reason from product_branch_settings where product_id = $1 and branch_id = $2', [p.body.id, tenant.branchId]);
+    expect(s).toEqual({ is_available: true, sold_out: true, sold_out_reason: 'Out of dates' });
     const [audit] = await sql(`select actor_type, source, metadata from audit_logs where entity_id = $1 and action = 'menu.product.unavailable'`, [p.body.id]);
     expect(audit).toMatchObject({ actor_type: 'mcp_client', source: 'mcp', metadata: { source: 'mcp', reason: 'Out of dates' } });
     const [evt] = await sql(`select event_type from outbox_events where aggregate_id = $1 order by created_at desc limit 1`, [p.body.id]);

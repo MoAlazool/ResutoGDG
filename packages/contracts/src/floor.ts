@@ -132,7 +132,15 @@ export interface FloorLayout {
 }
 
 export interface LiveFloorTable extends FloorTable {
-  visit: null | { id: string; partySize: number | null; openedAt: string; orderCount: number; dueMinor: number; paidMinor: number; requests: string[] };
+  visit: null | {
+    id: string; partySize: number | null; openedAt: string; orderCount: number; dueMinor: number; paidMinor: number; requests: string[];
+    /** Orders still in the kitchen (placed/accepted/preparing) and ready to serve: the legacy "In the kitchen" / "Food ready". */
+    preparing?: number; ready?: number; totalMinor?: number;
+    openedVia?: string;
+    /** Opened by a guest scan less than a minute ago with no activity: "Release table" is still possible. */
+    undoable?: boolean;
+    billingLocked?: boolean;
+  };
   nextReservation: null | { id: string; startsAt: string; guestName: string; partySize: number };
 }
 export interface LiveFloor { revision: number; tables: LiveFloorTable[] }

@@ -5,7 +5,8 @@ import { can, type ModuleKey, type Permission, type Role } from '@resuto/contrac
 export interface OrgInfo {
   id: string; slug: string; name: string; nameAr: string | null; country: 'EG' | 'SA'; currency: 'EGP' | 'SAR';
   timezone: string; role: Role; status: string;
-  branches: Array<{ id: string; name: string; nameAr: string | null; code: string; isActive: boolean; acceptsDineIn?: boolean }>;
+  branches: Array<{ id: string; name: string; nameAr: string | null; code: string; isActive: boolean; acceptsDineIn?: boolean;
+    acceptsPickup?: boolean; acceptsDelivery?: boolean; acceptsReservations?: boolean; serviceMode?: 'tables' | 'counter' | 'online' }>;
   onboarding?: Record<string, unknown> | null;
 }
 
