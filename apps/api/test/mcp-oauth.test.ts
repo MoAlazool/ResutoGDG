@@ -207,6 +207,35 @@ describe('tokens', () => {
     expect((await post('revoke', { token: 'rmrt_unknown', client_id: clientId })).status).toBe(200);
   });
 
+  it('enforces the token scopes: a refresh down-scoped to mcp:read cannot use action tools the connection allows', async () => {
+    const clientId = await register();
+    const flow = await authorize(clientId, { tools: ['get_restaurant_profile', 'update_product_availability'] });
+    const full = (await tokens(clientId, flow)).body;
+    const bearer = (tk: string) => ({ Authorization: `Bearer ${tk}` });
+    const input = { productId: '00000000-0000-4000-8000-000000000001', branchId: a.branchId, available: false };
+    expect((await whoami(full.access_token)).body.allowedTools).toEqual(['get_restaurant_profile', 'update_product_availability']);
+    // The full token reaches the tool (unknown product -> 404), i.e. it passes authorization.
+    const reached = await t.http.post(`/v1/o/${a.orgId}/mcp/tools/update_product_availability`).set(bearer(full.access_token)).send({ input });
+    expect(reached.status).not.toBe(403);
+
+    const narrowed = await post('token', { grant_type: 'refresh_token', refresh_token: full.refresh_token, client_id: clientId, scope: 'mcp:read' });
+    expect(narrowed.status).toBe(200);
+    expect(narrowed.body.scope).toBe('mcp:read');
+    const tk = narrowed.body.access_token as string;
+    expect((await whoami(tk)).body.allowedTools).toEqual(['get_restaurant_profile']);
+    const listed = await t.http.get(`/v1/o/${a.orgId}/mcp/tools`).set(bearer(tk));
+    expect(listed.body.items.map((d: any) => d.name)).toEqual(['get_restaurant_profile']);
+    const denied = await t.http.post(`/v1/o/${a.orgId}/mcp/tools/update_product_availability`).set(bearer(tk)).send({ input });
+    expect(denied.status).toBe(403);
+    expect(denied.body.error.code).toBe('insufficient_scope');
+    expect(denied.headers['www-authenticate']).toContain('error="insufficient_scope"');
+    expect(denied.headers['www-authenticate']).toContain('scope="mcp:act"');
+    expect((await t.http.post(`/v1/o/${a.orgId}/mcp/tools/get_restaurant_profile`).set(bearer(tk)).send({ input: {} })).status).toBe(200);
+    // The denial is recorded like any other refused call.
+    expect(await sql(`select 1 from mcp_tool_calls where org_id = $1 and client_id = $2 and tool = 'update_product_availability' and error_code = 'insufficient_scope'`,
+      [a.orgId, flow.mcpClientId])).toHaveLength(1);
+  });
+
   it('stops working when the restaurant revokes the connection in the dashboard', async () => {
     const clientId = await register();
     const flow = await authorize(clientId);

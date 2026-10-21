@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env';
 import { Reflector } from '@nestjs/core';
-import type { ModuleKey, Permission, Role } from '@resuto/contracts';
+import { MCP_TOOLS, type McpToolName, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
 import { sha256 } from '../crypto/hash';
 import { DbService } from '../db/db.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
@@ -22,6 +22,9 @@ function canonicalResource(v: string): string | null {
     return `${u.protocol}//${u.host.toLowerCase()}${u.pathname === '/' ? '' : u.pathname.replace(/\/$/, '')}${u.search}`;
   } catch { return null; }
 }
+/** The OAuth scope a tool needs (FT-17): read-only tools need mcp:read, everything else mcp:act. */
+export const mcpToolScope = (tool: string): 'mcp:read' | 'mcp:act' | null =>
+  (Object.prototype.hasOwnProperty.call(MCP_TOOLS, tool) ? (MCP_TOOLS[tool as McpToolName].readOnly ? 'mcp:read' : 'mcp:act') : null);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -127,14 +130,18 @@ export class AccessGuard implements CanActivate {
          from organizations o, mcp_oauth_tokens t
         where t.token_hash = $1 and t.kind = 'access' and t.revoked_at is null and t.expires_at > now() and c.id = t.mcp_client_id
           and c.status = 'active' and (c.expires_at is null or c.expires_at > now()) and o.id = c.org_id and o.status not in ('closed', 'suspended')
-        returning c.id, c.org_id, c.acting_role, c.branch_ids, c.allowed_tools, c.rate_limit_per_min, t.resource`, [sha256(token)]));
+        returning c.id, c.org_id, c.acting_role, c.branch_ids, c.allowed_tools, c.rate_limit_per_min, t.resource, t.scopes`, [sha256(token)]));
     if (!row || !allowed.includes(row.resource)) throw unauthorized();
     const h = req.headers['x-mcp-resource'];
     const named = Array.isArray(h) ? h[0] : h;
     if (named !== undefined && canonicalResource(named) !== row.resource) throw unauthorized();
+    // The token's own scopes bound what it can do, not only the connection's allowlist: a token down-scoped on refresh
+    // (RFC 6749 §6) to mcp:read cannot call action tools even when the connection allows them.
+    const scopes: string[] = row.scopes ?? [];
+    const allowedTools = (row.allowed_tools as string[]).filter((n) => { const s = mcpToolScope(n); return s !== null && scopes.includes(s); });
     return {
-      kind: 'mcp', clientId: row.id, orgId: row.org_id, role: row.acting_role as Role, branchIds: row.branch_ids, allowedTools: row.allowed_tools,
-      rateLimitPerMin: row.rate_limit_per_min, oauthResource: row.resource,
+      kind: 'mcp', clientId: row.id, orgId: row.org_id, role: row.acting_role as Role, branchIds: row.branch_ids, allowedTools,
+      rateLimitPerMin: row.rate_limit_per_min, oauthResource: row.resource, oauthScopes: scopes,
     };
   }
 

@@ -18,6 +18,8 @@ export interface AuthMcpClient {
   rateLimitPerMin: number;
   /** Set for OAuth access tokens (FT-17): the MCP resource URI the token was issued for. */
   oauthResource?: string;
+  /** Set for OAuth access tokens: the scopes this token was issued with (allowedTools is already limited to them). */
+  oauthScopes?: string[];
 }
 
 export type AuthPrincipal = AuthUser | AuthMcpClient;

@@ -23,6 +23,8 @@ export const MCP_RECORDED = Symbol.for('resuto.mcp.recorded');
 export interface McpCaller {
   clientId: string;
   allowedTools: string[];
+  /** OAuth callers only: the token's scopes. A tool outside them is refused with 403 insufficient_scope. */
+  oauthScopes?: string[];
 }
 
 export type CallVia = 'mcp' | 'dashboard_test' | 'approval';
@@ -148,6 +150,12 @@ export class McpExecutionService {
       if (!tool) throw new DomainError('unknown_tool', `Unknown tool: ${toolName.slice(0, 60)}`, 404);
       if (via === 'dashboard_test' && !tool.meta.readOnly) {
         throw new DomainError('test_read_only', 'Only read-only tools can be tested from the dashboard', 422);
+      }
+      if (caller.oauthScopes) {
+        const needed = tool.meta.readOnly ? 'mcp:read' : 'mcp:act';
+        if (!caller.oauthScopes.includes(needed)) {
+          throw new DomainError('insufficient_scope', `This access token was not granted ${needed}; authorize again with that scope`, 403, { scope: needed });
+        }
       }
       if (!caller.allowedTools.includes(tool.name)) throw new DomainError('tool_not_allowed', 'This connection is not allowed to use this tool', 403);
       if (tool.meta.permission && !ctx.can(tool.meta.permission)) {
