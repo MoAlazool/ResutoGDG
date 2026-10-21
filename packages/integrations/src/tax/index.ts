@@ -48,3 +48,5 @@ export const LICENSING_REGISTRIES: ProviderDescriptor[] = [
 export const TAX_PROVIDERS: ProviderDescriptor[] = [ZATCA_DESCRIPTOR, ETA_DESCRIPTOR];
 
 export const taxAdapters = [ZatcaSandboxStubClient, EtaSandboxStubClient] as const;
+export * from './zatca-phase2';
+export * from './eta-ereceipt';

@@ -68,9 +68,15 @@ export function zatcaQrForDocument(doc: FiscalDocumentModel): string {
 /** PIH of the first invoice of an EGS unit: Base64(SHA-256("0")) per the ZATCA guideline. */
 export const ZATCA_GENESIS_PIH = Buffer.from(fiscalSha256Hex('0')).toString('base64');
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+// Escaping exactly as Canonical XML (C14N 1.0/1.1 §2.3) writes it, so the builder output IS its own canonical form and
+// the invoice hash can be taken over it directly: text → &amp; &lt; &gt; &#xD;; attribute values → &amp; &lt; &quot;
+// &#x9; &#xA; &#xD;. (Before INT-26 text quotes were written as &quot;, which C14N writes as ", so the hash of a
+// document with a quote in a name differed from ZATCA's.) https://www.w3.org/TR/xml-c14n11/#ProcessingModel
+export const c14nText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r/g, '&#xD;');
+export const c14nAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/\t/g, '&#x9;').replace(/\n/g, '&#xA;').replace(/\r/g, '&#xD;');
+const esc = c14nText;
 const el = (name: string, value: string | number, attrs = '') => `<${name}${attrs}>${esc(String(value))}</${name}>`;
-const amt = (name: string, minor: number, currency: string) => el(name, formatFiscalMinor(minor), ` currencyID="${esc(currency)}"`);
+const amt = (name: string, minor: number, currency: string) => el(name, formatFiscalMinor(minor), ` currencyID="${c14nAttr(currency)}"`);
 const pct = (bp: number) => formatFiscalMinor(bp, 2); // 1500 bp → "15.00"
 
 export interface ZatcaXmlOptions {
@@ -202,13 +208,12 @@ export const ZATCA_DESCRIPTOR: ProviderDescriptor = {
   readiness: 'implemented_unverified',
   docsUrl: 'https://zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/Pages/default.aspx',
   activation: [
-    'Register the EGS unit and generate a CSR with the EGS serial (1-…|2-…|3-…).',
-    'Obtain a compliance CSID with an OTP from the FATOORA portal and pass the compliance checks.',
-    'Obtain the production CSID; store the certificate and private key encrypted (SecretBox).',
-    'Implement ZatcaSigner (XAdES, ECDSA secp256k1) and verify hashes against the ZATCA SDK.',
-    'Switch submissions from sandbox_stub to sandbox_api, then production_api.',
+    'Implementation incomplete and not certified: Resuto builds the CSR, the XAdES stamp, the Phase-2 QR and calls the FATOORA APIs, but has not been validated with the ZATCA SDK or sandbox yet. Do not use it for real invoices before that.',
+    'In the FATOORA portal, generate an OTP for the EGS unit (valid 1 hour). In Resuto → Compliance → ZATCA, enter the EGS details (serial 1-…|2-…|3-…, branch, location, industry) and the OTP: Resuto generates a secp256k1 key (sealed), sends the CSR and stores the compliance CSID sealed.',
+    'Run the compliance checks (sample simplified invoice, credit and debit notes), then request the production CSID.',
+    'Simplified invoices are then stamped and reported within 24 hours; standard invoices are cleared before sharing.',
   ],
-  capabilities: ['phase1_qr', 'ubl_xml_builder', 'reporting_stub', 'clearance_stub'],
+  capabilities: ['phase1_qr', 'ubl_xml_builder', 'csr', 'compliance_csid', 'xades_stamp_unverified', 'phase2_qr', 'reporting_client', 'clearance_client', 'not_certified'],
 };
 
 /** No network: validates the payload locally and records a clearly labelled stub result. */
