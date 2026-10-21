@@ -26,10 +26,13 @@ export function PolicyCard({ onSaved }: { onSaved?: () => void }) {
   });
   const editable = can('finance:write');
   if (!draft) return <Card title={t('finance.policy.title')}><Skeleton lines={4} /></Card>;
-  const changed = state.data && (draft.cogsMethod !== state.data.cogsMethod || draft.feesMethod !== state.data.feesMethod);
+  // A policy that was never saved (default or derived from the data) can be confirmed as is.
+  const changed = state.data && (draft.cogsMethod !== state.data.cogsMethod || draft.feesMethod !== state.data.feesMethod || (state.data.source ?? 'saved') !== 'saved');
   return (
     <Card title={t('finance.policy.title')}>
       <p className="fine">{t('finance.policy.body')}</p>
+      {state.data?.source === 'derived' && <Notice tone="warn">{t('finance.policy.derived')}</Notice>}
+      {state.data?.source === 'default' && <p className="fine">{t('finance.policy.notChosen')}</p>}
       <form onSubmit={save.run} className="stack" style={{ gap: 12 }}>
         <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
           <legend className="fine">{t('finance.policy.cogs')}</legend>

@@ -44,7 +44,7 @@ function Expenses() {
       {!list.data ? <Skeleton lines={6} /> : (
         <DataTable rows={list.data.items} rowKey={(r: any) => r.id} empty={<EmptyState title={t('finance.exp.empty')} />} columns={[
           { key: 'd', header: t('finance.exp.date'), render: (r: any) => <span dir="ltr">{r.incurredOn}</span> },
-          { key: 'c', header: t('finance.exp.category'), render: (r: any) => <>{catName(cats.data?.items.find((c) => c.id === r.categoryId)) || r.categoryName} <Badge>{t(`finance.kind.${r.categoryKind}`)}</Badge></> },
+          { key: 'c', header: t('finance.exp.category'), render: (r: any) => <>{catName(cats.data?.items.find((c) => c.id === r.categoryId)) || r.categoryName} <Badge>{t(`finance.kind.${r.categoryKind}`)}</Badge>{r.providerSettlement && <> <Badge tone="info">{t('finance.exp.settlementBadge')}</Badge></>}</> },
           { key: 'v', header: t('finance.exp.vendor'), render: (r: any) => r.vendor ?? '—' },
           { key: 'a', header: t('finance.exp.amount'), align: 'end', render: (r: any) => <span dir="ltr" className="num">{m(r.amountMinor)}</span> },
           { key: 't', header: t('finance.exp.tax'), align: 'end', render: (r: any) => <span dir="ltr" className="num">{m(r.taxMinor)}</span> },
@@ -71,9 +71,12 @@ function ExpenseModal({ expense, categories, onClose, onSaved }: { expense: any;
     tax: expense.taxMinor ? String(expense.taxMinor / 100) : '', incurredOn: expense.incurredOn ?? new Date().toISOString().slice(0, 10),
     vendor: expense.vendor ?? '', description: expense.description ?? '', paymentMethod: expense.paymentMethod ?? '',
   });
+  // DF-04: only fee expenses can be a provider settlement (left out of fees under the provider-reports policy).
+  const [settlement, setSettlement] = useState<boolean>(!!expense.providerSettlement);
+  const isFees = categories.find((c) => c.id === f.categoryId)?.kind === 'fees';
   const save = useAction(async () => {
     const body = { categoryId: f.categoryId, branchId: f.branchId || null, amountMinor: toMinor(f.amount), taxMinor: toMinor(f.tax), incurredOn: f.incurredOn,
-      vendor: f.vendor || null, description: f.description || null, paymentMethod: f.paymentMethod || null };
+      vendor: f.vendor || null, description: f.description || null, paymentMethod: f.paymentMethod || null, providerSettlement: isFees && settlement };
     if (expense.id) await call(`/o/${org.id}/finance/expenses/${expense.id}`, { method: 'PATCH', body });
     else await call(`/o/${org.id}/finance/expenses`, { body });
     onSaved();
@@ -102,6 +105,12 @@ function ExpenseModal({ expense, categories, onClose, onSaved }: { expense: any;
         <Field label={t('finance.exp.paymentMethod')} value={f.paymentMethod} maxLength={40} onChange={set('paymentMethod')} />
       </div>
       <Field label={t('finance.exp.description')} value={f.description} maxLength={500} onChange={set('description')} />
+      {isFees && (
+        <label className="check" style={{ alignItems: 'flex-start' }}>
+          <input type="checkbox" checked={settlement} onChange={(e) => setSettlement(e.target.checked)} />
+          <span>{t('finance.exp.providerSettlement')}<br /><small className="fine">{t('finance.exp.providerSettlementHelp')}</small></span>
+        </label>
+      )}
       {save.error && <Notice tone="danger">{save.error}</Notice>}
     </Modal>
   );

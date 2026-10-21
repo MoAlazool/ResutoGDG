@@ -9,6 +9,8 @@ const PATTERNS: Array<[RegExp, string]> = [
   [/^Ingredient purchases recorded as COGS expenses are treated as inventory purchases/, 'finance.warn.purchasesMemo'],
   [/^Item costs of sales are shown as a memo under the purchases policy/, 'finance.warn.itemCostMemo'],
   [/^"Fees" expenses are shown as a memo under the provider-reports policy/, 'finance.warn.feeExpensesMemo'],
+  [/^"Fees" expenses marked as provider settlements are shown as a memo/, 'finance.warn.settlementMemo'],
+  [/^No accounting policy is chosen and no item costs are recorded/, 'finance.warn.derivedPolicy'],
   [/^Provider-reported payment fees are shown as a memo under the expenses policy/, 'finance.warn.providerFeesMemo'],
   [/^(\d+) provider payment\(s\) have no fee reported yet/, 'finance.warn.unknownFees'],
   [/^(\d+) sandbox \(test\) payment\(s\) are in this period/, 'finance.warn.testPayments'],

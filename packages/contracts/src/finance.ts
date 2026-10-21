@@ -31,6 +31,11 @@ export const expenseInput = z.object({
   description: optionalText(500),
   paymentMethod: optionalText(40),
   externalRef: optionalText(120),
+  /**
+   * DF-04: a "fees" expense that records payment-provider fees Resuto already has from the provider (per payment or in a
+   * payout). Left out of payment fees under the provider-reports policy; every other expense always counts.
+   */
+  providerSettlement: z.boolean().default(false),
 }).refine((e) => e.taxMinor <= e.amountMinor, { message: 'Tax cannot exceed the amount', path: ['taxMinor'] });
 export type ExpenseInput = z.infer<typeof expenseInput>;
 export const expenseUpdate = z.object({
@@ -43,6 +48,7 @@ export const expenseUpdate = z.object({
   description: optionalText(500),
   paymentMethod: optionalText(40),
   externalRef: optionalText(120),
+  providerSettlement: z.boolean().optional(),
 });
 
 export const listExpensesQuery = z.object({
@@ -139,7 +145,15 @@ export interface ProfitAndLoss {
 // ---------------------------------------------------------------------------
 export const COGS_METHODS = ['item_cost', 'purchases'] as const;
 export const FEES_METHODS = ['provider_reports', 'expenses'] as const;
-export interface FinancePolicy { cogsMethod: (typeof COGS_METHODS)[number]; feesMethod: (typeof FEES_METHODS)[number]; updatedAt: string | null }
+export interface FinancePolicy {
+  cogsMethod: (typeof COGS_METHODS)[number]; feesMethod: (typeof FEES_METHODS)[number]; updatedAt: string | null;
+  /**
+   * DF-04: 'saved' — chosen by the restaurant; 'default' — never chosen (item-cost COGS, provider-reported fees);
+   * 'derived' — never chosen and the restaurant records ingredient purchases but no item costs, so COGS uses purchases
+   * instead of silently being zero.
+   */
+  source?: 'saved' | 'default' | 'derived';
+}
 export const financePolicyInput = z.object({ cogsMethod: z.enum(COGS_METHODS), feesMethod: z.enum(FEES_METHODS) }).strict();
 
 /** Accounting roles Resuto posts to (the provider account each maps to is set per connection). Mirrors @resuto/integrations ACCOUNT_ROLES. */

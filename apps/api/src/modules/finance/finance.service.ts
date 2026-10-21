@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { FinancePeriod, FinancePolicy, ProfitAndLoss, RevenueOverview, FinanceRevenueTotals } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
+import { loadFinancePolicy } from './policy';
 
 /** Half-away-from-zero integer division (same rounding as contracts money helpers). */
 export function roundDiv(n: number, d: number): number {
@@ -21,9 +22,9 @@ export const METHODOLOGY = [
   'Gross sales = order totals before discounts (menu prices, delivery and service charges, VAT included). Net = gross − discounts − refunds.',
   'Refunds are attributed to the original order\'s business date. The VAT inside a refund is reversed proportionally (tax × refunded ÷ total, rounded half away from zero).',
   'Net revenue excludes VAT collected, which is a liability to the tax authority, not income.',
-  'COGS follows the restaurant\'s accounting policy (Finance → Accounting policy), so a cost is never counted twice. Item-cost policy (default): COGS = recorded cost of the items sold (order_lines.cost_minor, from recipes and product costs, at order time); ingredient purchases recorded as "cogs" expenses are inventory purchases, shown as a memo and not expensed. Purchases policy: COGS = "cogs" expenses (ingredient purchases); item costs are shown as a memo only.',
+  'COGS follows the restaurant\'s accounting policy (Finance → Accounting policy), so a cost is never counted twice. A restaurant that never chose a policy and records ingredient purchases but no item costs uses the purchases policy. Item-cost policy (default): COGS = recorded cost of the items sold (order_lines.cost_minor, from recipes and product costs, at order time); ingredient purchases recorded as "cogs" expenses are inventory purchases, shown as a memo and not expensed. Purchases policy: COGS = "cogs" expenses (ingredient purchases); item costs are shown as a memo only.',
   'Expenses count net of the input VAT recorded on them (amount − tax), on their incurred date. Branch filters exclude organisation-wide expenses.',
-  'Payment fees follow the same policy: provider-reports policy (default) counts the fees reported by payment providers on payments captured in the period and shows "fees" expenses as a memo; expenses policy counts "fees" expenses and shows provider-reported fees as a memo.',
+  'Payment fees follow the same policy: provider-reports policy (default) counts the fees reported by payment providers on payments captured in the period plus "fees" expenses that are not provider settlements (terminal rental, bank charges); "fees" expenses marked as a provider settlement repeat the provider\'s figures and are a memo. Expenses policy counts "fees" expenses and shows provider-reported fees as a memo.',
   'Operating profit = net revenue − COGS − operating expenses − payment fees. All amounts are integer minor units; no estimates are added.',
 ];
 
@@ -119,6 +120,15 @@ export class FinanceService {
     return Object.fromEntries(rows.map((r) => [r.kind, Number(r.total)]));
   }
 
+  /** DF-04: "fees" expenses the owner marked as a payment-provider settlement (they repeat provider-reported fees). */
+  async settlementFeeExpenses(tx: Tx, p: FinancePeriod): Promise<number> {
+    const r = await tx.one<{ total: string }>(
+      `select coalesce(sum(e.amount_minor - e.tax_minor), 0)::bigint as total from expenses e join expense_categories c on c.id = e.category_id
+        where e.org_id = app.current_org_id() and c.kind = 'fees' and e.provider_settlement and e.incurred_on between $1::date and $2::date
+          and ($3::uuid is null or e.branch_id = $3)`, [p.from, p.to, p.branchId ?? null]);
+    return Number(r.total);
+  }
+
   async paymentFees(tx: Tx, p: FinancePeriod) {
     const rows = await tx.query<any>(
       `select p.provider, p.method::text as method, coalesce(sum(p.fee_minor), 0)::bigint as fees, count(*)::int as n,
@@ -148,11 +158,10 @@ export class FinanceService {
     return this.db.scoped(ctx, (tx) => this.pnlTx(tx, p));
   }
 
-  /** DF-04: the organisation's accounting policy (defaults: item-cost COGS, provider-reported fees). */
+  /** DF-04: the organisation's accounting policy (see loadFinancePolicy for the defaults). */
   async policy(tx: Tx): Promise<FinancePolicy> {
-    const r = await tx.maybeOne<{ cogs_method: FinancePolicy['cogsMethod']; fees_method: FinancePolicy['feesMethod']; updated_at: Date }>(
-      'select cogs_method, fees_method, updated_at from finance_settings where org_id = app.current_org_id()');
-    return { cogsMethod: r?.cogs_method ?? 'item_cost', feesMethod: r?.fees_method ?? 'provider_reports', updatedAt: r ? new Date(r.updated_at).toISOString() : null };
+    const { id } = await tx.one<{ id: string }>('select app.current_org_id() as id');
+    return loadFinancePolicy(tx, id);
   }
 
   async pnlTx(tx: Tx, p: FinancePeriod): Promise<ProfitAndLoss> {
@@ -163,6 +172,10 @@ export class FinanceService {
     const fees = await this.paymentFees(tx, p);
     const purchases = byKind.cogs ?? 0;
     const feeExpenses = byKind.fees ?? 0;
+    // Only fee expenses marked as a provider settlement repeat the provider's statement; the rest (terminal rental,
+    // bank charges) are real costs under either policy.
+    const settlementFees = Math.min(feeExpenses, await this.settlementFeeExpenses(tx, p));
+    const otherFeeExpenses = feeExpenses - settlementFees;
     const opexByKind = Object.fromEntries(Object.entries(byKind).filter(([k]) => k !== 'cogs' && k !== 'fees'));
     const opex = Object.values(opexByKind).reduce((s, v) => s + v, 0);
     // Exactly one source per cost, by policy; the other is a memo line (never added).
@@ -170,17 +183,18 @@ export class FinanceService {
     const cogsFromSales = itemCost ? cogs.fromSales : 0;
     const cogsExpenses = itemCost ? 0 : purchases;
     const providerFees = policy.feesMethod === 'provider_reports';
-    const paymentFees = providerFees ? fees.totalFeesMinor : feeExpenses;
+    const paymentFees = providerFees ? fees.totalFeesMinor + otherFeeExpenses : feeExpenses;
     const netRevenue = rev.totals.netExVatMinor;
     const cogsTotal = cogsFromSales + cogsExpenses;
     const grossProfit = netRevenue - cogsTotal;
     const operatingProfit = grossProfit - opex - paymentFees;
     const { demo } = await tx.one<{ demo: boolean }>(`select coalesce((onboarding->>'demo')::boolean, false) as demo from organizations where id = app.current_org_id()`);
     const warnings = rev.warnings.filter((w) => !w.startsWith('No orders'));
+    if (policy.source === 'derived') warnings.push('No accounting policy is chosen and no item costs are recorded, so COGS uses ingredient purchases ("cogs" expenses). Choose a policy under Finance → Accounting policy.');
     if (itemCost && cogs.linesWithoutCost) warnings.push(`${cogs.linesWithoutCost} sold line(s) have no recorded cost; COGS is understated for those items.`);
     if (itemCost && purchases > 0) warnings.push('Ingredient purchases recorded as COGS expenses are treated as inventory purchases under the item-cost policy (memo line), not as an expense.');
     if (!itemCost && cogs.fromSales > 0) warnings.push('Item costs of sales are shown as a memo under the purchases policy; COGS comes from ingredient purchases.');
-    if (providerFees && feeExpenses > 0) warnings.push('"Fees" expenses are shown as a memo under the provider-reports policy, because provider statements already include them.');
+    if (providerFees && settlementFees > 0) warnings.push('"Fees" expenses marked as provider settlements are shown as a memo under the provider-reports policy, because the provider-reported fees already include them.');
     if (!providerFees && fees.totalFeesMinor > 0) warnings.push('Provider-reported payment fees are shown as a memo under the expenses policy.');
     if (providerFees && fees.paymentsWithUnknownFee) warnings.push(`${fees.paymentsWithUnknownFee} provider payment(s) have no fee reported yet; run reconciliation to capture fees.`);
     if (fees.testPayments) warnings.push(`${fees.testPayments} sandbox (test) payment(s) are in this period.`);
@@ -193,7 +207,7 @@ export class FinanceService {
         netRevenueMinor: netRevenue, cogsFromSalesMinor: cogsFromSales, cogsExpensesMinor: cogsExpenses, cogsMinor: cogsTotal, grossProfitMinor: grossProfit,
         operatingExpensesMinor: opex, operatingExpensesByKind: opexByKind, paymentFeesMinor: paymentFees, operatingProfitMinor: operatingProfit,
         memo: { inventoryPurchasesMinor: itemCost ? purchases : 0, itemCostOfSalesMinor: itemCost ? 0 : cogs.fromSales,
-          feeExpensesMinor: providerFees ? feeExpenses : 0, providerReportedFeesMinor: providerFees ? 0 : fees.totalFeesMinor },
+          feeExpensesMinor: providerFees ? settlementFees : 0, providerReportedFeesMinor: providerFees ? 0 : fees.totalFeesMinor },
       },
       policy,
       grossMarginBp: bp(grossProfit, netRevenue), operatingMarginBp: bp(operatingProfit, netRevenue),

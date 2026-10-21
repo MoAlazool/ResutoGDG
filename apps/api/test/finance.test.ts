@@ -13,7 +13,8 @@ import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededM
 //   C  1 × Soda    2500 — cancelled (excluded)
 //   D  1 × Fries   4500 − 10 % promo = 4050, VAT 497, cost 1350 — unpaid
 //   E  1 × Fries   4500 in August (VAT 553, cost 1350) — previous month for the margin trend
-// Expenses (September): rent 100000; utilities 20000 incl. 2800 VAT; ingredients (cogs) 5000 incl. 700 VAT; payment fees 1000.
+// Expenses (September): rent 100000; utilities 20000 incl. 2800 VAT; ingredients (cogs) 5000 incl. 700 VAT; payment fees 1000
+// (the provider's fee statement, marked as a provider settlement).
 // Expenses (August): utilities 10000.
 let t: TestApp;
 let db: DbService;
@@ -51,12 +52,14 @@ beforeAll(async () => {
   await sql(`update orders set business_date = '2026-08-20', placed_at = '2026-08-20T12:00:00+02' where id = $1`, [e.id]);
   await sql(`update payments set captured_at = '2026-09-10T12:30:00+02', created_at = '2026-09-10T12:30:00+02' where org_id = $1`, [tenant.orgId]);
   const cat = async (name: string) => (await sql(`select id from expense_categories where org_id = $1 and name = $2`, [tenant.orgId, name]))[0].id;
-  const exp = (category: string, amount: number, tax: number, on: string) => sql(
-    `insert into expenses(org_id, category_id, amount_minor, tax_minor, currency, incurred_on) values ($1, $2, $3, $4, 'EGP', $5)`, [tenant.orgId, category, amount, tax, on]);
+  const exp = (category: string, amount: number, tax: number, on: string, providerSettlement = false) => sql(
+    `insert into expenses(org_id, category_id, amount_minor, tax_minor, currency, incurred_on, provider_settlement) values ($1, $2, $3, $4, 'EGP', $5, $6)`,
+    [tenant.orgId, category, amount, tax, on, providerSettlement]);
   await exp(await cat('Rent'), 100000, 0, '2026-09-01');
   await exp(await cat('Utilities'), 20000, 2800, '2026-09-15');
   await exp(await cat('Ingredients'), 5000, 700, '2026-09-05');
-  await exp(await cat('Payment fees'), 1000, 0, '2026-09-30');
+  // The provider's own fee statement entered as an expense (marked as a provider settlement).
+  await exp(await cat('Payment fees'), 1000, 0, '2026-09-30', true);
   await exp(await cat('Utilities'), 10000, 0, '2026-08-15');
 });
 afterAll(async () => { await t.close(); });
@@ -79,7 +82,7 @@ describe('finance read models on a controlled dataset', () => {
     expect(r.status).toBe(200);
     // DF-04: the default policy (item-cost COGS, provider-reported fees) counts each cost once. The ingredient purchase
     // (5000 incl. 700 VAT) is an inventory purchase memo, not COGS; the "Payment fees" expense (1000) duplicates the
-    // provider's statement and is a memo. (Before DF-04 both were added: COGS 9850 and fees 1150.)
+    // provider's statement (marked as a provider settlement) and is a memo. (Before DF-04 both were added: COGS 9850 and fees 1150.)
     expect(r.body.lines).toEqual({
       grossSalesMinor: 18500, discountsMinor: 450, refundsMinor: 3000, vatMinor: 1848, netRevenueMinor: 13202,
       cogsFromSalesMinor: 5550, cogsExpensesMinor: 0, cogsMinor: 5550, grossProfitMinor: 7652,
@@ -87,14 +90,14 @@ describe('finance read models on a controlled dataset', () => {
       paymentFeesMinor: 150, operatingProfitMinor: -109698,
       memo: { inventoryPurchasesMinor: 4300, itemCostOfSalesMinor: 0, feeExpensesMinor: 1000, providerReportedFeesMinor: 0 },
     });
-    expect(r.body.policy).toMatchObject({ cogsMethod: 'item_cost', feesMethod: 'provider_reports' });
+    expect(r.body.policy).toMatchObject({ cogsMethod: 'item_cost', feesMethod: 'provider_reports', source: 'default' });
     expect(r.body.grossMarginBp).toBe(5796);
     expect(r.body.operatingMarginBp).toBe(-83092);
     expect(r.body.coverage).toEqual({ linesWithoutCost: 0, salesWithoutCostMinor: 0, unpaidOrders: 1, paymentsWithUnknownFee: 0, testPayments: 0, costedSalesBp: 10000 });
     expect(r.body.isSyntheticData).toBe(false);
     expect(r.body.methodology.length).toBeGreaterThan(4);
     expect(r.body.warnings).toContain('Ingredient purchases recorded as COGS expenses are treated as inventory purchases under the item-cost policy (memo line), not as an expense.');
-    expect(r.body.warnings).toContain('"Fees" expenses are shown as a memo under the provider-reports policy, because provider statements already include them.');
+    expect(r.body.warnings).toContain('"Fees" expenses marked as provider settlements are shown as a memo under the provider-reports policy, because the provider-reported fees already include them.');
     const fees = await t.http.get(`/v1/o/${tenant.orgId}/finance/fees?${q}`).set(auth(accountant));
     expect(fees.body).toMatchObject({ totalFeesMinor: 150, items: [{ provider: 'manual', method: 'cash', feesMinor: 0 }, { provider: 'paymob', method: 'card', feesMinor: 150, volumeMinor: 5000 }] });
   });
@@ -223,8 +226,54 @@ describe('accounting policy (DF-04) and journals beyond sales (FT-23)', () => {
     expect([amount(cogs, 'cogs', 'debitMinor'), amount(cogs, 'inventory', 'creditMinor')]).toEqual([5550, 5550]);
     const fees = byRef('RSF-', '2026-09-10');
     expect([amount(fees, 'payment_fees', 'debitMinor'), amount(fees, 'card_clearing', 'creditMinor')]).toEqual([150, 150]);
-    // The "Payment fees" expense of 2026-09-30 duplicates the provider statement under this policy: no journal.
-    expect(byRef('RSE-', '2026-09-30')).toBeUndefined();
+    // The provider-settlement fee expense of 2026-09-30 is not expensed again (RSF already did), but the money owed for
+    // it is still journaled: it settles the clearing account the provider fees were credited to.
+    const settled = byRef('RSE-', '2026-09-30');
+    expect([amount(settled, 'card_clearing', 'debitMinor'), amount(settled, 'payment_fees', 'debitMinor'), amount(settled, 'accounts_payable', 'creditMinor')]).toEqual([1000, 0, 1000]);
+  });
+
+  it('counts "fees" expenses that are not provider settlements and journals every expense (review regression)', async () => {
+    const N = new URLSearchParams({ from: '2026-11-01', to: '2026-11-30' }).toString();
+    const cats = (await t.http.get(F('/expense-categories')).set(auth(accountant))).body.items;
+    const feesCat = cats.find((c: any) => c.kind === 'fees').id;
+    const rental = await t.http.post(F('/expenses')).set(auth(accountant))
+      .send({ categoryId: feesCat, amountMinor: 1200, incurredOn: '2026-11-05', vendor: 'POS terminal rental', paymentMethod: 'bank' });
+    expect(rental.status, JSON.stringify(rental.body)).toBe(201);
+    expect(rental.body.providerSettlement).toBe(false);
+    const statement = await t.http.post(F('/expenses')).set(auth(accountant))
+      .send({ categoryId: feesCat, amountMinor: 300, incurredOn: '2026-11-05', vendor: 'Paymob fee invoice', paymentMethod: 'bank', providerSettlement: true });
+    expect(statement.body.providerSettlement).toBe(true);
+    try {
+      const r = await t.http.get(F(`/pnl?${N}`)).set(auth(accountant));
+      // Terminal rental is a real cost (not on any provider statement); only the provider's own fee invoice is a memo.
+      expect(r.body.lines).toMatchObject({ paymentFeesMinor: 1200, memo: { feeExpensesMinor: 300 } });
+      const j = await t.http.get(F(`/accounting/journal?${N}`)).set(auth(accountant));
+      const e = j.body.entries.find((x: any) => x.reference.startsWith('RSE-') && x.date === '2026-11-05');
+      const amount = (role: string, side: 'debitMinor' | 'creditMinor') => e.lines.filter((l: any) => l.role === role).reduce((s: number, l: any) => s + l[side], 0);
+      expect([amount('payment_fees', 'debitMinor'), amount('card_clearing', 'debitMinor'), amount('bank', 'creditMinor')]).toEqual([1200, 300, 1500]);
+      // Under the expenses policy both are payment fees and the provider-reported fees become the memo.
+      await t.http.put(F('/policy')).set(auth(accountant)).send({ cogsMethod: 'item_cost', feesMethod: 'expenses' });
+      expect((await t.http.get(F(`/pnl?${N}`)).set(auth(accountant))).body.lines).toMatchObject({ paymentFeesMinor: 1500, memo: { feeExpensesMinor: 0 } });
+    } finally {
+      await t.http.put(F('/policy')).set(auth(accountant)).send({ cogsMethod: 'item_cost', feesMethod: 'provider_reports' });
+      for (const id of [rental.body.id, statement.body.id]) await t.http.delete(F(`/expenses/${id}`)).set(auth(tenant.owner));
+    }
+  });
+
+  it('uses the purchases method for a restaurant that never chose a policy and records purchases but no item costs', async () => {
+    const other = await createTenant(t, { country: 'EG' });
+    const G = (path: string) => `/v1/o/${other.orgId}/finance${path}`;
+    const cats = (await t.http.get(G('/expense-categories')).set(auth(other.owner))).body.items;
+    expect((await t.http.post(G('/expenses')).set(auth(other.owner)).send({ categoryId: cats.find((c: any) => c.kind === 'cogs').id, amountMinor: 5700, taxMinor: 700, incurredOn: '2026-09-05' })).status).toBe(201);
+    const pol = await t.http.get(G('/policy')).set(auth(other.owner));
+    expect(pol.body).toMatchObject({ cogsMethod: 'purchases', feesMethod: 'provider_reports', source: 'derived', updatedAt: null });
+    const r = await t.http.get(G(`/pnl?${q}`)).set(auth(other.owner));
+    expect(r.body.lines).toMatchObject({ cogsExpensesMinor: 5000, cogsMinor: 5000, memo: { inventoryPurchasesMinor: 0 } });
+    expect(r.body.warnings.some((w: string) => w.startsWith('No accounting policy is chosen and no item costs are recorded'))).toBe(true);
+    const j = await t.http.get(G(`/accounting/journal?${q}`)).set(auth(other.owner));
+    expect(j.body.entries.flatMap((e: any) => e.lines.map((l: any) => l.role))).toContain('cogs');
+    await t.http.put(G('/policy')).set(auth(other.owner)).send({ cogsMethod: 'item_cost', feesMethod: 'provider_reports' });
+    expect((await t.http.get(G('/policy')).set(auth(other.owner))).body).toMatchObject({ cogsMethod: 'item_cost', source: 'saved' });
   });
 
   it('records provider payouts and journals them against the clearing account', async () => {

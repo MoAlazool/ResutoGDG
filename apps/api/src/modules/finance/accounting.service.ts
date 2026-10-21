@@ -6,6 +6,7 @@ import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { PaymentProvidersService } from '../payments/providers.service';
+import { loadFinancePolicy } from './policy';
 
 const METHOD_ACCOUNT: Record<string, AccountRole> = {
   cash: 'cash', cod: 'cash', card: 'card_clearing', test: 'card_clearing', wallet: 'wallet_clearing', instapay: 'bank', bank_transfer: 'bank', deposit_credit: 'receivables',
@@ -94,8 +95,9 @@ export class AccountingService {
     const policy = await this.policy(tx, orgId);
     const out: JournalEntry[] = [];
     const b = q.branchId ?? null;
-    const expenses = await tx.query<{ d: string; kind: string; amount: string; tax: string; paid: string | null }>(
-      `select e.incurred_on::text as d, c.kind, e.amount_minor::text as amount, e.tax_minor::text as tax, e.payment_method as paid
+    const expenses = await tx.query<{ d: string; kind: string; amount: string; tax: string; paid: string | null; settlement: boolean }>(
+      `select e.incurred_on::text as d, c.kind, e.amount_minor::text as amount, e.tax_minor::text as tax, e.payment_method as paid,
+              e.provider_settlement as settlement
          from expenses e join expense_categories c on c.id = e.category_id
         where e.org_id = $1 and e.incurred_on between $2::date and $3::date and ($4::uuid is null or e.branch_id = $4) order by e.incurred_on, e.id`,
       [orgId, q.from, q.to, b]);
@@ -106,15 +108,20 @@ export class AccountingService {
       const add = (m: Map<AccountRole, number>, r: AccountRole, v: number) => m.set(r, (m.get(r) ?? 0) + v);
       for (const e of day) {
         const net = Number(e.amount) - Number(e.tax);
-        // Fee expenses duplicate provider statements under the provider-reports policy: not journaled as fees again.
-        if (e.kind === 'fees' && policy.feesMethod === 'provider_reports') continue;
-        const role: AccountRole = e.kind === 'cogs' ? (policy.cogsMethod === 'item_cost' ? 'inventory' : 'cogs') : EXPENSE_ACCOUNT[e.kind] ?? 'expenses_other';
+        // Every expense moves money (or creates a payable), so its credit line is always journaled. Only the debit of a
+        // fee expense marked as a provider settlement changes under the provider-reports policy: the fee itself is
+        // already journaled from the provider's figures (RSF/RSP, debit payment fees, credit clearing), so paying the
+        // provider's fee invoice settles the clearing account instead of expensing the fee a second time.
+        const settles = e.kind === 'fees' && e.settlement && policy.feesMethod === 'provider_reports';
+        const role: AccountRole = settles ? 'card_clearing'
+          : e.kind === 'cogs' ? (policy.cogsMethod === 'item_cost' ? 'inventory' : 'cogs') : EXPENSE_ACCOUNT[e.kind] ?? 'expenses_other';
         add(debit, role, net);
         if (Number(e.tax) > 0) add(debit, 'vat_input', Number(e.tax));
         add(credit, EXPENSE_PAID_FROM[(e.paid ?? '').toLowerCase()] ?? 'accounts_payable', Number(e.amount));
       }
       const lines: JournalLine[] = [
-        ...[...debit].filter(([, v]) => v > 0).map(([role, v]) => ({ role, description: role === 'vat_input' ? 'Input VAT on expenses' : `Expenses (${role})`, debitMinor: v, creditMinor: 0 })),
+        ...[...debit].filter(([, v]) => v > 0).map(([role, v]) => ({ role, description: role === 'vat_input' ? 'Input VAT on expenses'
+          : role === 'card_clearing' ? 'Provider fees settled (already expensed from provider figures)' : `Expenses (${role})`, debitMinor: v, creditMinor: 0 })),
         ...[...credit].filter(([, v]) => v > 0).map(([role, v]) => ({ role, description: role === 'accounts_payable' ? 'Unpaid expenses (payable)' : `Expenses paid (${role})`, debitMinor: 0, creditMinor: v })),
       ];
       if (lines.length) out.push({ reference: `RSE-${org.slug}-${d}${suffix}`, date: d, currency: org.currency, memo: `Resuto expenses ${d}`, lines });
@@ -159,8 +166,7 @@ export class AccountingService {
   }
 
   private async policy(tx: Tx, orgId: string): Promise<FinancePolicy> {
-    const r = await tx.maybeOne<any>('select cogs_method, fees_method, updated_at from finance_settings where org_id = $1', [orgId]);
-    return { cogsMethod: r?.cogs_method ?? 'item_cost', feesMethod: r?.fees_method ?? 'provider_reports', updatedAt: r ? new Date(r.updated_at).toISOString() : null };
+    return loadFinancePolicy(tx, orgId);
   }
 
   // ---------------------------------------------------------------------------

@@ -11,6 +11,8 @@ const API_WARNINGS = [
   'Item costs of sales are shown as a memo under the purchases policy; COGS comes from ingredient purchases.',
   '"Fees" expenses are shown as a memo under the provider-reports policy, because provider statements already include them.',
   'Provider-reported payment fees are shown as a memo under the expenses policy.',
+  '"Fees" expenses marked as provider settlements are shown as a memo under the provider-reports policy, because the provider-reported fees already include them.',
+  'No accounting policy is chosen and no item costs are recorded, so COGS uses ingredient purchases ("cogs" expenses). Choose a policy under Finance → Accounting policy.',
   '2 provider payment(s) have no fee reported yet; run reconciliation to capture fees.',
   '17 sandbox (test) payment(s) are in this period.',
   'Organisation-wide expenses (no branch) are excluded from a single-branch P&L.',
