@@ -21,13 +21,15 @@ measurements, redeploy staging and re-verify.
 | Wave 2: public pages + Smash storefront, guest ordering/reservations, performance, Meta growth | done, on staging (API) at `85c176e` |
 | Wave 3: operations UI (KDS, floor, host, setup), module features (loyalty, notifications, hours/zones…), Studio AI + MCP | done, on staging (API) at `93abad9` |
 | Wave 4: other integrations (TikTok/Snap, Foodics, accounting, ZATCA/ETA, domains, notifications, maps, Gemini, push), demo data integrity, observability, QA gates | done, on staging (API) at `d207114` |
-| Wave 4b: API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB role, shared rate limits) | in progress |
+| Wave 5: auth hardening (Free plan, no SMTP) + API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB roles, shared rate limits) | done, on staging: web/AI/MCP `23f0a99`, API `688bb4b` |
 | P2: remaining integrations, Studio AI, MCP interop, advanced performance, research | pending |
 | Staging redeploy + full regression on the final commit | pending |
 
 ## Next executable task
-Finish ws10b-api-quality (PS-13/16/19-23), merge, redeploy, then the final full regression, legacy-vs-new gallery
-and handoff report.
+Final regression on the head commit, the legacy-vs-new comparison gallery (captures in progress in the programme
+scratchpad), the handoff report. Staging soak: watch the API log for `platform role lacks a grant`; when clean, set
+`DATABASE_PLATFORM_FALLBACK=off` (or remove it) and, with the owner, switch `DATABASE_URL` to the `resuto_api` login
+(steps in `docs/STAGING_DEPLOYMENT.md`).
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
 - **Vercel**: the claude.ai Vercel connector still has no grant for team "ta-nk", so deploys use the Vercel CLI,

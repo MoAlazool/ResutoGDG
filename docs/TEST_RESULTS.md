@@ -170,3 +170,49 @@ time). `d207114` repairs them on refresh (demo tenant only, nothing deleted); bo
 added, 75 order timeline(s) … re-dated", "all assertions hold". `smoke.mjs` **40 / 40**, `mcp-check.mjs` **7 / 7** at
 `d207114`. The Smash & Co storefront is now published on staging (`/r/the-olive-room/smash-and-co`).
 The web app on Vercel is still not redeployed (connector access, see `RESUME.md`).
+
+## Continuation wave 5 (auth hardening, API quality) — integrated (2026-10-21, `7400bb6`, `23f0a99`, `688bb4b`)
+
+Auth hardening for the Supabase Free plan (ws11): breached/common password checks (Pwned Passwords k-anonymity range
+API; a client-side compensating control because leaked-password protection is a paid feature), TOTP MFA with aal2
+step-up for enrolled users on platform-admin, payment/integration credential, MCP and role-grant routes, email flows
+completed and labelled unverified without SMTP, `docs/SECURITY_AUTH.md`. API quality (ws10b): one error contract with
+a code registry and request ids, validated list queries and keyset pagination with real cursors, 200 for
+non-creating actions, OpenAPI 3.1 at `/v1/openapi.json` (487 operations) with a CI drift/style gate, NOLOGIN
+least-privilege roles (`resuto_platform`, `resuto_api`; platform mode runs as `resuto_platform`), shared rate limits.
+Independent reviews: ws11 2 major + 2 minor, ws10b 4 major + 1 minor; all fixed before merging.
+
+Cross-branch defects found while merging and fixed in `23f0a99`: the MFA guard read `auth.mfa_factors` in platform
+mode, which now runs as `resuto_platform` (no rights in Supabase's auth schema) — every MFA-protected route would
+have failed on staging; replaced by the owner-defined `app.user_has_verified_mfa(uuid)` (migration `20261022030003`),
+proven by running the MFA suite as the restricted `resuto_api` login. The error-code registry gained the two MFA codes.
+
+| Suite (`23f0a99`) | Result |
+|---|---|
+| API integration (101 files, owner connection) | **864 passed, 4 skipped / 868** |
+| API MFA + error contract + roles + pagination + rate limits as restricted `resuto_api` | pass (23/23 for the merge fixes) |
+| Database security / roles | **76 / 76** |
+| Contracts | **59 / 59** |
+| Integrations | **314 / 314** |
+| MCP server | **25 / 25** |
+| Web unit | **308 / 308** |
+| Demo loader / UI scripts | **47 / 47** |
+| API + web typecheck, web production build, bundle budget gate | pass |
+
+Staging checks done against the real Supabase project before deploying (read-only or rolled back): PostgreSQL 17.11;
+the non-superuser `postgres` role can create a NOLOGIN role, grant it to itself and `SET ROLE` to it (probe in a
+rolled-back transaction, nothing left behind); pgcrypto lives in `extensions`, but the API computes every hash in
+Node, not SQL; `postgres` can read `auth.mfa_factors` (0 factors enrolled).
+
+Staging deployment:
+- API/AI/MCP (Render) at `23f0a99`: migrations `20261022030001..3` applied; boot log
+  `platform mode runs as resuto_platform, NOT enforced: DATABASE_PLATFORM_FALLBACK=log-and-retry` (staging soak, see
+  `docs/STAGING_DEPLOYMENT.md`); no `platform role lacks a grant` / permission-denied lines since.
+- The demo integrity check on that boot failed `no_stale_reservations` (a booking an earlier run made two days ahead
+  had passed); fixed in `688bb4b` (every refresh retires past-due bookings), reproduced and verified locally first;
+  staging boot log at `688bb4b`: "reservations: 1 earlier booking(s) whose time passed marked no-show", "all
+  assertions hold".
+- Web (Vercel CLI, production deployment of the staging project) at `23f0a99`: `dpl_GPhmxSXDAHunyhM6RPpZqDTkARG1`,
+  aliased to https://resuto-2-staging-web.vercel.app; Deployment Protection on (`ssoProtection: all`, 0 bypasses);
+  every URL answers 302 to Vercel login.
+- `smoke.mjs` **40 / 40**, `mcp-check.mjs` **7 / 7** at `688bb4b` (API) / `23f0a99` (web, AI, MCP).
