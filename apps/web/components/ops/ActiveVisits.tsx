@@ -1,51 +1,24 @@
 'use client';
 // Active visits (VS-13), restored from the legacy "Active visits" tab: one card per open table visit with "Accepting
-// orders" / "Billing locked", the bill total and what remains, and Close visit (a manager can force-close a visit
-// that is not settled, after a styled confirm). Pickup and delivery orders that are still open or unpaid are listed
+// orders" / "Billing locked", the bill total and what remains, and Close visit (only a manager is offered force-close
+// for a visit that is not settled, after a styled confirm; others are told to settle the bill first). Pickup and delivery orders that are still open or unpaid are listed
 // below them, as the legacy board listed off-site visits.
 import Link from 'next/link';
-import { useState } from 'react';
 import type { OrderSummary, VisitSummary } from '@resuto/contracts';
-import { Badge, EmptyState, Notice, PageHeading, useConfirm, useToast } from '@resuto/ui';
-import { ApiRequestError } from '@/lib/api';
+import { Badge, EmptyState, Notice, PageHeading } from '@resuto/ui';
+import { useVisitActions } from '@/components/floor/LiveFloor';
 import { formatWhen, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import './ops.css';
 
-export function ActiveVisits({ orgId, branchId, timezone, canClose, ordersHref }: { orgId: string; branchId: string; timezone: string; canClose: boolean; ordersHref: string | null }) {
+export function ActiveVisits({ orgId, branchId, timezone, canClose, canForce, ordersHref }: {
+  orgId: string; branchId: string; timezone: string; canClose: boolean; canForce: boolean; ordersHref: string | null;
+}) {
   const { t, locale } = useT();
-  const session = useSession();
-  const toast = useToast();
-  const [confirm, confirmDialog] = useConfirm(locale);
   const visits = useApi<{ items: VisitSummary[] }>(`/o/${orgId}/visits?branchId=${branchId}`, { pollMs: 5000 });
   const offsite = useApi<{ items: OrderSummary[] }>(`/o/${orgId}/orders?branchId=${branchId}&status=placed,accepted,preparing,ready&limit=50`, { pollMs: 5000 });
-  const [busy, setBusy] = useState<string | null>(null);
-
-  const close = async (v: VisitSummary) => {
-    if (busy) return;
-    const label = v.tableLabel ?? '';
-    setBusy(v.id);
-    try {
-      await session.call(`/o/${orgId}/visits/${v.id}/close`, { body: {} });
-      toast.show({ message: t('studio.live.closed', { label }), tone: 'ok' });
-    } catch (e) {
-      const err = e as ApiRequestError;
-      setBusy(null);
-      if ((err.status === 409 || err.status === 422) && canClose) {
-        const ok = await confirm({ title: t('studio.live.forceTitle'), body: `${err.message} ${t('ops.visits.forceBody')}`, confirmLabel: t('studio.live.forceClose'), tone: 'danger' });
-        if (ok) {
-          setBusy(v.id);
-          try { await session.call(`/o/${orgId}/visits/${v.id}/close`, { body: { force: true } }); toast.show({ message: t('studio.live.closed', { label }), tone: 'ok' }); }
-          catch (e2) { toast.show({ message: (e2 as Error).message, tone: 'danger' }); }
-        }
-      } else toast.show({ message: err.message, tone: 'danger' });
-    } finally {
-      setBusy(null);
-      void visits.reload();
-    }
-  };
+  const { busy, confirmDialog, close } = useVisitActions(orgId, canForce, () => visits.reload());
 
   const off = (offsite.data?.items ?? []).filter((o) => o.fulfillment !== 'dine_in');
   return (
@@ -66,7 +39,7 @@ export function ActiveVisits({ orgId, branchId, timezone, canClose, ordersHref }
                 <div className="bill-row"><span>{t('ops.visits.billTotal')}</span><strong className="num">{money(v.totalMinor, v.currency, locale)}</strong></div>
                 <div className="bill-row"><span>{t('ops.floor.remaining')}</span><strong className="num">{money(v.dueMinor, v.currency, locale)}</strong></div>
                 {v.openOrders > 0 && <p className="fine">{t('ops.visits.openOrders', { n: v.openOrders })}</p>}
-                {canClose && <button type="button" className="btn" disabled={busy === v.id} onClick={() => void close(v)}>{t('ops.floor.closeVisit')}</button>}
+                {canClose && <button type="button" className="btn" disabled={busy} onClick={() => void close({ visitId: v.id, label: v.tableLabel ?? '' })}>{t('ops.floor.closeVisit')}</button>}
               </section>
             ))}
           </div>

@@ -58,6 +58,7 @@ const en: Record<string, string> = {
   'ops.visits.emptyTitle': 'No active visits', 'ops.visits.emptyBody': 'Seat a table or start a pickup order to begin.',
   'ops.visits.offsiteTitle': 'Pickup and delivery in progress',
   'ops.visits.forceBody': 'Force-closing writes off what is unpaid; refunds are issued from the payment.',
+  'ops.visits.settleFirst': 'Settle the bill first, or ask a manager to force-close the visit.',
   // Floor Studio (full screen)
   'ops.studio.back': 'Back to service', 'ops.studio.choices': 'How to build the floor', 'ops.studio.manual': 'Build manually',
   'ops.studio.upload': 'Upload floor plan', 'ops.studio.ai': 'Create from restaurant photos with AI', 'ops.studio.aiSoon': 'Coming soon',
@@ -216,6 +217,7 @@ const ar: Record<string, string> = {
   'ops.visits.emptyTitle': 'لا توجد زيارات نشطة', 'ops.visits.emptyBody': 'أجلس ضيوفًا على طاولة أو ابدأ طلب استلام.',
   'ops.visits.offsiteTitle': 'طلبات استلام وتوصيل جارية',
   'ops.visits.forceBody': 'الإنهاء الإجباري يشطب غير المدفوع؛ وتُصرف المبالغ المستردة من الدفعة.',
+  'ops.visits.settleFirst': 'سدّد الفاتورة أولًا، أو اطلب من المدير إنهاء الزيارة إجباريًا.',
   'ops.studio.back': 'العودة للخدمة', 'ops.studio.choices': 'طريقة بناء الصالة', 'ops.studio.manual': 'بناء يدوي',
   'ops.studio.upload': 'رفع مخطط الصالة', 'ops.studio.ai': 'إنشاء من صور المطعم بالذكاء الاصطناعي', 'ops.studio.aiSoon': 'قريبًا',
   'ops.host.nav': 'الاستقبال', 'ops.host.title': 'الاستقبال', 'ops.host.subtitle': 'مين موجود، وإيه المتاح، ومين اللي جاي.',

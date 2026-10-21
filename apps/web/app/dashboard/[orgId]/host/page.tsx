@@ -5,12 +5,12 @@
 import { useMemo, useState } from 'react';
 import { RESERVATION_RULES, type ReservationView } from '@resuto/contracts';
 import { Badge, PageHeading, StatsStrip, StatsStripSkeleton, ToastProvider, useToast } from '@resuto/ui';
-import { FloorMapPanel, LIVE_POLL_MS, TableDetail, WalkInDialog, useLiveFloor } from '@/components/floor/LiveFloor';
-import { liveCounts, liveState, type LiveTable } from '@/components/floor/live';
+import { FloorMapPanel, LIVE_POLL_MS, TableDetail, WalkInDialog, useLiveFloor, useVisitActions } from '@/components/floor/LiveFloor';
+import { liveCounts, liveState } from '@/components/floor/live';
+import { canForceClose } from '@/components/floor/visit-actions';
 import { ServiceRequestList, useServiceRequests } from '@/components/ops/ServiceRequests';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
-import { newIdempotencyKey } from '@/lib/api';
 import { money, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -35,24 +35,28 @@ function FrontDesk() {
   const bookings = useApi<{ items: ReservationView[] }>(can('reservations:read') ? `/o/${org.id}/reservations?branchId=${branchId}&date=${date}&status=confirmed,held,pending_deposit` : null, { pollMs: 15_000 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [walkIn, setWalkIn] = useState(false);
-  const [busy, setBusy] = useState(false);
   const tables = useMemo(() => live.data?.tables ?? [], [live.data]);
   const free = tables.filter((x) => liveState(x).key === 'available');
   const openBills = tables.filter((x) => x.visit && x.visit.dueMinor > 0);
   const now = Date.now();
+  // As legacy host.js: 'Booked today' and 'Arriving today' are the same list (today's confirmed/held bookings that have
+  // not ended, first 12), so the KPI counts who is still to come, not every booking of the day.
   const arriving = (bookings.data?.items ?? []).filter((r) => Date.parse(r.endsAt) > now).slice(0, 12);
 
-  const act = async (fn: () => Promise<unknown>, ok: string) => {
+  // Seat, close visit, release and mark clean: the same handlers as the Floor overview (no inert buttons, VS-12).
+  const visit = useVisitActions(org.id, canForceClose(org.role), async () => { await live.reload(); void bookings.reload(); void requests.reload(); });
+  const [checking, setChecking] = useState(false);
+  const busy = visit.busy || checking;
+  const checkIn = async (r: ReservationView) => {
     if (busy) return;
-    setBusy(true);
-    try { await fn(); toast.show({ message: ok, tone: 'ok' }); await live.reload(); void bookings.reload(); }
-    catch (e) { toast.show({ message: (e as Error).message, tone: 'danger' }); }
-    finally { setBusy(false); }
+    setChecking(true);
+    try {
+      await session.call(`/o/${org.id}/reservations/${r.id}/check-in`, { body: {} });
+      toast.show({ message: t('ops.host.checkedIn', { name: r.guestName }), tone: 'ok' });
+      await live.reload(); void bookings.reload();
+    } catch (e) { toast.show({ message: (e as Error).message, tone: 'danger' }); }
+    finally { setChecking(false); }
   };
-  const seat = (tbl: LiveTable, party: number, reservationId?: string) => act(
-    () => session.call(`/o/${org.id}/visits`, { body: { tableId: tbl.id, partySize: party, ...(reservationId ? { reservationId } : {}) }, idempotencyKey: newIdempotencyKey() }),
-    t('studio.live.seated', { label: tbl.label }));
-  const checkIn = (r: ReservationView) => act(() => session.call(`/o/${org.id}/reservations/${r.id}/check-in`, { body: {} }), t('ops.host.checkedIn', { name: r.guestName }));
 
   const counts = live.data ? liveCounts(tables) : null;
   const needsYou = (requests.data?.items.length ?? 0) + tables.filter((x) => ['payment', 'partiallyPaid'].includes(liveState(x).key) && (x.visit?.dueMinor ?? 0) > 0).length;
@@ -61,6 +65,7 @@ function FrontDesk() {
 
   return (
     <>
+      {visit.confirmDialog}
       <PageHeading title={t('ops.host.title')} subtitle={t('ops.host.subtitle')}
         actions={can('floor:seat') && <button type="button" className="btn btn-primary" disabled={!live.data} onClick={() => setWalkIn(true)}>＋ {t('ops.floor.seatWalkIn')}</button>} />
       {counts ? (
@@ -76,8 +81,7 @@ function FrontDesk() {
         <aside className="host-side">
           {selected && (
             <TableDetail table={selected} orgId={org.id} branchId={branchId} currency={org.currency} timezone={org.timezone} canSeat={can('floor:seat')}
-              canWrite={false} busy={busy} onSeat={(tb, p, r) => void seat(tb, p, r)} onClose={() => undefined} onClean={(tb) => void act(() => session.call(`/o/${org.id}/tables/${tb.id}/clean`, { body: {} }), t('studio.live.cleaned', { label: tb.label }))}
-              onRelease={() => undefined} />
+              canWrite={false} busy={busy} actions={visit} />
           )}
           <section className="panel">
             <div className="panel-head"><h2>{t('ops.host.freeNow')}</h2></div>
@@ -130,7 +134,7 @@ function FrontDesk() {
         </aside>
       </div>
       {walkIn && live.data && (
-        <WalkInDialog tables={tables} busy={busy} onClose={() => setWalkIn(false)} onSeat={async (tb, party) => { await seat(tb, party); setWalkIn(false); }} />
+        <WalkInDialog tables={tables} busy={busy} onClose={() => setWalkIn(false)} onSeat={async (tb, party) => { await visit.seat(tb, party); setWalkIn(false); setSelectedId(tb.id); }} />
       )}
     </>
   );

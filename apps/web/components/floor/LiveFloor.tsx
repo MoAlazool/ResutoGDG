@@ -5,11 +5,11 @@
 // selected table (seat / mark clean / close visit, remaining balance, its QR code) and the service requests.
 // GET /floor/:branch/live is polled every 3 s; polling holds still while a dialog is open (VS-20).
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Modal, Notice, PageHeading, StatsStrip, StatsStripSkeleton, useConfirm, useToast } from '@resuto/ui';
 import { ServiceRequestList, useServiceRequests } from '@/components/ops/ServiceRequests';
 import '@/components/ops/ops.css';
-import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
+import { newIdempotencyKey } from '@/lib/api';
 import { money, time } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { useSession } from '@/lib/session';
@@ -18,9 +18,42 @@ import { LEGEND, liveCounts, liveState, smallestFreeTable, type LiveFloorRespons
 import { normalizeLayout } from './model';
 import { sanitizeQrSvg } from './QrSheet';
 import { useFloorLabels } from './use-floor-labels';
+import { tableActionKeys, visitActions, type VisitActions } from './visit-actions';
 import './floor.css';
 
 export const LIVE_POLL_MS = 3000;
+
+/**
+ * Seat / close / release / clean with one guard (one action at a time, buttons disabled while it runs), toasts and the
+ * styled confirm. Shared by the Floor overview, the Front desk and Active visits so no screen renders an inert action.
+ * `canForce`: only managers are offered force-close when a normal close is refused (the API refuses it for others).
+ */
+export function useVisitActions(orgId: string, canForce: boolean, after: () => unknown) {
+  const { t, locale } = useFloorLabels();
+  const session = useSession();
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm(locale);
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+  const afterRef = useRef(after);
+  afterRef.current = after;
+  const actions = useMemo(() => {
+    const raw = visitActions({
+      orgId, canForce, t, confirm, newKey: newIdempotencyKey,
+      call: (path, init) => session.call(path, init),
+      notify: (message, tone) => toast.show({ message, tone }),
+      after: () => afterRef.current(),
+    });
+    const guard = <A extends unknown[]>(fn: (...a: A) => Promise<void>) => async (...a: A) => {
+      if (running.current) return;
+      running.current = true;
+      setBusy(true);
+      try { await fn(...a); } finally { running.current = false; setBusy(false); }
+    };
+    return { seat: guard(raw.seat), close: guard(raw.close), release: guard(raw.release), clean: guard(raw.clean) } satisfies VisitActions;
+  }, [orgId, canForce, t, confirm, session, toast]);
+  return { busy, confirmDialog, ...actions };
+}
 
 /** Live floor data: saved geometry + live states, reloading the geometry when a new layout is saved. */
 export function useLiveFloor(orgId: string, branchId: string, pollMs = LIVE_POLL_MS) {
@@ -79,58 +112,19 @@ export function FloorMapPanel({ data, selectedId, onSelect, title, note, actions
   );
 }
 
-export function LiveFloor({ orgId, branchId, currency, timezone, canSeat, canWrite, canResolve, qrHref, studioHref }: {
-  orgId: string; branchId: string; currency: string; timezone: string; canSeat: boolean; canWrite: boolean; canResolve: boolean;
+export function LiveFloor({ orgId, branchId, currency, timezone, canSeat, canForce, canWrite, canResolve, qrHref, studioHref }: {
+  orgId: string; branchId: string; currency: string; timezone: string; canSeat: boolean; canForce: boolean; canWrite: boolean; canResolve: boolean;
   qrHref: string; studioHref: string;
 }) {
   const data = useLiveFloor(orgId, branchId);
   const { L, layout, live } = data;
-  const { t, locale, nf } = L;
-  const session = useSession();
-  const toast = useToast();
-  const [confirm, confirmDialog] = useConfirm(locale);
+  const { t, nf } = L;
   const requests = useServiceRequests(orgId, branchId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [walkIn, setWalkIn] = useState(false);
-  const [busy, setBusy] = useState(false);
   const tables = live.data?.tables ?? [];
   const selected = tables.find((x) => x.id === selectedId);
-
-  const act = async (fn: () => Promise<unknown>, success: string) => {
-    if (busy) return;
-    setBusy(true);
-    try { await fn(); toast.show({ message: success, tone: 'ok' }); await live.reload(); void requests.reload(); }
-    catch (e) { toast.show({ message: (e as Error).message, tone: 'danger' }); }
-    finally { setBusy(false); }
-  };
-  const seat = (tbl: LiveTable, party: number, reservationId?: string) => act(
-    () => session.call(`/o/${orgId}/visits`, { body: { tableId: tbl.id, partySize: party, ...(reservationId ? { reservationId } : {}) }, idempotencyKey: newIdempotencyKey() }),
-    t('studio.live.seated', { label: tbl.label }));
-  const close = async (tbl: LiveTable) => {
-    if (!tbl.visit || busy) return;
-    const visitId = tbl.visit.id;
-    setBusy(true);
-    try {
-      await session.call(`/o/${orgId}/visits/${visitId}/close`, { body: {} });
-      toast.show({ message: t('studio.live.closed', { label: tbl.label }), tone: 'ok' });
-      await live.reload();
-    } catch (e) {
-      const err = e as ApiRequestError;
-      setBusy(false);
-      if (err.status === 409 || err.status === 422) {
-        const ok = await confirm({ title: t('studio.live.forceTitle'), body: `${err.message} ${t('studio.live.forceBody')}`, confirmLabel: t('studio.live.forceClose'), tone: 'danger' });
-        if (ok) await act(() => session.call(`/o/${orgId}/visits/${visitId}/close`, { body: { force: true } }), t('studio.live.closed', { label: tbl.label }));
-        return;
-      }
-      toast.show({ message: err.message, tone: 'danger' });
-    } finally { setBusy(false); }
-  };
-  const release = async (tbl: LiveTable) => {
-    if (!tbl.visit) return;
-    if (!(await confirm({ title: t('studio.live.undoTitle'), body: t('studio.live.undoBody'), confirmLabel: t('ops.floor.release') }))) return;
-    await act(() => session.call(`/o/${orgId}/visits/${tbl.visit!.id}/undo`, { body: {} }), t('studio.live.undone', { label: tbl.label }));
-  };
-  const clean = (tbl: LiveTable) => act(() => session.call(`/o/${orgId}/tables/${tbl.id}/clean`, { body: {} }), t('studio.live.cleaned', { label: tbl.label }));
+  const { busy, confirmDialog, seat, close, release, clean } = useVisitActions(orgId, canForce, async () => { await live.reload(); void requests.reload(); });
 
   const counts = live.data ? liveCounts(tables) : null;
   const autoOpened = tables.filter((x) => x.visit?.undoable);
@@ -179,7 +173,7 @@ export function LiveFloor({ orgId, branchId, currency, timezone, canSeat, canWri
           actions={canWrite ? <Link className="btn btn-sm" href={studioHref}>{t('ops.floor.editLayout')}</Link> : null} />
         <aside className="details-column">
           <TableDetail table={selected} orgId={orgId} branchId={branchId} currency={currency} timezone={timezone} canSeat={canSeat} canWrite={canWrite} busy={busy}
-            onSeat={(tbl, party, res) => void seat(tbl, party, res)} onClose={(tbl) => void close(tbl)} onClean={(tbl) => void clean(tbl)} onRelease={(tbl) => void release(tbl)} />
+            actions={{ seat, close, clean, release }} />
           <section className="panel">
             <div className="panel-head"><h2>{t('ops.req.title')}</h2><span className="badge num">{nf.format(requests.data?.items.length ?? 0)}</span></div>
             <div className="panel-body">
@@ -198,9 +192,10 @@ export function LiveFloor({ orgId, branchId, currency, timezone, canSeat, canWri
 }
 
 /** Selected table (legacy .table-detail): badge, seats · zone, the visit and its balance, actions and the table QR. */
-export function TableDetail({ table, orgId, branchId, currency, timezone, canSeat, canWrite, busy, onSeat, onClose, onClean, onRelease }: {
+export function TableDetail({ table, orgId, branchId, currency, timezone, canSeat, canWrite, busy, actions }: {
   table: LiveTable | undefined; orgId: string; branchId: string; currency: string; timezone: string; canSeat: boolean; canWrite: boolean; busy: boolean;
-  onSeat(t: LiveTable, party: number, reservationId?: string): void; onClose(t: LiveTable): void; onClean(t: LiveTable): void; onRelease(t: LiveTable): void;
+  /** Every button shown (tableActionKeys) runs one of these; pass useVisitActions' handlers. */
+  actions: VisitActions;
 }) {
   const L = useFloorLabels();
   const { t, locale, nf } = L;
@@ -218,6 +213,8 @@ export function TableDetail({ table, orgId, branchId, currency, timezone, canSea
   }
   const s = liveState(table);
   const v = table.visit;
+  const shown = new Set(tableActionKeys(table, canSeat));
+  const run = (p: Promise<void>) => void p;
   return (
     <section className="panel table-detail" aria-live="polite">
       <div className="table-title"><h2>{table.label}</h2><span className={`badge state-badge state-${s.state}`}>{t(`ops.floor.state.${s.key}`)}</span></div>
@@ -229,19 +226,19 @@ export function TableDetail({ table, orgId, branchId, currency, timezone, canSea
           <p className="fine">{t('ops.floor.tableOpen', { time: time(v.openedAt, locale, timezone) })}</p>
           <div className="bill-row"><span>{t('ops.floor.remaining')}</span><strong className="num">{money(v.dueMinor, currency, locale)}</strong></div>
           {(v.totalMinor ?? 0) > 0 && <div className="bill-row fine"><span>{t('ops.visits.billTotal')}</span><span className="num">{money(v.totalMinor ?? 0, currency, locale)}</span></div>}
-          {canSeat && <button type="button" className="btn btn-block" disabled={busy} onClick={() => onClose(table)}>{t('ops.floor.closeVisit')}</button>}
-          {canSeat && v.undoable && <button type="button" className="btn btn-ghost btn-block" disabled={busy} onClick={() => onRelease(table)}>{t('ops.floor.release')}</button>}
+          {shown.has('close') && <button type="button" className="btn btn-block" disabled={busy} onClick={() => run(actions.close({ visitId: v.id, label: table.label }))}>{t('ops.floor.closeVisit')}</button>}
+          {shown.has('release') && <button type="button" className="btn btn-ghost btn-block" disabled={busy} onClick={() => run(actions.release(table))}>{t('ops.floor.release')}</button>}
         </>
-      ) : canSeat && table.status === 'cleaning' ? (
-        <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => onClean(table)}>✓ {t('ops.floor.markClean')}</button>
-      ) : canSeat && table.status !== 'out_of_service' ? (
+      ) : shown.has('clean') ? (
+        <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => run(actions.clean(table))}>✓ {t('ops.floor.markClean')}</button>
+      ) : shown.has('seat') ? (
         <div className="stack">
           <label className="field"><span>{t('studio.live.partySize')}</span>
             <input className="input" type="number" inputMode="numeric" min={1} max={table.capacity} value={party} onChange={(e) => setParty(Math.max(1, Math.min(table.capacity, Number(e.target.value) || 1)))} />
           </label>
-          <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => onSeat(table, party)}>＋ {t('ops.floor.seatGuests')}</button>
-          {table.nextReservation && (
-            <button type="button" className="btn btn-block" disabled={busy} onClick={() => onSeat(table, table.nextReservation!.partySize, table.nextReservation!.id)}>
+          <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => run(actions.seat(table, party))}>＋ {t('ops.floor.seatGuests')}</button>
+          {shown.has('seatReservation') && table.nextReservation && (
+            <button type="button" className="btn btn-block" disabled={busy} onClick={() => run(actions.seat(table, table.nextReservation!.partySize, table.nextReservation!.id))}>
               {t('studio.live.seatReservation', { name: table.nextReservation.guestName ?? '' })}
             </button>
           )}

@@ -48,6 +48,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   driver: ['delivery:drive'],
 };
 
+/** Roles that may override an operational safeguard, e.g. force-close a visit that is not settled (API and dashboard). */
+export const MANAGER_ROLES: readonly Role[] = ['owner', 'admin', 'manager'];
+
 export function can(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
 }

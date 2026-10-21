@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { RESERVATION_RULES, VISIT_RULES, type GuestSession, type GuestVisitLive, type PublicTableView, type VisitSummary } from '@resuto/contracts';
+import { MANAGER_ROLES as CONTRACT_MANAGER_ROLES, RESERVATION_RULES, VISIT_RULES, type GuestSession, type GuestVisitLive, type PublicTableView, type VisitSummary } from '@resuto/contracts';
 import { randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
@@ -26,7 +26,7 @@ export interface GuestContext { ctx: TenantContext; visit: any }
 
 const FULFILLED = `('served', 'picked_up', 'delivered', 'cancelled')`;
 const LIVE_RES = `(r.status in ('confirmed', 'seated', 'pending_deposit') or (r.status = 'held' and r.hold_expires_at > now()))`;
-const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
+const MANAGER_ROLES = new Set<string>(CONTRACT_MANAGER_ROLES);
 
 /** Guest acting inside a tenant (least-privileged role; the kernel never checks guest permissions). */
 export const guestContext = (orgId: string, visitId: string) => new TenantContext(orgId, 'waiter', null, null, 'guest', visitId, 'web');

@@ -6,6 +6,7 @@ import { ActiveVisits } from '@/components/ops/ActiveVisits';
 import { VenueQrCard } from '@/components/ops/ServiceMode';
 import { FloorStudio } from '@/components/floor/FloorStudio';
 import { LiveFloor } from '@/components/floor/LiveFloor';
+import { canForceClose } from '@/components/floor/visit-actions';
 import { QrSheet } from '@/components/floor/QrSheet';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -54,10 +55,10 @@ function FloorPageInner() {
         <div className="panel"><EmptyState title={t('studio.noBranchTitle')}>{t('studio.noBranchBody')}</EmptyState></div>
       ) : tab === 'live' ? (
         <LiveFloor key={branch.id} orgId={org.id} branchId={branch.id} currency={org.currency} timezone={org.timezone}
-          canSeat={can('floor:seat')} canWrite={canWrite} canResolve={can('floor:seat') || can('orders:status')}
+          canSeat={can('floor:seat')} canForce={canForceClose(org.role)} canWrite={canWrite} canResolve={can('floor:seat') || can('orders:status')}
           qrHref={href('qr')} studioHref={href('studio')} />
       ) : tab === 'visits' ? (
-        <ActiveVisits key={branch.id} orgId={org.id} branchId={branch.id} timezone={org.timezone} canClose={can('floor:seat')}
+        <ActiveVisits key={branch.id} orgId={org.id} branchId={branch.id} timezone={org.timezone} canClose={can('floor:seat')} canForce={canForceClose(org.role)}
           ordersHref={can('orders:read') ? `/dashboard/${org.id}/orders` : null} />
       ) : tab === 'qr' ? (
         <>
