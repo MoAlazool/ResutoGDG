@@ -245,7 +245,9 @@ describe('INT-22 custom audience dry run', () => {
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ dryRun: true, adAccountConnected: false, counts: { segment: 3, withConsent: 2, matchable: 2, excludedNoConsent: 1 },
       create: { path: 'act_<AD_ACCOUNT_ID>/customaudiences', body: { subtype: 'CUSTOM', customer_file_source: 'USER_PROVIDED_ONLY' } } });
-    expect(res.body.sample[0]).toEqual([sha('one@x.co'), sha('201001110001')]);
+    // Segment members come back in no guaranteed order; both consenting customers, hashed, and nothing else.
+    expect(res.body.sample).toHaveLength(2);
+    expect(res.body.sample).toEqual(expect.arrayContaining([[sha('one@x.co'), sha('201001110001')], [sha('three@x.co'), sha('201001110003')]]));
     expect(JSON.stringify(res.body)).not.toContain('x.co');
     expect(f.calls).toHaveLength(0);
   });
