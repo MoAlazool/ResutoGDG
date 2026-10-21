@@ -1,5 +1,6 @@
-// "Open now · Today 11:00 – 00:00" for a storefront, from the branch's published opening hours in the branch's time
-// zone (legacy burger.js hard-coded this line; here it is data, and absent when no hours are published).
+// "Open now · Today 11:00 AM – 12:00 AM" for a storefront, from the branch's published opening hours in the branch's
+// time zone (legacy burger.js hard-coded this line; here it is data, and absent when no hours are published). The clock
+// reads like legacy (12-hour, Western digits in Arabic too).
 import { formatClock } from '@resuto/contracts';
 
 export interface Slot { day: number; opens: string; closes: string }
@@ -35,7 +36,23 @@ export function openStatus(raw: unknown, timeZone: string, now: Date, locale: 'e
     return (s.day === day && minute >= o) || (s.day === yesterday && minute < c);
   });
   const todays = slots.filter((s) => s.day === day).sort((a, b) => a.opens.localeCompare(b.opens));
-  const clock = (hhmm: string) => formatClock(Math.floor(minutes(hhmm) / 60) % 24, minutes(hhmm) % 60, locale, 'h23');
+  const clock = (hhmm: string) => formatClock(Math.floor(minutes(hhmm) / 60) % 24, minutes(hhmm) % 60, locale, 'h12');
   const today = todays.length ? todays.map((s) => `${clock(s.opens)} – ${clock(s.closes)}`).join(', ') : null;
   return { open, today };
+}
+
+/**
+ * The delivery button's place label (PAR-02): the branch's neighbourhood in the page language, as legacy showed
+ * "Downtown". Arabic pages use the Arabic name, then the English one; the city is only the last resort (it has no
+ * Arabic field). Null when the branch has none of them.
+ */
+export function deliveryArea(b: { district?: string | null; districtAr?: string | null; city?: string | null }, locale: 'en' | 'ar'): string | null {
+  const pick = (...xs: Array<string | null | undefined>) => xs.map((x) => x?.trim()).find((x) => !!x) ?? null;
+  return locale === 'ar' ? pick(b.districtAr, b.district, b.city) : pick(b.district, b.city);
+}
+
+/** Pickup estimate: the median preparation time of the dishes that publish one (null when none do: say nothing). */
+export function pickupEta(prepMinutes: Array<number | null | undefined>): number | null {
+  const mins = prepMinutes.filter((n): n is number => typeof n === 'number' && n > 0).sort((a, b) => a - b);
+  return mins.length ? mins[Math.floor(mins.length / 2)]! : null;
 }

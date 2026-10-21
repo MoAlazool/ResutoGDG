@@ -8,6 +8,9 @@ export const branchInput = z.object({
   nameAr: optionalText(120),
   address: optionalText(300),
   city: optionalText(80),
+  /** Neighbourhood shown to guests (storefront delivery label), in English and Arabic. */
+  district: optionalText(80).transform((v) => (v === '' ? null : v)),
+  districtAr: optionalText(80).transform((v) => (v === '' ? null : v)),
   phone: optionalPhone(30),
   latitude: z.number().min(-90).max(90).optional().nullable(),
   longitude: z.number().min(-180).max(180).optional().nullable(),

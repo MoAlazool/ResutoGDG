@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { DishImage } from '@/components/public/DishImage';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
-import { openStatus } from './hours';
+import { deliveryArea, openStatus, pickupEta } from './hours';
 
 export type StorefrontMenu = PublicMenu & { payment?: { payAtPickup: boolean; cashOnDelivery: boolean; online: boolean } };
 type Locale = 'en' | 'ar';
@@ -91,10 +91,8 @@ export function Storefront({ sf, initialMenu, locale, siteHref }: { sf: PublicSt
   const total = bag.items.reduce((n, i) => { const x = products.get(i.productId); return x ? n + unitPrice(x.p, i.modifiers) * i.quantity : n; }, 0);
   const status = now ? openStatus(sf.branch.openingHours, sf.branch.timezone, now, locale) : null;
   const canOrder = !!menu && (menu.branch.acceptsPickup || menu.branch.acceptsDelivery);
-  const prep = useMemo(() => {
-    const mins = [...products.values()].map((x) => x.p.prepMinutes).filter((n): n is number => typeof n === 'number' && n > 0).sort((a, b) => a - b);
-    return mins.length ? mins[Math.floor(mins.length / 2)]! : null;
-  }, [products]);
+  const prep = useMemo(() => pickupEta([...products.values()].map((x) => x.p.prepMinutes)), [products]);
+  const area = deliveryArea(sf.branch, locale);
 
   const vars = { '--sf-primary': sf.brand.primaryColor, '--sf-accent': sf.brand.accentColor, '--sf-ink': sf.brand.inkColor, '--sf-paper': sf.brand.paperColor } as CSSProperties;
   const headline = loc(sf.content.headline, locale) || brandName;
@@ -131,7 +129,7 @@ export function Storefront({ sf, initialMenu, locale, siteHref }: { sf: PublicSt
             {(sf.branch.acceptsPickup || sf.branch.acceptsDelivery) && (
               <div className="sf-mode" role="group" aria-label={t('studio.site.sf.fulfillment')}>
                 {sf.branch.acceptsPickup && <button type="button" aria-pressed={fulfillment === 'pickup'} onClick={() => setFulfillment('pickup')}>{t('studio.site.sf.pickup')}{prep && <small>{t('studio.site.sf.aboutMin', { n: prep })}</small>}</button>}
-                {sf.branch.acceptsDelivery && <button type="button" aria-pressed={fulfillment === 'delivery'} onClick={() => setFulfillment('delivery')}>{t('studio.site.sf.delivery')}{sf.branch.city && <small><bdi>{sf.branch.city}</bdi></small>}</button>}
+                {sf.branch.acceptsDelivery && <button type="button" aria-pressed={fulfillment === 'delivery'} onClick={() => setFulfillment('delivery')}>{t('studio.site.sf.delivery')}{area && <small><bdi>{area}</bdi></small>}</button>}
               </div>
             )}
             <div className="sf-hero-actions">

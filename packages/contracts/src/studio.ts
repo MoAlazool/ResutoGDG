@@ -221,7 +221,12 @@ export interface PublicStorefrontLink {
 export interface PublicStorefront {
   slug: string;
   org: { slug: string; name: string; nameAr: string | null; currency: string; demo: boolean };
-  branch: { id: string; code: string; name: string; nameAr: string | null; city: string | null; acceptsPickup: boolean; acceptsDelivery: boolean; openingHours: unknown; timezone: string };
+  branch: {
+    id: string; code: string; name: string; nameAr: string | null; city: string | null;
+    /** The branch's neighbourhood (delivery label), English and Arabic; null when the branch has none (PAR-02). */
+    district: string | null; districtAr: string | null;
+    acceptsPickup: boolean; acceptsDelivery: boolean; openingHours: unknown; timezone: string;
+  };
   brand: { name: string; nameAr: string | null; tagline: LocalizedText; primaryColor: string; accentColor: string; inkColor: string; paperColor: string; logoUrl: string | null; heroUrl: string | null };
   content: StorefrontContent;
   links: { site: string; order: string; menu: string };

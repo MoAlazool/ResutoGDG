@@ -57,6 +57,7 @@ import { pgClientConfig } from '../db/pg-tls.mjs';
 import { checkDemoIntegrity, formatIntegrity, LIVE_STALE_HOURS } from './integrity-check.mjs';
 import { fixedCostSchedule } from './lib/fixed-costs.mjs';
 import { DEMO_FLOORS, withArchitecture } from './lib/floor-architecture.mjs';
+import { SMASH_PREP_MINUTES, smashBranchPatch } from './lib/storefront-signals.mjs';
 import { addDays, daysFrom, historyTag, planRange } from './lib/plan.mjs';
 import { claimLease, releaseLease, RENEW_SECONDS, renewLease } from './lib/lease.mjs';
 import { decideAction, decideTarget } from './lib/safety.mjs';
@@ -450,7 +451,8 @@ async function createHistoric(o) {
       else await must('POST', O(`/orders/${orderId}/collect`), { token: cashier, headers: { 'Idempotency-Key': `${tag}:collect` }, body: { method: 'cash' } });
       return orderId;
     }
-    if (r.status !== 429) throw new Error(`web order ${r.status} ${JSON.stringify(r.body)}`);
+    // Smash & Co publishes opening hours (PAR-02): a refresh run while it is closed serves that guest at the counter too.
+    if (r.status !== 429 && r.body?.error?.code !== 'branch_closed') throw new Error(`web order ${r.status} ${JSON.stringify(r.body)}`);
   }
   const r = await must('POST', O('/orders'), { token: cashier, headers: { 'Idempotency-Key': tag }, body: {
     branchId: branch.id, fulfillment: 'pickup', lines: o.lines, customer: o.customer ? { name: o.customer.name, phone: o.customer.phone } : { name: 'Walk-in (demo)' },
@@ -846,6 +848,25 @@ async function ensureFloorArchitecture() {
   if (added.length) log(`floor: legacy room architecture added (${added.join('; ')})`);
 }
 
+/**
+ * The Smash & Co storefront's guest signals (PAR-02): opening hours in the branch time zone, the Downtown district in
+ * English and Arabic, and dish preparation times (the storefront's pickup estimate is their median). Fills only what
+ * is missing, through the API; a second run changes nothing.
+ */
+async function ensureStorefrontSignals() {
+  const [cur] = await q(`select district, district_ar as "districtAr", timezone, opening_hours as "openingHours" from branches where org_id = $1 and id = $2`, [C.ORG, C.SMASH.id]);
+  const patch = smashBranchPatch(cur);
+  if (Object.keys(patch).length) await must('PATCH', O(`/branches/${C.SMASH.id}`), { token: C.OWNER.token, body: patch });
+  let prep = 0;
+  for (const [legacyId, minutes] of Object.entries(SMASH_PREP_MINUTES)) {
+    const prod = C.PRODUCTS[legacyId];
+    if (!prod) continue;
+    const [row] = await q(`select prep_minutes, version from products where org_id = $1 and id = $2`, [C.ORG, prod.id]);
+    if (row && row.prep_minutes == null) { await must('PATCH', O(`/menu/products/${prod.id}`), { token: C.OWNER.token, body: { prepMinutes: minutes, version: row.version } }); prep++; }
+  }
+  if (Object.keys(patch).length || prep) log(`storefront: Smash & Co ${Object.keys(patch).join(', ') || 'branch unchanged'}; ${prep} dish preparation time(s)`);
+}
+
 async function ensureBranding() {
   // Arabic names for every category (Arabic pages never fall back to English).
   for (const c of await q(`select id, name from menu_categories where org_id = $1 and coalesce(btrim(name_ar), '') = ''`, [C.ORG])) {
@@ -989,6 +1010,8 @@ try {
     await upsertFixedCosts(historyFrom);
     await reconcileUpToNow();
     await ensureBranding();
+    await ensureFloorArchitecture();
+    await ensureStorefrontSignals();
     await firstLoadExtras(live);
     await must('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
     await setState({ demoLoader: 'complete' });
@@ -1020,6 +1043,7 @@ try {
     await reconcileUpToNow();
     await ensureBranding();
     await ensureFloorArchitecture();
+    await ensureStorefrontSignals();
     await repairOlderLoaderRows();
     await call('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
   }
