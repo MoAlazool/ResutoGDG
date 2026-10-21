@@ -115,10 +115,36 @@ Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, th
 
 **Web (`resuto-2-staging-web`)**: `NEXT_PUBLIC_API_URL`, `API_INTERNAL_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable key), `NEXT_PUBLIC_APP_ORIGIN`, `NEXT_PUBLIC_DEMO_SLUG`,
-`NEXT_PUBLIC_MCP_URL`, `APP_HOSTS=resuto-2-staging-web.vercel.app,.vercel.app`. Only `NEXT_PUBLIC_*`
+`NEXT_PUBLIC_MCP_URL`, `NEXT_PUBLIC_AUTH_EMAIL_DELIVERY=limited` (no SMTP sender yet; see Supabase Auth below),
+`APP_HOSTS=resuto-2-staging-web.vercel.app,.vercel.app`. Only `NEXT_PUBLIC_*`
 values reach the browser, and none of them is a secret. Build: `apps/web/vercel.json`.
 
 **AI**: `AI_SERVICE_TOKEN`. **MCP**: `RESUTO_API_URL`, `MCP_PUBLIC_URL`, `MCP_PORT=10000`, `MCP_ALLOW_URL_KEY=false`.
+
+## Supabase Auth (Free plan, no SMTP)
+
+Owner decisions 2026-10-21: the project stays on the Free plan, no SMTP provider is bought, nothing paid is enabled.
+Full posture and verification status: `docs/SECURITY_AUTH.md`.
+
+- **Site URL**: `https://resuto-2-staging-web.vercel.app`. **Redirect URLs**: none needed for this origin. Supabase
+  accepts a redirect with the Site URL's scheme, host and port before it reads the allow list (`IsRedirectURLValid`
+  in `supabase/auth`), and the web sends every email link to `<origin>/auth/callback?next=<path>`. The identical
+  entry already added is harmless. Add `https://<host>/**` only for another origin (preview or second Vercel URL,
+  custom / production domain, `http://localhost:3000/**` for local work against the project). An invalid redirect is
+  not reported: Supabase silently falls back to the Referer or the Site URL. Google sign-in (if enabled): the Google
+  Cloud OAuth client's redirect URI is `https://skvnznyfxpxfuzvuipju.supabase.co/auth/v1/callback`.
+- **Dashboard settings** (Authentication; all available on Free): Confirm email **ON**; Secure email change ON; Secure
+  password change ON; minimum password length **10** with required characters (lower, upper, digits); MFA → TOTP
+  enrol and verify enabled; rate limits at defaults or lower; CAPTCHA off unless the owner wants a free provider.
+  Leaked-password protection is not available on Free: the web's compensating check (Pwned Passwords range API,
+  client-side) is described in `docs/SECURITY_AUTH.md`.
+- **Email**: with the built-in sender only the project team's addresses receive confirmation, reset and email-change
+  messages (a few per hour). Build the web with `NEXT_PUBLIC_AUTH_EMAIL_DELIVERY=limited` so those screens say so;
+  remove it once an SMTP sender is configured and verified. Invitations never use email (the inviter copies the link).
+- **MFA**: staff can add an authenticator app on Account → Security. Platform-admin routes, payment / integration
+  credentials, MCP keys and grants, and role grants then require the code (aal2). To reset a lost authenticator:
+  Authentication → Users → the user → remove the MFA factor, after verifying the person out of band.
+- **CSP**: the web allows `https://api.pwnedpasswords.com` in `connect-src` (breached-password check).
 
 ## Reproducing from scratch
 
