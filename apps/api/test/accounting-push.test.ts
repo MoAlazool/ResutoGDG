@@ -62,7 +62,7 @@ describe('Wafeq daily summary invoices (INT-25)', () => {
     const f = wafeq();
     http.fetch = f.fetch;
     const res = await push(tenant, accountant, connectionId, 'push-inv-0001');
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body, JSON.stringify(res.body)).toMatchObject({ provider: 'wafeq', kind: 'invoice', status: 'succeeded', automatic: false });
     const posts = f.calls.filter((c) => c.method === 'POST');
     const inv = posts.find((c) => c.url.endsWith('/invoices/'))!;

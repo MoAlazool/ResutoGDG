@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { accountMappingInput, accountingPush, createExport, expenseCategoryInput, expenseInput, expenseUpdate, financePeriod, financePolicyInput, listExpensesQuery, payoutInput } from '@resuto/contracts';
 import type { Response } from 'express';
@@ -186,6 +186,7 @@ export class FinanceController {
     return this.accounting.listPushes(ctx);
   }
 
+  @HttpCode(200)
   @Post('accounting/push')
   @RequirePermission('finance:write')
   push(@Tenant() ctx: TenantContext, @Body(zod(accountingPush)) body: z.infer<typeof accountingPush>) {

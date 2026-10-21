@@ -8,6 +8,9 @@ import { PlatformAdmin, Principal } from '../../common/auth/decorators';
 import { RequireMfa } from '../../common/auth/mfa.guard';
 import { zod } from '../../common/http/zod.pipe';
 import { AdminService } from './admin.service';
+import { z } from 'zod';
+
+const pricesQuery = z.object({ country: countryCode.optional().or(z.literal('').transform(() => undefined)) });
 
 /**
  * `/v1/admin/...` — Resuto platform staff only (AccessGuard checks
@@ -67,8 +70,8 @@ export class AdminController {
 
   @Get('prices')
   @PlatformAdmin('superadmin', 'finance')
-  prices(@Query('country') country?: string) {
-    return this.admin.prices(country ? countryCode.parse(country) : undefined);
+  prices(@Query(zod(pricesQuery)) q: z.infer<typeof pricesQuery>) {
+    return this.admin.prices(q.country || undefined);
   }
 
   @Post('prices/plans')

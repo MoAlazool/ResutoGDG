@@ -19,9 +19,9 @@ export class SalesInquiriesPublicController {
 
   @Public()
   @Post('sales-inquiries')
-  submit(@Req() req: ResutoRequest, @Body(zod(salesInquiryInput)) body: SalesInquiryInput): Promise<SalesInquiryReceipt> {
-    this.limiter.hit(`sales-inquiry:${ip(req)}`, 5, 10 * 60_000);
-    this.limiter.hit(`sales-inquiry-day:${ip(req)}`, 20, 24 * 60 * 60_000);
+  async submit(@Req() req: ResutoRequest, @Body(zod(salesInquiryInput)) body: SalesInquiryInput): Promise<SalesInquiryReceipt> {
+    await this.limiter.guard(`sales-inquiry:${ip(req)}`, 5, 10 * 60_000);
+    await this.limiter.guard(`sales-inquiry-day:${ip(req)}`, 20, 24 * 60 * 60_000);
     return this.inquiries.submit(body);
   }
 }

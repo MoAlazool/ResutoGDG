@@ -4,7 +4,7 @@ import type { anonymiseInput, consentUpdate, customerUpdate } from '@resuto/cont
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import type { Tx } from '../../common/db/db.service';
-import { conflict, forbidden, invalid, notFound } from '../../common/errors/domain-error';
+import { conflict, forbidden, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { branchScope, int, iso } from '../analytics/scope';
 import { LoyaltyService } from '../loyalty/loyalty.service';
@@ -42,7 +42,7 @@ function decodeCursor(sort: Sort, cursor: string): unknown[] {
     const [s, ...key] = JSON.parse(Buffer.from(cursor.slice(1), 'base64url').toString('utf8')) as [string, ...unknown[]];
     if (s === sort && key.length === SORT_KEYS[sort].casts.length && key.every((v) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')) return key;
   } catch { /* fall through */ }
-  throw invalid('invalid_cursor', 'Invalid cursor');
+  throw badRequest('invalid_cursor', 'Invalid cursor');
 }
 
 /**

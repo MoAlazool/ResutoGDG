@@ -144,7 +144,7 @@ describe('MCP client keys', () => {
     const c = await createClient(t, a, { name: 'To revoke' });
     expect((await call(t, c.key, a.orgId, 'list_branches')).status).toBe(200);
     const rev = await t.http.post(`/v1/o/${a.orgId}/mcp/clients/${c.id}/revoke`).set(auth(a.owner));
-    expect(rev.status).toBe(201);
+    expect(rev.status).toBe(200);
     expect(rev.body.status).toBe('revoked');
     expect((await call(t, c.key, a.orgId, 'list_branches')).status).toBe(401);
     expect((await t.http.get('/v1/mcp/whoami').set(key(c.key))).status).toBe(401);
@@ -398,7 +398,7 @@ describe('tool execution', () => {
     expect((await t.http.get(`/v1/o/${a.orgId}/members`).set(key(c.key))).status).toBe(403);
 
     const test = await t.http.post(`/v1/o/${a.orgId}/mcp/clients/${c.id}/test/get_order`).set(auth(a.owner)).send({ input: { orderId: orderIds.main[0] } });
-    expect(test.status).toBe(201);
+    expect(test.status).toBe(200);
     expect(test.body.output.piiMasked).toBe(true); // runs with the client's role, not the owner's
     const write = await t.http.post(`/v1/o/${a.orgId}/mcp/clients/${c.id}/test/create_payment_link`).set(auth(a.owner))
       .send({ input: { amountMinor: 100, description: 'x' } });
@@ -459,7 +459,7 @@ describe('sensitive tools and approvals', () => {
     expect((await tp.http.post(`/v1/o/${a.orgId}/mcp/approvals/${approvalId}/approve`).set(auth(waiter)).send({})).status).toBe(403);
 
     const approved = await tp.http.post(`/v1/o/${a.orgId}/mcp/approvals/${approvalId}/approve`).set(auth(manager)).send({ note: 'ok' });
-    expect(approved.status).toBe(201);
+    expect(approved.status).toBe(200);
     expect(approved.body).toMatchObject({ status: 'executed', decidedBy: manager.userId, result: { available: false } });
     expect(portCalls.availability).toHaveLength(1);
     expect(portCalls.availability[0]).toMatchObject({ actorType: 'mcp_client', role: 'manager', input: { ...input, source: 'mcp' } });
@@ -499,7 +499,7 @@ describe('sensitive tools and approvals', () => {
       call(tp, c.key, a.orgId, 'update_product_availability', { productId, branchId: a.branchId, available });
     const r1 = (await mk(false)).body.output.approvalId;
     const rej = await tp.http.post(`/v1/o/${a.orgId}/mcp/approvals/${r1}/reject`).set(auth(a.owner)).send({ note: 'not today' });
-    expect(rej.status).toBe(201);
+    expect(rej.status).toBe(200);
     expect(rej.body).toMatchObject({ status: 'rejected', decisionNote: 'not today' });
     expect((await call(tp, c.key, a.orgId, 'get_approval_status', { approvalId: r1 })).body.output.status).toBe('rejected');
     expect((await tp.http.post(`/v1/o/${a.orgId}/mcp/approvals/${r1}/approve`).set(auth(a.owner)).send({})).status).toBe(409);

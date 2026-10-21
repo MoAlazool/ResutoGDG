@@ -98,7 +98,7 @@ describe('S01 restaurant onboarding', () => {
     expect((await t.http.patch(`${studio}/website/sections/${highlights.id}`).set(auth(owner))
       .send({ content: { headline: { en: 'Favourites', ar: 'المفضلة' }, productIds: [menu.burger, menu.fries] } })).status).toBe(200);
     const pub = await t.http.post(`${studio}/website/publish`).set(auth(owner)).send({ key: unique('publish') });
-    expect(pub.status).toBe(201);
+    expect(pub.status).toBe(200);
     const pubSite = await t.http.get(`/v1/public/sites/${tenant.slug}`);
     expect(pubSite.status).toBe(200);
     expect(pubSite.body.menuHighlights.map((p: any) => p.priceMinor)).toEqual([PRICES.burger, PRICES.fries]);

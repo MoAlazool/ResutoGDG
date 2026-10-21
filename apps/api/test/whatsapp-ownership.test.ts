@@ -156,7 +156,7 @@ describe('INT-03: WhatsApp channel ownership', () => {
     expect(listBefore).toMatchObject({ verified: false, status: 'unverified' });
     script([listed(phone), { body: { success: true } }]);
     const ok = await t.http.post(`/v1/o/${a.orgId}/connect/channels/${legacy}/verify`).set(auth(a.owner));
-    expect(ok.status).toBe(201);
+    expect(ok.status).toBe(200);
     expect(ok.body).toMatchObject({ verified: true, webhookSubscribed: true });
     script([{ status: 503, body: { error: { message: 'Service unavailable', code: 2 } } }]);
     expect((await t.http.post(`/v1/o/${a.orgId}/connect/channels/${legacy}/verify`).set(auth(a.owner))).status).toBe(502);
@@ -336,7 +336,7 @@ describe('INT-13: Embedded Signup with Resuto as Tech Provider', () => {
         .send({ code: 'es-code-123456', wabaId: waba, phoneNumberId: phone, displayName: 'WA' });
       const f = script([{ body: { success: true } }]);
       const rev = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${done.body.connectionId}/revoke`).set(auth(tenant.owner));
-      expect(rev.status).toBe(201);
+      expect(rev.status).toBe(200);
       expect(rev.body).toMatchObject({ status: 'revoked', providerRevocation: { attempted: true, revoked: true } });
       expect(f.calls[0]).toMatchObject({ method: 'DELETE' });
       expect(new URL(f.calls[0]!.url).pathname).toBe(`/v26.0/${waba}/subscribed_apps`);

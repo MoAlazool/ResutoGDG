@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import {
-  connectSandboxInbound, createMessagingChannel, inboxAssignConversation, inboxConversationFilters, inboxHandoffRequest, inboxStaffReply,
+  connectSandboxInbound, createMessagingChannel, fullListQuery, inboxAssignConversation, inboxConversationFilters, inboxHandoffRequest, inboxStaffReply,
   messageTemplateInput, messageTemplateUpdate, updateMessagingChannel, whatsappEmbeddedSignup,
 } from '@resuto/contracts';
 import { z } from 'zod';
@@ -31,8 +31,9 @@ export class ConnectController {
   // Channels -----------------------------------------------------------------
   @Get('channels')
   @RequirePermission('connect:read')
-  listChannels(@Tenant() ctx: TenantContext) {
-    return this.channels.list(ctx);
+  @Header('X-Resuto-List', 'full')
+  listChannels(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.channels.list(ctx, q);
   }
 
   @Post('channels')
@@ -48,6 +49,7 @@ export class ConnectController {
   }
 
   /** INT-03: re-proves ownership through the Graph API (pre-INT-03 channels, token changes, webhook subscription retry). */
+  @HttpCode(200)
   @Post('channels/:id/verify')
   @RequirePermission('connect:manage')
   verifyChannel(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -82,6 +84,7 @@ export class ConnectController {
     return this.conversations.detail(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('conversations/:id/read')
   @RequirePermission('connect:read')
   read(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -100,6 +103,7 @@ export class ConnectController {
     return this.conversations.takeOver(ctx, id, body.reason);
   }
 
+  @HttpCode(200)
   @Post('conversations/:id/handoff/resolve')
   @RequirePermission('connect:reply')
   resolveHandoff(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -114,24 +118,28 @@ export class ConnectController {
   }
 
   /** Resend a failed outbound message (FT-12): window/template rules apply again; a non-failed message is left as is. */
+  @HttpCode(200)
   @Post('messages/:id/resend')
   @RequirePermission('connect:reply')
   resend(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.conversations.resendMessage(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('conversations/:id/assign')
   @RequirePermission('connect:manage')
   assign(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(inboxAssignConversation)) body: z.infer<typeof inboxAssignConversation>) {
     return this.conversations.assign(ctx, id, body.userId);
   }
 
+  @HttpCode(200)
   @Post('conversations/:id/close')
   @RequirePermission('connect:reply')
   close(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.conversations.setClosed(ctx, id, true);
   }
 
+  @HttpCode(200)
   @Post('conversations/:id/reopen')
   @RequirePermission('connect:reply')
   reopen(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -139,6 +147,7 @@ export class ConnectController {
   }
 
   /** Staff cancels the customer's live ordering session (e.g. on request during a handoff). */
+  @HttpCode(200)
   @Post('conversations/:id/ordering/cancel')
   @RequirePermission('connect:reply')
   cancelOrdering(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -156,6 +165,7 @@ export class ConnectController {
 
   // Sandbox simulator ----------------------------------------------------------
   /** Injects an inbound customer message into a SANDBOX channel (testing/demo; never reaches Meta). */
+  @HttpCode(200)
   @Post('sandbox/inbound')
   @RequirePermission('connect:manage')
   simulate(@Tenant() ctx: TenantContext, @Body(zod(connectSandboxInbound)) body: z.infer<typeof connectSandboxInbound>) {
@@ -165,8 +175,9 @@ export class ConnectController {
   // Templates ------------------------------------------------------------------
   @Get('templates')
   @RequirePermission('connect:read')
-  templates(@Tenant() ctx: TenantContext) {
-    return this.channels.listTemplates(ctx);
+  @Header('X-Resuto-List', 'full')
+  templates(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.channels.listTemplates(ctx, q);
   }
 
   @Post('templates')
@@ -187,6 +198,7 @@ export class ConnectController {
     return this.channels.deleteTemplate(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('templates/:id/submit')
   @RequirePermission('connect:manage')
   submitTemplate(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {

@@ -91,7 +91,7 @@ describe('S07 AI on API-created operational history', () => {
 
   it('2. an insights refresh produces at least one evidence-backed insight', async () => {
     const res = await t.http.post(I('/insights/refresh')).set(auth(tenant.owner));
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.created).toBeGreaterThanOrEqual(1);
     const list = await t.http.get(I('/insights')).set(auth(tenant.owner));
     expect(list.status).toBe(200);

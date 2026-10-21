@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { createMcpClient, mcpApprovalsQuery, mcpCallsQuery, mcpDecision, updateMcpClient } from '@resuto/contracts';
 import type { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -48,6 +48,7 @@ export class McpController {
     return this.clients.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('clients/:clientId/revoke')
   @RequirePermission('mcp:manage')
   revoke(@Tenant() ctx: TenantContext, @Param('clientId', ParseUUIDPipe) id: string) {
@@ -61,6 +62,7 @@ export class McpController {
   }
 
   /** Runs a read-only tool exactly as the connection would (its role, branches and allow-list). */
+  @HttpCode(200)
   @Post('clients/:clientId/test/:tool')
   @RequirePermission('mcp:manage')
   async test(@Tenant() ctx: TenantContext, @Param('clientId', ParseUUIDPipe) id: string, @Param('tool') tool: string,
@@ -85,7 +87,7 @@ export class McpController {
   @Get('approvals')
   @RequirePermission('mcp:approve')
   approvals(@Tenant() ctx: TenantContext, @Query(zod(mcpApprovalsQuery)) q: z.infer<typeof mcpApprovalsQuery>) {
-    return this.exec.listApprovals(ctx, q.status, q.limit);
+    return this.exec.listApprovals(ctx, q.status, q.limit, q.cursor);
   }
 
   @Get('approvals/:approvalId')
@@ -94,12 +96,14 @@ export class McpController {
     return this.exec.getApproval(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('approvals/:approvalId/approve')
   @RequirePermission('mcp:approve')
   approve(@Tenant() ctx: TenantContext, @Param('approvalId', ParseUUIDPipe) id: string, @Body(zod(mcpDecision)) body: z.infer<typeof mcpDecision>) {
     return this.exec.approve(ctx, id, body.note, body.previewDigest);
   }
 
+  @HttpCode(200)
   @Post('approvals/:approvalId/reject')
   @RequirePermission('mcp:approve')
   reject(@Tenant() ctx: TenantContext, @Param('approvalId', ParseUUIDPipe) id: string, @Body(zod(mcpDecision)) body: z.infer<typeof mcpDecision>) {

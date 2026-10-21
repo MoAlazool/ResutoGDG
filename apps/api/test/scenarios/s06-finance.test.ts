@@ -85,7 +85,7 @@ describe('S06 finance: trading day → fiscal documents → reconciliation → P
     o.unpaid = await staffOrder([{ productId: menu.fries, quantity: 1 }]);
     o.cancelled = await staffOrder([{ productId: menu.soda, quantity: 1 }]);
     const cancel = await t.http.post(`/v1/o/${tenant.orgId}/orders/${o.cancelled.id}/cancel`).set(auth(tenant.owner)).send({ reason: 'Customer left', version: 0 });
-    expect(cancel.status, JSON.stringify(cancel.body)).toBe(201);
+    expect(cancel.status, JSON.stringify(cancel.body)).toBe(200);
 
     expect([o.cash, o.card, o.web, o.unpaid].map((x) => x.totalMinor)).toEqual([
       PRICES.fries * 2, PRICES.burger + PRICES.soda, PRICES.soda * 2, PRICES.fries,

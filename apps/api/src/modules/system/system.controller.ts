@@ -7,6 +7,7 @@ import { DbService } from '../../common/db/db.service';
 import { DomainError } from '../../common/errors/domain-error';
 import { buildInfo } from '../../common/observability/build-info';
 import { errorReporter } from '../../common/observability/error-tracking';
+import { OpenApiService } from '../../common/http/openapi';
 import { StorageService, isPublicMediaPath } from '../../common/storage/storage.service';
 import { ENV, type Env } from '../../config/env';
 import { HealthDetailsService } from './health-details.service';
@@ -14,7 +15,17 @@ import { HealthDetailsService } from './health-details.service';
 @Controller()
 export class SystemController {
   constructor(private readonly db: DbService, private readonly storage: StorageService, @Inject(ENV) private readonly env: Env,
-    private readonly details: HealthDetailsService) {}
+    private readonly details: HealthDetailsService, private readonly openapi: OpenApiService) {}
+
+  /**
+   * OpenAPI 3.1 description of every route (PS-19), generated from the router and the @resuto/contracts schemas.
+   * Public on purpose: it lists routes, permissions and request schemas, never data, examples or secrets.
+   */
+  @Public()
+  @Get('openapi.json')
+  openApi() {
+    return this.openapi.document();
+  }
 
   @Public()
   @Get('health')
@@ -54,7 +65,7 @@ export class SystemController {
   async media(@Param('path') pathParts: string[] | string, @Query('exp') exp: string, @Query('sig') sig: string, @Res() res: Response) {
     const objectPath = decodeURIComponent(Array.isArray(pathParts) ? pathParts.join('/') : pathParts);
     const bytes = await this.storage.readSigned(objectPath, Number(exp), String(sig ?? ''));
-    if (!bytes) return res.status(404).json({ error: { code: 'not_found', message: 'Not found' } });
+    if (!bytes) throw new DomainError('not_found', 'Not found', 404);
     const ext = objectPath.split('.').pop();
     const type = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' }[ext ?? ''] ?? 'application/octet-stream';
     res.setHeader('Content-Type', type);

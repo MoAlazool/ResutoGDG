@@ -6,6 +6,7 @@ import { newToken } from '../../common/crypto/hash';
 import { DbService } from '../../common/db/db.service';
 import { EntitlementsService } from '../../common/entitlements/entitlements.service';
 import { notFound } from '../../common/errors/domain-error';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
 
 const ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -37,12 +38,12 @@ export class TrackingLinksService {
       shortUrl: `${base}/l/${r.code}`, createdAt: iso(r.created_at) };
   }
 
-  list(ctx: TenantContext, base: string, campaignId?: string) {
-    return this.db.scoped(ctx, async (tx) => ({
-      items: (await tx.query(`select * from tracking_links where org_id = $1 and ($2::uuid is null or campaign_id = $2) order by created_at desc limit 200`,
-        [ctx.orgId, campaignId ?? null])).map((r) => this.view(r, base)),
-      nextCursor: null,
-    }));
+  list(ctx: TenantContext, base: string, q: { campaignId?: string; limit: number; cursor?: string }) {
+    const k = keyset(q.cursor);
+    return this.db.scoped(ctx, async (tx) => pageOf(await tx.query(
+      `select *, ${cursorAt('created_at')} as cursor_at from tracking_links where org_id = $1 and ($2::uuid is null or campaign_id = $2)
+         ${k.after('created_at', 'id', 3)} order by created_at desc, id desc limit ${k.fetch(q.limit)}`,
+      [ctx.orgId, q.campaignId ?? null, ...k.params]), q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => this.view(r, base)));
   }
 
   create(ctx: TenantContext, base: string, input: TrackingLinkInput) {

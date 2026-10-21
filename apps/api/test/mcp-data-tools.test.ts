@@ -171,7 +171,7 @@ describe('approvals bound to the reviewed scope and data', () => {
     expect(detail.body.digest).toMatch(/^[a-f0-9]{64}$/);
     // A cashier marks soda unavailable themselves (the record the request was about).
     const off = await t.http.post(`/v1/o/${a.orgId}/menu/products/${menu.products.soda}/availability`).set(auth(a.owner)).send({ branchId: a.branchId, available: false });
-    expect(off.status).toBe(201);
+    expect(off.status).toBe(200);
     const changed = await t.http.get(`/v1/o/${a.orgId}/mcp/approvals/${approvalId}`).set(auth(a.owner));
     expect(changed.body.changedSinceRequest).toBe(true);
     const res = await t.http.post(`/v1/o/${a.orgId}/mcp/approvals/${approvalId}/approve`).set(auth(a.owner)).send({});
@@ -199,7 +199,7 @@ describe('approvals bound to the reviewed scope and data', () => {
     expect(stale.status).toBe(409);
     expect(stale.body.error.code).toBe('approval_changed');
     const ok = await t.http.post(`/v1/o/${a.orgId}/mcp/approvals/${second}/approve`).set(auth(a.owner)).send({ previewDigest: shown });
-    expect(ok.status).toBe(201);
+    expect(ok.status).toBe(200);
     expect(ok.body).toMatchObject({ status: 'executed', result: { available: false } });
     // ws5 (FT-02 / DF-01): "unavailable" is the temporary 86 (sold_out); the dish stays offered at the branch.
     expect(await sql(`select is_available, sold_out from product_branch_settings where product_id = $1 and branch_id = $2`, [menu.products.soda, a.branchId]))

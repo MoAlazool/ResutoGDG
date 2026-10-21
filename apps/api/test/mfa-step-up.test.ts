@@ -164,7 +164,8 @@ describe('MfaGuard details', () => {
   });
 
   it('without auth.mfa_factors: "no factors" for the dev issuer, fail closed when Supabase Auth is configured', async () => {
-    const db = { withPlatform: (fn: any) => fn({ one: async () => ({ present: false }), maybeOne: async () => { throw new Error('not reached'); } }) };
+    // app.user_has_verified_mfa answers NULL when auth.mfa_factors does not exist.
+    const db = { withPlatform: (fn: any) => fn({ one: async () => ({ verified: null }), maybeOne: async () => { throw new Error('not reached'); } }) };
     await expect(new MfaGuard(db as any, { SUPABASE_URL: undefined } as any).hasVerifiedFactor('u')).resolves.toBe(false);
     const err = await new MfaGuard(db as any, { SUPABASE_URL: 'https://ref.supabase.co' } as any).hasVerifiedFactor('u').catch((e) => e);
     expect(err).toBeInstanceOf(DomainError);

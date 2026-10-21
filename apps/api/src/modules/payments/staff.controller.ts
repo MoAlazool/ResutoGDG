@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import {
-  cashCountInput, collectPayment, createPaymentLink, createRefund, isoDateTime, listPaymentsQuery, reconciliationRunInput, resolveReconciliationItem, uuid,
+  cashCountInput, collectPayment, listQueryOf, createPaymentLink, createRefund, isoDateTime, listPaymentsQuery, reconciliationRunInput, resolveReconciliationItem, uuid,
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -16,7 +16,11 @@ import { StaffPaymentsService } from './staff-payments.service';
 const cashQuery = z.object({ branchId: uuid, from: isoDateTime, to: isoDateTime });
 const dueQuery = z.object({ orderId: uuid.optional(), visitId: uuid.optional() }).refine((q) => !!(q.orderId || q.visitId), 'orderId or visitId is required');
 const alertRefund = z.object({ key: z.string().min(8).max(120) });
-const listQuery = z.object({ status: z.string().max(40).optional(), limit: z.coerce.number().int().min(1).max(200).default(50) });
+const listQuery = listQueryOf({ defaultLimit: 50 }).extend({ status: z.string().max(40).optional() });
+const alertsQuery = listQueryOf({ defaultLimit: 200 }).extend({ status: z.enum(['open', 'resolved', 'all']).default('open') });
+const runsQuery = listQueryOf({ defaultLimit: 50 });
+/** Manual refund completion: an optional staff note (PS-21: the body was not validated). */
+const completeRefundInput = z.object({ note: z.string().trim().max(300).optional().nullable() }).strict();
 
 /** Staff ResutoPay endpoints (paid module `pay`). */
 @Controller('o/:orgId/payments')
@@ -76,6 +80,7 @@ export class PaymentsStaffController {
     return this.payments.createLink(ctx, body);
   }
 
+  @HttpCode(200)
   @Post('links/:linkId/cancel')
   @RequirePermission('payments:collect')
   cancelLink(@Tenant() ctx: TenantContext, @Param('linkId', ParseUUIDPipe) id: string) {
@@ -89,14 +94,16 @@ export class PaymentsStaffController {
     return this.payments.listRefunds(ctx, q);
   }
 
+  @HttpCode(200)
   @Post('refunds/:refundId/complete')
   @RequirePermission('payments:refund')
-  completeRefund(@Tenant() ctx: TenantContext, @Param('refundId', ParseUUIDPipe) id: string, @Body() body: { note?: string } = {}) {
-    const note = typeof body?.note === 'string' ? body.note.slice(0, 300) : null;
-    return this.payments.completeManualRefund(ctx, id, note);
+  completeRefund(@Tenant() ctx: TenantContext, @Param('refundId', ParseUUIDPipe) id: string,
+    @Body(zod(completeRefundInput.optional().transform((b) => b ?? {}))) body: z.infer<typeof completeRefundInput>) {
+    return this.payments.completeManualRefund(ctx, id, body.note || null);
   }
 
   /** Asks the provider about a pending or unconfirmed refund now (PAY-05/PAY-12); never sends a second refund while the provider has a record of the first. */
+  @HttpCode(200)
   @Post('refunds/:refundId/check')
   @RequirePermission('payments:refund')
   checkRefund(@Tenant() ctx: TenantContext, @Param('refundId', ParseUUIDPipe) id: string) {
@@ -106,11 +113,11 @@ export class PaymentsStaffController {
   // --- alerts --------------------------------------------------------------------
   @Get('alerts')
   @RequirePermission('payments:read')
-  alerts(@Tenant() ctx: TenantContext, @Query('status') status?: string) {
-    const s = z.enum(['open', 'resolved', 'all']).default('open').parse(status);
-    return this.payments.alerts(ctx, s);
+  alerts(@Tenant() ctx: TenantContext, @Query(zod(alertsQuery)) q: z.infer<typeof alertsQuery>) {
+    return this.payments.alerts(ctx, q);
   }
 
+  @HttpCode(200)
   @Post('alerts/:alertId/resolve')
   @RequirePermission('payments:reconcile')
   resolveAlert(@Tenant() ctx: TenantContext, @Param('alertId', ParseUUIDPipe) id: string) {
@@ -127,8 +134,8 @@ export class PaymentsStaffController {
   // --- reconciliation ----------------------------------------------------------
   @Get('reconciliation/runs')
   @RequirePermission('payments:reconcile')
-  runs(@Tenant() ctx: TenantContext) {
-    return this.reconciliation.listRuns(ctx);
+  runs(@Tenant() ctx: TenantContext, @Query(zod(runsQuery)) q: z.infer<typeof runsQuery>) {
+    return this.reconciliation.listRuns(ctx, q);
   }
 
   @Post('reconciliation/runs')

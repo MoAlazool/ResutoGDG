@@ -26,6 +26,8 @@ export interface SalesInquiryReceipt {
 
 export const salesInquiryListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** The previous page's nextCursor (opaque). */
+  cursor: z.string().min(1).max(500).optional(),
   status: z.enum(['new', 'contacted', 'closed']).optional(),
 });
 export type SalesInquiryListQuery = z.infer<typeof salesInquiryListQuery>;

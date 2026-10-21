@@ -208,7 +208,7 @@ describe('guest ratings after payment', () => {
     await t.http.post('/v1/public/visits/current/orders').set(visitHeader(token)).set('Idempotency-Key', key('rate'))
       .send({ lines: [{ productId: menu.products.fries, quantity: 2 }], expectedTotalMinor: q.body.totalMinor }).expect(201);
     expect((await rate({ overall: 5 })).status).toBe(409); // ordered but unpaid
-    await t.http.post(`/v1/o/${tenant.orgId}/visits/${scan.body.visitId}/collect`).set(auth(cashier)).set('Idempotency-Key', key('cash')).send({ method: 'cash' }).expect(201);
+    await t.http.post(`/v1/o/${tenant.orgId}/visits/${scan.body.visitId}/collect`).set(auth(cashier)).set('Idempotency-Key', key('cash')).send({ method: 'cash' }).expect(200);
     expect((await rate({ overall: 0 })).status).toBe(400);
     const ok = await rate({ overall: 4, food: 5, service: 4, speed: 3, value: 4, comment: 'الأكل ممتاز، الخدمة بطيئة شوية' });
     expect(ok.status, JSON.stringify(ok.body)).toBe(200);

@@ -38,15 +38,15 @@ export class MfaGuard implements CanActivate {
   }
 
   async hasVerifiedFactor(userId: string): Promise<boolean> {
+    // app.user_has_verified_mfa: platform mode runs as resuto_platform, which has no rights in the auth schema; the
+    // owner-defined function answers only this question (NULL when the factor table does not exist).
     return this.db.withPlatform(async (tx) => {
-      const { present } = await tx.one<{ present: boolean }>(`select to_regclass('auth.mfa_factors') is not null as present`);
-      if (!present) {
+      const { verified } = await tx.one<{ verified: boolean | null }>(`select app.user_has_verified_mfa($1) as verified`, [userId]);
+      if (verified === null) {
         if (this.env.SUPABASE_URL) throw new DomainError('mfa_check_unavailable', 'Two-step verification could not be checked. Please retry shortly.', 503, { retryAfterSeconds: 5 });
         return false;
       }
-      const row = await tx.maybeOne<{ id: string }>(
-        `select id from auth.mfa_factors where user_id = $1 and status::text = 'verified' limit 1`, [userId]);
-      return !!row;
+      return verified;
     });
   }
 }

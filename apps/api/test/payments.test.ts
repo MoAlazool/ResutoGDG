@@ -516,7 +516,7 @@ describe('staff payments, refunds and permissions', () => {
     expect(over.body.error.code).toBe('overpayment');
     const list = await t.http.get(`/v1/o/${tenant.orgId}/payments/links`).set(auth(accountant));
     expect(list.body.items.find((l: any) => l.id === res.body.id).url).toBe(res.body.url);
-    await t.http.post(`/v1/o/${tenant.orgId}/payments/links/${res.body.id}/cancel`).set(auth(tenant.owner)).expect(201);
+    await t.http.post(`/v1/o/${tenant.orgId}/payments/links/${res.body.id}/cancel`).set(auth(tenant.owner)).expect(200);
     expect((await t.http.post(`/v1/public/pay/${linkToken}/start`).send({ method: 'card' })).status).toBe(410);
   });
 });

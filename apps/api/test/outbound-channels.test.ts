@@ -48,8 +48,8 @@ async function approvedCampaign(tenant: TestTenant, channel: 'email' | 'sms') {
   const c = await t.http.post(m(tenant, '/campaigns')).set(auth(tenant.owner))
     .send({ name: 'Weekend offer', channel, segmentId: seg.body.id, content: { text: 'Free dessert this weekend.', ...(channel === 'email' ? { subject: 'A weekend treat' } : {}) } });
   expect(c.status, JSON.stringify(c.body)).toBe(201);
-  await t.http.post(m(tenant, `/campaigns/${c.body.id}/submit`)).set(auth(tenant.owner)).expect(201);
-  await t.http.post(m(tenant, `/campaigns/${c.body.id}/approve`)).set(auth(tenant.owner)).expect(201);
+  await t.http.post(m(tenant, `/campaigns/${c.body.id}/submit`)).set(auth(tenant.owner)).expect(200);
+  await t.http.post(m(tenant, `/campaigns/${c.body.id}/approve`)).set(auth(tenant.owner)).expect(200);
   return c.body.id as string;
 }
 const noQuietHours = (tenant: TestTenant) => t.http.put(`/v1/o/${tenant.orgId}/messaging/policy`).set(auth(tenant.owner)).send({ quietHoursStart: null, quietHoursEnd: null }).expect(200);
@@ -94,7 +94,7 @@ describe('email campaigns through Resend (INT-28)', () => {
     const f = resendOk();
     http.fetch = f.fetch;
     const res = await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner));
-    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body).toMatchObject({ status: 'sent', isSandbox: false, delivery: { recipients: 3, queued: 1, skippedNoConsent: 1, failed: 1, live: 1, sandbox: 0 } });
     expect(f.calls).toHaveLength(1);
     const call = f.calls[0]!;
@@ -125,7 +125,7 @@ describe('email campaigns through Resend (INT-28)', () => {
     await noQuietHours(tenant);
     const id = await approvedCampaign(tenant, 'email');
     http.fetch = scriptedFetch([{ status: 503, body: { name: 'service_unavailable' } }]).fetch;
-    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(200);
     let [row] = await outboundRows(id);
     expect(row).toMatchObject({ status: 'deferred', defer_reason: 'retry', attempts: 1, last_error: 'resend: HTTP 503 (service_unavailable)' });
     const wait = (new Date(row.next_attempt_at).getTime() - Date.now()) / 1000;
@@ -156,7 +156,7 @@ describe('email campaigns through Resend (INT-28)', () => {
     const id = await approvedCampaign(tenant, 'email');
     const f = resendOk();
     http.fetch = f.fetch;
-    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(200);
     expect(f.calls).toHaveLength(0);
     const [row] = await outboundRows(id);
     expect(row).toMatchObject({ status: 'deferred', defer_reason: 'quiet_hours', attempts: 0 });
@@ -176,7 +176,7 @@ describe('email campaigns through Resend (INT-28)', () => {
     const id = await approvedCampaign(tenant, 'email');
     http.fetch = resendOk().fetch;
     const sendRes = await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner));
-    expect(sendRes.status, JSON.stringify(sendRes.body)).toBe(201);
+    expect(sendRes.status, JSON.stringify(sendRes.body)).toBe(200);
     const event = (type: string) => JSON.stringify({ type, created_at: new Date().toISOString(), data: { email_id: 'em_monaguestexample', to: ['mona@guest.example'] } });
     const post = (body: string, headers: Record<string, string>) => t.http.post(`/v1/webhooks/resend/${conn}`).set(headers).send(body);
 
@@ -215,7 +215,7 @@ describe('unsubscribe link (INT-28)', () => {
     const id = await approvedCampaign(tenant, 'email');
     const f = resendOk();
     http.fetch = f.fetch;
-    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(200);
     const url = new URL(JSON.parse(f.calls[0]!.body!).headers['List-Unsubscribe'].slice(1, -1));
     const path = url.pathname;
     expect((await t.http.get(path)).body).toEqual({ channel: 'email', restaurant: 'Olive Room', unsubscribed: false });
@@ -248,7 +248,7 @@ describe('opt-outs survive key rotation (INT-28 review)', () => {
       const first = await approvedCampaign(tenant, 'email');
       const f = resendOk();
       http.fetch = f.fetch;
-      await t.http.post(m(tenant, `/campaigns/${first}/send`)).set(auth(tenant.owner)).expect(201);
+      await t.http.post(m(tenant, `/campaigns/${first}/send`)).set(auth(tenant.owner)).expect(200);
       const path = new URL(JSON.parse(f.calls[0]!.body!).headers['List-Unsubscribe'].slice(1, -1)).pathname;
       expect((await t.http.post(path).type('form').send('List-Unsubscribe=One-Click')).body).toMatchObject({ unsubscribed: true });
 
@@ -260,7 +260,7 @@ describe('opt-outs survive key rotation (INT-28 review)', () => {
       const g = resendOk();
       http.fetch = g.fetch;
       const res = await t.http.post(m(tenant, `/campaigns/${second}/send`)).set(auth(tenant.owner));
-      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
       expect(res.body.delivery).toMatchObject({ skippedUnsubscribed: 1, queued: 0 });
       expect(g.calls).toHaveLength(0);
       // The match under the old key was re-recorded under the active key...
@@ -336,7 +336,7 @@ describe('SMS campaigns through Twilio (INT-28)', () => {
       n += 1;
       return new Response(JSON.stringify({ sid: `SMlate${to.slice(-4)}`, status: 'queued' }), { status: 201, headers: { 'content-type': 'application/json' } });
     }) as unknown as typeof fetch;
-    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(200);
     expect(n).toBe(2);
     const mona = (await sql(`select status, provider_message_id from outbound_messages where customer_id = $1 and campaign_id = $2`, [c.Mona, id]))[0];
     expect(mona).toEqual({ status: 'accepted', provider_message_id: 'SMlate0001' });

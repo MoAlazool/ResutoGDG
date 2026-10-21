@@ -96,15 +96,15 @@ describe('food-photo enhancement', () => {
     const rs = await Promise.all([0, 1, 2, 3].map(() => t.http.post(`${base(a)}/${up.body.id}/publish`).set(auth(a.owner))
       .send({ target: 'product', productId: menu.products.burger, key: 'publish-race-0001' })));
     for (const r of rs) {
-      expect([201, 409]).toContain(r.status);
+      expect([200, 409]).toContain(r.status);
       if (r.status === 409) expect(r.body.error.code).toBe('photo_publish_in_progress');
     }
-    expect(rs.some((r) => r.status === 201)).toBe(true);
+    expect(rs.some((r) => r.status === 200)).toBe(true);
     expect(await count()).toBe(before + 1); // one menu image (the menu module's copy), not one per request
     expect(await sql(`select 1 from audit_logs where org_id = $1 and entity_id = $2 and action = 'studio_photo.published'`, [a.orgId, up.body.id])).toHaveLength(1);
     // A retry with the same key replays; the lease is released.
     const again = await t.http.post(`${base(a)}/${up.body.id}/publish`).set(auth(a.owner)).send({ target: 'product', productId: menu.products.burger, key: 'publish-race-0001' });
-    expect(again.status).toBe(201);
+    expect(again.status).toBe(200);
     expect(await count()).toBe(before + 1);
     expect(await sql(`select 1 from studio_photo_jobs where id = $1 and lease is null`, [up.body.id])).toHaveLength(1);
   });
@@ -121,13 +121,13 @@ describe('food-photo enhancement', () => {
     const ok = await t.http.post(`${base(a)}/${up.body.id}/review`).set(auth(a.owner)).send({ decision: 'approve', note: 'Looks right' });
     expect(ok.body).toMatchObject({ status: 'approved', reviewedBy: a.owner.userId, reviewNote: 'Looks right' });
     const pub = await t.http.post(`${base(a)}/${up.body.id}/publish`).set(auth(a.owner)).send({ target: 'product', productId: menu.products.fries, key });
-    expect(pub.status).toBe(201);
+    expect(pub.status).toBe(200);
     expect(pub.body).toMatchObject({ status: 'published', published: { target: 'product', id: menu.products.fries } });
     const [p] = await sql<any>(`select image_media_id from products where id = $1`, [menu.products.fries]);
     expect(p.image_media_id).toBeTruthy();
     expect(p.image_media_id).not.toBe(up.body.original.mediaId);
     const again = await t.http.post(`${base(a)}/${up.body.id}/publish`).set(auth(a.owner)).send({ target: 'product', productId: menu.products.fries, key });
-    expect(again.status).toBe(201);
+    expect(again.status).toBe(200);
     expect((await sql(`select image_media_id from products where id = $1`, [menu.products.fries]))[0].image_media_id).toBe(p.image_media_id);
     const actions = (await sql<any>(`select action from audit_logs where org_id = $1 and entity_id = $2 order by id`, [a.orgId, up.body.id])).map((r) => r.action);
     expect(actions).toEqual(['studio_photo.uploaded', 'studio_photo.enhanced', 'studio_photo.approved', 'studio_photo.published']);
@@ -147,7 +147,7 @@ describe('food-photo enhancement', () => {
     await work();
     await t.http.post(`${base(a)}/${up.body.id}/review`).set(auth(a.owner)).send({ decision: 'approve' });
     const pub = await t.http.post(`${base(a)}/${up.body.id}/publish`).set(auth(a.owner)).send({ target: 'website_section', sectionId: hero.id, key: 'publish-hero-0001' });
-    expect(pub.status).toBe(201);
+    expect(pub.status).toBe(200);
     const after = (await t.http.get(`/v1/o/${a.orgId}/studio/website`).set(auth(a.owner))).body;
     expect(after.sections.find((s: any) => s.id === hero.id).content.mediaId).toBe(pub.body.output.mediaId);
     expect(after.website.hasUnpublishedChanges).toBe(true);

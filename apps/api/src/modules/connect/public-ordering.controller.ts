@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req } from '@nestjs/common';
 import { orderingCancelInput, orderingCartInput, orderingCheckoutInput, orderingDetailsInput } from '@resuto/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -29,12 +29,14 @@ export class PublicOrderingController {
     return this.ordering.view(token);
   }
 
+  @HttpCode(200)
   @Post('cart')
   cart(@Param('token') token: string, @Req() req: Request, @Body(zod(orderingCartInput)) body: z.infer<typeof orderingCartInput>) {
     this.limit(req, token);
     return this.ordering.submitCart(token, body);
   }
 
+  @HttpCode(200)
   @Post('details')
   details(@Param('token') token: string, @Req() req: Request, @Body(zod(orderingDetailsInput)) body: z.infer<typeof orderingDetailsInput>) {
     this.limit(req, token);
@@ -47,6 +49,7 @@ export class PublicOrderingController {
     return this.ordering.checkout(token, body);
   }
 
+  @HttpCode(200)
   @Post('cancel')
   cancel(@Param('token') token: string, @Req() req: Request, @Body(zod(orderingCancelInput)) body: z.infer<typeof orderingCancelInput>) {
     this.limit(req, token, 20);

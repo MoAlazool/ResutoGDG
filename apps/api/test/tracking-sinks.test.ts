@@ -172,7 +172,7 @@ describe('test connections (INT-23)', () => {
     expect(f.calls.find((c) => c.url.includes('snapchat'))!.url).toContain(`/v3/${SNAP_PIXEL}/events/validate?`);
 
     const tt = await t.http.post(`/v1/o/${tenant.orgId}/marketing/tracking/sinks/tiktok_events/test-event`).set(auth(tenant.owner)).set('User-Agent', UA);
-    expect(tt.status).toBe(201);
+    expect(tt.status).toBe(200);
     expect(tt.body).toMatchObject({ sent: true });
     const ttTest = JSON.parse(f.calls.at(-1)!.body!);
     expect(ttTest.test_event_code).toBe('TT_TEST_77');

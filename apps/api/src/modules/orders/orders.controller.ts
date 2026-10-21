@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
   closeVisitRequest, collectPaymentRequest, orderCancelRequest, orderListQuery, orderTransitionRequest, seatVisitRequest, staffOrderRequest, visitListQuery,
   type OrderListQuery, type StaffOrderRequest,
@@ -11,6 +11,7 @@ import { OrdersService } from './orders.service';
 import { VisitsService } from './visits.service';
 
 const uuidPipe = new ParseUUIDPipe();
+const branchQuery = z.object({ branchId: z.uuid().optional().or(z.literal('').transform(() => undefined)) });
 
 @Controller('o/:orgId')
 export class OrdersController {
@@ -34,18 +35,21 @@ export class OrdersController {
     return this.orders.create(ctx, body, key);
   }
 
+  @HttpCode(200)
   @Post('orders/:id/transition')
   @RequirePermission('orders:status')
   transition(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(orderTransitionRequest)) body: z.infer<typeof orderTransitionRequest>) {
     return this.orders.transition(ctx, id, body.to, body.version);
   }
 
+  @HttpCode(200)
   @Post('orders/:id/cancel')
   @RequirePermission('orders:cancel')
   cancel(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(orderCancelRequest)) body: z.infer<typeof orderCancelRequest>) {
     return this.orders.cancel(ctx, id, body.reason, body.version);
   }
 
+  @HttpCode(200)
   @Post('orders/:id/collect')
   @RequirePermission('payments:collect')
   collect(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(collectPaymentRequest)) body: z.infer<typeof collectPaymentRequest>,
@@ -55,10 +59,11 @@ export class OrdersController {
 
   @Get('requests')
   @RequirePermission('orders:read')
-  requests(@Tenant() ctx: TenantContext, @Query('branchId') branchId?: string) {
-    return this.orders.requests(ctx, z.uuid().optional().parse(branchId || undefined));
+  requests(@Tenant() ctx: TenantContext, @Query(zod(branchQuery)) q: z.infer<typeof branchQuery>) {
+    return this.orders.requests(ctx, q.branchId);
   }
 
+  @HttpCode(200)
   @Post('requests/:id/resolve')
   @RequirePermission('orders:read')
   resolve(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(z.object({ status: z.enum(['acknowledged', 'resolved']).default('resolved') }))) body: { status: 'acknowledged' | 'resolved' }) {
@@ -90,18 +95,21 @@ export class VisitsController {
     return this.visits.staffDetail(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('visits/:visitId/close')
   @RequirePermission('floor:seat')
   close(@Tenant() ctx: TenantContext, @Param('visitId', uuidPipe) id: string, @Body(zod(closeVisitRequest)) body: z.infer<typeof closeVisitRequest>) {
     return this.visits.close(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('visits/:visitId/undo')
   @RequirePermission('floor:seat')
   undo(@Tenant() ctx: TenantContext, @Param('visitId', uuidPipe) id: string) {
     return this.visits.undo(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('visits/:visitId/collect')
   @RequirePermission('payments:collect')
   collect(@Tenant() ctx: TenantContext, @Param('visitId', uuidPipe) id: string, @Body(zod(collectPaymentRequest)) body: z.infer<typeof collectPaymentRequest>,
@@ -109,6 +117,7 @@ export class VisitsController {
     return this.visits.collect(ctx, id, body, key);
   }
 
+  @HttpCode(200)
   @Post('tables/:tableId/clean')
   @RequirePermission('floor:seat')
   clean(@Tenant() ctx: TenantContext, @Param('tableId', uuidPipe) id: string) {

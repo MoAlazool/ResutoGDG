@@ -58,7 +58,8 @@ export const auth = (u: { token: string }) => ({ Authorization: `Bearer ${u.toke
 // ---------------------------------------------------------------------------
 import pg from 'pg';
 let pool: pg.Pool | null = null;
-export const testDb = () => (pool ??= new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3 }));
+// Fixtures use the owner connection; under vitest.restricted.config.ts the API itself connects as resuto_api (PS-16).
+export const testDb = () => (pool ??= new pg.Pool({ connectionString: process.env.TEST_FIXTURE_DATABASE_URL ?? process.env.DATABASE_URL, max: 3 }));
 export async function sql<T = any>(text: string, params: unknown[] = []): Promise<T[]> {
   return (await testDb().query(text, params as any[])).rows;
 }

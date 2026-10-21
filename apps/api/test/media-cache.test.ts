@@ -127,7 +127,7 @@ describe('image derivatives (CR-12) and the public menu', () => {
     productId = menu.products.burger;
     const up = await t.http.post(`/v1/o/${tenant.orgId}/menu/products/${productId}/image`).set(auth(tenant.owner))
       .attach('file', await photo(2000, 1500), { filename: 'phone.jpg', contentType: 'image/jpeg' });
-    expect(up.status).toBe(201);
+    expect(up.status).toBe(200);
     const [m] = await sql(`select width, height, variants, variants_checked_at from media_assets where id = $1`, [up.body.imageMediaId]);
     expect(m).toMatchObject({ width: 2000, height: 1500 });
     expect(m.variants_checked_at).toBeTruthy();

@@ -36,6 +36,9 @@ export const toBranch = (r: any) => ({
 
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'main';
 
+/** Ceiling of the team list (members and pending invitations, each): a configuration list, not a page (PS-22). */
+export const MEMBERS_LIST_MAX = 1000;
+
 @Injectable()
 export class OrganizationsService {
   constructor(
@@ -192,17 +195,23 @@ export class OrganizationsService {
   }
 
   // --- Members ---------------------------------------------------------------
+  /**
+   * Team members and pending invitations: a configuration list, not a page (docs/API_STYLE.md). Both queries have a
+   * fixed ceiling (MEMBERS_LIST_MAX each, far above any plan's staff limit); `truncated` says when it was reached.
+   */
   async listMembers(ctx: TenantContext) {
     return this.db.scoped(ctx, async (tx) => {
       const members = await tx.query(
         `select m.id, m.user_id, m.role, m.branch_ids, m.status, m.created_at, p.full_name, p.email
            from memberships m left join profiles p on p.id = m.user_id
-          where m.org_id = $1 order by m.created_at`, [ctx.orgId]);
+          where m.org_id = $1 order by m.created_at, m.id limit ${MEMBERS_LIST_MAX + 1}`, [ctx.orgId]);
       const invitations = await tx.query(
-        `select id, email, phone, role, branch_ids, status, expires_at from invitations where org_id = $1 and status = 'pending' order by created_at`, [ctx.orgId]);
+        `select id, email, phone, role, branch_ids, status, expires_at from invitations where org_id = $1 and status = 'pending'
+          order by created_at, id limit ${MEMBERS_LIST_MAX + 1}`, [ctx.orgId]);
       return {
-        members: members.map((m) => ({ id: m.id, userId: m.user_id, role: m.role, branchIds: m.branch_ids, status: m.status, fullName: m.full_name, email: m.email })),
-        invitations: invitations.map((i) => ({ id: i.id, email: i.email, phone: i.phone, role: i.role, branchIds: i.branch_ids, expiresAt: i.expires_at })),
+        members: members.slice(0, MEMBERS_LIST_MAX).map((m) => ({ id: m.id, userId: m.user_id, role: m.role, branchIds: m.branch_ids, status: m.status, fullName: m.full_name, email: m.email })),
+        invitations: invitations.slice(0, MEMBERS_LIST_MAX).map((i) => ({ id: i.id, email: i.email, phone: i.phone, role: i.role, branchIds: i.branch_ids, expiresAt: i.expires_at })),
+        truncated: members.length > MEMBERS_LIST_MAX || invitations.length > MEMBERS_LIST_MAX,
       };
     });
   }

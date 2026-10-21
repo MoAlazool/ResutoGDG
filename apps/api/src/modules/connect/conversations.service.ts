@@ -6,6 +6,7 @@ import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { branchScope, cursorAt as cursorAtSql, keyset, pageOf } from '../../common/http/pagination';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { ENV, type Env } from '../../config/env';
@@ -118,10 +119,16 @@ export class ConversationsService {
   // Inbox
   // ---------------------------------------------------------------------------
   list(ctx: TenantContext, f: InboxConversationFilters) {
+    // Shared keyset (PS-22): opaque cursor at microsecond precision, branch scope in SQL before the limit. The
+    // "iso|uuid" cursors issued before are still accepted (millisecond precision, as they were).
+    const legacy = f.cursor && /^\d{4}-\d\d-\d\dT[^|]{1,40}\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(f.cursor)
+      && !Number.isNaN(Date.parse(f.cursor.split('|')[0]!)) ? f.cursor.split('|') : null;
+    const k = keyset(legacy ? null : f.cursor);
+    const [cursorAt, cursorId] = legacy ?? (k.key ? [String(k.key.at), k.key.id] : [null, null]);
+    const lastAt = 'coalesce(c.last_message_at, c.created_at)';
     return this.db.scoped(ctx, async (tx) => {
-      const [cursorAt, cursorId] = f.cursor ? f.cursor.split('|') : [null, null];
       const rows = await tx.query(
-        `select c.id, c.channel_id, c.customer_id, c.external_contact, c.contact_name, c.status, c.assigned_to, c.last_message_at, c.last_inbound_at,
+        `select ${cursorAtSql(lastAt)} as cursor_at, c.id, c.channel_id, c.customer_id, c.external_contact, c.contact_name, c.status, c.assigned_to, c.last_message_at, c.last_inbound_at,
                 c.unread_count, c.branch_id, c.locale, ch.display_name as channel_name, ch.transport, ch.kind as channel_kind, cu.display_name as customer_name,
                 lm.body as last_body, lm.direction as last_direction, lm.kind as last_kind,
                 exists(select 1 from handoffs h where h.conversation_id = c.id and h.status <> 'resolved') as handoff_open
@@ -134,18 +141,17 @@ export class ConversationsService {
             and ($4::text is null or ($4 = 'me' and c.assigned_to = $5) or ($4 = 'unassigned' and c.assigned_to is null))
             and ($6::uuid is null or c.channel_id = $6)
             and ($7::text is null or c.contact_name ilike '%' || $7 || '%' or c.external_contact like '%' || $7 || '%' or cu.display_name ilike '%' || $7 || '%')
-            and ($8::timestamptz is null or (coalesce(c.last_message_at, c.created_at), c.id) < ($8, $9::uuid))
-          order by coalesce(c.last_message_at, c.created_at) desc, c.id desc limit $10`,
+            and ($8::timestamptz is null or (${lastAt}, c.id) < ($8, $9::uuid))
+            and ${branchScope('c.branch_id', 11)}
+          order by ${lastAt} desc, c.id desc limit $10`,
         [ctx.orgId, f.status ?? null, f.unread ?? null, f.assigned ?? null, ctx.userId, f.channelId ?? null,
-          f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, f.limit]);
-      const items = rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => ({
+          f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, k.fetch(f.limit), ctx.branchFilter]);
+      return pageOf(rows, f.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => ({
         id: r.id, channelId: r.channel_id, channelName: r.channel_name, channelKind: r.channel_kind, sandbox: r.transport === 'sandbox', customerId: r.customer_id,
         contact: phoneContact(r.transport, r.external_contact), name: r.customer_name ?? r.contact_name, status: r.status, assignedTo: r.assigned_to,
         unreadCount: r.unread_count, lastMessageAt: iso(r.last_message_at), lastMessage: r.last_body ? { body: r.last_body, direction: r.last_direction, kind: r.last_kind } : null,
         window: windowState(r.last_inbound_at), handoffOpen: r.handoff_open, locale: r.locale,
       }));
-      const last = rows[rows.length - 1];
-      return { items, nextCursor: rows.length === f.limit && last ? `${new Date(last.last_message_at ?? Date.now()).toISOString()}|${last.id}` : null };
     });
   }
 

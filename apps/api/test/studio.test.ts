@@ -103,7 +103,7 @@ describe('website editor', () => {
     const site = (await t.http.get(`${base(tenant)}/website`).set(auth(tenant.owner))).body;
     const ids = site.sections.map((s: any) => s.id).reverse();
     const reordered = await t.http.post(`${base(tenant)}/website/sections/reorder`).set(auth(tenant.owner)).send({ ids });
-    expect(reordered.status).toBe(201);
+    expect(reordered.status).toBe(200);
     expect(reordered.body.sections.map((s: any) => s.id)).toEqual(ids);
     const mismatch = await t.http.post(`${base(tenant)}/website/sections/reorder`).set(auth(tenant.owner)).send({ ids: ids.slice(1) });
     expect(mismatch.status).toBe(422);
@@ -129,7 +129,7 @@ describe('publishing and the public website', () => {
 
     const key = 'publish-key-0001';
     const pub = await t.http.post(`${base(tenant)}/website/publish`).set(auth(tenant.owner)).send({ key });
-    expect(pub.status).toBe(201);
+    expect(pub.status).toBe(200);
     expect(pub.body.revision).toBe(1);
     const retry = await t.http.post(`${base(tenant)}/website/publish`).set(auth(tenant.owner)).send({ key });
     expect(retry.body).toEqual(pub.body);
@@ -162,7 +162,7 @@ describe('publishing and the public website', () => {
     expect(revs.body.items.map((r: any) => r.revision)).toEqual([2, 1]);
     expect(revs.body.items[0].note).toBe('Minimal look');
     const restored = await t.http.post(`${base(tenant)}/website/revisions/1/restore`).set(auth(tenant.owner));
-    expect(restored.status).toBe(201);
+    expect(restored.status).toBe(200);
     expect(restored.body.website.template).toBe('olive');
     expect((await t.http.get(`/v1/public/sites/${tenant.slug}`)).body.revision).toBe(2);
     await expect(sql(`update website_revisions set note = 'x' where org_id = $1`, [tenant.orgId])).rejects.toThrow(/immutable/);
@@ -203,7 +203,7 @@ describe('media library', () => {
 describe('custom domains', () => {
   it('verifies ownership by TXT record, provisions at the host and resolves to the same tenant', async () => {
     const tenant = await createTenant(t);
-    await t.http.post(`${base(tenant)}/website/publish`).set(auth(tenant.owner)).send({ key: 'domain-publish-01' }).expect(201);
+    await t.http.post(`${base(tenant)}/website/publish`).set(auth(tenant.owner)).send({ key: 'domain-publish-01' }).expect(200);
     const hostname = host(tenant.slug);
 
     const added = await t.http.post(`${base(tenant)}/domains`).set(auth(tenant.owner)).send({ hostname: hostname.toUpperCase() });
@@ -224,7 +224,7 @@ describe('custom domains', () => {
     // TXT values may be split into chunks by DNS servers.
     txtRecords.set(`_resuto-verify.${hostname}`, [['v=spf1 -all'], [token.slice(0, 10), token.slice(10)]]);
     const verified = await t.http.post(`${base(tenant)}/domains/${added.body.id}/verify`).set(auth(tenant.owner));
-    expect(verified.status).toBe(201);
+    expect(verified.status).toBe(200);
     expect(verified.body).toMatchObject({ status: 'provisioning', provider: 'vercel', providerReadiness: 'implemented_unverified', lastError: null });
     expect(verified.body.routingRecords[0]).toMatchObject({ type: 'CNAME', value: 'cname.vercel-dns.com' });
     expect(provider.attached).toContain(hostname);
@@ -387,7 +387,7 @@ describe('access control', () => {
     const host = await addMember(t, tenant, 'host');
     expect((await t.http.post(`${base(tenant)}/website/publish`).set(auth(host)).send({ key: 'host-publish-01' })).status).toBe(403);
     const marketing = await addMember(t, tenant, 'marketing');
-    expect((await t.http.post(`${base(tenant)}/website/publish`).set(auth(marketing)).send({ key: 'mkt-publish-001' })).status).toBe(201);
+    expect((await t.http.post(`${base(tenant)}/website/publish`).set(auth(marketing)).send({ key: 'mkt-publish-001' })).status).toBe(200);
     expect((await t.http.post(`${base(tenant)}/domains`).set(auth(kitchen)).send({ hostname: 'x.example.com' })).status).toBe(403);
   });
 

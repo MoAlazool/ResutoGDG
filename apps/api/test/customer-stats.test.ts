@@ -74,7 +74,7 @@ describe('customer read models follow the orders', () => {
     await sql(`update orders set branch_id = $2, number = number || '-m' where id = $1`, [a.id, north]);
     await expectExact(tenant.orgId);
     const merge = await t.http.post(`/v1/o/${tenant.orgId}/customers/${a.customerId}/merge`).set(auth(tenant.owner)).send({ duplicateId: b.customerId });
-    expect(merge.status).toBe(201);
+    expect(merge.status).toBe(200);
     await expectExact(tenant.orgId);
     const [merged] = await sql(`select order_count, any_orders from customer_stats where customer_id = $1`, [b.customerId]);
     expect(merged).toEqual({ order_count: 0, any_orders: 0 });
@@ -127,7 +127,8 @@ describe('keyset pagination', () => {
   it('rejects a cursor from another sort and still accepts a legacy offset cursor', async () => {
     const p1 = await t.http.get(`/v1/o/${tenant.orgId}/customers?limit=2&sort=spend`).set(auth(tenant.owner));
     const wrong = await t.http.get(`/v1/o/${tenant.orgId}/customers?limit=2&sort=name&cursor=${p1.body.nextCursor}`).set(auth(tenant.owner));
-    expect(wrong.status).toBe(422);
+    // A malformed request (PS-20, docs/API_STYLE.md): 400, not the 422 used for business-rule refusals.
+    expect(wrong.status).toBe(400);
     expect(wrong.body.error.code).toBe('invalid_cursor');
     const all = await t.http.get(`/v1/o/${tenant.orgId}/customers?limit=200&sort=name`).set(auth(tenant.owner));
     const legacy = await t.http.get(`/v1/o/${tenant.orgId}/customers?limit=2&sort=name&cursor=2`).set(auth(tenant.owner));

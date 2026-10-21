@@ -89,6 +89,20 @@ export function noteServerCachePolicy(cacheControl: string | null): void {
 export const resetServerCachePolicy = () => { serverCachePolicy = 'unknown'; };
 
 export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise<T> {
+  return (await apiPage(path, opts))[0];
+}
+
+/**
+ * api() for staff screens (useSession().call). Lists the dashboard shows whole (PS-22) are bounded pages marked
+ * `X-Resuto-List: full`; for those the remaining pages are fetched by lib/api-pages.ts, a separate chunk loaded only
+ * when needed, so guest bundles stay as they were.
+ */
+export async function apiAll<T = any>(path: string, opts: ApiOptions = {}): Promise<T> {
+  const [data, full] = await apiPage(path, opts);
+  return full ? (await import('./api-pages')).followPages(data, path, opts, apiPage) : data;
+}
+
+export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boolean]> {
   const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers };
   if (opts.body !== undefined && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
@@ -124,7 +138,8 @@ export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise
     throw new ApiRequestError(res.status, e.code ?? 'http_error', e.message ?? res.statusText, e.details, e.requestId ?? requestId);
   }
   if (data === undefined) throw new ApiRequestError(res.status, 'bad_response', copy('bad_response', res.status), undefined, requestId);
-  return data as T;
+  const method = opts.method ?? (opts.body !== undefined ? 'POST' : 'GET');
+  return [data, method === 'GET' && !/[?&](cursor|limit)=/.test(path) && res.headers.get('x-resuto-list') === 'full'];
 }
 
 /** Stable idempotency key for one user intent (reuse it when retrying that intent). */

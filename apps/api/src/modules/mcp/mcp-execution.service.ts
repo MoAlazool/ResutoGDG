@@ -6,6 +6,7 @@ import { fingerprint } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { EntitlementsService } from '../../common/entitlements/entitlements.service';
 import { conflict, DomainError, forbidden, notFound, paymentRequired } from '../../common/errors/domain-error';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
@@ -292,14 +293,17 @@ export class McpExecutionService {
   // Approvals (dashboard, mcp:approve)
   // -------------------------------------------------------------------------
 
-  async listApprovals(ctx: TenantContext, status: string, limit: number) {
+  async listApprovals(ctx: TenantContext, status: string, limit: number, cursor?: string) {
     await this.expireDue(ctx.orgId);
+    const k = keyset(cursor);
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select a.*, c.name as client_name, c.key_prefix, c.acting_role from mcp_approvals a join mcp_clients c on c.id = a.client_id
-          where a.org_id = $1 and ($2::text = 'all' or a.status = $3) order by a.requested_at desc limit $4`,
-        [ctx.orgId, status, status, limit]);
-      return { items: rows.map((r) => this.toApproval(r)) };
+        `select a.*, c.name as client_name, c.key_prefix, c.acting_role, ${cursorAt('a.requested_at')} as cursor_at
+           from mcp_approvals a join mcp_clients c on c.id = a.client_id
+          where a.org_id = $1 and ($2::text = 'all' or a.status = $3) ${k.after('a.requested_at', 'a.id', 4)}
+          order by a.requested_at desc, a.id desc limit ${k.fetch(limit)}`,
+        [ctx.orgId, status, status, ...k.params]);
+      return pageOf(rows, limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => this.toApproval(r));
     });
   }
 

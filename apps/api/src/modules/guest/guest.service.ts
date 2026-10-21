@@ -3,7 +3,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { normalizePhone, type CartLine, type GuestOrderRequest, type GuestVisitPoll, type PublicMenu, type WebOrderRequest } from '@resuto/contracts';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { EntitlementsService } from '../../common/entitlements/entitlements.service';
 import { StorageService } from '../../common/storage/storage.service';
@@ -107,7 +107,7 @@ export class GuestService {
   }
 
   placeOrder(token: string | undefined, body: GuestOrderRequest, key: string | undefined) {
-    if (!key || key.length < 8 || key.length > 200) throw invalid('idempotency_key_required', 'An Idempotency-Key header is required');
+    if (!key || key.length < 8 || key.length > 200) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     return this.visits.withGuest(token, (tx, g) => this.idempotency.run(tx, g.ctx.orgId, `guest-order:${g.visit.id}`, key, body, async () => {
       if (await this.visits.settling(tx, g.visit.id)) {
         throw conflict('bill_settling', 'A payment is being processed. New orders resume as soon as it finishes.');
@@ -212,7 +212,7 @@ export class GuestService {
 
   /** `onPhone` sees the customer's number once normalised to E.164 (the controller's per-number abuse limit). */
   webOrder(slug: string, body: WebOrderRequest, key: string | undefined, onPhone?: (e164: string) => void) {
-    if (!key || key.length < 8 || key.length > 200) throw invalid('idempotency_key_required', 'An Idempotency-Key header is required');
+    if (!key || key.length < 8 || key.length > 200) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     if (body.payment === 'pay_at_pickup' && body.fulfillment !== 'pickup') throw invalid('payment_unavailable', 'Pay at pickup is only for pickup orders');
     if (body.payment === 'cod' && body.fulfillment !== 'delivery') throw invalid('payment_unavailable', 'Cash on delivery is only for delivery orders');
     if (body.fulfillment === 'delivery' && !body.deliveryAddress) throw invalid('address_required', 'Delivery orders need an address');

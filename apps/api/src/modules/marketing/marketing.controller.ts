@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
-  adInsightsSync, CAMPAIGN_STATUSES, campaignInput, campaignUpdate, launchCampaign, promotionInput, promotionUpdate, rejectCampaign, resetCampaignLaunch, scheduleCampaign, segmentInput,
+  adInsightsSync, CAMPAIGN_STATUSES, fullListQuery, listQuery, campaignInput, campaignUpdate, launchCampaign, promotionInput, promotionUpdate, rejectCampaign, resetCampaignLaunch, scheduleCampaign, segmentInput,
   metaTrackingContext, segmentPreview, segmentUpdate, trackingLinkInput,
 } from '@resuto/contracts';
 import type { Request } from 'express';
@@ -19,6 +19,9 @@ import { SegmentsService } from './segments.service';
 
 const TRACKING_SINK = z.enum(['meta_capi', 'tiktok_events', 'snap_capi']);
 
+const campaignListQuery = fullListQuery.extend({ status: z.enum(CAMPAIGN_STATUSES).optional() });
+const linkListQuery = fullListQuery.extend({ campaignId: z.uuid().optional() });
+
 @Controller('o/:orgId/marketing')
 @RequiresModule('marketing')
 export class MarketingController {
@@ -35,8 +38,10 @@ export class MarketingController {
   // Segments -------------------------------------------------------------------
   @Get('segments')
   @RequirePermission('marketing:read')
-  listSegments(@Tenant() ctx: TenantContext) { return this.segments.list(ctx); }
+  @Header('X-Resuto-List', 'full')
+  listSegments(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) { return this.segments.list(ctx, q); }
 
+  @HttpCode(200)
   @Post('segments/preview')
   @RequirePermission('marketing:read')
   preview(@Tenant() ctx: TenantContext, @Body(zod(segmentPreview)) body: z.infer<typeof segmentPreview>) { return this.segments.preview(ctx, body.definition); }
@@ -55,14 +60,15 @@ export class MarketingController {
     return this.segments.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('segments/:id/refresh')
   @RequirePermission('marketing:write')
   refresh(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.segments.refresh(ctx, id); }
 
   @Get('segments/:id/members')
   @RequirePermission('customers:read')
-  members(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query('limit') limit?: string) {
-    return this.segments.members(ctx, id, Math.min(Math.max(Number(limit) || 50, 1), 200));
+  members(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query(zod(listQuery)) q: z.infer<typeof listQuery>) {
+    return this.segments.members(ctx, id, q);
   }
 
   @Delete('segments/:id')
@@ -72,7 +78,8 @@ export class MarketingController {
   // Promotions -----------------------------------------------------------------
   @Get('promotions')
   @RequirePermission('marketing:read')
-  listPromotions(@Tenant() ctx: TenantContext) { return this.promotions.list(ctx); }
+  @Header('X-Resuto-List', 'full')
+  listPromotions(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) { return this.promotions.list(ctx, q); }
 
   @Post('promotions')
   @RequirePermission('marketing:write')
@@ -91,8 +98,9 @@ export class MarketingController {
   // Campaigns ------------------------------------------------------------------
   @Get('campaigns')
   @RequirePermission('marketing:read')
-  listCampaigns(@Tenant() ctx: TenantContext, @Query('status') status?: string) {
-    return this.campaigns.list(ctx, status ? z.enum(CAMPAIGN_STATUSES).parse(status) : undefined);
+  @Header('X-Resuto-List', 'full')
+  listCampaigns(@Tenant() ctx: TenantContext, @Query(zod(campaignListQuery)) q: z.infer<typeof campaignListQuery>) {
+    return this.campaigns.list(ctx, q);
   }
 
   @Post('campaigns')
@@ -109,34 +117,41 @@ export class MarketingController {
     return this.campaigns.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/submit')
   @RequirePermission('marketing:write')
   submit(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.submit(ctx, id); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/approve')
   @RequirePermission('marketing:approve')
   approve(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.approve(ctx, id); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/reject')
   @RequirePermission('marketing:approve')
   reject(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(rejectCampaign)) body: z.infer<typeof rejectCampaign>) {
     return this.campaigns.reject(ctx, id, body.reason);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/schedule')
   @RequirePermission('marketing:write')
   schedule(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(scheduleCampaign)) body: z.infer<typeof scheduleCampaign>) {
     return this.campaigns.schedule(ctx, id, body.scheduledAt);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/send')
   @RequirePermission('marketing:write')
   send(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Headers('idempotency-key') key?: string) { return this.campaigns.sendNow(ctx, id, key); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/cancel')
   @RequirePermission('marketing:write')
   cancel(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.cancel(ctx, id); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/launch')
   @RequirePermission('marketing:write')
   launch(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(launchCampaign)) body: z.infer<typeof launchCampaign>,
@@ -145,12 +160,14 @@ export class MarketingController {
   }
 
   /** PS-14: the owner checked the provider and no campaign carries the launch tag: release the stuck launch. */
+  @HttpCode(200)
   @Post('campaigns/:id/launch/reset')
   @RequirePermission('marketing:approve')
   resetLaunch(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(resetCampaignLaunch)) _body: z.infer<typeof resetCampaignLaunch>) {
     return this.campaigns.resetLaunch(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/insights/sync')
   @RequirePermission('marketing:write')
   insights(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(adInsightsSync)) body: z.infer<typeof adInsightsSync>) {
@@ -163,13 +180,17 @@ export class MarketingController {
 
   @Get('campaigns/:id/deliveries')
   @RequirePermission('marketing:read')
-  deliveries(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.deliveries(ctx, id); }
+  @Header('X-Resuto-List', 'full')
+  deliveries(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.campaigns.deliveries(ctx, id, q);
+  }
 
   // Tracking links -------------------------------------------------------------
   @Get('links')
   @RequirePermission('marketing:read')
-  listLinks(@Tenant() ctx: TenantContext, @Query('campaignId') campaignId?: string) {
-    return this.links.list(ctx, this.env.APP_ORIGIN, campaignId ? z.uuid().parse(campaignId) : undefined);
+  @Header('X-Resuto-List', 'full')
+  listLinks(@Tenant() ctx: TenantContext, @Query(zod(linkListQuery)) q: z.infer<typeof linkListQuery>) {
+    return this.links.list(ctx, this.env.APP_ORIGIN, q);
   }
 
   @Post('links')
@@ -192,6 +213,7 @@ export class MarketingController {
   @RequirePermission('marketing:read')
   metaTracking(@Tenant() ctx: TenantContext) { return this.tracking.diagnostics(ctx); }
 
+  @HttpCode(200)
   @Post('tracking/meta/test-event')
   @RequirePermission('marketing:write')
   metaTestEvent(@Tenant() ctx: TenantContext, @Req() req: Request) {
@@ -203,12 +225,14 @@ export class MarketingController {
   @RequirePermission('marketing:read')
   sinkTracking(@Tenant() ctx: TenantContext, @Param('provider') provider: string) { return this.tracking.diagnosticsFor(ctx, TRACKING_SINK.parse(provider)); }
 
+  @HttpCode(200)
   @Post('tracking/sinks/:provider/test-event')
   @RequirePermission('marketing:write')
   sinkTestEvent(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Req() req: Request) {
     return this.tracking.sendTestEvent(ctx, typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null, TRACKING_SINK.parse(provider));
   }
 
+  @HttpCode(200)
   @Post('segments/:id/meta-audience/dry-run')
   @RequirePermission('marketing:write')
   audienceDryRun(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.tracking.audienceDryRun(ctx, id); }
@@ -242,8 +266,8 @@ export class PublicTrackingController {
   @Post('orders/:ref/context')
   @Public()
   @HttpCode(200)
-  context(@Param('slug') slug: string, @Param('ref') ref: string, @Body(zod(metaTrackingContext)) body: z.infer<typeof metaTrackingContext>, @Req() req: Request) {
-    this.limiter.hit(`tracking:ctx:${req.ip}`, 30);
+  async context(@Param('slug') slug: string, @Param('ref') ref: string, @Body(zod(metaTrackingContext)) body: z.infer<typeof metaTrackingContext>, @Req() req: Request) {
+    await this.limiter.guard(`tracking:ctx:${req.ip}`, 30);
     const ua = req.headers['user-agent'];
     return this.tracking.recordOrderContext(slug, ref, body, { ip: req.ip ?? null, userAgent: typeof ua === 'string' ? ua : null });
   }

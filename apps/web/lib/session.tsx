@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MeResponse } from '@resuto/contracts';
-import { api, ApiRequestError, type ApiOptions } from './api';
+import { api, apiAll, ApiRequestError, type ApiOptions } from './api';
 import { AuthFlowError } from './auth-errors';
 import { checkNewPassword } from './auth/password-policy';
 import {
@@ -320,7 +320,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   const demandMfaRef = useRef(demandMfa);
   demandMfaRef.current = demandMfa;
   const call = useCallback(async <T,>(path: string, opts?: Omit<ApiOptions, 'token'>): Promise<T> => {
-    const result = await withAuthRef.current((t) => api<T>(path, { ...opts, token: t })).catch(async (e: unknown) => {
+    const result = await withAuthRef.current((t) => apiAll<T>(path, { ...opts, token: t })).catch(async (e: unknown) => {
       if (AUTH_MODE === 'supabase' && e instanceof ApiRequestError && e.code === 'mfa_required') await demandMfaRef.current();
       throw e;
     });

@@ -69,7 +69,7 @@ describe('ZATCA Phase-2 (INT-26, implementation incomplete)', () => {
     let f = scriptedFetch([{ body: { requestID: 1234567890123, dispositionMessage: 'ISSUED', binarySecurityToken: token, secret: 'compliance-secret', errors: null } }]);
     http.fetch = f.fetch;
     const csid = await t.http.post(C(sa, `/zatca/egs/${id}/compliance-csid`)).set(auth(sa.owner)).send({ otp: '123345' });
-    expect(csid.status, JSON.stringify(csid.body)).toBe(201);
+    expect(csid.status, JSON.stringify(csid.body)).toBe(200);
     expect(csid.body).toMatchObject({ status: 'compliance_csid', complianceRequestId: '1234567890123', hasComplianceCsid: true });
     expect(f.calls.map(route)).toEqual(['POST https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal/compliance']);
     expect(f.calls[0]!.headers).toMatchObject({ otp: '123345', 'accept-version': 'V2' });
@@ -162,9 +162,9 @@ async function activeEgs(sa: TestTenant, branchId: string, serial: string) {
   const keyPem = t.app.get(SecretBox).open(row.private_key_sealed, `zatca-egs:${sa.orgId}:${id}:key`);
   const token = Buffer.from(selfSigned(createPrivateKey(keyPem), `EGS-${serial}`)).toString('base64');
   http.fetch = scriptedFetch([{ body: { requestID: 1234567890123, binarySecurityToken: token, secret: 'compliance-secret' } }]).fetch;
-  await t.http.post(C(sa, `/zatca/egs/${id}/compliance-csid`)).set(auth(sa.owner)).send({ otp: '123345' }).expect(201);
+  await t.http.post(C(sa, `/zatca/egs/${id}/compliance-csid`)).set(auth(sa.owner)).send({ otp: '123345' }).expect(200);
   http.fetch = scriptedFetch([{ body: { validationResults: { status: 'PASS', warningMessages: [], errorMessages: [] }, reportingStatus: 'REPORTED' } }]).fetch;
-  await t.http.post(C(sa, `/zatca/egs/${id}/compliance-checks`)).set(auth(sa.owner)).expect(201);
+  await t.http.post(C(sa, `/zatca/egs/${id}/compliance-checks`)).set(auth(sa.owner)).expect(200);
   http.fetch = scriptedFetch([{ body: { requestID: 99, binarySecurityToken: token, secret: 'production-secret' } }]).fetch;
   const prod = await t.http.post(C(sa, `/zatca/egs/${id}/production-csid`)).set(auth(sa.owner));
   expect(prod.body).toMatchObject({ status: 'active', branchId, activatedAt: expect.any(String) });
@@ -322,6 +322,30 @@ describe('ETA batches split by MaximumSizeExceeded (INT-26 review)', () => {
     http.fetch = f.fetch;
     await svc.submitEtaDue({ orgId: eg.orgId });
     expect(receiptUuidsOf(f.calls[1]!)).toEqual([d4.authority_ref]);
+  });
+});
+
+describe('ETA status poll reads every page (ws7b follow-up)', () => {
+  it('settles receipts listed on later pages of a submission, not only the first page', async () => {
+    const { eg, menu } = await etaTenant();
+    const d1 = await paidOrder(eg, menu);
+    const d2 = await paidOrder(eg, menu);
+    const svc = t.app.get(FiscalAuthorityService);
+    http.fetch = scriptedFetch([tokenResponse,
+      (req) => ({ status: 202, body: { submissionUUID: 'SUBMISSIONPAGEDPAGEDPAGED1', acceptedDocuments: receiptUuidsOf(req).map((uuid: string) => ({ uuid })) } })]).fetch;
+    expect(await svc.submitEtaDue({ orgId: eg.orgId })).toMatchObject({ batches: 1, accepted: 2 });
+    await sql(`update government_submissions set submitted_at = now() - interval '5 minutes' where org_id = $1`, [eg.orgId]);
+    const pages: string[] = [];
+    http.fetch = scriptedFetch([(req) => {
+      if (req.url.endsWith('/connect/token')) return tokenResponse;
+      const page = new URL(req.url).searchParams.get('PageNo')!;
+      pages.push(page);
+      const doc = page === '1' ? d1 : d2;
+      return { body: { status: 'Valid', receiptsCount: 2, invalidReceiptCount: 0, receipts: page === '3' ? [] : [{ uuid: doc.authority_ref, receiptNumber: doc.number, status: 'Valid' }] } };
+    }]).fetch;
+    expect(await svc.pollEta({ orgId: eg.orgId })).toEqual({ submissions: 1, settled: 2 });
+    expect(pages).toEqual(['1', '2']);
+    expect((await sql(`select status from fiscal_documents where id = any($1::uuid[])`, [[d1.id, d2.id]])).map((r: any) => r.status)).toEqual(['accepted', 'accepted']);
   });
 });
 

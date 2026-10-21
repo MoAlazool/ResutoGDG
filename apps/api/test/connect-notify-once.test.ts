@@ -28,7 +28,7 @@ describe('customer notifications are sent once per event', () => {
     const { conversationId, token } = await walkToMenu(t, tenant, channelId, '+201001299991', 'pickup');
     const v0 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v0.version, lines: [{ productId: menu.products.fries, quantity: 1 }] });
-    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: false }).expect(201);
+    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: false }).expect(200);
     const v1 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const done = await t.http.post(`/v1/public/connect/ordering/${token}/checkout`).send({ version: v1.version, paymentMethod: 'cod', expectedTotalMinor: cart.body.quote.totalMinor });
     expect(done.status).toBe(201);

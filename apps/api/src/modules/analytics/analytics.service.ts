@@ -524,7 +524,7 @@ export class AnalyticsService {
       `select status::text as status, count(*)::int as n, coalesce(sum(party_size), 0)::int as guests from reservations
         where org_id = $1 and ($2::uuid[] is null or branch_id = any($2)) and (starts_at at time zone $3)::date = (now() at time zone $3)::date
         group by 1`, params);
-    const alerts = await this.inventory.openAlerts(tx, ctx, branchId);
+    const alerts = await this.inventory.openAlerts(tx, ctx, branchId, { limit: 200 });
     const liveBy = Object.fromEntries(live.map((l) => [l.status, l.n]));
     const resBy = Object.fromEntries(reservations.map((r) => [r.status, r.n]));
     const activeRes = reservations.filter((r) => !['cancelled', 'expired', 'no_show'].includes(r.status));

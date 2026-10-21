@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { KitchenFeed, KitchenTicket, OrderStatus } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { badRequest, conflict, notFound } from '../../common/errors/domain-error';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { assertDeliveryConfirmable } from '../orders/delivery-confirm';
 
@@ -61,7 +61,7 @@ export class KitchenService {
 
   async feed(ctx: TenantContext, branchId: string, opts: { station?: string; since?: string }): Promise<KitchenFeed> {
     ctx.assertBranch(branchId);
-    if (opts.since !== undefined && !/^\d{1,20}$/.test(opts.since)) throw invalid('invalid_cursor', 'Invalid cursor');
+    if (opts.since !== undefined && !/^\d{1,20}$/.test(opts.since)) throw badRequest('invalid_cursor', 'Invalid cursor');
     return this.db.scoped(ctx, async (tx) => {
       if (!(await tx.maybeOne('select 1 from branches where id = $1', [branchId]))) throw notFound('Branch');
       const marker = await tx.one<{ cursor: string; now: Date }>(KDS_MARKER_SQL, [branchId]);

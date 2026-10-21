@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { fiscalDocumentQuery, issueFiscalDocument, licenceInput, licenceUpdate, taxProfileUpdate } from '@resuto/contracts';
 import { LICENSING_REGISTRIES, MAPS_PROVIDERS, TAX_PROVIDERS } from '@resuto/integrations';
@@ -49,6 +49,7 @@ export class ComplianceController {
   @RequirePermission('compliance:write')
   egsCreate(@Tenant() ctx: TenantContext, @Body(zod(egsInput)) body: z.infer<typeof egsInput>) { return this.authority.createEgs(ctx, body); }
 
+  @HttpCode(200)
   @Post('zatca/egs/:id/compliance-csid')
   @RequireMfa()
   @RequirePermission('compliance:write')
@@ -56,10 +57,12 @@ export class ComplianceController {
     return this.authority.complianceCsid(ctx, id, body.otp);
   }
 
+  @HttpCode(200)
   @Post('zatca/egs/:id/compliance-checks')
   @RequirePermission('compliance:write')
   egsChecks(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.authority.complianceChecks(ctx, id); }
 
+  @HttpCode(200)
   @Post('zatca/egs/:id/production-csid')
   @RequireMfa()
   @RequirePermission('compliance:write')
@@ -154,6 +157,7 @@ export class ComplianceController {
     return this.fiscal.submissions(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('fiscal-documents/:id/resubmit')
   @RequirePermission('compliance:write')
   resubmit(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -191,6 +195,7 @@ export class ComplianceController {
     return this.licences.remove(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('documents/:id/file')
   @RequirePermission('compliance:write')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024, files: 1 } }))

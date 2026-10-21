@@ -110,6 +110,10 @@ every service's build and fails with `EXPECT_COMMIT=<sha>` when one of them runs
 | `LOG_FORMAT` | `json` (default in staging) |
 | `ERROR_TRACKING_DSN` | optional Sentry-compatible DSN; unset = error tracking off. The same variable turns it on for the AI service, the MCP server and the web app (Vercel, server-only) |
 | `HEALTH_DETAILS_TOKEN` | optional secret (24+ characters) for the uptime monitor on `/v1/health/details` |
+| `MIGRATION_DATABASE_URL` | optional secret: the schema owner's URI for migrations and the demo loader once `DATABASE_URL` is the restricted `resuto_api` login (see "Least-privilege database role") |
+| `DATABASE_PLATFORM_ROLE` | optional, default `resuto_platform`; `off` is an emergency switch (owner connection only) |
+| `DATABASE_PLATFORM_FALLBACK` | optional, `off` (default) or `log-and-retry` (staging soak only: a denied platform transaction is re-run as the owner; see PS-16 below) |
+| `RATE_LIMIT_STORE` | optional, `memory` (default) or `postgres` for limits shared across instances (PS-13) |
 
 Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, then the optional demo loader).
 
@@ -145,6 +149,73 @@ Full posture and verification status: `docs/SECURITY_AUTH.md`.
   credentials, MCP keys and grants, and role grants then require the code (aal2). To reset a lost authenticator:
   Authentication → Users → the user → remove the MFA factor, after verifying the person out of band.
 - **CSP**: the web allows `https://api.pwnedpasswords.com` in `connect-src` (breached-password check).
+
+## Least-privilege database role (PS-16)
+
+Migrations `20261022030001_runtime_roles.sql` and `20261022030002_rate_limit_windows.sql` create two roles **without
+LOGIN and without a password** (no credentials ever live in a migration):
+
+| Role | What it is | Can do |
+|---|---|---|
+| `resuto_api` | the runtime identity for the API | nothing on its own (`NOINHERIT`, `NOBYPASSRLS`, owns nothing); it may `SET ROLE` to the three execution roles below |
+| `resuto_member` / `resuto_tenant` | existing RLS execution roles (staff in one restaurant / guest, webhook or job in one restaurant) | what their RLS policies allow |
+| `resuto_platform` | cross-tenant lookups and platform work (QR, slug, host and token lookups, webhook inbox, outbox claim, memberships, scheduled jobs, platform admin) | only the tables and commands granted to it with explicit `platform_*` policies, plus `EXECUTE` on four owner-defined `SECURITY DEFINER` functions (`app.notification_recipient_emails`, `app.analytics_discover_days`, `app.analytics_refresh_day`, `app.reconcile_customer_stats`; fixed `search_path`, revoked from `PUBLIC`). Never DDL, never other tables, never `auth.users` on Supabase |
+
+Platform mode runs as `resuto_platform` (`DATABASE_PLATFORM_ROLE`, default `resuto_platform`) on today's single
+owner `DATABASE_URL` too, so a platform statement the role was not granted fails. On an owner connection that is a
+guard against mistakes, **not an enforced boundary**: the owner session can `SET ROLE` back to itself, so SQL injected
+into a platform path would still run with owner rights. PS-16 is complete only once `DATABASE_URL` is the restricted
+`resuto_api` login (steps below); until then the boot log says `owner/privileged`.
+
+`DATABASE_PLATFORM_FALLBACK` (default `off`) controls what happens when the platform role is denied:
+
+- `off`: the request fails with the permission error (a missing grant is a bug to fix with `app.grant_platform`).
+- `log-and-retry` (opt-in, for a staging soak before the switch; owner connections only, ignored on `resuto_api`): the
+  denial is logged at error level (`platform role lacks a grant`) and the whole transaction is re-run as the owner,
+  callback included. While it is on, the platform role restricts nothing; the boot log says
+  `platform mode runs as resuto_platform, NOT enforced`. Do not set it in production.
+
+**Switching the API to the restricted login (owner steps, Supabase dashboard; nothing here is automated):**
+
+1. Supabase → SQL editor, as `postgres`, generate a long random password locally (for example
+   `openssl rand -base64 36`) and run, pasting it in place of the placeholder (never commit or share it):
+   `alter role resuto_api with login password '<generated password>';`
+   Optionally cap its connections: `alter role resuto_api connection limit 20;`.
+2. Check the role: `select rolname, rolsuper, rolbypassrls, rolinherit, rolcanlogin from pg_roles where rolname = 'resuto_api';`
+   must show `f, f, f, t`.
+3. Render → API service → Environment:
+   - `MIGRATION_DATABASE_URL` = the current owner URI (the value `DATABASE_URL` has today). Migrations
+     (`scripts/db/migrate.mjs`) and the demo loader use it.
+   - `DATABASE_URL` = the same pooler URI with the user `resuto_api.<project-ref>` (session pooler, port 5432) and the
+     new password. Keep `DATABASE_SSL_CA`.
+4. Deploy. The boot log line `database role resuto_api (restricted)` confirms the switch
+   (`owner/privileged` means the API still uses the owner). Run `node scripts/staging/smoke.mjs`.
+5. Rollback: set `DATABASE_URL` back to the owner URI (remove `MIGRATION_DATABASE_URL`); no migration is involved.
+   Emergency only: `DATABASE_PLATFORM_ROLE=off` makes platform mode use the connection's own role (works on an owner
+   connection only).
+
+Proof that nothing needs `BYPASSRLS`: `cd apps/api && TEST_DATABASE_URL=... npx vitest run -c vitest.restricted.config.ts`
+runs the whole API suite with the API connected as `resuto_api` (the test setup gives it a per-run random password on
+the disposable local cluster), and `supabase/tests/runtime-roles.test.mjs` checks the roles and grants.
+
+## Shared rate limits (PS-13)
+
+`RATE_LIMIT_STORE=memory` (default) counts fixed windows per API process. With several API instances set
+`RATE_LIMIT_STORE=postgres`: counters are shared through `public.rate_limit_windows` (keyed by a SHA-256 of the limiter
+key, which contains the client IP that `TRUST_PROXY` resolves, or a token hash; rows expire with their window).
+Two paths (`apps/api/src/common/http/rate-limiter.ts`):
+
+- **Authoritative** (`await limiter.guard()`): one atomic upsert-and-read per request, so all instances together admit
+  exactly the limit, bursts included. Used for every brute-force or abuse limit: dev sign-in/sign-up/password,
+  delivery OTP, organisation creation, sales inquiries, reservation holds, web order placement and rating,
+  WhatsApp/Meta webhook verification, the integrations OAuth callback, MCP client registration, tracking context.
+- **Batched** (`limiter.hit()`): high-volume public reads and polling (limits of 60 per minute and more) and the
+  per-phone budgets checked inside a tenant transaction. Each instance flushes its increments at once on the first hit
+  of a window and then about every 200 ms, deciding with the shared count it last read plus its own unflushed hits;
+  a burst that lands on several instances inside one flush interval can exceed the limit by what the others admitted
+  in that interval.
+
+If the database is unreachable both paths keep counting in memory (fail open, logged) rather than refusing traffic.
 
 ## Reproducing from scratch
 

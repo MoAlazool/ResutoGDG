@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, type CreateIntegrationConnection, type IntegrationConnectionView, type IntegrationSourceOfTruth,
+  DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, MAX_LIST_LIMIT, type CreateIntegrationConnection, type IntegrationConnectionView, type IntegrationSourceOfTruth,
   type UpdateIntegrationConnection,
 } from '@resuto/contracts';
 import { ProviderError, type AdapterContext } from '@resuto/integrations';
@@ -10,6 +10,7 @@ import { Scheduled } from '../../common/events/events';
 import { SecretBox } from '../../common/crypto/secret-box';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { branchScope, idKeyset, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
 import { adapterFor, catalogEntries, credentialsHint, fieldsFor, webhookFor } from './catalog';
 import { providerReadiness, type VerificationRow } from './readiness';
@@ -150,11 +151,15 @@ export class IntegrationConnectionsService {
     return { ...toView(r), ...diagnostics(r, this.env.API_ORIGIN) };
   }
 
-  list(ctx: TenantContext, filter: { category?: string } = {}) {
+  list(ctx: TenantContext, filter: { category?: string; limit?: number; cursor?: string } = {}) {
+    const limit = filter.limit ?? MAX_LIST_LIMIT;
+    const k = keyset(filter.cursor, { atType: 'text', direction: 'asc' });
+    const sortKey = `(category || '/' || provider)`;
     return this.db.scoped(ctx, async (tx) => {
-      const rows = await tx.query(`select ${SAFE_COLUMNS} from integration_connections where org_id = $1 and ($2::text is null or category = $2)
-         order by category, provider`, [ctx.orgId, filter.category ?? null]);
-      return { items: rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => this.view(r)), nextCursor: null };
+      const rows = await tx.query(`select ${SAFE_COLUMNS}, ${sortKey} as sort_key from integration_connections
+          where org_id = $1 and ($2::text is null or category = $2) and ${branchScope('branch_id', 3)} ${k.after(sortKey, 'id', 4)}
+         order by ${sortKey}, id limit ${k.fetch(limit)}`, [ctx.orgId, filter.category ?? null, ctx.branchFilter, ...k.params]);
+      return pageOf(rows, limit, (r) => ({ at: r.sort_key, id: r.id }), (r) => this.view(r));
     });
   }
 
@@ -552,18 +557,17 @@ export class IntegrationConnectionsService {
       [orgId, connectionId, level, message.slice(0, 1000), details]);
   }
 
-  logs(ctx: TenantContext, connectionId: string | null, limit: number, before?: number) {
+  logs(ctx: TenantContext, connectionId: string | null, limit: number, cursor?: string) {
+    const k = idKeyset(cursor);
     return this.db.scoped(ctx, async (tx) => {
       if (connectionId) await this.row(tx, ctx, connectionId);
       const rows = await tx.query(
         `select l.id, l.connection_id, c.provider, l.level, l.message, l.details, l.created_at from integration_logs l
            left join integration_connections c on c.id = l.connection_id
-          where l.org_id = $1 and ($2::uuid is null or l.connection_id = $2) and ($3::bigint is null or l.id < $3)
-          order by l.id desc limit $4`, [ctx.orgId, connectionId, before ?? null, limit]);
-      return {
-        items: rows.map((r) => ({ id: Number(r.id), connectionId: r.connection_id, provider: r.provider, level: r.level, message: r.message, details: r.details, createdAt: iso(r.created_at) })),
-        nextCursor: rows.length === limit ? String(rows[rows.length - 1].id) : null,
-      };
+          where l.org_id = $1 and ($2::uuid is null or l.connection_id = $2) ${k.after('l.id', 3)}
+          order by l.id desc limit ${k.fetch(limit)}`, [ctx.orgId, connectionId, ...k.params]);
+      return pageOf(rows, limit, (r) => ({ at: Number(r.id), id: String(r.id) }),
+        (r) => ({ id: Number(r.id), connectionId: r.connection_id, provider: r.provider, level: r.level, message: r.message, details: r.details, createdAt: iso(r.created_at) }));
     });
   }
 

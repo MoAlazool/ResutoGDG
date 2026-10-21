@@ -132,11 +132,9 @@ export class NotificationsService {
         'select audience_permission, audience_user_id, branch_id from notifications where id = $1 and org_id = $2', [notificationId, orgId]);
       const roles = n.audience_permission
         ? Object.entries(ROLE_PERMISSIONS).filter(([, perms]) => (perms as readonly string[]).includes(n.audience_permission!)).map(([r]) => r) : [];
+      // auth.users is Supabase Auth's table: read through an owner-defined function granted to the platform role (PS-16).
       const rows = await tx.query<{ email: string }>(
-        `select distinct u.email from memberships m join auth.users u on u.id = m.user_id
-          where m.org_id = $1 and m.status = 'active' and u.email is not null
-            and (($2::uuid is not null and m.user_id = $2) or ($2::uuid is null and m.role::text = any($3::text[])))
-            and ($4::uuid is null or m.branch_ids is null or $4 = any(m.branch_ids))`,
+        `select email from app.notification_recipient_emails($1::uuid, $2::uuid, $3::text[], $4::uuid) as email`,
         [orgId, n.audience_user_id, roles, n.branch_id]);
       return rows.map((r) => r.email);
     }, 'system:notifications');

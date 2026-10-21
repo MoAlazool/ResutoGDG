@@ -6,6 +6,7 @@ import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { messageTemplateUpdate, updateMessagingChannel } from '@resuto/contracts';
 import { IntegrationConnectionsService, redactedError } from '../integrations/connections.service';
 import { ENV, type Env } from '../../config/env';
@@ -50,12 +51,24 @@ export class ChannelsService {
   constructor(private readonly db: DbService, private readonly audit: AuditService, private readonly connections: IntegrationConnectionsService,
     @Inject(ENV) private readonly env: Env) {}
 
-  list(ctx: TenantContext) {
+  list(ctx: TenantContext, q: { limit: number; cursor?: string }) {
+    const k = keyset(q.cursor, { direction: 'asc' });
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query(
+        `select ch.*, ic.status as connection_status, ${cursorAt('ch.created_at')} as cursor_at
+           from messaging_channels ch left join integration_connections ic on ic.id = ch.connection_id
+          where ch.org_id = $1 ${k.after('ch.created_at', 'ch.id', 2)} order by ch.created_at, ch.id limit ${k.fetch(q.limit)}`, [ctx.orgId, ...k.params]);
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), channelView);
+    });
+  }
+
+  /** One channel by id (null when it is not this org's). */
+  async find(ctx: TenantContext, id: string) {
+    return this.db.scoped(ctx, async (tx) => {
+      const row = await tx.maybeOne(
         `select ch.*, ic.status as connection_status from messaging_channels ch left join integration_connections ic on ic.id = ch.connection_id
-          where ch.org_id = $1 order by ch.created_at`, [ctx.orgId]);
-      return { items: rows.map(channelView), nextCursor: null };
+          where ch.org_id = $1 and ch.id = $2`, [ctx.orgId, id]);
+      return row ? channelView(row) : undefined;
     });
   }
 
@@ -366,10 +379,12 @@ export class ChannelsService {
   // ---------------------------------------------------------------------------
   // Templates
   // ---------------------------------------------------------------------------
-  listTemplates(ctx: TenantContext) {
-    return this.db.scoped(ctx, async (tx) => ({
-      items: (await tx.query(`select * from message_templates where org_id = $1 order by name, language`, [ctx.orgId])).map(templateView), nextCursor: null,
-    }));
+  listTemplates(ctx: TenantContext, q: { limit: number; cursor?: string }) {
+    const k = keyset(q.cursor, { atType: 'text', direction: 'asc' });
+    const sortKey = `(name || '|' || language)`;
+    return this.db.scoped(ctx, async (tx) => pageOf(await tx.query(
+      `select *, ${sortKey} as sort_key from message_templates where org_id = $1 ${k.after(sortKey, 'id', 2)}
+        order by ${sortKey}, id limit ${k.fetch(q.limit)}`, [ctx.orgId, ...k.params]), q.limit, (r) => ({ at: r.sort_key, id: r.id }), templateView));
   }
 
   createTemplate(ctx: TenantContext, input: MessageTemplateInput) {

@@ -64,7 +64,7 @@ describe('notification centre (FT-06)', () => {
     expect(before).toBeGreaterThanOrEqual(1);
     const { items } = await list(A, A.owner);
     const read = await t.http.post(N(A, `/${items[0].id}/read`)).set(auth(A.owner));
-    expect(read.status).toBe(201);
+    expect(read.status).toBe(200);
     expect(read.body.unread).toBe(before - 1);
     // Reading is per person: the kitchen user still has it unread.
     const k = await list(A, kitchen);

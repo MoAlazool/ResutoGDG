@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import pg from 'pg';
 import { ENV, type Env } from '../../config/env';
 import type { TenantContext } from '../auth/context';
@@ -65,15 +65,22 @@ export const dbUnavailable = (cause?: unknown) => Object.assign(
  *
  * - withMember: a signed-in staff user inside one tenant. RLS checks membership.
  * - withTenant: a guest, webhook or job inside one tenant. RLS pins app.org_id.
- * - withPlatform: cross-tenant lookups and platform administration. No RLS;
- *   use only from code that resolves a tenant or is platform-admin guarded.
+ * - withPlatform: cross-tenant lookups and platform administration, as the
+ *   resuto_platform role (PS-16): only the tables and commands granted to it in
+ *   supabase/migrations/20261022030001_runtime_roles.sql, never DDL, never BYPASSRLS.
+ *   Use only from code that resolves a tenant or is platform-admin guarded.
+ *
+ * The connection itself can be the schema owner (today's single DATABASE_URL) or the restricted resuto_api login
+ * (NOINHERIT: it can do nothing until one of the three contexts above sets its role).
  */
 @Injectable()
-export class DbService implements OnModuleDestroy {
+export class DbService implements OnModuleDestroy, OnApplicationBootstrap {
   readonly pool: pg.Pool;
   private readonly logger = new Logger('Db');
   /** SET LOCAL values applied at the start of every transaction (pooler-safe: nothing persists on the session). */
   private readonly txSettings: [string, string, string];
+  /** `set local role` for platform mode, or null to keep the connection's own role (DATABASE_PLATFORM_ROLE=off). */
+  private readonly platformRole: string | null;
 
   constructor(@Inject(ENV) env: Env) {
     this.pool = new pg.Pool({
@@ -90,6 +97,53 @@ export class DbService implements OnModuleDestroy {
     this.pool.on('error', (err) => this.logger.warn(`idle database connection closed: ${(err as any).code ?? ''} ${err.message}`));
     // JIT compilation costs 250+ ms on small OLTP queries (KDS) and never pays off here.
     this.txSettings = [`${env.DATABASE_STATEMENT_TIMEOUT_MS}ms`, `${env.DATABASE_IDLE_TX_TIMEOUT_MS}ms`, 'off'];
+    this.platformRole = env.DATABASE_PLATFORM_ROLE === 'off' ? null : env.DATABASE_PLATFORM_ROLE;
+    this.fallbackMode = env.DATABASE_PLATFORM_FALLBACK ?? 'off';
+    this.nodeEnv = env.NODE_ENV;
+  }
+
+  private readonly nodeEnv: Env['NODE_ENV'];
+  private readonly fallbackMode: 'off' | 'log-and-retry';
+  /**
+   * Retry a platform transaction as the connection's own role after a permission error. Only with the explicit opt-in
+   * DATABASE_PLATFORM_FALLBACK=log-and-retry on an owner connection (review of PS-16): by default the platform role
+   * is enforced and a missing grant fails the request.
+   */
+  private ownerFallback = false;
+
+  /** Logs which database identity the API runs as (owner or restricted), so a deploy shows its least-privilege state. */
+  async onApplicationBootstrap() {
+    if (this.nodeEnv === 'test') return;
+    try {
+      await this.detectIdentity();
+    } catch (e) {
+      this.logger.warn(`could not read the database role at boot: ${(e as Error).message}`);
+    }
+  }
+
+  /** Reads the connection's identity, decides the owner fallback and reports both (boot; tests call it directly). */
+  async detectIdentity(): Promise<{ user: string; privileged: boolean; platform: string; fallback: boolean }> {
+    const r = await this.describeConnection();
+    this.ownerFallback = this.fallbackMode === 'log-and-retry' && r.privileged && !!this.platformRole;
+    const platform = !this.platformRole ? 'the connection role (DATABASE_PLATFORM_ROLE=off: not restricted)'
+      : this.ownerFallback ? `${this.platformRole}, NOT enforced: DATABASE_PLATFORM_FALLBACK=log-and-retry re-runs a denied transaction as ${r.user}`
+        : r.privileged ? `${this.platformRole} (ungranted statements fail; not a boundary on an owner connection: switch DATABASE_URL to resuto_api)`
+          : `${this.platformRole} (enforced)`;
+    const line = `database role ${r.user} (${r.privileged ? 'owner/privileged: RLS bypass possible outside the execution roles' : 'restricted'}); `
+      + `platform mode runs as ${platform}`;
+    if (this.ownerFallback) this.logger.warn(line);
+    else this.logger.log(line);
+    return { ...r, platform: this.platformRole ?? r.user, fallback: this.ownerFallback };
+  }
+
+  /** The session user and whether it can bypass RLS (superuser, BYPASSRLS or table owner). */
+  async describeConnection(): Promise<{ user: string; privileged: boolean }> {
+    return this.withClient(async (c) => {
+      const { rows } = await c.query(`select current_user::text as user, (r.rolsuper or r.rolbypassrls
+          or exists (select 1 from pg_class t join pg_namespace n on n.oid = t.relnamespace where n.nspname = 'public' and t.relowner = r.oid)) as privileged
+        from pg_roles r where r.rolname = current_user`);
+      return rows[0];
+    });
   }
 
   async onModuleDestroy() {
@@ -164,8 +218,9 @@ export class DbService implements OnModuleDestroy {
     }
   }
 
-  private async run<T>(ctx: ExecutionContextInfo, fn: (tx: Tx) => Promise<T>, attempt = 1): Promise<T> {
+  private async run<T>(ctx: ExecutionContextInfo, fn: (tx: Tx) => Promise<T>, attempt = 1, asOwner = false): Promise<T> {
     let retry = false;
+    let retryAsOwner = false;
     const result = await this.withClient(async (client, broken) => {
       try {
         await client.query('begin');
@@ -178,19 +233,27 @@ export class DbService implements OnModuleDestroy {
         );
         if (ctx.mode === 'member') await client.query('set local role resuto_member');
         if (ctx.mode === 'tenant') await client.query('set local role resuto_tenant');
+        if (ctx.mode === 'platform' && this.platformRole && !asOwner) await client.query(`set local role ${this.platformRole}`);
         const value = await fn(wrap(client, ctx));
         await client.query('commit');
         return value;
       } catch (error: any) {
         // A failed rollback means the connection itself is gone; withClient then destroys the client.
         if (!broken()) await client.query('rollback').catch(() => undefined);
+        if (error?.code === '42501' && ctx.mode === 'platform' && this.ownerFallback && !asOwner) {
+          this.logger.error(`platform role lacks a grant (${ctx.actor}; request ${requestContext.requestId() ?? '-'}): ${error.message}; `
+            + 'transaction re-run as the connection role (DATABASE_PLATFORM_FALLBACK=log-and-retry). Add the grant (app.grant_platform).');
+          retryAsOwner = true;
+          return undefined as T;
+        }
         // serialization failures and deadlocks are retried below on a fresh connection
         if (!RETRYABLE.has(error?.code) || attempt >= 3) throw error;
         retry = true;
         return undefined as T;
       }
     });
-    return retry ? this.run(ctx, fn, attempt + 1) : result;
+    if (retryAsOwner) return this.run(ctx, fn, attempt, true);
+    return retry ? this.run(ctx, fn, attempt + 1, asOwner) : result;
   }
 }
 

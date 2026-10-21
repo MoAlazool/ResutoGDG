@@ -35,7 +35,10 @@ describe('staff orders', () => {
     expect(a.status).toBe(201);
     const b = await t.http.post(o()).set(auth(waiter)).set('Idempotency-Key', k).send(pickup());
     expect(b.body.id).toBe(a.body.id);
-    expect((await t.http.post(o()).set(auth(waiter)).send(pickup())).status).toBe(422);
+    // A missing Idempotency-Key is a malformed request: 400 since PS-20 (it was 422, the business-rule status).
+    const noKey = await t.http.post(o()).set(auth(waiter)).send(pickup());
+    expect(noKey.status).toBe(400);
+    expect(noKey.body.error.code).toBe('idempotency_key_required');
     const dine = await t.http.post(o()).set(auth(waiter)).set('Idempotency-Key', key()).send({
       branchId: tenant.branchId, fulfillment: 'dine_in', tableId: menu.tableId, lines: [{ productId: menu.products.soda, quantity: 1 }],
     });
@@ -91,7 +94,7 @@ describe('staff orders', () => {
     const stale = await t.http.post(o(`/${a.body.id}/cancel`)).set(auth(tenant.owner)).send({ reason: 'Changed mind', version: 7 });
     expect(stale.body.error.code).toBe('stale_order');
     const ok = await t.http.post(o(`/${a.body.id}/cancel`)).set(auth(tenant.owner)).send({ reason: 'Changed mind', version: 0 });
-    expect(ok.status).toBe(201);
+    expect(ok.status).toBe(200);
     expect(ok.body.status).toBe('cancelled');
 
     const paid = await t.http.post(o()).set(auth(waiter)).set('Idempotency-Key', key()).send(pickup());
@@ -174,7 +177,10 @@ describe('kitchen display', () => {
     expect(prep.body.stations.map((s: any) => s.station)).toEqual(expect.arrayContaining(['Fryer', 'Grill']));
 
     expect((await t.http.get(`/v1/o/${tenant.orgId}/kitchen/${tenant.branchId}`).set(auth(waiter))).status).toBe(403);
-    expect((await t.http.get(`/v1/o/${tenant.orgId}/kitchen/${tenant.branchId}?since=abc`).set(auth(kitchen))).status).toBe(422);
+    // A malformed cursor is 400 invalid_cursor since PS-20 (it was 422).
+    const badSince = await t.http.get(`/v1/o/${tenant.orgId}/kitchen/${tenant.branchId}?since=abc`).set(auth(kitchen));
+    expect(badSince.status).toBe(400);
+    expect(badSince.body.error.code).toBe('invalid_cursor');
   });
 });
 

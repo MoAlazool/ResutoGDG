@@ -4,7 +4,7 @@ import type {
 } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
@@ -513,7 +513,7 @@ export class MenuService {
 
   async importCommit(ctx: TenantContext, body: MenuImportRequest, headerKey?: string) {
     const key = body.key ?? headerKey;
-    if (!key) throw invalid('idempotency_key_required', 'An idempotency key is required to import');
+    if (!key) throw badRequest('idempotency_key_required', 'An idempotency key is required to import');
     const { key: _omit, ...payload } = body;
     return this.db.scoped(ctx, (tx) => this.idempotency.run(tx, ctx.orgId, 'menu-import', key, payload, async () => {
       const preview = await this.preview(tx, ctx.orgId, body);

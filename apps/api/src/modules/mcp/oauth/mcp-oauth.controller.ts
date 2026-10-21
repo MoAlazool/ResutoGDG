@@ -33,7 +33,7 @@ export class McpOAuthController {
   @Post('register')
   @HttpCode(201)
   async register(@Body() body: unknown, @Req() req: ResutoRequest, @Res({ passthrough: true }) res: Response) {
-    this.limiter.hit(`mcp-oauth-register:${req.ip}`, 20, 3600_000);
+    await this.limiter.guard(`mcp-oauth-register:${req.ip}`, 20, 3600_000);
     try { return await this.oauth.register(body); } catch (e) { return oauthError(res, e); }
   }
 
@@ -72,6 +72,7 @@ export class McpOAuthController {
     return this.oauth.describeRequest(p.userId, id);
   }
 
+  @HttpCode(200)
   @Post('requests/:requestId/deny')
   deny(@Param('requestId', ParseUUIDPipe) id: string, @Principal() p: AuthPrincipal) {
     if (p.kind !== 'user') throw new DomainError('forbidden', 'Staff only', 403);
@@ -85,6 +86,7 @@ export class McpOAuthController {
 export class McpOAuthConsentController {
   constructor(private readonly oauth: McpOAuthService) {}
 
+  @HttpCode(200)
   @Post('requests/:requestId/approve')
   @RequireMfa()
   @RequirePermission('mcp:manage')

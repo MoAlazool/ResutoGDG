@@ -203,15 +203,15 @@ describe('chunked campaign dispatch (PCL-11)', () => {
       [tenant.orgId, tag, recipients, consentEvery]);
     const seg = (await t.http.post(m(tenant, '/segments')).set(auth(tenant.owner)).send({ name: tag, definition: { op: 'and', rules: [{ type: 'has_tag', tag }] } })).body;
     const c = (await t.http.post(m(tenant, '/campaigns')).set(auth(tenant.owner)).send({ name: tag, channel: 'whatsapp', segmentId: seg.id, content: { text: 'Hello' } })).body;
-    await t.http.post(m(tenant, `/campaigns/${c.id}/submit`)).set(auth(tenant.owner)).expect(201);
-    await t.http.post(m(tenant, `/campaigns/${c.id}/approve`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(tenant, `/campaigns/${c.id}/submit`)).set(auth(tenant.owner)).expect(200);
+    await t.http.post(m(tenant, `/campaigns/${c.id}/approve`)).set(auth(tenant.owner)).expect(200);
     return { id: c.id as string, segmentId: seg.id as string };
   }
 
   it('sends the first chunk in the request and the dispatcher finishes the rest, one delivery per recipient', async () => {
     const { id } = await approvedCampaign(a, 'bulk1', CAMPAIGN_CHUNK * 2 + 50);
     const sent = await t.http.post(m(a, `/campaigns/${id}/send`)).set(auth(a.owner));
-    expect(sent.status).toBe(201);
+    expect(sent.status).toBe(200);
     expect(sent.body).toMatchObject({ status: 'sending', delivery: { recipients: CAMPAIGN_CHUNK * 2 + 50, skippedNoConsent: CAMPAIGN_CHUNK, pending: CAMPAIGN_CHUNK + 50 } });
     expect((await t.http.post(m(a, `/campaigns/${id}/send`)).set(auth(a.owner))).status).toBe(409); // never twice
     await t.app.get(CampaignsService).dispatchDue();
@@ -226,7 +226,7 @@ describe('chunked campaign dispatch (PCL-11)', () => {
 
   it('concurrent dispatcher runs on a scheduled campaign never duplicate a delivery', async () => {
     const { id } = await approvedCampaign(b, 'bulk2', CAMPAIGN_CHUNK + 120);
-    await t.http.post(m(b, `/campaigns/${id}/schedule`)).set(auth(b.owner)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() }).expect(201);
+    await t.http.post(m(b, `/campaigns/${id}/schedule`)).set(auth(b.owner)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() }).expect(200);
     await sql(`update campaigns set scheduled_at = now() - interval '1 minute' where id = $1`, [id]);
     const svc = t.app.get(CampaignsService);
     const results = await Promise.allSettled([svc.dispatchDue(), svc.dispatchDue()]);
@@ -248,7 +248,7 @@ describe('chunked campaign dispatch (PCL-11)', () => {
                  from customers where org_id = $1 and marketing_consent and 'bulk3' = any(tags)`, [c.orgId, channel.id]);
     const [{ consenting }] = await sql(`select count(*)::int as consenting from customers where org_id = $1 and marketing_consent and 'bulk3' = any(tags)`, [c.orgId]);
     expect(consenting).toBe(Math.floor(total / 3));
-    await t.http.post(m(c, `/campaigns/${id}/schedule`)).set(auth(c.owner)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() }).expect(201);
+    await t.http.post(m(c, `/campaigns/${id}/schedule`)).set(auth(c.owner)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() }).expect(200);
     await sql(`update campaigns set scheduled_at = now() - interval '1 minute' where id = $1`, [id]);
     const svc = t.app.get(CampaignsService);
     const results = await Promise.allSettled([svc.dispatchDue(), svc.dispatchDue(), svc.dispatchDue()]);

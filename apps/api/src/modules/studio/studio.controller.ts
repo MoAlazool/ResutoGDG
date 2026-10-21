@@ -1,9 +1,9 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addDomain, createSection, generateCreative, publishWebsite, reorderSections, reviewCreative, updateMedia, updateSection, updateWebsite,
   upsertStorefront, type UpsertStorefront, createPhotoJob, PHOTO_JOB_STATUSES, publishPhotoJob, reviewPhotoJob, type CreatePhotoJob, type PublishPhotoJob,
-  applyCreative, type ApplyCreative,
+  applyCreative, type ApplyCreative, fullListQuery, listQueryOf,
 } from '@resuto/contracts';
 import { StudioPhotosService } from './photos/photos.service';
 import { z } from 'zod';
@@ -14,6 +14,17 @@ import { CreativeService } from './creative.service';
 import { DomainsService } from './domains.service';
 import { StorefrontsService } from './storefronts.service';
 import { StudioService } from './studio.service';
+
+// List queries (PS-21): validated limit/cursor instead of Number(limit) (a negative limit was a 500).
+const mediaQuery = listQueryOf({ defaultLimit: 100 });
+const revisionsQuery = listQueryOf({ defaultLimit: 50 });
+const creativeQuery = listQueryOf({ defaultLimit: 50 }).extend({
+  status: z.enum(['draft', 'approved', 'rejected', 'used']).optional().or(z.literal('').transform(() => undefined)),
+  kind: z.enum(['caption', 'post', 'menu_description', 'campaign_copy', 'image', 'website_copy']).optional().or(z.literal('').transform(() => undefined)),
+});
+
+const productsQuery = z.object({ q: z.string().max(200).optional().transform((v) => v?.slice(0, 80)) });
+const photosQuery = z.object({ status: z.enum(PHOTO_JOB_STATUSES).optional().or(z.literal('').transform(() => undefined)) });
 
 interface UploadedImage { buffer: Buffer; mimetype: string; size: number; originalname: string }
 
@@ -43,6 +54,7 @@ export class StudioController {
     return this.studio.preview(ctx);
   }
 
+  @HttpCode(200)
   @Post('website/sections/reorder')
   @RequirePermission('studio:write')
   reorder(@Tenant() ctx: TenantContext, @Body(zod(reorderSections)) body: z.infer<typeof reorderSections>) {
@@ -67,6 +79,7 @@ export class StudioController {
     return this.studio.deleteSection(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('website/publish')
   @RequirePermission('studio:publish')
   publish(@Tenant() ctx: TenantContext, @Body(zod(publishWebsite)) body: z.infer<typeof publishWebsite>) {
@@ -75,10 +88,11 @@ export class StudioController {
 
   @Get('website/revisions')
   @RequirePermission('studio:read')
-  revisions(@Tenant() ctx: TenantContext) {
-    return this.studio.revisions(ctx);
+  revisions(@Tenant() ctx: TenantContext, @Query(zod(revisionsQuery)) q: z.infer<typeof revisionsQuery>) {
+    return this.studio.revisions(ctx, q);
   }
 
+  @HttpCode(200)
   @Post('website/revisions/:revision/restore')
   @RequirePermission('studio:write')
   restore(@Tenant() ctx: TenantContext, @Param('revision', ParseIntPipe) revision: number) {
@@ -87,8 +101,8 @@ export class StudioController {
 
   @Get('products')
   @RequirePermission('studio:read')
-  products(@Tenant() ctx: TenantContext, @Query('q') q?: string) {
-    return this.studio.products(ctx, typeof q === 'string' ? q.slice(0, 80) : undefined);
+  products(@Tenant() ctx: TenantContext, @Query(zod(productsQuery)) q: z.infer<typeof productsQuery>) {
+    return this.studio.products(ctx, q.q);
   }
 
   // --- Branch storefronts (VP-05) ---------------------------------------------------
@@ -113,8 +127,8 @@ export class StudioController {
   // --- Media library ---------------------------------------------------------------
   @Get('media')
   @RequirePermission('studio:read')
-  media(@Tenant() ctx: TenantContext, @Query('limit') limit?: string) {
-    return this.studio.listMedia(ctx, Number(limit) || 100);
+  media(@Tenant() ctx: TenantContext, @Query(zod(mediaQuery)) q: z.infer<typeof mediaQuery>) {
+    return this.studio.listMedia(ctx, q);
   }
 
   @Post('media')
@@ -139,8 +153,9 @@ export class StudioController {
   // --- Custom domains --------------------------------------------------------------
   @Get('domains')
   @RequirePermission('studio:read')
-  listDomains(@Tenant() ctx: TenantContext) {
-    return this.domains.list(ctx);
+  @Header('X-Resuto-List', 'full')
+  listDomains(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.domains.list(ctx, q);
   }
 
   @Post('domains')
@@ -149,12 +164,14 @@ export class StudioController {
     return this.domains.add(ctx, body.hostname);
   }
 
+  @HttpCode(200)
   @Post('domains/:domainId/verify')
   @RequirePermission('studio:publish')
   verifyDomain(@Tenant() ctx: TenantContext, @Param('domainId', ParseUUIDPipe) id: string) {
     return this.domains.verify(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('domains/:domainId/refresh')
   @RequirePermission('studio:publish')
   refreshDomain(@Tenant() ctx: TenantContext, @Param('domainId', ParseUUIDPipe) id: string) {
@@ -170,8 +187,8 @@ export class StudioController {
   // --- Food photos (FT-04): upload -> job -> review -> approve -> publish ------------
   @Get('photos')
   @RequirePermission('studio:read')
-  photos(@Tenant() ctx: TenantContext, @Query('status') status?: string) {
-    return this.photosService.list(ctx, z.enum(PHOTO_JOB_STATUSES).optional().parse(status || undefined));
+  photos(@Tenant() ctx: TenantContext, @Query(zod(photosQuery)) q: z.infer<typeof photosQuery>) {
+    return this.photosService.list(ctx, q.status);
   }
 
   @Post('photos')
@@ -192,18 +209,21 @@ export class StudioController {
     return this.photosService.get(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('photos/:jobId/review')
   @RequirePermission('studio:write')
   reviewPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string, @Body(zod(reviewPhotoJob)) body: z.infer<typeof reviewPhotoJob>) {
     return this.photosService.review(ctx, id, body.decision, body.note);
   }
 
+  @HttpCode(200)
   @Post('photos/:jobId/publish')
   @RequirePermission('studio:write')
   publishPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string, @Body(zod(publishPhotoJob)) body: PublishPhotoJob) {
     return this.photosService.publish(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('photos/:jobId/retry')
   @RequirePermission('studio:write')
   retryPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string) {
@@ -219,12 +239,8 @@ export class StudioController {
 
   @Get('creative')
   @RequirePermission('studio:read')
-  listCreative(@Tenant() ctx: TenantContext, @Query('status') status?: string, @Query('kind') kind?: string, @Query('limit') limit?: string) {
-    return this.creative.list(ctx, {
-      status: z.enum(['draft', 'approved', 'rejected', 'used']).optional().parse(status || undefined),
-      kind: z.enum(['caption', 'post', 'menu_description', 'campaign_copy', 'image', 'website_copy']).optional().parse(kind || undefined),
-      limit: Number(limit) || 50,
-    });
+  listCreative(@Tenant() ctx: TenantContext, @Query(zod(creativeQuery)) q: z.infer<typeof creativeQuery>) {
+    return this.creative.list(ctx, q);
   }
 
   @Patch('creative/:creativeId')
@@ -234,6 +250,7 @@ export class StudioController {
   }
 
   /** FT-16: use approved copy (menu item description, website section draft or campaign draft); idempotent per key. */
+  @HttpCode(200)
   @Post('creative/:creativeId/apply')
   @RequirePermission('studio:write')
   applyCreative(@Tenant() ctx: TenantContext, @Param('creativeId', ParseUUIDPipe) id: string, @Body(zod(applyCreative)) body: ApplyCreative) {

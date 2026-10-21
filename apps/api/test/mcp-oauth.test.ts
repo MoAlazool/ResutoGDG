@@ -61,7 +61,7 @@ async function authorize(clientId: string, opts: { scope?: string; tools?: strin
   const requestId = az.body.requestId as string;
   const ok = await t.http.post(`/v1/o/${a.orgId}/mcp/oauth/requests/${requestId}/approve`).set(auth(a.owner))
     .send({ actingRole: 'manager', allowedTools: opts.tools ?? ['get_restaurant_profile', 'list_menu', 'update_product_availability'], rateLimitPerMin: 600 });
-  expect(ok.status, JSON.stringify(ok.body)).toBe(201);
+  expect(ok.status, JSON.stringify(ok.body)).toBe(200);
   const back = new URL(ok.body.redirectTo);
   return { ...p, code: back.searchParams.get('code')!, back, mcpClientId: ok.body.mcpClientId as string, requestId, redirect };
 }

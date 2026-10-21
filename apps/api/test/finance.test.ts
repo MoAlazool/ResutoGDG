@@ -174,7 +174,7 @@ describe('finance read models on a controlled dataset', () => {
        values ($1, 'wafeq', 'accounting', 'api_key', 'live', 'connected', $2, '{"accounts":{"cash":"A1"}}') returning id`,
       [tenant.orgId, box.sealJson({ apiKey: 'wk_test' })]);
     const push = await t.http.post(`/v1/o/${tenant.orgId}/finance/accounting/push`).set(auth(accountant)).send({ connectionId: conn.id, ...P, key: 'push-1-abcdef' });
-    expect(push.status, JSON.stringify(push.body)).toBe(201);
+    expect(push.status, JSON.stringify(push.body)).toBe(200);
     expect(push.body).toMatchObject({ provider: 'wafeq', status: 'failed' });
     expect(push.body.error).toMatch(/Map the "[a-z_]+" account/);
     const mapping = await t.http.get(`/v1/o/${tenant.orgId}/finance/accounting/connections/${conn.id}/accounts?${q}`).set(auth(accountant));

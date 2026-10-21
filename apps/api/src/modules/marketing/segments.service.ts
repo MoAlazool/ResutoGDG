@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { invalid, notFound } from '../../common/errors/domain-error';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
 import type { SegmentsPort } from '../kernel/ports';
 import { segmentQuery } from './segment-sql';
@@ -65,8 +66,11 @@ export class SegmentsService implements SegmentsPort {
     return inserted.length;
   }
 
-  list(ctx: TenantContext) {
-    return this.db.scoped(ctx, async (tx) => ({ items: (await tx.query(`select * from segments where org_id = $1 order by created_at desc`, [ctx.orgId])).map(view), nextCursor: null }));
+  list(ctx: TenantContext, q: { limit: number; cursor?: string }) {
+    const k = keyset(q.cursor);
+    return this.db.scoped(ctx, async (tx) => pageOf(await tx.query(
+      `select *, ${cursorAt('created_at')} as cursor_at from segments where org_id = $1 ${k.after('created_at', 'id', 2)}
+        order by created_at desc, id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, ...k.params]), q.limit, (r) => ({ at: r.cursor_at, id: r.id }), view));
   }
 
   get(ctx: TenantContext, id: string) {
@@ -113,14 +117,19 @@ export class SegmentsService implements SegmentsPort {
     });
   }
 
-  members(ctx: TenantContext, id: string, limit: number) {
+  members(ctx: TenantContext, id: string, q: { limit: number; cursor?: string }) {
+    // Most recently seen first; customers never seen sort last (epoch), ties on the customer id.
+    const seen = `coalesce(c.last_seen_at, 'epoch'::timestamptz)`;
+    const k = keyset(q.cursor);
     return this.db.scoped(ctx, async (tx) => {
       const s = await tx.maybeOne(`select id from segments where id = $1 and org_id = $2`, [id, ctx.orgId]);
       if (!s) throw notFound('Segment');
       const rows = await tx.query(
-        `select c.id, c.display_name, c.phone_e164, c.marketing_consent, c.last_seen_at from segment_members m join customers c on c.id = m.customer_id
-          where m.segment_id = $1 order by c.last_seen_at desc limit $2`, [id, limit]);
-      return { items: rows.map((r) => ({ id: r.id, name: r.display_name, phone: r.phone_e164, marketingConsent: r.marketing_consent, lastSeenAt: iso(r.last_seen_at) })), nextCursor: null };
+        `select c.id, c.display_name, c.phone_e164, c.marketing_consent, c.last_seen_at, ${cursorAt(seen)} as cursor_at
+           from segment_members m join customers c on c.id = m.customer_id
+          where m.segment_id = $1 ${k.after(seen, 'c.id', 2)} order by ${seen} desc, c.id desc limit ${k.fetch(q.limit)}`, [id, ...k.params]);
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }),
+        (r) => ({ id: r.id, name: r.display_name, phone: r.phone_e164, marketingConsent: r.marketing_consent, lastSeenAt: iso(r.last_seen_at) }));
     });
   }
 }

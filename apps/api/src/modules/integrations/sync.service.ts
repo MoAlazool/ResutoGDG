@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { IntegrationSyncRequest } from '@resuto/contracts';
+import { MAX_LIST_LIMIT, type IntegrationSyncRequest } from '@resuto/contracts';
 import { posAdapterFor, ProviderError, type MenuImportRow } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { branchScope, cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
 import { IntegrationConnectionsService } from './connections.service';
 
@@ -132,12 +133,15 @@ export class IntegrationSyncService {
     return { importable, unchanged, conflicts };
   }
 
-  runs(ctx: TenantContext, connectionId: string, limit: number) {
+  runs(ctx: TenantContext, connectionId: string, limit: number, cursor?: string) {
+    const k = keyset(cursor);
     return this.db.scoped(ctx, async (tx) => {
       await this.connections.row(tx, ctx, connectionId);
-      const rows = await tx.query(`select id, connection_id, resource, direction, status, attempt, stats - 'rows' as stats, error, started_at, finished_at
-          from integration_sync_runs where connection_id = $1 order by started_at desc limit $2`, [connectionId, limit]);
-      return { items: rows.map(runView), nextCursor: null };
+      const rows = await tx.query(`select id, connection_id, resource, direction, status, attempt, stats - 'rows' as stats, error, started_at, finished_at,
+            ${cursorAt('started_at')} as cursor_at
+          from integration_sync_runs where connection_id = $1 ${k.after('started_at', 'id', 2)}
+          order by started_at desc, id desc limit ${k.fetch(limit)}`, [connectionId, ...k.params]);
+      return pageOf(rows, limit, (r) => ({ at: r.cursor_at, id: r.id }), runView);
     });
   }
 
@@ -150,19 +154,21 @@ export class IntegrationSyncService {
     });
   }
 
-  conflicts(ctx: TenantContext, filter: { status?: string; connectionId?: string }) {
+  conflicts(ctx: TenantContext, filter: { status?: string; connectionId?: string; limit?: number; cursor?: string }) {
+    const limit = filter.limit ?? MAX_LIST_LIMIT;
+    const k = keyset(filter.cursor);
     return this.db.scoped(ctx, async (tx) => {
+      // Branch scope in SQL (before the limit): a conflict belongs to its connection's branch.
       const rows = await tx.query(
-        `select k.*, c.provider from integration_conflicts k join integration_connections c on c.id = k.connection_id
+        `select k.*, c.provider, ${cursorAt('k.created_at')} as cursor_at from integration_conflicts k join integration_connections c on c.id = k.connection_id
           where k.org_id = $1 and ($2::text is null or k.resolution = $2) and ($3::uuid is null or k.connection_id = $3)
-          order by k.created_at desc limit 200`, [ctx.orgId, filter.status ?? null, filter.connectionId ?? null]);
-      return {
-        items: rows.map((r) => ({
-          id: r.id, connectionId: r.connection_id, provider: r.provider, resource: r.resource, localId: r.local_id, externalId: r.external_id,
-          local: r.local_snapshot, external: r.external_snapshot, resolution: r.resolution, resolvedAt: iso(r.resolved_at), createdAt: iso(r.created_at),
-        })),
-        nextCursor: null,
-      };
+            and ${branchScope('c.branch_id', 4)} ${k.after('k.created_at', 'k.id', 5)}
+          order by k.created_at desc, k.id desc limit ${k.fetch(limit)}`,
+        [ctx.orgId, filter.status ?? null, filter.connectionId ?? null, ctx.branchFilter, ...k.params]);
+      return pageOf(rows, limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => ({
+        id: r.id, connectionId: r.connection_id, provider: r.provider, resource: r.resource, localId: r.local_id, externalId: r.external_id,
+        local: r.local_snapshot, external: r.external_snapshot, resolution: r.resolution, resolvedAt: iso(r.resolved_at), createdAt: iso(r.created_at),
+      }));
     });
   }
 

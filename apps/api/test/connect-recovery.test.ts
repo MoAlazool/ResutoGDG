@@ -25,7 +25,7 @@ describe('"Order is on the way" is sent once per delivery (DF-14)', () => {
     const { conversationId, token } = await walkToMenu(t, tenant, channelId, '+201001288881', 'pickup');
     const v0 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v0.version, lines: [{ productId: menu.products.fries, quantity: 1 }] });
-    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: false }).expect(201);
+    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: false }).expect(200);
     const v1 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const done = await t.http.post(`/v1/public/connect/ordering/${token}/checkout`).send({ version: v1.version, paymentMethod: 'cod', expectedTotalMinor: cart.body.quote.totalMinor });
     expect(done.status, JSON.stringify(done.body)).toBe(201);
@@ -50,7 +50,7 @@ describe('resend failed messages and assign conversations (FT-12)', () => {
     await sql(`update messages set status = 'failed', error = 'provider 131047', attempts = 6, next_attempt_at = null where id = $1`, [msg.id]);
 
     const r = await t.http.post(C(`/messages/${msg.id}/resend`)).set(auth(tenant.owner)).send({});
-    expect(r.status, JSON.stringify(r.body)).toBe(201);
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
     expect(r.body).toMatchObject({ messageId: msg.id, resent: true });
     const [after] = await sql(`select status, error, payload from messages where id = $1`, [msg.id]);
     expect(after.status).toBe('delivered'); // sandbox channels deliver at once
@@ -83,7 +83,7 @@ describe('resend failed messages and assign conversations (FT-12)', () => {
     expect(bad.status).toBe(422);
     expect(bad.body.error.code).toBe('cannot_reply');
     const ok = await t.http.post(C(`/conversations/${a.conversationId}/assign`)).set(auth(tenant.owner)).send({ userId: marketing.userId });
-    expect(ok.status).toBe(201);
+    expect(ok.status).toBe(200);
     const unassigned = await t.http.get(C('/conversations?assigned=unassigned')).set(auth(tenant.owner));
     expect(unassigned.body.items.map((x: any) => x.id)).not.toContain(a.conversationId);
   });

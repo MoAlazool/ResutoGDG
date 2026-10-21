@@ -84,7 +84,8 @@ export class McpClientsService {
         `select ${CLIENT_COLUMNS.split(',').map((c) => `c.${c.trim()}`).join(', ')},
                 (select count(*)::int from mcp_tool_calls t where t.client_id = c.id and t.created_at > now() - interval '24 hours') as calls_24h,
                 (select count(*)::int from mcp_approvals a where a.client_id = c.id and a.status = 'pending' and a.expires_at > now()) as pending_approvals
-           from mcp_clients c where c.org_id = $1 order by c.status, c.created_at desc`, [ctx.orgId]);
+           from mcp_clients c where c.org_id = $1 order by c.status, c.created_at desc, c.id limit 200`, [ctx.orgId]);
+      // Bounded configuration list (PS-22): an org has a handful of AI connections; 200 is the enforced ceiling.
       return { items: rows.map((r) => ({ ...toClient(r), calls24h: r.calls_24h, pendingApprovals: r.pending_approvals })) };
     });
   }

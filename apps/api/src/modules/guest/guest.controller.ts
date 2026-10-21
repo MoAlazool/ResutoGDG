@@ -208,8 +208,8 @@ export class WebOrderController {
 
   @Public()
   @Post(':slug/orders')
-  order(@Param('slug') slug: string, @Headers('idempotency-key') key: string | undefined, @Body(zod(webOrderRequest)) body: WebOrderRequest, @Req() req: ResutoRequest) {
-    this.limiter.hit(`web-order:place:${req.ip}`, 20);
+  async order(@Param('slug') slug: string, @Headers('idempotency-key') key: string | undefined, @Body(zod(webOrderRequest)) body: WebOrderRequest, @Req() req: ResutoRequest) {
+    await this.limiter.guard(`web-order:place:${req.ip}`, 20);
     // Per number, not per spelling: 010…, 10…, 20…, +20… and 0020… of one phone share a budget (CR-06).
     return this.guest.webOrder(this.slug(slug), body, key, (e164) => this.limiter.hit(`web-order:phone:${sha256(e164).slice(0, 24)}`, 10));
   }
@@ -234,8 +234,8 @@ export class WebOrderController {
   @Public()
   @Post(':slug/orders/:publicRef/rating')
   @HttpCode(200)
-  rate(@Param('slug') slug: string, @Param('publicRef') ref: string, @Body(zod(guestRatingInput)) body: GuestRatingInput, @Req() req: ResutoRequest) {
-    this.limiter.hit(`web-order:rating:${req.ip}`, 30);
+  async rate(@Param('slug') slug: string, @Param('publicRef') ref: string, @Body(zod(guestRatingInput)) body: GuestRatingInput, @Req() req: ResutoRequest) {
+    await this.limiter.guard(`web-order:rating:${req.ip}`, 30);
     return this.ratings.rateWebOrder(this.slug(slug), ref, body);
   }
 

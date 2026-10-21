@@ -25,7 +25,7 @@ const LEASE_SECONDS = 120;
 const STATUS_RANK: Record<string, number> = {
   queued: 0, deferred: 0, sending: 1, unknown: 2, accepted: 2, sent: 3, delivered: 4, failed: 5, bounced: 5, complained: 5, undelivered: 5,
 };
-const UNSUBSCRIBE_PURPOSE = 'channel-unsubscribe' as KeyPurpose;
+const UNSUBSCRIBE_PURPOSE: KeyPurpose = 'channel-unsubscribe';
 
 export interface OutboundConnection { id: string; provider: 'resend' | 'twilio_sms'; environment: 'sandbox' | 'live' }
 export interface EnqueueOutbound {

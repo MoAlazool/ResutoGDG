@@ -5,6 +5,7 @@ import { newToken } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { DNS_RESOLVER, DOMAIN_PROVIDER, type DomainProvider, type TxtResolver } from './domain-provider';
 
 const MAX_DOMAINS = 5;
@@ -27,10 +28,13 @@ export class DomainsService {
     @Inject(DOMAIN_PROVIDER) private readonly provider: DomainProvider,
   ) {}
 
-  async list(ctx: TenantContext) {
+  async list(ctx: TenantContext, q: { limit: number; cursor?: string }) {
+    const k = keyset(q.cursor, { direction: 'asc' });
     return this.db.scoped(ctx, async (tx) => {
-      const rows = await tx.query('select * from custom_domains where org_id = $1 order by created_at', [ctx.orgId]);
-      return { items: rows.map((r) => this.view(r)), nextCursor: null, provider: { id: this.provider.id, readiness: this.provider.readiness } };
+      const rows = await tx.query(`select *, ${cursorAt('created_at')} as cursor_at from custom_domains where org_id = $1 ${k.after('created_at', 'id', 2)}
+        order by created_at, id limit ${k.fetch(q.limit)}`, [ctx.orgId, ...k.params]);
+      return { ...pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => this.view(r)),
+        provider: { id: this.provider.id, readiness: this.provider.readiness } };
     });
   }
 

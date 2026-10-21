@@ -100,7 +100,7 @@ export async function publishSite(request: APIRequestContext, t: Tenant, opts: {
   ids.splice(1, 0, about);
   await request.post(`${base}/website/sections/reorder`, { headers: h, data: { ids } });
   const pub = await request.post(`${base}/website/publish`, { headers: h, data: { key: unique('publish') } });
-  expect(pub.status(), await pub.text()).toBe(201);
+  expect(pub.status(), await pub.text()).toBe(200);
 }
 
 /** Signs the browser in with an API-issued dev token (same storage the app uses). */

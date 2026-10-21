@@ -182,7 +182,7 @@ describe('webhooks', () => {
 
     const v0 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v0.version, lines: [{ productId: menu.products.fries, quantity: 2 }] });
-    expect(cart.status).toBe(201);
+    expect(cart.status).toBe(200);
     const v1 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     // Messenger gives no phone number: a delivery order asks for one on the hosted page.
     expect(v1).toMatchObject({ channel: 'messenger', needsPhone: true, customerPhone: null });

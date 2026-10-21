@@ -49,7 +49,7 @@ const ticket = async (id: string) => {
 describe('kitchen board lanes (VS-10)', () => {
   it('keeps a delivery hand-off on the board as "On the way" and lists fulfilled tickets as Completed', async () => {
     const pick = await place('pickup');
-    for (const s of ['preparing', 'ready', 'picked_up']) expect((await bump(pick, s)).status).toBe(201);
+    for (const s of ['preparing', 'ready', 'picked_up']) expect((await bump(pick, s)).status).toBe(200);
     const done = await ticket(pick);
     expect(done).toMatchObject({ status: 'picked_up' });
     expect(kitchenLaneOf(done)).toBe('done');
@@ -70,7 +70,7 @@ describe('kitchen board lanes (VS-10)', () => {
   it('refuses a stale or backwards move on the server', async () => {
     const id = await place('pickup');
     const v = await version(id);
-    expect((await bump(id, 'preparing', v)).status).toBe(201);
+    expect((await bump(id, 'preparing', v)).status).toBe(200);
     const stale = await bump(id, 'ready', v);
     expect(stale.status).toBe(409);
     expect(stale.body.error.code).toBe('stale_order');
@@ -83,10 +83,10 @@ describe('kitchen board lanes (VS-10)', () => {
 describe('delivery hand-off without a driver job (DF-02)', () => {
   it('"Out for delivery" keeps the order ready and unpaid; only a confirmed, settled delivery completes it', async () => {
     const id = await place('delivery');
-    expect((await bump(id, 'preparing')).status).toBe(201);
-    expect((await bump(id, 'ready')).status).toBe(201);
+    expect((await bump(id, 'preparing')).status).toBe(200);
+    expect((await bump(id, 'ready')).status).toBe(200);
     const out = await bump(id, 'delivered');
-    expect(out.status, JSON.stringify(out.body)).toBe(201);
+    expect(out.status, JSON.stringify(out.body)).toBe(200);
     // Before: the order became delivered (fulfilled) here although the bag had only left the kitchen.
     expect(out.body).toMatchObject({ status: 'ready', handedOff: true });
     const [o] = await sql(`select status, payment_status, fulfilled_at from orders where id = $1`, [id]);
@@ -105,9 +105,9 @@ describe('delivery hand-off without a driver job (DF-02)', () => {
     expect(direct.status).toBe(409);
     expect(direct.body.error.code).toBe('payment_due');
     const pay = await t.http.post(O(`/${id}/collect`)).set(auth(cashier)).set('Idempotency-Key', key('cod')).send({ method: 'cash' });
-    expect(pay.status, JSON.stringify(pay.body)).toBe(201);
+    expect(pay.status, JSON.stringify(pay.body)).toBe(200);
     const confirmed = await bump(id, 'delivered');
-    expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(201);
+    expect(confirmed.status, JSON.stringify(confirmed.body)).toBe(200);
     expect(confirmed.body).toMatchObject({ status: 'delivered' });
     expect(kitchenLaneOf(await ticket(id))).toBe('done');
   });
@@ -115,7 +115,7 @@ describe('delivery hand-off without a driver job (DF-02)', () => {
   it('with an active driver job, the hand-off goes to the driver and only the driver completes the delivery', async () => {
     const id = await place('delivery');
     await sql(`insert into delivery_jobs(org_id, branch_id, order_id, status, dropoff) values ($1, $2, $3, 'unassigned', '{}')`, [tenant.orgId, tenant.branchId, id]);
-    for (const s of ['preparing', 'ready']) expect((await bump(id, s)).status).toBe(201);
+    for (const s of ['preparing', 'ready']) expect((await bump(id, s)).status).toBe(200);
     const out = await bump(id, 'delivered');
     expect(out.body).toMatchObject({ status: 'ready', handedToDriver: true, handedOff: true });
     expect(await ticket(id)).toMatchObject({ handedOff: true, driverJob: true });

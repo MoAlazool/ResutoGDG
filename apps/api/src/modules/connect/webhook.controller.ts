@@ -2,6 +2,7 @@ import { Controller, Get, HttpCode, Inject, Param, Post, Query, Req, Res } from 
 import { verifyWebhookSubscription } from '@resuto/integrations';
 import type { Request, Response } from 'express';
 import { Public } from '../../common/auth/decorators';
+import { DomainError } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { ENV, type Env } from '../../config/env';
 import { MetaPagesWebhookService } from './meta-pages-webhook.service';
@@ -14,8 +15,8 @@ export class WhatsAppWebhookController {
   /** Meta subscription handshake: echo hub.challenge when hub.verify_token matches. */
   @Get()
   @Public()
-  verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
-    this.limiter.hit(`wa-verify:${req.ip}`, 30);
+  async verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
+    await this.limiter.guard(`wa-verify:${req.ip}`, 30);
     answer(res, verifyWebhookSubscription(query, this.env.WHATSAPP_VERIFY_TOKEN));
   }
 
@@ -32,7 +33,7 @@ export class WhatsAppWebhookController {
   @Get('c/:connectionId')
   @Public()
   async verifyOwnApp(@Param('connectionId') connectionId: string, @Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
-    this.limiter.hit(`wa-verify:${req.ip}`, 30);
+    await this.limiter.guard(`wa-verify:${req.ip}`, 30);
     answer(res, verifyWebhookSubscription(query, await this.service.verifyTokenFor(connectionId)));
   }
 
@@ -53,8 +54,8 @@ export class MetaPagesWebhookController {
 
   @Get()
   @Public()
-  verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
-    this.limiter.hit(`meta-verify:${req.ip}`, 30);
+  async verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
+    await this.limiter.guard(`meta-verify:${req.ip}`, 30);
     answer(res, verifyWebhookSubscription(query, this.service.verifyToken()));
   }
 
@@ -69,8 +70,8 @@ export class MetaPagesWebhookController {
 
 function answer(res: Response, challenge: string | null) {
   if (challenge === null) {
-    res.status(403).json({ error: { code: 'forbidden', message: 'Webhook verification failed' } });
-    return;
+    // Thrown so the exception filter answers with the standard envelope (code, message, requestId).
+    throw new DomainError('forbidden', 'Webhook verification failed', 403);
   }
   res.status(200).type('text/plain').send(challenge);
 }

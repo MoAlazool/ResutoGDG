@@ -16,7 +16,7 @@ export async function createApp(): Promise<INestApplication> {
   app.setGlobalPrefix('v1');
   app.enableCors({
     origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: false, maxAge: 600,
-    exposedHeaders: ['X-Request-Id', 'X-Build', 'Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset'],
+    exposedHeaders: ['X-Request-Id', 'X-Build', 'Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'X-Resuto-List'],
   });
   const http = app.getHttpAdapter().getInstance();
   http.disable('x-powered-by');

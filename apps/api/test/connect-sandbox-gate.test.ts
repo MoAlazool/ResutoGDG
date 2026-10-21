@@ -46,7 +46,7 @@ describe('sandbox channels and the simulator when CONNECT_SANDBOX is off', () =>
 
     env.CONNECT_SANDBOX = true; // development/test/staging behaviour is unchanged
     const again = await t.http.post(`/v1/o/${tenant.orgId}/connect/sandbox/inbound`).set(auth(tenant.owner)).send({ channelId: existing, from: '+201009900001', text: 'menu' });
-    expect(again.status).toBe(201);
+    expect(again.status).toBe(200);
     expect(again.body.sandbox).toBe(true);
   });
 });

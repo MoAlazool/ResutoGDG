@@ -6,7 +6,10 @@
 //   node scripts/db/migrate.mjs            apply pending migrations
 //   node scripts/db/migrate.mjs --reset    LOCAL ONLY: drop everything first
 //
-// DATABASE_URL defaults to the local cluster started by scripts/db/local-up.sh.
+// Connection: MIGRATION_DATABASE_URL when set, else DATABASE_URL, else the local cluster started by
+// scripts/db/local-up.sh. Migrations always run as the schema owner: once the API runs as the restricted runtime role
+// (resuto_api, audit PS-16; docs/STAGING_DEPLOYMENT.md), DATABASE_URL is that role and MIGRATION_DATABASE_URL keeps the
+// owner connection. With a single owner DATABASE_URL (today's default) nothing changes.
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +21,9 @@ export const defaultUrl = 'postgres://postgres@127.0.0.1:54329/resuto';
 
 const isLocal = (url) => ['127.0.0.1', 'localhost', '::1'].includes(new URL(url).hostname);
 
-export async function migrate({ url = process.env.DATABASE_URL || defaultUrl, reset = false, log = console.log } = {}) {
+export const migrationUrl = (env = process.env) => env.MIGRATION_DATABASE_URL || env.DATABASE_URL || defaultUrl;
+
+export async function migrate({ url = migrationUrl(), reset = false, log = console.log } = {}) {
   const client = new pg.Client(pgClientConfig(url));
   await client.connect();
   try {

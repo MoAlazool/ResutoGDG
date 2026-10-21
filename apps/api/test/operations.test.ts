@@ -109,12 +109,12 @@ describe('guided setup: checklist derived from data (FT-13)', () => {
     expect(await steps()).toMatchObject({ profile: true, branch: true, mode: true, menu: true, floor: true });
     // An 86'd dish does not count as a menu guests can order from; the floor counts only active tables.
     await sql(`update products set is_active = false where org_id = $1 and id <> $2`, [shop.orgId, m.products.fries]);
-    await t.http.post(S(`/menu/products/${m.products.fries}/availability`)).set(auth(shop.owner)).send({ branchId: shop.branchId, available: false }).expect(201);
+    await t.http.post(S(`/menu/products/${m.products.fries}/availability`)).set(auth(shop.owner)).send({ branchId: shop.branchId, available: false }).expect(200);
     expect((await steps()).menu).toBe(false);
-    await t.http.post(S(`/menu/products/${m.products.fries}/availability`)).set(auth(shop.owner)).send({ branchId: shop.branchId, available: true }).expect(201);
+    await t.http.post(S(`/menu/products/${m.products.fries}/availability`)).set(auth(shop.owner)).send({ branchId: shop.branchId, available: true }).expect(200);
 
     const launch = await t.http.post(S('/setup/launch')).set(auth(shop.owner)).send({});
-    expect(launch.status).toBe(201);
+    expect(launch.status).toBe(200);
     expect(launch.body).toMatchObject({ launched: true, ready: true, status: 'active' });
     const [audit] = await sql(`select action from audit_logs where org_id = $1 and action = 'organization.launched'`, [shop.orgId]);
     expect(audit).toBeTruthy();

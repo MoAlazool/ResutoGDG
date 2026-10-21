@@ -16,8 +16,8 @@ const mk = (tenant: TestTenant) => {
   const m = (p: string) => `/v1/o/${tenant.orgId}/marketing${p}`;
   const approved = async (name: string, channel = 'meta_ads') => {
     const id = (await t.http.post(m('/campaigns')).set(auth(tenant.owner)).send({ name, channel, objective: 'acquisition', budgetMinor: 30000 })).body.id as string;
-    await t.http.post(m(`/campaigns/${id}/submit`)).set(auth(tenant.owner)).expect(201);
-    await t.http.post(m(`/campaigns/${id}/approve`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(`/campaigns/${id}/submit`)).set(auth(tenant.owner)).expect(200);
+    await t.http.post(m(`/campaigns/${id}/approve`)).set(auth(tenant.owner)).expect(200);
     return id;
   };
   const launch = (id: string, body: Record<string, unknown> = {}, key?: string) => {
@@ -81,7 +81,7 @@ describe('PS-14: one provider call per launch', () => {
     const [a, b] = await Promise.all([launch(id), launch(id)]);
     expect(calls).toBe(1);
     const statuses = [a.status, b.status].sort();
-    expect(statuses).toEqual([201, 409]);
+    expect(statuses).toEqual([200, 409]);
     const loser = a.status === 409 ? a : b;
     expect(loser.body.error.code).toBe('launch_in_progress');
     const [row] = await sql(`select status, external_campaign_id, launch_token from campaigns where id = $1`, [id]);
@@ -97,11 +97,11 @@ describe('PS-14: one provider call per launch', () => {
     const f = scriptedFetch([{ body: { id: '120210000000555' } }]);
     http.fetch = f.fetch;
     const first = await launch(id, {}, 'launch-key-0001');
-    expect(first.status).toBe(201);
+    expect(first.status).toBe(200);
     const name = new URLSearchParams(f.calls[0]!.body!).get('name');
     expect(name).toBe(`Weekend brunch [rs:${first.body.launch.token}]`);
     const again = await launch(id, {}, 'launch-key-0001');
-    expect(again.status).toBe(201);
+    expect(again.status).toBe(200);
     expect(again.body).toMatchObject({ replayed: true, status: 'sent', externalCampaignId: '120210000000555' });
     expect(f.calls).toHaveLength(1);
     // A different key after success is not a replay: the campaign is no longer approved.
@@ -164,13 +164,13 @@ describe('PS-14: one provider call per launch', () => {
     await sql(`update customers set marketing_consent = true where org_id = $1`, [tenant.orgId]);
     const seg = (await t.http.post(m('/segments')).set(auth(tenant.owner)).send({ name: 'All', definition: { op: 'and', rules: [{ type: 'consent', value: true }] } })).body.id;
     const id = (await t.http.post(m('/campaigns')).set(auth(tenant.owner)).send({ name: 'Hi', channel: 'whatsapp', segmentId: seg, content: { text: 'Hello again' } })).body.id;
-    await t.http.post(m(`/campaigns/${id}/submit`)).set(auth(tenant.owner)).expect(201);
-    await t.http.post(m(`/campaigns/${id}/approve`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(`/campaigns/${id}/submit`)).set(auth(tenant.owner)).expect(200);
+    await t.http.post(m(`/campaigns/${id}/approve`)).set(auth(tenant.owner)).expect(200);
     const send = () => t.http.post(m(`/campaigns/${id}/send`)).set(auth(tenant.owner)).set('Idempotency-Key', 'send-key-000001');
     const first = await send();
-    expect(first.status).toBe(201);
+    expect(first.status).toBe(200);
     const again = await send();
-    expect(again.status).toBe(201);
+    expect(again.status).toBe(200);
     expect(again.body.delivery).toEqual(first.body.delivery);
     expect((await sql(`select count(*)::int as n from campaign_deliveries where campaign_id = $1`, [id]))[0].n).toBe(first.body.delivery.recipients);
     // Without the key the old rule stands: a sent campaign cannot be sent again.

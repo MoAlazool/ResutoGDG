@@ -3,6 +3,7 @@ import type { PromotionInput } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
 
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
@@ -23,8 +24,11 @@ const COLUMNS: Array<[keyof PromotionInput, string]> = [
 export class PromotionsService {
   constructor(private readonly db: DbService, private readonly audit: AuditService) {}
 
-  list(ctx: TenantContext) {
-    return this.db.scoped(ctx, async (tx) => ({ items: (await tx.query(`select * from promotions where org_id = $1 order by created_at desc`, [ctx.orgId])).map(view), nextCursor: null }));
+  list(ctx: TenantContext, q: { limit: number; cursor?: string }) {
+    const k = keyset(q.cursor);
+    return this.db.scoped(ctx, async (tx) => pageOf(await tx.query(
+      `select *, ${cursorAt('created_at')} as cursor_at from promotions where org_id = $1 ${k.after('created_at', 'id', 2)}
+        order by created_at desc, id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, ...k.params]), q.limit, (r) => ({ at: r.cursor_at, id: r.id }), view));
   }
 
   private async checkBranches(tx: any, ctx: TenantContext, branchIds: string[] | null | undefined) {

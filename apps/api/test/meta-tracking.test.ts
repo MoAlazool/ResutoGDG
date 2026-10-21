@@ -159,7 +159,7 @@ describe('server Purchase (Conversions API)', () => {
     expect(await svc.sendPurchase(tenant.orgId, o.id)).toEqual({ skipped: 'not_paid_yet' });
     for (const to of ['accepted', 'preparing', 'ready', 'picked_up']) {
       const r = await t.http.post(`/v1/o/${tenant.orgId}/orders/${o.id}/transition`).set(auth(tenant.owner)).send({ to });
-      expect(r.status).toBe(201);
+      expect(r.status).toBe(200);
     }
     await t.app.get(EventDispatcher).drain();
     expect(f.calls).toHaveLength(1);
@@ -201,7 +201,7 @@ describe('server Purchase (Conversions API)', () => {
     const f = scriptedFetch([{ body: { events_received: 1, fbtrace_id: 'T1' } }]);
     http.fetch = f.fetch;
     const res = await t.http.post(`/v1/o/${tenant.orgId}/marketing/tracking/meta/test-event`).set(auth(tenant.owner)).set('User-Agent', UA);
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ sent: true, eventsReceived: 1 });
     const body = JSON.parse(f.calls[0]!.body!);
     expect(body.test_event_code).toBe('TEST4242');
@@ -242,7 +242,7 @@ describe('INT-22 custom audience dry run', () => {
     const [seg] = await sql(`insert into segments(org_id, name, definition, member_count) values ($1, 'Regulars', '{}', 3) returning id`, [tenant.orgId]);
     for (const id of ids) await sql(`insert into segment_members(org_id, segment_id, customer_id) values ($1, $2, $3)`, [tenant.orgId, seg.id, id]);
     const res = await t.http.post(`/v1/o/${tenant.orgId}/marketing/segments/${seg.id}/meta-audience/dry-run`).set(auth(tenant.owner));
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ dryRun: true, adAccountConnected: false, counts: { segment: 3, withConsent: 2, matchable: 2, excludedNoConsent: 1 },
       create: { path: 'act_<AD_ACCOUNT_ID>/customaudiences', body: { subtype: 'CUSTOM', customer_file_source: 'USER_PROVIDED_ONLY' } } });
     // Segment members come back in no guaranteed order; both consenting customers, hashed, and nothing else.

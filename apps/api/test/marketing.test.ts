@@ -127,7 +127,7 @@ describe('campaigns', () => {
     expect((await t.http.patch(m(`/campaigns/${c.body.id}`)).set(auth(tenant.owner)).send({ name: 'Changed' })).body.error.code).toBe('campaign_not_editable');
 
     const sent = await t.http.post(m(`/campaigns/${c.body.id}/send`)).set(auth(tenant.owner));
-    expect(sent.status).toBe(201);
+    expect(sent.status).toBe(200);
     expect(sent.body).toMatchObject({ status: 'sent', isSandbox: true, delivery: { recipients: 3, queued: 1, skippedNoConsent: 1, failed: 1, sandbox: 1, live: 0 } });
     const deliveries = (await t.http.get(m(`/campaigns/${c.body.id}/deliveries`)).set(auth(tenant.owner))).body.items;
     const by = Object.fromEntries(deliveries.map((d: any) => [d.customerId, d]));
@@ -146,8 +146,8 @@ describe('campaigns', () => {
 
   it('schedules approved campaigns and the dispatcher sends them when due', async () => {
     const c = (await t.http.post(m('/campaigns')).set(auth(tenant.owner)).send({ name: 'Later', channel: 'whatsapp', segmentId, content: { text: 'Hello later' } })).body;
-    await t.http.post(m(`/campaigns/${c.id}/submit`)).set(auth(tenant.owner)).expect(201);
-    await t.http.post(m(`/campaigns/${c.id}/approve`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(`/campaigns/${c.id}/submit`)).set(auth(tenant.owner)).expect(200);
+    await t.http.post(m(`/campaigns/${c.id}/approve`)).set(auth(tenant.owner)).expect(200);
     expect((await t.http.post(m(`/campaigns/${c.id}/schedule`)).set(auth(tenant.owner)).send({ scheduledAt: '2020-01-01T00:00:00Z' })).status).toBe(422);
     const s = await t.http.post(m(`/campaigns/${c.id}/schedule`)).set(auth(tenant.owner)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() });
     expect(s.body.status).toBe('scheduled');
@@ -196,8 +196,8 @@ describe('campaigns', () => {
     };
     const id = await make('Meta sandbox');
     expect((await t.http.post(m(`/campaigns/${id}/launch`)).set(auth(tenant.owner))).body.error.code).toBe('campaign_not_approved');
-    await t.http.post(m(`/campaigns/${id}/submit`)).set(auth(tenant.owner)).expect(201);
-    await t.http.post(m(`/campaigns/${id}/approve`)).set(auth(tenant.owner)).expect(201);
+    await t.http.post(m(`/campaigns/${id}/submit`)).set(auth(tenant.owner)).expect(200);
+    await t.http.post(m(`/campaigns/${id}/approve`)).set(auth(tenant.owner)).expect(200);
     const none = await t.http.post(m(`/campaigns/${id}/launch`)).set(auth(tenant.owner));
     expect(none.status).toBe(409);
     expect(none.body.error.code).toBe('ad_account_required');
@@ -223,15 +223,15 @@ describe('campaigns', () => {
       http.fetch = scriptedFetch([{ body: { id: 'act_1234567890', name: 'Resto', currency: 'EGP', account_status: 1 } }]).fetch;
       expect((await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${conn.id}/health`).set(auth(tenant.owner))).body.status).toBe('connected');
       const liveId = await make('Meta live');
-      await t.http.post(m(`/campaigns/${liveId}/submit`)).set(auth(tenant.owner)).expect(201);
-      await t.http.post(m(`/campaigns/${liveId}/approve`)).set(auth(tenant.owner)).expect(201);
+      await t.http.post(m(`/campaigns/${liveId}/submit`)).set(auth(tenant.owner)).expect(200);
+      await t.http.post(m(`/campaigns/${liveId}/approve`)).set(auth(tenant.owner)).expect(200);
       const f = scriptedFetch([{ body: { id: '120210000000777' } }]);
       http.fetch = f.fetch;
       const live = await t.http.post(m(`/campaigns/${liveId}/launch`)).set(auth(tenant.owner));
       expect(live.body).toMatchObject({ isSandbox: false, externalCampaignId: '120210000000777' });
       expect(f.calls[0]!.url).toBe('https://graph.facebook.com/v26.0/act_1234567890/campaigns');
       http.fetch = scriptedFetch([{ body: { data: [{ campaign_id: '120210000000777', impressions: '1000', clicks: '40', spend: '200.00', date_start: '2026-10-01' }] } }]).fetch;
-      await t.http.post(m(`/campaigns/${liveId}/insights/sync`)).set(auth(tenant.owner)).send({ since: '2026-10-01', until: '2026-10-01' }).expect(201);
+      await t.http.post(m(`/campaigns/${liveId}/insights/sync`)).set(auth(tenant.owner)).send({ since: '2026-10-01', until: '2026-10-01' }).expect(200);
       expect((await t.http.get(m(`/campaigns/${liveId}/report`)).set(auth(tenant.owner))).body).toMatchObject({ costMinor: 20000, sandboxRowsExcluded: 0, revenueMinor: 0, roas: 0 });
     } finally {
       http.fetch = original;

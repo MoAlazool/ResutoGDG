@@ -415,7 +415,7 @@ describe('expiry, adjustments and invariants', () => {
     await t.http.post(L(A, '/adjustments')).set(auth(A.owner)).send({ customerId: a, points: 7, reason: 'seed survivor' });
     await t.http.post(L(A, '/adjustments')).set(auth(A.owner)).send({ customerId: b, points: 12, reason: 'seed duplicate' });
     const m = await t.http.post(`/v1/o/${A.orgId}/customers/${a}/merge`).set(auth(A.owner)).send({ duplicateId: b });
-    expect(m.status).toBe(201);
+    expect(m.status).toBe(200);
     expect(m.body.moved.loyaltyPoints).toBe(12);
     expect(await balance(a)).toBe(19);
     expect((await sql(`select balance from loyalty_accounts where customer_id = $1`, [b]))[0].balance).toBe(0);
@@ -439,7 +439,7 @@ describe('expiry, adjustments and invariants', () => {
   it('segments customers by points and isolates tenants', async () => {
     const seg = await t.http.post(`/v1/o/${A.orgId}/marketing/segments/preview`).set(auth(A.owner))
       .send({ definition: { op: 'and', rules: [{ type: 'points_balance_gte', points: 10 }] } });
-    expect(seg.status).toBe(201);
+    expect(seg.status).toBe(200);
     const [{ n }] = await sql(`select count(*)::int as n from loyalty_accounts where org_id = $1 and balance >= 10`, [A.orgId]);
     expect(seg.body.count ?? seg.body.memberCount).toBe(n);
     const someone = (await sql(`select customer_id from loyalty_accounts where org_id = $1 limit 1`, [A.orgId]))[0].customer_id;

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -40,6 +40,7 @@ export class MenuController {
     return this.menu.createCategory(ctx, body);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/menu/categories/reorder')
   @RequirePermission('menu:write')
   reorder(@Tenant() ctx: TenantContext, @Body(zod(categoryReorder)) body: { ids: string[] }) {
@@ -83,6 +84,7 @@ export class MenuController {
     return this.menu.archiveProduct(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/menu/products/:id/image')
   @RequirePermission('menu:write')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024, files: 1 } }))
@@ -101,6 +103,7 @@ export class MenuController {
    * Quick "86" (sold out) / restore for kitchen, waiters and cashiers. The dish stays on guest menus as sold out;
    * `until` brings it back automatically. Whether the branch offers the dish is the PUT …/branches/:branchId setting.
    */
+  @HttpCode(200)
   @Post('o/:orgId/menu/products/:id/availability')
   @RequirePermission('menu:availability')
   availability(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(soldOutRequest)) body: z.infer<typeof soldOutRequest>) {
@@ -151,12 +154,14 @@ export class MenuController {
   }
 
   // Import (§8) --------------------------------------------------------------
+  @HttpCode(200)
   @Post('o/:orgId/menu/import/preview')
   @RequirePermission('menu:write')
   importPreview(@Tenant() ctx: TenantContext, @Body(zod(menuImportRequest)) body: MenuImportRequest) {
     return this.menu.importPreview(ctx, body);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/menu/import/commit')
   @RequirePermission('menu:write')
   importCommit(@Tenant() ctx: TenantContext, @Body(zod(menuImportRequest)) body: MenuImportRequest, @Headers('idempotency-key') key?: string) {

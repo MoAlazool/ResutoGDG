@@ -18,7 +18,7 @@ export async function sandboxChannel(t: TestApp, tenant: TestTenant, extra: Reco
 
 export async function inbound(t: TestApp, tenant: TestTenant, channelId: string, from: string, msg: { text?: string; reply?: { id: string; title?: string }; location?: any; name?: string }) {
   const res = await t.http.post(`/v1/o/${tenant.orgId}/connect/sandbox/inbound`).set(auth(tenant.owner)).send({ channelId, from, ...msg });
-  if (res.status !== 201) throw new Error(`inbound: ${res.status} ${JSON.stringify(res.body)}`);
+  if (res.status !== 200) throw new Error(`inbound: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body as { conversationId: string; sandbox: true; conversation: any };
 }
 

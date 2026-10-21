@@ -50,18 +50,21 @@ export class ReservationsController {
     return this.reservations.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post(':id/cancel')
   @RequirePermission('reservations:write')
   cancel(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(reservationCancelRequest)) body: { reason?: string | null }) {
     return this.reservations.staffCancel(ctx, id, body.reason);
   }
 
+  @HttpCode(200)
   @Post(':id/no-show')
   @RequirePermission('reservations:write')
   noShow(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string) {
     return this.reservations.noShow(ctx, id);
   }
 
+  @HttpCode(200)
   @Post(':id/check-in')
   @RequirePermission('reservations:write', 'floor:seat')
   checkIn(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(checkInBody)) body: z.infer<typeof checkInBody>) {
@@ -121,8 +124,8 @@ export class PublicReservationsController {
 
   @Public()
   @Post(':slug/holds')
-  hold(@Param('slug') slug: string, @Body(zod(reservationHoldRequest)) body: ReservationHoldRequest, @Req() req: ResutoRequest) {
-    this.limiter.hit(`reservations:hold:${req.ip}`, 20);
+  async hold(@Param('slug') slug: string, @Body(zod(reservationHoldRequest)) body: ReservationHoldRequest, @Req() req: ResutoRequest) {
+    await this.limiter.guard(`reservations:hold:${req.ip}`, 20);
     if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
     // Per number, not per spelling: 010…, 10…, 20…, +20… and 0020… of one phone share a budget (CR-06).
     return this.reservations.hold(slug, body, (e164) => this.limiter.hit(`reservations:hold:phone:${sha256(e164).slice(0, 24)}`, 10));
