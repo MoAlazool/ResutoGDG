@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MeResponse } from '@resuto/contracts';
-import { api, ApiRequestError, type ApiOptions } from './api';
+import { api, apiAll, ApiRequestError, type ApiOptions } from './api';
 import { AuthFlowError } from './auth-errors';
 import { createAuthRunner } from './auth-recovery';
 import { queryCache, scopeOfToken, tenantPrefix } from './query-cache';
@@ -211,7 +211,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   const withAuthRef = useRef(withAuth);
   withAuthRef.current = withAuth;
   const call = useCallback(async <T,>(path: string, opts?: Omit<ApiOptions, 'token'>): Promise<T> => {
-    const result = await withAuthRef.current((t) => api<T>(path, { ...opts, token: t }));
+    const result = await withAuthRef.current((t) => apiAll<T>(path, { ...opts, token: t }));
     const method = opts?.method ?? (opts?.body !== undefined ? 'POST' : 'GET');
     if (method !== 'GET') invalidateAfterMutation(path);
     return result;

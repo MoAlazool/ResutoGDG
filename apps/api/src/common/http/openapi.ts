@@ -2,7 +2,7 @@ import { Injectable, RequestMethod } from '@nestjs/common';
 import { HEADERS_METADATA, HTTP_CODE_METADATA, METHOD_METADATA, PATH_METADATA, ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 import { RouteParamtypes } from '@nestjs/common/enums/route-paramtypes.enum';
 import { ModulesContainer } from '@nestjs/core';
-import { baseComponents, jsonSchemaOf, type JsonSchema, type OpenApiDoc, type OpenApiOperation } from '@resuto/contracts';
+import { baseComponents, jsonSchemaOf, type JsonSchema, type OpenApiDoc, type OpenApiOperation } from '@resuto/contracts/openapi';
 import { z } from 'zod';
 import { IS_PUBLIC, MODULE, PERMISSION, PLATFORM_ROLE } from '../auth/decorators';
 import { ZodPipe } from './zod.pipe';

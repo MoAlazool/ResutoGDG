@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(path.join(root, 'packages/contracts/package.json'));
-const { lintOpenApi, stableJson } = require('./dist/index.js');
+const { lintOpenApi, stableJson } = require('./dist/openapi.js');
 const committedPath = path.join(root, 'docs/api/openapi.json');
 
 const base = (process.env.API_URL ?? 'http://127.0.0.1:4000').replace(/\/$/, '');

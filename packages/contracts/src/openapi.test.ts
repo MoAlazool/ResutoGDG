@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { jsonSchemaOf, lintOpenApi, listQuery, stableJson, type OpenApiDoc } from './index';
+import { listQuery } from './api';
+import { jsonSchemaOf, lintOpenApi, stableJson, type OpenApiDoc } from './openapi';
 
 const op = (status: string, extra: Record<string, unknown> = {}) => ({
   operationId: `op${Math.random()}`, parameters: [], responses: { [status]: { description: 'ok' }, default: { $ref: '#/components/responses/Error' } }, ...extra,

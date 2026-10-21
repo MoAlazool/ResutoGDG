@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { apiErrorSchema, MAX_LIST_LIMIT } from './api';
 
 /**
- * OpenAPI 3.1 helpers shared by the API (which generates GET /v1/openapi.json from its router metadata), its test
+ * OpenAPI 3.1 helpers (subpath export '@resuto/contracts/openapi', kept out of the main entry so browser bundles never
+ * carry them) shared by the API (which generates GET /v1/openapi.json from its router metadata), its test
  * suite and scripts/openapi/check.mjs (audit PS-19, PS-23; docs/API_STYLE.md). Pure functions over JSON: no Nest here.
  */
 
