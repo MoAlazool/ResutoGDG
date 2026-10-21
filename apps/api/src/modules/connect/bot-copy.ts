@@ -45,6 +45,7 @@ const COPY = {
   status_delivered: { en: 'Order #{number} was delivered. Enjoy your meal!', ar: 'تم توصيل الطلب رقم {number}. بالهناء والشفاء!' },
   status_cancelled: { en: 'Order #{number} was cancelled.', ar: 'تم إلغاء الطلب رقم {number}.' },
   delivery_on_the_way: { en: '🛵 Order #{number} is on the way.', ar: '🛵 الطلب رقم {number} في الطريق إليك.' },
+  delivery_on_the_way_eta: { en: '🛵 Order #{number} is on the way. Expected around {eta}.', ar: '🛵 الطلب رقم {number} في الطريق إليك. الوصول المتوقع حوالي {eta}.' },
   reservationConfirmed: { en: '📅 Your table for {party} on {when} is confirmed. Booking code {code}.', ar: '📅 تم تأكيد حجز طاولة لـ {party} في {when}. رمز الحجز {code}.' },
 } as const;
 
