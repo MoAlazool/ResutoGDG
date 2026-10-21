@@ -43,18 +43,115 @@ export function readDocument(doc) {
   return { state, meta };
 }
 
+/** Timestamp fields of the legacy state (epoch ms or ISO strings), per collection. */
+export const LEGACY_TIME_FIELDS = {
+  orders: ['created', 'fulfilledAt', 'cancelledAt', 'updated'], visits: ['created', 'closedAt'], reservations: ['start', 'end', 'expires', 'created'],
+  payments: ['at'], requests: ['created', 'resolvedAt'], audit: ['at'],
+};
+const LEGACY_ACTIVE_ORDER = new Set(['awaiting_payment', 'placed', 'accepted', 'preparing', 'ready', 'out_for_delivery']);
+const LEGACY_FULFILLED = { 'dine-in': 'served', counter: 'served', pickup: 'picked_up', delivery: 'delivered' };
+const msOf = (v) => (v === undefined || v === null || v === '' ? null : typeof v === 'number' ? v : Date.parse(v));
+
+/** The latest activity in the document (bookings in the future are not activity). Used as the anchor for --retime. */
+export function lastActivity(s) {
+  let max = null;
+  for (const [kind, fields] of Object.entries(LEGACY_TIME_FIELDS)) {
+    for (const x of s[kind] ?? []) for (const f of fields) {
+      if (kind === 'reservations' && f !== 'expires' && f !== 'created') continue;
+      const t = msOf(x[f]);
+      if (Number.isFinite(t) && (max === null || t > max)) max = t;
+    }
+  }
+  return max;
+}
+
 /**
- * Builds the full migration plan. `options`: restaurantId, slug, name, planId,
- * subscriptionStatus ('trialing' | 'active'), ownerUserId, now (Date).
+ * Optional demo/rehearsal adjustments, applied to a COPY of the legacy state (the document is never modified and the
+ * reconciliation still compares against the original):
+ *   retimeTo (Date)            shifts every legacy timestamp by one offset so the latest activity lands at retimeTo;
+ *                              relative spacing, weekdays-of-history and future bookings keep their shape.
+ *   closeStaleAfterHours (n)   in-progress work older than n hours (relative to `now`) is imported as closed history:
+ *                              a fully paid order is fulfilled, an unpaid one is cancelled, open visits close after their
+ *                              last order, open calls are resolved, past bookings that never arrived become no-shows
+ *                              (held/awaiting-deposit ones expire). Every change is reported as a warning.
+ */
+export function adjustLegacyState(s, { now = new Date(), retimeTo = null, closeStaleAfterHours = null } = {}, warnings = []) {
+  const out = structuredClone(s);
+  if (retimeTo) {
+    const anchor = lastActivity(out);
+    if (anchor !== null) {
+      const delta = retimeTo.getTime() - anchor;
+      for (const [kind, fields] of Object.entries(LEGACY_TIME_FIELDS)) {
+        for (const x of out[kind] ?? []) for (const f of fields) {
+          const t = msOf(x[f]);
+          if (Number.isFinite(t)) x[f] = t + delta;
+        }
+      }
+      warnings.push(`retimed: every legacy timestamp shifted by ${Math.round(delta / 3_600_000)} h (latest activity now ${new Date(anchor + delta).toISOString()})`);
+    }
+  }
+  if (closeStaleAfterHours === null || closeStaleAfterHours === undefined) return out;
+  const cutoff = now.getTime() - closeStaleAfterHours * 3_600_000;
+  const stale = (t) => Number.isFinite(t) && t < cutoff;
+  const paidFor = (visitId) => (out.payments ?? []).filter((p) => p.kind === 'bill' && p.visitId === visitId).reduce((n, p) => n + int(p.amount), 0);
+  for (const v of out.visits ?? []) {
+    const orders = out.orders.filter((o) => o.visitId === v.id);
+    const due = orders.filter((o) => o.status !== 'cancelled').reduce((n, o) => n + int(o.total), 0) + (v.type === 'delivery' ? int(v.fee) : 0);
+    const settled = int(v.credit) + paidFor(v.id) >= due;
+    for (const o of orders) {
+      if (!LEGACY_ACTIVE_ORDER.has(o.status) || !stale(msOf(o.created))) continue;
+      const created = msOf(o.created);
+      if (settled) {
+        const to = LEGACY_FULFILLED[o.type ?? v.type] ?? 'served';
+        warnings.push(`order ${o.id}: "${o.status}" for ${Math.round((now - created) / 3_600_000)} h → imported as ${to} (paid) history`);
+        o.status = to; o.fulfilledAt = created + 45 * 60_000;
+      } else {
+        warnings.push(`order ${o.id}: "${o.status}" for ${Math.round((now - created) / 3_600_000)} h → imported as cancelled (unpaid, never completed)`);
+        o.status = 'cancelled'; o.cancelledAt = created + 60 * 60_000;
+        o.notes = [o.notes, 'Closed at migration: stale in-progress legacy order.'].filter(Boolean).join(' ');
+      }
+    }
+    if (v.status === 'open' && !v.undone && stale(msOf(v.created))) {
+      const last = Math.max(msOf(v.created), ...orders.map((o) => msOf(o.fulfilledAt) ?? msOf(o.cancelledAt) ?? msOf(o.created) ?? 0));
+      v.status = 'closed'; v.closedAt = last + 30 * 60_000;
+      warnings.push(`visit ${v.id}: open since ${new Date(msOf(v.created)).toISOString()} → imported as closed`);
+    }
+  }
+  for (const o of out.orders) {          // orders without a visit
+    if (o.visitId || !LEGACY_ACTIVE_ORDER.has(o.status) || !stale(msOf(o.created))) continue;
+    warnings.push(`order ${o.id}: "${o.status}" without a visit → imported as cancelled`);
+    o.status = 'cancelled'; o.cancelledAt = msOf(o.created) + 60 * 60_000;
+  }
+  for (const r of out.requests ?? []) {
+    if (r.status !== 'open' || !stale(msOf(r.created))) continue;
+    r.status = 'resolved'; r.resolvedAt = msOf(r.created) + 10 * 60_000;
+    warnings.push(`request ${r.id}: open → imported as resolved`);
+  }
+  for (const r of out.reservations ?? []) {
+    if (!['held', 'pending_deposit', 'confirmed'].includes(r.status) || !stale(msOf(r.start))) continue;
+    const seated = (out.visits ?? []).some((v) => v.reservationId === r.id);
+    const to = seated ? 'completed' : r.status === 'confirmed' ? 'no_show' : 'expired';
+    warnings.push(`reservation ${r.id}: "${r.status}" after its start → imported as ${to}`);
+    r.status = to;
+  }
+  return out;
+}
+
+/**
+ * Builds the full migration plan. `options`: restaurantId, slug, name, nameAr, categoryNamesAr ({ English: Arabic }),
+ * planId, subscriptionStatus ('trialing' | 'active'), ownerUserId, now (Date), retimeTo (Date), closeStaleAfterHours.
  */
 export function buildPlan(doc, options = {}) {
-  const { state: s, meta } = readDocument(doc);
+  const { state: original, meta: docMeta } = readDocument(doc);
   const now = options.now ?? new Date();
+  const meta = { ...docMeta, ...(options.nameAr ? { nameAr: options.nameAr } : {}) };
+  const preWarnings = [];
+  const s = adjustLegacyState(original, { now, retimeTo: options.retimeTo ?? null, closeStaleAfterHours: options.closeStaleAfterHours ?? null }, preWarnings);
   const restaurantId = options.restaurantId ?? meta.restaurantId ?? meta.id ?? slugify(s.settings?.name) ?? 'legacy';
   const id = (entity, legacyId) => uuidv5(legacyName(restaurantId, entity, legacyId));
   const country = 'EG';                                // legacy is EGP-only
   const { currency, timezone, vatRateBp, taxRegime } = COUNTRY_DEFAULTS[country];
-  const warnings = [];
+  const warnings = [...preWarnings];
   const rows = {};
   const idMap = [];
   const after = [];
@@ -132,7 +229,8 @@ export function buildPlan(doc, options = {}) {
   s.menu.forEach((m, index) => {
     const cat = String(m.category ?? 'Menu').trim() || 'Menu';
     if (!categoryId.has(cat)) {
-      categoryId.set(cat, add('menu_categories', { id: id('category', cat), org_id: orgId, menu_id: menuId, name: cat.slice(0, 80), default_station: m.station ?? null,
+      categoryId.set(cat, add('menu_categories', { id: id('category', cat), org_id: orgId, menu_id: menuId, name: cat.slice(0, 80),
+        name_ar: options.categoryNamesAr?.[cat] ?? m.categoryAr ?? null, default_station: m.station ?? null,
         sort_order: categoryId.size }, ['category', cat]).id);
     }
     const pid = add('products', {
@@ -201,7 +299,8 @@ export function buildPlan(doc, options = {}) {
 
   // --- Customers (derived from contacts) ---------------------------------------------------------
   const customers = new Map();
-  const customerFor = (contact, displayName, at) => {
+  const customerFor = (contact, displayName, seen) => {
+    const at = seen && seen > now ? now : seen;     // a booking in the future is not a visit in the future
     const phone = normalizePhone(contact);
     const email = phone ? null : normalizeEmail(contact);
     if (!phone && !email) return null;
@@ -427,7 +526,7 @@ export function buildPlan(doc, options = {}) {
   add('audit_logs', { _parent: orgId, org_id: orgId, actor_type: 'system', actor_id: 'legacy-migration', action: 'organization.migrated', entity_type: 'organization',
     entity_id: orgId, source: 'migration', metadata: json({ restaurantId, warnings: warnings.length }), created_at: now });
 
-  return { orgId, restaurantId, slug, rows, idMap, after, warnings, legacy: legacyMetrics(s, { tableId, visitRows }) };
+  return { orgId, restaurantId, slug, rows, idMap, after, warnings, legacy: legacyMetrics(original, { tableId, visitRows }) };
 }
 
 /** Totals computed directly from the legacy document, used for reconciliation. */

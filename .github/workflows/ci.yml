@@ -49,6 +49,10 @@ jobs:
         env:
           LEGACY_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test_legacy
         run: node --test tools/legacy-migration/test/*.test.mjs
+      - name: Demo data integrity check (unit tests + one defect case per assertion)
+        env:
+          DEMO_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test_demo_integrity
+        run: node --test scripts/demo/test/*.test.mjs
       - name: API typecheck
         run: pnpm --filter @resuto/api typecheck
       - name: API integration tests

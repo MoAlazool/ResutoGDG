@@ -6,9 +6,18 @@
 //   * a demo owner account and a local platform superadmin (AUTH_DEV_MODE
 //     email/password accounts; passwords are generated and printed ONCE),
 //   * a complimentary Pro subscription (demo access — nothing is charged),
-//   * menu photos (media_assets in local storage) for the eight Olive Room dishes.
+//   * a photo for every dish (the eight Olive Room dishes and the nine Smash & Co items) and the website hero
+//     (media_assets in local storage),
+//   * Arabic names for the restaurant and every menu category.
+// The legacy fixture is RE-TIMED to the load (its latest activity lands half an hour ago) and work that would be
+// stale by then (orders in progress, open visits and calls, past bookings that never arrived) is imported as
+// closed history (audit DF-10). After loading, the demo integrity check (scripts/demo/integrity-check.mjs,
+// profile "migration") must pass, or the seed exits 1.
 // Idempotent: re-running keeps existing accounts and data (`--reset-passwords`
 // issues new demo passwords).
+//
+// For the full demo (8 weeks of history, finance, delivery, the Smash & Co storefront) use
+// scripts/demo/load-demo-data.mjs against a running API instead; see scripts/demo/README.md.
 //
 // Refuses any non-local DATABASE_URL. Storage files go to STORAGE_LOCAL_DIR
 // resolved like the API does when started from apps/api (default apps/api/.local/storage).
@@ -21,6 +30,7 @@ import pg from 'pg';
 import { migrate } from './migrate.mjs';
 import { legacyName, uuidv5 } from '../../tools/legacy-migration/lib/ids.mjs';
 import { formatReport, migrateLegacy } from '../../tools/legacy-migration/migrate.mjs';
+import { checkDemoIntegrity, formatIntegrity, LIVE_STALE_HOURS } from '../demo/integrity-check.mjs';
 
 const scrypt = promisify(scryptCb);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -86,7 +96,9 @@ const document = JSON.parse(readFileSync(path.join(root, config.fixture), 'utf8'
 const report = await migrateLegacy({
   url, document,
   options: { restaurantId: config.restaurantId, slug: config.slug, planId: config.planId, subscriptionStatus: config.subscriptionStatus,
-    ownerEmail: config.owner.email, subscriptionNote: 'Demo tenant: complimentary Pro access, no payment collected.' },
+    ownerEmail: config.owner.email, subscriptionNote: 'Demo tenant: complimentary Pro access, no payment collected.',
+    nameAr: config.nameAr, categoryNamesAr: config.categoryNamesAr,
+    retimeTo: new Date(Date.now() - 30 * 60_000), closeStaleAfterHours: LIVE_STALE_HOURS },
 });
 if (!report.committed) {
   console.error(formatReport(report));
@@ -106,20 +118,32 @@ try {
     await db.query(`insert into subscription_events(org_id, subscription_id, event_type, to_plan_id, details) values ($1, $2, 'demo_complimentary', $3, $4)`,
       [orgId, sub.id, config.planId, { note: 'Demo data: complimentary access, nothing charged, no billing provider.' }]);
   }
-  let photos = 0;
-  for (const [legacyId, rel] of Object.entries(config.photos)) {
-    if (legacyId.startsWith('_')) continue;
+  // Arabic names (also for a tenant seeded before they were part of the plan).
+  await db.query(`update organizations set name_ar = $2 where id = $1 and coalesce(btrim(name_ar), '') = ''`, [orgId, config.nameAr]);
+  for (const [name, nameAr] of Object.entries(config.categoryNamesAr)) {
+    await db.query(`update menu_categories set name_ar = $3 where org_id = $1 and name = $2 and coalesce(btrim(name_ar), '') = ''`, [orgId, name, nameAr]);
+  }
+  /** Writes a seed image into local tenant storage and records it; returns the media id. */
+  const storeMedia = async (key, rel, objectPath, alt) => {
     const bytes = readFileSync(path.join(root, 'supabase/seeds', rel));
-    const objectPath = `${orgId}/menu/legacy-${legacyId}.webp`;
     const file = path.join(storageDir, 'tenant-media', objectPath);
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, bytes);
-    const mediaId = uuidv5(legacyName(config.restaurantId, 'media', `menu:${legacyId}`));
-    const { rows: [product] } = await db.query(`select id, name from products where org_id = $1 and legacy_id = $2`, [orgId, legacyId]);
-    if (!product) continue;
+    const mediaId = uuidv5(legacyName(config.restaurantId, 'media', key));
     await db.query(
       `insert into media_assets(id, org_id, path, content_type, byte_size, width, height, alt, source) values ($1, $2, $3, 'image/webp', $4, 512, 384, $5, 'legacy')
-       on conflict (id) do nothing`, [mediaId, orgId, objectPath, bytes.length, product.name]);
+       on conflict (id) do nothing`, [mediaId, orgId, objectPath, bytes.length, alt]);
+    return mediaId;
+  };
+  const hero = await storeMedia('website:hero', config.websiteHero.path, `${orgId}/website/legacy-hero.webp`, config.websiteHero.alt);
+  await db.query(`update websites set theme = coalesce(theme, '{}'::jsonb) || jsonb_build_object('heroMediaId', $2::text)
+                   where org_id = $1 and coalesce(theme->>'heroMediaId', '') = ''`, [orgId, hero]);
+  let photos = 0;
+  for (const [legacyId, rel] of [...Object.entries(config.photos), ...Object.entries(config.smash.photos)]) {
+    if (legacyId.startsWith('_')) continue;
+    const { rows: [product] } = await db.query(`select id, name from products where org_id = $1 and legacy_id = $2`, [orgId, legacyId]);
+    if (!product) continue;
+    const mediaId = await storeMedia(`menu:${legacyId}`, rel, `${orgId}/menu/legacy-${legacyId}.webp`, product.name);
     const r = await db.query(`update products set image_media_id = $2 where id = $1 and image_media_id is null`, [product.id, mediaId]);
     photos += r.rowCount;
   }
@@ -127,6 +151,9 @@ try {
     `insert into audit_logs(org_id, actor_type, actor_id, action, entity_type, entity_id, source, metadata)
      values ($1, 'system', 'scripts/db/seed.mjs', 'demo.seeded', 'organization', $2, 'migration', $3)`, [orgId, orgId, { photosLinked: photos, demo: true }]);
   await db.query('commit');
+  const integrity = await checkDemoIntegrity(async (t, p) => (await db.query(t, p)).rows, { slug: config.slug, profile: 'migration' });
+  console.log(formatIntegrity(integrity));
+  if (!integrity.ok) process.exitCode = 1;
 
   console.log(`\nDEMO DATA — The Olive Room (${config.slug})  organization ${orgId}`);
   console.log(`  migration: ${report.rerun ? 're-run (no changes)' : 'created'}; reconciliation ${report.reconciliation.metrics.length}/${report.reconciliation.metrics.length} metrics match`);

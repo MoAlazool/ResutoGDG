@@ -3,6 +3,16 @@
   "fixture": "tools/legacy-migration/fixtures/olive-room.legacy-state.json",
   "restaurantId": "olive-room-demo",
   "slug": "the-olive-room",
+  "nameAr": "غرفة الزيتون",
+  "categoryNamesAr": {
+    "Starters": "المقبلات",
+    "Mains": "الأطباق الرئيسية",
+    "Desserts": "الحلويات",
+    "Drinks": "المشروبات",
+    "Burgers": "البرجر",
+    "Sides": "الأطباق الجانبية",
+    "Shakes": "الميلك شيك"
+  },
   "planId": "pro",
   "subscriptionStatus": "active",
   "owner": {
@@ -39,5 +49,10 @@
       "b8": "media/smash/cola.webp"
     },
     "hero": "media/smash/double-smash.webp"
+  },
+  "websiteHero": {
+    "_source": "apps/web/public/brand/olive-interior.webp (the legacy restaurant interior photo, legacy/public/assets/olive-interior.webp)",
+    "path": "../../apps/web/public/brand/olive-interior.webp",
+    "alt": "The Olive Room dining room"
   }
 }
