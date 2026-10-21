@@ -36,6 +36,25 @@ describe('legacy venue QR resolution (CR-13)', () => {
     expect((await t.http.get(`/v1/public/venue/${closed}`)).status).toBe(404);
   });
 
+  it('a token the earlier migration tool mapped to the organization resolves to its main branch', async () => {
+    const a = await createTenant(t);
+    const venue = token();
+    await sql(`insert into legacy_id_map(org_id, entity_type, legacy_id, new_id) values ($1, 'venue_qr', $2, $1)`, [a.orgId, venue]);
+    const [b] = await sql<{ code: string }>(`select code from branches where id = $1`, [a.branchId]);
+    const res = await t.http.get(`/v1/public/venue/${venue}`);
+    expect(res.status).toBe(200);
+    expect(res.body.path).toBe(`/order/${a.slug}?branch=${b.code}`);
+  });
+
+  it('allows the web server the same lookup volume as the public table GET (one shared IP for every guest)', async () => {
+    const a = await createTenant(t);
+    const venue = token();
+    await sql(`insert into legacy_id_map(org_id, entity_type, legacy_id, new_id) values ($1, 'venue_qr', $2, $3)`, [a.orgId, venue, a.branchId]);
+    const ip = `10.250.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+    for (let i = 0; i < 125; i++) await t.http.get(`/v1/public/venue/${token()}`).set('X-Forwarded-For', ip);
+    expect((await t.http.get(`/v1/public/venue/${venue}`).set('X-Forwarded-For', ip)).status).toBe(200);
+  });
+
   it('does not resolve a table QR or any other legacy id', async () => {
     const a = await createTenant(t);
     const other = token();

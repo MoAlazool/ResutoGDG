@@ -21,12 +21,18 @@ export class PublicVenueController {
   @Public()
   @Get(':token')
   async resolve(@Param('token') token: string, @Req() req: ResutoRequest) {
-    this.limiter.hit(`public-venue:${req.ip}`, 120);
+    // The web server looks codes up for every guest (one shared IP), like the public table GET: same allowance.
+    this.limiter.hit(`public-venue:${req.ip}`, 600);
     if (!TOKEN.test(token ?? '')) throw notFound('Venue');
+    // Tenants migrated by an earlier version of the tool map the token to the organization: it resolves to the
+    // organization's main branch (the branch the tool maps it to now) until a re-run moves the row.
     const rows = await this.db.withPlatform((tx) => tx.query<{ slug: string; code: string }>(
       `select o.slug, b.code from legacy_id_map m
-         join branches b on b.id = m.new_id and b.org_id = m.org_id and b.is_active
          join organizations o on o.id = m.org_id and o.status not in ('closed', 'suspended')
+         join branches b on b.org_id = m.org_id and b.is_active
+          and b.id = case when m.new_id = m.org_id
+                          then (select x.id from branches x where x.org_id = m.org_id and x.is_active order by (x.code = 'main') desc, x.created_at, x.id limit 1)
+                          else m.new_id end
         where m.entity_type = 'venue_qr' and m.legacy_id = $1 limit 2`, [token]), 'guest:venue-qr');
     if (rows.length !== 1) throw notFound('Venue');
     const { slug, code } = rows[0];

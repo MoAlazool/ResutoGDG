@@ -228,6 +228,29 @@ describe('legacy media and venue QR (CR-13)', () => {
     assert.equal(again.checkpoints.media.inserted, 0);
   });
 
+  it('a tenant migrated by the earlier tool (venue QR mapped to the organization) is moved to its branch on re-run', async () => {
+    const [org] = await q(`select id from organizations where legacy_id = $1`, [smash()._fixture.restaurantId]);
+    await q(`update legacy_id_map set new_id = org_id where org_id = $1 and entity_type = 'venue_qr'`, [org.id]);
+    const again = await migrateLegacy({ url, document: smash(), options: { planId: 'pro', subscriptionStatus: 'active' }, media: smashMedia });
+    assert.equal(again.committed, true, JSON.stringify(again.reconciliation.metrics.filter((m) => !m.match)));
+    assert.equal(again.checkpoints.legacy_id_map.remapped, 1);
+    const [venue] = await q(`select b.code from legacy_id_map m join branches b on b.id = m.new_id where m.org_id = $1 and m.entity_type = 'venue_qr'`, [org.id]);
+    assert.equal(venue.code, 'main');
+  });
+
+  it('the reconciliation counts a venue token only when it resolves to an active branch', async () => {
+    const [org] = await q(`select id from organizations where legacy_id = $1`, [smash()._fixture.restaurantId]);
+    const [{ id: main }] = await q(`select id from branches where org_id = $1 and code = 'main'`, [org.id]);
+    await q(`update branches set is_active = false where id = $1`, [main]);
+    try {
+      const run = await migrateLegacy({ url, document: smash(), options: { planId: 'pro', subscriptionStatus: 'active' }, media: smashMedia });
+      const m = run.reconciliation.metrics.find((x) => x.name === 'venue_qr_tokens');
+      assert.deepEqual([m.legacy, m.migrated, m.match, run.committed], [1, 0, false, false]);
+    } finally {
+      await q(`update branches set is_active = true where id = $1`, [main]);
+    }
+  });
+
   it('copies the Olive Room storefront photos (legacy burger.js) and maps its venue QR to the main branch', async () => {
     const [org] = await q(`select id from organizations where legacy_id = 'olive-room-demo'`);
     const photos = await q(`select p.legacy_id from products p join media_assets a on a.id = p.image_media_id where p.org_id = $1 order by 1`, [org.id]);

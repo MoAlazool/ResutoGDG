@@ -131,13 +131,21 @@ export async function loadPlan(client, plan, { dryRun = false, ownerUserId = nul
     for (const u of plan.after) await client.query(u.sql, u.params);
     if (ownerUserId) await client.query(`update profiles set last_org_id = coalesce(last_org_id, $2) where id = $1`, [ownerUserId, plan.orgId]);
     let mapped = 0;
+    let remapped = 0;
     for (const m of plan.idMap) {
       const r = await client.query(
         `insert into legacy_id_map(org_id, entity_type, legacy_id, new_id) values ($1, $2, $3, $4) on conflict (org_id, entity_type, legacy_id) do nothing`,
         [plan.orgId, m.entity, m.legacyId, m.newId]);
       mapped += r.rowCount;
+      // Earlier versions of this tool mapped the venue QR to the organization; the public venue route resolves a
+      // branch, so a re-run moves such a row to the planned branch (only rows that point at the organization itself).
+      if (!r.rowCount && m.entity === 'venue_qr') {
+        remapped += (await client.query(`update legacy_id_map set new_id = $4 where org_id = $1 and entity_type = $2 and legacy_id = $3 and new_id = $1`,
+          [plan.orgId, m.entity, m.legacyId, m.newId])).rowCount;
+      }
     }
-    checkpoints.legacy_id_map = { planned: plan.idMap.length, inserted: mapped, existing: plan.idMap.length - mapped };
+    checkpoints.legacy_id_map = { planned: plan.idMap.length, inserted: mapped, existing: plan.idMap.length - mapped, remapped };
+    if (remapped) log(`  legacy_id_map: ${remapped} venue QR token(s) moved from the organization to its branch`);
 
     const reconciliation = await reconcile(client, plan);
     const commit = !dryRun && reconciliation.ok;
@@ -185,7 +193,9 @@ export async function reconcile(client, plan) {
        (select count(*) from customers where org_id = $1)::int as customers,
        (select count(*) from media_assets a where a.org_id = $1 and a.id = any($2::uuid[])
           and exists (select 1 from products p where p.org_id = $1 and p.image_media_id = a.id))::int as media,
-       (select coalesce(array_agg(legacy_id), '{}') from legacy_id_map where org_id = $1 and entity_type = 'venue_qr') as venue_qr_tokens`,
+       -- a venue token counts only when it resolves the way GET /v1/public/venue/:token does: to an active branch of the org
+       (select coalesce(array_agg(m.legacy_id), '{}') from legacy_id_map m join branches b on b.id = m.new_id and b.org_id = m.org_id and b.is_active
+         where m.org_id = $1 and m.entity_type = 'venue_qr') as venue_qr_tokens`,
     [plan.orgId, (plan.media ?? []).map((x) => x.id)]);
   const metrics = Object.entries(plan.legacy).map(([name, legacy]) => {
     let migrated = m[name];
