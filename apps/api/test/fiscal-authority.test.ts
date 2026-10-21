@@ -128,6 +128,77 @@ describe('ZATCA Phase-2 (INT-26, implementation incomplete)', () => {
   });
 });
 
+async function etaTenant() {
+  const eg = await createTenant(t, { country: 'EG' });
+  const menu = await seedMenu(eg);
+  await t.http.put(C(eg, '/tax-profile')).set(auth(eg.owner)).send({
+    vatNumber: '123456789', registeredName: 'Resuto Cairo SAE', etaActivityCode: '5610', etaBranchCode: '0', etaPosSerial: 'POS-001', etaEnvironment: 'preprod',
+    registeredAddress: { governate: 'Cairo', regionCity: 'Nasr City', street: 'Abbas El Akkad', buildingNumber: '10' },
+  }).expect(200);
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const certPem = `-----BEGIN CERTIFICATE----- ${selfSigned(privateKey, 'Resuto eSeal')} -----END CERTIFICATE-----`;
+  const creds = { clientId: 'pos-client', clientSecret: 'pos-secret', presharedKey: 'psk-123', signingKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() };
+  const [conn] = await sql(
+    `insert into integration_connections(org_id, provider, category, auth_type, environment, status, credentials_encrypted, config)
+     values ($1, 'eta_ereceipt', 'tax', 'oauth', 'sandbox', 'connected', $2, $3) returning id`,
+    [eg.orgId, t.app.get(SecretBox).sealJson(creds, `${eg.orgId}:eta_ereceipt`), { posSerial: 'POS-001', posOsVersion: 'android-14', posModelFramework: '1', signingCertificatePem: certPem }]);
+  return { eg, menu, connId: conn.id as string };
+}
+const tokenResponse = { body: { access_token: 'a.b.c', token_type: 'Bearer', expires_in: 3600 } };
+const receiptUuidsOf = (req: RecordedRequest) => JSON.parse(req.body!).receipts.map((r: any) => r.header.uuid as string);
+
+describe('ETA batches split by MaximumSizeExceeded (INT-26 review)', () => {
+  it('links each receipt to the submission it went in, settles both from their own submission, and keeps accepted results when a later half fails', async () => {
+    const { eg, menu } = await etaTenant();
+    const d1 = await paidOrder(eg, menu);
+    const d2 = await paidOrder(eg, menu);
+    const svc = t.app.get(FiscalAuthorityService);
+    http.fetch = scriptedFetch([
+      tokenResponse,
+      { status: 400, body: { error: { code: 'MaximumSizeExceeded' } } },
+      (req) => ({ status: 202, body: { submissionUUID: 'SUBMISSIONAAAAAAAAAAAAAAA1', acceptedDocuments: receiptUuidsOf(req).map((uuid: string) => ({ uuid })) } }),
+      (req) => ({ status: 202, body: { submissionUUID: 'SUBMISSIONBBBBBBBBBBBBBBB2', acceptedDocuments: receiptUuidsOf(req).map((uuid: string) => ({ uuid })) } }),
+    ]).fetch;
+    expect(await svc.submitEtaDue({ orgId: eg.orgId })).toMatchObject({ batches: 2, accepted: 2 });
+    const ext = async (id: string) => (await sql(`select external_id from government_submissions where document_id = $1 and external_id is not null`, [id]))[0]?.external_id;
+    expect(await ext(d1.id)).toBe('SUBMISSIONAAAAAAAAAAAAAAA1');
+    expect(await ext(d2.id)).toBe('SUBMISSIONBBBBBBBBBBBBBBB2');
+
+    // The poll reads each submission and settles the receipt listed there: d2 is settled from SUBMISSION…2.
+    await sql(`update government_submissions set submitted_at = now() - interval '5 minutes' where org_id = $1`, [eg.orgId]);
+    const polled: string[] = [];
+    http.fetch = scriptedFetch([(req) => {
+      if (req.url.endsWith('/connect/token')) return tokenResponse;
+      const id = /receiptsubmissions\/([A-Z0-9]+)\/details/.exec(req.url)![1]!;
+      polled.push(id);
+      const doc = id.endsWith('1') ? d1 : d2;
+      return { body: { status: 'Valid', receiptsCount: 1, invalidReceiptCount: 0, receipts: [{ uuid: doc.authority_ref, receiptNumber: doc.number, status: 'Valid' }] } };
+    }]).fetch;
+    expect(await svc.pollEta({ orgId: eg.orgId })).toEqual({ submissions: 2, settled: 2 });
+    expect(polled.sort()).toEqual(['SUBMISSIONAAAAAAAAAAAAAAA1', 'SUBMISSIONBBBBBBBBBBBBBBB2']);
+    expect((await sql(`select status from fiscal_documents where id = any($1::uuid[]) order by counter_value`, [[d1.id, d2.id]])).map((r: any) => r.status)).toEqual(['accepted', 'accepted']);
+
+    // Second round: the first half is accepted, the second half hits an outage. The accepted receipt is recorded;
+    // the other is left for the next run (retryable) instead of everything being lost or marked as an error.
+    const d3 = await paidOrder(eg, menu);
+    const d4 = await paidOrder(eg, menu);
+    http.fetch = scriptedFetch([
+      tokenResponse,
+      { status: 400, body: { error: { code: 'MaximumSizeExceeded' } } },
+      (req) => ({ status: 202, body: { submissionUUID: 'SUBMISSIONCCCCCCCCCCCCCCC3', acceptedDocuments: receiptUuidsOf(req).map((uuid: string) => ({ uuid })) } }),
+      { status: 503, body: {} },
+    ]).fetch;
+    expect(await svc.submitEtaDue({ orgId: eg.orgId })).toMatchObject({ batches: 1, accepted: 1, errors: 1 });
+    expect(await ext(d3.id)).toBe('SUBMISSIONCCCCCCCCCCCCCCC3');
+    expect(await sql(`select 1 from government_submissions where document_id = $1 and mode <> 'sandbox_stub'`, [d4.id])).toHaveLength(0);
+    // Next run sends only d4.
+    const f = scriptedFetch([tokenResponse, (req) => ({ status: 202, body: { submissionUUID: 'SUBMISSIONDDDDDDDDDDDDDDD4', acceptedDocuments: receiptUuidsOf(req).map((uuid: string) => ({ uuid })) } })]);
+    http.fetch = f.fetch;
+    await svc.submitEtaDue({ orgId: eg.orgId });
+    expect(receiptUuidsOf(f.calls[1]!)).toEqual([d4.authority_ref]);
+  });
+});
+
 describe('ETA e-receipt (INT-26, implementation incomplete)', () => {
   it('submits signed receipts of a connected POS after commit and settles them from the submission status', async () => {
     const eg = await createTenant(t, { country: 'EG' });

@@ -265,12 +265,24 @@ export class FiscalAuthorityService {
         const out = await client.submit(receipts, { certificatePem: normalisePem(String(cfg.signingCertificatePem ?? '')), privateKeyPem: normalisePem(cr.signingKeyPem ?? '') });
         totals.batches += out.batches;
         for (const d of docs) {
+          // A split batch went in several submissions: each receipt is recorded under the one it actually went in,
+          // so pollEta settles it from that submission's details.
           const ok = out.accepted.find((a) => a.uuid === d.authority_ref);
           const bad = out.rejected.find((x) => x.uuid === d.authority_ref || x.receiptNumber === d.number);
+          const unsent = !ok && !bad ? out.unsent.find((u) => u.uuids.includes(d.authority_ref)) : undefined;
+          if (unsent) {
+            // Its sub-batch failed after another one went through: a retryable failure is simply retried next run
+            // (nothing recorded); a definitive one is recorded as an error.
+            totals.errors++;
+            const err = redactedError(unsent.error);
+            if (!err.retryable) await this.recordSubmission(d, mode, env, 'error', { error: err, notice: 'implementation incomplete — not certified' }, null);
+            continue;
+          }
           if (ok) totals.accepted++; else totals.rejected++;
+          const submissionUuid = ok?.submissionUuid ?? bad?.submissionUuid ?? null;
           await this.recordSubmission(d, mode, env, ok ? 'submitted' : 'rejected',
-            { submissionUuid: out.submissionUuid, longId: ok?.longId ?? null, error: bad?.error ?? (ok ? null : 'not_in_accepted_documents'), notice: 'implementation incomplete — not certified' },
-            ok ? out.submissionUuid : null, ok ? 'submitted' : 'rejected');
+            { submissionUuid, longId: ok?.longId ?? null, error: bad?.error ?? (ok ? null : 'not_in_accepted_documents'), notice: 'implementation incomplete — not certified' },
+            ok ? submissionUuid : null, ok ? 'submitted' : 'rejected');
         }
       } catch (e) {
         totals.errors++;

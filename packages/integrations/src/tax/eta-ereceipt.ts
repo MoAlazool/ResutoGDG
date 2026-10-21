@@ -169,11 +169,24 @@ export const ETA_HOSTS: Record<EtaEnvironment, { identity: string; api: string }
 export interface EtaPosCredentials { clientId: string; clientSecret: string; posSerial: string; posOsVersion: string; posModelFramework: string; presharedKey: string }
 export interface EtaSigner { certificatePem: string; privateKeyPem: string }
 export interface EtaBatchResult {
+  /** The first submission's UUID (kept for callers that sent one batch); use each entry's own submissionUuid. */
   submissionUuid: string | null;
-  accepted: Array<{ uuid: string; longId: string | null; receiptNumber: string | null }>;
-  rejected: Array<{ uuid: string | null; receiptNumber: string | null; error: string }>;
+  /** Every submission UUID ETA returned, in order (more than one when MaximumSizeExceeded split the batch). */
+  submissionUuids: string[];
+  accepted: Array<{ uuid: string; longId: string | null; receiptNumber: string | null; submissionUuid: string | null }>;
+  rejected: Array<{ uuid: string | null; receiptNumber: string | null; error: string; submissionUuid: string | null }>;
+  /**
+   * Receipts of a sub-batch that failed after another sub-batch had already gone through: not submitted, with the
+   * error (retryable or not). The results that ETA did accept are never thrown away because a later half failed.
+   */
+  unsent: Array<{ uuids: string[]; error: ProviderError }>;
   batches: number;
 }
+
+const receiptUuid = (r: unknown): string | null => {
+  const u = (r as { header?: { uuid?: unknown } } | null)?.header?.uuid;
+  return typeof u === 'string' && u ? u : null;
+};
 
 export class EtaReceiptClient {
   private token: { value: string; expiresAt: number } | null = null;
@@ -201,10 +214,20 @@ export class EtaReceiptClient {
 
   /**
    * Signs and submits receipts. On MaximumSizeExceeded the batch is split in halves (each half signed anew) until it
-   * fits; DuplicateSubmission waits for Retry-After once; 429/503 are retryable ProviderErrors for the caller's queue.
+   * fits; every accepted / rejected entry carries the UUID of the submission it went in. DuplicateSubmission waits for
+   * Retry-After once; 429/503 are retryable ProviderErrors. When nothing went through, the error is thrown; once any
+   * sub-batch went through, a later failing sub-batch is reported in `unsent` instead, so accepted results survive.
    */
   async submit(receipts: unknown[], signer: EtaSigner): Promise<EtaBatchResult> {
-    const out: EtaBatchResult = { submissionUuid: null, accepted: [], rejected: [], batches: 0 };
+    const out: EtaBatchResult = { submissionUuid: null, submissionUuids: [], accepted: [], rejected: [], unsent: [], batches: 0 };
+    const sendSafe = async (batch: unknown[]): Promise<void> => {
+      try {
+        await send(batch);
+      } catch (e) {
+        if (!(e instanceof ProviderError)) throw e;
+        out.unsent.push({ uuids: batch.map(receiptUuid).filter((u): u is string => !!u), error: e });
+      }
+    };
     const send = async (batch: unknown[], duplicateRetried = false): Promise<void> => {
       const { json, digest } = etaBatchDigest(batch);
       const value = buildEtaCadesBes({ digest, ...signer });
@@ -215,8 +238,8 @@ export class EtaReceiptClient {
       if (res.status === 400 && /MaximumSizeExceeded/i.test(code + JSON.stringify(body ?? ''))) {
         if (batch.length <= 1) throw new ProviderError('eta_ereceipt', 'a single receipt exceeds the maximum submission size', false, 400);
         const mid = Math.ceil(batch.length / 2);
-        await send(batch.slice(0, mid));
-        await send(batch.slice(mid));
+        await sendSafe(batch.slice(0, mid));
+        await sendSafe(batch.slice(mid));
         return;
       }
       if (res.status === 422 && /DuplicateSubmission/i.test(code + JSON.stringify(body ?? '')) && !duplicateRetried) {
@@ -228,11 +251,15 @@ export class EtaReceiptClient {
         throw new ProviderError('eta_ereceipt', `submission refused (HTTP ${res.status}${code ? `, ${code.slice(0, 60)}` : ''})`, res.status === 429 || res.status >= 500, res.status);
       }
       out.batches++;
-      out.submissionUuid = out.submissionUuid ?? (typeof body?.submissionUUID === 'string' ? body.submissionUUID : null);
-      for (const d of body?.acceptedDocuments ?? []) out.accepted.push({ uuid: String(d.uuid), longId: d.longId ?? null, receiptNumber: d.receiptNumber ?? null });
-      for (const d of body?.rejectedDocuments ?? []) out.rejected.push({ uuid: d.uuid ?? null, receiptNumber: d.receiptNumber ?? null, error: String(d.error?.message ?? 'rejected').slice(0, 300) });
+      const submissionUuid = typeof body?.submissionUUID === 'string' ? body.submissionUUID : null;
+      if (submissionUuid) out.submissionUuids.push(submissionUuid);
+      out.submissionUuid = out.submissionUuid ?? submissionUuid;
+      for (const d of body?.acceptedDocuments ?? []) out.accepted.push({ uuid: String(d.uuid), longId: d.longId ?? null, receiptNumber: d.receiptNumber ?? null, submissionUuid });
+      for (const d of body?.rejectedDocuments ?? []) out.rejected.push({ uuid: d.uuid ?? null, receiptNumber: d.receiptNumber ?? null, error: String(d.error?.message ?? 'rejected').slice(0, 300), submissionUuid });
     };
-    await send(receipts);
+    await sendSafe(receipts);
+    // Nothing went through: the caller's queue handles the error exactly as before (retry or record).
+    if (!out.batches && out.unsent.length) throw out.unsent[0]!.error;
     return out;
   }
 

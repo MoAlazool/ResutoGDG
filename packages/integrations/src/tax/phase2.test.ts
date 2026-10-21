@@ -245,7 +245,8 @@ describe('ETA e-receipt', () => {
     const e = eta([token, (_u, init) => ({ status: 202, body: { submissionUUID: 'TZRKK8MFZCPSTW9XCYWBMKME10', acceptedDocuments: [{ uuid: 'a'.repeat(64), longId: 'L1', receiptNumber: 'R-1' }], rejectedDocuments: [] }, init } as any)]);
     const c = new EtaReceiptClient('preprod', creds, e.f, async () => {});
     const r = await c.submit([{ header: { receiptNumber: 'R-1' } }], signer);
-    expect(r).toEqual({ submissionUuid: 'TZRKK8MFZCPSTW9XCYWBMKME10', accepted: [{ uuid: 'a'.repeat(64), longId: 'L1', receiptNumber: 'R-1' }], rejected: [], batches: 1 });
+    expect(r).toEqual({ submissionUuid: 'TZRKK8MFZCPSTW9XCYWBMKME10', submissionUuids: ['TZRKK8MFZCPSTW9XCYWBMKME10'],
+      accepted: [{ uuid: 'a'.repeat(64), longId: 'L1', receiptNumber: 'R-1', submissionUuid: 'TZRKK8MFZCPSTW9XCYWBMKME10' }], rejected: [], unsent: [], batches: 1 });
     expect(e.calls[0]!.url).toBe('https://id.preprod.eta.gov.eg/connect/token');
     expect(e.calls[0]!.init.headers).toMatchObject({ posserial: 'POS-1', pososversion: 'os', posmodelframework: '1', presharedkey: 'psk' });
     expect(Object.fromEntries(new URLSearchParams(String(e.calls[0]!.init.body)))).toEqual({ grant_type: 'client_credentials', client_id: 'cid', client_secret: 'csecret' });
@@ -272,11 +273,29 @@ describe('ETA e-receipt', () => {
     const r = await c.submit([{ n: 1 }, { n: 2 }, { n: 3 }], signer);
     expect(r.batches).toBe(2);
     expect(r.accepted.map((a) => a.uuid)).toEqual(['u1', 'u2']);
-    expect(r.rejected).toEqual([{ uuid: 'u3', receiptNumber: 'R-3', error: 'Issuance date time value is out of the range' }]);
+    // Each receipt is linked to the submission it actually went in (review: split batches).
+    expect(r.accepted.map((a) => [a.uuid, a.submissionUuid])).toEqual([['u1', 'SUBMISSION00000000000000001'], ['u2', 'SUBMISSION00000000000000002']]);
+    expect(r.submissionUuids).toEqual(['SUBMISSION00000000000000001', 'SUBMISSION00000000000000002']);
+    expect(r.rejected).toEqual([{ uuid: 'u3', receiptNumber: 'R-3', error: 'Issuance date time value is out of the range', submissionUuid: 'SUBMISSION00000000000000002' }]);
+    expect(r.unsent).toEqual([]);
     expect(waits).toEqual([3000]);
     const posted = e.calls.filter((x) => x.url.endsWith('/receiptsubmissions')).map((x) => JSON.parse(String(x.init.body)).receipts.length);
     expect(posted).toEqual([3, 2, 1, 1, 1]);
     expect(e.calls[0]!.url).toBe('https://id.eta.gov.eg/connect/token');
+  });
+
+  it('a later half that fails after an earlier half was accepted is reported as unsent; the accepted results are kept', async () => {
+    const e = eta([
+      token,
+      () => ({ status: 400, body: { error: { code: 'MaximumSizeExceeded' } } }),
+      () => ({ status: 202, body: { submissionUUID: 'SUBMISSION00000000000000001', acceptedDocuments: [{ uuid: 'ua', receiptNumber: 'R-a' }] } }),
+      () => ({ status: 503 }),
+    ]);
+    const r = await new EtaReceiptClient('preprod', creds, e.f).submit([{ header: { uuid: 'ua' } }, { header: { uuid: 'ub' } }], signer);
+    expect(r.accepted).toEqual([{ uuid: 'ua', longId: null, receiptNumber: 'R-a', submissionUuid: 'SUBMISSION00000000000000001' }]);
+    expect(r.unsent).toHaveLength(1);
+    expect(r.unsent[0]!.uuids).toEqual(['ub']);
+    expect(r.unsent[0]!.error).toMatchObject({ retryable: true, status: 503 });
   });
 
   it('a single oversized receipt, a refused login and throttling are reported as errors', async () => {
