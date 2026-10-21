@@ -237,6 +237,19 @@ table.data tr:last-child td { border-block-end: 0; }
 }
 @keyframes table-busy { from { background-position: -50% 0; } to { background-position: 150% 0; } }
 @media (prefers-reduced-motion: reduce) { .table-wrap[data-busy]::before { animation: none; background: var(--green); opacity: .5; } }
+/* VS-25: under 700px a DataTable becomes one card per row (label / value pairs) instead of a clipped horizontal scroll. */
+.dt-label { display: none; }
+@media (max-width: 700px) {
+  .dt-stack table.data, .dt-stack table.data tbody, .dt-stack table.data tr, .dt-stack table.data td { display: block; width: 100%; }
+  .dt-stack table.data thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .dt-stack table.data tr { padding: 10px 14px; border-block-end: 1px solid var(--line-soft); }
+  .dt-stack table.data tr:last-child { border-block-end: 0; }
+  .dt-stack table.data td { display: grid; grid-template-columns: minmax(88px, 36%) minmax(0, 1fr); gap: 10px; align-items: baseline;
+    padding: 5px 0; border: 0; text-align: start !important; overflow-wrap: anywhere; }
+  .dt-stack .dt-label { display: block; color: var(--muted); font-size: var(--t-sm, 12px); }
+  .dt-stack .dt-cell { min-width: 0; }
+  .dt-stack table .badge { white-space: normal; }
+}
 :where(.ws) table.data { font-size: var(--t-md); }
 :where(.ws) table.data th { font-size: var(--t-sm); color: var(--th-text); font-weight: 500; }
 [lang='ar'] :where(.ws) table.data :is(td, th) { font-weight: 500; }

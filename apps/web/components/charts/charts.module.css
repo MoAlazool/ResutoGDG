@@ -27,7 +27,8 @@
 
 .barList { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .barRow { display: grid; grid-template-columns: minmax(90px, 30%) 1fr auto; align-items: center; gap: 10px; font-size: 13px; }
-.barLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); display: grid; }
+/* VS-25: long labels ('Cash on delivery') wrap to two lines instead of being cut. */
+.barLabel { color: var(--text); display: grid; overflow-wrap: anywhere; line-height: 1.25; }
 .barHint { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .barTrack { height: 12px; display: flex; }
 .bar { height: 12px; border-start-end-radius: 4px; border-end-end-radius: 4px; background: var(--chart-1); min-width: 2px; }
