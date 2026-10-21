@@ -131,6 +131,8 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
       { key: 'journalId', label: 'Journal id for Resuto entries', labelKey: 'intg.field.odooJournalId', secret: false, required: true, pattern: '^\\d{1,9}$' },
       { key: 'partnerId', label: 'Walk-in partner id (summary invoices)', labelKey: 'intg.field.odooPartnerId', secret: false, required: false, pattern: '^\\d{1,9}$' },
       { key: 'taxId', label: 'Sales tax id (summary invoices)', labelKey: 'intg.field.odooTaxId', secret: false, required: false, pattern: '^\\d{1,9}$' },
+      // INT-25 review: Odoo 17 / 18 have no JSON-2; with the login the adapter falls back to the legacy /jsonrpc API.
+      { key: 'login', label: 'Login of the API key user (Odoo 17 / 18 only)', labelKey: 'intg.field.odooLogin', secret: false, required: false, pattern: '^[^\\s]{1,200}$' },
     ],
   },
   meta_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'adAccountId', label: 'Ad account id (act_…)', secret: false, required: true }] },

@@ -247,6 +247,9 @@ export const qoyodAdapter: AccountingAdapter = {
 //   named parameters (ids, context, and the method's own: domain/limit for search, vals_list for create); 200 with the
 //   JSON return value, 4xx/5xx with { name, message, … }.
 //   /xmlrpc and /jsonrpc are scheduled for removal in Odoo 22 (fall 2028) / Odoo Online 21.1 (winter 2027).
+//   Odoo 17 / 18 servers have no JSON-2 (404): those connections keep working over the legacy external API
+//   (POST {url}/jsonrpc, service "object" execute_kw, uid from config.uid or "common" authenticate with the login),
+//   https://www.odoo.com/documentation/18.0/developer/reference/external_api.html — until they upgrade.
 //   API keys last at most three months (rotate them). External API access needs a Custom Odoo plan.
 //   https://www.odoo.com/documentation/19.0/developer/reference/external_api.html
 // Moves are created as drafts (state "draft"); an accountant posts them in Odoo.
@@ -259,6 +262,7 @@ export const odooAccountingDescriptor: ProviderDescriptor = {
     'Enter the Odoo URL and database (the same settings as the Odoo POS connection) and paste the API key.',
     'Set the journal id for Resuto summaries, map account roles in Finance → Accounting, and for invoices the walk-in partner id (and optionally the tax id).',
     'Entries are created as drafts. Push one day to a staging database first and compare the general ledger.',
+    'Odoo 17 or 18 (no JSON-2): also enter the login of that user (and the database); Resuto then uses the older external API (/jsonrpc), which Odoo removes in Odoo 22 — upgrade before then.',
   ],
   capabilities: ['journal_entries', 'invoices', 'idempotent_push', 'daily_push'],
 };
@@ -274,16 +278,45 @@ export function odooSettings(ctx: AdapterContext, provider: string) {
 
 /**
  * One JSON-2 call. The URL is tenant-supplied (audit INT-02): the egress guard applies and errors keep only the HTTP
- * status or the Odoo exception name, never the server's text.
+ * status or the Odoo exception name, never the server's text. A 404 (no JSON-2: Odoo 17 / 18) falls back to the legacy
+ * /jsonrpc external API when the connection has the login it needs.
  */
-async function odooJson2<T>(ctx: AdapterContext, model: string, method: string, body: Record<string, unknown>): Promise<T> {
+async function odooJson2<T>(ctx: AdapterContext, model: string, method: 'search' | 'create', body: Record<string, unknown>): Promise<T> {
   const { url, key, database } = odooSettings(ctx, 'odoo_accounting');
   const target = `${url}/json/2/${model}/${method}`;
   const headers: Record<string, string> = { Authorization: `bearer ${key}`, 'Content-Type': 'application/json; charset=utf-8', 'User-Agent': 'Resuto' };
   if (database) headers['X-Odoo-Database'] = database;
   const opts: HttpOptions = { method: 'POST', headers, body: JSON.stringify(body), retries: 0 };
-  // guardedProviderCall redacts failures to "HTTP <status>" (the body could come from any server).
-  return guardedProviderCall('odoo_accounting', ctx.fetch, target, (fetch) => providerRequest<T>('odoo_accounting', { fetch }, target, opts));
+  try {
+    // guardedProviderCall redacts failures to "HTTP <status>" (the body could come from any server).
+    return await guardedProviderCall('odoo_accounting', ctx.fetch, target, (fetch) => providerRequest<T>('odoo_accounting', { fetch }, target, opts));
+  } catch (e) {
+    if (!(e instanceof ProviderError && e.status === 404)) throw e;
+    const login = String(ctx.credentials.login ?? ctx.config.login ?? '');
+    if (!login && !ctx.config.uid) {
+      throw new ProviderError('odoo_accounting', 'This Odoo server has no JSON-2 API (Odoo 19+). For Odoo 17 / 18, add the login of the API key\'s user', false, 404);
+    }
+    if (!database) throw new ProviderError('odoo_accounting', 'Set the Odoo database (needed for Odoo 17 / 18)', false);
+    const args = method === 'search' ? [body.domain] : [body.vals_list];
+    const kwargs = method === 'search' && body.limit ? { limit: body.limit } : {};
+    const uid = ctx.config.uid ? Number(ctx.config.uid) : await odooLegacyCall(ctx, url, 'common', 'authenticate', [database, login, key, {}]);
+    if (!uid) throw new ProviderError('odoo_accounting', 'Odoo authentication failed', false);
+    return odooLegacyCall(ctx, url, 'object', 'execute_kw', [database, Number(uid), key, model, method, args, kwargs]) as Promise<T>;
+  }
+}
+
+/** Legacy external API (Odoo ≤ 18): JSON-RPC over /jsonrpc. Errors keep only the Odoo exception name. */
+async function odooLegacyCall(ctx: AdapterContext, url: string, service: 'common' | 'object', method: string, args: unknown[]): Promise<any> {
+  const target = `${url}/jsonrpc`;
+  const r = await guardedProviderCall('odoo_accounting', ctx.fetch, target, (fetch) => providerRequest<any>('odoo_accounting', { fetch }, target, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'Resuto' }, retries: 0,
+    body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { service, method, args }, id: 1 }),
+  }));
+  if (r?.error) {
+    const name = typeof r.error?.data?.name === 'string' && /^[A-Za-z0-9_.]{1,120}$/.test(r.error.data.name) ? r.error.data.name : null;
+    throw new ProviderError('odoo_accounting', name ? `Odoo rejected the request (${name})` : 'Odoo rejected the request', false);
+  }
+  return r?.result;
 }
 const odooAmount = (minor: number) => Number(accountingMinorToDecimal(minor));
 const firstId = (r: unknown): string => {

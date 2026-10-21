@@ -166,6 +166,34 @@ describe('Odoo Accounting (JSON-2, shared settings with Odoo POS)', () => {
     expect(v.invoice_line_ids[1]).toEqual([0, 0, { name: 'Delivery fees', quantity: 1, price_unit: 8.7, account_id: 21, tax_ids: [[6, 0, [5]]] }]);
   });
 
+  it('Odoo 17 / 18 (no JSON-2, 404) keeps working over the legacy /jsonrpc API with the login (review)', async () => {
+    const f = routedFetch((url, init) => {
+      if (url.includes('/json/2/')) return { status: 404, body: { error: 'not found' } };
+      const call = JSON.parse(String(init.body)).params;
+      if (call.service === 'common') return { body: { jsonrpc: '2.0', id: 1, result: 7 } };
+      return { body: { jsonrpc: '2.0', id: 1, result: call.args[4] === 'search' ? [] : 902 } };
+    });
+    const legacyCtx = ctx(f.fn, { credentials: { apiKey: 'odoo-key', login: 'acct@acme.example' } });
+    expect(await odooAccountingAdapter.pushJournalEntry(legacyCtx, entry)).toEqual({ externalId: '902' });
+    expect(f.calls.map((c) => c.url)).toEqual([
+      'https://acme.odoo.com/json/2/account.move/search', 'https://acme.odoo.com/jsonrpc', 'https://acme.odoo.com/jsonrpc',
+      'https://acme.odoo.com/json/2/account.move/create', 'https://acme.odoo.com/jsonrpc', 'https://acme.odoo.com/jsonrpc',
+    ]);
+    expect(f.calls[1]!.body.params).toEqual({ service: 'common', method: 'authenticate', args: ['acme', 'acct@acme.example', 'odoo-key', {}] });
+    expect(f.calls[2]!.body.params).toEqual({ service: 'object', method: 'execute_kw', args: ['acme', 7, 'odoo-key', 'account.move', 'search',
+      [[['ref', '=', 'RSJ-olive-2026-10-01'], ['move_type', '=', 'entry']]], { limit: 1 }] });
+    expect(f.calls[5]!.body.params.args.slice(3, 5)).toEqual(['account.move', 'create']);
+    expect(f.calls[5]!.body.params.args[5][0][0]).toMatchObject({ move_type: 'entry', ref: 'RSJ-olive-2026-10-01', journal_id: 3 });
+    // Without a login, the 404 says what to do instead of failing silently.
+    const nologin = routedFetch(() => ({ status: 404, body: {} }));
+    await expect(odooAccountingAdapter.pushJournalEntry(ctx(nologin.fn), entry)).rejects.toThrow(/no JSON-2 API.*login/);
+    // An Odoo error over /jsonrpc keeps only the exception name.
+    const refused = routedFetch((url) => (url.includes('/json/2/') ? { status: 404, body: {} }
+      : { body: { jsonrpc: '2.0', id: 1, error: { message: 'Odoo Server Error', data: { name: 'odoo.exceptions.AccessDenied', message: 'secret-detail' } } } }));
+    const err = await odooAccountingAdapter.pushJournalEntry(ctx(refused.fn, { credentials: { apiKey: 'k', login: 'x' } }), entry).catch((e) => e);
+    expect(err.message).toBe('odoo_accounting: Odoo rejected the request (odoo.exceptions.AccessDenied)');
+  });
+
   it('reads legacy settings (url/db in credentials), refuses http URLs and never echoes Odoo error text', async () => {
     const legacy = routedFetch((url) => (url.endsWith('/search') ? { body: [] } : { body: 5 }));
     await odooAccountingAdapter.pushJournalEntry(ctx(legacy.fn, { credentials: { apiKey: 'k', url: 'https://old.odoo.com', db: 'old' }, config: { journalId: 1, accounts: { cash: 1, card_clearing: 2, sales: 3, vat_output: 4 } } }), entry);
