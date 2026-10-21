@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DbService } from '../src/common/db/db.service';
+import { loadEnv } from '../src/config/env';
 import { auth, bootTestApp, createTenant, seedMenu, sql, type TestApp, type TestTenant } from './helpers';
 
 // Audit PS-16: the API connected as the table owner (BYPASSRLS) and platform-mode SQL ran with no RLS at all.
@@ -60,6 +61,49 @@ describe('platform mode runs as resuto_platform, not as the owner (PS-16)', () =
     expect(rows.map((r) => r.email)).toEqual([a.owner.email]);
     await expect(db.withTenant(a.orgId, (tx) => tx.query('select app.notification_recipient_emails($1, null, $2, null)', [a.orgId, ['owner']])))
       .rejects.toThrow(/permission denied/);
+  });
+});
+
+describe('the owner fallback is opt-in, never the default (review of PS-16)', () => {
+  const probe = (d: DbService) => d.withPlatform(async (tx) => {
+    await tx.query('create table public.ps16_fallback_probe (id int)');
+    await tx.query('drop table public.ps16_fallback_probe');
+    return 'ran';
+  });
+
+  it('by default (DATABASE_PLATFORM_FALLBACK unset) a denied platform statement fails, even on an owner connection', async () => {
+    const env = loadEnv();
+    expect(env.DATABASE_PLATFORM_FALLBACK).toBe('off');
+    const d = new DbService({ ...env, NODE_ENV: 'production' } as any);
+    try {
+      const id = await d.detectIdentity();
+      expect(id.fallback).toBe(false);
+      expect(id.platform).toBe('resuto_platform');
+      await expect(probe(d)).rejects.toThrow(/permission denied/);
+    } finally {
+      await d.onModuleDestroy();
+    }
+  });
+
+  it.skipIf(restricted)('only DATABASE_PLATFORM_FALLBACK=log-and-retry on an owner connection re-runs it as the owner, and says so', async () => {
+    const d = new DbService({ ...loadEnv(), NODE_ENV: 'production', DATABASE_PLATFORM_FALLBACK: 'log-and-retry' } as any);
+    try {
+      const id = await d.detectIdentity();
+      expect(id).toMatchObject({ privileged: true, fallback: true });
+      expect(await probe(d)).toBe('ran');
+    } finally {
+      await d.onModuleDestroy();
+    }
+  });
+
+  it.runIf(restricted)('the restricted login never falls back, even when asked to', async () => {
+    const d = new DbService({ ...loadEnv(), NODE_ENV: 'production', DATABASE_PLATFORM_FALLBACK: 'log-and-retry' } as any);
+    try {
+      expect((await d.detectIdentity()).fallback).toBe(false);
+      await expect(probe(d)).rejects.toThrow(/permission denied/);
+    } finally {
+      await d.onModuleDestroy();
+    }
   });
 });
 

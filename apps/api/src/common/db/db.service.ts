@@ -98,26 +98,42 @@ export class DbService implements OnModuleDestroy, OnApplicationBootstrap {
     // JIT compilation costs 250+ ms on small OLTP queries (KDS) and never pays off here.
     this.txSettings = [`${env.DATABASE_STATEMENT_TIMEOUT_MS}ms`, `${env.DATABASE_IDLE_TX_TIMEOUT_MS}ms`, 'off'];
     this.platformRole = env.DATABASE_PLATFORM_ROLE === 'off' ? null : env.DATABASE_PLATFORM_ROLE;
+    this.fallbackMode = env.DATABASE_PLATFORM_FALLBACK ?? 'off';
     this.nodeEnv = env.NODE_ENV;
   }
 
   private readonly nodeEnv: Env['NODE_ENV'];
-  /** Retry a platform transaction as the connection's own role after a permission error (owner connections, not tests). */
+  private readonly fallbackMode: 'off' | 'log-and-retry';
+  /**
+   * Retry a platform transaction as the connection's own role after a permission error. Only with the explicit opt-in
+   * DATABASE_PLATFORM_FALLBACK=log-and-retry on an owner connection (review of PS-16): by default the platform role
+   * is enforced and a missing grant fails the request.
+   */
   private ownerFallback = false;
 
   /** Logs which database identity the API runs as (owner or restricted), so a deploy shows its least-privilege state. */
   async onApplicationBootstrap() {
     if (this.nodeEnv === 'test') return;
     try {
-      const r = await this.describeConnection();
-      // On an owner connection a platform statement the role was not granted falls back to the owner once (logged),
-      // so a grant missing for an untested path degrades to the pre-PS-16 behaviour instead of failing in production.
-      this.ownerFallback = r.privileged && !!this.platformRole;
-      this.logger.log(`database role ${r.user} (${r.privileged ? 'owner/privileged: RLS bypass possible outside the execution roles' : 'restricted'}); `
-        + `platform mode runs as ${this.platformRole ?? 'the connection role'}`);
+      await this.detectIdentity();
     } catch (e) {
       this.logger.warn(`could not read the database role at boot: ${(e as Error).message}`);
     }
+  }
+
+  /** Reads the connection's identity, decides the owner fallback and reports both (boot; tests call it directly). */
+  async detectIdentity(): Promise<{ user: string; privileged: boolean; platform: string; fallback: boolean }> {
+    const r = await this.describeConnection();
+    this.ownerFallback = this.fallbackMode === 'log-and-retry' && r.privileged && !!this.platformRole;
+    const platform = !this.platformRole ? 'the connection role (DATABASE_PLATFORM_ROLE=off: not restricted)'
+      : this.ownerFallback ? `${this.platformRole}, NOT enforced: DATABASE_PLATFORM_FALLBACK=log-and-retry re-runs a denied transaction as ${r.user}`
+        : r.privileged ? `${this.platformRole} (ungranted statements fail; not a boundary on an owner connection: switch DATABASE_URL to resuto_api)`
+          : `${this.platformRole} (enforced)`;
+    const line = `database role ${r.user} (${r.privileged ? 'owner/privileged: RLS bypass possible outside the execution roles' : 'restricted'}); `
+      + `platform mode runs as ${platform}`;
+    if (this.ownerFallback) this.logger.warn(line);
+    else this.logger.log(line);
+    return { ...r, platform: this.platformRole ?? r.user, fallback: this.ownerFallback };
   }
 
   /** The session user and whether it can bypass RLS (superuser, BYPASSRLS or table owner). */
@@ -225,8 +241,8 @@ export class DbService implements OnModuleDestroy, OnApplicationBootstrap {
         // A failed rollback means the connection itself is gone; withClient then destroys the client.
         if (!broken()) await client.query('rollback').catch(() => undefined);
         if (error?.code === '42501' && ctx.mode === 'platform' && this.ownerFallback && !asOwner) {
-          this.logger.warn(`platform role lacks a grant (${ctx.actor}; request ${requestContext.requestId() ?? '-'}): ${error.message}; `
-            + 'retried as the connection role. Add the grant (app.grant_platform) before switching DATABASE_URL to resuto_api.');
+          this.logger.error(`platform role lacks a grant (${ctx.actor}; request ${requestContext.requestId() ?? '-'}): ${error.message}; `
+            + 'transaction re-run as the connection role (DATABASE_PLATFORM_FALLBACK=log-and-retry). Add the grant (app.grant_platform).');
           retryAsOwner = true;
           return undefined as T;
         }

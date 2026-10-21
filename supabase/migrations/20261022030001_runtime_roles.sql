@@ -16,8 +16,11 @@
 -- No LOGIN and no password here: the owner turns resuto_api into a login role (or creates a login role in it)
 -- outside migrations, then points DATABASE_URL at it and keeps the owner connection in MIGRATION_DATABASE_URL.
 -- Exact steps: docs/STAGING_DEPLOYMENT.md, "Least-privilege database role (PS-16)". With the current single owner
--- DATABASE_URL nothing else changes: the owner is granted resuto_platform below, so platform work already runs
--- under the restricted role on that connection too.
+-- DATABASE_URL the owner is granted resuto_platform below and platform transactions SET LOCAL ROLE to it, so a
+-- statement it was not granted fails. That is a guard against mistakes, not a security boundary: the owner session
+-- can SET ROLE back to itself, so SQL injected into a platform path still has owner rights. Only the resuto_api
+-- login (owner kept in MIGRATION_DATABASE_URL) makes the restriction enforceable. The API's opt-in
+-- DATABASE_PLATFORM_FALLBACK=log-and-retry (off by default) re-runs a denied transaction as the owner.
 --
 -- New tables that platform code reads or writes need `select app.grant_platform('public.<table>', array[...])`
 -- (supabase/tests/runtime-roles.test.mjs fails when a granted table has no matching platform policy).

@@ -110,10 +110,14 @@ export const envSchema = z.object({
    * connection, used only by scripts/db/migrate.mjs and the demo loader (scripts/deploy/start-api.mjs); unset, they use
    * DATABASE_URL. DATABASE_URL may then be the restricted `resuto_api` login. DATABASE_PLATFORM_ROLE: the role
    * cross-tenant platform work runs as (`set local role`); `off` keeps the connection's own role, which only works on an
-   * owner connection and exists as an emergency switch.
+   * owner connection and exists as an emergency switch. DATABASE_PLATFORM_FALLBACK: `off` (default) enforces the
+   * platform role, a statement it was not granted fails; `log-and-retry` (opt-in, owner connections only, meant for a
+   * staging soak) logs the denial at error level and re-runs the whole transaction as the connection's own role, so
+   * the platform role is NOT a boundary while it is on.
    */
   MIGRATION_DATABASE_URL: z.string().optional(),
   DATABASE_PLATFORM_ROLE: z.string().regex(/^(off|[a-z_][a-z0-9_]{0,62})$/, 'a role name or "off"').default('resuto_platform'),
+  DATABASE_PLATFORM_FALLBACK: z.enum(['off', 'log-and-retry']).default('off'),
   /**
    * Rate-limit counters (PS-13): `memory` (default) counts per API process; `postgres` shares fixed windows across
    * instances in the rate_limit_windows table, keyed by a hash of the limiter key (client IP after TRUST_PROXY).

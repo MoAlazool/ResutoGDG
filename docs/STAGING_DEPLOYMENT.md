@@ -112,6 +112,7 @@ every service's build and fails with `EXPECT_COMMIT=<sha>` when one of them runs
 | `HEALTH_DETAILS_TOKEN` | optional secret (24+ characters) for the uptime monitor on `/v1/health/details` |
 | `MIGRATION_DATABASE_URL` | optional secret: the schema owner's URI for migrations and the demo loader once `DATABASE_URL` is the restricted `resuto_api` login (see "Least-privilege database role") |
 | `DATABASE_PLATFORM_ROLE` | optional, default `resuto_platform`; `off` is an emergency switch (owner connection only) |
+| `DATABASE_PLATFORM_FALLBACK` | optional, `off` (default) or `log-and-retry` (staging soak only: a denied platform transaction is re-run as the owner; see PS-16 below) |
 | `RATE_LIMIT_STORE` | optional, `memory` (default) or `postgres` for limits shared across instances (PS-13) |
 
 Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, then the optional demo loader).
@@ -134,11 +135,19 @@ LOGIN and without a password** (no credentials ever live in a migration):
 | `resuto_member` / `resuto_tenant` | existing RLS execution roles (staff in one restaurant / guest, webhook or job in one restaurant) | what their RLS policies allow |
 | `resuto_platform` | cross-tenant lookups and platform work (QR, slug, host and token lookups, webhook inbox, outbox claim, memberships, scheduled jobs, platform admin) | only the tables and commands granted to it with explicit `platform_*` policies, plus `EXECUTE` on four owner-defined `SECURITY DEFINER` functions (`app.notification_recipient_emails`, `app.analytics_discover_days`, `app.analytics_refresh_day`, `app.reconcile_customer_stats`; fixed `search_path`, revoked from `PUBLIC`). Never DDL, never other tables, never `auth.users` on Supabase |
 
-Platform mode already runs as `resuto_platform` (`DATABASE_PLATFORM_ROLE`, default `resuto_platform`) on today's
-single owner `DATABASE_URL`, so the deploy that brings these migrations changes nothing else. On an owner connection
-outside tests, a statement that the platform role is not granted is logged (`platform role lacks a grant`) and the
-transaction is retried once as the connection's own role, so a missing grant on an untested path degrades to the old
-behaviour instead of failing; tests (and the restricted login) have no such fallback.
+Platform mode runs as `resuto_platform` (`DATABASE_PLATFORM_ROLE`, default `resuto_platform`) on today's single
+owner `DATABASE_URL` too, so a platform statement the role was not granted fails. On an owner connection that is a
+guard against mistakes, **not an enforced boundary**: the owner session can `SET ROLE` back to itself, so SQL injected
+into a platform path would still run with owner rights. PS-16 is complete only once `DATABASE_URL` is the restricted
+`resuto_api` login (steps below); until then the boot log says `owner/privileged`.
+
+`DATABASE_PLATFORM_FALLBACK` (default `off`) controls what happens when the platform role is denied:
+
+- `off`: the request fails with the permission error (a missing grant is a bug to fix with `app.grant_platform`).
+- `log-and-retry` (opt-in, for a staging soak before the switch; owner connections only, ignored on `resuto_api`): the
+  denial is logged at error level (`platform role lacks a grant`) and the whole transaction is re-run as the owner,
+  callback included. While it is on, the platform role restricts nothing; the boot log says
+  `platform mode runs as resuto_platform, NOT enforced`. Do not set it in production.
 
 **Switching the API to the restricted login (owner steps, Supabase dashboard; nothing here is automated):**
 
