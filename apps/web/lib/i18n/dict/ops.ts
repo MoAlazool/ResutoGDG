@@ -160,6 +160,9 @@ const en: Record<string, string> = {
   'ops.stock.saved': 'Stocktake saved: {n} items, variance value {value}.', 'ops.stock.editSupplier': 'Edit supplier', 'ops.stock.notes': 'Notes',
   'ops.inbox.unassigned': 'Unassigned', 'ops.inbox.assignee': 'Assigned to', 'ops.inbox.resend': 'Resend',
   'ops.inbox.resent': 'Queued again. It is sent under the same 24-hour rules as a new message.', 'ops.inbox.notResent': 'Not resent: the message is {status} now.',
+  'ops.admin.stuck': 'stuck', 'ops.admin.stuckHint': 'A worker stopped mid-run; replay it once the lease has ended.', 'ops.admin.replay': 'Replay',
+  'ops.admin.replayTitle': 'Replay {handler}', 'ops.admin.reason': 'Reason (kept in the audit log)', 'ops.admin.replayed': '{handler} queued again.',
+  'ops.admin.replayRole': 'Only a superadmin can replay a handler run.',
 };
 
 const ar: Record<string, string> = {
@@ -307,6 +310,9 @@ const ar: Record<string, string> = {
   'ops.stock.saved': 'تم حفظ الجرد: {n} صنف، قيمة الفرق {value}.', 'ops.stock.editSupplier': 'تعديل المورد', 'ops.stock.notes': 'ملاحظات',
   'ops.inbox.unassigned': 'غير مُسند', 'ops.inbox.assignee': 'مُسند إلى', 'ops.inbox.resend': 'إعادة الإرسال',
   'ops.inbox.resent': 'أُعيدت إلى قائمة الإرسال، وتُرسل بنفس قواعد الـ24 ساعة لأي رسالة جديدة.', 'ops.inbox.notResent': 'لم تُعد: حالة الرسالة الآن {status}.',
+  'ops.admin.stuck': 'عالقة', 'ops.admin.stuckHint': 'توقف عامل أثناء التشغيل؛ أعد تشغيلها بعد انتهاء المهلة.', 'ops.admin.replay': 'إعادة التشغيل',
+  'ops.admin.replayTitle': 'إعادة تشغيل {handler}', 'ops.admin.reason': 'السبب (يُحفظ في سجل التدقيق)', 'ops.admin.replayed': 'أُعيدت {handler} إلى قائمة التنفيذ.',
+  'ops.admin.replayRole': 'إعادة التشغيل متاحة للمشرف الأعلى فقط.',
 };
 
 export const ops = { en, ar };
