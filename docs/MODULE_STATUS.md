@@ -50,7 +50,7 @@ for CI but has not run anywhere yet (CR-10). Test counts: `docs/TEST_RESULTS.md`
 | Demo data | Working | Loader re-times relative to load, upserts only the demo tenant, post-load integrity check (DF-10/11, `scripts/demo`) |
 | Observability | Working (no paid service) | Build identity on every service (CR-07), JSON access log, optional error tracking DSN on API/worker, AI, MCP and web (crashes included), `/v1/health/details` (CR-14); uptime monitor and DSN are owner setup on staging |
 | Visual parity gate | Partial | 14 restored surfaces captured deterministically; local baselines recorded; Docker baselines and owner approval pending (CR-11) |
-| API quality | Planned | PS-19 OpenAPI, PS-20 error contract, PS-21 validation, PS-22 pagination, PS-23 HTTP semantics |
+| API quality | Working (API-tested) | PS-20 error contract with a code registry and request ids; PS-21 validated list queries; PS-22 one keyset pagination helper with real cursors (long text keys included) and bounded lists; PS-23 action POSTs answer 200; PS-19 OpenAPI 3.1 at /v1/openapi.json with a CI drift and style gate (partial: request bodies and queries are typed from the contracts, response bodies only as the Page envelope) |
 | Web performance | Partial | Bundle budget enforced in CI (green): 4 routes already over their group budget (/, /pricing, /t/[qr], website editor) are held at their measured size by per-route ratchets until they are split |
 
 ## Semester-1 research tracks
