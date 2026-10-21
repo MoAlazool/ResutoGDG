@@ -3,11 +3,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { orderRef } from './format';
 
 // PAR-06 guard: "#296" must stay one left-to-right unit. Written as `#<bdi>{n}</bdi>`, `#{n}` or `#${n}` in an
 // Arabic line, the "#" lands on the other side of the number ("296#", as the gallery's order-status capture showed).
-// Use <OrderRef n={…} /> from @resuto/ui (or orderRef() from lib/format for plain-text slots).
+// Use <OrderRef n={…} /> from @resuto/ui. Plain-text slots (titles, toasts) use the dictionary's "Order #{n}" / "طلب رقم {n}":
+// the Arabic strings say "رقم" instead of "#", so no isolate is needed there.
 (globalThis as { React?: typeof React }).React = React;
 const repo = join(__dirname, '..', '..', '..');
 const ROOTS = ['apps/web/app', 'apps/web/components', 'packages/ui/src'];
@@ -44,8 +44,11 @@ describe('order references keep "#" before the number (PAR-06)', () => {
     expect(renderToStaticMarkup(React.createElement(OrderRef, { n: null }))).toBe('');
   });
 
-  it('wraps plain-text references in LRI…PDI', () => {
-    expect(orderRef(296)).toBe('⁦#296⁩');
-    expect(orderRef('٤٢')).toBe('⁦#42⁩');
+  it('Arabic dictionary strings name an order "رقم {n}", never "#{n}" (plain-text slots need no isolate)', () => {
+    const dict = join(repo, 'apps/web/lib/i18n/dict');
+    const arabicWithHash = new RegExp("'[^']*[\\u0600-\\u06FF][^']*#\\{[^']*'");
+    const offenders = readdirSync(dict).flatMap((f) => readFileSync(join(dict, f), 'utf8').split('\n')
+      .filter((l) => arabicWithHash.test(l)).map((l) => `${f}: ${l.trim().slice(0, 120)}`));
+    expect(offenders).toEqual([]);
   });
 });

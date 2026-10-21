@@ -1,5 +1,5 @@
 import {
-  dateTimeFormat, formatCompact, formatDate, formatDateTime, formatMoney, formatNumber, formatPercent, formatTime, numberFormat, toWesternDigits, type Currency,
+  dateTimeFormat, formatCompact, formatDate, formatDateTime, formatMoney, formatNumber, formatPercent, formatTime, numberFormat, type Currency,
 } from '@resuto/contracts';
 import type { Locale } from './i18n/locale';
 
@@ -34,11 +34,6 @@ export const pick = (locale: Locale, en: string | null | undefined, ar: string |
 /** Wraps user-entered text in first-strong isolates (FSI…PDI) so it keeps its own direction inside an interpolated sentence. */
 export const isolate = (text: string) => `⁨${text}⁩`;
 
-/**
- * An order reference ("#" + number) for plain-text slots (titles, labels, aria): a left-to-right isolate (LRI…PDI) keeps the "#" before the
- * number inside Arabic text, where it would otherwise land after the number (PAR-06). In JSX use <OrderRef> from @resuto/ui.
- */
-export const orderRef = (n: string | number) => `⁦#${toWesternDigits(String(n))}⁩`;
 
 // --- Human-friendly durations and timestamps (VS-30) ------------------------------------------------------------
 // "20382 min" or "2839:59" for an order that has been open for two weeks is noise. Durations switch unit as they
