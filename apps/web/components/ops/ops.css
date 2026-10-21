@@ -309,3 +309,18 @@ button.ticket-line:hover { background: var(--nav-hover); }
 /* ---------- Inbox assignee (FT-12) ---------- */
 .inbox-assign { padding: 10px 14px 0; max-width: 360px; }
 .inbox-assign .field { margin: 0; }
+
+/* ---------- Integrations catalogue (legacy .integration-tabs / .provider-initial p-0..p-4; VS-32) ---------- */
+.integ-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.integ-chip { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 10px; padding: 9px 14px; font: inherit; font-size: 12.5px; cursor: pointer; min-height: 38px; }
+.integ-chip:hover { background: var(--nav-hover); }
+.integ-chip[aria-pressed='true'] { background: var(--nav-active-bg); color: var(--nav-active-text); border-color: color-mix(in srgb, var(--herb) 40%, var(--line)); font-weight: 600; }
+.integ-title { display: flex; align-items: center; gap: 14px; }
+.integ-title small { display: block; font-size: 11px; color: var(--faint); margin-top: 2px; }
+.integ-tile { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; font-weight: 700; flex: none; }
+.integ-tile[data-tint='0'] { background: var(--danger-bg); color: var(--danger); }
+.integ-tile[data-tint='1'] { background: var(--pay-bg); color: var(--pay); }
+.integ-tile[data-tint='2'] { background: var(--info-bg); color: var(--info); }
+.integ-tile[data-tint='3'] { background: var(--leaf-bg); color: var(--leaf-text); }
+.integ-tile[data-tint='4'] { background: var(--warn-bg); color: var(--warn); }
+.integ-card .badge { align-self: flex-start; }

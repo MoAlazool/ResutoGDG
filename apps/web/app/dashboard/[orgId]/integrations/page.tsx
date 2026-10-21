@@ -2,6 +2,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { IntegrationConnectionView, ProviderCatalogEntry } from '@resuto/contracts';
 import { Badge, Card, DataTable, EmptyState, Field, KeyValueList, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, type Tone } from '@resuto/ui';
+import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { ApiRequestError } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
@@ -127,18 +128,29 @@ function Catalog({ onConnected }: { onConnected: () => void }) {
   const { org } = useOrg();
   const catalog = useApi<{ items: CatalogItem[] }>(`/o/${org.id}/integrations/catalog`);
   const [connecting, setConnecting] = useState<CatalogItem | null>(null);
+  const [filter, setFilter] = useState('');
   if (!catalog.data) return catalog.error ? <Notice tone="danger">{catalog.error.message}</Notice> : <Skeleton lines={6} />;
   const groups = [...new Set(catalog.data.items.map((p) => p.category))];
+  const shown = filter && groups.includes(filter) ? [filter] : groups;
   return (
     <div className="stack">
       <Notice>{t('connect.int.readinessHelp')}</Notice>
-      {groups.map((g) => (
+      {/* Legacy filter chips: All items / one category (VS-32). */}
+      <div className="integ-chips" role="group" aria-label={t('ops.integ.filter')}>
+        <button type="button" className="integ-chip" aria-pressed={!filter} onClick={() => setFilter('')}>{t('ops.integ.all')}</button>
+        {groups.map((g) => <button key={g} type="button" className="integ-chip" aria-pressed={filter === g} onClick={() => setFilter(g)}>{t(`connect.int.category.${g}`)}</button>)}
+      </div>
+      {shown.map((g) => (
         <section key={g}>
           <h2>{t(`connect.int.category.${g}`)}</h2>
           <div className="grid grid-3">
             {catalog.data!.items.filter((p) => p.category === g).map((p) => (
-              <article key={p.id} className="card stack" style={{ gap: 8 }}>
-                <div className="stack" style={{ gap: 6, alignItems: 'flex-start' }}><strong><bdi>{p.name}</bdi></strong><ProviderReadiness item={p} /></div>
+              <article key={p.id} className="card stack integ-card" style={{ gap: 8 }}>
+                <div className="integ-title">
+                  <ProviderTile name={p.name} id={p.id} />
+                  <span><strong><bdi>{p.name}</bdi></strong><small>{t(`connect.int.category.${g}`)}</small></span>
+                </div>
+                <ProviderReadiness item={p} />
                 <span className="fine" dir="ltr" style={{ textAlign: 'start' }}>{p.countries.join(' · ')}{p.countries.length ? ' · ' : ''}{p.capabilities.slice(0, 4).join(', ')}</span>
                 <details><summary className="fine">{t('connect.int.activation')}</summary>
                   <ol className="fine" style={{ paddingInlineStart: 18 }}>{p.activation.map((s, i) => <li key={i}>{tx(p.activationKeys?.[i], s)}</li>)}</ol>
@@ -154,6 +166,13 @@ function Catalog({ onConnected }: { onConnected: () => void }) {
       {connecting && <ConnectModal provider={connecting} onClose={() => setConnecting(null)} onDone={() => { setConnecting(null); onConnected(); }} />}
     </div>
   );
+}
+
+/** Legacy provider tile (.provider-initial / p-0..p-4): the provider's initial on a tint chosen from its id. */
+function ProviderTile({ name, id }: { name: string; id: string }) {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return <span className="integ-tile" data-tint={h % 5} aria-hidden="true">{name.trim().charAt(0).toUpperCase()}</span>;
 }
 
 const fieldValid = (f: FieldSpec, v: string | undefined) => {

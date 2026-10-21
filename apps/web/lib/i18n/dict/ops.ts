@@ -163,6 +163,7 @@ const en: Record<string, string> = {
   'ops.admin.stuck': 'stuck', 'ops.admin.stuckHint': 'A worker stopped mid-run; replay it once the lease has ended.', 'ops.admin.replay': 'Replay',
   'ops.admin.replayTitle': 'Replay {handler}', 'ops.admin.reason': 'Reason (kept in the audit log)', 'ops.admin.replayed': '{handler} queued again.',
   'ops.admin.replayRole': 'Only a superadmin can replay a handler run.',
+  'ops.integ.filter': 'Filter integrations', 'ops.integ.all': 'All items',
 };
 
 const ar: Record<string, string> = {
@@ -313,6 +314,7 @@ const ar: Record<string, string> = {
   'ops.admin.stuck': 'عالقة', 'ops.admin.stuckHint': 'توقف عامل أثناء التشغيل؛ أعد تشغيلها بعد انتهاء المهلة.', 'ops.admin.replay': 'إعادة التشغيل',
   'ops.admin.replayTitle': 'إعادة تشغيل {handler}', 'ops.admin.reason': 'السبب (يُحفظ في سجل التدقيق)', 'ops.admin.replayed': 'أُعيدت {handler} إلى قائمة التنفيذ.',
   'ops.admin.replayRole': 'إعادة التشغيل متاحة للمشرف الأعلى فقط.',
+  'ops.integ.filter': 'تصفية التكاملات', 'ops.integ.all': 'كل العناصر',
 };
 
 export const ops = { en, ar };
