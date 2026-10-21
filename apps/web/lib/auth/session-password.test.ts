@@ -62,6 +62,13 @@ describe('AUTH-01 password checks in the session (dev issuer)', () => {
     await act(async () => { root.unmount(); });
   });
 
+  it('AUTH-03: the dev issuer sends no email and says so instead of pretending', async () => {
+    const { get, root } = await mount();
+    await expect(get().resendEmail('signup', 'nadia.owner@olive.example')).rejects.toMatchObject({ code: 'resend_unavailable' });
+    await expect(get().requestPasswordReset('nadia.owner@olive.example')).rejects.toMatchObject({ code: 'reset_unavailable' });
+    await act(async () => { root.unmount(); });
+  });
+
   it('checks the new password (with the signed-in email) before changing it, and allows it when the breach service is down', async () => {
     const { get, root } = await mount();
     await act(async () => { await get().signIn('nadia.owner@olive.example', FRESH); });

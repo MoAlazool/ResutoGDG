@@ -10,9 +10,10 @@ import {
   assuranceOf, cancelTotpEnrolment, jwtClaims, listTotp, removeTotp, startTotpEnrolment, verifySignInCode, verifyTotp,
   type MfaClient, type MfaSession, type TotpEnrolment, type TotpFactors,
 } from './auth/mfa';
+import { isOtherBrowserError, parseAuthLink } from './auth/links';
 import { createAuthRunner } from './auth-recovery';
 import { queryCache, scopeOfToken, tenantPrefix } from './query-cache';
-import { googleReturnUrl, loginUrl } from './safe-next';
+import { googleReturnUrl, loginUrl, safeNext } from './safe-next';
 import { claimUserStorage, clearUserStorage } from './user-storage';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -63,6 +64,9 @@ export interface MfaControls {
   remove(factorId: string, code: string): Promise<void>;
 }
 
+/** AUTH-03: what an email link did, so /auth/callback can say it (half-done secure email change, email changed). */
+export interface AuthLinkResult { mfaRequired: boolean; notice?: 'email_change_half' | 'email_changed' }
+
 export interface SessionValue {
   /** The stored token was read and /me answered (or failed). */
   ready: boolean;
@@ -76,8 +80,13 @@ export interface SessionValue {
   meError: ApiRequestError | null;
   /** Resolves `mfaRequired` when the account has a verified authenticator: the code step (`verifyMfa`) comes next. */
   signIn(email: string, password: string): Promise<{ mfaRequired: boolean }>;
-  /** Resolves `confirmationRequired` when Supabase sent a confirmation email instead of starting a session (CR-05). */
-  signUp(email: string, password: string, fullName?: string): Promise<{ confirmationRequired: boolean }>;
+  /**
+   * Resolves `confirmationRequired` when Supabase sent a confirmation email instead of starting a session (CR-05).
+   * AUTH-03: the confirmation link returns to `next` (e.g. the invitation being accepted), not always /onboarding.
+   */
+  signUp(email: string, password: string, fullName?: string, next?: string | null): Promise<{ confirmationRequired: boolean }>;
+  /** AUTH-03: asks Supabase Auth to send the sign-up confirmation (or email-change) link again; rate limited by Supabase. */
+  resendEmail(kind: 'signup' | 'email_change', email: string, next?: string | null): Promise<void>;
   /** CR-05: sends a reset link (Supabase Auth) that returns through /auth/callback to /reset-password. */
   requestPasswordReset(email: string): Promise<void>;
   /** CR-05: sets a new password. `currentPassword` is required to change it while signed in (re-verified first). */
@@ -85,7 +94,7 @@ export interface SessionValue {
   /** CR-05: asks Supabase Auth to change the email (confirmed through a link to the new address). */
   updateEmail(email: string): Promise<void>;
   /** CR-05: finishes an email link (confirmation, recovery, email change, OAuth code) on /auth/callback. */
-  completeAuthLink(url: string): Promise<{ mfaRequired: boolean }>;
+  completeAuthLink(url: string): Promise<AuthLinkResult>;
   /**
    * AUTH-02: a password (or email link) session of an account with a verified authenticator, or one the API answered
    * with 403 mfa_required: the app is not entered (token stays null) until `verifyMfa` succeeds.
@@ -353,10 +362,12 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     };
   }, [admit]);
 
-  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName?: string, next?: string | null) => {
     await assertPasswordAllowed(password, email);
     if (AUTH_MODE === 'supabase') {
-      const { data, error } = await (await sb()).auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: callbackUrl('/onboarding') } });
+      const { data, error } = await (await sb()).auth.signUp({
+        email, password, options: { data: { full_name: fullName }, emailRedirectTo: callbackUrl(safeNext(next) ?? '/onboarding') },
+      });
       if (error) throw error;
       // Email confirmation is on: no session until the link is opened (returns through /auth/callback).
       if (!data.session) return { confirmationRequired: true };
@@ -370,6 +381,16 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     await loadMe(r.accessToken);
     return { confirmationRequired: false };
   }, [applyToken, loadMe]);
+
+  const resendEmail = useCallback(async (kind: 'signup' | 'email_change', email: string, next?: string | null) => {
+    // The dev issuer confirms accounts immediately and sends no email: say so rather than pretend.
+    if (AUTH_MODE !== 'supabase') throw new AuthFlowError('resend_unavailable');
+    const address = email.trim().toLowerCase();
+    const { error } = kind === 'signup'
+      ? await (await sb()).auth.resend({ type: 'signup', email: address, options: { emailRedirectTo: callbackUrl(safeNext(next) ?? '/onboarding') } })
+      : await (await sb()).auth.resend({ type: 'email_change', email: address, options: { emailRedirectTo: callbackUrl('/account/security') } });
+    if (error) throw error;
+  }, []);
 
   const requestPasswordReset = useCallback(async (email: string) => {
     // The dev issuer has no email service: say so instead of pretending a link was sent.
@@ -406,26 +427,29 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     if (error) throw error;
   }, []);
 
-  const completeAuthLink = useCallback(async (href: string) => {
+  const completeAuthLink = useCallback(async (href: string): Promise<AuthLinkResult> => {
     if (AUTH_MODE !== 'supabase') throw new AuthFlowError('link_invalid');
-    const url = new URL(href);
-    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
-    if (url.searchParams.get('error') || hash.get('error')) throw new AuthFlowError('link_invalid', url.searchParams.get('error_description') ?? hash.get('error_description') ?? undefined);
+    // AUTH-03: expired / used links (otp_expired) and other link errors get their own messages and a way to a new link.
+    const link = parseAuthLink(href);
+    if (link.kind === 'error') throw new AuthFlowError(link.problem, link.description ?? undefined);
+    // The first of the two secure-email-change links confirms one address and starts no session.
+    if (link.kind === 'message') return { mfaRequired: false, notice: 'email_change_half' };
     const client = await sb();
-    const code = url.searchParams.get('code');
     // PKCE links carry ?code=; implicit links (#access_token=…) were already read by the client when it initialised.
-    if (code) {
-      const { data: ex, error } = await client.auth.exchangeCodeForSession(code);
-      if (error) throw error;
+    if (link.kind === 'code') {
+      const { data: ex, error } = await client.auth.exchangeCodeForSession(link.code);
+      // The code verifier lives in the browser that asked for the link: opened elsewhere, the exchange cannot work.
+      if (error) throw isOtherBrowserError(error) ? new AuthFlowError('link_other_browser') : error;
       // PKCE recovery links say so in the exchange (the code verifier was stored by resetPasswordForEmail).
       if ((ex as { redirectType?: string | null } | null)?.redirectType === 'PASSWORD_RECOVERY') markRecovery();
     }
     const { data } = await client.auth.getSession();
     if (!data.session) throw new AuthFlowError('link_invalid');
     // AUTH-02: a link signs in at aal1; an account with an authenticator still owes its code.
-    if (admit(data.session)) return { mfaRequired: true };
+    const notice = link.kind !== 'none' && link.type === 'email_change' ? 'email_changed' as const : undefined;
+    if (admit(data.session)) return { mfaRequired: true, notice };
     await loadMe(data.session.access_token);
-    return { mfaRequired: false };
+    return { mfaRequired: false, notice };
   }, [admit, loadMe]);
 
   const signOut = useCallback(async () => {
@@ -444,9 +468,9 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
 
   const value = useMemo<SessionValue>(() => ({
     ready, tokenReady, token, scope: scopeOfToken(token), me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call,
-    requestPasswordReset, updatePassword, updateEmail, completeAuthLink, mfaRequired, verifyMfa, mfa,
+    requestPasswordReset, updatePassword, updateEmail, completeAuthLink, mfaRequired, verifyMfa, mfa, resendEmail,
   }), [ready, tokenReady, token, me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call, requestPasswordReset, updatePassword,
-    updateEmail, completeAuthLink, mfaRequired, verifyMfa, mfa]);
+    updateEmail, completeAuthLink, mfaRequired, verifyMfa, mfa, resendEmail]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

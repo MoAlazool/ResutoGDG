@@ -5,12 +5,13 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { MeResponse } from '@resuto/contracts';
 import { Field, Notice, Wordmark } from '@resuto/ui';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
-import { authErrorText } from '@/lib/auth-errors';
+import { authErrorCode, authErrorText } from '@/lib/auth-errors';
 import { MAX_PASSWORD, MIN_PASSWORD } from '@/lib/auth/password-policy';
 import { homePath } from '@/lib/home-path';
 import { safeNext } from '@/lib/safe-next';
 import { AUTH_MODE, GOOGLE_AUTH, useSession } from '@/lib/session';
 import { MfaStep } from '@/app/(auth)/_ui/MfaStep';
+import { EmailDeliveryNote, ResendEmail } from '@/app/(auth)/_ui/ResendEmail';
 
 const WORKSPACES = ['manager', 'kitchen', 'host'] as const;
 type Workspace = (typeof WORKSPACES)[number];
@@ -36,6 +37,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [confirmFor, setConfirmFor] = useState<string | null>(null);
+  /** AUTH-03: sign-in refused because the email is not confirmed yet: offer to send the link again. */
+  const [unconfirmed, setUnconfirmed] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const routed = useRef(false);
   const next = params.get('next');
@@ -54,9 +57,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     const f = new FormData(e.currentTarget);
     setPending(true);
     setError(null);
+    setUnconfirmed(null);
     try {
       if (mode === 'signup') {
-        const r = await session.signUp(String(f.get('email')), String(f.get('password')), String(f.get('fullName') || ''));
+        // AUTH-03: the confirmation link comes back to `next` (an invitation, for example).
+        const r = await session.signUp(String(f.get('email')), String(f.get('password')), String(f.get('fullName') || ''), next);
         if (r.confirmationRequired) { setConfirmFor(String(f.get('email'))); setPending(false); return; }
       } else {
         const r = await session.signIn(String(f.get('email')), String(f.get('password')));
@@ -69,6 +74,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       router.push(destinationFor(me, next));
     } catch (err) {
       setError(authErrorText(err, t));
+      if (authErrorCode(err) === 'email_not_confirmed') setUnconfirmed(String(f.get('email') ?? '').trim());
       setPending(false);
     }
   }
@@ -79,6 +85,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   }
 
   const otherWorkspaces = WORKSPACES.filter((w) => w !== workspace);
+  const withNext = (path: string) => `${path}${next ? `?next=${encodeURIComponent(next)}` : ''}`;
   return (
     <div className="login">
       <section className="login-brand" aria-label={t('auth.brand.foot')}>
@@ -91,7 +98,20 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         <small>{t('auth.brand.foot')}</small>
       </section>
       <main className="login-main">
-        {session.mfaRequired ? <MfaStep onSignedOut={() => setError(null)} /> : (
+        {session.mfaRequired ? <MfaStep onSignedOut={() => setError(null)} /> : confirmFor ? (
+          // AUTH-03: Supabase holds the account until the emailed link is opened (never auto-confirmed).
+          <div className="login-form" data-testid="check-email">
+            <div className="eyebrow">{t(`auth.workspace.${workspace}`)}</div>
+            <h1>{t('auth.checkEmail.title')}</h1>
+            <p>{tn('auth.checkEmail.body', { email: <bdi dir="ltr">{confirmFor}</bdi> })}</p>
+            <EmailDeliveryNote />
+            <ResendEmail onResend={() => session.resendEmail('signup', confirmFor, next)} />
+            <div className="login-links">
+              <Link href={withNext('/login')}>{t('auth.checkEmail.signIn')}</Link>
+              <a href={withNext('/signup')} onClick={(e) => { e.preventDefault(); setConfirmFor(null); }}>{t('auth.checkEmail.other')}</a>
+            </div>
+          </div>
+        ) : (
         <form className="login-form" onSubmit={submit} aria-busy={pending || undefined}>
           <div className="eyebrow">{t(`auth.workspace.${workspace}`)}</div>
           <h1>{mode === 'signup' ? t('auth.signupTitle') : t('auth.welcome')}</h1>
@@ -103,7 +123,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             maxLength={mode === 'signup' ? MAX_PASSWORD : undefined} hint={mode === 'signup' ? t('auth.passwordHint') : undefined}
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}
-          {confirmFor && <Notice tone="ok">{tn('auth.confirmSent', { email: <bdi dir="ltr">{confirmFor}</bdi> })}</Notice>}
+          {unconfirmed && <ResendEmail coolingAtStart={false} label={t('auth.resend.confirmation')}
+            onResend={() => session.resendEmail('signup', unconfirmed, next)} />}
           <button className="btn btn-primary btn-block" disabled={pending} aria-busy={pending || undefined}>
             {pending ? t('state.loading') : mode === 'signup' ? t('auth.submitSignup') : t('auth.submit')}
           </button>
@@ -111,8 +132,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           <p className="login-note">{t('auth.accountNote')}</p>
           <div className="login-links">
             {mode === 'signup'
-              ? <span>{t('auth.haveAccount')} <Link href={`/login${next ? `?next=${encodeURIComponent(next)}` : ''}`}>{t('auth.signIn')}</Link></span>
-              : <><Link href="/forgot-password">{t('auth.forgot')}</Link><Link href="/signup">{t('auth.createAccount')}</Link></>}
+              ? <span>{t('auth.haveAccount')} <Link href={withNext('/login')}>{t('auth.signIn')}</Link></span>
+              : <><Link href="/forgot-password">{t('auth.forgot')}</Link><Link href={withNext('/signup')}>{t('auth.createAccount')}</Link></>}
           </div>
           {mode === 'login' && (
             <nav className="login-roles" aria-label={t('auth.brand.foot')}>

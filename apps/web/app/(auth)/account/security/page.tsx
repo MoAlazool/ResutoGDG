@@ -10,6 +10,7 @@ import { loginUrl } from '@/lib/safe-next';
 import { AUTH_MODE, useSession } from '@/lib/session';
 import { AuthPanel, MAX_PASSWORD, MIN_PASSWORD } from '../../_ui/AuthPanel';
 import { MfaCard } from './MfaCard';
+import { EmailDeliveryNote, ResendEmail } from '../../_ui/ResendEmail';
 
 /**
  * CR-05: the signed-in account (legacy /account "Account home"): who you are, your restaurants, change password and
@@ -108,7 +109,13 @@ function EmailCard() {
   return (
     <Card title={t('auth.account.emailTitle')}>
       <p className="fine">{t('auth.account.emailBody')}</p>
-      {sent ? <Notice tone="ok">{tn('auth.account.emailSent', { email: <bdi dir="ltr">{sent}</bdi> })}</Notice> : (
+      {sent ? (
+        <div className="stack" style={{ gap: 10 }} data-testid="email-change-sent">
+          <Notice tone="ok">{tn('auth.account.emailSent', { email: <bdi dir="ltr">{sent}</bdi> })}</Notice>
+          <EmailDeliveryNote />
+          <ResendEmail onResend={() => session.resendEmail('email_change', sent)} />
+        </div>
+      ) : (
         <form onSubmit={submit} className="stack" style={{ gap: 10 }}>
           <Field label={t('auth.account.newEmail')} name="email" type="email" required autoComplete="email" dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}

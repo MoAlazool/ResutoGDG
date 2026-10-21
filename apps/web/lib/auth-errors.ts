@@ -11,6 +11,8 @@ export const AUTH_ERROR_CODES = [
   'weak_password_characters',
   // AUTH-02: TOTP two-step verification (Supabase Auth MFA) and the API's 403 mfa_required.
   'mfa_code_format', 'mfa_code_invalid', 'mfa_code_expired', 'mfa_unavailable', 'mfa_required', 'mfa_too_many', 'mfa_no_factor',
+  // AUTH-03: email links and resends.
+  'link_expired', 'link_other_browser', 'resend_unavailable',
 ] as const;
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 
@@ -25,7 +27,7 @@ const SUPABASE_CODES: Record<string, AuthErrorCode> = {
   user_already_exists: 'email_taken', email_exists: 'email_taken', email_taken: 'email_taken',
   weak_password: 'weak_password', same_password: 'same_password', password_unchanged: 'same_password',
   over_email_send_rate_limit: 'rate_limited', over_request_rate_limit: 'rate_limited', rate_limited: 'rate_limited',
-  otp_expired: 'link_invalid', flow_state_expired: 'link_invalid', flow_state_not_found: 'link_invalid', bad_code_verifier: 'link_invalid',
+  otp_expired: 'link_expired', flow_state_expired: 'link_expired', flow_state_not_found: 'link_other_browser', bad_code_verifier: 'link_other_browser',
   mfa_verification_failed: 'mfa_code_invalid', mfa_verification_rejected: 'mfa_code_invalid', mfa_challenge_expired: 'mfa_code_expired',
   mfa_totp_enroll_not_enabled: 'mfa_unavailable', mfa_totp_verify_not_enabled: 'mfa_unavailable', insufficient_aal: 'mfa_required',
   mfa_required: 'mfa_required', too_many_enrolled_mfa_factors: 'mfa_too_many', mfa_factor_not_found: 'mfa_no_factor',
