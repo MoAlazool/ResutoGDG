@@ -84,12 +84,12 @@ export async function mockFloorApi(page: Page, apiUrl: string, orgId: string, st
     }
     if (parts[0] === 'visits' && parts[2] === 'close') {
       for (const [tableId, v] of state.visits) if (v.id === parts[1]) { state.visits.delete(tableId); const t = state.tables.find((x) => x.id === tableId); if (t) t.status = 'cleaning'; }
-      return json(route, 201, { closed: true });
+      return json(route, 200, { closed: true });
     }
     if (parts[0] === 'tables' && parts[2] === 'clean') {
       const t = state.tables.find((x) => x.id === parts[1]);
       if (t) t.status = 'available';
-      return json(route, 201, { ok: true });
+      return json(route, 200, { ok: true });
     }
     return json(route, 404, { error: { code: 'not_found', message: 'Not found' } });
   });
