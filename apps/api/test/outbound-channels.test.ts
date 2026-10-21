@@ -321,6 +321,39 @@ describe('SMS campaigns through Twilio (INT-28)', () => {
       .toEqual({ status: 'unknown', last_error: 'outcome_unknown_after_interruption' });
   });
 
+  it('a send that outlives its lease still records the provider id, so later callbacks apply (review: lease fence)', async () => {
+    const tenant = await createTenant(t);
+    const c = await customers(tenant);
+    const conn = await connect(tenant, 'twilio_sms');
+    await noQuietHours(tenant);
+    const id = await approvedCampaign(tenant, 'sms');
+    let n = 0;
+    // While Twilio is "slow", the lease runs out and recovery marks the in-flight SMS 'unknown'.
+    http.fetch = (async (_url: string, init?: RequestInit) => {
+      const to = new URLSearchParams(String(init?.body)).get('To')!;
+      await sql(`update outbound_messages set status = 'unknown', lease_until = null, last_error = 'outcome_unknown_after_interruption'
+                  where org_id = $1 and status = 'sending'`, [tenant.orgId]);
+      n += 1;
+      return new Response(JSON.stringify({ sid: `SMlate${to.slice(-4)}`, status: 'queued' }), { status: 201, headers: { 'content-type': 'application/json' } });
+    }) as unknown as typeof fetch;
+    await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner)).expect(201);
+    expect(n).toBe(2);
+    const mona = (await sql(`select status, provider_message_id from outbound_messages where customer_id = $1 and campaign_id = $2`, [c.Mona, id]))[0];
+    expect(mona).toEqual({ status: 'accepted', provider_message_id: 'SMlate0001' });
+    const params = { MessageSid: 'SMlate0001', MessageStatus: 'delivered', AccountSid: SID };
+    const cb = `/v1/webhooks/twilio/status/${conn}`;
+    const res = await t.http.post(cb).type('form').set('X-Twilio-Signature', twilioSignature('twilio-auth-token', `http://api.test${cb}`, params)).send(params);
+    expect(res.body).toEqual({ ok: true, applied: true, status: 'delivered' });
+    expect((await sql(`select status from campaign_deliveries where campaign_id = $1 and customer_id = $2`, [id, c.Mona]))[0].status).toBe('delivered');
+    // A stale sender (attempt 1) never overwrites a newer attempt of the same row.
+    const [old] = await sql(`select * from outbound_messages where customer_id = $1 and campaign_id = $2`, [c.Sara, id]);
+    await sql(`update outbound_messages set status = 'sending', attempts = 2, provider_message_id = null where id = $1`, [old.id]);
+    http.fetch = scriptedFetch([{ status: 201, body: { sid: 'SMstale', status: 'queued' } }]).fetch;
+    await (t.app.get(OutboundChannelsService) as any).deliver({ ...old, status: 'sending', attempts: 1 });
+    expect((await sql(`select status, attempts, provider_message_id from outbound_messages where id = $1`, [old.id]))[0])
+      .toEqual({ status: 'sending', attempts: 2, provider_message_id: null });
+  });
+
   it('a test (sandbox) Resend connection only writes to Resend\'s test inbox', async () => {
     const tenant = await createTenant(t);
     await customers(tenant);

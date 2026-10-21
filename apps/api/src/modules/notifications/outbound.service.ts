@@ -331,14 +331,17 @@ export class OutboundChannelsService {
       }
       this.logger.warn(`outbound ${row.id} (${row.provider}) attempt ${row.attempts}: ${d.message}`);
     }
+    // Fenced on this attempt: a late result still lands when the lease ran out and recoverStale marked the SMS
+    // 'unknown' (the provider id is what later status callbacks match on), but never over a newer attempt of a
+    // re-queued email.
     await this.db.withTenant(row.org_id, async (tx) => {
       const updated = await tx.maybeOne<any>(
         `update outbound_messages set status = $2, provider_message_id = coalesce($3, provider_message_id), last_error = $4, lease_until = null,
             next_attempt_at = case when $2 = 'deferred' then now() + make_interval(secs => $5) else next_attempt_at end,
             defer_reason = case when $2 = 'deferred' then 'retry' else defer_reason end,
             accepted_at = case when $3::text is not null then now() else accepted_at end, status_at = now()
-          where id = $1 and status = 'sending' returning *`,
-        [row.id, outcome.status, outcome.providerMessageId ?? null, outcome.error?.slice(0, 300) ?? null, outcome.retryInSeconds ?? 0]);
+          where id = $1 and attempts = $6 and status in ('sending', 'unknown') returning *`,
+        [row.id, outcome.status, outcome.providerMessageId ?? null, outcome.error?.slice(0, 300) ?? null, outcome.retryInSeconds ?? 0, row.attempts]);
       if (updated) await this.syncLinked(tx, updated);
     }, 'system:outbound');
     return outcome.status;
