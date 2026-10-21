@@ -10,5 +10,6 @@ import './gemini';
 import './maps';
 import './tracking';
 import './pos';
+import './accounting';
 
 export { ACCEPTANCE_CHECKS } from './index';

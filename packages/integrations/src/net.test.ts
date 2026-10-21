@@ -167,10 +167,13 @@ describe('Odoo adapters with a tenant-supplied URL', () => {
     expect(calls.length).toBeGreaterThan(0);
     expect(pos.message).toBe('odoo: HTTP 500');
     expect(pos.retryable).toBe(true);
-    const rpc = withEgressResolver((async () => new Response(JSON.stringify({ error: { message: 'Odoo Server Error', data: { name: 'odoo.exceptions.AccessDenied', message: 'internal path /srv/odoo leaked' } } }), { status: 200 })) as unknown as typeof fetch, publicDns);
-    const acct = await odooAccountingAdapter.pushJournalEntry({ environment: 'live', credentials: { url: 'https://erp.example.com', db: 'd', login: 'l', apiKey: 'k' },
-      config: { uid: 1, journalId: 1, accounts: { cash: 1, sales: 2 } }, fetch: rpc }, entry).catch((e) => e);
-    expect(acct.message).toBe('odoo_accounting: Odoo rejected the request (AccessDenied)');
+    // INT-25: Odoo Accounting now uses JSON-2 (errors are 4xx/5xx with { name, message, debug }); only the status is kept.
+    const json2 = withEgressResolver((async () => new Response(JSON.stringify({ name: 'odoo.exceptions.AccessDenied', message: 'internal path /srv/odoo leaked',
+      debug: 'Traceback … /srv/odoo' }), { status: 403 })) as unknown as typeof fetch, publicDns);
+    const acct = await odooAccountingAdapter.pushJournalEntry({ environment: 'live', credentials: { apiKey: 'k' },
+      config: { url: 'https://erp.example.com', database: 'd', journalId: 1, accounts: { cash: 1, sales: 2 } }, fetch: json2 }, entry).catch((e) => e);
+    expect(acct.message).toBe('odoo_accounting: HTTP 403');
+    expect(acct.message).not.toContain('/srv/odoo');
   });
 });
 
