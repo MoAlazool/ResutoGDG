@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { accountingPush, createExport, expenseCategoryInput, expenseInput, expenseUpdate, financePeriod, listExpensesQuery } from '@resuto/contracts';
+import { accountMappingInput, accountingPush, createExport, expenseCategoryInput, expenseInput, expenseUpdate, financePeriod, financePolicyInput, listExpensesQuery, payoutInput } from '@resuto/contracts';
 import type { Response } from 'express';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -12,6 +12,8 @@ import { ExportsService } from './exports.service';
 import { FinanceService } from './finance.service';
 
 type Period = z.infer<typeof financePeriod>;
+/** Optional period: when given, the response lists the account roles that period's journals need and which are unmapped. */
+const mappingQuery = z.object({ from: z.iso.date().optional(), to: z.iso.date().optional() });
 
 /** Resuto Finance (paid module `finance`). */
 @Controller('o/:orgId/finance')
@@ -129,6 +131,49 @@ export class FinanceController {
   }
 
   // --- accounting ----------------------------------------------------------------
+  // --- DF-04 accounting policy, FT-23 account mapping and payouts -----------------
+  @Get('policy')
+  @RequirePermission('finance:read')
+  policy(@Tenant() ctx: TenantContext) {
+    return this.accounting.getPolicy(ctx);
+  }
+
+  @Put('policy')
+  @RequirePermission('finance:write')
+  savePolicy(@Tenant() ctx: TenantContext, @Body(zod(financePolicyInput)) body: z.infer<typeof financePolicyInput>) {
+    return this.accounting.savePolicy(ctx, body);
+  }
+
+  @Get('accounting/connections')
+  @RequirePermission('finance:read')
+  connections(@Tenant() ctx: TenantContext) {
+    return this.accounting.connections(ctx);
+  }
+
+  @Get('accounting/connections/:connectionId/accounts')
+  @RequirePermission('finance:read')
+  mapping(@Tenant() ctx: TenantContext, @Param('connectionId', ParseUUIDPipe) id: string, @Query(zod(mappingQuery)) p: z.infer<typeof mappingQuery>) {
+    return this.accounting.mapping(ctx, id, p.from && p.to ? { from: p.from, to: p.to } : undefined);
+  }
+
+  @Put('accounting/connections/:connectionId/accounts')
+  @RequirePermission('finance:write')
+  saveMapping(@Tenant() ctx: TenantContext, @Param('connectionId', ParseUUIDPipe) id: string, @Body(zod(accountMappingInput)) body: z.infer<typeof accountMappingInput>) {
+    return this.accounting.saveMapping(ctx, id, body.accounts);
+  }
+
+  @Get('payouts')
+  @RequirePermission('finance:read')
+  payouts(@Tenant() ctx: TenantContext, @Query(zod(financePeriod)) p: Period) {
+    return this.accounting.listPayouts(ctx, p);
+  }
+
+  @Post('payouts')
+  @RequirePermission('finance:write')
+  recordPayout(@Tenant() ctx: TenantContext, @Body(zod(payoutInput)) body: z.infer<typeof payoutInput>) {
+    return this.accounting.recordPayout(ctx, body);
+  }
+
   @Get('accounting/journal')
   @RequirePermission('finance:read')
   journal(@Tenant() ctx: TenantContext, @Query(zod(financePeriod)) p: Period) {

@@ -180,11 +180,13 @@ describe('S06 finance: trading day → fiscal documents → reconciliation → P
     const netExVat = net - vat;
     const collected = o.cash.totalMinor + (o.card.totalMinor - REFUND) + o.web.totalMinor;
     const cogsSales = 2 * COSTS.fries + (COSTS.burger + COSTS.soda) + 2 * COSTS.soda + COSTS.fries;
-    const cogsExpenses = 5700 - 700;
-    const grossProfit = netExVat - (cogsSales + cogsExpenses);
+    // DF-04 default policy: COGS = item costs of sales; the ingredient purchase (5700 incl. 700 VAT) is an inventory
+    // purchase memo, and the "fees" expense (1000) is a memo next to the provider-reported fees (no double count).
+    const purchases = 5700 - 700;
+    const grossProfit = netExVat - cogsSales;
     const opex = 100000 + (11400 - 1400);
     const [{ fees: providerFees }] = await sql(`select coalesce(sum(fee_minor), 0)::int as fees from payments where org_id = $1 and status in ('succeeded', 'partially_refunded', 'refunded')`, [tenant.orgId]);
-    const paymentFees = providerFees + 1000;
+    const paymentFees = providerFees;
     const operatingProfit = grossProfit - opex - paymentFees;
 
     const ov = await t.http.get(`/v1/o/${tenant.orgId}/finance/overview?${P()}`).set(auth(accountant));
@@ -196,9 +198,10 @@ describe('S06 finance: trading day → fiscal documents → reconciliation → P
     expect(pnl.status).toBe(200);
     expect(pnl.body.lines).toEqual({
       grossSalesMinor: gross, discountsMinor: 0, refundsMinor: REFUND, vatMinor: vat, netRevenueMinor: netExVat,
-      cogsFromSalesMinor: cogsSales, cogsExpensesMinor: cogsExpenses, cogsMinor: cogsSales + cogsExpenses, grossProfitMinor: grossProfit,
+      cogsFromSalesMinor: cogsSales, cogsExpensesMinor: 0, cogsMinor: cogsSales, grossProfitMinor: grossProfit,
       operatingExpensesMinor: opex, operatingExpensesByKind: { rent: 100000, utilities: 10000 },
       paymentFeesMinor: paymentFees, operatingProfitMinor: operatingProfit,
+      memo: { inventoryPurchasesMinor: purchases, itemCostOfSalesMinor: 0, feeExpensesMinor: 1000, providerReportedFeesMinor: 0 },
     });
     expect(pnl.body.grossMarginBp).toBe(Math.round((grossProfit * 10_000) / netExVat));
     expect(pnl.body.coverage).toMatchObject({ linesWithoutCost: 0, unpaidOrders: 1, testPayments: 2 });

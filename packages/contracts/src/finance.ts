@@ -113,11 +113,53 @@ export interface ProfitAndLoss {
     operatingExpensesByKind: Record<string, number>;
     paymentFeesMinor: number;
     operatingProfitMinor: number;
+    /**
+     * DF-04 memo lines: amounts recorded but deliberately NOT counted under the active policy (so nothing is counted
+     * twice). Item-cost COGS policy: ingredient purchases ("cogs" expenses) are inventory purchases. Purchases policy:
+     * item costs of sales. Provider-fees policy: "fees" expenses; expenses-fees policy: provider-reported fees.
+     */
+    memo: { inventoryPurchasesMinor: number; itemCostOfSalesMinor: number; feeExpensesMinor: number; providerReportedFeesMinor: number };
   };
+  /** DF-04: the accounting policy applied to this P&L (settings → Finance). */
+  policy: FinancePolicy;
   /** Basis points (1234 = 12.34%); null when there is no net revenue. */
   grossMarginBp: number | null;
   operatingMarginBp: number | null;
   methodology: string[];
-  coverage: { linesWithoutCost: number; salesWithoutCostMinor: number; unpaidOrders: number; paymentsWithUnknownFee: number; testPayments: number };
+  coverage: { linesWithoutCost: number; salesWithoutCostMinor: number; unpaidOrders: number; paymentsWithUnknownFee: number; testPayments: number;
+    /** Share of item sales (basis points) that have a recorded cost; null without sales. */
+    costedSalesBp: number | null };
+  /** DF-05: the organisation's history is generated demo data. */
+  isSyntheticData: boolean;
   warnings: string[];
 }
+
+// ---------------------------------------------------------------------------
+// DF-04 accounting policy, FT-23 journals (account mapping, payouts)
+// ---------------------------------------------------------------------------
+export const COGS_METHODS = ['item_cost', 'purchases'] as const;
+export const FEES_METHODS = ['provider_reports', 'expenses'] as const;
+export interface FinancePolicy { cogsMethod: (typeof COGS_METHODS)[number]; feesMethod: (typeof FEES_METHODS)[number]; updatedAt: string | null }
+export const financePolicyInput = z.object({ cogsMethod: z.enum(COGS_METHODS), feesMethod: z.enum(FEES_METHODS) }).strict();
+
+/** Accounting roles Resuto posts to (the provider account each maps to is set per connection). Mirrors @resuto/integrations ACCOUNT_ROLES. */
+export const JOURNAL_ACCOUNT_ROLES = [
+  'cash', 'card_clearing', 'wallet_clearing', 'bank', 'receivables', 'sales', 'delivery_income', 'discounts', 'vat_output', 'payment_fees', 'refunds',
+  'vat_input', 'accounts_payable', 'inventory', 'cogs', 'expenses_labor', 'expenses_rent', 'expenses_utilities', 'expenses_marketing', 'expenses_delivery',
+  'expenses_maintenance', 'expenses_other',
+] as const;
+export type JournalAccountRole = (typeof JOURNAL_ACCOUNT_ROLES)[number];
+export const accountMappingInput = z.object({
+  accounts: z.partialRecord(z.enum(JOURNAL_ACCOUNT_ROLES), z.string().trim().min(1).max(64).regex(/^[\w .:\-/]+$/, 'Use the account code or id from your accounting system')),
+}).strict();
+
+export const payoutInput = z.object({
+  provider: z.string().trim().min(1).max(40),
+  clearing: z.enum(['card', 'wallet']).default('card'),
+  paidOn: z.iso.date(),
+  amountMinor: z.number().int().positive().max(1e13),
+  feeMinor: z.number().int().min(0).max(1e13).default(0),
+  reference: z.string().trim().min(1).max(120).nullable().optional(),
+  branchId: z.uuid().nullable().optional(),
+}).strict();
+export interface FinancePayout { id: string; provider: string; clearing: 'card' | 'wallet'; paidOn: string; amountMinor: number; feeMinor: number; currency: string; reference: string | null; branchId: string | null; createdAt: string }
