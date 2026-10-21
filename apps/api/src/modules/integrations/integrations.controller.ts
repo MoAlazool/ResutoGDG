@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
 import {
   createIntegrationConnection, fullListQuery, integrationAccountSelection, listQuery, listQueryOf, integrationOauthComplete, integrationOauthStart, integrationProviderId, integrationSyncRequest,
   resolveIntegrationConflict, updateIntegrationConnection,
@@ -47,6 +47,7 @@ export class IntegrationsController {
 
   @Get('o/:orgId/integrations/connections')
   @RequirePermission('integrations:manage')
+  @Header('X-Resuto-List', 'full')
   list(@Tenant() ctx: TenantContext, @Query(zod(connectionsQuery)) q: z.infer<typeof connectionsQuery>) {
     return this.connections.list(ctx, q);
   }
@@ -136,6 +137,7 @@ export class IntegrationsController {
 
   @Get('o/:orgId/integrations/conflicts')
   @RequirePermission('integrations:manage')
+  @Header('X-Resuto-List', 'full')
   conflicts(@Tenant() ctx: TenantContext, @Query(zod(conflictsQuery)) q: z.infer<typeof conflictsQuery>) {
     return this.sync.conflicts(ctx, q);
   }

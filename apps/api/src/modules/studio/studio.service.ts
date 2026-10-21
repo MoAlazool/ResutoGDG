@@ -17,6 +17,9 @@ const MAX_SECTIONS = 30;
 /** Media kept out of the library and of website sections: menu-import files and food-photo originals (EXIF/GPS intact). */
 const PRIVATE_MEDIA_SOURCES = ['import', 'photo_original'];
 
+/** Matches the website-highlight product picker returns at most (PS-22: a search picker, not a page). */
+export const STUDIO_PRODUCTS_MAX = 200;
+
 @Injectable()
 export class StudioService {
   constructor(
@@ -230,7 +233,10 @@ export class StudioService {
     });
   }
 
-  /** Active menu items (read model) for choosing website highlights. */
+  /**
+   * Active menu items (read model) for choosing website highlights: a search picker, not a page. At most
+   * STUDIO_PRODUCTS_MAX matches; `truncated` tells the picker to ask for a narrower search (nextCursor stays null).
+   */
   async products(ctx: TenantContext, search?: string) {
     const urls = this.storage.urls(3600);
     const out = await this.db.scoped(ctx, async (tx) => {
@@ -238,12 +244,12 @@ export class StudioService {
         `select p.id, p.name, p.name_ar, p.price_minor, p.currency, p.image_url, ma.path as image_path, ma.variants as image_variants, c.name as category
            from products p join menu_categories c on c.id = p.category_id left join media_assets ma on ma.id = p.image_media_id
           where p.org_id = $1 and p.is_active and ($2::text is null or p.name ilike '%' || $2 || '%' or p.name_ar ilike '%' || $2 || '%')
-          order by c.sort_order, p.sort_order, p.name limit 200`, [ctx.orgId, search?.trim() ? escapeLike(search.trim()) : null]);
-      const items = rows.map((r) => urls.set({
+          order by c.sort_order, p.sort_order, p.name, p.id limit ${STUDIO_PRODUCTS_MAX + 1}`, [ctx.orgId, search?.trim() ? escapeLike(search.trim()) : null]);
+      const items = rows.slice(0, STUDIO_PRODUCTS_MAX).map((r) => urls.set({
         id: r.id, name: r.name, nameAr: r.name_ar, category: r.category, priceMinor: Number(r.price_minor), currency: r.currency,
         imageUrl: null as string | null,
       }, 'imageUrl', r.image_path, { fallback: r.image_url, variants: r.image_variants, minWidth: 320 }));
-      return { items, nextCursor: null };
+      return { items, nextCursor: null, truncated: rows.length > STUDIO_PRODUCTS_MAX };
     });
     await urls.resolve();
     return out;

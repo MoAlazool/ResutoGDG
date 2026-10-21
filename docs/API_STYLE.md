@@ -60,7 +60,9 @@ on the `CREATING_ACTIONS` allow-list (actions that do create something: `/invita
 - The lint requires `cursor` next to every `limit`, except for rankings whose `limit` is a "top N"
   (`TOP_N_LISTS`, e.g. the churn list).
 - Small configuration lists that are not pages (stations, branches, team members, MCP connections, the driver
-  roster) keep their shape and have a fixed ceiling in SQL.
+  roster) keep their shape and have a fixed ceiling in SQL: MCP connections 200, team members and pending invitations
+  1,000 each (`truncated: true` when reached). Search pickers (the studio's website-highlight product picker, 200
+  matches) answer `nextCursor: null` with `truncated: true` when there were more matches: narrow the search.
 - A malformed or tampered cursor is **400 `invalid_cursor`**. A cursor the server issued is never rejected: text sort
   keys (names, `name|language`, `branch|item`) can be long, so the key cap (`MAX_CURSOR_KEY_LENGTH`, 1,100 characters)
   is above the longest key any list builds and `cursor` accepts up to `CURSOR_MAX_LENGTH` (9,000) characters, enough

@@ -12047,6 +12047,7 @@
         "tags": [
           "integrations"
         ],
+        "x-resuto-full-list": true,
         "x-resuto-permissions": [
           "integrations:manage"
         ]
@@ -12181,6 +12182,7 @@
         "tags": [
           "integrations"
         ],
+        "x-resuto-full-list": true,
         "x-resuto-permissions": [
           "integrations:manage"
         ]

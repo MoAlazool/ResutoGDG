@@ -222,6 +222,25 @@ describe('long text sort keys (review of PS-22: the server must accept every nex
   });
 });
 
+describe('bounded configuration lists and full-list markers (review of PS-22)', () => {
+  it('integrations connections and conflicts are marked X-Resuto-List: full, so the staff web follows their pages', async () => {
+    for (const path of ['/integrations/connections', '/integrations/conflicts']) {
+      const res = await get(path);
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      expect(res.headers['x-resuto-list'], path).toBe('full');
+    }
+  });
+
+  it('the team list and the studio product picker say when their ceiling was reached instead of a fake end', async () => {
+    const team = await get('/members');
+    expect(team.status, JSON.stringify(team.body)).toBe(200);
+    expect(team.body).toMatchObject({ members: expect.any(Array), invitations: expect.any(Array), truncated: false });
+    const picker = await get('/studio/products');
+    expect(picker.status, JSON.stringify(picker.body)).toBe(200);
+    expect(picker.body).toMatchObject({ items: expect.any(Array), nextCursor: null, truncated: false });
+  });
+});
+
 describe('cursor helper', () => {
   it('round-trips and rejects tampering', () => {
     const c = encodeCursor({ at: '2026-01-01T00:00:00.000001Z', id: '00000000-0000-4000-8000-000000000001' });
