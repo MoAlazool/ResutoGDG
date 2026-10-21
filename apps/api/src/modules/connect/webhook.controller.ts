@@ -15,8 +15,8 @@ export class WhatsAppWebhookController {
   /** Meta subscription handshake: echo hub.challenge when hub.verify_token matches. */
   @Get()
   @Public()
-  verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
-    this.limiter.hit(`wa-verify:${req.ip}`, 30);
+  async verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
+    await this.limiter.guard(`wa-verify:${req.ip}`, 30);
     answer(res, verifyWebhookSubscription(query, this.env.WHATSAPP_VERIFY_TOKEN));
   }
 
@@ -33,7 +33,7 @@ export class WhatsAppWebhookController {
   @Get('c/:connectionId')
   @Public()
   async verifyOwnApp(@Param('connectionId') connectionId: string, @Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
-    this.limiter.hit(`wa-verify:${req.ip}`, 30);
+    await this.limiter.guard(`wa-verify:${req.ip}`, 30);
     answer(res, verifyWebhookSubscription(query, await this.service.verifyTokenFor(connectionId)));
   }
 
@@ -54,8 +54,8 @@ export class MetaPagesWebhookController {
 
   @Get()
   @Public()
-  verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
-    this.limiter.hit(`meta-verify:${req.ip}`, 30);
+  async verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
+    await this.limiter.guard(`meta-verify:${req.ip}`, 30);
     answer(res, verifyWebhookSubscription(query, this.service.verifyToken()));
   }
 

@@ -167,10 +167,20 @@ the disposable local cluster), and `supabase/tests/runtime-roles.test.mjs` check
 
 `RATE_LIMIT_STORE=memory` (default) counts fixed windows per API process. With several API instances set
 `RATE_LIMIT_STORE=postgres`: counters are shared through `public.rate_limit_windows` (keyed by a SHA-256 of the limiter
-key, which contains the client IP that `TRUST_PROXY` resolves, or a token hash; rows expire with their window). Each
-instance batches its increments (about every 200 ms) and decides with the shared count it last read plus its own
-unflushed hits, so the limit can be exceeded by at most what the other instances accepted since their last flush; if
-the database is unreachable the limiter keeps counting in memory (fail open, logged) rather than refusing traffic.
+key, which contains the client IP that `TRUST_PROXY` resolves, or a token hash; rows expire with their window).
+Two paths (`apps/api/src/common/http/rate-limiter.ts`):
+
+- **Authoritative** (`await limiter.guard()`): one atomic upsert-and-read per request, so all instances together admit
+  exactly the limit, bursts included. Used for every brute-force or abuse limit: dev sign-in/sign-up/password,
+  delivery OTP, organisation creation, sales inquiries, reservation holds, web order placement and rating,
+  WhatsApp/Meta webhook verification, the integrations OAuth callback, MCP client registration, tracking context.
+- **Batched** (`limiter.hit()`): high-volume public reads and polling (limits of 60 per minute and more) and the
+  per-phone budgets checked inside a tenant transaction. Each instance flushes its increments at once on the first hit
+  of a window and then about every 200 ms, deciding with the shared count it last read plus its own unflushed hits;
+  a burst that lands on several instances inside one flush interval can exceed the limit by what the others admitted
+  in that interval.
+
+If the database is unreachable both paths keep counting in memory (fail open, logged) rather than refusing traffic.
 
 ## Reproducing from scratch
 

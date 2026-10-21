@@ -185,8 +185,8 @@ export class IntegrationsController {
    */
   @Get('public/integrations/oauth/:provider/callback')
   @Public()
-  oauthCallback(@Param('provider') provider: string, @Query() query: Record<string, string | undefined>, @Res() res: Response) {
-    this.limiter.hit(`oauth:${res.req.ip}`, 30);
+  async oauthCallback(@Param('provider') provider: string, @Query() query: Record<string, string | undefined>, @Res() res: Response) {
+    await this.limiter.guard(`oauth:${res.req.ip}`, 30);
     const target = this.oauth.callbackRedirect(integrationProviderId.parse(provider), {
       code: query.code ?? query.auth_code, state: query.state, error: query.error, error_description: query.error_description,
     });

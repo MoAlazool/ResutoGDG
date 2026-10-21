@@ -178,7 +178,7 @@ describe('long text sort keys (review of PS-22: the server must accept every nex
     const ids: string[] = [];
     let cursor: string | null = null;
     do {
-      const res = await t.http.get(`/v1/o/${t2.orgId}/inventory/suppliers?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).set(auth(t2.owner));
+      const res: { status: number; body: any } = await t.http.get(`/v1/o/${t2.orgId}/inventory/suppliers?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).set(auth(t2.owner));
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       ids.push(...res.body.items.map((s: { id: string }) => s.id));
       cursor = res.body.nextCursor;
@@ -206,7 +206,7 @@ describe('long text sort keys (review of PS-22: the server must accept every nex
     const ids: string[] = [];
     let cursor: string | null = null;
     do {
-      const res = await t.http.get(`/v1/o/${t3.orgId}/inventory/levels?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).set(auth(t3.owner));
+      const res: { status: number; body: any } = await t.http.get(`/v1/o/${t3.orgId}/inventory/levels?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).set(auth(t3.owner));
       expect(res.status, JSON.stringify(res.body)).toBe(200);
       ids.push(...res.body.items.map((r: { itemId: string }) => r.itemId));
       cursor = res.body.nextCursor;

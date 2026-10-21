@@ -60,7 +60,7 @@ export class AuthController {
   @Post('auth/dev/signup')
   async devSignup(@Body(zod(credentials)) body: z.infer<typeof credentials>) {
     this.assertDevMode();
-    this.limiter.hit(`dev-signup:${body.email}`, 10);
+    await this.limiter.guard(`dev-signup:${body.email}`, 10);
     const hash = await hashPassword(body.password);
     const user = await this.db.withPlatform(async (tx) => {
       const existing = await tx.maybeOne('select id from auth.users where email = $1', [body.email]);
@@ -79,7 +79,7 @@ export class AuthController {
   @HttpCode(200)
   async devLogin(@Body(zod(credentials.pick({ email: true, password: true }))) body: { email: string; password: string }) {
     this.assertDevMode();
-    this.limiter.hit(`dev-login:${body.email}`, 20);
+    await this.limiter.guard(`dev-login:${body.email}`, 20);
     const user = await this.db.withPlatform((tx) =>
       tx.maybeOne<{ id: string; encrypted_password: string }>('select id, encrypted_password from auth.users where email = $1', [body.email]));
     if (!user || !(await verifyPassword(body.password, user.encrypted_password))) {
@@ -97,7 +97,7 @@ export class AuthController {
   async devChangePassword(@Principal() principal: AuthPrincipal, @Body(zod(passwordChange)) body: z.infer<typeof passwordChange>) {
     this.assertDevMode();
     if (principal.kind !== 'user') throw forbidden();
-    this.limiter.hit(`dev-password:${principal.userId}`, 10);
+    await this.limiter.guard(`dev-password:${principal.userId}`, 10);
     await this.db.withPlatform(async (tx) => {
       const user = await tx.maybeOne<{ encrypted_password: string }>('select encrypted_password from auth.users where id = $1 for update', [principal.userId]);
       if (!user || !(await verifyPassword(body.currentPassword, user.encrypted_password))) {

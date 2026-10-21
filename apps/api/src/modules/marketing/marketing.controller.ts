@@ -266,8 +266,8 @@ export class PublicTrackingController {
   @Post('orders/:ref/context')
   @Public()
   @HttpCode(200)
-  context(@Param('slug') slug: string, @Param('ref') ref: string, @Body(zod(metaTrackingContext)) body: z.infer<typeof metaTrackingContext>, @Req() req: Request) {
-    this.limiter.hit(`tracking:ctx:${req.ip}`, 30);
+  async context(@Param('slug') slug: string, @Param('ref') ref: string, @Body(zod(metaTrackingContext)) body: z.infer<typeof metaTrackingContext>, @Req() req: Request) {
+    await this.limiter.guard(`tracking:ctx:${req.ip}`, 30);
     const ua = req.headers['user-agent'];
     return this.tracking.recordOrderContext(slug, ref, body, { ip: req.ip ?? null, userAgent: typeof ua === 'string' ? ua : null });
   }

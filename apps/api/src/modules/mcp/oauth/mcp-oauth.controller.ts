@@ -32,7 +32,7 @@ export class McpOAuthController {
   @Post('register')
   @HttpCode(201)
   async register(@Body() body: unknown, @Req() req: ResutoRequest, @Res({ passthrough: true }) res: Response) {
-    this.limiter.hit(`mcp-oauth-register:${req.ip}`, 20, 3600_000);
+    await this.limiter.guard(`mcp-oauth-register:${req.ip}`, 20, 3600_000);
     try { return await this.oauth.register(body); } catch (e) { return oauthError(res, e); }
   }
 

@@ -332,7 +332,7 @@ export class DriverAppService {
     // The code is checked (and a wrong one counted) in its own transaction first: the delivery below rolls back on
     // any error, which used to make the attempt limit per-process memory only (audit PS-08).
     if (input.otp) {
-      this.limiter.hit(`delivery-otp:${jobId}`, OTP_MAX_ATTEMPTS * 2, 10 * 60_000);
+      await this.limiter.guard(`delivery-otp:${jobId}`, OTP_MAX_ATTEMPTS * 2, 10 * 60_000);
       const d = await this.db.scoped(ctx, (tx) => this.me(tx, ctx));
       await this.delivery.verifyOtp(ctx.orgId, jobId, d.id, input.otp);
     }

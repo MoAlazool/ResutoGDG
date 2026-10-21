@@ -35,10 +35,10 @@ export class PlatformController {
   constructor(private readonly orgs: OrganizationsService, private readonly db: DbService, private readonly limiter: RateLimiter, private readonly setup: SetupService) {}
 
   @Post('orgs')
-  create(@Principal() principal: AuthPrincipal, @Req() req: ResutoRequest, @Body(zod(createOrganization)) body: z.infer<typeof createOrganization>) {
+  async create(@Principal() principal: AuthPrincipal, @Req() req: ResutoRequest, @Body(zod(createOrganization)) body: z.infer<typeof createOrganization>) {
     const u = user(principal);
-    this.limiter.hit(`org-create:user:${u.userId}`, ORG_CREATE_PER_USER_HOUR, 3_600_000);
-    this.limiter.hit(`org-create:ip:${req.ip ?? 'unknown'}`, ORG_CREATE_PER_IP_HOUR, 3_600_000);
+    await this.limiter.guard(`org-create:user:${u.userId}`, ORG_CREATE_PER_USER_HOUR, 3_600_000);
+    await this.limiter.guard(`org-create:ip:${req.ip ?? 'unknown'}`, ORG_CREATE_PER_IP_HOUR, 3_600_000);
     return this.orgs.create(u, body);
   }
 
