@@ -227,7 +227,7 @@ function Setup() {
           <Status s="menu" />
           <div className="setup-focus">
             <h3>{t('ops.setup.menu.title')}</h3>
-            <p className="fine">{t('ops.setup.menu.count', { n: nf(Number(c?.detail.orderable ?? 0)) })}</p>
+            <p className="fine">{t('ops.setup.menu.count', { n: Number(c?.detail.orderable ?? 0) })}</p>
             <div className="owner-choices">
               <Link href={`${base}/menu`}>{t('ops.setup.menu.manual')}</Link>
               <Link href={`${base}/menu?tab=import`}>{t('ops.setup.menu.import')}</Link>
@@ -245,7 +245,7 @@ function Setup() {
           {mode === 'tables' ? (
             <div className="setup-focus">
               <h3>{t('ops.setup.floor.title')}</h3>
-              <p className="fine">{t('ops.setup.floor.count', { n: nf(Number(c?.detail.tables ?? 0)) })}</p>
+              <p className="fine">{t('ops.setup.floor.count', { n: Number(c?.detail.tables ?? 0) })}</p>
               <div className="owner-choices">
                 <Link href={`${base}/floor?tab=studio`}>{t('ops.studio.manual')}</Link>
                 <Link href={`${base}/floor?tab=studio`}>{t('ops.studio.upload')}</Link>
@@ -268,7 +268,7 @@ function Setup() {
             <p className="fine">{t('ops.setup.payments.body')}</p>
             <div className="readiness-list">
               <p><span aria-hidden="true">✓</span><strong>{t('ops.setup.payments.cash')}</strong><small>{t('ops.setup.payments.cashKind')}</small></p>
-              <p><span aria-hidden="true">{n ? '✓' : '○'}</span><strong>{t('ops.setup.payments.online')}</strong><small>{n ? t('ops.setup.payments.connected', { n: nf(n) }) : t('ops.setup.payments.none')}</small></p>
+              <p><span aria-hidden="true">{n ? '✓' : '○'}</span><strong>{t('ops.setup.payments.online')}</strong><small>{n ? t('ops.setup.payments.connected', { n }) : t('ops.setup.payments.none')}</small></p>
             </div>
             <Link href={`${base}/${can('payments:read') ? 'payments' : 'integrations'}`}>{t('ops.setup.payments.review')} ↗</Link>
           </div>

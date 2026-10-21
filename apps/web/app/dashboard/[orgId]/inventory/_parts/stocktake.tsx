@@ -59,7 +59,7 @@ export function StocktakeTab() {
     ) : undefined}>
       <p className="fine" style={{ marginTop: 0 }}>{t('ops.stock.hint')}</p>
       <LoadError error={levels.error} retry={levels.reload} />
-      {done && <Notice tone="ok">{t('ops.stock.saved', { n: f.num(done.lines), value: f.money(done.varianceValueMinor) })}</Notice>}
+      {done && <Notice tone="ok">{t('ops.stock.saved', { n: done.lines, value: f.money(done.varianceValueMinor) })}</Notice>}
       {error && <Notice tone="danger">{error}</Notice>}
       {!levels.data ? <Skeleton lines={6} /> : !rows.length ? <EmptyState title={t('insights.inventory.noItems')}>{t('insights.inventory.noItemsHint')}</EmptyState> : (
         <form onSubmit={submit}>
@@ -78,7 +78,7 @@ export function StocktakeTab() {
             } },
           ]} />
           <div className="spread stock-footer">
-            <span className="fine">{t('ops.stock.preview', { n: f.num(counted.length), value: f.money(varianceValue) })}</span>
+            <span className="fine">{t('ops.stock.preview', { n: counted.length, value: f.money(varianceValue) })}</span>
             <button className="btn btn-primary" disabled={pending || !counted.length || invalid}>{pending ? t('state.loading') : t('ops.stock.submit')}</button>
           </div>
         </form>

@@ -113,13 +113,13 @@ export default function OverviewPage() {
           <StatsStrip label={t('nav.overview')} items={[
             { key: 'net', label: t('ops.overview.revenue'), value: f.money(data.today.netMinor), note: deltaNote(data.changePct.netMinor, f.money(data.lastWeekSameTime.netMinor)) },
             { key: 'tables', label: t('ops.overview.activeTables'), value: f.num(data.live.openVisits),
-              note: t('ops.overview.openOrdersNote', { n: f.num(data.live.openOrders) }) + (oldest !== null ? ` · ${t('insights.overview.oldest', { elapsed: oldest })}` : ''),
+              note: t('ops.overview.openOrdersNote', { n: data.live.openOrders }) + (oldest !== null ? ` · ${t('insights.overview.oldest', { elapsed: oldest })}` : ''),
               tone: oldestMinutes !== null && oldestMinutes > 45 ? 'warn' : undefined },
             { key: 'orders', label: t('insights.overview.ordersToday'), value: f.num(data.today.orders), note: deltaNote(data.changePct.orders, f.num(data.lastWeekSameTime.orders)) },
             { key: 'csat', label: t('ops.overview.satisfaction'),
               value: ratings.data?.count && ratings.data.averages.overall !== null ? f.num(Math.round(ratings.data.averages.overall * 10) / 10) : '—',
               unit: ratings.data?.count ? '/ 5' : undefined,
-              note: ratings.data ? (ratings.data.count ? t('ops.overview.ratings', { n: f.num(ratings.data.count) }) : t('ops.overview.noRatings')) : undefined },
+              note: ratings.data ? (ratings.data.count ? t('ops.overview.ratings', { n: ratings.data.count }) : t('ops.overview.noRatings')) : undefined },
           ]} />
 
           <div className="ops-overview">
