@@ -13,8 +13,13 @@
  * staff from setting a password.
  */
 export const MIN_PASSWORD = 10;
-/** Supabase Auth (GoTrue) refuses passwords longer than 72 characters (bcrypt input limit). */
+/**
+ * Supabase Auth (GoTrue) refuses passwords longer than 72 BYTES (bcrypt input limit; internal/api/password.go uses Go
+ * len(), i.e. UTF-8 bytes): 72 Latin characters, about 36 Arabic letters. `maxLength` on inputs counts characters, so
+ * `passwordBytes` is what decides. The minimum stays in characters: never looser than Supabase's byte count.
+ */
 export const MAX_PASSWORD = 72;
+export const passwordBytes = (password: string) => new TextEncoder().encode(password).length;
 export const PWNED_RANGE_URL = 'https://api.pwnedpasswords.com/range/';
 const PWNED_TIMEOUT_MS = 4000;
 
@@ -47,7 +52,7 @@ const BRAND = /resuto|ريسوتو/i;
 /** Rules that need no network: length, very common passwords, the account's email and the product name. */
 export function localPasswordIssue(password: string, ctx: { email?: string | null } = {}): PasswordIssue | null {
   if (password.length < MIN_PASSWORD) return 'password_too_short';
-  if (password.length > MAX_PASSWORD) return 'password_too_long';
+  if (passwordBytes(password) > MAX_PASSWORD) return 'password_too_long';
   const lower = password.toLowerCase();
   if (COMMON.has(lower) || COMMON_BASES.test(lower) || new Set(lower).size <= 2) return 'password_common';
   const email = (ctx.email ?? '').trim().toLowerCase();

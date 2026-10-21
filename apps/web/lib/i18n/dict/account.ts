@@ -57,7 +57,7 @@ export const account = {
     'auth.error.generic': 'Something went wrong. Please try again.',
     // AUTH-01: compensating password checks (lib/auth/password-policy.ts).
     'auth.error.password_too_short': 'Use at least 10 characters.',
-    'auth.error.password_too_long': 'Use at most 72 characters.',
+    'auth.error.password_too_long': 'Too long: use at most 72 characters (Arabic letters count double, so at most 36 of them).',
     'auth.error.password_common': 'This password is too common and easy to guess. Choose something less predictable.',
     'auth.error.password_contains_email': 'Do not use your email address (or the part before the @) in your password.',
     'auth.error.password_contains_brand': 'Do not use “Resuto” in your password.',
@@ -180,7 +180,7 @@ export const account = {
     'auth.error.network': 'تعذّر الوصول إلى الخادم. تحقّق من اتصالك ثم حاول مرة أخرى.',
     'auth.error.generic': 'حدث خطأ ما. حاول مرة أخرى.',
     'auth.error.password_too_short': 'استخدم 10 أحرف على الأقل.',
-    'auth.error.password_too_long': 'استخدم 72 حرفًا على الأكثر.',
+    'auth.error.password_too_long': 'طويلة جدًا: استخدم 72 حرفًا لاتينيًا على الأكثر (الحرف العربي يُحسب بحرفين، أي 36 حرفًا عربيًا على الأكثر).',
     'auth.error.password_common': 'كلمة المرور هذه شائعة جدًا ويسهل تخمينها. اختر كلمة أقل توقعًا.',
     'auth.error.password_contains_email': 'لا تستخدم بريدك الإلكتروني (أو الجزء الذي يسبق @) في كلمة المرور.',
     'auth.error.password_contains_brand': 'لا تستخدم اسم «ريسوتو» في كلمة المرور.',

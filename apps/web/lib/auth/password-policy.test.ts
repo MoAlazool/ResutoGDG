@@ -25,6 +25,12 @@ describe('AUTH-01 local password rules', () => {
     expect(MAX_PASSWORD).toBe(72);
   });
 
+  it('counts the 72 limit in UTF-8 bytes like Supabase Auth (Arabic letters take 2 bytes each)', () => {
+    expect(localPasswordIssue('ك'.repeat(36))).not.toBe('password_too_long');   // 72 bytes: accepted
+    expect(localPasswordIssue('ك'.repeat(37))).toBe('password_too_long');       // 37 characters, 74 bytes: Supabase refuses
+    expect(localPasswordIssue('Ab1!'.repeat(18))).toBe(null);                     // 72 ASCII characters = 72 bytes
+  });
+
   it('rejects very common passwords and padded base words', () => {
     for (const p of ['1234567890', 'qwertyuiop', 'Password123', 'P@ssw0rd2026!', 'restaurant2026', 'Welcome12345', 'aaaaaaaaaaaa', 'abababababab']) {
       expect(localPasswordIssue(p), p).toBe('password_common');
