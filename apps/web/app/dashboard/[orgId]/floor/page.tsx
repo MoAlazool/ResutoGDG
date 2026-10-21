@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { EmptyState, PageHeading, Tabs, ToastProvider } from '@resuto/ui';
 import { ActiveVisits } from '@/components/ops/ActiveVisits';
+import { VenueQrCard } from '@/components/ops/ServiceMode';
 import { FloorStudio } from '@/components/floor/FloorStudio';
 import { LiveFloor } from '@/components/floor/LiveFloor';
 import { QrSheet } from '@/components/floor/QrSheet';
@@ -61,6 +62,8 @@ function FloorPageInner() {
       ) : tab === 'qr' ? (
         <>
           <PageHeading title={t('studio.qr.title')} subtitle={t('studio.floor.pageSubtitle')} />
+          {/* Counter branches print one venue code (FT-07); table codes stay available for any tables kept on the plan. */}
+          {branch.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={branch.id} />}
           <QrSheet key={branch.id} orgId={org.id} branchId={branch.id} branchName={pick(locale, branch.name, branch.nameAr)} restaurantName={pick(locale, org.name, org.nameAr)} />
         </>
       ) : (
