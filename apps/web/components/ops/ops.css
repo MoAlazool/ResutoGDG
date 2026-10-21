@@ -299,3 +299,9 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .ops-station { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 .ops-station:last-of-type { border-bottom: 0; }
 @media (max-width: 1100px) { .ops-overview { grid-template-columns: 1fr; } }
+
+/* ---------- Stocktake (FT-25) ---------- */
+.stock-count { width: 120px; max-width: 100%; text-align: end; }
+[data-tone='danger'].num { color: var(--danger); }
+[data-tone='ok'].num { color: var(--ok); }
+.stock-footer { margin-top: 14px; gap: 12px; flex-wrap: wrap; }

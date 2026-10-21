@@ -154,6 +154,10 @@ const en: Record<string, string> = {
   'ops.overview.grounded': 'Answered from your restaurant’s data.', 'ops.overview.notGrounded': 'Not enough data to answer from your records.',
   'ops.overview.noClaims': 'No claims without data.', 'ops.overview.stationLoad': 'Station load', 'ops.overview.noStations': 'No kitchen stations yet.',
   'ops.overview.lowStock': 'Low stock',
+  'ops.stock.tab': 'Stocktake', 'ops.stock.title': 'Stocktake', 'ops.stock.hint': 'Count what is on the shelf. Leave a row blank to skip it. Nothing is saved until you submit the whole count.',
+  'ops.stock.system': 'System quantity', 'ops.stock.counted': 'Counted', 'ops.stock.countedFor': 'Counted quantity of {item}', 'ops.stock.variance': 'Variance',
+  'ops.stock.invalid': 'Not a number', 'ops.stock.preview': '{n} items counted · variance value {value}', 'ops.stock.submit': 'Save stocktake',
+  'ops.stock.saved': 'Stocktake saved: {n} items, variance value {value}.', 'ops.stock.editSupplier': 'Edit supplier', 'ops.stock.notes': 'Notes',
 };
 
 const ar: Record<string, string> = {
@@ -295,6 +299,10 @@ const ar: Record<string, string> = {
   'ops.overview.grounded': 'الإجابة من بيانات مطعمك.', 'ops.overview.notGrounded': 'لا توجد بيانات كافية للإجابة من سجلاتك.',
   'ops.overview.noClaims': 'لا ادعاءات بدون بيانات.', 'ops.overview.stationLoad': 'حمل المحطات', 'ops.overview.noStations': 'لا توجد محطات مطبخ بعد.',
   'ops.overview.lowStock': 'مخزون منخفض',
+  'ops.stock.tab': 'الجرد', 'ops.stock.title': 'الجرد', 'ops.stock.hint': 'عُدّ ما على الرف. اترك الصف فارغًا لتخطيه. لا يُحفظ شيء حتى ترسل الجرد كاملًا.',
+  'ops.stock.system': 'كمية النظام', 'ops.stock.counted': 'المعدود', 'ops.stock.countedFor': 'الكمية المعدودة من {item}', 'ops.stock.variance': 'الفرق',
+  'ops.stock.invalid': 'ليس رقمًا', 'ops.stock.preview': 'تم عدّ {n} صنف · قيمة الفرق {value}', 'ops.stock.submit': 'حفظ الجرد',
+  'ops.stock.saved': 'تم حفظ الجرد: {n} صنف، قيمة الفرق {value}.', 'ops.stock.editSupplier': 'تعديل المورد', 'ops.stock.notes': 'ملاحظات',
 };
 
 export const ops = { en, ar };

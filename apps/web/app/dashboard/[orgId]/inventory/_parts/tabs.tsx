@@ -11,6 +11,7 @@ import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { unitLabel } from '@/lib/vocab';
+import { SupplierModal } from './stocktake';
 
 const majorOf = (minor: number) => (minor / 100).toFixed(2);
 
@@ -192,6 +193,7 @@ export function ItemsTab() {
   const [editing, setEditing] = useState<InventoryItemView | 'new' | null>(null);
   const [form, setForm] = useState({ name: '', nameAr: '', sku: '', unit: 'kg', cost: '', reorder: '0', supplierId: '' });
   const [supplier, setSupplier] = useState({ name: '', phone: '', email: '' });
+  const [editingSupplier, setEditingSupplier] = useState<{ id: string; name: string; phone: string | null; email: string | null } | null>(null);
   const writable = can('inventory:write');
   const open = (i: InventoryItemView | 'new') => {
     setEditing(i);
@@ -243,13 +245,16 @@ export function ItemsTab() {
       </Section>
       <Section title={t('insights.inventory.suppliers')}>
         {suppliers.data && (
-          <DataTable rows={suppliers.data.items} rowKey={(s) => s.id} empty={<EmptyState title={t('insights.inventory.noSuppliers')} />} columns={[
+          <DataTable rows={suppliers.data.items} rowKey={(s) => s.id} onRowClick={writable ? (s) => setEditingSupplier(s) : undefined} empty={<EmptyState title={t('insights.inventory.noSuppliers')} />} columns={[
             { key: 'name', header: t('insights.inventory.supplier'), render: (s) => s.name },
             { key: 'phone', header: t('insights.customers.phone'), render: (s) => <span dir="ltr">{s.phone ?? '—'}</span> },
             { key: 'email', header: t('insights.customers.email'), render: (s) => s.email ?? '—' },
             { key: 'items', header: t('insights.inventory.items'), align: 'end', render: (s) => s.itemCount },
+            ...(writable ? [{ key: 'edit', header: '', align: 'end' as const, render: (s: { id: string; name: string; phone: string | null; email: string | null }) => (
+              <button type="button" className="btn btn-sm btn-ghost" onClick={(e) => { e.stopPropagation(); setEditingSupplier(s); }}>{t('action.edit')}</button>) }] : []),
           ]} />
         )}
+        {editingSupplier && <SupplierModal supplier={editingSupplier} onClose={() => setEditingSupplier(null)} onSaved={async () => { setEditingSupplier(null); await Promise.all([suppliers.reload(), items.reload()]); }} />}
         {writable && (
           <form onSubmit={addSupplier.run} className="form-row" style={{ marginBlockStart: 14, alignItems: 'end' }}>
             <Field label={t('insights.inventory.supplierName')} required value={supplier.name} onChange={(e) => setSupplier({ ...supplier, name: e.target.value })} />
