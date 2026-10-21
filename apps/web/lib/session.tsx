@@ -204,12 +204,18 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     router.replace(loginUrl(window.location.pathname + window.location.search));
   }, [requireAuth, ready, token, pathname, router]);
 
+  // DF-13: `call` keeps ONE identity for the provider's lifetime. It reads the current token (tokenRef, inside
+  // withAuth) and the current auth runner through refs, so a token change (a Supabase TOKEN_REFRESHED, a new sign-in)
+  // never changes it: pollers (useApi, the KDS board) that depend on it are not torn down, restarted or blanked; the
+  // next scheduled request simply carries the new token. Regression test: lib/session-stability.test.ts.
+  const withAuthRef = useRef(withAuth);
+  withAuthRef.current = withAuth;
   const call = useCallback(async <T,>(path: string, opts?: Omit<ApiOptions, 'token'>): Promise<T> => {
-    const result = await withAuth((t) => api<T>(path, { ...opts, token: t }));
+    const result = await withAuthRef.current((t) => api<T>(path, { ...opts, token: t }));
     const method = opts?.method ?? (opts?.body !== undefined ? 'POST' : 'GET');
     if (method !== 'GET') invalidateAfterMutation(path);
     return result;
-  }, [withAuth]);
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     let t: string;
