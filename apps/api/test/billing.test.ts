@@ -355,3 +355,56 @@ describe('usage metering and plan limits', () => {
     await expect(quota()).rejects.toMatchObject({ status: 402, details: { limit: 'ai_requests_per_month', allowed: 0 } });
   });
 });
+
+describe('FT-19: platform fees vs pass-through costs', () => {
+  it('reports provider fees, ad spend, template counts and metered external costs apart from Resuto invoices', async () => {
+    const tenant = await createTenant(t, { planId: 'pro' });
+    const other = await createTenant(t, { planId: 'pro' });
+    const menu = await seedMenu(tenant);
+    const db = t.app.get(DbService);
+    const orders = t.app.get(OrdersKernelService);
+    const usage = t.app.get(UsageService);
+    const ctx = new TenantContext(tenant.orgId, 'owner', null, tenant.owner.userId, 'user', tenant.owner.userId);
+    const o = await db.scoped(ctx, (tx) => orders.place(tx, ctx, { branchId: tenant.branchId, channel: 'staff', fulfillment: 'pickup', lines: [{ productId: menu.products.soda, quantity: 1 }] }));
+    const pay = (fee: number, isTest: boolean, status = 'succeeded') => sql(
+      `insert into payments(org_id, branch_id, order_id, method, provider, amount_minor, currency, fee_minor, status, is_test, captured_at)
+       values ($1, $2, $3, 'card', 'paymob', 5000, 'EGP', $4, $5, $6, now())`, [tenant.orgId, tenant.branchId, o.id, fee, status, isTest]);
+    await pay(150, false); await pay(90, false); await pay(999, true); await pay(500, false, 'failed');
+    await sql(`insert into ad_campaign_reports(org_id, provider, external_campaign_id, report_date, spend_minor, currency, is_sandbox)
+               values ($1, 'meta_ads', $2, current_date, 12000, 'EGP', false), ($1, 'meta_ads', $3, current_date, 777, 'EGP', true)`, [tenant.orgId, unique('c'), unique('c')]);
+    const [ch] = await sql(`insert into messaging_channels(org_id, kind, transport, display_name, status) values ($1, 'whatsapp', 'sandbox', 'WA', 'connected') returning id`, [tenant.orgId]);
+    const [conv] = await sql(`insert into conversations(org_id, channel_id, external_contact, status) values ($1, $2, '+201000000001', 'open') returning id`, [tenant.orgId, ch.id]);
+    await sql(`insert into message_templates(org_id, name, language, category, body, provider_status) values ($1, 'order_ready', 'en', 'utility', 'Ready', 'approved')`, [tenant.orgId]);
+    const msg = (status: string, sandbox: boolean, kind = 'template') => sql(
+      `insert into messages(org_id, conversation_id, direction, kind, body, payload, status) values ($1, $2, 'outbound', $3, 'x', $4, $5)`,
+      [tenant.orgId, conv.id, kind, { type: kind, templateName: 'order_ready', language: 'en', ...(sandbox ? { sandbox: true } : {}) }, status]);
+    await msg('delivered', false); await msg('read', false); await msg('failed', false); await msg('delivered', true); await msg('delivered', false, 'text');
+    await db.scoped(ctx, (tx) => usage.record(tx, tenant.orgId, { metric: 'sms', quantity: 3, costOwner: 'merchant', externalCostMinor: 60, currency: 'EGP', sourceRef: 'sms-1' }));
+    await db.scoped(ctx, (tx) => usage.record(tx, tenant.orgId, { metric: 'ai_requests', sourceRef: 'ai-1' }));
+    await sql(`insert into platform_invoices(org_id, number, currency, subtotal_minor, status, period_start, period_end) values ($1, $2, 'EGP', 99900, 'draft', now(), now() + interval '1 month')`,
+      [tenant.orgId, unique('INV')]);
+
+    const member = await addMember(t, tenant, 'manager');
+    expect((await t.http.get(`/v1/o/${tenant.orgId}/billing/costs`).set(auth(member))).status).toBe(403);
+    const bad = await t.http.get(`/v1/o/${tenant.orgId}/billing/costs?months=13`).set(auth(tenant.owner));
+    expect(bad.status, JSON.stringify(bad.body)).toBe(400);
+    const r = await t.http.get(`/v1/o/${tenant.orgId}/billing/costs?months=2`).set(auth(tenant.owner));
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    expect(r.body.months).toHaveLength(2);
+    const [current] = r.body.months;
+    // Resuto's own fee, still a draft (no billing provider), never mixed with pass-through costs.
+    expect(current.platform).toEqual({ invoicedMinor: 99900, currency: 'EGP', invoiceStatuses: ['draft'] });
+    expect(current.passThrough).toEqual([
+      { category: 'ad_spend', detail: 'meta_ads', quantity: 1, amountMinor: 12000, currency: 'EGP', basis: 'provider_reported', billedBy: 'meta_ads' },
+      { category: 'messaging', detail: 'utility', quantity: 2, amountMinor: null, currency: null, basis: 'count_only', billedBy: 'meta' },
+      { category: 'metered_external', detail: 'sms', quantity: 3, amountMinor: 60, currency: 'EGP', basis: 'metered', billedBy: 'provider' },
+      { category: 'payment_fees', detail: 'paymob:card', quantity: 2, amountMinor: 240, currency: 'EGP', basis: 'provider_reported', billedBy: 'paymob' },
+    ]);
+    expect(r.body.notes).toEqual(['messaging_rate_card_not_known', 'ai_included_in_plan', 'sandbox_excluded']);
+    expect(r.body.months[1].passThrough).toEqual([]);
+    // Tenant isolation: another restaurant sees none of it.
+    const o2 = await t.http.get(`/v1/o/${other.orgId}/billing/costs`).set(auth(other.owner));
+    expect(o2.body.months.flatMap((m: any) => m.passThrough)).toEqual([]);
+    expect((await t.http.get(`/v1/o/${tenant.orgId}/billing/costs`).set(auth(other.owner))).status).toBe(404); // non-members do not learn the org exists
+  });
+});

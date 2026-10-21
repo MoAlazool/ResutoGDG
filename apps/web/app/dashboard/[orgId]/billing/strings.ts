@@ -24,6 +24,16 @@ const en = {
   history: 'History', noAccess: 'Only the restaurant owner can view and change the subscription. Here is what your plan includes.',
   external: 'Payment-provider, WhatsApp and advertising fees are billed by those providers directly and are not part of this fee.',
   loadError: 'Could not load billing.', retry: 'Retry',
+  costsTitle: 'Resuto fees and costs outside your subscription',
+  costsBody: 'What you pay Resuto is kept apart from what you pay other providers directly. Resuto never adds provider costs to its invoices.',
+  costsMonth: 'Month', costsPlatform: 'Resuto subscription', costsPassThrough: 'Paid directly to providers', costsNone: 'No provider costs recorded.',
+  costsQty: 'Count', costsAmount: 'Amount', costsBilledBy: 'Billed by',
+  cat_payment_fees: 'Payment fees', cat_ad_spend: 'Advertising spend', cat_messaging: 'WhatsApp template messages', cat_metered_external: 'Other provider usage',
+  basis_provider_reported: 'Reported by the provider', basis_count_only: 'Count only: priced by Meta', basis_metered: 'Recorded usage',
+  costsNoInvoice: 'No invoice', costsDraftNote: 'Draft: no billing provider is connected, nothing has been charged.',
+  note_messaging_rate_card_not_known: 'Meta charges WhatsApp template messages by its own rate card for each country and category, so Resuto shows the count, not a price.',
+  note_ai_included_in_plan: 'AI requests are part of your Resuto plan (see usage above) and are not billed separately.',
+  note_sandbox_excluded: 'Test payments, sandbox messages and sandbox ad reports are excluded.',
 };
 type S = typeof en;
 const ar: S = {
@@ -51,6 +61,16 @@ const ar: S = {
   history: 'السجل', noAccess: 'مالك المطعم فقط يمكنه عرض الاشتراك وتغييره. هذه محتويات خطتك.',
   external: 'رسوم مزوّدي الدفع وواتساب والإعلانات يحصّلها هؤلاء المزوّدون مباشرة وليست جزءًا من هذه الرسوم.',
   loadError: 'تعذّر تحميل الفوترة.', retry: 'إعادة المحاولة',
+  costsTitle: 'رسوم ريسوتو والتكاليف خارج اشتراكك',
+  costsBody: 'ما تدفعه لريسوتو منفصل عما تدفعه للمزوّدين الآخرين مباشرة. لا تضيف ريسوتو تكاليف المزوّدين إلى فواتيرها أبدًا.',
+  costsMonth: 'الشهر', costsPlatform: 'اشتراك ريسوتو', costsPassThrough: 'تُدفع للمزوّدين مباشرة', costsNone: 'لا توجد تكاليف مزوّدين مسجلة.',
+  costsQty: 'العدد', costsAmount: 'المبلغ', costsBilledBy: 'يحصّلها',
+  cat_payment_fees: 'رسوم الدفع', cat_ad_spend: 'الإنفاق الإعلاني', cat_messaging: 'رسائل قوالب واتساب', cat_metered_external: 'استخدام مزوّدين آخرين',
+  basis_provider_reported: 'أبلغ عنها المزوّد', basis_count_only: 'العدد فقط: تسعّرها ميتا', basis_metered: 'استخدام مسجّل',
+  costsNoInvoice: 'لا فاتورة', costsDraftNote: 'مسودة: لا يوجد مزوّد فوترة مربوط، ولم يُحصَّل أي مبلغ.',
+  note_messaging_rate_card_not_known: 'تحتسب ميتا رسائل قوالب واتساب وفق جدول أسعارها لكل دولة وفئة، لذا تعرض ريسوتو العدد وليس السعر.',
+  note_ai_included_in_plan: 'طلبات الذكاء الاصطناعي جزء من خطة ريسوتو (انظر الاستخدام أعلاه) ولا تُحتسب منفصلة.',
+  note_sandbox_excluded: 'المدفوعات التجريبية ورسائل وتقارير الإعلانات التجريبية مستبعدة.',
 };
 export const BILLING_STRINGS = { en, ar };
 export type BillingStrings = S;
