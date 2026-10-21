@@ -169,6 +169,8 @@ export const orderingDetailsInput = z.object({
   marketingConsent: z.boolean().optional(),
   /** Messenger / Instagram conversations carry no phone number; delivery orders from them ask for one (INT-21). */
   phone: phoneE164.optional(),
+  /** FT-09: the delivery area the guest picked on the hosted page (null clears it); checked against the branch's zones. */
+  zoneId: uuid.nullable().optional(),
 }).strict();
 export type OrderingDetailsInput = z.infer<typeof orderingDetailsInput>;
 

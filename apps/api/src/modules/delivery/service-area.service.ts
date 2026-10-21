@@ -94,6 +94,11 @@ export class ServiceAreaService implements ServiceAreaPort {
     };
   }
 
+  async zones(tx: Tx, orgId: string, branchId: string) {
+    return (await this.activeZones(tx, orgId, branchId)).map((z) => ({ id: z.id, name: z.name, nameAr: z.name_ar, kind: z.kind as 'area' | 'radius' | 'polygon',
+      feeMinor: Number(z.fee_minor), minOrderMinor: Number(z.min_order_minor), etaMin: z.eta_min }));
+  }
+
   private activeZones(tx: Tx, orgId: string, branchId: string) {
     return tx.query<ZoneRow>(`select ${ZONE_COLUMNS} from delivery_zones where org_id = $1 and branch_id = $2 and is_active order by sort_order, fee_minor, name`, [orgId, branchId]);
   }

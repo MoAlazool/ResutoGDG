@@ -154,6 +154,10 @@ export interface ServiceAreaResult {
   /** The branch has zones and none was chosen yet (quote only; placing refuses). */
   zoneRequired: boolean;
 }
+/** A delivery zone as a guest chooses it (WhatsApp / Messenger / Instagram hosted ordering page). */
+export interface GuestDeliveryZone { id: string; name: string; nameAr: string | null; kind: 'area' | 'radius' | 'polygon'; feeMinor: number; minOrderMinor: number; etaMin: number | null }
 export interface ServiceAreaPort {
   check(tx: Tx, orgId: string, branch: ServiceAreaBranch, input: ServiceAreaInput): Promise<ServiceAreaResult>;
+  /** Active delivery zones of a branch, in display order. */
+  zones(tx: Tx, orgId: string, branchId: string): Promise<GuestDeliveryZone[]>;
 }

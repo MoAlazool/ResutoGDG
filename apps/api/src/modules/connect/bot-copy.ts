@@ -19,6 +19,7 @@ const COPY = {
   openMenu: { en: 'Open menu', ar: 'افتح القائمة' },
   review: { en: 'Your order:\n{lines}\n\nSubtotal {subtotal}{delivery}\nTotal {total}\n\nHow would you like to pay?', ar: 'طلبك:\n{lines}\n\nالمجموع الفرعي {subtotal}{delivery}\nالإجمالي {total}\n\nكيف تحب أن تدفع؟' },
   deliveryFee: { en: '\nDelivery {fee}', ar: '\nالتوصيل {fee}' },
+  chooseZone: { en: 'Almost done: choose your delivery area on the order page so we can confirm the delivery fee.', ar: 'خطوة أخيرة: اختر منطقة التوصيل في صفحة الطلب لنؤكد رسوم التوصيل.' },
   payOnline: { en: 'Pay online', ar: 'ادفع أونلاين' },
   payCod: { en: 'Cash on delivery', ar: 'الدفع عند الاستلام' },
   payAtPickup: { en: 'Pay at pickup', ar: 'الدفع عند الاستلام' },

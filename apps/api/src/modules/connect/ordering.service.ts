@@ -10,7 +10,7 @@ import { EntitlementsService } from '../../common/entitlements/entitlements.serv
 import { Scheduled } from '../../common/events/events';
 import { ENV, type Env } from '../../config/env';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
-import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
+import { CHECKOUT_PORT, SERVICE_AREA_PORT, requirePort, type CheckoutPort, type ServiceAreaPort } from '../kernel/ports';
 import { PricingService, type Quote } from '../kernel/pricing.service';
 import { copy, textCommand, type Locale } from './bot-copy';
 import { HandoffService } from './handoff.service';
@@ -38,6 +38,8 @@ interface OrderingState {
   /** Messenger / Instagram delivery orders: the phone the guest typed on the hosted page. */
   customerPhone?: string;
   address?: { line1: string; area?: string | null; city?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null };
+  /** FT-09: the delivery area chosen on the hosted page (a shared location is priced by the zone that covers it). */
+  deliveryZoneId?: string | null;
   marketingConsent?: boolean;
   cart?: CartLine[];
   quote?: ReturnType<typeof quoteSummary>;
@@ -54,6 +56,7 @@ function quoteSummary(q: Quote) {
   return {
     currency: q.currency, subtotalMinor: q.subtotalMinor, discountMinor: q.discountMinor, deliveryFeeMinor: q.deliveryFeeMinor,
     serviceChargeMinor: q.serviceChargeMinor, taxMinor: q.taxMinor, taxInclusive: q.taxInclusive, totalMinor: q.totalMinor,
+    deliveryZone: q.deliveryZone ?? null, deliveryZoneRequired: !!q.deliveryZoneRequired,
     lines: q.lines.map((l) => ({ productId: l.productId, name: l.name, nameAr: l.nameAr, quantity: l.quantity, unitPriceMinor: l.unitPriceMinor,
       modifiers: l.modifiers.map((m) => ({ groupId: m.groupId, optionId: m.optionId, option: m.option, optionAr: m.optionAr, priceDeltaMinor: m.priceDeltaMinor })),
       lineTotalMinor: l.lineTotalMinor, notes: l.notes })),
@@ -61,6 +64,19 @@ function quoteSummary(q: Quote) {
 }
 
 const LIVE = (step: OrderingStep) => !ORDERING_TERMINAL.includes(step);
+
+/**
+ * FT-09: what prices a delivery session — the shared location (point) and the chosen delivery area — so the cart quote,
+ * a details change and the final placement all ask the service area the same question (no price_changed surprise).
+ */
+const deliveryOf = (st: OrderingState) => {
+  if (st.fulfillment !== 'delivery') return { deliveryPoint: null, deliveryZoneId: null };
+  const a = st.address;
+  return {
+    deliveryPoint: typeof a?.latitude === 'number' && typeof a?.longitude === 'number' ? { latitude: a.latitude, longitude: a.longitude } : null,
+    deliveryZoneId: st.deliveryZoneId ?? null,
+  };
+};
 const guestCtx = (orgId: string, sessionId: string, source: TenantContext['source']) =>
   new TenantContext(orgId, 'admin', null, null, 'guest', `ordering_session:${sessionId}`, source);
 
@@ -84,6 +100,7 @@ export class OrderingService {
     private readonly orders: OrdersKernelService,
     private readonly entitlements: EntitlementsService,
     @Optional() @Inject(CHECKOUT_PORT) private readonly checkoutPort?: CheckoutPort,
+    @Optional() @Inject(SERVICE_AREA_PORT) private readonly serviceArea?: ServiceAreaPort,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -275,6 +292,12 @@ export class OrderingService {
       case 'review': {
         const q = s.quote;
         if (!q) return;
+        if (q.deliveryZoneRequired) {
+          // FT-09: the branch prices delivery by area and none is known yet. The guest is on the order page (the cart
+          // was just submitted there), so point them to the area picker without rotating that page's link.
+          await this.send(tx, conv, { type: 'text', body: copy(l, 'chooseZone') });
+          return;
+        }
         const money = (m: number) => formatMoney(m, q.currency as 'EGP' | 'SAR', l);
         const lines = q.lines.map((x) => `${x.quantity} × ${l === 'ar' && x.nameAr ? x.nameAr : x.name}${x.modifiers.length ? ` (${x.modifiers.map((m) => (l === 'ar' && m.optionAr) || m.option).join(', ')})` : ''} — ${money(x.lineTotalMinor)}`).join('\n');
         const buttons = [
@@ -384,8 +407,20 @@ export class OrderingService {
       // Messenger / Instagram give no phone number: a delivery order asks for one on this page.
       needsPhone: (s.channel === 'messenger' || s.channel === 'instagram') && s.state.fulfillment === 'delivery', customerPhone: s.state.customerPhone ?? null,
       cart: s.state.cart ?? [], quote: s.state.quote ?? null, order: s.state.order ?? null,
+      delivery: await this.deliveryView(tx, s),
       paymentMethod: s.state.paymentMethod ?? null, checkoutUrl: s.step === 'awaiting_payment' ? s.state.checkout?.url ?? null : null,
     };
+  }
+
+  /** FT-09: the delivery areas a guest can pick on the hosted page, the current choice and whether a location was shared. */
+  private async deliveryView(tx: Tx, s: SessionRow) {
+    if (s.state.fulfillment !== 'delivery' || !s.branch_id || !this.serviceArea) return null;
+    const zones = await this.serviceArea.zones(tx, s.org_id, s.branch_id);
+    return { zones, zoneId: s.state.deliveryZoneId ?? null, hasLocation: !!deliveryOf(s.state).deliveryPoint };
+  }
+
+  private quoteFor(tx: Tx, s: SessionRow, state: OrderingState, lines: CartLine[]) {
+    return this.pricing.quote(tx, s.org_id, { branchId: s.branch_id!, fulfillment: state.fulfillment!, lines, channel: s.channel, customerId: s.customer_id, ...deliveryOf(state) });
   }
 
   /** Validates and prices the cart server-side (client sends ids and quantities only). */
@@ -396,7 +431,7 @@ export class OrderingService {
       this.assertLive(s, ['menu', 'review']);
       if (input.version !== s.version) throw new DomainError('stale_session', 'This order was updated elsewhere. Refresh to continue.', 409, { version: s.version });
       const lines: CartLine[] = input.lines.map((l) => ({ productId: l.productId, quantity: l.quantity, modifiers: l.modifiers, notes: l.notes ?? null }));
-      const q = await this.pricing.quote(tx, ref.orgId, { branchId: s.branch_id!, fulfillment: s.state.fulfillment!, lines, channel: s.channel, customerId: s.customer_id });
+      const q = await this.quoteFor(tx, s, s.state, lines);
       const saved = await this.save(tx, s, { state: { ...s.state, cart: lines, quote: quoteSummary(q) }, step: 'review' }, input.version);
       if (conv && conv.status === 'bot') await this.prompt(tx, conv, saved);
       return this.publicView(tx, saved, conv);
@@ -408,14 +443,23 @@ export class OrderingService {
     return this.db.withTenant(ref.orgId, async (tx) => {
       const { s, conv } = await this.sessionFor(tx, ref.id, true);
       this.assertLive(s, ['menu', 'review']);
-      if (input.address && s.state.fulfillment !== 'delivery') throw invalid('address_not_needed', 'This order is not for delivery');
+      if ((input.address || input.zoneId) && s.state.fulfillment !== 'delivery') throw invalid('address_not_needed', 'This order is not for delivery');
+      if (input.zoneId && this.serviceArea && !(await this.serviceArea.zones(tx, s.org_id, s.branch_id!)).some((z) => z.id === input.zoneId)) {
+        throw invalid('delivery_zone_invalid', 'Choose one of this branch’s delivery areas');
+      }
       const state: OrderingState = {
         ...s.state,
         ...(input.customerName ? { customerName: input.customerName } : {}),
         ...(input.address ? { address: { ...input.address, latitude: s.state.address?.latitude ?? null, longitude: s.state.address?.longitude ?? null } } : {}),
         ...(input.marketingConsent !== undefined ? { marketingConsent: input.marketingConsent } : {}),
         ...(input.phone ? { customerPhone: input.phone } : {}),
+        ...(input.zoneId !== undefined ? { deliveryZoneId: input.zoneId } : {}),
       };
+      // A new delivery area (or address) can change the fee and minimum: re-price the cart now so the review shows
+      // what checkout will charge, and a zone the location is outside of is refused here rather than at checkout.
+      if ((input.zoneId !== undefined || input.address) && s.state.cart?.length) {
+        state.quote = quoteSummary(await this.quoteFor(tx, s, state, s.state.cart));
+      }
       const saved = await this.save(tx, s, { state }, input.version);
       return this.publicView(tx, saved, conv);
     }, `ordering_session:${ref.id}`);
@@ -472,7 +516,8 @@ export class OrderingService {
       branchId: st.branchId, channel: s.channel === 'web' ? 'web' : s.channel === 'messenger' || s.channel === 'instagram' ? s.channel : 'whatsapp', fulfillment: st.fulfillment, lines: st.cart,
       customer: { name: st.customerName ?? conv?.contact_name ?? null, phone, marketingConsent: !!st.marketingConsent },
       // With a phone the kernel resolves (and updates consent on) the customer itself.
-      customerId: phone ? null : s.customer_id, deliveryAddress: st.fulfillment === 'delivery' ? st.address : null,
+      customerId: phone ? null : s.customer_id,
+      deliveryAddress: st.fulfillment === 'delivery' && st.address ? { ...st.address, zoneId: st.deliveryZoneId ?? null } : null,
       conversationId: s.conversation_id, campaignId, attribution: { ...utm, ...(campaignId ? { campaign_id: campaignId } : {}) },
       initialStatus: method === 'online' ? 'awaiting_payment' : 'placed', expectedTotalMinor,
       notes: method === 'cod' ? (st.fulfillment === 'delivery' ? 'Cash on delivery' : 'Pay at pickup') : null,

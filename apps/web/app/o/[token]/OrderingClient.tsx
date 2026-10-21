@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Badge, Field, Modal, Notice, Skeleton, useConfirm } from '@resuto/ui';
+import { Badge, Field, Modal, Notice, SelectField, Skeleton, useConfirm } from '@resuto/ui';
 import { api, ApiRequestError } from '@/lib/api';
 import { money, pick } from '@/lib/format';
 import { LocaleProvider, useT } from '@/lib/i18n/client';
@@ -28,11 +28,15 @@ interface View {
   /** Messenger / Instagram delivery: the conversation has no phone number, so the guest types one. */
   needsPhone?: boolean; customerPhone?: string | null;
   quote: { currency: string; subtotalMinor: number; discountMinor: number; deliveryFeeMinor: number; serviceChargeMinor: number; taxMinor: number;
-    taxInclusive: boolean; totalMinor: number; lines: QuoteLine[] } | null;
+    taxInclusive: boolean; totalMinor: number; lines: QuoteLine[];
+    deliveryZone?: { id: string; name: string; nameAr: string | null; etaMin: number | null } | null; deliveryZoneRequired?: boolean } | null;
+  /** FT-09: the branch's delivery areas (delivery sessions only), the current choice and whether a location was shared. */
+  delivery?: { zones: DeliveryZoneOption[]; zoneId: string | null; hasLocation: boolean } | null;
   order: { id: string; number: string; status: string; totalMinor: number; currency: string } | null;
   paymentMethod: 'online' | 'cod' | null; checkoutUrl: string | null;
   menu?: { categories: Category[] } | null;
 }
+interface DeliveryZoneOption { id: string; name: string; nameAr: string | null; kind: 'area' | 'radius' | 'polygon'; feeMinor: number; minOrderMinor: number; etaMin: number | null }
 interface CartLine { key: string; productId: string; quantity: number; modifiers: Array<{ groupId: string; optionId: string }>; notes?: string }
 
 const ATTR_KEY = (token: string) => `resuto.ordering.attr.${token.slice(0, 12)}`;
@@ -135,7 +139,9 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
     try { await fn(); } catch (e) {
       const err = e as ApiRequestError;
       if (err.code === 'stale_session' || err.code === 'price_changed') await reload();
-      setActionError(err.code === 'price_changed' ? t('connect.order.priceChanged') : err.message);
+      setActionError(err.code === 'price_changed' ? t('connect.order.priceChanged')
+        : err.code === 'delivery_zone_required' ? t('connect.order.zoneRequired')
+          : err.code === 'outside_delivery_area' ? t('connect.order.outsideArea') : err.message);
     } finally { setBusy(false); }
   };
 
@@ -166,6 +172,12 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
       body: { version: v.version, paymentMethod, expectedTotalMinor: v.quote!.totalMinor, attribution: readAttribution(token) },
     });
     setView({ ...done, menu: null });
+  });
+
+  /** FT-09: choosing a delivery area re-prices the cart on the server (fee and minimum of that area). */
+  const chooseZone = (zoneId: string) => run(async () => {
+    const v = await api<View>(`/public/connect/ordering/${token}/details`, { body: { version: view!.version, zoneId: zoneId || null } });
+    setView({ ...v, menu: view!.menu });
   });
 
   const cancel = () => run(async () => {
@@ -221,6 +233,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
 
   if (stage === 'review' && view.quote) {
     const q = view.quote;
+    const zoneMissing = view.fulfillment === 'delivery' && !!q.deliveryZoneRequired;
     return wrap(
       <div className="stack">
         <div className="spread"><h1 style={{ fontSize: 24, margin: 0 }}>{t('connect.order.review')}</h1>
@@ -252,6 +265,7 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
               <Field label={t('connect.order.city')} value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} maxLength={80} />
             </div>
             <Field label={t('connect.order.addressNotes')} value={address.notes} onChange={(e) => setAddress({ ...address, notes: e.target.value })} maxLength={300} />
+            <ZonePicker view={view} locale={locale} busy={busy} onChoose={chooseZone} />
             {view.needsPhone && <Field label={t('connect.order.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" dir="ltr" placeholder="+201001234567" pattern="\+[1-9][0-9 \-]{6,18}" required />}
           </>}
           {view.fulfillment === 'pickup' && view.branch?.address && <p className="muted">{t('connect.order.pickupAt', { address: view.branch.address })}</p>}
@@ -259,9 +273,10 @@ function Ordering({ token, view, error, reload, setView, locale, setLocale }: {
         </div>
         <div className="card stack">
           <h2 style={{ margin: 0 }}>{t('connect.order.payment')}</h2>
+          {zoneMissing && <Notice tone="warn">{t('connect.order.zoneRequired')}</Notice>}
           {actionError && <Notice tone="danger">{actionError}</Notice>}
-          {view.paymentOnlineAvailable && <button className="btn btn-primary btn-block" disabled={busy || !name.trim() || (!!view.needsPhone && !/^\+[1-9][0-9]{6,14}$/.test(phone.replace(/[\s-]/g, '')))} onClick={() => checkout('online')}>{t('connect.order.payOnline')}</button>}
-          <button className={`btn btn-block ${view.paymentOnlineAvailable ? '' : 'btn-primary'}`} disabled={busy || !name.trim() || (view.fulfillment === 'delivery' && address.line1.trim().length < 5) || (!!view.needsPhone && !/^\+[1-9][0-9]{6,14}$/.test(phone.replace(/[\s-]/g, '')))}
+          {view.paymentOnlineAvailable && <button className="btn btn-primary btn-block" disabled={busy || zoneMissing || !name.trim() || (!!view.needsPhone && !/^\+[1-9][0-9]{6,14}$/.test(phone.replace(/[\s-]/g, '')))} onClick={() => checkout('online')}>{t('connect.order.payOnline')}</button>}
+          <button className={`btn btn-block ${view.paymentOnlineAvailable ? '' : 'btn-primary'}`} disabled={busy || zoneMissing || !name.trim() || (view.fulfillment === 'delivery' && address.line1.trim().length < 5) || (!!view.needsPhone && !/^\+[1-9][0-9]{6,14}$/.test(phone.replace(/[\s-]/g, '')))}
             onClick={() => checkout('cod')}>{t(view.fulfillment === 'delivery' ? 'connect.order.payCod' : 'connect.order.payAtPickup')}</button>
           {!view.paymentOnlineAvailable && <p className="fine">{t('connect.order.onlineUnavailable')}</p>}
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={cancel}>{t('connect.order.cancel')}</button>
@@ -373,5 +388,36 @@ function ModifierPicker({ product, locale, currency, onClose, onAdd }: { product
         </fieldset>
       ))}
     </Modal>
+  );
+}
+
+/**
+ * FT-09 delivery area for WhatsApp / Messenger / Instagram orders. With a shared location the server picks the zone
+ * that covers it; with a typed address the guest chooses one of the restaurant's named areas. Radius/polygon zones
+ * need a location, so without one the guest is asked to share it in the chat.
+ */
+function ZonePicker({ view, locale, busy, onChoose }: { view: View; locale: Locale; busy: boolean; onChoose: (zoneId: string) => void }) {
+  const { t } = useT();
+  const d = view.delivery;
+  if (!d || d.zones.length === 0) return null;
+  const currency = view.org.currency;
+  const q = view.quote;
+  if (d.hasLocation) {
+    return q?.deliveryZone ? <p className="muted">{t('connect.order.zoneAuto', { name: pick(locale, q.deliveryZone.name, q.deliveryZone.nameAr) })}</p> : null;
+  }
+  const areas = d.zones.filter((z) => z.kind === 'area');
+  if (areas.length === 0) return <Notice tone="warn">{t('connect.order.zoneNeedLocation')}</Notice>;
+  const chosen = areas.find((z) => z.id === d.zoneId) ?? null;
+  return (
+    <div>
+      <SelectField label={t('connect.order.zone')} value={d.zoneId ?? ''} disabled={busy} onChange={(e) => onChoose(e.target.value)} required>
+        <option value="">{t('connect.order.zoneChoose')}</option>
+        {areas.map((z) => <option key={z.id} value={z.id}>{t('connect.order.zoneOption', { name: pick(locale, z.name, z.nameAr), fee: money(z.feeMinor, currency, locale) })}</option>)}
+      </SelectField>
+      {chosen && (chosen.minOrderMinor > 0 || chosen.etaMin) && (
+        <p className="fine">{[chosen.minOrderMinor > 0 ? t('connect.order.zoneMin', { amount: money(chosen.minOrderMinor, currency, locale) }) : null,
+          chosen.etaMin ? t('connect.order.zoneEta', { minutes: String(chosen.etaMin) }) : null].filter(Boolean).join(' · ')}</p>
+      )}
+    </div>
   );
 }
