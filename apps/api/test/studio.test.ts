@@ -312,7 +312,7 @@ describe('custom domains', () => {
     for (const apex of ['brand.com.eg', 'brand.com.sa']) {
       const a = await manual.attach(apex);
       expect(a.routingRecords).toEqual([{ type: 'A', name: apex, value: '203.0.113.7', purpose: 'routing' }]);
-      expect(a.details).toMatchObject({ apex: true, registrableDomain: apex, pslCoverage: 'subset' });
+      expect(a.details).toMatchObject({ apex: true, registrableDomain: apex, pslCoverage: 'icann' });
     }
     expect((await manual.attach('www.brand.com.eg')).routingRecords[0]).toMatchObject({ type: 'CNAME', value: 'sites.example-host.net' });
     const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });

@@ -16,15 +16,20 @@ describe('Public Suffix List apex detection (INT-27)', () => {
   });
 
   it('reports the public suffix, the registrable domain and the coverage of the bundled rules', () => {
-    expect(domainParts('WWW.Brand.Com.EG.')).toMatchObject({ hostname: 'www.brand.com.eg', publicSuffix: 'com.eg', registrableDomain: 'brand.com.eg', isApex: false, pslCoverage: 'subset' });
+    expect(domainParts('WWW.Brand.Com.EG.')).toMatchObject({ hostname: 'www.brand.com.eg', publicSuffix: 'com.eg', registrableDomain: 'brand.com.eg', isApex: false, pslCoverage: 'icann' });
     expect(domainParts('brand.com.sa')).toMatchObject({ publicSuffix: 'com.sa', registrableDomain: 'brand.com.sa', isApex: true });
     // A public suffix itself has no registrable domain and is never an apex a restaurant can own.
     expect(domainParts('com.eg')).toMatchObject({ publicSuffix: 'com.eg', registrableDomain: null, isApex: false });
-    // Unknown TLD: the PSL default rule "*" applies and the result says so.
-    expect(domainParts('brand.example')).toMatchObject({ publicSuffix: 'example', registrableDomain: 'brand.example', isApex: true, pslCoverage: 'subset' });
-    expect(domainParts('brand.com').pslCoverage).toBe('subset');
-    // jp has municipal rules that are not bundled: the answer is approximate and says so.
-    expect(domainParts('brand.co.jp').pslCoverage).toBe('default_rule');
+    // Unknown TLD: the PSL default rule "*" applies.
+    expect(domainParts('brand.example')).toMatchObject({ publicSuffix: 'example', registrableDomain: 'brand.example', isApex: true, pslCoverage: 'icann' });
+    // Review: the whole ICANN section is bundled, so multi-label suffixes outside the region are exact too.
+    for (const [host, suffix] of [['brand.co.jp', 'co.jp'], ['brand.com.br', 'com.br'], ['brand.com.au', 'com.au'], ['brand.co.za', 'co.za'], ['brand.com.mx', 'com.mx'], ['brand.co.kr', 'co.kr']]) {
+      expect(domainParts(host!), host).toMatchObject({ publicSuffix: suffix, registrableDomain: host, isApex: true });
+      expect(domainParts(`www.${host}`).isApex, `www.${host}`).toBe(false);
+    }
+    // Municipal (jp) rules and internationalised rules (punycode) are in.
+    expect(domainParts('brand.chuo.tokyo.jp')).toMatchObject({ publicSuffix: 'chuo.tokyo.jp', isApex: true });
+    expect(domainParts('brand.xn--wgbh1c')).toMatchObject({ publicSuffix: 'xn--wgbh1c', isApex: true }); // .مصر
     expect(PSL_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}/);
   });
 

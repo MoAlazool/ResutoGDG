@@ -3,4 +3,4 @@
 export * from './psl';
 export * from './vercel';
 export * from './tls-probe';
-export { PSL_VERSION, PSL_COVERED_TLDS } from './psl-subset';
+export { PSL_VERSION } from './psl-icann';
