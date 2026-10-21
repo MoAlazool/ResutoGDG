@@ -9,4 +9,5 @@ export * from './tax';
 export * from './maps';
 export * from './acceptance';
 export * from './ai';
+export * from './domains';
 export { egressFetch, EgressBlockedError } from './net';

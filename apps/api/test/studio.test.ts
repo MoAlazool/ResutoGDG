@@ -278,7 +278,15 @@ describe('custom domains', () => {
       if (path.startsWith('/v6/domains/')) return json(200, { misconfigured });
       return json(404, { error: { code: 'not_found' } });
     }) as unknown as typeof fetch;
-    const vercel = new VercelDomainProvider('tok_test', 'prj_123', 'team_9', fakeFetch);
+    // INT-27: the certificate status is read from the served certificate (scripted probe here), not inferred.
+    let certIssued = false;
+    const probed: string[] = [];
+    const probe = async (hostname: string) => {
+      probed.push(hostname);
+      return { hostname, issued: certIssued, reason: certIssued ? 'ok' as const : 'untrusted_chain' as const, issuer: certIssued ? "Let's Encrypt / R11" : null,
+        validFrom: null, validTo: null, daysLeft: certIssued ? 80 : null, checkedAt: new Date().toISOString() };
+    };
+    const vercel = new VercelDomainProvider('tok_test', 'prj_123', 'team_9', fakeFetch, probe);
     const attach = await vercel.attach('www.example.com');
     expect(calls[0]).toMatchObject({ method: 'POST', url: 'https://api.vercel.com/v10/projects/prj_123/domains?teamId=team_9', auth: 'Bearer tok_test' });
     expect(JSON.parse(calls[0]!.body!)).toEqual({ name: 'www.example.com' });
@@ -287,10 +295,32 @@ describe('custom domains', () => {
       { type: 'TXT', name: '_vercel.example.com', value: 'vc-domain-verify=abc', purpose: 'ownership' },
     ]);
     expect((await vercel.status('www.example.com')).active).toBe(false);
+    expect(probed).toEqual([]); // no certificate can exist before Vercel routes the domain
     misconfigured = false;
-    expect((await vercel.status('www.example.com')).active).toBe(true);
+    // Verified and configured is no longer enough (it used to set sslIssued = active): HTTPS must actually work.
+    const noCert = await vercel.status('www.example.com');
+    expect(noCert).toMatchObject({ active: false, sslIssued: false, details: { certificate: { issued: false, reason: 'untrusted_chain' } } });
+    certIssued = true;
+    expect(await vercel.status('www.example.com')).toMatchObject({ active: true, sslIssued: true, details: { certificate: { issued: true, issuer: "Let's Encrypt / R11" } } });
     expect(calls.map((c) => `${c.method} ${new URL(c.url).pathname}`)).toContain('GET /v6/domains/www.example.com/config');
     expect((await vercel.attach('example.com')).routingRecords[0]).toMatchObject({ type: 'A', value: '76.76.21.21' });
+  });
+
+  it('INT-27: a .com.eg / .com.sa apex gets an A record, never a CNAME at the zone apex', async () => {
+    // Before: hostname.split('.').length === 2 treated brand.com.eg as a subdomain and returned a CNAME for it.
+    const manual = new ManualDomainProvider('sites.example-host.net', '203.0.113.7');
+    for (const apex of ['brand.com.eg', 'brand.com.sa']) {
+      const a = await manual.attach(apex);
+      expect(a.routingRecords).toEqual([{ type: 'A', name: apex, value: '203.0.113.7', purpose: 'routing' }]);
+      expect(a.details).toMatchObject({ apex: true, registrableDomain: apex, pslCoverage: 'subset' });
+    }
+    expect((await manual.attach('www.brand.com.eg')).routingRecords[0]).toMatchObject({ type: 'CNAME', value: 'sites.example-host.net' });
+    const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+    const vercel = new VercelDomainProvider('tok', 'prj', undefined, (async () => json(200, { name: 'brand.com.sa', verified: false, verification: [] })) as any,
+      async () => { throw new Error('not probed'); });
+    const attached = await vercel.attach('brand.com.sa');
+    expect(attached.routingRecords[0]).toEqual({ type: 'A', name: 'brand.com.sa', value: '76.76.21.21', purpose: 'routing' });
+    expect(attached.instructions[0]).toMatch(/root of its domain, so a CNAME is not allowed/);
   });
 });
 

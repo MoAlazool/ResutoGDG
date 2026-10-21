@@ -1,5 +1,6 @@
 import { resolveTxt } from 'node:dns/promises';
 import type { DnsRecordInstruction } from '@resuto/contracts';
+import { domainParts, probeCertificate, VERCEL_APEX_A, VERCEL_CNAME, VercelDomainsClient, type CertificateProbe } from '@resuto/integrations';
 
 /** Injection token for the DNS TXT resolver (tests inject a stub; production uses node:dns). */
 export const DNS_RESOLVER = Symbol('DNS_RESOLVER');
@@ -17,8 +18,9 @@ export interface DomainAttachResult {
 }
 
 export interface DomainStatusResult {
-  /** True only when the hosting provider itself confirms the domain is configured and verified. */
+  /** True only when the hosting provider itself confirms the domain is configured and verified, and HTTPS works. */
   active: boolean;
+  /** True only when the certificate served for the hostname was read and is valid for it (never inferred). */
   sslIssued: boolean;
   instructions: string[];
   details: Record<string, unknown>;
@@ -37,7 +39,15 @@ export interface DomainProvider {
   detach(hostname: string): Promise<void>;
 }
 
-const isApex = (hostname: string) => hostname.split('.').length === 2;
+/**
+ * INT-27: apex detection with the Public Suffix List. "brand.com.eg" is an apex (com.eg is a public suffix) and must get
+ * an A record: a CNAME at a zone apex is forbidden by DNS. The old label count treated it as a subdomain.
+ */
+const isApex = (hostname: string) => domainParts(hostname).isApex;
+const pslDetails = (hostname: string) => {
+  const p = domainParts(hostname);
+  return { apex: p.isApex, registrableDomain: p.registrableDomain, publicSuffix: p.publicSuffix, pslCoverage: p.pslCoverage, pslVersion: p.pslVersion };
+};
 
 /**
  * Manual mode: no provider API is configured. Resuto shows the DNS records the
@@ -59,7 +69,7 @@ export class ManualDomainProvider implements DomainProvider {
           : 'Resuto support will send you the routing record for your hosting setup.',
         'Hosting is configured manually for this Resuto installation: the domain stays "provisioning" until a Resuto operator attaches it to the web host and confirms HTTPS.',
       ],
-      details: { mode: 'manual' },
+      details: { mode: 'manual', ...pslDetails(hostname) },
     };
   }
 
@@ -81,83 +91,70 @@ export class ManualDomainProvider implements DomainProvider {
 }
 
 /**
- * Vercel project domains (https://vercel.com/docs/rest-api/reference/endpoints/projects).
- * Readiness: implemented_unverified — written against the public REST API docs,
- * not exercised with real credentials in this repository.
- *  - attach: POST /v10/projects/{project}/domains { name }
- *  - status: GET /v9/projects/{project}/domains/{domain} (verified) and
- *            GET /v6/domains/{domain}/config (misconfigured)
- *  - detach: DELETE /v9/projects/{project}/domains/{domain}
- * Vercel's documented records: apex → A 76.76.21.21, subdomain → CNAME cname.vercel-dns.com.
+ * Vercel project domains through the shared client (packages/integrations/src/domains/vercel.ts, endpoints and doc links
+ * there). Readiness: implemented_unverified — exercised only with scripted transports; the acceptance check
+ * vercel.domain_attach_detach (scripts/providers/acceptance.mjs) attaches and detaches a throwaway subdomain once the
+ * owner provides a staging token.
+ * - active: Vercel reports the domain verified AND not misconfigured AND the edge serves a trusted certificate for it;
+ * - sslIssued: read from the certificate actually served for the hostname (TLS probe), never inferred from "verified"
+ *   (Vercel's REST API has no certificate lookup by domain, only GET /v8/certs/{id}).
  */
 export class VercelDomainProvider implements DomainProvider {
   readonly id = 'vercel' as const;
   readonly readiness = 'implemented_unverified' as const;
-  private readonly base = 'https://api.vercel.com';
+  private readonly client: VercelDomainsClient;
 
-  constructor(private readonly token: string, private readonly projectId: string, private readonly teamId: string | undefined,
-    private readonly http: typeof fetch = fetch) {}
+  constructor(token: string, projectId: string, teamId: string | undefined, http: typeof fetch = fetch,
+    private readonly probe: (hostname: string) => Promise<CertificateProbe> = (h) => probeCertificate(h)) {
+    this.client = new VercelDomainsClient({ token, projectId, teamId: teamId ?? null }, http);
+  }
 
   async attach(hostname: string): Promise<DomainAttachResult> {
-    const res = await this.call('POST', `/v10/projects/${encodeURIComponent(this.projectId)}/domains`, { name: hostname });
-    // 409 domain_already_in_use / already exists on this project is fine to treat as attached to this project only if verified later.
-    if (!res.ok && res.status !== 409) throw new Error(`Vercel rejected the domain (${res.status}): ${res.error ?? 'unknown error'}`);
-    const verification = Array.isArray(res.body?.verification) ? res.body.verification : [];
-    const routingRecords: DnsRecordInstruction[] = isApex(hostname)
-      ? [{ type: 'A', name: hostname, value: '76.76.21.21', purpose: 'routing' }]
-      : [{ type: 'CNAME', name: hostname, value: 'cname.vercel-dns.com', purpose: 'routing' }];
-    for (const v of verification) {
-      if (v?.type && v?.domain && v?.value) routingRecords.push({ type: v.type, name: v.domain, value: v.value, purpose: 'ownership' });
-    }
+    const res = await this.client.add(hostname);
+    // 409: the domain is already on a project. It is not treated as success; status() decides from Vercel's answer.
+    const apex = isApex(hostname);
+    const routingRecords: DnsRecordInstruction[] = apex
+      ? [{ type: 'A', name: hostname, value: VERCEL_APEX_A, purpose: 'routing' }]
+      : [{ type: 'CNAME', name: hostname, value: VERCEL_CNAME, purpose: 'routing' }];
+    for (const v of res.domain?.verification ?? []) routingRecords.push({ type: v.type as DnsRecordInstruction['type'], name: v.domain, value: v.value, purpose: 'ownership' });
     return {
       routingRecords,
       instructions: [
-        isApex(hostname)
-          ? `Create an A record for ${hostname} pointing to 76.76.21.21 (Vercel).`
-          : `Create a CNAME record for ${hostname} pointing to cname.vercel-dns.com (Vercel).`,
+        apex
+          ? `Create an A record for ${hostname} pointing to ${VERCEL_APEX_A} (Vercel). ${hostname} is the root of its domain, so a CNAME is not allowed there.`
+          : `Create a CNAME record for ${hostname} pointing to ${VERCEL_CNAME} (Vercel).`,
         'Vercel issues the HTTPS certificate automatically once DNS resolves; this can take a few minutes up to 48 hours.',
       ],
-      details: { mode: 'vercel', verified: res.body?.verified ?? false, attachStatus: res.status },
+      details: { mode: 'vercel', verified: res.domain?.verified ?? false, attachStatus: res.status, attachError: res.error, ...pslDetails(hostname) },
     };
   }
 
   async status(hostname: string): Promise<DomainStatusResult> {
-    const project = await this.call('GET', `/v9/projects/${encodeURIComponent(this.projectId)}/domains/${encodeURIComponent(hostname)}`);
-    if (!project.ok) throw new Error(`Vercel domain lookup failed (${project.status}): ${project.error ?? 'unknown error'}`);
-    const config = await this.call('GET', `/v6/domains/${encodeURIComponent(hostname)}/config`);
-    if (!config.ok) throw new Error(`Vercel domain config lookup failed (${config.status}): ${config.error ?? 'unknown error'}`);
-    const verified = project.body?.verified === true;
-    const misconfigured = config.body?.misconfigured !== false;
-    const active = verified && !misconfigured;
+    const domain = await this.client.get(hostname);
+    if (!domain) throw new Error('Vercel does not list this domain on the project. Remove it and add it again.');
+    const { misconfigured } = await this.client.config(hostname);
+    const verified = domain.verified;
+    // The certificate is only looked for once Vercel routes the domain; before that no certificate can exist.
+    const cert = verified && !misconfigured ? await this.probe(hostname) : null;
+    const sslIssued = cert?.issued === true;
+    const active = verified && !misconfigured && sslIssued;
     return {
       active,
-      sslIssued: active,
+      sslIssued,
       instructions: active ? [] : [
         !verified ? 'Vercel has not verified the domain yet. Check the TXT record Vercel requested.' : '',
         misconfigured ? 'Vercel reports the DNS records are not pointing to Vercel yet.' : '',
+        cert && !cert.issued ? `HTTPS is not ready yet (${cert.reason.replace(/_/g, ' ')}). Vercel issues the certificate once DNS resolves; check again later.` : '',
       ].filter(Boolean),
-      details: { mode: 'vercel', verified, misconfigured },
+      details: {
+        mode: 'vercel', verified, misconfigured, apexName: domain.apexName,
+        certificate: cert ? { issued: cert.issued, reason: cert.reason, issuer: cert.issuer, validTo: cert.validTo, daysLeft: cert.daysLeft, checkedAt: cert.checkedAt } : null,
+      },
     };
   }
 
   async detach(hostname: string): Promise<void> {
-    const res = await this.call('DELETE', `/v9/projects/${encodeURIComponent(this.projectId)}/domains/${encodeURIComponent(hostname)}`);
-    if (!res.ok && res.status !== 404) throw new Error(`Vercel domain removal failed (${res.status})`);
-  }
-
-  private async call(method: string, path: string, body?: unknown): Promise<{ ok: boolean; status: number; body: any; error?: string }> {
-    const url = new URL(this.base + path);
-    if (this.teamId) url.searchParams.set('teamId', this.teamId);
-    const res = await this.http(url, {
-      method,
-      headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(15_000),
-    });
-    const text = await res.text();
-    let json: any = null;
-    try { json = text ? JSON.parse(text) : null; } catch { json = null; }
-    return { ok: res.ok, status: res.status, body: json, error: json?.error?.message ?? json?.error?.code };
+    await this.client.remove(hostname);
   }
 }
 
