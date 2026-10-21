@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DbService } from '../src/common/db/db.service';
 import { readPublicMenu } from '../src/modules/connect/menu-read-model';
+import { PricingService } from '../src/modules/kernel/pricing.service';
+import { MenuService } from '../src/modules/menu/menu.service';
 import { VisitsService } from '../src/modules/orders/visits.service';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
 import { key, qrTokenFor, saveFloor, table } from './ops-fixtures';
@@ -261,7 +263,6 @@ describe('branch menus: not offered vs sold out (86) vs out of stock', () => {
     expect(reasons).toMatchObject({ 'Smash burger': 'sold_out', 'Limited special': 'out_of_stock', Fries: null });
     // Ordering refuses both, and says which.
     const db2 = t.app.get(DbService);
-    const { PricingService } = await import('../src/modules/kernel/pricing.service');
     const pricing = t.app.get(PricingService);
     const quote = (productId: string) => db2.withTenant(shop.orgId, (tx) => pricing.quote(tx, shop.orgId, {
       branchId: shop.branchId, fulfillment: 'pickup', lines: [{ productId, quantity: 1, modifiers: productId === m.products.burger ? [{ groupId: m.groups.size, optionId: m.options.large }] : [] }],
@@ -284,7 +285,6 @@ describe('branch menus: not offered vs sold out (86) vs out of stock', () => {
       .send({ branchId: shop.branchId, available: false, until: new Date(Date.now() + 3_600_000).toISOString() }).expect(201);
     const before = (await t.http.get(`/v1/public/menu/${shop.slug}`)).headers.etag;
     await sql(`update product_branch_settings set sold_out_until = now() - interval '1 second' where product_id = $1 and branch_id = $2`, [m.products.fries, shop.branchId]);
-    const { MenuService } = await import('../src/modules/menu/menu.service');
     const r = await t.app.get(MenuService).restoreExpired();
     expect(r.restored).toBeGreaterThanOrEqual(1);
     const [row] = await sql(`select sold_out, sold_out_until from product_branch_settings where product_id = $1 and branch_id = $2`, [m.products.fries, shop.branchId]);
