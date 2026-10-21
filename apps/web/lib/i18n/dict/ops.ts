@@ -145,6 +145,15 @@ const en: Record<string, string> = {
   'ops.setup.launch.missing': 'Before launch: {list}.', 'ops.setup.link': 'Open guided setup',
   'ops.setup.checklistSub': 'Each step is checked against your restaurant’s data; nothing is ticked by hand.',
   'ops.orders.list': 'List', 'ops.orders.board': 'Order board', 'ops.orders.details': 'Details',
+  'ops.overview.measured': 'Measured from current restaurant data', 'ops.overview.plan': 'Plan the space',
+  'ops.overview.revenue': 'Today’s revenue', 'ops.overview.activeTables': 'Active tables', 'ops.overview.satisfaction': 'Guest satisfaction',
+  'ops.overview.openOrdersNote': '{n} open orders', 'ops.overview.ratings': '{n} ratings today', 'ops.overview.noRatings': 'No ratings yet today',
+  'ops.overview.liveFloor': 'Live floor', 'ops.overview.liveUpdates': 'Live updates',
+  'ops.overview.insights': 'Operational insights', 'ops.overview.insightsNote': 'What is happening tonight?',
+  'ops.overview.askLabel': 'Ask the AI manager', 'ops.overview.askPlaceholder': 'e.g. Which table has waited longest?', 'ops.overview.ask': 'Ask AI manager',
+  'ops.overview.grounded': 'Answered from your restaurant’s data.', 'ops.overview.notGrounded': 'Not enough data to answer from your records.',
+  'ops.overview.noClaims': 'No claims without data.', 'ops.overview.stationLoad': 'Station load', 'ops.overview.noStations': 'No kitchen stations yet.',
+  'ops.overview.lowStock': 'Low stock',
 };
 
 const ar: Record<string, string> = {
@@ -277,6 +286,15 @@ const ar: Record<string, string> = {
   'ops.setup.launch.missing': 'قبل الإطلاق: {list}.', 'ops.setup.link': 'فتح الإعداد الموجّه',
   'ops.setup.checklistSub': 'كل خطوة يتم التحقق منها مقابل بيانات مطعمك؛ لا شيء يُعلَّم يدويًا.',
   'ops.orders.list': 'القائمة', 'ops.orders.board': 'لوحة الطلبات', 'ops.orders.details': 'التفاصيل',
+  'ops.overview.measured': 'محسوبة من بيانات المطعم الحالية', 'ops.overview.plan': 'تخطيط المساحة',
+  'ops.overview.revenue': 'إيرادات اليوم', 'ops.overview.activeTables': 'الطاولات النشطة', 'ops.overview.satisfaction': 'رضا الضيوف',
+  'ops.overview.openOrdersNote': '{n} طلب مفتوح', 'ops.overview.ratings': '{n} تقييم اليوم', 'ops.overview.noRatings': 'لا توجد تقييمات اليوم بعد',
+  'ops.overview.liveFloor': 'الصالة مباشرة', 'ops.overview.liveUpdates': 'تحديثات مباشرة',
+  'ops.overview.insights': 'رؤى تشغيلية', 'ops.overview.insightsNote': 'ماذا يحدث الليلة؟',
+  'ops.overview.askLabel': 'اسأل المدير الذكي', 'ops.overview.askPlaceholder': 'مثلًا: أي طاولة انتظرت أطول؟', 'ops.overview.ask': 'اسأل المدير الذكي',
+  'ops.overview.grounded': 'الإجابة من بيانات مطعمك.', 'ops.overview.notGrounded': 'لا توجد بيانات كافية للإجابة من سجلاتك.',
+  'ops.overview.noClaims': 'لا ادعاءات بدون بيانات.', 'ops.overview.stationLoad': 'حمل المحطات', 'ops.overview.noStations': 'لا توجد محطات مطبخ بعد.',
+  'ops.overview.lowStock': 'مخزون منخفض',
 };
 
 export const ops = { en, ar };

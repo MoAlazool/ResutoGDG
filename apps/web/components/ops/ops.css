@@ -164,19 +164,6 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .host-row b { white-space: nowrap; font-size: 14px; color: var(--leaf-text); }
 @media (max-width: 1100px) { .host-layout { grid-template-columns: 1fr; } }
 
-/* ---------- Service model cards (legacy settings .mode-grid / .mode-card / .venue-qr) ---------- */
-.mode-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0 20px; }
-.mode-card { position: relative; border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin: 0; cursor: pointer; display: flex;
-  gap: 12px; align-items: flex-start; transition: background .15s, border-color .15s; background: var(--card); }
-.mode-card:hover { background: var(--nav-hover); }
-.mode-card.is-on { border-color: var(--herb); background: var(--leaf-bg); box-shadow: inset 0 0 0 1px var(--herb); }
-.mode-card input { width: 18px; height: 18px; min-height: 0; margin-top: 2px; accent-color: var(--green); flex-shrink: 0; }
-.mode-card strong { font-size: 13.5px; display: block; }
-.mode-card small { display: block; color: var(--subtle); margin-top: 6px; line-height: 1.6; }
-.venue-qr { display: flex; gap: 16px; align-items: center; background: var(--surface-warm); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 18px; }
-.venue-qr .qr-img { width: 110px; height: 110px; }
-.venue-qr a, .venue-qr .ops-link { display: block; font-size: 12px; color: var(--leaf-text); line-height: 1.9; }
-@media (max-width: 800px) { .mode-grid { grid-template-columns: 1fr; } .venue-qr { flex-direction: column; align-items: flex-start; } }
 
 /* ---------- Floor Studio, full bleed (VS-23; legacy /manager/floor-editor is its own full-screen app) ---------- */
 .studio-fullbleed { position: fixed; inset: 0; z-index: 70; overflow: auto; background: var(--canvas); }
@@ -299,3 +286,16 @@ button.ticket-line:hover { background: var(--nav-hover); }
 /* ---------- Orders: list / board toggle (legacy manager "Order board") ---------- */
 .orders-views { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .orders-views .field { margin: 0; min-width: 200px; }
+
+/* ---------- Overview (legacy manager-platform.js: live floor + operational insights) ---------- */
+.ops-overview { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+.ops-insights .panel-head p { margin: 4px 0 0; font-size: 13px; color: var(--subtle); }
+.ops-ask { display: grid; gap: 10px; margin-bottom: 18px; }
+.ops-ask .btn { justify-self: start; }
+.ops-answer { background: var(--leaf-bg); border-radius: 10px; padding: 12px 14px; }
+.ops-answer p { margin: 0 0 6px; white-space: pre-wrap; }
+.ops-answer small { color: var(--subtle); }
+.ops-stations h3 { font-size: 13px; margin: 14px 0 6px; color: var(--ink); }
+.ops-station { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.ops-station:last-of-type { border-bottom: 0; }
+@media (max-width: 1100px) { .ops-overview { grid-template-columns: 1fr; } }
