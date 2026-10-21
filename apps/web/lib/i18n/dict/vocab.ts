@@ -34,6 +34,12 @@ const enActions: Record<string, string> = {
   'connect.template_submitted': 'Message template submitted for approval',
   'connect.template_updated': 'Message template updated',
   'creative.generated': 'Marketing copy generated',
+  'menu_extraction.created': 'Menu import started',
+  'menu_extraction.extracted': 'Menu import read',
+  'menu_extraction.edited': 'Menu import draft edited',
+  'menu_extraction.committed': 'Menu import added to the menu',
+  'menu_extraction.discarded': 'Menu import discarded',
+  'menu_extraction.failed': 'Menu import failed',
   'customers.anonymised': 'Customer data anonymised',
   'customers.consent_granted': 'Marketing consent given',
   'customers.consent_revoked': 'Marketing consent withdrawn',
@@ -202,6 +208,12 @@ const arActions: Record<string, string> = {
   'connect.template_submitted': 'أُرسل قالب رسالة للاعتماد',
   'connect.template_updated': 'عُدّل قالب رسالة',
   'creative.generated': 'أُنشئ نص تسويقي',
+  'menu_extraction.created': 'بدأ استيراد قائمة',
+  'menu_extraction.extracted': 'قُرئت قائمة مستوردة',
+  'menu_extraction.edited': 'عُدّلت مسودة استيراد القائمة',
+  'menu_extraction.committed': 'أضيف استيراد القائمة إلى القائمة',
+  'menu_extraction.discarded': 'استُبعد استيراد قائمة',
+  'menu_extraction.failed': 'تعذّر استيراد قائمة',
   'customers.anonymised': 'أُخفيت هوية بيانات عميل',
   'customers.consent_granted': 'وافق العميل على الرسائل التسويقية',
   'customers.consent_revoked': 'سحب العميل موافقته التسويقية',
@@ -343,7 +355,7 @@ const arActions: Record<string, string> = {
 
 const enEntities: Record<string, string> = {
   accounting_push: 'Accounting', ai_insight: 'Insight', branch: 'Branch', campaign: 'Campaign', checkout_session: 'Payment link',
-  compliance_document: 'Document', conversation: 'Conversation', creative_asset: 'Marketing copy', custom_domain: 'Domain',
+  compliance_document: 'Document', conversation: 'Conversation', creative_asset: 'Marketing copy', custom_domain: 'Domain', menu_extraction_job: 'Menu import',
   customer: 'Customer', delivery_job: 'Delivery', dining_table: 'Table', driver: 'Driver', driver_cash_settlement: 'Driver cash',
   expense: 'Expense', expense_category: 'Expense category', financial_export: 'Finance export', fiscal_document: 'Tax document',
   floor_layout: 'Floor plan', integration_conflict: 'Sync conflict', integration_connection: 'Integration',
@@ -360,7 +372,7 @@ const enEntities: Record<string, string> = {
 
 const arEntities: Record<string, string> = {
   accounting_push: 'المحاسبة', ai_insight: 'رؤية', branch: 'فرع', campaign: 'حملة', checkout_session: 'رابط دفع',
-  compliance_document: 'مستند', conversation: 'محادثة', creative_asset: 'نص تسويقي', custom_domain: 'نطاق',
+  compliance_document: 'مستند', conversation: 'محادثة', creative_asset: 'نص تسويقي', custom_domain: 'نطاق', menu_extraction_job: 'استيراد قائمة',
   customer: 'عميل', delivery_job: 'توصيل', dining_table: 'طاولة', driver: 'سائق', driver_cash_settlement: 'نقدية السائق',
   expense: 'مصروف', expense_category: 'فئة مصروفات', financial_export: 'تصدير مالي', fiscal_document: 'مستند ضريبي',
   floor_layout: 'مخطط الصالة', integration_conflict: 'تعارض مزامنة', integration_connection: 'تكامل',

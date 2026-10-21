@@ -21,6 +21,8 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/floor', label: 'nav.floor', glyph: 'floor', module: 'core', permission: 'floor:read' },
     { href: '/reservations', label: 'nav.reservations', glyph: 'reservations', module: 'core', permission: 'reservations:read' },
     { href: '/menu', label: 'nav.menu', glyph: 'menu', module: 'core', permission: 'menu:read' },
+    // Studio AI menu import (ws9): text/CSV parser, photos/PDFs with the restaurant's own model key.
+    { href: '/menu-import', label: 'nav.menuImport', glyph: 'menu', module: 'core', permission: 'menu:write' },
     { href: '/inventory', label: 'nav.inventory', glyph: 'inventory', module: 'core', permission: 'inventory:read' },
     { href: '/delivery', label: 'nav.delivery', glyph: 'delivery', module: 'driver', permission: 'delivery:dispatch' },
   ] },

@@ -1,0 +1,42 @@
+/* Menu import review (Studio AI, ws9). Builds on globals.css tokens; legacy owner-import review layout. */
+.mi-layout{display:grid;grid-template-columns:minmax(300px,400px) minmax(0,1fr);gap:20px;align-items:start}
+.mi-layout>*{min-width:0}
+/* With an import open, the review table takes the full width and the sources move below it. */
+.mi-layout[data-open=true]{grid-template-columns:1fr}
+.mi-layout[data-open=true] .mi-review{order:-1}
+@media(max-width:1100px){.mi-layout{grid-template-columns:1fr}}
+.mi-h2{margin:0 0 6px;font-size:17px}
+.mi-jobs{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.mi-job{display:grid;gap:4px;width:100%;text-align:start;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--card);cursor:pointer;font:inherit;color:inherit}
+.mi-jobs li[aria-current=true] .mi-job{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
+.mi-job-name{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mi-job-meta{gap:6px;flex-wrap:wrap}
+.mi-panel{display:grid;gap:12px}
+.mi-toolbar{gap:6px;flex-wrap:wrap;align-items:center}
+.mi-notes ul{margin:6px 0 0;padding-inline-start:18px}
+.mi-table-wrap{max-width:100%;overflow-x:auto}
+.mi-table{min-width:960px}
+.mi-table td{vertical-align:top}
+.mi-table tr.mi-main td{border-bottom:0;padding-bottom:4px}
+.mi-table tr.mi-sub td{padding-top:0}
+.mi-table th:nth-child(1){width:130px}.mi-table th:nth-child(2){min-width:200px}.mi-table th:nth-child(3){min-width:170px}
+.mi-table th:nth-child(4){min-width:140px}.mi-table th:nth-child(5){width:120px}.mi-table th:nth-child(6){width:90px}.mi-table th:nth-child(7){min-width:200px}
+.mi-table tr[data-problem=error]{background:var(--danger-bg)}
+.mi-table tr[data-problem=low]{background:var(--warn-bg)}
+.mi-table tr[data-state=rejected]{opacity:.55}
+.mi-input{width:100%;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--card);color:inherit}
+.mi-input[aria-invalid=true],.mi-invalid{border-color:var(--danger)}
+.mi-num{max-width:110px;text-align:end;font-variant-numeric:tabular-nums}
+.mi-rowno{font-size:12px;color:var(--muted);margin-bottom:4px;white-space:nowrap}
+.mi-checks{min-width:180px;font-size:13px}
+.mi-details{margin-top:6px;font-size:13px}
+.mi-details summary{cursor:pointer;color:var(--muted)}
+.mi-details .field{margin-top:6px}
+.mi-group{border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;margin:8px 0;display:grid;gap:6px}
+.mi-group legend{font-weight:650;padding:0 4px}
+.mi-details .field{max-width:640px}
+.mi-group{max-width:760px}
+.mi-group-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.mi-option{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 120px auto;gap:8px;align-items:center}
+.mi-group-head label{white-space:nowrap}
+@media(max-width:640px){.mi-group-head,.mi-option{grid-template-columns:1fr 1fr}}
