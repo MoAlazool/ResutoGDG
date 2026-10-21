@@ -155,17 +155,17 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | PS-10 | P1 | Outbox claim has no lease: concurrent worker loops re-claim in-flight events (duplicate handler side effects) | ws1-security | done (wave 1, 5274252) |
 | PS-11 | P1 | OAuth state not bound to the initiating browser/user (account-linking CSRF on ads integrations) | ws7a-meta | done (wave 2, 85c176e) |
 | PS-12 | P1 | Demo loader writes auth.users/auth.identities directly (and re-passwords on every staging boot); use the Supabase Admin Auth API | lead | done (lead 63ce9e6) |
-| PS-13 | P1 | Rate limits are in-memory, keyed on a spoofable req.ip (trust proxy 1), with no Retry-After header | ws1-security | partial (wave 1; remainder in follow-ups) |
+| PS-13 | P1 | Rate limits are in-memory, keyed on a spoofable req.ip (trust proxy 1), with no Retry-After header | ws1-security | done (wave 5, 23f0a99) |
 | PS-14 | P1 | Ad campaign launch calls the provider before locking or moving state; send/launch accept no Idempotency-Key | ws7a-meta | done (wave 2, 85c176e) |
 | PS-15 | P1 | Request IDs are not validated or propagated (no access log; nothing passed to worker, providers, AI or MCP) | ws1-security | done (wave 1, 5274252) |
-| PS-16 | P1 | API connects as the table owner / BYPASSRLS role: 66 platform-mode call sites run with no RLS; migrations use the same credentials | ws10-data-quality | planned |
+| PS-16 | P1 | API connects as the table owner / BYPASSRLS role: 66 platform-mode call sites run with no RLS; migrations use the same credentials | ws10-data-quality | partial (wave 5; remainder in follow-ups) |
 | PS-17 | P1 | Security headers: web has no CSP or frame-ancestors (token in localStorage); API has no HSTS and no no-store on authenticated JSON | ws1-security | done (wave 1, 5274252) |
 | PS-18 | P1 | Signed media URLs are created one HTTP call per image, inside open DB transactions (public menu latency and pool exhaustion) | ws6-perf | done (wave 2, 85c176e) |
-| PS-19 | P2 | No OpenAPI document; almost no typed responses | ws10-data-quality | planned |
-| PS-20 | P2 | Error contract inconsistencies (http_error codes, 400 vs 422, missing requestId, constraint names leaked, no code registry) | ws10-data-quality | planned |
-| PS-21 | P2 | Runtime validation gaps: negative limit causes a 500; hand-parsed query params; unvalidated body; raw snake_case audit rows | ws10-data-quality | planned |
-| PS-22 | P2 | Pagination is fake, unbounded or inconsistent (29 hard-coded nextCursor:null, branch filter after LIMIT, 4 cursor formats) | ws10-data-quality | planned |
-| PS-23 | P2 | HTTP semantics and naming: 46 non-creating action POSTs answer 201; mixed resource naming | ws10-data-quality | planned |
+| PS-19 | P2 | No OpenAPI document; almost no typed responses | ws10-data-quality | partial (wave 5; remainder in follow-ups) |
+| PS-20 | P2 | Error contract inconsistencies (http_error codes, 400 vs 422, missing requestId, constraint names leaked, no code registry) | ws10-data-quality | done (wave 5, 23f0a99) |
+| PS-21 | P2 | Runtime validation gaps: negative limit causes a 500; hand-parsed query params; unvalidated body; raw snake_case audit rows | ws10-data-quality | done (wave 5, 23f0a99) |
+| PS-22 | P2 | Pagination is fake, unbounded or inconsistent (29 hard-coded nextCursor:null, branch filter after LIMIT, 4 cursor formats) | ws10-data-quality | done (wave 5, 23f0a99) |
+| PS-23 | P2 | HTTP semantics and naming: 46 non-creating action POSTs answer 201; mixed resource naming | ws10-data-quality | done (wave 5, 23f0a99) |
 | PS-24 | P2 | Idempotency, inbox and outbox retention; rejected webhooks stored in full; refund key race returns 409 instead of a replay | ws2-payments | partial (wave 1; remainder in follow-ups) |
 | PS-25 | P2 | Auth details: HS256 accepted next to JWKS, is_anonymous not rejected, weak invite email binding, key reuse for media and guest tokens | ws1-security | partial (wave 1; remainder in follow-ups) |
 | PS-26 | P2 | Scheduled jobs hold session advisory locks on pooled connections (session-pooler lock-in, stuck locks) | ws1-security | done (wave 1, 5274252) |
@@ -232,4 +232,8 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | CR-13 | P2 | Legacy data migration tool unaudited: drops all legacy media and maps the venue QR to a mode 2.0 does not have | ws10-data-quality | done (wave 4, a0dfda0) |
 | CR-14 | P2 | No observability for staging QA: no error tracking, structured access log, uptime or queue-lag alerting | ws10-data-quality | done (wave 4, a0dfda0) |
 | CR-15 | P2 | Status docs and code comments instruct unsafe or incorrect configuration (beyond PAY-22 and INT-16) | ws10-data-quality | done (wave 4, a0dfda0) |
+| AUTH-01 | P1 | Leaked-password protection unavailable on Supabase Free: compensating breached/common password check | ws11-auth | done (wave 5, 7400bb6) |
+| AUTH-02 | P1 | TOTP MFA with aal2 step-up for enrolled staff on sensitive routes | ws11-auth | done (wave 5, 7400bb6) |
+| AUTH-03 | P1 | Email-dependent auth flows complete without SMTP, honestly labelled | ws11-auth | partial (wave 5; real email unverified until SMTP) |
+| AUTH-04 | P2 | Redirect URLs, Free-plan limits and auth posture documented | ws11-auth | done (wave 5, 7400bb6) |
 | CR-16 | P2 | The performance baseline harness exists only in the scratchpad, so before/after measurements cannot be reproduced from the repo | ws6-perf | done (wave 2, 85c176e) |
