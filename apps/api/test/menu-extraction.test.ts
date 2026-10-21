@@ -108,6 +108,54 @@ describe('menu extraction from text and CSV (no model)', () => {
     expect(await sql(`select 1 from audit_logs where org_id = $1 and action = 'menu.imported' and metadata->>'source' = 'text'`, [tenant.orgId])).toHaveLength(1);
   });
 
+  it('runs one commit at a time: concurrent commits never duplicate sizes/add-ons, and a crashed commit is resumed', async () => {
+    const text = 'Drinks\nFresh juice  Small 25 / Large 35\nTea Small 10 / Large 15\nCoffee Small 20 / Large 30';
+    const job = (await t.http.post(api(tenant, '/menu-import/jobs/text')).set(auth(tenant.owner)).send({ kind: 'text', text })).body;
+    expect(job.rows.map((r: any) => r.modifiers.length)).toEqual([1, 1, 1]);
+    const rows = job.rows.map((r: any) => ({ ...r, status: 'approved' }));
+    const v = (await t.http.patch(api(tenant, `/menu-import/jobs/${job.id}`)).set(auth(tenant.owner)).send({ version: job.version, rows })).body.version;
+    const results = await Promise.all([0, 1, 2, 3].map(() =>
+      t.http.post(api(tenant, `/menu-import/jobs/${job.id}/commit`)).set(auth(tenant.owner)).send({ version: v, key: 'commit-race-0001' })));
+    // One commit did the work; the others were told it is in progress (or replayed the finished result).
+    for (const r of results) {
+      expect([201, 409]).toContain(r.status);
+      if (r.status === 409) expect(r.body.error.code).toBe('extraction_commit_in_progress');
+      else expect(r.body.status).toBe('committed');
+    }
+    expect(results.some((r) => r.status === 201)).toBe(true);
+    expect(await sql('select 1 from products where org_id = $1', [tenant.orgId])).toHaveLength(3);
+    expect(await sql('select 1 from modifier_groups where org_id = $1', [tenant.orgId])).toHaveLength(3);
+    expect(await sql('select 1 from product_modifier_groups pg join products p on p.id = pg.product_id where p.org_id = $1', [tenant.orgId])).toHaveLength(3);
+    expect(await sql(`select 1 from audit_logs where org_id = $1 and action = 'menu_extraction.committed'`, [tenant.orgId])).toHaveLength(1);
+    const final = (await t.http.get(api(tenant, `/menu-import/jobs/${job.id}`)).set(auth(tenant.owner))).body;
+    expect(final).toMatchObject({ status: 'committed', commitResult: { created: 3, modifierGroupsCreated: 3 } });
+
+    // A commit that died mid-way (status committing, live lease) blocks others until its lease expires; then a
+    // new commit takes over and resumes from the recorded progress instead of creating the finished rows' groups again.
+    const job2 = (await t.http.post(api(tenant, '/menu-import/jobs/text')).set(auth(tenant.owner))
+      .send({ kind: 'text', text: 'Hot\nSahlab Small 20 / Large 30\nHibiscus Small 15 / Large 25' })).body;
+    const v2 = (await t.http.patch(api(tenant, `/menu-import/jobs/${job2.id}`)).set(auth(tenant.owner))
+      .send({ version: job2.version, rows: job2.rows.map((r: any) => ({ ...r, status: 'approved' })) })).body.version;
+    // Simulate the crash after the import and the first row's sizes: the import replays by key, the first row is skipped.
+    expect((await t.http.post(api(tenant, `/menu-import/jobs/${job2.id}/commit`)).set(auth(tenant.owner)).send({ version: v2, key: 'commit-crash-0001' })).status).toBe(201);
+    const groupsAfterFirst = (await sql<any>('select count(*)::int as n from modifier_groups where org_id = $1', [tenant.orgId]))[0].n;
+    await sql(`update menu_extraction_jobs set status = 'committing', lease = gen_random_uuid(), leased_until = now() + interval '1 minute',
+      commit_result = commit_result || jsonb_build_object('modifiersDone', jsonb_build_array($2::text), 'modifierGroupsCreated', 1) where id = $1`, [job2.id, job2.rows[0].id]);
+    // Undo the second row's groups so the resumed commit has real work left.
+    const second = await sql<any>(`select p.id from products p where p.org_id = $1 and p.name = $2`, [tenant.orgId, job2.rows[1].name]);
+    await sql(`delete from modifier_groups where id in (select group_id from product_modifier_groups where product_id = $1)`, [second[0].id]);
+    const blocked = await t.http.post(api(tenant, `/menu-import/jobs/${job2.id}/commit`)).set(auth(tenant.owner)).send({ version: v2, key: 'commit-crash-0002' });
+    expect(blocked.status).toBe(409);
+    expect(blocked.body.error.code).toBe('extraction_commit_in_progress');
+    await sql(`update menu_extraction_jobs set leased_until = now() - interval '1 second' where id = $1`, [job2.id]);
+    const resumed = await t.http.post(api(tenant, `/menu-import/jobs/${job2.id}/commit`)).set(auth(tenant.owner)).send({ version: v2, key: 'commit-crash-0002' });
+    expect(resumed.status).toBe(201);
+    expect(resumed.body.status).toBe('committed');
+    // Only the second row's group was recreated; the first row (recorded as done) was not touched again.
+    expect((await sql<any>('select count(*)::int as n from modifier_groups where org_id = $1', [tenant.orgId]))[0].n).toBe(groupsAfterFirst);
+    expect(await sql(`select lease from menu_extraction_jobs where id = $1 and lease is null`, [job2.id])).toHaveLength(1);
+  });
+
   it('refuses to commit invalid approved rows and names the problem per row', async () => {
     await t.http.post(api(tenant, '/menu/categories')).set(auth(tenant.owner)).send({ name: 'Starters' });
     const first = await t.http.post(api(tenant, '/menu-import/jobs/text')).set(auth(tenant.owner)).send({ kind: 'text', text: 'Starters\nHummus 85' });

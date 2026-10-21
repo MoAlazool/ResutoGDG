@@ -20,6 +20,8 @@ import { extractMenuWithGemini } from './menu-vision';
 
 const MAX_ATTEMPTS = 3;
 const LEASE_MINUTES = 4;
+/** A commit holds the job for this long without progress; a commit that crashed is taken over after it. */
+const COMMIT_LEASE_MINUTES = 2;
 const FILE_TYPES = { 'image/png': 'image', 'image/jpeg': 'image', 'image/webp': 'image', 'application/pdf': 'pdf' } as const;
 type FileMime = keyof typeof FILE_TYPES;
 
@@ -161,24 +163,48 @@ export class MenuExtractionService {
   // Commit (approved rows only, through the menu module)
   // ---------------------------------------------------------------------------
 
+  /**
+   * Exactly one commit runs at a time per job: the commit claims the job row (under its row lock) with a short commit
+   * lease, and every later step (modifier progress, the final 'committed' update) is fenced on that lease. A second
+   * commit that arrives while the lease is live gets 409 extraction_commit_in_progress; one that arrives after a
+   * crashed commit's lease has expired takes over and resumes from the recorded progress (read under the lock).
+   */
   async commit(ctx: TenantContext, id: string, input: CommitExtraction): Promise<MenuExtractionJob> {
+    const lease = randomUUID();
     const staged = await this.db.scoped(ctx, async (tx) => {
       const job = await this.load(tx, ctx.orgId, id, true);
       if (job.status === 'committed') return { job, approved: [] as ExtractionRow[], done: true };
       if (job.status !== 'review' && job.status !== 'committing') throw conflict('extraction_not_in_review', `This import is ${job.status}`, { status: job.status });
+      const live = job.status === 'committing' && job.lease
+        && (await tx.one<{ live: boolean }>(`select coalesce($1::timestamptz > now(), false) as live`, [job.leased_until])).live;
+      if (live) {
+        throw conflict('extraction_commit_in_progress', 'This import is already being added to the menu. Reload in a moment to see the result.', { status: job.status });
+      }
       if (job.version !== input.version) throw conflict('extraction_stale', 'This draft changed since you reviewed it. Reload and check it again.', { version: job.version });
       const approved = (job.rows as ExtractionRow[]).filter((r) => r.status === 'approved');
       if (!approved.length) throw invalid('nothing_approved', 'Approve at least one item before adding it to the menu');
-      const checks = await this.check(tx, ctx.orgId, approved);
-      const failing = checks.filter((c) => c.errors.length);
-      if (failing.length) throw new DomainError('import_has_errors', 'Correct the highlighted rows (or reject them) before adding them to the menu.', 422, { checks: failing });
-      if (job.status === 'review') {
-        await tx.query(`update menu_extraction_jobs set status = 'committing', error = null, commit_result = coalesce(commit_result, '{}'::jsonb) || $2::jsonb, updated_at = now() where id = $1`,
-          [id, JSON.stringify({ requestKey: input.key })]);
+      // Once the import has run (recorded below), resuming must not re-check: the rows are on the menu now, and the
+      // import replays by its key. Before that, the rows are checked against the live menu as on a first commit.
+      const importDone = job.status === 'committing' && (job.commit_result ?? {}).importDone === true;
+      if (!importDone) {
+        const checks = await this.check(tx, ctx.orgId, approved);
+        const failing = checks.filter((c) => c.errors.length);
+        if (failing.length) throw new DomainError('import_has_errors', 'Correct the highlighted rows (or reject them) before adding them to the menu.', 422, { checks: failing });
       }
-      return { job, approved, done: false };
+      // The claim: progress (commit_result) is the value read under the row lock, so a takeover resumes where the last commit stopped.
+      const claimed = await tx.one<any>(
+        `update menu_extraction_jobs set status = 'committing', error = null, lease = $2, leased_until = now() + make_interval(mins => $3),
+                commit_result = coalesce(commit_result, '{}'::jsonb) || $4::jsonb, updated_at = now()
+          where id = $1 returning *`,
+        [id, lease, COMMIT_LEASE_MINUTES, JSON.stringify(job.status === 'review' ? { requestKey: input.key } : {})]);
+      return { job: claimed, approved, done: false };
     });
     if (staged.done) return this.get(ctx, id);
+
+    /** Runs an update only while this commit still holds the lease (renewing it); false when another commit took over. */
+    const fenced = (sqlText: string, params: unknown[]) => this.db.scoped(ctx, async (tx) => !!(await tx.maybeOne<{ id: string }>(
+      `update menu_extraction_jobs set ${sqlText}, updated_at = now() where id = $1 and lease = $2 and status = 'committing' returning id`, [id, lease, ...params])));
+    const lost = () => conflict('extraction_commit_in_progress', 'Another request took over adding this import to the menu. Reload to see the result.', {});
 
     const source = staged.job.provider === 'gemini_byok' ? 'ai' : staged.job.source_kind === 'csv' ? 'csv' : 'text';
     let imported: { created: number; updated: number; categoriesCreated: string[] };
@@ -187,17 +213,19 @@ export class MenuExtractionService {
       imported = await this.menu.importCommit(ctx, { rows: staged.approved.map(toImportRow), source, key: `menu-extraction:${id}:v${staged.job.version}` });
     } catch (e) {
       const message = e instanceof DomainError ? e.message : 'The menu could not be updated';
-      await this.db.scoped(ctx, (tx) => tx.query(`update menu_extraction_jobs set status = 'review', error = $2, updated_at = now() where id = $1 and status = 'committing'`,
-        [id, message.slice(0, 1000)]));
+      await fenced(`status = 'review', lease = null, leased_until = null, error = $3`, [message.slice(0, 1000)]);
       throw e;
     }
+    if (!(await fenced(`commit_result = coalesce(commit_result, '{}'::jsonb) || $3::jsonb`, [JSON.stringify({ ...imported, importDone: true })]))) throw lost();
 
-    // Sizes and add-ons: created through the menu module, one row at a time; progress is recorded so a retry resumes.
+    // Sizes and add-ons: created through the menu module, one row at a time; progress is recorded (fenced on the lease)
+    // so a retry resumes and a concurrent commit can never create a row's groups a second time.
     const done = new Set<string>(((staged.job.commit_result ?? {}).modifiersDone as string[] | undefined) ?? []);
     let groupsCreated = Number((staged.job.commit_result ?? {}).modifierGroupsCreated ?? 0);
     try {
       for (const r of staged.approved) {
         if (!r.modifiers.length || done.has(r.id)) continue;
+        if (!(await fenced(`leased_until = now() + make_interval(mins => $3)`, [COMMIT_LEASE_MINUTES]))) throw lost();
         const product = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ id: string }>(
           `select id from products where org_id = $1 and is_active and lower(trim(name)) = lower(trim($2)) order by created_at desc limit 1`, [ctx.orgId, r.name]));
         if (!product) throw new DomainError('extraction_product_missing', `"${r.name.slice(0, 60)}" was not found after the import`, 500);
@@ -212,22 +240,24 @@ export class MenuExtractionService {
         }
         await this.menu.assignGroups(ctx, product.id, groupIds);
         done.add(r.id);
-        await this.db.scoped(ctx, (tx) => tx.query(
-          `update menu_extraction_jobs set commit_result = coalesce(commit_result, '{}'::jsonb) || $2::jsonb, updated_at = now() where id = $1`,
-          [id, JSON.stringify({ modifiersDone: [...done], modifierGroupsCreated: groupsCreated })]));
+        if (!(await fenced(`commit_result = coalesce(commit_result, '{}'::jsonb) || $3::jsonb`, [JSON.stringify({ modifiersDone: [...done], modifierGroupsCreated: groupsCreated })]))) {
+          throw lost();
+        }
       }
     } catch (e) {
       const message = e instanceof DomainError ? e.message : 'Sizes and add-ons could not be added';
-      await this.db.scoped(ctx, (tx) => tx.query(`update menu_extraction_jobs set error = $2, updated_at = now() where id = $1`, [id, `Items were added; ${message}. Commit again to finish.`.slice(0, 1000)]));
+      // Releases the lease so "Commit again" can resume at once (only if this commit still holds it).
+      await fenced(`lease = null, leased_until = null, error = $3`, [`Items were added; ${message}. Commit again to finish.`.slice(0, 1000)]);
       throw e;
     }
 
     return this.db.scoped(ctx, async (tx) => {
-      const row = await tx.one<any>(
-        `update menu_extraction_jobs set status = 'committed', error = null, committed_by = $2, committed_at = now(), updated_at = now(),
-                commit_result = coalesce(commit_result, '{}'::jsonb) || $3::jsonb
-          where id = $1 returning *`,
-        [id, ctx.userId, JSON.stringify({ ...imported, modifierGroupsCreated: groupsCreated, modifiersDone: [...done] })]);
+      const row = await tx.maybeOne<any>(
+        `update menu_extraction_jobs set status = 'committed', error = null, lease = null, leased_until = null, committed_by = $3, committed_at = now(), updated_at = now(),
+                commit_result = coalesce(commit_result, '{}'::jsonb) || $4::jsonb
+          where id = $1 and lease = $2 and status = 'committing' returning *`,
+        [id, lease, ctx.userId, JSON.stringify({ ...imported, modifierGroupsCreated: groupsCreated, modifiersDone: [...done] })]);
+      if (!row) throw lost();
       await this.audit.record(tx, ctx, { action: 'menu_extraction.committed', entityType: 'menu_extraction_job', entityId: id,
         metadata: { source, created: imported.created, updated: imported.updated, modifierGroupsCreated: groupsCreated } });
       return this.view(tx, ctx.orgId, row);
