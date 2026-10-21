@@ -2,6 +2,9 @@
 import { useId } from 'react';
 import { project, type GeoPoint } from '@/lib/map-projection';
 
+/** Pin colours, exported for legends. */
+export const PIN_COLOR = { restaurant: 'var(--herb)', destination: 'var(--gold)', driver: 'var(--ink)', job: 'var(--danger)' } as const;
+
 export interface MapPin extends GeoPoint {
   id: string;
   label: string;
@@ -10,24 +13,23 @@ export interface MapPin extends GeoPoint {
   muted?: boolean;
 }
 
-const FILL: Record<MapPin['kind'], string> = {
-  restaurant: 'var(--herb)', destination: 'var(--gold)', driver: 'var(--ink)', job: 'var(--danger)',
-};
+const FILL: Record<MapPin['kind'], string> = PIN_COLOR;
 
 /**
  * FT-14: a tile-free schematic map (inline SVG): pins placed by projected coordinates on a soft grid, with optional
  * dashed lines (e.g. restaurant → driver → destination). No third-party tiles, so nothing is fetched, no key is
  * needed and the CSP is unchanged. Colours come from the theme tokens (CSS custom properties) via `style`.
  */
-export function SchematicMap({ pins, lines = [], label, height = 220 }: {
+export function SchematicMap({ pins, lines = [], label, height = 220, width = 360 }: {
   pins: MapPin[]; lines?: Array<[string, string]>; label: string; height?: number;
+  /** viewBox width; the map never renders wider than this many CSS pixels, so labels keep their size. */
+  width?: number;
 }) {
-  const width = 360;
   const grid = `grid-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const pts = project(pins, { width, height, pad: 28 });
   const at = new Map(pins.map((p, i) => [p.id, pts[i]!]));
   return (
-    <figure style={{ margin: 0 }}>
+    <figure style={{ margin: 0, maxWidth: width }}>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label}
         style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, background: 'color-mix(in srgb, var(--ink) 4%, var(--card))', border: '1px solid var(--line)' }}>
         <defs>

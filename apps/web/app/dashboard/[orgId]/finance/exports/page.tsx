@@ -44,7 +44,8 @@ function Exports() {
   const push = useAction(async () => { await call(`/o/${org.id}/finance/accounting/push`, { body: { connectionId: connectionId.trim(), ...range, key: newIdempotencyKey() } }); await pushes.reload(); });
 
   return (
-    <div className="grid grid-2" style={{ alignItems: 'start' }}>
+    <>
+      <div className="grid grid-2" style={{ alignItems: 'start' }}>
       <Card title={t('finance.export.title')}>
         <p className="fine">{t('finance.export.body')}</p>
         <div className="form-row" style={{ alignItems: 'end' }}>
@@ -104,9 +105,13 @@ function Exports() {
           </>
         )}
       </Card>
-      <AccountMapping />
-      <Payouts />
-    </div>
+      </div>
+      {/* FT-23: mapping and payouts get a row of their own so their forms and tables have room. */}
+      <div className="grid" style={{ alignItems: 'start', marginTop: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))' }}>
+        <AccountMapping />
+        <Payouts />
+      </div>
+    </>
   );
 }
 
