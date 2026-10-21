@@ -144,6 +144,7 @@ const en: Record<string, string> = {
   'ops.setup.launch.dashboard': 'Open dashboard', 'ops.setup.launch.go': 'Launch the restaurant', 'ops.setup.launch.live': 'Launched. Your restaurant is open for orders.',
   'ops.setup.launch.missing': 'Before launch: {list}.', 'ops.setup.link': 'Open guided setup',
   'ops.setup.checklistSub': 'Each step is checked against your restaurant’s data; nothing is ticked by hand.',
+  'ops.orders.list': 'List', 'ops.orders.board': 'Order board', 'ops.orders.details': 'Details',
 };
 
 const ar: Record<string, string> = {
@@ -275,6 +276,7 @@ const ar: Record<string, string> = {
   'ops.setup.launch.dashboard': 'فتح لوحة التحكم', 'ops.setup.launch.go': 'إطلاق المطعم', 'ops.setup.launch.live': 'تم الإطلاق. مطعمك يستقبل الطلبات.',
   'ops.setup.launch.missing': 'قبل الإطلاق: {list}.', 'ops.setup.link': 'فتح الإعداد الموجّه',
   'ops.setup.checklistSub': 'كل خطوة يتم التحقق منها مقابل بيانات مطعمك؛ لا شيء يُعلَّم يدويًا.',
+  'ops.orders.list': 'القائمة', 'ops.orders.board': 'لوحة الطلبات', 'ops.orders.details': 'التفاصيل',
 };
 
 export const ops = { en, ar };

@@ -33,6 +33,8 @@ export interface KitchenBoardProps {
   can86?: boolean;
   /** Where "record the payment" sends staff (the orders page), when the role can open it. */
   ordersHref?: string | null;
+  /** Orders board (VS-14): open the order's details from a card. */
+  onOpen?: (orderId: string) => void;
 }
 
 /**
@@ -42,7 +44,7 @@ export interface KitchenBoardProps {
  * "Sold out" drawer for the 86. Polls every 2 s with a cursor; a poll never overlaps the previous one, never applies a
  * response for another branch or station (PCL-19), and holds still while a card is being dragged (VS-20).
  */
-export function KitchenBoard({ orgId, branchId, station, onStations, timezone, currency = 'EGP', canCancel, canResolve, can86, ordersHref }: KitchenBoardProps) {
+export function KitchenBoard({ orgId, branchId, station, onStations, timezone, currency = 'EGP', canCancel, canResolve, can86, ordersHref, onOpen }: KitchenBoardProps) {
   const { t, locale } = useT();
   const { call } = useSession();
   const [feed, setFeed] = useState<KitchenFeed | null>(null);
@@ -179,7 +181,8 @@ export function KitchenBoard({ orgId, branchId, station, onStations, timezone, c
           <p className="ticket-note">{t('ops.kds.cashDue', { amount: money(tk.dueMinor, currency, locale) })}{ordersHref ? <> · <Link href={ordersHref}>{t('ops.kds.openOrders')}</Link></> : null}</p>
         )}
         {lane === 'done' ? (
-          <div className="ticket-meta"><Badge tone="ok">{t(`core.status.${tk.status}`)}</Badge></div>
+          <div className="ticket-meta"><Badge tone="ok">{t(`core.status.${tk.status}`)}</Badge>
+            {onOpen && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpen(tk.id)}>{t('ops.orders.details')}</button>}</div>
         ) : (
           <div className="ticket-actions">
             {lane === 'new' && tk.status === 'placed' && <button className="btn btn-sm" disabled={off} onClick={() => void advance(tk, ['accepted'])}>{t('core.kds.accept')}</button>}
@@ -192,6 +195,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations, timezone, c
             {canCancel && (tk.status === 'placed' || tk.status === 'accepted') && (
               <button className="btn btn-ghost btn-sm" disabled={off} onClick={() => void cancel(tk)}>{t('core.orders.cancel')}</button>
             )}
+            {onOpen && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onOpen(tk.id)}>{t('ops.orders.details')}</button>}
           </div>
         )}
       </article>
