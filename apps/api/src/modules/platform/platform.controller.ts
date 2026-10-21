@@ -102,6 +102,7 @@ export class PlatformController {
   }
 
   @Delete('o/:orgId/members/:membershipId')
+  @RequireMfa()   // AUTH-02: removing a member is a role change (it ends their access)
   @RequirePermission('members:manage')
   removeMember(@Tenant() ctx: TenantContext, @Param('membershipId', ParseUUIDPipe) id: string) {
     return this.orgs.removeMember(ctx, id);

@@ -68,7 +68,7 @@ describe('users with a verified factor need aal2 on sensitive routes', () => {
     expect((await t.http.post(`/v1/o/${b.orgId}/invitations`).set(auth(bAal2)).send(inviteBody())).status).toBe(201);
   });
 
-  it('covers MCP keys, MCP OAuth grants, integration credentials and role changes (checked before the body is validated)', async () => {
+  it('covers MCP keys, MCP OAuth grants, integration, WhatsApp and ZATCA credentials, role changes and member removal (checked before the body is validated)', async () => {
     const fake = '00000000-0000-4000-8000-000000000001';
     const routes: Array<[string, string]> = [
       ['post', `/v1/o/${b.orgId}/mcp/clients`],
@@ -80,6 +80,12 @@ describe('users with a verified factor need aal2 on sensitive routes', () => {
       ['post', `/v1/o/${b.orgId}/integrations/oauth/meta/complete`],
       ['post', `/v1/o/${b.orgId}/integrations/connections/${fake}/account`],
       ['patch', `/v1/o/${b.orgId}/members/${fake}`],
+      // Review finding: these also write sealed credentials or end a member's access.
+      ['delete', `/v1/o/${b.orgId}/members/${fake}`],
+      ['post', `/v1/o/${b.orgId}/connect/whatsapp/embedded-signup`],
+      ['post', `/v1/o/${b.orgId}/compliance/zatca/egs`],
+      ['post', `/v1/o/${b.orgId}/compliance/zatca/egs/${fake}/compliance-csid`],
+      ['post', `/v1/o/${b.orgId}/compliance/zatca/egs/${fake}/production-csid`],
     ];
     for (const [verb, path] of routes) {
       const weak = await (t.http as any)[verb](path).set(auth(b.owner)).send({});
