@@ -94,7 +94,7 @@ export class McpController {
   @Post('approvals/:approvalId/approve')
   @RequirePermission('mcp:approve')
   approve(@Tenant() ctx: TenantContext, @Param('approvalId', ParseUUIDPipe) id: string, @Body(zod(mcpDecision)) body: z.infer<typeof mcpDecision>) {
-    return this.exec.approve(ctx, id, body.note);
+    return this.exec.approve(ctx, id, body.note, body.previewDigest);
   }
 
   @Post('approvals/:approvalId/reject')

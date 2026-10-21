@@ -29,6 +29,8 @@ export const MCP_TOOL_NAMES = [
   'create_payment_link',
   'update_product_availability',
   'get_approval_status',
+  // FT-17: menu, finance, payments (read-only, masked), delivery status and a bounded schema-based query (no SQL).
+  'list_menu', 'get_finance_summary', 'list_payments', 'list_delivery_jobs', 'query_data',
 ] as const;
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
 export const mcpToolName = z.enum(MCP_TOOL_NAMES);
@@ -67,6 +69,11 @@ export const MCP_TOOLS: Record<McpToolName, McpToolMeta> = {
   create_payment_link: { title: 'Create payment link', titleAr: 'إنشاء رابط دفع', permission: 'payments:collect', module: 'pay', sensitive: true, readOnly: false, ratePerMin: 10 },
   update_product_availability: { title: 'Update product availability', titleAr: 'تحديث توفر منتج', permission: 'menu:availability', module: 'core', sensitive: true, readOnly: false, ratePerMin: 10 },
   get_approval_status: { title: 'Get approval status', titleAr: 'حالة طلب الموافقة', permission: null, module: 'core', sensitive: false, readOnly: true, ratePerMin: 60 },
+  list_menu: { title: 'List menu items', titleAr: 'عرض أصناف القائمة', permission: 'menu:read', module: 'core', sensitive: false, readOnly: true, ratePerMin: 60 },
+  get_finance_summary: { title: 'Finance summary (P&L)', titleAr: 'الملخص المالي (الأرباح والخسائر)', permission: 'finance:read', module: 'finance', sensitive: false, readOnly: true, ratePerMin: 30 },
+  list_payments: { title: 'List payments (read-only)', titleAr: 'عرض المدفوعات (قراءة فقط)', permission: 'payments:read', module: 'pay', sensitive: false, readOnly: true, ratePerMin: 30 },
+  list_delivery_jobs: { title: 'Delivery status', titleAr: 'حالة التوصيل', permission: 'delivery:dispatch', module: 'driver', sensitive: false, readOnly: true, ratePerMin: 60 },
+  query_data: { title: 'Query restaurant data (bounded)', titleAr: 'استعلام بيانات المطعم (محدود)', permission: 'analytics:read', module: 'core', sensitive: false, readOnly: true, ratePerMin: 30 },
 };
 
 /** Roles an MCP client may act as. The owner role is never assignable. */
@@ -110,6 +117,9 @@ export interface McpClientSummary {
   lastUsedAt: string | null;
   createdAt: string;
   revokedAt: string | null;
+  /** 'key': an rmcp_ connection key; 'oauth': created by an admin's OAuth consent for an MCP client (FT-17). */
+  authKind: 'key' | 'oauth';
+  oauthClientId: string | null;
 }
 
 /** Returned once, on creation. The plaintext key is never retrievable again. */
@@ -117,10 +127,14 @@ export interface McpClientCreated extends McpClientSummary {
   key: string;
 }
 
-export const mcpDecision = z.object({ note: optionalText(500) });
+export const mcpDecision = z.object({
+  note: optionalText(500),
+  /** The preview digest the approver was shown (GET approval `digest`). A different current digest is refused (409). */
+  previewDigest: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+});
 
 export const mcpApprovalsQuery = z.object({
-  status: z.enum(['pending', 'executed', 'rejected', 'expired', 'failed', 'all']).default('pending'),
+  status: z.enum(['pending', 'executed', 'rejected', 'expired', 'failed', 'invalidated', 'all']).default('pending'),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
@@ -133,10 +147,11 @@ export const mcpCallsQuery = z.object({
 });
 
 export type McpCallOutcome = 'ok' | 'denied' | 'invalid_input' | 'rate_limited' | 'approval_required' | 'error';
-export type McpApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'executed' | 'failed';
+export type McpApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'executed' | 'failed' | 'invalidated';
 
 // ---------------------------------------------------------------------------
-// Tool inputs. Converted to JSON Schema for MCP `tools/list` by the API.
+// Bounded query (query_data): a fixed schema of datasets, measures, groupings and filters compiled by the API into
+// parameterised SQL from whitelisted fragments. There is no SQL text, column name or expression in the input.
 // ---------------------------------------------------------------------------
 const limit = (max: number, def: number) => z.number().int().min(1).max(max).default(def)
   .describe(`Maximum number of results (1–${max}, default ${def})`);
@@ -146,6 +161,42 @@ const period = {
   from: isoDate.describe('First day of the period (YYYY-MM-DD, restaurant local time)'),
   to: isoDate.describe('Last day of the period, inclusive (YYYY-MM-DD, restaurant local time)'),
 };
+
+export const PAYMENT_ATTEMPT_STATUSES = ['pending', 'requires_action', 'authorized', 'succeeded', 'failed', 'cancelled', 'expired', 'refunded', 'partially_refunded'] as const;
+export const DELIVERY_JOB_STATUSES = ['unassigned', 'offered', 'assigned', 'accepted', 'picked_up', 'en_route', 'delivered', 'failed', 'cancelled'] as const;
+export const QUERY_DATASETS = {
+  orders: { measures: ['count', 'revenue_minor', 'avg_order_value_minor', 'discount_minor'], groupBy: ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'channel', 'fulfillment', 'status'], statuses: ORDER_STATUSES },
+  order_items: { measures: ['quantity', 'revenue_minor', 'count'], groupBy: ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'channel', 'fulfillment', 'product', 'category'], statuses: ORDER_STATUSES },
+  reservations: { measures: ['count', 'covers'], groupBy: ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'status', 'source'], statuses: RESERVATION_STATUSES },
+  payments: { measures: ['count', 'amount_minor', 'refunded_minor'], groupBy: ['day', 'week', 'month', 'weekday', 'branch', 'method', 'provider', 'status'], statuses: PAYMENT_ATTEMPT_STATUSES },
+} as const;
+export type QueryDataset = keyof typeof QUERY_DATASETS;
+export const QUERY_MEASURES = ['count', 'revenue_minor', 'avg_order_value_minor', 'discount_minor', 'quantity', 'covers', 'amount_minor', 'refunded_minor'] as const;
+export const QUERY_GROUPS = ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'channel', 'fulfillment', 'status', 'product', 'category', 'source', 'method', 'provider'] as const;
+export const queryDataInput = z.object({
+  dataset: z.enum(Object.keys(QUERY_DATASETS) as [QueryDataset, ...QueryDataset[]])
+    .describe('orders: one row per order; order_items: sold lines; reservations; payments (needs payments:read)'),
+  measures: z.array(z.enum(QUERY_MEASURES)).min(1).max(3).describe('What to compute. Allowed per dataset: orders count/revenue_minor/avg_order_value_minor/discount_minor; order_items quantity/revenue_minor/count; reservations count/covers; payments count/amount_minor/refunded_minor'),
+  groupBy: z.array(z.enum(QUERY_GROUPS)).max(2).default([]).describe('Up to two groupings. Time groupings use the restaurant timezone.'),
+  from: isoDate.describe('First day (YYYY-MM-DD, restaurant local time)'),
+  to: isoDate.describe('Last day, inclusive (at most 366 days after from)'),
+  branchId,
+  status: z.array(z.string().max(40)).min(1).max(10).optional().describe('Only these statuses (dataset statuses). Default for orders/order_items: excludes cancelled and awaiting_payment; for payments: succeeded, refunded and partially_refunded.'),
+  includeTest: z.boolean().default(false).describe('payments: include sandbox (test) payments'),
+  sort: z.enum(['measure_desc', 'measure_asc', 'group_asc']).default('measure_desc'),
+  limit: limit(200, 50),
+}).superRefine((v, ctx) => {
+  const d = QUERY_DATASETS[v.dataset];
+  for (const m of v.measures) if (!(d.measures as readonly string[]).includes(m)) ctx.addIssue({ code: 'custom', path: ['measures'], message: `${m} is not available for ${v.dataset}` });
+  for (const g of v.groupBy) if (!(d.groupBy as readonly string[]).includes(g)) ctx.addIssue({ code: 'custom', path: ['groupBy'], message: `${g} is not available for ${v.dataset}` });
+  if (new Set(v.groupBy).size !== v.groupBy.length) ctx.addIssue({ code: 'custom', path: ['groupBy'], message: 'Each grouping once' });
+  if (new Set(v.measures).size !== v.measures.length) ctx.addIssue({ code: 'custom', path: ['measures'], message: 'Each measure once' });
+  for (const s of v.status ?? []) if (!(d.statuses as readonly string[]).includes(s)) ctx.addIssue({ code: 'custom', path: ['status'], message: `Unknown ${v.dataset} status: ${s.slice(0, 40)}` });
+});
+
+// ---------------------------------------------------------------------------
+// Tool inputs. Converted to JSON Schema for MCP `tools/list` by the API.
+// ---------------------------------------------------------------------------
 
 
 export const mcpToolInputs = {
@@ -218,6 +269,31 @@ export const mcpToolInputs = {
     reason: z.string().trim().max(200).optional(),
   }),
   get_approval_status: z.object({ approvalId: uuid }),
+  list_menu: z.object({
+    branchId: uuid.optional().describe('Show price and availability at this branch (id from list_branches). Without it, availability is reported per branch.'),
+    query: z.string().trim().min(1).max(80).optional().describe('Name fragment (English or Arabic)'),
+    category: z.string().trim().min(1).max(80).optional().describe('Exact category name'),
+    availableOnly: z.boolean().default(false),
+    limit: limit(200, 100),
+    cursor,
+  }),
+  get_finance_summary: z.object({ ...period, branchId }),
+  list_payments: z.object({
+    branchId,
+    from: isoDate.optional().describe('Created on or after this day (YYYY-MM-DD, restaurant local time)'),
+    to: isoDate.optional().describe('Created on or before this day (YYYY-MM-DD, restaurant local time)'),
+    status: z.array(z.enum(PAYMENT_ATTEMPT_STATUSES)).min(1).max(PAYMENT_ATTEMPT_STATUSES.length).optional(),
+    includeTest: z.boolean().default(false).describe('Include sandbox (test) payments'),
+    limit: limit(100, 25),
+    cursor,
+  }),
+  list_delivery_jobs: z.object({
+    branchId,
+    status: z.array(z.enum(DELIVERY_JOB_STATUSES)).min(1).max(DELIVERY_JOB_STATUSES.length).optional().describe('Defaults to active jobs (not delivered, failed or cancelled)'),
+    limit: limit(100, 25),
+    cursor,
+  }),
+  query_data: queryDataInput,
 } satisfies Record<McpToolName, z.ZodType>;
 
 export type McpToolInput<N extends McpToolName> = z.output<(typeof mcpToolInputs)[N]>;
@@ -324,9 +400,48 @@ export const mcpToolOutputs = {
   create_payment_link: approvalRequestedOutput,
   update_product_availability: approvalRequestedOutput,
   get_approval_status: z.object({
-    approvalId: z.string(), tool: z.string(), status: z.enum(['pending', 'approved', 'rejected', 'expired', 'executed', 'failed']),
+    approvalId: z.string(), tool: z.string(), status: z.enum(['pending', 'approved', 'rejected', 'expired', 'executed', 'failed', 'invalidated']),
     summary: z.string(), requestedAt: z.string(), expiresAt: z.string(), decidedAt: nullableString, executedAt: nullableString,
     result: z.unknown().nullable(), error: nullableString,
+  }),
+  list_menu: z.object({
+    currency: z.string(), branchId: nullableString,
+    items: z.array(z.object({
+      productId: z.string(), name: z.string(), nameAr: nullableString, category: z.string(), categoryAr: nullableString,
+      priceMinor: money, basePriceMinor: money, available: z.boolean().nullable(), unavailableAtBranchIds: z.array(z.string()),
+      stockQty: z.number().int().nullable(), dietary: z.array(z.string()), allergens: z.array(z.string()), modifierGroups: z.number().int(),
+    })),
+    nextCursor: nullableString,
+  }),
+  get_finance_summary: z.object({
+    currency: z.string(), from: z.string(), to: z.string(), branchId: nullableString,
+    grossSalesMinor: money, discountsMinor: money, refundsMinor: money, vatMinor: money, netRevenueMinor: money,
+    cogsMinor: money, grossProfitMinor: money, operatingExpensesMinor: money, operatingExpensesByKind: z.record(z.string(), money),
+    paymentFeesMinor: money, operatingProfitMinor: money, grossMarginBp: z.number().int().nullable(), operatingMarginBp: z.number().int().nullable(),
+    coverage: z.object({ linesWithoutCost: z.number().int(), unpaidOrders: z.number().int(), paymentsWithUnknownFee: z.number().int(), testPayments: z.number().int() }),
+    warnings: z.array(z.string()), methodology: z.array(z.string()), method: z.literal('deterministic_sql'),
+  }),
+  list_payments: z.object({
+    items: z.array(z.object({
+      id: z.string(), branchId: z.string(), orderNumber: nullableString, reservationCode: nullableString, method: z.string(), provider: z.string(),
+      status: z.string(), amountMinor: money, refundedMinor: money, feeMinor: money.nullable(), currency: z.string(), isTest: z.boolean(),
+      providerReference: nullableString, createdAt: z.string(), capturedAt: nullableString,
+    })),
+    nextCursor: nullableString, masked: z.literal(true),
+  }),
+  list_delivery_jobs: z.object({
+    items: z.array(z.object({
+      id: z.string(), orderId: z.string(), orderNumber: z.string(), branchId: z.string(), status: z.string(),
+      driverName: nullableString, area: nullableString, city: nullableString, distanceM: z.number().int().nullable(), etaAt: nullableString,
+      codAmountMinor: money, cashStatus: z.string(), createdAt: z.string(), assignedAt: nullableString, pickedUpAt: nullableString, deliveredAt: nullableString,
+      failureReason: nullableString,
+    })),
+    nextCursor: nullableString, piiMasked: z.boolean(),
+  }),
+  query_data: z.object({
+    dataset: z.string(), from: z.string(), to: z.string(), timezone: z.string(), currency: z.string(), branchId: nullableString,
+    columns: z.array(z.string()), rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
+    truncated: z.boolean(), method: z.literal('deterministic_sql'), definition: z.string(),
   }),
 } satisfies Record<McpToolName, z.ZodType>;
 
@@ -359,4 +474,7 @@ export interface McpWhoAmI {
   branchIds: string[] | null;
   allowedTools: McpToolName[];
   rateLimitPerMin: number;
+  /** How the caller authenticated; OAuth access tokens also carry their audience (the MCP resource URI). */
+  auth?: 'key' | 'oauth';
+  resource?: string | null;
 }

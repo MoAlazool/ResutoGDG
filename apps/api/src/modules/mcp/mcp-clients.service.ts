@@ -12,13 +12,14 @@ import { iso } from './mcp.util';
 
 // Never select key_hash: member sessions cannot read it (column grant) and it never leaves the database.
 const CLIENT_COLUMNS = `id, name, key_prefix, acting_role, branch_ids, allowed_tools, rate_limit_per_min, status, expires_at, last_used_at,
-  created_by, created_at, revoked_at`;
+  created_by, created_at, revoked_at, auth_kind, oauth_client_id`;
 
 export function toClient(r: any): McpClientSummary {
   return {
     id: r.id, name: r.name, keyPrefix: r.key_prefix, actingRole: r.acting_role, branchIds: r.branch_ids, allowedTools: r.allowed_tools,
     rateLimitPerMin: r.rate_limit_per_min, status: r.status, expired: !!r.expires_at && new Date(r.expires_at) <= new Date(),
     expiresAt: iso(r.expires_at), lastUsedAt: iso(r.last_used_at), createdAt: iso(r.created_at)!, revokedAt: iso(r.revoked_at),
+    authKind: r.auth_kind ?? 'key', oauthClientId: r.oauth_client_id ?? null,
   };
 }
 
@@ -51,21 +52,30 @@ export class McpClientsService {
   }
 
   async create(ctx: TenantContext, input: CreateMcpClient): Promise<McpClientCreated> {
+    // Not idempotent on purpose: replaying a stored response would reveal the key a second time.
+    return this.db.scoped(ctx, (tx) => this.createInTx(tx, ctx, input));
+  }
+
+  /**
+   * Creates a connection in the caller's transaction. With `oauthClientId` (OAuth consent, FT-17) the row authenticates
+   * only through OAuth access tokens: its key hash is of a random value that is never returned, and the prefix says so.
+   */
+  async createInTx(tx: Tx, ctx: TenantContext, input: CreateMcpClient, oauthClientId?: string): Promise<McpClientCreated> {
     this.assertRole(ctx, input.actingRole);
     this.assertFuture(input.expiresAt);
-    // Not idempotent on purpose: replaying a stored response would reveal the key a second time.
-    return this.db.scoped(ctx, async (tx) => {
-      const branchIds = await this.resolveBranches(tx, ctx, input.branchIds);
-      const k = newMcpKey();
-      const row = await tx.one<any>(
-        `insert into mcp_clients(org_id, name, key_prefix, key_hash, acting_role, branch_ids, allowed_tools, rate_limit_per_min, expires_at, created_by)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning ${CLIENT_COLUMNS}`,
-        [ctx.orgId, input.name, k.prefix, k.hash, input.actingRole, branchIds, [...new Set(input.allowedTools)], input.rateLimitPerMin,
-          input.expiresAt ?? null, ctx.userId]);
-      await this.audit.record(tx, ctx, { action: 'mcp.client.created', entityType: 'mcp_client', entityId: row.id,
-        metadata: { name: input.name, actingRole: input.actingRole, branchIds, allowedTools: row.allowed_tools, keyPrefix: k.prefix } });
-      return { ...toClient(row), key: k.key };
-    });
+    const branchIds = await this.resolveBranches(tx, ctx, input.branchIds);
+    const k = newMcpKey();
+    const prefix = oauthClientId ? `oauth_${k.key.slice(MCP_KEY_PREFIX.length, MCP_KEY_PREFIX.length + 8)}` : k.prefix;
+    const row = await tx.one<any>(
+      `insert into mcp_clients(org_id, name, key_prefix, key_hash, acting_role, branch_ids, allowed_tools, rate_limit_per_min, expires_at, created_by,
+                               auth_kind, oauth_client_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning ${CLIENT_COLUMNS}`,
+      [ctx.orgId, input.name, prefix, k.hash, input.actingRole, branchIds, [...new Set(input.allowedTools)], input.rateLimitPerMin,
+        input.expiresAt ?? null, ctx.userId, oauthClientId ? 'oauth' : 'key', oauthClientId ?? null]);
+    await this.audit.record(tx, ctx, { action: 'mcp.client.created', entityType: 'mcp_client', entityId: row.id,
+      metadata: { name: input.name, actingRole: input.actingRole, branchIds, allowedTools: row.allowed_tools, keyPrefix: prefix,
+        ...(oauthClientId ? { authKind: 'oauth', oauthClientId } : {}) } });
+    return { ...toClient(row), key: oauthClientId ? '' : k.key };
   }
 
   async list(ctx: TenantContext) {

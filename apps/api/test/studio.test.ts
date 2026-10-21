@@ -10,7 +10,10 @@ import { DbService } from '../src/common/db/db.service';
 import { AuditService } from '../src/common/platform/audit.service';
 import { ENV } from '../src/config/env';
 import { PlanLimitsService } from '../src/modules/billing/plan-limits.service';
+import { MenuService } from '../src/modules/menu/menu.service';
+import { StudioAiService } from '../src/modules/studio/ai/studio-ai.service';
 import { CreativeService } from '../src/modules/studio/creative.service';
+import { StudioService } from '../src/modules/studio/studio.service';
 
 // --- Injected test doubles (provider tokens, not a mocked database) ---------------
 const txtRecords = new Map<string, string[][]>();
@@ -299,7 +302,8 @@ describe('creative generator', () => {
       .send({ kind: 'caption', locale: 'ar', brief: 'عرض نهاية الأسبوع على البرجر', productId: menu.products.burger, variants: 2 });
     expect(gen.status).toBe(201);
     expect(gen.body).toMatchObject({ kind: 'caption', locale: 'ar', provider: 'template_rules', isFallback: true, status: 'draft' });
-    expect(gen.body.output.fallbackReason).toContain('GEMINI_API_KEY');
+    expect(gen.body.output.fallbackReason).toContain('No language model key');
+    expect(gen.body.authorship).toEqual({ mode: 'template', provider: 'template_rules', model: null, keySource: null, fallbackCode: 'not_configured' });
     expect(gen.body.output.variants).toHaveLength(2);
     expect(gen.body.output.variants[0].text).toContain('Smash burger');
 
@@ -325,7 +329,9 @@ describe('creative generator', () => {
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ variants: [{ title: 'T', text: 'Fresh bread daily' }] }) }] } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
     }) as typeof fetch;
     try {
-      const svc = new CreativeService(t.app.get(DbService), t.app.get(AuditService), env as any, t.app.get(PlanLimitsService));
+      // No BYOK connection on this tenant, so generation uses the platform key and counts against the plan (FT-10).
+      const svc = new CreativeService(t.app.get(DbService), t.app.get(AuditService), t.app.get(MenuService), t.app.get(StudioService),
+        t.app.get(StudioAiService), env as any, t.app.get(PlanLimitsService));
       const capPlan = `ai-cap-${tenant.orgId.slice(0, 8)}`;
       await sql(`insert into plans(id, name, is_public, limits) values ($1, 'AI cap', false, '{"ai_requests_per_month":1}')`, [capPlan]);
       await sql(`update subscriptions set plan_id = $2 where org_id = $1`, [tenant.orgId, capPlan]);

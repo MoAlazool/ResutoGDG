@@ -29,6 +29,8 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/host', label: 'ops.host.nav', glyph: 'frontdesk', module: 'core', permission: 'floor:seat', modes: ['tables'] },
     { href: '/reservations', label: 'nav.reservations', glyph: 'reservations', module: 'core', permission: 'reservations:read', modes: ['tables'], needsReservations: true },
     { href: '/menu', label: 'nav.menu', glyph: 'menu', module: 'core', permission: 'menu:read' },
+    // Studio AI menu import (ws9): text/CSV parser, photos/PDFs with the restaurant's own model key.
+    { href: '/menu-import', label: 'nav.menuImport', glyph: 'menu', module: 'core', permission: 'menu:write' },
     { href: '/inventory', label: 'nav.inventory', glyph: 'inventory', module: 'core', permission: 'inventory:read' },
     { href: '/delivery', label: 'nav.delivery', glyph: 'delivery', module: 'driver', permission: 'delivery:dispatch' },
   ] },
@@ -38,6 +40,8 @@ export const NAV: Array<{ group: string; items: NavItem[] }> = [
     { href: '/marketing', label: 'nav.marketing', glyph: 'marketing', module: 'marketing', permission: 'marketing:read' },
     { href: '/loyalty', label: 'nav.loyalty', glyph: 'prices', module: 'marketing', permission: 'marketing:read' },
     { href: '/website', label: 'nav.website', glyph: 'website', module: 'studio', permission: 'studio:read' },
+    // Studio AI food photos (ws9, FT-04).
+    { href: '/studio-media', label: 'nav.foodPhotos', glyph: 'website', module: 'studio', permission: 'studio:read' },
   ] },
   { group: 'nav.group.money', items: [
     { href: '/payments', label: 'nav.payments', glyph: 'payments', module: 'pay', permission: 'payments:read' },

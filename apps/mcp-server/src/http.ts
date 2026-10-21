@@ -7,6 +7,7 @@ import { ApiError, ResutoApi } from './api.js';
 import type { Config } from './config.js';
 import { log } from './log.js';
 import { createMcpServer, SERVER_INFO } from './mcp.js';
+import { bearerChallenge, handleOAuth } from './oauth.js';
 
 interface Session {
   transport: StreamableHTTPServerTransport;
@@ -14,11 +15,17 @@ interface Session {
   keyHash: string;
   clientId: string;
   lastSeen: number;
+  api: ResutoApi;
+  /** OAuth sessions: when the access token was last confirmed valid by the API (re-checked every minute). */
+  oauthCheckedAt: number | null;
 }
+
+const OAUTH_RECHECK_MS = 60_000;
 
 const sha256 = (v: string) => createHash('sha256').update(v).digest();
 const sameKey = (a: Buffer, b: Buffer) => a.length === b.length && timingSafeEqual(a, b);
-const KEY_RE = /^rmcp_[A-Za-z0-9_-]{16,128}$/;
+/** rmcp_: a connection key; rmat_: an OAuth access token issued by Resuto for this server's resource (FT-17). */
+const KEY_RE = /^(rmcp|rmat)_[A-Za-z0-9_-]{16,128}$/;
 
 class HttpFailure extends Error {
   constructor(readonly status: number, message: string, readonly headers: Record<string, string> = {}) {
@@ -55,9 +62,6 @@ async function readJson(req: IncomingMessage, limit: number): Promise<unknown> {
   }
 }
 
-const UNAUTHORIZED = {
-  'WWW-Authenticate': 'Bearer realm="resuto-mcp", error="invalid_token", error_description="Send Authorization: Bearer rmcp_... (a ResutoMCP connection key)"',
-};
 
 /**
  * Streamable HTTP endpoint (`POST/GET/DELETE /mcp`) with per-session API keys.
@@ -69,28 +73,42 @@ const UNAUTHORIZED = {
  */
 export function createHttpApp(config: Config) {
   const sessions = new Map<string, Session>();
+  const unauthorized = (description?: string, error?: 'invalid_token') => ({ 'WWW-Authenticate': bearerChallenge(config, error, description) });
 
-  async function openSession(req: IncomingMessage, res: ServerResponse, key: string, keyHash: Buffer, body: unknown) {
-    if (sessions.size >= config.maxSessions) throw new HttpFailure(503, 'Too many open sessions; retry later');
-    const api = new ResutoApi(config.apiUrl, key, config.apiTimeoutMs);
+  /**
+   * Resolves the caller with the API. OAuth access tokens must have been issued for this server's resource
+   * (audience check, MCP spec "Token Handling"); anything else is answered 401 invalid_token.
+   */
+  async function identify(api: ResutoApi, key: string) {
     let who;
     try {
       who = await api.whoami();
     } catch (e) {
       if (e instanceof ApiError) {
-        if (e.status === 401) throw new HttpFailure(401, 'Invalid, expired or revoked Resuto key', UNAUTHORIZED);
+        if (e.status === 401) throw new HttpFailure(401, 'Invalid, expired or revoked credential', unauthorized('The access token or key is invalid, expired or revoked', 'invalid_token'));
         if (e.status === 402 || e.status === 403) throw new HttpFailure(403, e.message);
         if (e.status === 429) throw new HttpFailure(429, e.message);
         throw new HttpFailure(502, e.message);
       }
       throw e;
     }
+    if (key.startsWith('rmat_') && (!config.oauth || who.auth !== 'oauth' || who.resource !== config.oauth.resource)) {
+      throw new HttpFailure(401, 'This access token was not issued for this MCP server', unauthorized('The token audience is not this server', 'invalid_token'));
+    }
+    return who;
+  }
+
+  async function openSession(req: IncomingMessage, res: ServerResponse, key: string, keyHash: Buffer, body: unknown) {
+    if (sessions.size >= config.maxSessions) throw new HttpFailure(503, 'Too many open sessions; retry later');
+    const api = new ResutoApi(config.apiUrl, key, config.apiTimeoutMs, config.oauth?.resource ?? null);
+    const who = await identify(api, key);
     const server = createMcpServer(api, who);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       maxRequestBodySize: config.maxBodyBytes,
       onsessioninitialized: (id) => {
-        sessions.set(id, { transport, server, keyHash: keyHash.toString('hex'), clientId: who.clientId, lastSeen: Date.now() });
+        sessions.set(id, { transport, server, keyHash: keyHash.toString('hex'), clientId: who.clientId, lastSeen: Date.now(), api,
+          oauthCheckedAt: key.startsWith('rmat_') ? Date.now() : null });
         log('info', 'session opened', { sessionId: id, clientId: who.clientId, orgId: who.orgId, keyPrefix: key.slice(0, 13) });
       },
       onsessionclosed: (id) => { sessions.delete(id); },
@@ -100,12 +118,24 @@ export function createHttpApp(config: Config) {
     await transport.handleRequest(req, res, body);
   }
 
-  function sessionFor(req: IncomingMessage, keyHash: Buffer): Session {
+  async function sessionFor(req: IncomingMessage, key: string, keyHash: Buffer): Promise<Session> {
     const sid = header(req, 'mcp-session-id');
     if (!sid) throw new HttpFailure(400, 'Bad Request: No valid session ID provided');
     const s = sessions.get(sid);
     if (!s) throw new HttpFailure(404, 'Session not found');
-    if (!sameKey(Buffer.from(s.keyHash, 'hex'), keyHash)) throw new HttpFailure(403, 'This session belongs to another key');
+    if (!sameKey(Buffer.from(s.keyHash, 'hex'), keyHash)) {
+      // A refreshed OAuth access token for the same grant may continue the session; anything else may not.
+      if (!(key.startsWith('rmat_') && s.oauthCheckedAt !== null)) throw new HttpFailure(403, 'This session belongs to another key');
+      const who = await identify(new ResutoApi(config.apiUrl, key, config.apiTimeoutMs, config.oauth?.resource ?? null), key);
+      if (who.clientId !== s.clientId) throw new HttpFailure(403, 'This session belongs to another connection');
+      s.keyHash = keyHash.toString('hex');
+      s.api.setKey(key);
+      s.oauthCheckedAt = Date.now();
+    } else if (s.oauthCheckedAt !== null && Date.now() - s.oauthCheckedAt > OAUTH_RECHECK_MS) {
+      // Expired or revoked access tokens get HTTP 401 (so the client refreshes), not a tool error.
+      await identify(s.api, key);
+      s.oauthCheckedAt = Date.now();
+    }
     s.lastSeen = Date.now();
     return s;
   }
@@ -131,19 +161,21 @@ export function createHttpApp(config: Config) {
     }
     const auth = header(req, 'authorization') ?? '';
     const headerKey = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-    if (headerKey && urlKey && headerKey !== urlKey) throw new HttpFailure(401, 'The key in the URL and the Authorization header differ', UNAUTHORIZED);
+    if (headerKey && urlKey && headerKey !== urlKey) throw new HttpFailure(401, 'The key in the URL and the Authorization header differ', unauthorized(undefined, 'invalid_token'));
     const key = headerKey || urlKey || '';
-    if (!KEY_RE.test(key)) throw new HttpFailure(401, 'Missing or malformed Resuto key', UNAUTHORIZED);
+    if (!key) throw new HttpFailure(401, 'Authorization required', unauthorized());
+    if (!KEY_RE.test(key)) throw new HttpFailure(401, 'Missing or malformed credential', unauthorized(undefined, 'invalid_token'));
+    if (key.startsWith('rmat_') && !config.oauth) throw new HttpFailure(401, 'OAuth is not enabled on this server', unauthorized(undefined, 'invalid_token'));
     const keyHash = sha256(key);
 
     if (req.method === 'POST') {
       const body = await readJson(req, config.maxBodyBytes);
-      if (header(req, 'mcp-session-id')) return sessionFor(req, keyHash).transport.handleRequest(req, res, body);
+      if (header(req, 'mcp-session-id')) return (await sessionFor(req, key, keyHash)).transport.handleRequest(req, res, body);
       const init = Array.isArray(body) ? body.some((m) => isInitializeRequest(m)) : isInitializeRequest(body);
       if (!init) throw new HttpFailure(400, 'Bad Request: No valid session ID provided');
       return openSession(req, res, key, keyHash, body);
     }
-    if (req.method === 'GET' || req.method === 'DELETE') return sessionFor(req, keyHash).transport.handleRequest(req, res);
+    if (req.method === 'GET' || req.method === 'DELETE') return (await sessionFor(req, key, keyHash)).transport.handleRequest(req, res);
     throw new HttpFailure(405, 'Method not allowed', { Allow: 'GET, POST, DELETE, OPTIONS' });
   }
 
@@ -164,6 +196,7 @@ export function createHttpApp(config: Config) {
           sessions: sessions.size, ...(api ? { api } : {}) }));
         return;
       }
+      if (await handleOAuth(req, res, path ?? '/', config)) return;
       // Optional secret-URL mode (/mcp/<rmcp_key>) for connectors that cannot send headers; off by default.
       const urlKey = config.allowUrlKey ? (/^\/mcp\/(rmcp_[A-Za-z0-9_-]{16,128})$/.exec(path ?? '')?.[1] ?? null) : null;
       if (path !== '/mcp' && !urlKey) throw new HttpFailure(404, 'Not found');

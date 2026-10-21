@@ -267,6 +267,16 @@ export class StorageService {
     return out;
   }
 
+  /**
+   * Writes one extra derivative of a stored image next to it (FT-04: the AVIF copy of an enhanced photo;
+   * `<uuid>.w1280.avif`). Keys are derived from the immutable original key, so the object is immutable too.
+   */
+  async writeDerivative(originalPath: string, width: number, format: 'avif' | 'webp', bytes: Buffer): Promise<{ path: string; bytes: number }> {
+    const p = originalPath.replace(/\.[a-z0-9]+$/, '') + `.w${width}.${format}`;
+    await this.write(p, bytes, `image/${format}`, { overwrite: true });
+    return { path: p, bytes: bytes.length };
+  }
+
   /** Local driver only: verifies a signed URL and returns the bytes. */
   async readSigned(objectPath: string, exp: number, sig: string): Promise<Buffer | null> {
     if (this.env.STORAGE_DRIVER !== 'local') return null;

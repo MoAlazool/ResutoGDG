@@ -35,7 +35,8 @@ export class McpRuntimeController {
       `select c.name, o.name as org_name from mcp_clients c join organizations o on o.id = c.org_id where c.id = $1`, [p.clientId]),
     `mcp_client:${p.clientId}`);
     return { clientId: p.clientId, name: row.name, orgId: p.orgId, orgName: row.org_name, actingRole: p.role, branchIds: p.branchIds,
-      allowedTools: p.allowedTools as McpWhoAmI['allowedTools'], rateLimitPerMin: p.rateLimitPerMin };
+      allowedTools: p.allowedTools as McpWhoAmI['allowedTools'], rateLimitPerMin: p.rateLimitPerMin,
+      auth: p.oauthResource ? 'oauth' : 'key', resource: p.oauthResource ?? null };
   }
 
   @Get('o/:orgId/mcp/tools')
@@ -50,8 +51,17 @@ export class McpRuntimeController {
   async call(@Tenant() ctx: TenantContext, @Principal() principal: AuthPrincipal, @Param('tool') tool: string,
     @Body() body: { input?: unknown } | undefined, @Res({ passthrough: true }) res: Response) {
     const p = mcpOnly(principal);
-    const result = await this.exec.call(ctx, { clientId: p.clientId, allowedTools: p.allowedTools }, tool, body?.input ?? {}, 'mcp');
-    res.status(result.httpStatus);
-    return result.body;
+    try {
+      const result = await this.exec.call(ctx, { clientId: p.clientId, allowedTools: p.allowedTools, oauthScopes: p.oauthScopes }, tool, body?.input ?? {}, 'mcp');
+      res.status(result.httpStatus);
+      return result.body;
+    } catch (e) {
+      // RFC 6750 §3.1 / MCP "scope challenge": tell the client which scope to request.
+      if (e instanceof DomainError && e.code === 'insufficient_scope') {
+        const scope = (e.details as { scope?: string } | undefined)?.scope ?? 'mcp:act';
+        res.setHeader('WWW-Authenticate', `Bearer error="insufficient_scope", scope="${scope}", error_description="The access token lacks the ${scope} scope"`);
+      }
+      throw e;
+    }
   }
 }

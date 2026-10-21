@@ -1,0 +1,21 @@
+/* Studio food photos (FT-04). Builds on globals.css tokens. */
+.sm-modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:16px}
+.sm-modes .notice{display:grid;gap:4px}
+.sm-layout{display:grid;grid-template-columns:minmax(300px,420px) minmax(0,1fr);gap:20px;align-items:start}
+.sm-layout>*{min-width:0}
+@media(max-width:1100px){.sm-layout{grid-template-columns:1fr}}
+.sm-h2{margin:0;font-size:17px}
+.sm-h3{margin:0;font-size:15px}
+.sm-grid{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.sm-tile{display:grid;gap:6px;width:100%;padding:6px;border:1px solid var(--line-soft);border-radius:12px;background:var(--card);cursor:pointer;text-align:start;font:inherit;color:inherit}
+.sm-tile[aria-current=true]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
+.sm-tile img,.sm-ph{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;background:var(--surface-warm);display:block}
+.sm-compare{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:var(--surface-warm);border:1px solid var(--line-soft)}
+.sm-compare img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.sm-compare .sm-after{clip-path:inset(0 0 0 var(--split))}
+[dir=rtl] .sm-compare .sm-after{clip-path:inset(0 var(--split) 0 0)}
+.sm-label{position:absolute;top:8px;padding:2px 8px;border-radius:999px;background:var(--card);font-size:12px;font-weight:650}
+.sm-label-before{inset-inline-start:8px}
+.sm-label-after{inset-inline-end:8px}
+.sm-single{width:100%;border-radius:12px;border:1px solid var(--line-soft)}
+.sm-ops{margin:6px 0 0;padding-inline-start:18px;display:grid;gap:4px;word-break:break-word}

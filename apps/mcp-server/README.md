@@ -35,6 +35,16 @@ use the same business APIs.
 | `create_payment_link` | **sensitive → approval** | `payments:collect` | pay |
 | `update_product_availability` | **sensitive → approval** | `menu:availability` | core |
 | `get_approval_status` | read | — | core |
+| `list_menu` (ids, prices, per-branch availability) | read | `menu:read` | core |
+| `get_finance_summary` (the finance module's P&L) | read | `finance:read` | finance |
+| `list_payments` (references masked to the last 4; never card data or tokens) | read | `payments:read` | pay |
+| `list_delivery_jobs` (area/city only, no addresses or phones) | read | `delivery:dispatch` | driver |
+| `query_data` (bounded, schema-based: dataset × measures × groupings × filters; no SQL) | read | `analytics:read` (+ dataset permission) | core |
+
+Approvals are bound to what the approver saw: the connection's scope and a digest
+of the change preview are stored with the request and recomputed at approval; if
+the records or the connection changed, the request is closed as `invalidated`
+and nothing runs (the client must ask again).
 
 Money is integer minor units (piastres/halalas); dates are `YYYY-MM-DD` in the
 restaurant's timezone.
@@ -63,6 +73,7 @@ Revoking the key in the dashboard takes effect on the next call.
 | `MCP_MAX_BODY_BYTES` | `262144` | Request size limit (413 above it) |
 | `MCP_SESSION_IDLE_MINUTES` / `MCP_MAX_SESSIONS` | `30` / `1000` | In-memory session limits |
 | `MCP_ALLOW_URL_KEY` | `false` | Accept `/mcp/<rmcp_key>` for clients that cannot send headers |
+| `MCP_OAUTH_ENABLED` | `false` | OAuth 2.1 for MCP clients (see below); issuer = `MCP_PUBLIC_URL` origin |
 | `RESUTO_MCP_KEY` | — | Key for `--stdio` mode |
 
 ## Run
@@ -85,6 +96,36 @@ router). Do not expose the plain-HTTP port to the internet. The API must allow
 the MCP server to reach it; the MCP server needs no other network access.
 Sessions are in memory: run one instance, or use sticky sessions on
 `Mcp-Session-Id` when running several.
+
+## OAuth 2.1 (MCP clients that sign in)
+
+Implements the MCP authorization specification, revision **2026-07-28**
+(<https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization>),
+alongside connection keys. Enable with `MCP_OAUTH_ENABLED=true` here and, on the
+API, `MCP_OAUTH_ISSUER=<this server's public origin>` and
+`MCP_OAUTH_RESOURCES=<origin>/mcp`.
+
+| Spec requirement | Implementation |
+|---|---|
+| Protected Resource Metadata (RFC 9728), `authorization_servers` | `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-protected-resource`; 401 carries `WWW-Authenticate: Bearer resource_metadata="…", scope="mcp:read mcp:act"` |
+| AS metadata (RFC 8414) at the issuer | `/.well-known/oauth-authorization-server` (issuer = this origin) |
+| PKCE, `code_challenge_methods_supported` | S256 required on every authorization; `plain` and missing challenges are refused |
+| Client registration priority: pre-registered, Client ID Metadata Documents, DCR | `client_id_metadata_document_supported: true` (https `client_id` URL fetched through the egress guard, `client_id` must equal the URL, redirect URIs exact-matched, cached 1 h); DCR (`/oauth/register`, RFC 7591) kept for compatibility; public clients only (`none`) |
+| Resource indicators (RFC 8707), audience validation | `resource` must be this server's canonical URI; bound to the code and tokens; the API accepts an access token only for its own resource and only when this server names the same resource |
+| No token passthrough | tokens are accepted only for this resource; the API's MCP runtime is the backend of the same protected resource (same audience), never a third-party API |
+| Redirect URIs https or localhost, exact match; open-redirect protection | enforced at registration and authorization; an unknown client or redirect URI gets an error page, never a redirect |
+| `iss` in authorization responses (RFC 9207) | always sent; `authorization_response_iss_parameter_supported: true` |
+| Short-lived access tokens, refresh rotation for public clients | access 1 h (`rmat_`), refresh 30 d (`rmrt_`) rotated on use; reuse of a rotated refresh token or of a code revokes the whole family |
+| Revocation | `/oauth/revoke` (RFC 7009) |
+| Consent per client, show the redirect host, warn for localhost | dashboard consent screen (`/dashboard/mcp-authorize`): restaurant, acting role, branches, tools (limited to the granted scopes), redirect host and a localhost warning |
+
+Consent creates a normal Resuto connection (`auth_kind = oauth`), so roles, branch
+scope, tool allow-lists, approvals, rate limits and the call log apply exactly as
+for keys; revoking it in the dashboard stops its tokens immediately. All state is
+in the API (platform-only tables, hashed codes and tokens); this server still has
+no database. Tested with the official SDK client's OAuth support
+(`test/oauth-e2e.test.ts`: discovery from the 401, registration, PKCE consent,
+token exchange, refresh after revocation, audience rejection).
 
 ## Getting a key
 

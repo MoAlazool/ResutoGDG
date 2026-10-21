@@ -186,7 +186,7 @@ function MenuPageInner() {
 function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: MenuEditorView; product: Product | null; branchId: string; onClose: () => void; onSaved: () => void }) {
   const { t, locale } = useT();
   const [confirm, confirmDialog] = useConfirm(locale);
-  const { org } = useOrg();
+  const { org, can, hasModule } = useOrg();
   const { call } = useSession();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -280,6 +280,12 @@ function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: Men
           </label>
         )}
         <label className="field"><span>{t('core.menu.image')}</span><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" /></label>
+        {product && can('studio:write') && hasModule('studio') && (
+          <p className="fine" style={{ marginTop: -6 }}>
+            <Link href={`/dashboard/${org.id}/studio-media?product=${product.id}`}>{t('studio.ai.photo.enhanceFromMenu')}</Link>
+            {' · '}{t('studio.ai.photo.enhanceFromMenuHint')}
+          </p>
+        )}
         {error && <Notice tone="danger">{error}</Notice>}
         <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
           {product ? <button type="button" className="btn btn-danger" onClick={async () => {

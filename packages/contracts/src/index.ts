@@ -32,3 +32,4 @@ export * from './mcp';
 export * from './studio';
 export * from './sales';
 export * from './operations';
+export * from './studio-ai';

@@ -8,3 +8,5 @@ export * from './pos';
 export * from './tax';
 export * from './maps';
 export * from './acceptance';
+export * from './ai';
+export { egressFetch, EgressBlockedError } from './net';

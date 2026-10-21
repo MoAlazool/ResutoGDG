@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Badge, Card, EmptyState, Notice, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
+import { ApiRequestError } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -12,14 +13,17 @@ interface Approval {
   id: string; tool: string; toolTitle: string; toolTitleAr: string; status: string; summary: string; input: Record<string, unknown>;
   client: { id: string; name: string; keyPrefix: string; actingRole: string };
   requestedAt: string; expiresAt: string; decidedBy: string | null; decidedAt: string | null; executedAt: string | null;
-  decisionNote: string | null; result: Record<string, unknown> | null; error: string | null;
+  decisionNote: string | null; result: Record<string, unknown> | null; error: string | null; invalidatedReason?: string | null;
 }
 interface ApprovalDetail extends Approval {
   preview: { summary: string; changes: Array<{ label: string; before: string | null; after: string }>; facts: Array<{ label: string; value: string }> } | null;
   previewError: string | null;
+  /** Digest of exactly what is shown; sent with the approval so a newer state cannot be approved from this screen. */
+  digest: string | null;
+  changedSinceRequest: boolean;
 }
 
-const FILTERS = ['pending', 'executed', 'rejected', 'expired', 'failed', 'all'] as const;
+const FILTERS = ['pending', 'executed', 'rejected', 'expired', 'failed', 'invalidated', 'all'] as const;
 type Filter = (typeof FILTERS)[number];
 
 export default function McpApprovalsPage() {
@@ -72,7 +76,20 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
   const fmt = (iso: string | null) => dateTime(iso, locale, org.timezone);
 
   const decide = useAction(async (action: 'approve' | 'reject') => {
-    const res = await session.call<Approval>(`/o/${org.id}/mcp/approvals/${a.id}/${action}`, { body: { note: note.trim() || null } });
+    let res: Approval;
+    try {
+      res = await session.call<Approval>(`/o/${org.id}/mcp/approvals/${a.id}/${action}`, {
+        body: { note: note.trim() || null, ...(action === 'approve' && detail.data?.digest ? { previewDigest: detail.data.digest } : {}) },
+      });
+    } catch (e) {
+      // Closed because the data or the connection changed (FT-17): show why and refresh the queue; a changed screen reloads.
+      if (e instanceof ApiRequestError && e.code === 'approval_invalidated') {
+        await onDecided({ id: a.id, title: a.summary, tone: 'danger', text: t('mcp.approvals.invalidatedNow', { reason: e.message }) });
+        return;
+      }
+      if (e instanceof ApiRequestError && e.code === 'approval_changed') await detail.reload();
+      throw e;
+    }
     const title = a.summary;
     if (action === 'reject') await onDecided({ id: a.id, title, tone: 'ok', text: t('mcp.approvals.rejectedOk') });
     else if (res.status === 'executed') {
@@ -108,6 +125,7 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
         <div className="stack" style={{ marginBlockStart: 14 }}>
           {detail.loading && <Skeleton lines={3} />}
           {detail.error && <Notice tone="danger">{t('mcp.error.load', { message: detail.error.message })}</Notice>}
+          {pending && detail.data?.changedSinceRequest && <Notice tone="warn">{t('mcp.approvals.changedSinceRequest')}</Notice>}
           {detail.data?.previewError && <Notice tone="warn">{t('mcp.approvals.previewError', { error: detail.data.previewError })}</Notice>}
           {detail.data?.preview && (
             <>
@@ -161,7 +179,7 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
               {decide.error && <Notice tone="danger">{decide.error}</Notice>}
               <div className="row" style={{ justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-ghost" disabled={decide.pending} onClick={() => void decide.run('reject')}>{t('mcp.approvals.reject')}</button>
-                <button type="button" className="btn btn-primary" disabled={decide.pending} onClick={() => void decide.run('approve')}>{t('mcp.approvals.approve')}</button>
+                <button type="button" className="btn btn-primary" disabled={decide.pending || !detail.data} onClick={() => void decide.run('approve')}>{t('mcp.approvals.approve')}</button>
               </div>
             </>
           )}

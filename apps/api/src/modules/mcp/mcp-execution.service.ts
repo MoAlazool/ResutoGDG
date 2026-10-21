@@ -11,6 +11,7 @@ import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { CAMPAIGNS_PORT, CHECKOUT_PORT, SEGMENTS_PORT, type CampaignsPort, type CheckoutPort, type SegmentsPort } from '../kernel/ports';
+import { FinanceService } from '../finance/finance.service';
 import { CAMPAIGN_SEND_PORT, MENU_AVAILABILITY_PORT, type CampaignSendPort, type MenuAvailabilityPort } from './mcp.ports';
 import { APPROVAL_TTL_HOURS, iso, MAX_OUTPUT_BYTES } from './mcp.util';
 import { MCP_TOOL_REGISTRY } from './tools/registry';
@@ -22,6 +23,8 @@ export const MCP_RECORDED = Symbol.for('resuto.mcp.recorded');
 export interface McpCaller {
   clientId: string;
   allowedTools: string[];
+  /** OAuth callers only: the token's scopes. A tool outside them is refused with 403 insufficient_scope. */
+  oauthScopes?: string[];
 }
 
 export type CallVia = 'mcp' | 'dashboard_test' | 'approval';
@@ -40,6 +43,14 @@ const jsonSchema = (schema: z.ZodType, io: 'input' | 'output') => {
   const { $schema: _ignored, ...rest } = z.toJSONSchema(schema, { io, unrepresentable: 'any' }) as Record<string, unknown>;
   return rest;
 };
+
+/** What a client may do right now, for binding an approval to the scope it was requested under. */
+export function scopeSnapshot(client: { acting_role: string; branch_ids: string[] | null; allowed_tools: string[] }, tool: string) {
+  return { role: client.acting_role, branchIds: client.branch_ids ? [...client.branch_ids].sort() : null, toolAllowed: client.allowed_tools.includes(tool) };
+}
+
+/** Digest of what the approver is shown: the summary, every before/after value and every fact. */
+export const previewDigest = (p: ApprovalPreview) => fingerprint({ summary: p.summary, changes: p.changes, facts: p.facts });
 
 /** TenantContext for an MCP client row (used when executing approved requests). */
 export function clientContext(orgId: string, client: { id: string; acting_role: Role; branch_ids: string[] | null }) {
@@ -70,10 +81,11 @@ export class McpExecutionService {
     @Optional() @Inject(CAMPAIGNS_PORT) campaigns?: CampaignsPort,
     @Optional() @Inject(CAMPAIGN_SEND_PORT) campaignSend?: CampaignSendPort,
     @Optional() @Inject(MENU_AVAILABILITY_PORT) menuAvailability?: MenuAvailabilityPort,
+    @Optional() finance?: FinanceService,
   ) {
     this.ports = {
       checkout: checkout ?? null, segments: segments ?? null, campaigns: campaigns ?? null,
-      campaignSend: campaignSend ?? null, menuAvailability: menuAvailability ?? null,
+      campaignSend: campaignSend ?? null, menuAvailability: menuAvailability ?? null, finance: finance ?? null,
     };
   }
 
@@ -138,6 +150,12 @@ export class McpExecutionService {
       if (!tool) throw new DomainError('unknown_tool', `Unknown tool: ${toolName.slice(0, 60)}`, 404);
       if (via === 'dashboard_test' && !tool.meta.readOnly) {
         throw new DomainError('test_read_only', 'Only read-only tools can be tested from the dashboard', 422);
+      }
+      if (caller.oauthScopes) {
+        const needed = tool.meta.readOnly ? 'mcp:read' : 'mcp:act';
+        if (!caller.oauthScopes.includes(needed)) {
+          throw new DomainError('insufficient_scope', `This access token was not granted ${needed}; authorize again with that scope`, 403, { scope: needed });
+        }
       }
       if (!caller.allowedTools.includes(tool.name)) throw new DomainError('tool_not_allowed', 'This connection is not allowed to use this tool', 403);
       if (tool.meta.permission && !ctx.can(tool.meta.permission)) {
@@ -206,10 +224,12 @@ export class McpExecutionService {
       const replayed = !!approval;
       if (!approval) {
         const preview = await tool.preview!(tx, ctx, input);
+        const client = await tx.one<any>('select acting_role, branch_ids, allowed_tools from mcp_clients where id = $1', [caller.clientId]);
         approval = await tx.one<any>(
-          `insert into mcp_approvals(org_id, client_id, tool, input, input_hash, summary, expires_at)
-           values ($1, $2, $3, $4, $5, $6, now() + make_interval(hours => $7)) returning id, summary, expires_at`,
-          [ctx.orgId, caller.clientId, tool.name, JSON.stringify(input), inputHash, preview.summary.slice(0, 500), APPROVAL_TTL_HOURS]);
+          `insert into mcp_approvals(org_id, client_id, tool, input, input_hash, summary, expires_at, scope_snapshot, material_digest)
+           values ($1, $2, $3, $4, $5, $6, now() + make_interval(hours => $7), $8, $9) returning id, summary, expires_at`,
+          [ctx.orgId, caller.clientId, tool.name, JSON.stringify(input), inputHash, preview.summary.slice(0, 500), APPROVAL_TTL_HOURS,
+            JSON.stringify(scopeSnapshot(client, tool.name)), previewDigest(preview)]);
         await this.outbox.publish(tx, ctx.orgId, {
           type: 'mcp.approval_requested', aggregateType: 'mcp_approval', aggregateId: approval.id,
           payload: { tool: tool.name, clientId: caller.clientId },
@@ -290,22 +310,27 @@ export class McpExecutionService {
       const tool = this.tool(r.tool);
       let preview: ApprovalPreview | null = null;
       let previewError: string | null = null;
+      let digest: string | null = null;
       if (tool?.preview && r.status === 'pending') {
         // Live diff against current data, evaluated with the client's own context.
         await tx.query('savepoint mcp_preview');
         try {
           preview = await tool.preview(tx, clientContext(ctx.orgId, { id: r.client_id, acting_role: r.acting_role, branch_ids: r.branch_ids }), r.input);
+          digest = previewDigest(preview);
           await tx.query('release savepoint mcp_preview');
         } catch (e) {
           await tx.query('rollback to savepoint mcp_preview');
           previewError = e instanceof DomainError ? e.message : 'Preview unavailable';
         }
       }
-      return { ...this.toApproval(r), preview, previewError };
+      // `changedSinceRequest`: the data behind the request changed after it was made; approving will close it instead.
+      const changedSinceRequest = !!(digest && r.material_digest && digest !== r.material_digest)
+        || !!(r.scope_snapshot && JSON.stringify(scopeSnapshot(r, r.tool)) !== JSON.stringify(r.scope_snapshot));
+      return { ...this.toApproval(r), preview, previewError, digest, changedSinceRequest };
     });
   }
 
-  async approve(userCtx: TenantContext, id: string, note: string | null | undefined) {
+  async approve(userCtx: TenantContext, id: string, note: string | null | undefined, shownDigest?: string) {
     await this.expireDue(userCtx.orgId);
     const result = await this.db.withTenant(userCtx.orgId, async (tx) => {
       const r = await this.loadApproval(tx, userCtx.orgId, id, true);
@@ -316,9 +341,38 @@ export class McpExecutionService {
         await tx.query(`update mcp_approvals set status = 'failed', error = 'The MCP client is no longer active', decided_by = $2, decided_at = now()
                          where id = $1`, [r.id, userCtx.userId]);
         await this.audit.record(tx, userCtx, { action: 'mcp.approval.failed', entityType: 'mcp_approval', entityId: r.id, metadata: { reason: 'client_inactive' } });
-        return { failedEarly: true as const };
+        return { failedEarly: 'client_inactive' as const, reason: null };
       }
       const clientCtx = clientContext(userCtx.orgId, { id: r.client_id, acting_role: r.acting_role, branch_ids: r.branch_ids });
+      // Binding (FT-17): the request executes only in the scope and on the data it was requested and reviewed with.
+      let invalidated: string | null = null;
+      if (r.scope_snapshot && JSON.stringify(scopeSnapshot(r, tool.name)) !== JSON.stringify(r.scope_snapshot)) {
+        invalidated = 'The connection\'s role, branches or tools changed after this request was made';
+      }
+      let current: string | null = null;
+      if (!invalidated && tool.preview) {
+        await tx.query('savepoint mcp_bind');
+        try {
+          current = previewDigest(await tool.preview(tx, clientCtx, r.input));
+          await tx.query('release savepoint mcp_bind');
+        } catch (e) {
+          await tx.query('rollback to savepoint mcp_bind');
+          invalidated = `The request no longer applies: ${e instanceof DomainError ? e.message : 'its records changed'}`.slice(0, 300);
+        }
+        if (!invalidated && r.material_digest && current !== r.material_digest) {
+          invalidated = 'The records this request changes were modified after it was made (for example by staff); the client must ask again';
+        }
+      }
+      if (!invalidated && shownDigest && current && shownDigest !== current) {
+        throw conflict('approval_changed', 'This request changed since you opened it. Review the updated details and approve again.', { digest: current });
+      }
+      if (invalidated) {
+        await tx.query(`update mcp_approvals set status = 'invalidated', invalidated_reason = $2, error = $2, decided_by = $3, decided_at = now() where id = $1`,
+          [r.id, invalidated, userCtx.userId]);
+        await this.audit.record(tx, userCtx, { action: 'mcp.approval.invalidated', entityType: 'mcp_approval', entityId: r.id,
+          metadata: { tool: tool.name, clientId: r.client_id, reason: invalidated } });
+        return { failedEarly: 'invalidated' as const, reason: invalidated };
+      }
       // The client must still be allowed to do this, and the approver must hold the permission too.
       if (!r.allowed_tools.includes(tool.name)) throw new DomainError('tool_not_allowed', 'The client is no longer allowed to use this tool', 403);
       if (tool.meta.permission && !clientCtx.can(tool.meta.permission)) throw forbidden(`The client's role (${clientCtx.role}) cannot perform ${tool.meta.permission}`);
@@ -341,7 +395,7 @@ export class McpExecutionService {
           metadata: { tool: tool.name, clientId: r.client_id } });
         await this.record(tx, clientCtx, clientCtx, { clientId: r.client_id, tool: tool.name, inputHash: r.input_hash, outcome: 'ok',
           started, via: 'approval', approvalId: r.id, outputBytes: Buffer.byteLength(JSON.stringify(output ?? null)), extra: { approvedBy: userCtx.userId } });
-        return { failedEarly: false as const, output };
+        return { failedEarly: null, reason: null, output };
       } catch (error) {
         await tx.query('rollback to savepoint mcp_exec');
         const { code, message } = outcomeFor(error);
@@ -352,13 +406,14 @@ export class McpExecutionService {
           metadata: { tool: tool.name, clientId: r.client_id, errorCode: code } });
         await this.record(tx, clientCtx, clientCtx, { clientId: r.client_id, tool: tool.name, inputHash: r.input_hash, outcome: 'error',
           started, via: 'approval', approvalId: r.id, errorCode: code, error: message });
-        return { failedEarly: false as const, output: null };
+        return { failedEarly: null, reason: null, output: null };
       }
     }, `user:${userCtx.userId}`);
     const approval = await this.db.scoped(userCtx, async (tx) => this.toApproval(await this.loadApproval(tx, userCtx.orgId, id, false)));
-    if (result.failedEarly) throw conflict('client_inactive', 'The MCP client was revoked or has expired; the request was closed', { approval });
+    if (result.failedEarly === 'client_inactive') throw conflict('client_inactive', 'The MCP client was revoked or has expired; the request was closed', { approval });
+    if (result.failedEarly === 'invalidated') throw conflict('approval_invalidated', `${result.reason}. Nothing was executed.`, { approval });
     // The approver sees the full result once (it may contain a payment URL).
-    return { ...approval, result: result.output ?? approval.result };
+    return { ...approval, result: ('output' in result ? result.output : null) ?? approval.result };
   }
 
   async reject(userCtx: TenantContext, id: string, note: string | null | undefined) {
@@ -402,6 +457,7 @@ export class McpExecutionService {
       input: r.input, client: { id: r.client_id, name: r.client_name, keyPrefix: r.key_prefix, actingRole: r.acting_role },
       requestedAt: iso(r.requested_at), expiresAt: iso(r.expires_at), decidedBy: r.decided_by ?? null, decidedAt: iso(r.decided_at),
       executedAt: iso(r.executed_at), decisionNote: r.decision_note ?? null, result: r.result ?? null, error: r.error ?? null,
+      invalidatedReason: r.invalidated_reason ?? null,
     };
   }
 }
