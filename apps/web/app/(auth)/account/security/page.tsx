@@ -113,7 +113,8 @@ function EmailCard() {
         <div className="stack" style={{ gap: 10 }} data-testid="email-change-sent">
           <Notice tone="ok">{tn('auth.account.emailSent', { email: <bdi dir="ltr">{sent}</bdi> })}</Notice>
           <EmailDeliveryNote />
-          <ResendEmail onResend={() => session.resendEmail('email_change', sent)} />
+          {/* Supabase finds the account by its current address and re-sends to the pending one (see session.resendEmail). */}
+          <ResendEmail onResend={() => session.resendEmail('email_change')} />
         </div>
       ) : (
         <form onSubmit={submit} className="stack" style={{ gap: 10 }}>

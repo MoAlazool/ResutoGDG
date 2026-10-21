@@ -97,8 +97,14 @@ export interface SessionValue {
    * AUTH-03: the confirmation link returns to `next` (e.g. the invitation being accepted), not always /onboarding.
    */
   signUp(email: string, password: string, fullName?: string, next?: string | null): Promise<{ confirmationRequired: boolean }>;
-  /** AUTH-03: asks Supabase Auth to send the sign-up confirmation (or email-change) link again; rate limited by Supabase. */
-  resendEmail(kind: 'signup' | 'email_change', email: string, next?: string | null): Promise<void>;
+  /** AUTH-03: asks Supabase Auth to send the sign-up confirmation link to `email` again; rate limited by Supabase. */
+  resendEmail(kind: 'signup', email: string, next?: string | null): Promise<void>;
+  /**
+   * AUTH-03: asks Supabase Auth to send the pending email-change link(s) again. Supabase finds the account by its
+   * CURRENT address (any other address gets a silent 200 and no email), so the session supplies it; with no change
+   * pending it fails with `email_change_none` instead of claiming a send.
+   */
+  resendEmail(kind: 'email_change'): Promise<void>;
   /** CR-05: sends a reset link (Supabase Auth) that returns through /auth/callback to /reset-password. */
   requestPasswordReset(email: string): Promise<void>;
   /** CR-05: sets a new password. `currentPassword` is required to change it while signed in (re-verified first). */
@@ -394,15 +400,26 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     return { confirmationRequired: false };
   }, [applyToken, loadMe]);
 
-  const resendEmail = useCallback(async (kind: 'signup' | 'email_change', email: string, next?: string | null) => {
+  const resendEmail = useCallback(async (kind: 'signup' | 'email_change', email?: string, next?: string | null) => {
     // The dev issuer confirms accounts immediately and sends no email: say so rather than pretend.
     if (AUTH_MODE !== 'supabase') throw new AuthFlowError('resend_unavailable');
-    const address = email.trim().toLowerCase();
-    const { error } = kind === 'signup'
-      ? await (await sb()).auth.resend({ type: 'signup', email: address, options: { emailRedirectTo: callbackUrl(safeNext(next) ?? '/onboarding') } })
-      : await (await sb()).auth.resend({ type: 'email_change', email: address, options: { emailRedirectTo: callbackUrl('/account/security') } });
+    const client = await sb();
+    if (kind === 'signup') {
+      const address = (email ?? '').trim().toLowerCase();
+      const { error } = await client.auth.resend({ type: 'signup', email: address, options: { emailRedirectTo: callbackUrl(safeNext(next) ?? '/onboarding') } });
+      if (error) throw error;
+      return;
+    }
+    // Supabase Auth (internal/api/resend.go) looks the user up by the CURRENT email and re-sends to the pending new
+    // address (and, with secure email change, to the current one). Read both fresh from the server.
+    const { data: u, error: who } = await client.auth.getUser();
+    if (who) throw who;
+    const current = u.user?.email;
+    if (!current) throw new AuthFlowError('not_signed_in');
+    if (!(u.user as { new_email?: string | null } | null)?.new_email) throw new AuthFlowError('email_change_none');
+    const { error } = await client.auth.resend({ type: 'email_change', email: current.toLowerCase(), options: { emailRedirectTo: callbackUrl('/account/security') } });
     if (error) throw error;
-  }, []);
+  }, []) as SessionValue['resendEmail'];
 
   const requestPasswordReset = useCallback(async (email: string) => {
     // The dev issuer has no email service: say so instead of pretending a link was sent.

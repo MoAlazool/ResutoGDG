@@ -15,6 +15,8 @@ const sb = {
   signUps: [] as Array<{ email: string; options: { emailRedirectTo: string } }>,
   resends: [] as unknown[],
   exchange: 'ok' as 'ok' | 'pkce' | 'expired',
+  /** The signed-in user as Supabase Auth returns it (getUser): current email and the pending new one. */
+  user: null as null | { id: string; email: string; new_email?: string },
 };
 const makeSession = () => ({ access_token: fakeJwt({ sub: 'u-link', email: 'new@olive.example', aal: 'aal1' }), user: { id: 'u-link', factors: [] } });
 
@@ -23,6 +25,7 @@ vi.mock('@supabase/supabase-js', () => ({
     auth: {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
       getSession: async () => ({ data: { session: sb.session }, error: null }),
+      getUser: async () => ({ data: { user: sb.user }, error: sb.user ? null : Object.assign(new Error('Auth session missing!'), { name: 'AuthSessionMissingError', status: 400 }) }),
       signUp: async (p: { email: string; options: { emailRedirectTo: string } }) => { sb.signUps.push(p); return { data: { user: { id: 'u-link' }, session: null }, error: null }; },
       resend: async (p: unknown) => { sb.resends.push(p); return { data: {}, error: null }; },
       exchangeCodeForSession: async () => {
@@ -50,7 +53,7 @@ beforeAll(() => {
     return json({});
   }) as typeof fetch;
 });
-afterEach(() => { sb.session = null; sb.signUps = []; sb.resends = []; sb.exchange = 'ok'; });
+afterEach(() => { sb.session = null; sb.signUps = []; sb.resends = []; sb.exchange = 'ok'; sb.user = null; });
 
 async function mount() {
   const { createRoot } = await import('react-dom/client');
@@ -78,11 +81,24 @@ describe('AUTH-03 sign-up confirmation keeps where the user was going', () => {
   it('resends the confirmation (and email-change) link through Supabase with the same return path', async () => {
     const s = await mount();
     await act(async () => { await s.get().resendEmail('signup', ' New@Olive.example ', '/invite/tok123'); });
-    await act(async () => { await s.get().resendEmail('email_change', 'next@olive.example'); });
+    // Review finding: Supabase Auth (internal/api/resend.go) finds the user by the CURRENT email; the new address
+    // matches nobody and gets a silent 200 with no email. The session sends the current address.
+    sb.user = { id: 'u-link', email: 'Current@Olive.example', new_email: 'next@olive.example' };
+    await act(async () => { await s.get().resendEmail('email_change'); });
     expect(sb.resends).toEqual([
       { type: 'signup', email: 'new@olive.example', options: { emailRedirectTo: 'http://app.test/auth/callback?next=%2Finvite%2Ftok123' } },
-      { type: 'email_change', email: 'next@olive.example', options: { emailRedirectTo: 'http://app.test/auth/callback?next=%2Faccount%2Fsecurity' } },
+      { type: 'email_change', email: 'current@olive.example', options: { emailRedirectTo: 'http://app.test/auth/callback?next=%2Faccount%2Fsecurity' } },
     ]);
+    await s.unmount();
+  });
+
+  it('with no email change pending, "send again" fails honestly instead of claiming a send', async () => {
+    const s = await mount();
+    sb.user = { id: 'u-link', email: 'current@olive.example' };
+    await expect(s.get().resendEmail('email_change')).rejects.toMatchObject({ code: 'email_change_none' });
+    sb.user = null;
+    await expect(s.get().resendEmail('email_change')).rejects.toMatchObject({ name: 'AuthSessionMissingError' });
+    expect(sb.resends).toEqual([]);
     await s.unmount();
   });
 });

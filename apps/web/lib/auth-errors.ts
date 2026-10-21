@@ -12,7 +12,7 @@ export const AUTH_ERROR_CODES = [
   // AUTH-02: TOTP two-step verification (Supabase Auth MFA) and the API's 403 mfa_required.
   'mfa_code_format', 'mfa_code_invalid', 'mfa_code_expired', 'mfa_unavailable', 'mfa_required', 'mfa_too_many', 'mfa_no_factor',
   // AUTH-03: email links and resends.
-  'link_expired', 'link_other_browser', 'resend_unavailable',
+  'link_expired', 'link_other_browser', 'resend_unavailable', 'email_change_none',
   // AUTH-02: a signed-in password change that needs a fresh sign-in ("secure password change", session over 24 hours).
   'password_change_sign_in_again',
 ] as const;

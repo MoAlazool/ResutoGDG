@@ -123,6 +123,7 @@ export const account = {
     'auth.error.link_expired': 'This link has expired or was already used. Request a new one below.',
     'auth.error.link_other_browser': 'Open the link in the same browser where you asked for it. If you were confirming your email, it may already be confirmed: try signing in.',
     'auth.error.resend_unavailable': 'Local development mode sends no email: accounts are active as soon as they are created.',
+    'auth.error.email_change_none': 'There is no email change waiting for confirmation (it may already be done). Enter the new address again to start over.',
   },
   ar: {
     'auth.forgot': 'نسيت كلمة المرور؟',
@@ -243,5 +244,6 @@ export const account = {
     'auth.error.link_expired': 'انتهت صلاحية هذا الرابط أو استُخدم من قبل. اطلب رابطًا جديدًا أدناه.',
     'auth.error.link_other_browser': 'افتح الرابط في المتصفح نفسه الذي طلبته منه. إن كنت تؤكّد بريدك فربما تم تأكيده بالفعل: جرّب تسجيل الدخول.',
     'auth.error.resend_unavailable': 'وضع التطوير المحلي لا يرسل بريدًا: تصبح الحسابات مفعّلة فور إنشائها.',
+    'auth.error.email_change_none': 'لا يوجد تغيير بريد بانتظار التأكيد (ربما اكتمل بالفعل). أدخل العنوان الجديد مرة أخرى للبدء من جديد.',
   },
 } as { en: Record<string, string>; ar: Record<string, string> };
