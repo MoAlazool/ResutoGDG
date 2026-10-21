@@ -1,11 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
-import { parseMajor } from '@resuto/contracts';
-import { Badge, Card, DataTable, Field, Modal, Notice, PageHeader, SelectField, Skeleton } from '@resuto/ui';
+import { parseMajor, type ServiceMode, type SetupChecklist } from '@resuto/contracts';
+import { Badge, Card, DataTable, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs } from '@resuto/ui';
+import { ServiceModeCards, VenueQrCard } from '@/components/ops/ServiceMode';
+import '@/components/ops/ops.css';
 import { ApiRequestError } from '@/lib/api';
-import { money } from '@/lib/format';
+import { money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
+import { formatNumber } from '@resuto/contracts';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
@@ -18,20 +21,17 @@ const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
 interface Branch {
   id: string; code: string; name: string; nameAr: string | null; address: string | null; city: string | null; phone: string | null; isActive: boolean;
   acceptsDineIn: boolean; acceptsPickup: boolean; acceptsDelivery: boolean; acceptsReservations: boolean; deliveryFeeMinor: number; minOrderMinor: number;
+  deliveryRadiusM: number | null; reservationDurationMin: number | null; reservationBufferMin: number | null; reservationDepositMinor: number | null; serviceMode?: ServiceMode;
 }
 interface OrgDetail {
   id: string; name: string; nameAr: string | null; country: 'EG' | 'SA'; currency: 'EGP' | 'SAR'; timezone: string; defaultLocale: 'en' | 'ar'; status: string;
   legalName: string | null; taxRegistrationNumber: string | null; commercialRegistration: string | null; onboarding: Record<string, string>; branches: Branch[];
 }
 
-const STEPS = [
-  { key: 'profile', href: '/settings' }, { key: 'branch', href: '/settings' }, { key: 'menu', href: '/menu' }, { key: 'floor', href: '/floor' },
-  { key: 'website', href: '/website' }, { key: 'payments', href: '/payments' }, { key: 'launched', href: null },
-] as const;
 const major = (minor: number) => (minor / 100).toFixed(2).replace(/\.00$/, '');
 
 export default function SettingsPage() {
-  const { locale } = useT();
+  const { locale, t } = useT();
   const s = SETTINGS_STRINGS[locale];
   const { org, can, reload: reloadShell } = useOrg();
   const session = useSession();
@@ -40,8 +40,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ tone: 'ok' | 'danger'; text: string } | null>(null);
   const [editing, setEditing] = useState<Branch | 'new' | null>(null);
-  const [stepBusy, setStepBusy] = useState<string | null>(null);
-  const [stepError, setStepError] = useState<string | null>(null);
+  // The launch checklist is derived on the server from the restaurant's data (FT-13); it cannot be ticked by hand.
+  const setup = useApi<SetupChecklist>(can('org:manage') ? `/o/${org.id}/setup` : null);
+  const [modeBranch, setModeBranch] = useState<string | null>(null);
 
   useEffect(() => {
     const d = detail.data;
@@ -63,9 +64,8 @@ export default function SettingsPage() {
         name: form.name, nameAr: form.nameAr || null, defaultLocale: form.defaultLocale, timezone: form.timezone,
         legalName: form.legalName || null, taxRegistrationNumber: form.taxRegistrationNumber || null, commercialRegistration: form.commercialRegistration || null,
       } });
-      if (!d.onboarding.profile && form.legalName) await session.call(`/o/${org.id}/onboarding/profile`, { body: {} }).catch(() => undefined);
       setMsg({ tone: 'ok', text: s.saved });
-      await Promise.all([detail.reload(), reloadShell()]);
+      await Promise.all([detail.reload(), reloadShell(), setup.reload()]);
     } catch (err) {
       setMsg({ tone: 'danger', text: (err as Error).message });
     } finally {
@@ -73,19 +73,11 @@ export default function SettingsPage() {
     }
   }
 
-  async function markStep(step: string) {
-    setStepBusy(step); setStepError(null);
-    try {
-      await session.call(`/o/${org.id}/onboarding/${step}`, { body: {} });
-      await Promise.all([detail.reload(), reloadShell()]);
-    } catch (err) {
-      setStepError((err as Error).message);
-    } finally {
-      setStepBusy(null);
-    }
-  }
-
-  const doneCount = STEPS.filter((x) => d.onboarding[x.key]).length;
+  const steps = (setup.data?.steps ?? []).filter((x) => x.step !== 'welcome');
+  const doneCount = steps.filter((x) => x.done).length;
+  const activeBranches = d.branches.filter((b) => b.isActive);
+  const mb = activeBranches.find((b) => b.id === modeBranch) ?? activeBranches[0];
+  const refreshAll = async () => { await Promise.all([detail.reload(), reloadShell(), setup.reload()]); };
   return (
     <div style={FIT}>
       <PageHeader title={s.title} subtitle={s.subtitle} />
@@ -116,27 +108,36 @@ export default function SettingsPage() {
         </Card>
 
         {/* breaks the global .card + .card margin inside grids */}<span hidden />
-        <Card title={s.checklist} actions={<Badge tone={doneCount === STEPS.length ? 'ok' : 'info'}>{doneCount}/{STEPS.length}</Badge>}>
-          <p className="fine" style={{ marginTop: 0 }}>{s.checklistSub}</p>
-          {stepError && <div style={{ marginBlockEnd: 10 }}><Notice tone="danger">{stepError}</Notice></div>}
-          <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
-            {STEPS.map((step) => {
-              const done = !!d.onboarding[step.key];
-              return (
-                <li key={step.key} className="spread" style={{ padding: '10px 12px', borderRadius: 10, background: done ? 'var(--ok-bg)' : 'var(--surface-warm)' }}>
-                  <span><span aria-hidden style={{ marginInlineEnd: 8 }}>{done ? '✓' : '○'}</span>{s[`st_${step.key}` as keyof typeof s]}</span>
-                  <span className="row" style={{ gap: 6 }}>
-                    {step.href && step.href !== '/settings' && <Link className="btn btn-sm btn-ghost" href={`/dashboard/${org.id}${step.href}`}>{s.open}</Link>}
-                    {done ? <Badge tone="ok">{s.done}</Badge>
-                      : <button className="btn btn-sm" disabled={stepBusy === step.key} onClick={() => void markStep(step.key)}>{s.markDone}</button>}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-          <p className="fine" style={{ marginBlockEnd: 0 }}>{s.launchedNote}</p>
+        <Card title={s.checklist} actions={setup.data ? <Badge tone={setup.data.launched ? 'ok' : 'info'}><span className="num">{formatNumber(doneCount, locale)}/{formatNumber(steps.length, locale)}</span></Badge> : undefined}>
+          <p className="fine" style={{ marginTop: 0 }}>{t('ops.setup.checklistSub')}</p>
+          {setup.error && <Notice tone="danger">{setup.error.message}</Notice>}
+          {!setup.data ? <Skeleton lines={5} /> : (
+            <div className="setup-checklist">
+              {steps.map((x) => (
+                <p key={x.step} className={x.done ? 'is-done' : undefined}>
+                  <span aria-hidden="true">{x.done ? '✓' : '○'}</span>
+                  <Link href={`/dashboard/${org.id}/setup?step=${x.step}`}>{t(`ops.setup.step.${x.step}`)}</Link>
+                  <small>{x.done ? s.done : x.required ? t('ops.setup.status.todo') : t('ops.setup.status.optional')}</small>
+                </p>
+              ))}
+            </div>
+          )}
+          <Link className="btn btn-sm btn-primary" href={`/dashboard/${org.id}/setup`}>✦ {t('ops.setup.link')}</Link>
         </Card>
       </div>
+
+      {mb && (
+        <Card title={t('ops.mode.title')}>
+          <p className="fine" style={{ marginTop: 0 }}>{t('ops.mode.subtitle', { branch: pick(locale, mb.name, mb.nameAr) })}</p>
+          {activeBranches.length > 1 && (
+            <Tabs value={mb.id} onChange={setModeBranch} label={s.branches}
+              tabs={activeBranches.map((b) => ({ key: b.id, label: pick(locale, b.name, b.nameAr) }))} />
+          )}
+          <ServiceModeCards key={`${mb.id}:${mb.serviceMode}:${mb.acceptsReservations}`} orgId={org.id} branch={mb} canEdit={can('branches:manage')} onSaved={refreshAll} />
+          {mb.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={mb.id} />}
+        </Card>
+      )}
+      {mb && <PolicyCard key={`policy:${mb.id}`} branch={mb} currency={d.currency} canEdit={can('branches:manage')} onSaved={refreshAll} />}
 
       <Card title={s.branches} actions={can('branches:manage') ? <button className="btn btn-sm btn-primary" onClick={() => setEditing('new')}>{s.addBranch}</button> : undefined}>
         <DataTable rows={d.branches} rowKey={(b) => b.id} onRowClick={can('branches:manage') ? (b) => setEditing(b) : undefined} columns={[
@@ -223,5 +224,62 @@ function BranchModal({ branch, currency, s, onClose, onSaved }: {
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** Reservation & delivery policy of one branch (legacy settings: duration, turnaround buffer, deposit, delivery fee). */
+function PolicyCard({ branch, currency, canEdit, onSaved }: { branch: Branch; currency: 'EGP' | 'SAR'; canEdit: boolean; onSaved: () => Promise<void> }) {
+  const { t } = useT();
+  const { org } = useOrg();
+  const session = useSession();
+  const [pending, setPending] = useState(false);
+  const [msg, setMsg] = useState<{ tone: 'ok' | 'danger'; text: string } | null>(null);
+  const tables = (branch.serviceMode ?? 'tables') === 'tables';
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (pending) return;
+    const f = new FormData(e.currentTarget);
+    const v = (k: string) => String(f.get(k) ?? '').trim();
+    setPending(true); setMsg(null);
+    try {
+      const radiusKm = v('radius');
+      await session.call(`/o/${org.id}/branches/${branch.id}`, { method: 'PATCH', body: {
+        ...(tables && branch.acceptsReservations ? {
+          reservationDurationMin: Number(v('duration')), reservationBufferMin: Number(v('buffer')), reservationDepositMinor: parseMajor(v('deposit') || '0', currency),
+        } : {}),
+        acceptsPickup: f.has('pickup'), acceptsDelivery: f.has('delivery'),
+        deliveryFeeMinor: parseMajor(v('fee') || '0', currency), minOrderMinor: parseMajor(v('min') || '0', currency),
+        deliveryRadiusM: radiusKm ? Math.round(Number(radiusKm) * 1000) : null,
+      } });
+      setMsg({ tone: 'ok', text: t('ops.policy.saved') });
+      await onSaved();
+    } catch (err) { setMsg({ tone: 'danger', text: (err as Error).message }); } finally { setPending(false); }
+  }
+  return (
+    <Card title={t('ops.policy.title')}>
+      <p className="fine" style={{ marginTop: 0 }}>{t('ops.policy.subtitle')}</p>
+      <form onSubmit={submit}>
+        <fieldset disabled={!canEdit || pending} style={{ border: 0, padding: 0, margin: 0 }}>
+          {tables && branch.acceptsReservations ? (
+            <div className="form-row">
+              <Field label={t('ops.policy.duration')} name="duration" type="number" min={15} max={600} required defaultValue={branch.reservationDurationMin ?? 90} />
+              <Field label={t('ops.policy.buffer')} name="buffer" type="number" min={0} max={240} required defaultValue={branch.reservationBufferMin ?? 15} />
+              <Field label={t('ops.policy.deposit', { currency })} name="deposit" inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" defaultValue={major(branch.reservationDepositMinor ?? 0)} hint={t('ops.policy.depositHint')} />
+            </div>
+          ) : <p className="fine">{t('ops.policy.reservationsOff')}</p>}
+          <div className="row" style={{ gap: 18, marginBlockEnd: 14 }}>
+            <label className="check"><input type="checkbox" name="pickup" defaultChecked={branch.acceptsPickup} /> {t('ops.policy.enablePickup')}</label>
+            <label className="check"><input type="checkbox" name="delivery" defaultChecked={branch.acceptsDelivery} /> {t('ops.policy.enableDelivery')}</label>
+          </div>
+          <div className="form-row">
+            <Field label={t('ops.policy.deliveryFee', { currency })} name="fee" inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" defaultValue={major(branch.deliveryFeeMinor)} />
+            <Field label={t('ops.policy.minOrder', { currency })} name="min" inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" defaultValue={major(branch.minOrderMinor)} />
+            <Field label={t('ops.policy.radius')} name="radius" inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" defaultValue={branch.deliveryRadiusM ? String(branch.deliveryRadiusM / 1000) : ''} />
+          </div>
+          {msg && <div style={{ marginBlockEnd: 12 }}><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+          {canEdit && <button className="btn btn-primary" disabled={pending}>{pending ? t('state.loading') : t('action.save')}</button>}
+        </fieldset>
+      </form>
+    </Card>
   );
 }

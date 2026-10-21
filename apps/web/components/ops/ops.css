@@ -220,3 +220,78 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .data-card h2 span { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--leaf-bg); color: var(--leaf-text); }
 .data-card p { margin: 0; font-size: 13px; color: var(--subtle); line-height: 1.6; flex: 1; }
 .data-card .row { margin-top: 6px; }
+
+/* ---------- Service model cards (legacy .mode-cards) and the venue QR launch card ---------- */
+.mode-cards { display: flex; gap: 16px; flex-wrap: wrap; margin-block: 8px 18px; }
+.mode-card { flex: 1; min-width: 200px; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius-lg, 18px); display: grid; gap: 8px;
+  cursor: pointer; background: var(--card); transition: background .15s, border-color .15s; position: relative; }
+.mode-card input { position: absolute; inset-inline-end: 16px; top: 18px; accent-color: var(--ink); }
+.mode-card strong { font-size: 15px; color: var(--ink); }
+.mode-card small { font-size: 13px; line-height: 1.55; color: var(--subtle); }
+.mode-card.is-on { background: var(--leaf-bg); border-color: color-mix(in srgb, var(--herb) 60%, var(--line)); }
+.mode-card:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mode-card-glyph { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-warm); color: var(--leaf-text); font-family: var(--font-glyph); font-size: 18px; }
+.mode-reservations { margin-bottom: 14px; }
+.mode-actions { margin-top: 4px; }
+.mode-picker .notice { margin-bottom: 12px; }
+.venue-qr-body { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.venue-qr-code { width: 168px; height: 168px; flex: none; background: var(--paper); border-radius: 12px; padding: 8px; border: 1px solid var(--line-soft); }
+.venue-qr-code svg { width: 100%; height: 100%; display: block; }
+.venue-qr-text { flex: 1; min-width: 220px; display: grid; gap: 8px; }
+.venue-qr-text p { margin: 0; }
+.venue-qr-text .fine { overflow-wrap: anywhere; }
+
+/* ---------- Guided setup (legacy setup.js / experience.css .setup-shell) ---------- */
+.setup-shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 48px; max-width: 1180px; padding-block: 12px 40px; }
+.setup-aside h1 { font-family: var(--font-display); font-size: clamp(28px, 3vw, 40px); line-height: 1.18; margin: 10px 0 0; color: var(--ink); }
+.setup-steps { list-style: none; padding: 0; margin: 30px 0; position: relative; }
+/* sr-only text inside the step buttons must stay inside the scroller on phones */
+.setup-steps button { position: relative; }
+.setup-steps button { background: transparent; border: 0; text-align: start; width: 100%; display: flex; align-items: center; gap: 12px; margin: 4px 0;
+  padding: 11px 12px; border-radius: 12px; color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.setup-steps button:hover { background: var(--nav-hover); }
+.setup-steps button > span:first-child { border: 1px solid var(--line); border-radius: 50%; width: 30px; height: 30px; display: grid; place-items: center; flex: none; font-size: 12px; color: var(--subtle); }
+.setup-steps button > span.is-done { background: var(--leaf-bg); border-color: color-mix(in srgb, var(--herb) 50%, var(--line)); color: var(--leaf-text); }
+.setup-steps .current button { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: 600; }
+.setup-later { font-size: 14px; color: var(--ink); }
+.setup-card { padding: 36px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-panel, 20px); box-shadow: var(--shadow-soft); min-width: 0; align-self: start; }
+.setup-card h2 { font-size: 16px; margin: 14px 0 22px; color: var(--ink); }
+.setup-progress { display: flex; gap: 20px; align-items: center; color: var(--subtle); font-size: 13px; }
+.setup-progress progress { flex: 1; height: 5px; accent-color: var(--ink); }
+.setup-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+.setup-options { display: flex; gap: 10px 18px; flex-wrap: wrap; border: 0; padding: 0; margin: 4px 0 18px; }
+.setup-options legend { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+.setup-footer { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line-soft); display: flex; justify-content: space-between; gap: 12px; }
+.setup-welcome { font-size: 84px; color: var(--herb); text-align: center; background: var(--leaf-bg); border-radius: 50% 50% 25% 25%; margin: 18px auto 26px; width: 180px; line-height: 1.35; }
+.setup-lead { font-size: 17px; margin: 0 0 10px; color: var(--ink); }
+.setup-lead-text { max-width: 60ch; }
+.setup-status { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--subtle); background: var(--surface-warm); border-radius: 10px; padding: 10px 14px; margin: 0 0 18px; }
+.setup-status.is-done { background: var(--ok-bg); color: var(--ok); }
+.setup-focus { text-align: center; padding: 18px 0; }
+.setup-focus h3 { font-size: 18px; color: var(--ink); margin: 12px 0 6px; }
+.setup-focus-icon { display: grid; place-items: center; width: 84px; height: 84px; margin: auto; background: var(--leaf-bg); border-radius: 26px; font-size: 36px; color: var(--leaf-text); }
+.owner-choices { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+.owner-choices > * { flex: 1; min-width: 160px; padding: 18px; text-align: center; border: 1px solid var(--line); border-radius: 12px; background: var(--leaf-bg);
+  color: var(--ink); font-weight: 650; text-decoration: none; display: grid; gap: 4px; }
+.owner-choices > a:hover { border-color: var(--herb); }
+.owner-choices > .is-disabled { opacity: .6; cursor: not-allowed; background: var(--surface-warm); }
+.owner-choices small { font-weight: 400; color: var(--subtle); font-size: 12px; }
+.readiness-list { display: grid; gap: 7px; margin: 20px 0; text-align: start; }
+.readiness-list p { display: grid; grid-template-columns: 25px 1fr auto; gap: 8px; padding: 11px 14px; background: var(--surface-warm); border-radius: 9px; margin: 0; }
+.readiness-list small { color: var(--subtle); }
+.setup-checklist { display: grid; gap: 8px; margin-bottom: 18px; }
+.setup-checklist p { display: flex; align-items: center; gap: 12px; padding: 13px 14px; background: var(--surface-warm); border-radius: 10px; margin: 0; }
+.setup-checklist p.is-done { background: var(--ok-bg); }
+.setup-checklist small { margin-inline-start: auto; color: var(--subtle); }
+.setup-card .notice { margin-block: 12px; }
+@media (max-width: 1000px) { .setup-shell { grid-template-columns: 220px minmax(0, 1fr); gap: 24px; } .setup-card { padding: 24px; } }
+@media (max-width: 700px) {
+  .setup-shell { display: block; padding-top: 0; }
+  .setup-aside h1 { font-size: 26px; }
+  .setup-steps { display: flex; overflow-x: auto; margin: 16px 0; gap: 4px; }
+  .setup-steps button { width: max-content; font-size: 12px; padding: 8px; white-space: nowrap; }
+  .setup-steps button > span:first-child { width: 24px; height: 24px; }
+  .setup-later { display: none; }
+  .setup-card { padding: 20px; margin-top: 8px; }
+  .setup-fields { grid-template-columns: 1fr; }
+}
