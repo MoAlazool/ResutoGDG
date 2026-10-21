@@ -48,6 +48,13 @@ export class LoyaltyController {
     return this.loyalty.balance(ctx, customerId);
   }
 
+  /** Rewards a customer can redeem on a staff order (cashiers create orders but may not manage the programme). */
+  @Get('customers/:customerId/rewards')
+  @RequirePermission('orders:write')
+  redeemable(@Tenant() ctx: TenantContext, @Param('customerId', ParseUUIDPipe) customerId: string) {
+    return this.loyalty.redeemable(ctx, customerId);
+  }
+
   @Post('adjustments')
   @RequirePermission('marketing:approve')
   adjust(@Tenant() ctx: TenantContext, @Body(zod(loyaltyAdjustInput)) body: z.infer<typeof loyaltyAdjustInput>, @Headers('idempotency-key') key?: string) {

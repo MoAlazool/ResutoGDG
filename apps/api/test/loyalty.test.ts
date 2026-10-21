@@ -8,6 +8,7 @@ import { PaymentLedgerService } from '../src/modules/kernel/payment-ledger.servi
 import { LoyaltyHandlers } from '../src/modules/loyalty/loyalty.handlers';
 import { LoyaltyService } from '../src/modules/loyalty/loyalty.service';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
+import { key, qrTokenFor, saveFloor, table } from './ops-fixtures';
 
 let t: TestApp;
 let A: TestTenant;
@@ -198,6 +199,101 @@ describe('redemption through the pricing engine', () => {
     expect(smuggled.status).toBe(200);
     expect(smuggled.body.loyalty.reward).toBeNull();
     expect(smuggled.body.discountMinor).toBe(q.body.discountMinor);
+  });
+});
+
+describe('who counts as identified (QR tables and staff orders)', () => {
+  let victimId: string;
+  let victimPhone: string;
+  let tableId: string;
+  let qr: string;
+  beforeAll(async () => {
+    victimPhone = newPhone();
+    victimId = (await place({ phone: victimPhone })).customerId!;
+    expect((await t.http.post(L(A, '/adjustments')).set(auth(A.owner)).send({ customerId: victimId, points: 120, reason: 'seed balance' })).status).toBe(201);
+    const f = await saveFloor(t, A, [table('L1', 400, 200, { capacity: 4 })]);
+    tableId = f.tables.find((x: any) => x.label === 'L1').id;
+    qr = await qrTokenFor(t, A, tableId);
+  });
+  /** A public booking with the victim's phone (nobody verifies it), confirmed and moved to "now" (the guest arrives). */
+  async function bookWithPhone(phone: string) {
+    const d = new Date(Date.now() + 3 * 86_400_000);
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(d);
+    const h = await t.http.post(`/v1/public/reservations/${A.slug}/holds`).send({ branchId: A.branchId, partySize: 2, guestName: 'Someone', guestPhone: phone, key: key('h'), date, time: '19:00' });
+    expect(h.status).toBe(201);
+    expect((await t.http.post('/v1/public/reservations/manage/confirm').set({ 'X-Reservation-Token': h.body.manageToken }).send({ key: key() })).status).toBeLessThan(300);
+    const [r] = await sql(`select id, customer_id from reservations where org_id = $1 order by created_at desc limit 1`, [A.orgId]);
+    expect(r.customer_id).toBe(victimId);
+    await sql(`update reservations set table_id = $2, starts_at = now(), ends_at = now() + interval '90 minutes', blocked_until = now() + interval '2 hours' where id = $1`, [r.id, tableId]);
+    return r.id as string;
+  }
+  async function closeTable() {
+    await sql(`update visits set status = 'closed', closed_at = now() where table_id = $1 and status = 'open'`, [tableId]);
+    await sql(`update dining_tables set status = 'available' where id = $1`, [tableId]);
+    await sql(`update reservations set status = 'completed' where table_id = $1 and status in ('seated', 'confirmed')`, [tableId]);
+  }
+
+  it('a QR self-check-in from a phone-only booking cannot see or spend that customer’s points (review regression)', async () => {
+    await bookWithPhone(victimPhone);
+    const scan = await t.http.post(`/v1/public/tables/${qr}/session`);
+    expect(scan.status).toBe(200);
+    const tok = scan.body.token;
+    // The probe's precondition: the self-opened visit did inherit the booked customer.
+    expect((await sql(`select customer_id, opened_via, opened_by from visits where id = $1`, [scan.body.visitId]))[0]).toEqual({ customer_id: victimId, opened_via: 'qr', opened_by: null });
+    const rewards = await t.http.get('/v1/public/visits/current/rewards').set('X-Visit-Token', tok);
+    expect(rewards.body).toEqual({ identified: false, rewards: [] });
+    const quote = await t.http.post('/v1/public/visits/current/quote').set('X-Visit-Token', tok).send({ lines: [{ productId: menu.products.fries, quantity: 2 }] });
+    expect(quote.status).toBe(200);
+    expect(quote.body.loyalty.balance).toBeNull();
+    const smuggled = await t.http.post('/v1/public/visits/current/quote').set('X-Visit-Token', tok).send({ lines: [{ productId: menu.products.fries, quantity: 2 }], loyaltyRewardId: rewardId });
+    expect(smuggled.status).toBe(409);
+    expect(smuggled.body.error?.code ?? smuggled.body.code).toBe('loyalty_customer_required');
+    const placed = await t.http.post('/v1/public/visits/current/orders').set('X-Visit-Token', tok).set('Idempotency-Key', key('g'))
+      .send({ lines: [{ productId: menu.products.fries, quantity: 2 }], loyaltyRewardId: rewardId });
+    expect(placed.status).toBe(409);
+    expect((await rows(victimId)).filter((r) => r.kind === 'redeem')).toEqual([]);
+    expect(await balance(victimId)).toBe(120);
+    await closeTable();
+  });
+
+  it('a reservation the host checked in counts as identified for the table', async () => {
+    const reservationId = await bookWithPhone(victimPhone);
+    const host = await addMember(t, A, 'host');
+    const seat = await t.http.post(`/v1/o/${A.orgId}/visits`).set(auth(host)).send({ tableId, reservationId });
+    expect(seat.status).toBe(201);
+    const tok = (await t.http.post(`/v1/public/tables/${qr}/session`)).body.token;
+    const rewards = await t.http.get('/v1/public/visits/current/rewards').set('X-Visit-Token', tok);
+    expect(rewards.body.identified).toBe(true);
+    const quote = await t.http.post('/v1/public/visits/current/quote').set('X-Visit-Token', tok).send({ lines: [{ productId: menu.products.fries, quantity: 2 }], loyaltyRewardId: rewardId });
+    expect(quote.status).toBe(200);
+    expect(quote.body.loyalty).toMatchObject({ balance: 120, reward: { id: rewardId, pointsCost: 5 } });
+    await closeTable();
+  });
+
+  it('staff orders redeem for a picked customer; cashiers see the redeemable rewards; other tenants’ customers are refused', async () => {
+    const r = await t.http.get(L(A, `/customers/${victimId}/rewards`)).set(auth(cashier));
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ active: true, balance: (await balance(victimId)) });
+    expect(r.body.rewards.find((x: any) => x.id === rewardId)).toMatchObject({ pointsCost: 5, affordable: true });
+    const before = await balance(victimId);
+    const o = await t.http.post(`/v1/o/${A.orgId}/orders`).set(auth(cashier)).set('Idempotency-Key', key('so'))
+      .send({ branchId: A.branchId, fulfillment: 'pickup', lines: [{ productId: menu.products.fries, quantity: 2 }], customerId: victimId, loyaltyRewardId: rewardId });
+    expect(o.status).toBe(201);
+    const [order] = await sql(`select customer_id, discount_minor from orders where id = $1`, [o.body.id]);
+    expect(order.customer_id).toBe(victimId);
+    expect(Number(order.discount_minor)).toBeGreaterThan(0);
+    const redeem = await sql(`select points, actor from loyalty_ledger where order_id = $1 and kind = 'redeem'`, [o.body.id]);
+    expect(redeem).toEqual([{ points: -5, actor: `user:${cashier.userId}` }]);
+    expect(await balance(victimId)).toBe(before - 5);
+    // Without a customer there is nothing to redeem against; a foreign customer id is not found.
+    const anon = await t.http.post(`/v1/o/${A.orgId}/orders`).set(auth(cashier)).set('Idempotency-Key', key('so'))
+      .send({ branchId: A.branchId, fulfillment: 'pickup', lines: [{ productId: menu.products.fries, quantity: 1 }], loyaltyRewardId: rewardId });
+    expect(anon.status).toBe(422);
+    const foreign = (await sql(`insert into customers(org_id, display_name, phone_e164) values ($1, 'Other', $2) returning id`, [B.orgId, newPhone()]))[0].id;
+    const cross = await t.http.post(`/v1/o/${A.orgId}/orders`).set(auth(cashier)).set('Idempotency-Key', key('so'))
+      .send({ branchId: A.branchId, fulfillment: 'pickup', lines: [{ productId: menu.products.fries, quantity: 1 }], customerId: foreign, loyaltyRewardId: rewardId });
+    expect(cross.status).toBe(404);
+    expect((await t.http.get(L(A, `/customers/${foreign}/rewards`)).set(auth(cashier))).status).toBe(404);
   });
 });
 

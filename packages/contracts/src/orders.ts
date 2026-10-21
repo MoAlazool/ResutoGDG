@@ -97,6 +97,12 @@ export const staffOrderRequest = z.object({
   notes: optionalText(500),
   promotionCode: optionalText(40),
   channel: z.enum(['staff', 'phone']).default('staff'),
+  /**
+   * FT-03: an existing customer picked by staff (customer card / lookup); wins over `customer` for the order's profile.
+   * Staff are the ones who identify the guest, so a staff order may redeem that customer's points with `loyaltyRewardId`.
+   */
+  customerId: uuid.optional().nullable(),
+  loyaltyRewardId: uuid.optional().nullable(),
 });
 export type StaffOrderRequest = z.infer<typeof staffOrderRequest>;
 

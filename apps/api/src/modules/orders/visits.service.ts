@@ -32,6 +32,15 @@ const MANAGER_ROLES = new Set(['owner', 'admin', 'manager']);
 export const guestContext = (orgId: string, visitId: string) => new TenantContext(orgId, 'waiter', null, null, 'guest', visitId, 'web');
 
 /**
+ * FT-03: whether a visit's customer was identified by a member of staff. Only a visit a staff user opened (seated a
+ * walk-in or checked a reservation in at the host stand) counts. A QR-opened visit copies the customer of whichever
+ * reservation is due at the table, and public reservations take that customer from a phone number nobody verified, so
+ * such a visit may not see that customer's points or spend them.
+ */
+export const visitCustomerVerified = (v: { customer_id?: string | null; opened_by?: string | null; opened_via?: string | null }) =>
+  !!v.customer_id && !!v.opened_by && (v.opened_via === 'staff' || v.opened_via === 'reservation');
+
+/**
  * Visits: a seated table session. Opening (QR auto-open, staff seat, reservation
  * check-in), the guest bearer token, the bill view, closing (manual, forced,
  * automatic) and the 60-second undo — the legacy lifecycle from server.js.

@@ -13,7 +13,7 @@ import { PricingService, type Quote } from '../kernel/pricing.service';
 import { MenuService } from '../menu/menu.service';
 import { guestCoverPath, signGuestCover } from '../orders/guest-cover';
 import { orgCountry } from '../orders/org-country';
-import { VisitsService } from '../orders/visits.service';
+import { VisitsService, visitCustomerVerified } from '../orders/visits.service';
 import { PublicTrackingService } from '../delivery/tracking.service';
 
 const iso = (d: Date | null | undefined) => (d ? new Date(d).toISOString() : null);
@@ -84,8 +84,9 @@ export class GuestService {
   quote(token: string | undefined, body: { lines: CartLine[]; promotionCode?: string | null; loyaltyRewardId?: string | null }) {
     return this.visits.withGuest(token, async (tx, g) => toQuoteView(await this.pricing.quote(tx, g.ctx.orgId, {
       branchId: g.visit.branch_id, fulfillment: 'dine_in', lines: cartLines(body.lines), promotionCode: body.promotionCode ?? null, channel: 'qr',
-      // A visit's customer is linked by staff (reservation/host), so the table may see that balance and redeem.
-      customerId: g.visit.customer_id, customerIdentified: !!g.visit.customer_id, loyaltyRewardId: body.loyaltyRewardId ?? null,
+      // Only a customer a member of staff identified (seated by the host) may be shown a balance or redeem; a QR
+      // self-opened visit inherits an unverified reservation phone and is anonymous for loyalty (FT-03).
+      customerId: g.visit.customer_id, customerIdentified: visitCustomerVerified(g.visit), loyaltyRewardId: body.loyaltyRewardId ?? null,
     })));
   }
 
@@ -99,7 +100,10 @@ export class GuestService {
   }
 
   visitRewards(token: string | undefined) {
-    return this.visits.withGuestRead(token, async (tx, g) => ({ identified: !!g.visit.customer_id, rewards: g.visit.customer_id ? await this.rewards(tx, g.ctx.orgId) : [] }));
+    return this.visits.withGuestRead(token, async (tx, g) => {
+      const identified = visitCustomerVerified(g.visit);
+      return { identified, rewards: identified ? await this.rewards(tx, g.ctx.orgId) : [] };
+    });
   }
 
   placeOrder(token: string | undefined, body: GuestOrderRequest, key: string | undefined) {
@@ -111,7 +115,7 @@ export class GuestService {
       const placed = await this.kernel.place(tx, g.ctx, {
         branchId: g.visit.branch_id, channel: 'qr', fulfillment: 'dine_in', tableId: g.visit.table_id, visitId: g.visit.id,
         customerId: g.visit.customer_id, lines: cartLines(body.lines), notes: body.notes ?? null, promotionCode: body.promotionCode ?? null,
-        customerIdentified: !!g.visit.customer_id, loyaltyRewardId: body.loyaltyRewardId ?? null,
+        customerIdentified: visitCustomerVerified(g.visit), loyaltyRewardId: body.loyaltyRewardId ?? null,
         expectedTotalMinor: body.expectedTotalMinor,
       });
       return { id: placed.id, number: placed.number, publicRef: placed.publicRef, status: placed.status, totalMinor: placed.totalMinor, currency: placed.currency };
