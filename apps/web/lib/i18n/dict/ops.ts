@@ -15,6 +15,7 @@ const en: Record<string, string> = {
   'ops.kds.markDelivered': 'Mark delivered', 'ops.kds.withDriver': 'With the driver',
   'ops.kds.cashDue': 'Cash due {amount}: record it on the order before marking it delivered', 'ops.kds.openOrders': 'Open orders',
   'ops.kds.cancelTitle': 'Cancel order #{number}', 'ops.kds.cancelled': 'Order #{number} cancelled',
+  'ops.kds.ageHours': '{h}h {mm}', 'ops.kds.ageDays': '{d}d',
   'ops.kds.counter': 'Counter', 'ops.kds.placedAt': 'Placed at {time}', 'ops.kds.soldOut': 'Sold out items',
   // Service requests
   'ops.req.title': 'Service requests', 'ops.req.resolve': 'Resolve', 'ops.req.done': 'Done',
@@ -178,6 +179,7 @@ const ar: Record<string, string> = {
   'ops.kds.markDelivered': 'تم التوصيل', 'ops.kds.withDriver': 'مع السائق',
   'ops.kds.cashDue': 'مبلغ نقدي مستحق {amount}: سجّله على الطلب قبل تأكيد التوصيل', 'ops.kds.openOrders': 'فتح الطلبات',
   'ops.kds.cancelTitle': 'إلغاء الطلب رقم {number}', 'ops.kds.cancelled': 'تم إلغاء الطلب رقم {number}',
+  'ops.kds.ageHours': '{h} س {mm}', 'ops.kds.ageDays': '{d, plural, one {يوم} two {يومان} few {# أيام} many {# يومًا} other {# يوم}}',
   'ops.kds.counter': 'الكاونتر', 'ops.kds.placedAt': 'وقت الطلب {time}', 'ops.kds.soldOut': 'الأصناف النافدة',
   'ops.req.title': 'طلبات الخدمة', 'ops.req.resolve': 'تم', 'ops.req.done': 'تم',
   'ops.req.caughtUp': 'لا توجد طلبات معلّقة', 'ops.req.caughtUpHint': 'تظهر طلبات الضيوف الجديدة هنا.',

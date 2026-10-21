@@ -9,12 +9,16 @@ export const STALE_HOURS = 12;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** "4:07", "1:05:00" style is avoided: under an hour m:ss, under a day h:mm with an "h" mark, then "Nd". */
-export function ticketAge(seconds: number): string {
+/** Unit marks for hours and days; the kitchen board passes the dictionary forms (ops.kds.ageHours / ageDays). */
+export interface AgeUnits { hours(h: number, mm: string): string; days(d: number): string }
+const LATIN_UNITS: AgeUnits = { hours: (h, mm) => `${h}h ${mm}`, days: (d) => `${d}d` };
+
+/** "4:07", "1:05:00" style is avoided: under an hour m:ss, under a day hours and minutes, then whole days. */
+export function ticketAge(seconds: number, units: AgeUnits = LATIN_UNITS): string {
   const s = Math.max(0, Math.floor(seconds));
   if (s < 3600) return `${Math.floor(s / 60)}:${pad(s % 60)}`;
-  if (s < 86_400) return `${Math.floor(s / 3600)}h ${pad(Math.floor((s % 3600) / 60))}`;
-  return `${Math.floor(s / 86_400)}d`;
+  if (s < 86_400) return units.hours(Math.floor(s / 3600), pad(Math.floor((s % 3600) / 60)));
+  return units.days(Math.floor(s / 86_400));
 }
 
 export type Lateness = 'fresh' | 'late' | 'very-late' | 'stale';

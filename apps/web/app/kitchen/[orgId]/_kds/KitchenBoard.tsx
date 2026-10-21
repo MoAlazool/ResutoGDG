@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { kitchenLaneOf, kitchenPathTo, type KitchenFeed, type KitchenLane, type KitchenTicket } from '@resuto/contracts';
 import { Badge, Notice, usePrompt } from '@resuto/ui';
 import { KanbanBoard } from '@/components/ops/KanbanBoard';
-import { isNewTicket, lateness, ticketAge } from '@/components/ops/elapsed';
+import { isNewTicket, lateness, ticketAge, type AgeUnits } from '@/components/ops/elapsed';
 import { ServiceRequestList, useServiceRequests } from '@/components/ops/ServiceRequests';
 import { SoldOutDrawer } from '@/components/ops/SoldOutDrawer';
 import '@/components/ops/ops.css';
@@ -46,6 +46,7 @@ export interface KitchenBoardProps {
  */
 export function KitchenBoard({ orgId, branchId, station, onStations, timezone, currency = 'EGP', canCancel, canResolve, can86, ordersHref, onOpen }: KitchenBoardProps) {
   const { t, locale } = useT();
+  const ageUnits = useMemo<AgeUnits>(() => ({ hours: (h, mm) => t('ops.kds.ageHours', { h, mm }), days: (d) => t('ops.kds.ageDays', { d }) }), [t]);
   const { call } = useSession();
   const [feed, setFeed] = useState<KitchenFeed | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +161,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations, timezone, c
         <div className="ticket-top">
           <strong>#{tk.number.padStart(3, '0')}</strong>
           <span className="ticket-age" title={t('ops.kds.placedAt', { time: time(tk.placedAt, locale, timezone) })}>
-            {live ? <>{time(tk.placedAt, locale, timezone)} · <span aria-label={t('core.kds.age')}>{ticketAge(age)}</span></> : time(tk.fulfilledAt ?? tk.placedAt, locale, timezone)}
+            {live ? <>{time(tk.placedAt, locale, timezone)} · <span aria-label={t('core.kds.age')}>{ticketAge(age, ageUnits)}</span></> : time(tk.fulfilledAt ?? tk.placedAt, locale, timezone)}
           </span>
         </div>
         <div className="ticket-source">{where(tk)}{tk.customerName ? <span> · <bdi>{tk.customerName}</bdi></span> : null}<span> · {t(`core.channel.${tk.channel}`)}</span></div>

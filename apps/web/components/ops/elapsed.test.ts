@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isNewTicket, lateness, ticketAge } from './elapsed';
+import { translate } from '../../lib/i18n/messages';
+import { isNewTicket, lateness, ticketAge, type AgeUnits } from './elapsed';
 
 describe('kitchen ticket timers (VS-10 / VS-25)', () => {
   it('reads m:ss for the first hour, h mm up to a day, then days', () => {
@@ -11,6 +12,18 @@ describe('kitchen ticket timers (VS-10 / VS-25)', () => {
     // The audit saw "2839:59" and "26511:11" for old demo tickets.
     expect(ticketAge(2839 * 60 + 59)).toBe('1d');
     expect(ticketAge(26511 * 60)).toBe('18d');
+  });
+
+  it('takes the hour and day marks from the dictionary, so the Arabic board has no Latin units (DF-15 / VS-21)', () => {
+    const units = (locale: 'en' | 'ar'): AgeUnits => ({
+      hours: (h, mm) => translate(locale, 'ops.kds.ageHours', { h, mm }), days: (d) => translate(locale, 'ops.kds.ageDays', { d }),
+    });
+    expect(ticketAge(2 * 3600 + 7 * 60, units('en'))).toBe('2h 07');
+    expect(ticketAge(3 * 86_400, units('en'))).toBe('3d');
+    const ar = [ticketAge(2 * 3600 + 7 * 60, units('ar')), ticketAge(86_400, units('ar')), ticketAge(3 * 86_400, units('ar')), ticketAge(19 * 86_400, units('ar'))];
+    expect(ar).toEqual(['2 س 07', 'يوم', '3 أيام', '19 يومًا']);
+    for (const v of ar) expect(v).not.toMatch(/[A-Za-z]/); // Western digits, Arabic units
+    expect(ticketAge(65, units('ar'))).toBe('1:05');
   });
 
   it('marks lateness by the ticket age and old tickets as stale, not red', () => {
