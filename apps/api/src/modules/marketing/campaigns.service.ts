@@ -6,7 +6,7 @@ import { adsAdapterFor, ProviderError, type AdsObjective } from '@resuto/integra
 import { randomBytes, randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { Scheduled } from '../../common/events/events';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
@@ -186,7 +186,7 @@ export class CampaignsService implements CampaignsPort {
    */
   async sendNow(ctx: TenantContext, id: string, idempotencyKey?: string | null) {
     if (idempotencyKey !== undefined && idempotencyKey !== null && !/^[\x21-\x7e]{8,200}$/.test(idempotencyKey)) {
-      throw invalid('invalid_idempotency_key', 'Idempotency-Key must be 8-200 printable characters');
+      throw badRequest('invalid_idempotency_key', 'Idempotency-Key must be 8-200 printable characters');
     }
     const actor = `${ctx.actorType}:${ctx.actorId}`;
     await this.db.withTenant(ctx.orgId, async (tx) => {
@@ -435,7 +435,7 @@ export class CampaignsService implements CampaignsPort {
    */
   async launch(ctx: TenantContext, id: string, input: { mode: 'live' | 'sandbox' } = { mode: 'live' }, idempotencyKey?: string | null) {
     if (idempotencyKey !== undefined && idempotencyKey !== null && !/^[\x21-\x7e]{8,200}$/.test(idempotencyKey)) {
-      throw invalid('invalid_idempotency_key', 'Idempotency-Key must be 8-200 printable characters');
+      throw badRequest('invalid_idempotency_key', 'Idempotency-Key must be 8-200 printable characters');
     }
     const r0 = await this.db.scoped(ctx, (tx) => this.row(tx, ctx, id));
     if (!AD_CHANNELS.includes(r0.channel as CampaignChannel)) throw invalid('not_an_ad_campaign', 'Only ad campaigns are launched');

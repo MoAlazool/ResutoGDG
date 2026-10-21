@@ -7,6 +7,7 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { DomainError } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { IntegrationConnectionsService } from './connections.service';
@@ -188,6 +189,8 @@ export class IntegrationsController {
   async foodicsWebhook(@Param('token') token: string, @Body() body: unknown, @Res() res: Response) {
     this.limiter.hit(`foodics-webhook:${res.req.ip}`, 300);
     const { status, result } = await this.posWebhooks.foodics(String(token).slice(0, 200), body);
+    // A wrong or unconfigured secret is a 404 in the standard error envelope (PS-20).
+    if (status === 404) throw new DomainError('not_found', 'Not found', 404);
     res.status(status).json(result);
   }
 }

@@ -2,6 +2,7 @@ import { Controller, Get, HttpCode, Inject, Param, Post, Query, Req, Res } from 
 import { verifyWebhookSubscription } from '@resuto/integrations';
 import type { Request, Response } from 'express';
 import { Public } from '../../common/auth/decorators';
+import { DomainError } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { ENV, type Env } from '../../config/env';
 import { MetaPagesWebhookService } from './meta-pages-webhook.service';
@@ -69,8 +70,8 @@ export class MetaPagesWebhookController {
 
 function answer(res: Response, challenge: string | null) {
   if (challenge === null) {
-    res.status(403).json({ error: { code: 'forbidden', message: 'Webhook verification failed' } });
-    return;
+    // Thrown so the exception filter answers with the standard envelope (code, message, requestId).
+    throw new DomainError('forbidden', 'Webhook verification failed', 403);
   }
   res.status(200).type('text/plain').send(challenge);
 }

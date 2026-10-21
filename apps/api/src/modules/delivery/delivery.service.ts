@@ -6,7 +6,7 @@ import { TenantContext } from '../../common/auth/context';
 import { safeEqual } from '../../common/crypto/hash';
 import { purposeKeys, type PurposeKeys } from '../../common/crypto/keys';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
@@ -527,7 +527,7 @@ export class DeliveryService {
 
   async withKey<T>(tx: Tx, ctx: TenantContext, scope: string, key: string | undefined, payload: unknown, fn: () => Promise<T>): Promise<T> {
     if (!key) return fn();
-    if (key.length < 8 || key.length > 200) throw invalid('invalid_idempotency_key', 'Idempotency-Key must be 8–200 characters');
+    if (key.length < 8 || key.length > 200) throw badRequest('invalid_idempotency_key', 'Idempotency-Key must be 8–200 characters');
     return this.idempotency.run(tx, ctx.orgId, scope, key, payload, fn);
   }
 }

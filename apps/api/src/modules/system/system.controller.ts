@@ -54,7 +54,7 @@ export class SystemController {
   async media(@Param('path') pathParts: string[] | string, @Query('exp') exp: string, @Query('sig') sig: string, @Res() res: Response) {
     const objectPath = decodeURIComponent(Array.isArray(pathParts) ? pathParts.join('/') : pathParts);
     const bytes = await this.storage.readSigned(objectPath, Number(exp), String(sig ?? ''));
-    if (!bytes) return res.status(404).json({ error: { code: 'not_found', message: 'Not found' } });
+    if (!bytes) throw new DomainError('not_found', 'Not found', 404);
     const ext = objectPath.split('.').pop();
     const type = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', pdf: 'application/pdf' }[ext ?? ''] ?? 'application/octet-stream';
     res.setHeader('Content-Type', type);

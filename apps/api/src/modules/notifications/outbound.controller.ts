@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
-import { notFound } from '../../common/errors/domain-error';
+import { DomainError, notFound } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { OutboundChannelsService } from './outbound.service';
@@ -85,7 +85,7 @@ export class OutboundPublicController {
   async resend(@Param('connectionId') connectionId: string, @Req() req: Request & { rawBody?: Buffer }, @Res() res: Response) {
     this.limiter.hit(`resend-webhook:${req.ip}`, 600);
     const r = await this.outbound.resendWebhook(connectionId, req.rawBody, req.headers as Record<string, string | string[] | undefined>);
-    res.status(r.status).json(r.body);
+    answerWebhook(res, r);
   }
 
   @Post('webhooks/twilio/status/:connectionId')
@@ -96,6 +96,13 @@ export class OutboundPublicController {
       .filter(([, v]) => typeof v === 'string')) as Record<string, string>;
     const sig = req.headers['x-twilio-signature'];
     const r = await this.outbound.twilioWebhook(connectionId, params, Array.isArray(sig) ? sig[0] : sig);
-    res.status(r.status).json(r.body);
+    answerWebhook(res, r);
   }
+}
+
+/** A provider callback's outcome: success bodies as before; refusals in the standard error envelope (PS-20). */
+function answerWebhook(res: Response, r: { status: number; body: unknown }) {
+  if (r.status < 400) { res.status(r.status).json(r.body); return; }
+  if (r.status === 404) throw new DomainError('not_found', 'Unknown webhook endpoint', 404);
+  throw new DomainError('webhook_signature_invalid', 'Webhook verification failed', r.status);
 }

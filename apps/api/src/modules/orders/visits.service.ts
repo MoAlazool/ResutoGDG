@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, forbidden, notFound } from '../../common/errors/domain-error';
+import { DomainError, conflict, forbidden, notFound, badRequest } from '../../common/errors/domain-error';
 import { Scheduled } from '../../common/events/events';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
@@ -329,7 +329,7 @@ export class VisitsService {
 
   /** Counter cash/card-terminal collection for a whole table bill (`payments:collect`). */
   async collect(ctx: TenantContext, visitId: string, body: { amountMinor?: number; method: string; reference?: string | null }, key: string | undefined) {
-    if (!key) throw new DomainError('idempotency_key_required', 'An Idempotency-Key header is required', 422);
+    if (!key) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     return this.db.scoped(ctx, (tx) => this.idempotency.run(tx, ctx.orgId, `visit-collect:${visitId}`, key, body, async () => {
       const v = await tx.maybeOne<any>('select * from visits where id = $1 for update', [visitId]);
       if (!v) throw notFound('Visit');

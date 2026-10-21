@@ -7,7 +7,7 @@ import {
 import type { AuthPrincipal } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { EntitlementsService } from '../../common/entitlements/entitlements.service';
-import { conflict, forbidden, invalid, notFound } from '../../common/errors/domain-error';
+import { conflict, forbidden, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { TenantStatusService } from './tenant-status.service';
 
 export interface PlatformAdminActor { userId: string; role: PlatformRole }
@@ -19,7 +19,7 @@ const encodeCursor = (createdAt: Date, id: string) => Buffer.from(`${new Date(cr
 function decodeCursor(c: string | undefined): [string, string] | [null, null] {
   if (!c) return [null, null];
   const [at, id] = Buffer.from(c, 'base64url').toString('utf8').split('|');
-  if (!at || !id || !UUID.test(id) || Number.isNaN(Date.parse(at))) throw invalid('invalid_cursor', 'Invalid cursor');
+  if (!at || !id || !UUID.test(id) || Number.isNaN(Date.parse(at))) throw badRequest('invalid_cursor', 'Invalid cursor');
   return [at, id];
 }
 

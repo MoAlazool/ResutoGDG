@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ORDER_STATUSES, type OrderDetail, type OrderListQuery, type OrderStatus, type OrderSummary, type StaffOrderRequest } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
@@ -68,7 +68,7 @@ function encodeCursor(placedAt: Date, id: string) {
 function decodeCursor(c: string | undefined): [string, string] | null {
   if (!c) return null;
   const [at, id] = Buffer.from(c, 'base64url').toString().split('|');
-  if (!at || !id || Number.isNaN(Date.parse(at)) || !/^[0-9a-f-]{36}$/i.test(id)) throw invalid('invalid_cursor', 'Invalid cursor');
+  if (!at || !id || Number.isNaN(Date.parse(at)) || !/^[0-9a-f-]{36}$/i.test(id)) throw badRequest('invalid_cursor', 'Invalid cursor');
   return [at, id];
 }
 
@@ -159,7 +159,7 @@ export class OrdersService implements OrdersQueryPort {
   // Staff-created orders (channel staff/phone)
   // ---------------------------------------------------------------------------
   async create(ctx: TenantContext, body: StaffOrderRequest, key: string | undefined) {
-    if (!key) throw invalid('idempotency_key_required', 'An Idempotency-Key header is required');
+    if (!key) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     ctx.assertBranch(body.branchId);
     return this.db.scoped(ctx, (tx) => this.idempotency.run(tx, ctx.orgId, 'staff-order', key, body, async () => {
       let tableId = body.tableId ?? null;
@@ -227,7 +227,7 @@ export class OrdersService implements OrdersQueryPort {
 
   /** Counter collection for one order (pickup pay-at-counter, COD handed in, card terminal). */
   async collect(ctx: TenantContext, orderId: string, body: { amountMinor?: number; method: string; reference?: string | null }, key: string | undefined) {
-    if (!key) throw invalid('idempotency_key_required', 'An Idempotency-Key header is required');
+    if (!key) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     return this.db.scoped(ctx, (tx) => this.idempotency.run(tx, ctx.orgId, `order-collect:${orderId}`, key, body, async () => {
       const o = await tx.maybeOne<any>('select * from orders where id = $1 for update', [orderId]);
       if (!o || !ctx.canAccessBranch(o.branch_id)) throw notFound('Order');

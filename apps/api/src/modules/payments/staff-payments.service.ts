@@ -3,7 +3,7 @@ import { formatMoney, type CollectPayment, type CreatePaymentLink, type CreateRe
 import { paymentAdapter, PAYMENT_ADAPTERS } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { PaymentLedgerService, type PaymentMethod } from '../kernel/payment-ledger.service';
@@ -308,6 +308,6 @@ export class StaffPaymentsService {
 const encodeCursor = (at: Date, id: string) => Buffer.from(`${new Date(at).toISOString()}|${id}`).toString('base64url');
 function decodeCursor(c: string) {
   const [at, id] = Buffer.from(c, 'base64url').toString().split('|');
-  if (!at || !id || Number.isNaN(Date.parse(at))) throw invalid('invalid_cursor', 'Invalid cursor');
+  if (!at || !id || Number.isNaN(Date.parse(at))) throw badRequest('invalid_cursor', 'Invalid cursor');
   return { at, id };
 }

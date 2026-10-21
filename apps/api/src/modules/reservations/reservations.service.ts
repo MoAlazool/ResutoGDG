@@ -6,7 +6,7 @@ import {
 import { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { Scheduled } from '../../common/events/events';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
@@ -438,7 +438,7 @@ export class ReservationsService {
     branchId: string; tableId?: string | null; date: string; time: string; partySize: number; guestName: string; guestPhone?: string | null;
     guestEmail?: string | null; notes?: string | null; durationMinutes?: number; source: string; requireDeposit: boolean;
   }, key: string | undefined) {
-    if (!key) throw invalid('idempotency_key_required', 'An Idempotency-Key header is required');
+    if (!key) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     ctx.assertBranch(body.branchId);
     return this.db.scoped(ctx, async (tx) => {
       const out = await this.idempotency.run(tx, ctx.orgId, 'reservation-staff', key, body, async () => {
