@@ -30,10 +30,14 @@ Finish ws10b-api-quality (PS-13/16/19-23), merge, redeploy, then the final full 
 and handoff report.
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
-- **Vercel connector**: re-authorize the Vercel connector in claude.ai with access to the team that owns
-  `resuto-2-staging-web` (scope "ta-nk"). Until then the web app on staging cannot be redeployed or inspected.
+- **Vercel connector**: the owner reconnected it with access to team "ta-nk" (2026-10-21 ~16:00 UTC), but connectors
+  are read when a session starts: the session that was running still gets 403 (it lists no teams). A NEW session can
+  redeploy the web app (`resuto-2-staging-web`, project `prj_A49JsL4bfIJHEWP0okbReX9uZ0Iq`) from the branch head and
+  read its logs; first step there: `get_project` to confirm access, then redeploy and run the staging checks.
+- **Deployment Protection**: verified ON (every web URL answers 302 to `vercel.com/sso-api`). The temporary QA
+  automation bypass was revoked by the owner; do NOT recreate a bypass without the owner's approval. Browser QA of the
+  deployed web needs authorized Vercel access; local builds against local APIs are used otherwise.
 - **Supabase**: turn on leaked-password protection; configure SMTP + Site URL (B-14).
-- **Vercel automation bypass** created for earlier QA: revoke it in Project → Settings → Deployment Protection.
 See `docs/OPEN_BLOCKERS.md` → "Owner actions". Provider credentials (Paymob, Stripe, Moyasar, Meta, TikTok, Snapchat,
 Foodics, Odoo, Wafeq, Qoyod, ZATCA/ETA, Gemini) are not available; their acceptance scripts are written to run once
 configured and are reported as not yet run.
