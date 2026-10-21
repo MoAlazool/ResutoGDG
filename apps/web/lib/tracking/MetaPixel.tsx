@@ -8,8 +8,13 @@ import { api, API_URL } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { ensureBrowserIds, installPixel, pixelTrack, purchaseEventId, readConsent, readCookie, writeConsent, type Consent } from './meta';
 import { hasAnyPixel, partnersOf, type TrackingConfig } from './partners';
-import { installSnapPixel, scClickIdFromSearch, snapPurchase, snapTrack } from './snap';
-import { installTiktokPixel, tiktokTrack, ttclidFromSearch } from './tiktok';
+
+// TikTok and Snap code loads only for a restaurant that connected them and a guest who allowed it, so guest pages
+// without those Pixels (every demo restaurant) do not carry it.
+type TiktokModule = typeof import('./tiktok');
+type SnapModule = typeof import('./snap');
+let tiktok: TiktokModule | null = null;
+let snap: SnapModule | null = null;
 
 const hasAny = hasAnyPixel;
 
@@ -31,17 +36,21 @@ const session = {
   set: (k: string, v: string) => { try { sessionStorage.setItem(k, v); } catch { /* blocked storage: only this page's URL counts */ } },
 };
 
-function activate(slug: string, cfg: TrackingConfig) {
+async function activate(slug: string, cfg: TrackingConfig) {
   if (!hasAny(cfg)) return;
   const first = active?.slug !== slug;
   if (cfg.meta) { ensureBrowserIds(); installPixel(cfg.meta.pixelId); }
-  if (cfg.tiktok) {
-    installTiktokPixel(cfg.tiktok.pixelId);
-    const click = ttclidFromSearch(location.search); if (click) session.set('resuto.ttclid', click);
+  const [tt, sc] = await Promise.all([
+    cfg.tiktok ? (tiktok ??= await import('./tiktok')) : null,
+    cfg.snap ? (snap ??= await import('./snap')) : null,
+  ]);
+  if (cfg.tiktok && tt) {
+    tt.installTiktokPixel(cfg.tiktok.pixelId);
+    const click = tt.ttclidFromSearch(location.search); if (click) session.set('resuto.ttclid', click);
   }
-  if (cfg.snap) {
-    installSnapPixel(cfg.snap.pixelId);
-    const click = scClickIdFromSearch(location.search); if (click) session.set('resuto.sccid', click);
+  if (cfg.snap && sc) {
+    sc.installSnapPixel(cfg.snap.pixelId);
+    const click = sc.scClickIdFromSearch(location.search); if (click) session.set('resuto.sccid', click);
   }
   active = { slug, cfg, consentVersion: cfg.consentVersion };
   if (first && cfg.meta) pixelTrack('PageView');
@@ -52,8 +61,8 @@ export function metaTrack(slug: string, event: string, data: Record<string, unkn
   if (active?.slug !== slug) return;
   const id = `${event}.${crypto.randomUUID?.() ?? Date.now()}`;
   if (active.cfg.meta) pixelTrack(event, data, id);
-  if (active.cfg.tiktok && TIKTOK_EVENT[event]) tiktokTrack(TIKTOK_EVENT[event]!, data, id);
-  if (active.cfg.snap && SNAP_EVENT[event]) snapTrack(SNAP_EVENT[event]!, id);
+  if (active.cfg.tiktok && TIKTOK_EVENT[event]) tiktok?.tiktokTrack(TIKTOK_EVENT[event]!, data, id);
+  if (active.cfg.snap && SNAP_EVENT[event]) snap?.snapTrack(SNAP_EVENT[event]!, id);
 }
 
 /**
@@ -83,7 +92,7 @@ export function MetaPixel({ slug, view }: { slug: string; view?: 'ViewContent' }
     void loadConfig(slug).then((cfg) => {
       if (!live || !hasAny(cfg)) return;
       const c = readConsent(slug, cfg.consentVersion);
-      if (c === 'granted') { activate(slug, cfg); if (view) metaTrack(slug, view); }
+      if (c === 'granted') void activate(slug, cfg).then(() => { if (view) metaTrack(slug, view); });
       else if (c === null) setAsk(cfg);
     });
     return () => { live = false; };
@@ -91,7 +100,7 @@ export function MetaPixel({ slug, view }: { slug: string; view?: 'ViewContent' }
   if (!ask) return null;
   const answer = (c: Consent) => {
     writeConsent(slug, ask.consentVersion, c);
-    if (c === 'granted') { activate(slug, ask); if (view) metaTrack(slug, view); }
+    if (c === 'granted') void activate(slug, ask).then(() => { if (view) metaTrack(slug, view); });
     setAsk(null);
   };
   return (
@@ -119,7 +128,7 @@ export function MetaPurchase({ slug, orderRef, ready }: { slug: string; orderRef
     void (async () => {
       const cfg = await loadConfig(slug);
       if (!hasAny(cfg) || readConsent(slug, cfg.consentVersion) !== 'granted') return;
-      activate(slug, cfg);
+      await activate(slug, cfg);
       const key = `resuto.adPurchase.${await purchaseEventId(orderRef)}`;
       try { if (localStorage.getItem(key)) return; } catch { /* storage blocked: the server event still counts */ }
       const d = await api<{ fire: boolean; eventId?: string; valueMinor?: number; currency?: string; pixels?: Array<'meta' | 'tiktok' | 'snap'> }>(
@@ -129,8 +138,8 @@ export function MetaPurchase({ slug, orderRef, ready }: { slug: string; orderRef
       const pixels = new Set(d.pixels ?? ['meta']);
       const value = (d.valueMinor ?? 0) / 100;
       if (pixels.has('meta') && cfg.meta) pixelTrack('Purchase', { value, currency: d.currency }, d.eventId);
-      if (pixels.has('tiktok') && cfg.tiktok) tiktokTrack('CompletePayment', { value, currency: d.currency, content_type: 'product' }, d.eventId);
-      if (pixels.has('snap') && cfg.snap) snapPurchase(value, d.currency ?? '', d.eventId);
+      if (pixels.has('tiktok') && cfg.tiktok) tiktok?.tiktokTrack('CompletePayment', { value, currency: d.currency, content_type: 'product' }, d.eventId);
+      if (pixels.has('snap') && cfg.snap) snap?.snapPurchase(value, d.currency ?? '', d.eventId);
       try { localStorage.setItem(key, '1'); } catch { /* ignore */ }
     })();
   }, [slug, orderRef, ready]);

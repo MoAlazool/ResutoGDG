@@ -18,8 +18,11 @@
 //
 // ROUTE_RATCHETS: routes that were already over their group's budget when the gate was wired into CI (2026-10-21,
 // measured on the CI-equivalent build). Each is held at its own measured size plus ~2 % headroom instead of loosening
-// the whole group, so every other route keeps the group budget, and these four cannot grow further. Lower an entry
+// the whole group, so every other route keeps the group budget, and these cannot grow further. Lower an entry
 // (or delete it) when the route is split; the gate fails if an entry is no longer needed, so stale ratchets are removed.
+// 2026-10-21 (wave 4 merge): the landing/pricing copy hook and the website editor's preview stopped importing every
+// dictionary (/ 377 -> 220 kB, /pricing 356 -> 199 kB, website editor 371 -> 194 kB), so their ratchets were removed
+// and the public and staff groups were tightened to the new sizes plus headroom.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -30,17 +33,14 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 /** Route groups, first match wins. Guest routes run on phones over mobile data at the table or the door. */
 export const BUDGETS = [
   { group: 'guest', kb: 170, targetKb: 150, test: (r) => /^\/(t|order|reserve|pay|s|o|r)(\/|$)/.test(r) },
-  { group: 'public', kb: 300, targetKb: 160, test: (r) => r === '/' || /^\/(pricing|legal|privacy|terms)(\/|$)/.test(r) },
-  { group: 'staff', kb: 290, targetKb: 220, test: (r) => /^\/(dashboard|kitchen|driver|admin|onboarding|invite|login|signup)(\/|$)/.test(r) },
+  { group: 'public', kb: 226, targetKb: 160, test: (r) => r === '/' || /^\/(pricing|legal|privacy|terms)(\/|$)/.test(r) },
+  { group: 'staff', kb: 220, targetKb: 220, test: (r) => /^\/(dashboard|kitchen|driver|admin|onboarding|invite|login|signup)(\/|$)/.test(r) },
   { group: 'other', kb: 290, targetKb: 220, test: () => true },
 ];
 
 /** route -> kB. Only for routes already above their group budget; see the header. */
 export const ROUTE_RATCHETS = {
-  '/': 374,
-  '/pricing': 352,
   '/t/[qr]': 178,
-  '/dashboard/[orgId]/website': 367,
 };
 
 /**

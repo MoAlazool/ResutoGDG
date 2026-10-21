@@ -52,9 +52,9 @@ describe('bundle budget gate', () => {
   });
 
   it('fails on a stale ratchet once the route fits its group budget again, so the exception is removed', () => {
-    const res = run(fakeBuild({ ...ratchetRoutes(), '/pricing': groupKb('/pricing') - 10 }));
+    const res = run(fakeBuild({ ...ratchetRoutes(), '/t/[qr]': groupKb('/t/x') - 10 }));
     assert.equal(res.status, 1);
-    assert.match(res.stderr, /no longer needed.*\/pricing/);
+    assert.match(res.stderr, /no longer needed.*\/t\/\[qr\]/);
   });
 
   it('--report never fails (local measurement)', () => {

@@ -1,7 +1,7 @@
 'use client';
 import { INTL_LOCALE } from '@resuto/contracts';
 import { useEffect, useMemo, useState, type RefObject } from 'react';
-import { dictionaries } from '@/lib/i18n';
+import { platform } from '@/lib/i18n/dict/platform';
 import { useT } from '@/lib/i18n/client';
 
 /** Landing-page helpers: copy keyed by its English source text (legacy `t()` semantics). */
@@ -10,7 +10,9 @@ export function useLanding() {
   const rtl = locale === 'ar';
   const reduced = useReducedMotionFlag();
   return useMemo(() => {
-    const dict = dictionaries[locale];
+    // Only the platform dictionary (it holds platform.lp.*): importing `dictionaries` bundled every module's copy,
+    // in both languages, into the landing and pricing pages.
+    const dict: Record<string, string> = platform[locale];
     const l = (s: string) => dict[`platform.lp.${s}`] ?? s;
     const nf = new Intl.NumberFormat(rtl ? INTL_LOCALE.ar : 'en-US');
     const num = (n: number) => nf.format(n);

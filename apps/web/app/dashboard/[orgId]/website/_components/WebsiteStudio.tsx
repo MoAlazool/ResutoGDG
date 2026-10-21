@@ -4,7 +4,6 @@ import type { PublicSite } from '@resuto/contracts';
 import { Badge, EmptyState, Notice, PageHeader, Skeleton, Tabs, useConfirm, useToast } from '@resuto/ui';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime } from '@/lib/format';
-import { translate } from '@/lib/i18n';
 import { useT } from '@/lib/i18n/client';
 import { useApi } from '@/lib/use-api';
 import { useSession } from '@/lib/session';
@@ -91,7 +90,17 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
     { key: 'media', label: t('studio.tab.media') }, { key: 'domains', label: t('studio.tab.domains') }, { key: 'creative', label: t('studio.tab.creative') },
     { key: 'history', label: t('studio.tab.history') },
   ];
-  const previewT = (k: string, v?: Record<string, string | number>) => translate(previewLocale, k, v);
+  // The page language's strings come from useT(); the other language is loaded on demand when the preview switches
+  // to it, so the editor's first load does not carry every module's copy in both languages.
+  const [otherTranslate, setOtherTranslate] = useState<typeof import('@/lib/i18n/messages').translate | null>(null);
+  useEffect(() => {
+    if (previewLocale === locale || otherTranslate) return;
+    let live = true;
+    void import('@/lib/i18n/messages').then((m) => { if (live) setOtherTranslate(() => m.translate); });
+    return () => { live = false; };
+  }, [previewLocale, locale, otherTranslate]);
+  const previewT = (k: string, v?: Record<string, string | number>) =>
+    previewLocale === locale || !otherTranslate ? t(k, v) : otherTranslate(previewLocale, k, v);
   const showPreview = tab === 'sections' || tab === 'design' || tab === 'seo';
 
   return (
