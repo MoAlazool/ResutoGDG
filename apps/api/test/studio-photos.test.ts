@@ -63,6 +63,7 @@ describe('food-photo enhancement', () => {
     expect(job.output.formats.map((f: any) => `${f.format}:${f.width}`)).toEqual(['webp:320', 'webp:640', 'avif:1000']);
     expect(job.output.url).toMatch(/^http:\/\/api\.test\/v1\/media\//);
     expect(job.original.url).toMatch(/^http:\/\/api\.test\/v1\/media\//);
+    expect(job.original).toMatchObject({ width: 1600, height: 1000 });
     expect(job.provenance).toMatchObject({ mode: 'deterministic', generative: false, sourceMediaId: up.body.original.mediaId,
       input: { width: 1600, height: 1000 }, output: { width: 1000, height: 1000 } });
     const [out] = await sql<any>(`select source, path from media_assets where id = $1`, [job.output.mediaId]);

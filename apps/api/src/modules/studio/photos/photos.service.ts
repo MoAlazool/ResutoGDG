@@ -241,7 +241,8 @@ export class StudioPhotosService {
     const view: PhotoJobView = {
       id: r.id, status: r.status, mode: r.mode, provider: r.provider, model: r.model ?? null, params: photoEnhanceParams.parse(r.params ?? {}),
       productId: r.product_id ?? null,
-      original: { mediaId: r.source_media_id, url: '', width: r.src_width ?? null, height: r.src_height ?? null, bytes: Number(r.src_bytes ?? 0) },
+      // Originals are stored as-is (no derivatives), so their dimensions come from the measured provenance input.
+      original: { mediaId: r.source_media_id, url: '', width: r.src_width ?? r.provenance?.input?.width ?? null, height: r.src_height ?? r.provenance?.input?.height ?? null, bytes: Number(r.src_bytes ?? 0) },
       output: r.output_media_id ? {
         mediaId: r.output_media_id, url: '', width: r.out_width ?? null, height: r.out_height ?? null, bytes: Number(r.out_bytes ?? 0),
         formats: (r.formats ?? []).map((f: any) => ({ format: f.format, width: f.width, bytes: f.bytes })),

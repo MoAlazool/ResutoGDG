@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PHOTO_ASPECTS, type PhotoJobView, type StudioAiCapabilities } from '@resuto/contracts';
 import { Badge, EmptyState, Notice, PageHeader, SkeletonCards, ToastProvider, useToast } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -37,6 +37,11 @@ function FoodPhotos() {
   useEffect(() => { setPoll(busy ? 3000 : undefined); }, [busy]);
   const current = jobs.data?.items.find((j) => j.id === selected) ?? null;
   const canWrite = can('studio:write');
+  const reviewRef = useRef<HTMLDivElement>(null);
+  // Single-column layouts put the review below the queue: bring it into view when a photo is picked.
+  useEffect(() => {
+    if (selected && typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches) reviewRef.current?.scrollIntoView({ block: 'start' });
+  }, [selected]);
 
   return (
     <>
@@ -70,7 +75,7 @@ function FoodPhotos() {
             )}
           </section>
         </div>
-        <div className="sm-review">
+        <div className="sm-review" ref={reviewRef}>
           {current ? <ReviewCard job={current} canWrite={canWrite} onChanged={() => jobs.reload()} />
             : <div className="card"><EmptyState title={t('studio.ai.photo.pick')}>{t('studio.ai.photo.subtitle')}</EmptyState></div>}
         </div>
@@ -109,12 +114,12 @@ function UploadCard({ onCreated }: { onCreated: (j: PhotoJobView) => Promise<voi
       <label className="field"><span>{t('studio.ai.photo.file')}</span>
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
       <label className="field"><span>{t('studio.ai.photo.dish')}</span>
-        <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+        <select className="select" value={productId} onChange={(e) => setProductId(e.target.value)}>
           <option value="">{t('studio.ai.photo.noDish')}</option>
           {(products.data?.items ?? []).map((x) => <option key={x.id} value={x.id}>{locale === 'ar' && x.nameAr ? x.nameAr : x.name}</option>)}
         </select></label>
       <label className="field"><span>{t('studio.ai.photo.aspect')}</span>
-        <select value={p.aspect} onChange={(e) => setP({ ...p, aspect: e.target.value as typeof p.aspect })}>
+        <select className="select" value={p.aspect} onChange={(e) => setP({ ...p, aspect: e.target.value as typeof p.aspect })}>
           {PHOTO_ASPECTS.map((a) => <option key={a} value={a}>{a === 'original' ? t('studio.ai.photo.aspectOriginal') : a}</option>)}
         </select></label>
       <details>
@@ -184,20 +189,20 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
             <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(Number(e.target.value))} /></label>
           <p className="fine" style={{ margin: 0 }}>
             {t('studio.ai.photo.sizes', { before: `${num(job.original.width ?? 0, locale)}×${num(job.original.height ?? 0, locale)}`, after: `${num(job.output.width ?? 0, locale)}×${num(job.output.height ?? 0, locale)}` })}
-            {' · '}{job.output.formats.map((f) => `${f.format.toUpperCase()} ${num(f.width, locale)}`).join(' · ')}
+            {' · '}<bdi dir="ltr">{job.output.formats.map((f) => `${f.format.toUpperCase()} ${f.width}w`).join(' · ')}</bdi>
           </p>
         </div>
       ) : job.original.url ? <img src={job.original.url} alt={t('studio.ai.photo.before')} className="sm-single" /> : null}
       {job.provenance && (
         <details>
           <summary className="fine" style={{ cursor: 'pointer' }}>{t('studio.ai.photo.provenance')}</summary>
-          <p className="fine">{String(job.provenance.guarantee ?? job.provenance.warning ?? '')}</p>
+          <p className="fine">{t(job.mode === 'deterministic' ? 'studio.ai.photo.guarantee' : 'studio.ai.photo.generativeWarning')}</p>
           <ul className="fine sm-ops">{ops.map((o, i) => <li key={i}><code dir="ltr">{String(o.op)}</code> <bdi dir="ltr">{JSON.stringify({ ...o, op: undefined })}</bdi></li>)}</ul>
         </details>
       )}
       {canWrite && job.status === 'review' && (
         <div className="stack" style={{ gap: 8 }}>
-          <label className="field"><span>{t('studio.ai.photo.note')}</span><input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} /></label>
+          <label className="field"><span>{t('studio.ai.photo.note')}</span><input className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} /></label>
           <div className="row" style={{ gap: 8 }}>
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void act(() => call(`/o/${org.id}/studio/photos/${job.id}/review`, { body: { decision: 'approve', note: note || undefined } }), t('studio.ai.photo.approved'))}>{t('studio.ai.photo.approve')}</button>
             <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void act(() => call(`/o/${org.id}/studio/photos/${job.id}/review`, { body: { decision: 'reject', note: note || undefined } }), t('studio.ai.photo.rejectedOk'))}>{t('studio.ai.photo.reject')}</button>
@@ -212,7 +217,7 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
             <label className="row" style={{ gap: 6 }}><input type="radio" checked={target === 'product'} disabled={!can('menu:write')} onChange={() => { setTarget('product'); setTargetId(job.productId ?? ''); }} />{t('studio.ai.photo.toProduct')}</label>
             <label className="row" style={{ gap: 6 }}><input type="radio" checked={target === 'website_section'} onChange={() => { setTarget('website_section'); setTargetId(''); }} />{t('studio.ai.photo.toSection')}</label>
           </div>
-          <select value={targetId} onChange={(e) => setTargetId(e.target.value)} aria-label={t('studio.ai.photo.publish')}>
+          <select className="select" value={targetId} onChange={(e) => setTargetId(e.target.value)} aria-label={t('studio.ai.photo.publish')}>
             <option value="">—</option>
             {target === 'product'
               ? (products.data?.items ?? []).map((x) => <option key={x.id} value={x.id}>{locale === 'ar' && x.nameAr ? x.nameAr : x.name}</option>)
