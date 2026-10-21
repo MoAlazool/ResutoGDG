@@ -85,12 +85,12 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | FT-19 | P2 | Platform fees not separated from pass-through costs (messaging, ads, payment fees, AI) in data/UI | ws8-features | done (wave 3, 93abad9) |
 | FT-20 | P2 | Guest-facing menu assistant and upsell suggestions not ported | ws4b-guest | planned |
 | FT-21 | P2 | Guest ratings/feedback after payment not ported | ws4b-guest | planned |
-| FT-22 | P2 | Driver devices registered but no push notifications | ws7b-integrations | planned |
+| FT-22 | P2 | Driver devices registered but no push notifications | ws7b-integrations | done (wave 4, a0dfda0) |
 | FT-23 | P2 | Finance journals cover sales only; account mapping not editable; invoices push unused | ws8-features | done (wave 3, 93abad9) |
-| FT-24 | P2 | Regulator adapters are stubs: ZATCA Phase-2 signing/clearance and ETA submission | ws7b-integrations | planned |
+| FT-24 | P2 | Regulator adapters are stubs: ZATCA Phase-2 signing/clearance and ETA submission | ws7b-integrations | partial (wave 4; remainder in follow-ups) |
 | FT-25 | P2 | Inventory bulk stocktake and supplier edit have API but no UI | ws5-ops | done (wave 3, 93abad9) |
 | FT-26 | P2 | Connection health is manual only; payment and accounting adapters lack health checks | ws2-payments | partial (wave 1; remainder in follow-ups) |
-| FT-27 | P2 | SMS and email marketing channels have no provider | ws7b-integrations | planned |
+| FT-27 | P2 | SMS and email marketing channels have no provider | ws7b-integrations | done (wave 4, a0dfda0) |
 | INT-01 | P0 | Production can run simulated payments: PAYMENT_MODE defaults to sandbox with no deployed-env guard | ws1-security | done (wave 1, 5274252) |
 | INT-02 | P0 | SSRF through tenant-supplied provider URLs (Odoo POS and Odoo Accounting), with the response reflected in last_error | ws1-security | done (wave 1, 5274252) |
 | INT-03 | P0 | WhatsApp channel phone_number_id and WABA ownership not verified, so inbound messages can be intercepted across tenants | ws7a-meta | done (wave 2, 85c176e) |
@@ -113,14 +113,14 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | INT-20 | P1 | Meta Pixel and Conversions API not configured (distinct from Paymob's checkout 'Pixel' component) | ws7a-meta | done (wave 2, 85c176e) |
 | INT-21 | P2 | Messenger and Instagram messaging channels not configured | ws7a-meta | done (wave 2, 85c176e) |
 | INT-22 | P2 | Meta Ads audiences, ad sets, creatives and organic publishing not configured | ws7a-meta | partial (wave 2; remainder in follow-ups) |
-| INT-23 | P2 | TikTok Events API, Snapchat Conversions API and their pixels not configured | ws7b-integrations | planned |
-| INT-24 | P2 | Foodics OAuth not implemented despite authType 'oauth'; no menu-change webhook | ws7b-integrations | planned |
-| INT-25 | P2 | Accounting completion: endpoint verification, invoice push, Odoo JSON-2 migration, scheduled push | ws7b-integrations | planned |
-| INT-26 | P2 | ZATCA Phase-2 and ETA submission are stubs only | ws7b-integrations | planned |
-| INT-27 | P2 | Custom domains: apex detection wrong for .com.eg and .com.sa; SSL status inferred | ws7b-integrations | planned |
-| INT-28 | P2 | Notifications: no email, SMS or push provider | ws7b-integrations | planned |
-| INT-29 | P2 | Maps: no routing or geocoding provider (offline baseline only) | ws7b-integrations | planned |
-| INT-30 | P2 | Gemini: two separate clients; never run against the real API | ws7b-integrations | planned |
+| INT-23 | P2 | TikTok Events API, Snapchat Conversions API and their pixels not configured | ws7b-integrations | done (wave 4, a0dfda0) |
+| INT-24 | P2 | Foodics OAuth not implemented despite authType 'oauth'; no menu-change webhook | ws7b-integrations | done (wave 4, a0dfda0) |
+| INT-25 | P2 | Accounting completion: endpoint verification, invoice push, Odoo JSON-2 migration, scheduled push | ws7b-integrations | done (wave 4, a0dfda0) |
+| INT-26 | P2 | ZATCA Phase-2 and ETA submission are stubs only | ws7b-integrations | partial (wave 4; remainder in follow-ups) |
+| INT-27 | P2 | Custom domains: apex detection wrong for .com.eg and .com.sa; SSL status inferred | ws7b-integrations | done (wave 4, a0dfda0) |
+| INT-28 | P2 | Notifications: no email, SMS or push provider | ws7b-integrations | done (wave 4, a0dfda0) |
+| INT-29 | P2 | Maps: no routing or geocoding provider (offline baseline only) | ws7b-integrations | done (wave 4, a0dfda0) |
+| INT-30 | P2 | Gemini: two separate clients; never run against the real API | ws7b-integrations | partial (wave 4; remainder in follow-ups) |
 | PAY-01 | P0 | Paymob callback resolves the payment from unsigned fields; one signed transaction can settle a different (unpaid) order | ws2-payments | done (wave 1, 5274252) |
 | PAY-02 | P0 | No test/live separation for real providers: live connections accept test keys and test-mode events, and the Paymob integration check fails open | ws2-payments | done (wave 1, 5274252) |
 | PAY-03 | P0 | PAYMENT_MODE defaults to 'sandbox' in production, so any link holder can settle real orders through the simulated provider | ws1-security | done (wave 1, 5274252) |
@@ -207,11 +207,11 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | DF-03 | P1 | Restocking leaves the low-stock AI insight open for up to an hour; same-day re-breach is suppressed; a continuing breach creates a duplicate insight each day with stale quantities | ws8-features | done (wave 3, 93abad9) |
 | DF-04 | P1 | P&L double-counts COGS when ingredient purchases are recorded as 'Ingredients' (cogs) expenses alongside item-cost COGS; provider fees plus 'fees' expenses double-count with no warning | ws8-features | done (wave 3, 93abad9) |
 | DF-05 | P1 | The forecast API says isSyntheticData:false for the demo restaurant (generated history); the UI shows no demo or synthetic label; fallback reason is raw English | ws8-features | done (wave 3, 93abad9) |
-| DF-10 | P1 | Local demo data is inconsistent: stock history negative and stamped at load time, expenses cover only 3 of 8 weeks, stale live fixtures (443 h tickets, visit open 14 days, past reservations still confirmed) | ws10-data-quality | planned |
-| DF-11 | P1 | Repo demo loader books fixed monthly costs into partial months: the first month gets payroll only against 7 days of revenue, the current month gets no payroll; reconciliation period ends in the future | ws10-data-quality | planned |
+| DF-10 | P1 | Local demo data is inconsistent: stock history negative and stamped at load time, expenses cover only 3 of 8 weeks, stale live fixtures (443 h tickets, visit open 14 days, past reservations still confirmed) | ws10-data-quality | done (wave 4, a0dfda0) |
+| DF-11 | P1 | Repo demo loader books fixed monthly costs into partial months: the first month gets payroll only against 7 days of revenue, the current month gets no payroll; reconciliation period ends in the future | ws10-data-quality | done (wave 4, a0dfda0) |
 | DF-14 | P1 | WhatsApp sends 'Order is on the way' twice per delivery (on both picked_up and en_route) | ws5-ops | done (wave 3, 93abad9) |
-| DF-12 | P2 | Intermittent Vercel staging 502s on static JS chunks: root cause unproven (Vercel edge vs sandbox egress proxy); harness lacks header capture; app lacks chunk-load recovery | ws10-data-quality | planned |
-| DF-13 | P2 | Every poller and the KDS board restart (and the KDS blanks) whenever the session value changes, such as a Supabase token refresh | ws10-data-quality | planned |
+| DF-12 | P2 | Intermittent Vercel staging 502s on static JS chunks: root cause unproven (Vercel edge vs sandbox egress proxy); harness lacks header capture; app lacks chunk-load recovery | ws10-data-quality | partial (wave 4; remainder in follow-ups) |
+| DF-13 | P2 | Every poller and the KDS board restart (and the KDS blanks) whenever the session value changes, such as a Supabase token refresh | ws10-data-quality | done (wave 4, a0dfda0) |
 | DF-15 | P2 | English strings in Arabic UI: unit codes (kg/pcs/l), server-generated insight titles and bodies, raw fallback reasons | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
 | NR-01 | P1 | KDS handoff with an active driver job, and pickup handoff, do not mark the order delivered or paid | lead | not reproduced |
 | NR-02 | P1 | Closed visits stay closed after guest and staff reload | lead | not reproduced |
@@ -223,13 +223,13 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | CR-04 | P0 | Western digits: residual sources the lead fix and its guard do not cover (legacy copy to port, demo data, raw guest inputs, server side) | ws3-staff-shell | done (wave 1, 5274252) |
 | CR-05 | P1 | Account lifecycle missing: no password reset, no email-confirmation callback, no change password, no Google sign-in (legacy /account had them) | ws8-features | done (wave 3, 93abad9) |
 | CR-06 | P1 | Guest phone entry rejects local Egyptian/Saudi formats and Arabic-Indic digits (an English error), a regression from legacy | ws4b-guest | done (wave 2, 85c176e) |
-| CR-07 | P1 | Staging not fit for provider acceptance or traceable QA: sleeping API and worker, no deployed-commit identity, acceptance harness bypasses the product path | ws10-data-quality | planned |
+| CR-07 | P1 | Staging not fit for provider acceptance or traceable QA: sleeping API and worker, no deployed-commit identity, acceptance harness bypasses the product path | ws10-data-quality | partial (wave 4; remainder in follow-ups) |
 | CR-08 | P1 | Vulnerable production dependencies: multer DoS reachable on every upload route; postcss advisories via next | lead | done (lead 544bf7d) |
 | CR-09 | P1 | Integration setup never shows the merchant's actual webhook URL; activation steps are raw English templates with placeholders | ws2-payments | done (wave 1, 5274252) |
-| CR-10 | P1 | No WebKit / iOS Safari coverage anywhere for phone-first guest and driver flows | ws10-data-quality | planned |
-| CR-11 | P1 | No visual-fidelity regression gate against legacy: CI ignores snapshots, and the existing baselines encode the non-legacy design | ws10-data-quality | planned |
+| CR-10 | P1 | No WebKit / iOS Safari coverage anywhere for phone-first guest and driver flows | ws10-data-quality | partial (wave 4; remainder in follow-ups) |
+| CR-11 | P1 | No visual-fidelity regression gate against legacy: CI ignores snapshots, and the existing baselines encode the non-legacy design | ws10-data-quality | partial (wave 4; remainder in follow-ups) |
 | CR-12 | P1 | Image pipeline has no resizing or derivatives; up-to-15 MB originals are served to guest menus, and the perf baseline hides this | ws6-perf | partial (wave 2; remainder in follow-ups) |
-| CR-13 | P2 | Legacy data migration tool unaudited: drops all legacy media and maps the venue QR to a mode 2.0 does not have | ws10-data-quality | planned |
-| CR-14 | P2 | No observability for staging QA: no error tracking, structured access log, uptime or queue-lag alerting | ws10-data-quality | planned |
-| CR-15 | P2 | Status docs and code comments instruct unsafe or incorrect configuration (beyond PAY-22 and INT-16) | ws10-data-quality | planned |
+| CR-13 | P2 | Legacy data migration tool unaudited: drops all legacy media and maps the venue QR to a mode 2.0 does not have | ws10-data-quality | done (wave 4, a0dfda0) |
+| CR-14 | P2 | No observability for staging QA: no error tracking, structured access log, uptime or queue-lag alerting | ws10-data-quality | done (wave 4, a0dfda0) |
+| CR-15 | P2 | Status docs and code comments instruct unsafe or incorrect configuration (beyond PAY-22 and INT-16) | ws10-data-quality | done (wave 4, a0dfda0) |
 | CR-16 | P2 | The performance baseline harness exists only in the scratchpad, so before/after measurements cannot be reproduced from the repo | ws6-perf | done (wave 2, 85c176e) |

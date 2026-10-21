@@ -20,13 +20,14 @@ measurements, redeploy staging and re-verify.
 | Wave 1: security hardening, payments authenticity + activation, legacy staff shell | done, on staging (API) at `5274252` |
 | Wave 2: public pages + Smash storefront, guest ordering/reservations, performance, Meta growth | done, on staging (API) at `85c176e` |
 | Wave 3: operations UI (KDS, floor, host, setup), module features (loyalty, notifications, hours/zones…), Studio AI + MCP | done, on staging (API) at `93abad9` |
-| Wave 4: other integrations (TikTok/Snap, Foodics, accounting, ZATCA/ETA, domains, notifications, maps, Gemini, push), demo data, API quality, QA | in progress |
+| Wave 4: other integrations (TikTok/Snap, Foodics, accounting, ZATCA/ETA, domains, notifications, maps, Gemini, push), demo data integrity, observability, QA gates | done, on staging (API) at `d207114` |
+| Wave 4b: API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB role, shared rate limits) | in progress |
 | P2: remaining integrations, Studio AI, MCP interop, advanced performance, research | pending |
 | Staging redeploy + full regression on the final commit | pending |
 
 ## Next executable task
-Wave 4 from `docs/BACKLOG.md`: workstreams ws7b-integrations and ws10-data-quality, then the final full regression,
-legacy-vs-new gallery and handoff report.
+Finish ws10b-api-quality (PS-13/16/19-23), merge, redeploy, then the final full regression, legacy-vs-new gallery
+and handoff report.
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
 - **Vercel connector**: re-authorize the Vercel connector in claude.ai with access to the team that owns

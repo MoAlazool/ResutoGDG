@@ -134,3 +134,39 @@ Staging (Render API/AI/MCP at `93abad9`, deployed 2026-10-21 07:17 UTC): 15 new 
 Partial items (remainders tracked in `docs/BACKLOG.md`): VS-25 mobile parity, VS-31 shared ops classes, FT-07
 service modes, PCL-21 optimistic actions, VS-26 AI floor-plan import.
 The web app on Vercel is still not redeployed (connector access, see `RESUME.md`).
+
+## Continuation wave 4 (integrations, demo data, QA) — integrated (2026-10-21, `a0dfda0` / `d207114`)
+
+Integrations (ws7b): TikTok Events API + Snap CAPI sinks, Foodics OAuth (+ fail-closed menu webhook), accounting push
+(Wafeq, Qoyod, Odoo JSON-2 with a /jsonrpc fallback for Odoo 17/18), ZATCA Phase-2 and ETA e-receipt (implemented,
+not certified, never run against a sandbox), custom domains on the Public Suffix List, Resend/Twilio channels with
+consent, quiet hours and unsubscribe, driver Web Push (RFC 8291/8292, node:crypto), optional Google Routes, one Gemini
+client. Demo data and QA (ws10a): demo re-timed relative to load time with a post-load integrity check and a resumable
+loader lease, deployed build identity on every service, JSON access log, optional error tracking DSN, health details,
+stable session call (DF-13), legacy migration media + venue QR, WebKit/visual/bundle CI gates. Independent reviews:
+ws7b 5 major + 4 minor, ws10a 2 major + 5 minor findings, all fixed or explained before merging.
+
+After merging, the bundle gate failed on 4 routes. Root cause (older than wave 4): the landing copy hook and the
+website editor's preview imported every dictionary into the browser. Fixed in `a0dfda0`: `/` 377 → 220 kB,
+`/pricing` 356 → 199 kB, website editor 371 → 194 kB first-load JS; TikTok/Snap pixel code loads on demand.
+
+| Suite (merged tree) | Result |
+|---|---|
+| API integration (95 files) | **803 / 803** |
+| Database security / read models | **68 / 68** |
+| Integrations adapters + acceptance runner | **314 / 314** |
+| Contracts | **56 / 56** |
+| MCP server | **25 / 25** |
+| Web unit | **253 / 253** |
+| Demo loader / UI script tests | **38 / 38**, **9 / 9** |
+| AI service (pytest) | pass |
+| API + web typecheck, web production build, bundle budget gate | pass |
+| Provider acceptance without credentials | 40 not_run, 4 blocked, none passed or failed (expected) |
+
+Staging (Render API/AI/MCP): `a0dfda0` applied 8 migrations (`20261022010001` … `20261022020001`); every service
+reports its commit in `/health` and `X-Build`. The first boot's integrity check failed 2 assertions on the demo
+tenant (rows from the 2026-10-19 loader: 9 Smash & Co dishes without photos, 75 checkout sessions stamped at load
+time). `d207114` repairs them on refresh (demo tenant only, nothing deleted); boot log: "repair: 9 dish photo(s)
+added, 75 order timeline(s) … re-dated", "all assertions hold". `smoke.mjs` **40 / 40**, `mcp-check.mjs` **7 / 7** at
+`d207114`. The Smash & Co storefront is now published on staging (`/r/the-olive-room/smash-and-co`).
+The web app on Vercel is still not redeployed (connector access, see `RESUME.md`).
