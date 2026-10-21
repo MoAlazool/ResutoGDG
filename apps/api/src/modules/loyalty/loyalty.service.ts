@@ -52,7 +52,9 @@ export class LoyaltyService implements LoyaltyPort {
   // -------------------------------------------------------------------------
   /**
    * Appends one ledger row and moves the balance, idempotently. Returns the existing row for a repeated key.
-   * A redeem that would take the balance below zero is refused (409 loyalty_insufficient_points).
+   * A redeem, negative adjustment or expiry that would take the balance below zero is refused under the account row
+   * lock (409 loyalty_insufficient_points / loyalty_negative_balance), so a concurrent redemption cannot be overdrawn.
+   * Exempt: reverse_earn (a refund after the points were spent) and the customer-merge pair, which moves a balance as is.
    */
   async append(tx: Tx, orgId: string, e: AppendInput): Promise<{ id: string; balanceAfter: number; created: boolean }> {
     if (!Number.isSafeInteger(e.points) || e.points === 0) throw invalid('invalid_points', 'Points must be a non-zero whole number');
@@ -62,8 +64,9 @@ export class LoyaltyService implements LoyaltyPort {
       'select id, balance_after from loyalty_ledger where org_id = $1 and idempotency_key = $2', [orgId, e.idempotencyKey]);
     if (existing) return { id: existing.id, balanceAfter: existing.balance_after, created: false };
     const after = acct.balance + e.points;
-    if (e.kind === 'redeem' && after < 0) {
-      throw new DomainError('loyalty_insufficient_points', 'Not enough points for this reward', 409, { balance: acct.balance, required: -e.points });
+    if (e.points < 0 && after < 0 && (e.kind === 'redeem' || e.kind === 'adjust' || e.kind === 'expire') && !e.idempotencyKey.startsWith('merge-')) {
+      if (e.kind === 'redeem') throw new DomainError('loyalty_insufficient_points', 'Not enough points for this reward', 409, { balance: acct.balance, required: -e.points });
+      throw new DomainError('loyalty_negative_balance', 'An adjustment cannot take the balance below zero', 409, { balance: acct.balance });
     }
     const row = await tx.one<{ id: string }>(
       `insert into loyalty_ledger(org_id, customer_id, kind, points, balance_after, order_id, payment_id, reward_id, discount_minor, reason, actor, idempotency_key, expires_at)
@@ -206,8 +209,10 @@ export class LoyaltyService implements LoyaltyPort {
   }
 
   /**
-   * Expires points earned more than `expiry_days` ago that were not used, oldest first: what expired lots earned minus
-   * everything already taken out (redeemed, reversed, expired, negative adjustments), capped at the balance.
+   * Expires points earned more than `expiry_days` ago that were not used, oldest first (FIFO): what the expired lots
+   * still hold (their earn net of reverse_earn on the same orders) minus what the customer actually used (redeemed net
+   * of returned redemptions, earlier expiries, negative adjustments), capped at the balance. A refund of a newer order
+   * reverses that order's own lot, so it does not shield an old lot from expiring.
    */
   async expireDue(tx: Tx, orgId: string, now = new Date()): Promise<number> {
     const due = await tx.query<{ customer_id: string; boundary: Date }>(
@@ -216,8 +221,10 @@ export class LoyaltyService implements LoyaltyPort {
     let total = 0;
     for (const d of due) {
       const r = await tx.one<{ expired_lots: number; debits: number; balance: number }>(
-        `select coalesce(sum(points) filter (where kind = 'earn' and expires_at is not null and expires_at <= $3), 0)::int as expired_lots,
-                coalesce(-sum(points) filter (where points < 0), 0)::int as debits,
+        `with lots as (select order_id from loyalty_ledger where org_id = $1 and customer_id = $2 and kind = 'earn' and expires_at is not null and expires_at <= $3)
+         select coalesce(sum(points) filter (where kind = 'earn' and expires_at is not null and expires_at <= $3), 0)::int
+                  + coalesce(sum(points) filter (where kind = 'reverse_earn' and order_id in (select order_id from lots where order_id is not null)), 0)::int as expired_lots,
+                coalesce(-sum(points) filter (where kind in ('redeem', 'reverse_redeem', 'expire') or (kind = 'adjust' and points < 0 and idempotency_key not like 'merge-%')), 0)::int as debits,
                 coalesce((select balance from loyalty_accounts where org_id = $1 and customer_id = $2), 0) as balance
            from loyalty_ledger where org_id = $1 and customer_id = $2`, [orgId, d.customer_id, d.boundary]);
       const points = Math.min(Math.max(0, r.expired_lots - r.debits), Math.max(0, r.balance));

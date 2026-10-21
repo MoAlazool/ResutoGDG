@@ -362,6 +362,35 @@ describe('expiry, adjustments and invariants', () => {
     expect(view.expiringSoon).toMatchObject({ points: 20 });
   });
 
+  it('expires an old lot even when a newer order was refunded (FIFO per lot, review regression)', async () => {
+    const svc = t.app.get(LoyaltyService);
+    const old = await place({ phone: newPhone() });
+    const customerId = old.customerId!;
+    const newer = await place({ customerId });
+    await db.scoped(ctx, async (tx) => {
+      await svc.append(tx, A.orgId, { customerId, kind: 'earn', points: 100, orderId: old.id, idempotencyKey: `t-lot-old:${customerId}`, actor: 'test', expiresAt: new Date(Date.now() - 86_400_000) });
+      await svc.append(tx, A.orgId, { customerId, kind: 'earn', points: 100, orderId: newer.id, idempotencyKey: `t-lot-new:${customerId}`, actor: 'test', expiresAt: new Date(Date.now() + 86_400_000 * 30) });
+      // The newer order is refunded in full: its own lot is reversed.
+      await svc.append(tx, A.orgId, { customerId, kind: 'reverse_earn', points: -100, orderId: newer.id, idempotencyKey: `t-lot-rev:${customerId}`, actor: 'test' });
+    });
+    await t.app.get(LoyaltyHandlers).expire();
+    expect((await rows(customerId)).filter((r) => r.kind === 'expire').map((r) => r.points)).toEqual([-100]);
+    expect(await balance(customerId)).toBe(0);
+  });
+
+  it('refuses any debit below zero under the lock and in the database (review regression)', async () => {
+    const svc = t.app.get(LoyaltyService);
+    const customerId = (await place({ phone: newPhone() })).customerId!;
+    await db.scoped(ctx, (tx) => svc.append(tx, A.orgId, { customerId, kind: 'adjust', points: 10, reason: 'seed', idempotencyKey: `t-neg-seed:${customerId}`, actor: 'test' }));
+    // A negative adjustment that races a redemption is re-checked against the locked balance, not the earlier read.
+    await expect(db.scoped(ctx, (tx) => svc.append(tx, A.orgId, { customerId, kind: 'adjust', points: -11, reason: 'race', idempotencyKey: `t-neg-adj:${customerId}`, actor: 'test' })))
+      .rejects.toMatchObject({ status: 409, code: 'loyalty_negative_balance' });
+    await expect(sql(
+      `insert into loyalty_ledger(org_id, customer_id, kind, points, balance_after, reason, actor, idempotency_key) values ($1, $2, 'adjust', -11, -1, 'direct', 'test', $3)`,
+      [A.orgId, customerId, `t-neg-sql:${customerId}`])).rejects.toThrow(/loyalty_ledger_no_negative_debit/);
+    expect(await balance(customerId)).toBe(10);
+  });
+
   it('manual adjustments need marketing:approve and a reason, cannot go below zero, are audited and idempotent', async () => {
     const o = await place({ phone: newPhone() });
     const customerId = o.customerId!;
