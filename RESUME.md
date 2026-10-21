@@ -30,10 +30,12 @@ Finish ws10b-api-quality (PS-13/16/19-23), merge, redeploy, then the final full 
 and handoff report.
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
-- **Vercel connector**: the owner reconnected it with access to team "ta-nk" (2026-10-21 ~16:00 UTC), but connectors
-  are read when a session starts: the session that was running still gets 403 (it lists no teams). A NEW session can
-  redeploy the web app (`resuto-2-staging-web`, project `prj_A49JsL4bfIJHEWP0okbReX9uZ0Iq`) from the branch head and
-  read its logs; first step there: `get_project` to confirm access, then redeploy and run the staging checks.
+- **Vercel connector**: still not authorized for team "ta-nk" (re-checked 2026-10-21 16:48 UTC from this session AND
+  from a freshly started session: `list_teams` returns no teams, `get_project` answers 403 "re-authenticate to this
+  scope"). Reconnecting the connector is not enough on its own: on Vercel's consent / integration screen the team
+  "ta-nk" must be selected (or the Claude integration installed on that team). Then a new session can redeploy
+  `resuto-2-staging-web` (`prj_A49JsL4bfIJHEWP0okbReX9uZ0Iq`) with `create_deployment` (gitSource MoAlazool/ResutoGDG,
+  ref `claude/relaxed-mayer-omkl3f`, target `production` of that staging project) and run the staging checks.
 - **Deployment Protection**: verified ON (every web URL answers 302 to `vercel.com/sso-api`). The temporary QA
   automation bypass was revoked by the owner; do NOT recreate a bypass without the owner's approval. Browser QA of the
   deployed web needs authorized Vercel access; local builds against local APIs are used otherwise.
