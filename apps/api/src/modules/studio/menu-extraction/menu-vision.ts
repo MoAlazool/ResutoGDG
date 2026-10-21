@@ -1,5 +1,4 @@
-import { GEMINI_API_BASE } from '@resuto/integrations';
-import { ProviderError } from '@resuto/integrations';
+import { GeminiLlm, ProviderError } from '@resuto/integrations';
 import type { Currency, ExtractionModifierGroup, ExtractionRow } from '@resuto/contracts';
 import { parseMajor } from '@resuto/contracts';
 
@@ -109,37 +108,24 @@ export function rowsFromVision(result: any, currency: Currency): { rows: Omit<Ex
   return { rows, uncertainties };
 }
 
-/** One generateContent call (JSON mode) with the file inline. Errors are ProviderError (retryable for 429/5xx/network). */
+/**
+ * One generateContent call (JSON mode) with the file inline, through the shared Gemini client (INT-30,
+ * packages/integrations/src/ai/gemini.ts). No in-call retry: the extraction job retries retryable errors itself.
+ * Errors are ProviderError('gemini_byok', …) (retryable for 429/5xx/network); response bodies are never echoed.
+ */
 export async function extractMenuWithGemini(input: VisionInput): Promise<{ rows: Omit<ExtractionRow, 'id'>[]; uncertainties: string[] }> {
-  const url = `${GEMINI_API_BASE}/models/${encodeURIComponent(input.model)}:generateContent`;
-  let res: Response;
-  try {
-    res = await input.fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': input.apiKey },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [
-          { text: `${MENU_VISION_INSTRUCTION} Menu currency: ${input.currency}. File: ${(input.file.name ?? 'menu').slice(0, 80)}.` },
-          { inlineData: { mimeType: input.file.mime, data: input.file.bytes.toString('base64') } },
-        ] }],
-        generationConfig: { responseMimeType: 'application/json', responseSchema: MENU_VISION_SCHEMA, temperature: 0, maxOutputTokens: 32_768 },
-      }),
-      signal: AbortSignal.timeout(90_000),
-    });
-  } catch (e) {
-    throw new ProviderError('gemini_byok', `network error: ${(e as Error).name}`, true);
-  }
-  const text = await res.text();
-  if (!res.ok) {
-    // Never echo the response body (it can quote the request); status codes are enough to act on.
-    throw new ProviderError('gemini_byok', `HTTP ${res.status}`, res.status === 429 || res.status >= 500, res.status);
-  }
-  let body: any;
-  try { body = JSON.parse(text); } catch { throw new ProviderError('gemini_byok', 'non-JSON response', true); }
-  const out = body?.candidates?.[0]?.content?.parts?.map((p: any) => (typeof p?.text === 'string' ? p.text : '')).join('') ?? '';
-  if (!out) throw new ProviderError('gemini_byok', `empty response (${String(body?.candidates?.[0]?.finishReason ?? body?.promptFeedback?.blockReason ?? 'no candidate').slice(0, 40)})`, false);
+  const llm = new GeminiLlm({ provider: 'gemini_byok', apiKey: input.apiKey, model: input.model, fetch: input.fetch, retries: 0, timeoutMs: 90_000 });
+  const result = await llm.generate({
+    contents: [{ role: 'user', parts: [
+      { text: `${MENU_VISION_INSTRUCTION} Menu currency: ${input.currency}. File: ${(input.file.name ?? 'menu').slice(0, 80)}.` },
+      { inlineData: { mimeType: input.file.mime, data: input.file.bytes.toString('base64') } },
+    ] }],
+    json: { schema: MENU_VISION_SCHEMA as unknown as Record<string, unknown> }, temperature: 0, maxOutputTokens: 32_768,
+  });
+  if (!result.text) throw new ProviderError('gemini_byok', `empty response (${(result.finishReason ?? 'no text').slice(0, 40)})`, false);
   let parsed: unknown;
-  try { parsed = JSON.parse(out); } catch { throw new ProviderError('gemini_byok', 'the model returned invalid JSON', true); }
+  // A truncated or malformed JSON answer is worth one more attempt by the job (same as before INT-30).
+  try { parsed = JSON.parse(result.text); } catch { throw new ProviderError('gemini_byok', 'the model returned invalid JSON', true); }
   try {
     return rowsFromVision(parsed, input.currency);
   } catch (e) {

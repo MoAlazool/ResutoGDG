@@ -72,7 +72,11 @@ export class AiServiceClient {
 }
 
 /** Usage metering (MODULE_CONTRACTS §5 exception): one `ai_requests` row per AI call. */
-export async function recordUsage(tx: Tx, ctx: TenantContext, metadata: { endpoint: string; provider: 'resuto-ai-service' | 'gemini' }) {
+export async function recordUsage(tx: Tx, ctx: TenantContext, metadata: {
+  endpoint: string; provider: 'resuto-ai-service' | 'gemini';
+  /** INT-30: token counts the provider reported for the call (kept with the metered request for cost review). */
+  usage?: { promptTokens: number; outputTokens: number; totalTokens: number } | null;
+}) {
   await tx.query(
     `insert into usage_events(org_id, metric, quantity, cost_owner, metadata) values ($1, 'ai_requests', 1, 'resuto', $2)`,
     [ctx.orgId, { ...metadata, actor: `${ctx.actorType}:${ctx.actorId}` }]);

@@ -87,14 +87,14 @@ export class CopyService {
       item: input.locale === 'ar' ? subject.nameAr || subject.name : subject.name,
       description: subject.description, price: subject.price, offer: input.offer ?? null,
     };
-    const reply = await this.gemini.generate({
+    const { content: reply, usage } = await this.gemini.generateWithUsage({
       system: 'You write short restaurant marketing copy. Output only the final text, no quotes or options. Use only facts from the brief: never invent prices, discounts, ingredients, health or halal claims. Mention the price or offer only if the brief contains it.',
       contents: [{ role: 'user', parts: [{ text: `Brief (JSON): ${JSON.stringify(brief)}` }] }],
       temperature: 0.7,
     });
     const text = reply.parts.map((p) => p.text ?? '').join('').trim();
     if (!text) throw new DomainError('llm_empty', 'The language model returned no text', 503);
-    await this.db.scoped(ctx, (tx) => recordUsage(tx, ctx, { endpoint: 'generate-copy', provider: 'gemini' }));
+    await this.db.scoped(ctx, (tx) => recordUsage(tx, ctx, { endpoint: 'generate-copy', provider: 'gemini', usage }));
     return { kind: input.kind, locale: input.locale, text: text.slice(0, LIMITS[input.channel]), provider: 'gemini', isFallback: false };
   }
 }
