@@ -1,10 +1,11 @@
 'use client';
+import { useSearchParams } from 'next/navigation';
 import { useMemo, useRef, useState } from 'react';
-import type { MenuEditorView, OrderDetail, OrderSummary, FloorLayout } from '@resuto/contracts';
+import type { LoyaltyReward, MenuEditorView, OrderDetail, OrderSummary, FloorLayout } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
-import { dateTime, formatWhen, money, pick, time } from '@/lib/format';
+import { dateTime, formatWhen, money, num, pick, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -28,7 +29,10 @@ export default function OrdersPage() {
   const [date, setDate] = useState('');
   const [cursor, setCursor] = useState<string | undefined>();
   const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  // FT-03: the customer card opens a new order for that customer (`?newFor=<customerId>`), so staff can redeem points.
+  const params = useSearchParams();
+  const newFor = params.get('newFor');
+  const [creating, setCreating] = useState(!!newFor && can('orders:write'));
 
   const qs = new URLSearchParams({
     limit: '50', ...(branchId ? { branchId } : {}),
@@ -110,7 +114,7 @@ export default function OrdersPage() {
         {list.data?.nextCursor && <button className="btn btn-sm" onClick={() => setCursor(list.data!.nextCursor!)}>{t('core.orders.older')}</button>}
       </div>
       {selected && <OrderDrawer orderId={selected} onClose={() => setSelected(null)} onChanged={() => void list.reload()} />}
-      {creating && <NewOrderModal branchId={branchId} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setSelected(id); void list.reload(); }} />}
+      {creating && <NewOrderModal branchId={branchId} customerId={newFor} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setSelected(id); void list.reload(); }} />}
     </ModuleGate>
   );
 }
@@ -201,10 +205,15 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
 
 interface DraftLine { productId: string; quantity: number; modifiers: Record<string, string>; notes: string }
 
-function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onClose: () => void; onCreated: (id: string) => void }) {
+interface Redeemable { customerId: string; displayName: string | null; active: boolean; balance: number; rewards: Array<LoyaltyReward & { affordable: boolean }> }
+
+function NewOrderModal({ branchId, customerId, onClose, onCreated }: { branchId: string; customerId?: string | null; onClose: () => void; onCreated: (id: string) => void }) {
   const { t, locale } = useT();
-  const { org } = useOrg();
+  const { org, hasModule } = useOrg();
   const { call } = useSession();
+  // FT-03: an order for a known customer may redeem a reward; staff identify the guest, the server checks the points.
+  const loyalty = useApi<Redeemable>(customerId && hasModule('marketing') ? `/o/${org.id}/loyalty/customers/${customerId}/rewards` : null);
+  const [rewardId, setRewardId] = useState('');
   const menu = useApi<MenuEditorView>(`/o/${org.id}/menu`);
   const floor = useApi<FloorLayout>(branchId ? `/o/${org.id}/floor/${branchId}` : null);
   const [fulfillment, setFulfillment] = useState<'dine_in' | 'pickup' | 'delivery'>('dine_in');
@@ -228,6 +237,7 @@ function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onC
           lines: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, notes: l.notes || null,
             modifiers: Object.entries(l.modifiers).filter(([, v]) => v).map(([groupId, optionId]) => ({ groupId, optionId })) })),
           customer: customer.name || customer.phone ? { name: customer.name || null, phone: customer.phone || null } : null,
+          customerId: customerId || null, loyaltyRewardId: customerId && rewardId ? rewardId : null,
           deliveryAddress: fulfillment === 'delivery' ? { line1: address } : null,
         },
       });
@@ -242,6 +252,7 @@ function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onC
     </>}>
       {!menu.data ? <Skeleton lines={4} /> : (
         <div className="stack">
+          {customerId && loyalty.data && <p style={{ margin: 0 }}><strong>{t('loyalty.staff.for', { name: loyalty.data.displayName ?? '—' })}</strong></p>}
           <div className="g-seg" role="group" aria-label={t('core.orders.fulfillment')} style={{ display: 'inline-flex', background: 'var(--line-soft)', borderRadius: 99, padding: 3 }}>
             {(['dine_in', 'pickup', 'delivery'] as const).map((f) => (
               <button key={f} type="button" className={`btn btn-sm btn-pill ${fulfillment === f ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFulfillment(f)}>{t(`core.web.${f}`)}</button>
@@ -289,6 +300,19 @@ function NewOrderModal({ branchId, onClose, onCreated }: { branchId: string; onC
             <option value="">{t('core.orders.chooseItem')}</option>
             {products.map((p) => <option key={p.id} value={p.id}>{pick(locale, p.name, p.nameAr)} · {money(p.priceMinor, p.currency, locale)}</option>)}
           </SelectField>
+          {customerId && loyalty.data?.active && loyalty.data.rewards.length > 0 && (
+            <div>
+              <SelectField label={t('loyalty.staff.reward')} value={rewardId} onChange={(e) => setRewardId(e.target.value)}>
+                <option value="">{t('loyalty.staff.none')}</option>
+                {loyalty.data.rewards.map((r) => (
+                  <option key={r.id} value={r.id} disabled={!r.affordable}>
+                    {t(r.affordable ? 'loyalty.staff.option' : 'loyalty.staff.short', { name: pick(locale, r.name, r.nameAr), points: num(r.pointsCost, locale) })}
+                  </option>
+                ))}
+              </SelectField>
+              <p className="fine" style={{ marginBlockStart: 4 }}>{t('loyalty.staff.balance', { points: num(loyalty.data.balance, locale) })}</p>
+            </div>
+          )}
           <p className="fine">{t('core.orders.serverPrices')}</p>
           {error && <Notice tone="danger">{error}</Notice>}
         </div>

@@ -309,12 +309,13 @@ export class LoyaltyService implements LoyaltyPort {
    */
   redeemable(ctx: TenantContext, customerId: string) {
     return this.db.scoped(ctx, async (tx) => {
-      const c = await tx.maybeOne('select 1 from customers where id = $1 and org_id = $2 and anonymized_at is null', [customerId, ctx.orgId]);
+      const c = await tx.maybeOne<{ display_name: string | null }>(
+        'select display_name from customers where id = $1 and org_id = $2 and anonymized_at is null and merged_into_id is null', [customerId, ctx.orgId]);
       if (!c) throw notFound('Customer');
       const p = await this.program(tx, ctx.orgId);
       const balance = (await tx.maybeOne<{ balance: number }>('select balance from loyalty_accounts where org_id = $1 and customer_id = $2', [ctx.orgId, customerId]))?.balance ?? 0;
       const rewards = p.isActive ? (await tx.query('select * from loyalty_rewards where org_id = $1 and is_active order by points_cost, name', [ctx.orgId])).map(toReward) : [];
-      return { customerId, active: p.isActive, balance, rewards: rewards.map((r) => ({ ...r, affordable: balance >= r.pointsCost })) };
+      return { customerId, displayName: c.display_name, active: p.isActive, balance, rewards: rewards.map((r) => ({ ...r, affordable: balance >= r.pointsCost })) };
     });
   }
 

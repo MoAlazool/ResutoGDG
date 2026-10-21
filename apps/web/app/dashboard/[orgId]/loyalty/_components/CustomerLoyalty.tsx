@@ -37,6 +37,7 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
       <div className="spread" style={{ alignItems: 'center', marginBlockEnd: 12 }}>
         <h2 style={{ margin: 0, fontSize: 18 }}>{t('loyalty.customer.title')}</h2>
         <div className="row" style={{ gap: 8 }}>
+          {can('orders:write') && <Link className="btn btn-sm btn-primary" href={`/dashboard/${org.id}/orders?newFor=${customerId}`}>{t('loyalty.customer.redeem')}</Link>}
           {can('marketing:approve') && <button type="button" className="btn btn-sm" onClick={() => setAdj({ points: '', reason: '', key: crypto.randomUUID() })}>{t('loyalty.customer.adjust')}</button>}
           <Link className="btn btn-sm btn-ghost" href={`/dashboard/${org.id}/loyalty`}>{t('loyalty.customer.manage')}</Link>
         </div>
