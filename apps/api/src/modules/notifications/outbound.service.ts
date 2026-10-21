@@ -90,8 +90,33 @@ export class OutboundChannelsService {
     return r ? { id: r.id, provider: CHANNEL_PROVIDER[channel], environment: r.environment } : null;
   }
 
+  /** HMAC of the normalised address under the active key (what new queue rows and new opt-outs store). */
   addressHash(channel: OutboundChannel, to: string): string {
-    return createHmac('sha256', purposeKeys(this.env, UNSUBSCRIBE_PURPOSE).active).update(`${channel}:${normaliseAddress(channel, to)}`).digest('hex');
+    return this.addressHashes(channel, to)[0]!;
+  }
+
+  /**
+   * The address hash under every key of the ring, active first. Opt-outs are matched against all of them, so rotating
+   * SIGNING_KEY / CREDENTIALS_KEYS (prepend the new key) never orphans an opt-out recorded under an older key; a match
+   * under an older key is re-recorded under the active one, so the opt-out also survives dropping that key later.
+   */
+  addressHashes(channel: OutboundChannel, to: string): string[] {
+    const v = `${channel}:${normaliseAddress(channel, to)}`;
+    return purposeKeys(this.env, UNSUBSCRIBE_PURPOSE).all.map((k) => createHmac('sha256', k).update(v).digest('hex'));
+  }
+
+  /** Whether the address opted out of this channel (under any key of the ring); re-keys an old-key opt-out. */
+  private async isUnsubscribed(tx: Tx, orgId: string, channel: OutboundChannel, hashes: string[]): Promise<boolean> {
+    const rows = await tx.query<{ address_hash: string; customer_id: string | null; source: string }>(
+      `select address_hash, customer_id, source from channel_unsubscribes where org_id = $1 and channel = $2 and address_hash = any($3::text[])`,
+      [orgId, channel, hashes]);
+    if (!rows.length) return false;
+    if (!rows.some((r) => r.address_hash === hashes[0])) {
+      await tx.query(
+        `insert into channel_unsubscribes(org_id, channel, address_hash, customer_id, source) values ($1, $2, $3, $4, $5)
+         on conflict (org_id, channel, address_hash) do nothing`, [orgId, channel, hashes[0], rows[0]!.customer_id, rows[0]!.source]);
+    }
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -100,11 +125,9 @@ export class OutboundChannelsService {
   async enqueue(tx: Tx, orgId: string, input: EnqueueOutbound): Promise<EnqueueResult> {
     const to = normaliseAddress(input.channel, input.to);
     if (input.channel === 'email' ? !isEmailAddress(to) : !isE164(to)) return { skipped: 'invalid_address' };
-    const hash = this.addressHash(input.channel, to);
-    if (input.purpose === 'marketing') {
-      const out = await tx.maybeOne(`select 1 from channel_unsubscribes where org_id = $1 and channel = $2 and address_hash = $3`, [orgId, input.channel, hash]);
-      if (out) return { skipped: 'unsubscribed' };
-    }
+    const hashes = this.addressHashes(input.channel, to);
+    const hash = hashes[0]!;
+    if (input.purpose === 'marketing' && await this.isUnsubscribed(tx, orgId, input.channel, hashes)) return { skipped: 'unsubscribed' };
     const due = input.purpose === 'marketing' ? await this.quietHoursEnd(tx, orgId) : null;
     const id = (await tx.one<{ id: string }>('select gen_random_uuid() as id')).id;
     const row = await tx.maybeOne<{ id: string; status: 'queued' | 'deferred' }>(
@@ -186,35 +209,45 @@ export class OutboundChannelsService {
   private async tokenRow(token: string) {
     const id = this.verifyToken(token);
     if (!id) return null;
-    return this.db.withPlatform((tx) => tx.maybeOne<{ id: string; org_id: string; channel: OutboundChannel; address_hash: string; customer_id: string | null; org_name: string }>(
-      `select m.id, m.org_id, m.channel, m.address_hash, m.customer_id, o.name as org_name
+    const r = await this.db.withPlatform((tx) => tx.maybeOne<{ id: string; org_id: string; channel: OutboundChannel; address_hash: string; recipient_sealed: string; customer_id: string | null; org_name: string }>(
+      `select m.id, m.org_id, m.channel, m.address_hash, m.recipient_sealed, m.customer_id, o.name as org_name
          from outbound_messages m join organizations o on o.id = m.org_id where m.id = $1`, [id]), 'public:unsubscribe');
+    if (!r) return null;
+    // The row's hash may be under an older key: match and record with the current ring (the row's own hash included).
+    let hashes = [r.address_hash];
+    try {
+      const addr = this.box.open(r.recipient_sealed, `outbound:${r.org_id}:${r.id}`);
+      hashes = [...new Set([...this.addressHashes(r.channel, addr), r.address_hash])];
+    } catch { /* unreadable address: the stored hash alone */ }
+    return { ...r, hashes };
   }
 
   async unsubscribeStatus(token: string) {
     const r = await this.tokenRow(token);
     if (!r) return null;
-    const out = await this.db.withTenant(r.org_id, (tx) => tx.maybeOne(`select 1 from channel_unsubscribes where org_id = $1 and channel = $2 and address_hash = $3`,
-      [r.org_id, r.channel, r.address_hash]), 'public:unsubscribe');
+    const out = await this.db.withTenant(r.org_id, (tx) => tx.maybeOne(`select 1 from channel_unsubscribes where org_id = $1 and channel = $2 and address_hash = any($3::text[])`,
+      [r.org_id, r.channel, r.hashes]), 'public:unsubscribe');
     return { channel: r.channel, restaurant: r.org_name, unsubscribed: !!out };
   }
 
   async unsubscribe(token: string, source: 'link' | 'one_click') {
     const r = await this.tokenRow(token);
     if (!r) return null;
-    await this.db.withTenant(r.org_id, (tx) => this.recordUnsubscribe(tx, r.org_id, r.channel, r.address_hash, r.customer_id, source), 'public:unsubscribe');
+    await this.db.withTenant(r.org_id, (tx) => this.recordUnsubscribe(tx, r.org_id, r.channel, r.hashes, r.customer_id, source), 'public:unsubscribe');
     return { channel: r.channel, restaurant: r.org_name, unsubscribed: true };
   }
 
-  private async recordUnsubscribe(tx: Tx, orgId: string, channel: OutboundChannel, hash: string, customerId: string | null, source: string) {
+  /** `hashes[0]` is recorded (the active-key hash when known); queued marketing under any of them is dropped. */
+  private async recordUnsubscribe(tx: Tx, orgId: string, channel: OutboundChannel, hashes: string[], customerId: string | null, source: string) {
+    const existing = await tx.maybeOne(`select 1 from channel_unsubscribes where org_id = $1 and channel = $2 and address_hash = any($3::text[])`, [orgId, channel, hashes]);
     const ins = await tx.query(
       `insert into channel_unsubscribes(org_id, channel, address_hash, customer_id, source) values ($1, $2, $3, $4, $5)
-       on conflict (org_id, channel, address_hash) do nothing returning id`, [orgId, channel, hash, customerId, source]);
-    if (ins.length) {
+       on conflict (org_id, channel, address_hash) do nothing returning id`, [orgId, channel, hashes[0], customerId, source]);
+    if (ins.length && !existing) {
       // Marketing still waiting in the queue for this address is not sent.
       await tx.query(
         `update outbound_messages set status = 'failed', last_error = 'unsubscribed', lease_until = null
-          where org_id = $1 and channel = $2 and address_hash = $3 and purpose = 'marketing' and status in ('queued', 'deferred')`, [orgId, channel, hash]);
+          where org_id = $1 and channel = $2 and address_hash = any($3::text[]) and purpose = 'marketing' and status in ('queued', 'deferred')`, [orgId, channel, hashes]);
       await this.audit.record(tx, TenantContext.system(orgId, `unsubscribe:${source}`),
         { action: 'marketing.channel_unsubscribed', entityType: 'customer', entityId: customerId, metadata: { channel, source } });
     }
@@ -349,10 +382,19 @@ export class OutboundChannelsService {
         `update outbound_messages set status = $2, status_at = now(), delivered_at = case when $2 = 'delivered' then now() else delivered_at end,
             last_error = case when $3::text is not null then $3 else last_error end where id = $1 returning *`,
         [row.id, u.status, u.errorCode ? `provider_error_${String(u.errorCode).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)}` : null]);
-      if (u.status === 'complained') await this.recordUnsubscribe(tx, orgId, row.channel, row.address_hash, row.customer_id, 'provider_complaint');
+      if (u.status === 'complained') await this.recordUnsubscribe(tx, orgId, row.channel, this.rowHashes(row), row.customer_id, 'provider_complaint');
       await this.syncLinked(tx, updated);
       return { applied: true, status: u.status };
     }, `webhook:${provider}`);
+  }
+
+  /** Hashes of a queue row's address under the current ring (the row's stored hash last), for opt-out matching. */
+  private rowHashes(row: { id: string; org_id: string; channel: OutboundChannel; address_hash: string; recipient_sealed: string }): string[] {
+    try {
+      return [...new Set([...this.addressHashes(row.channel, this.box.open(row.recipient_sealed, `outbound:${row.org_id}:${row.id}`)), row.address_hash])];
+    } catch {
+      return [row.address_hash];
+    }
   }
 
   // ---------------------------------------------------------------------------

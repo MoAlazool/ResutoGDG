@@ -9,6 +9,7 @@ import { ProviderHttp } from '../src/modules/integrations/provider-http';
 import { NotificationsService } from '../src/modules/notifications/notifications.service';
 import { OutboundChannelsService } from '../src/modules/notifications/outbound.service';
 import { DbService } from '../src/common/db/db.service';
+import { ENV, type Env } from '../src/config/env';
 import { scriptedFetch, type RecordedRequest } from './growth-helpers';
 import { auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant } from './helpers';
 
@@ -229,6 +230,54 @@ describe('unsubscribe link (INT-28)', () => {
     const forged = `${token.split('.')[0]}.${'A'.repeat(22)}`;
     expect((await t.http.get(`/v1/public/unsubscribe/${forged}`)).status).toBe(404);
     expect((await t.http.post(`/v1/public/unsubscribe/not-a-token`)).status).toBe(404);
+  });
+});
+
+describe('opt-outs survive key rotation (INT-28 review)', () => {
+  it('an opt-out recorded before SIGNING_KEY is rotated still suppresses marketing, and after the old key is dropped', async () => {
+    const env = t.app.get<Env>(ENV);
+    const saved = { SIGNING_KEY: env.SIGNING_KEY, CREDENTIALS_KEYS: env.CREDENTIALS_KEYS };
+    const OLD = 'o'.repeat(40);
+    const NEW = 'n'.repeat(40);
+    try {
+      Object.assign(env, { SIGNING_KEY: OLD, CREDENTIALS_KEYS: undefined });
+      const tenant = await createTenant(t);
+      await customers(tenant);
+      await connect(tenant, 'resend');
+      await noQuietHours(tenant);
+      const first = await approvedCampaign(tenant, 'email');
+      const f = resendOk();
+      http.fetch = f.fetch;
+      await t.http.post(m(tenant, `/campaigns/${first}/send`)).set(auth(tenant.owner)).expect(201);
+      const path = new URL(JSON.parse(f.calls[0]!.body!).headers['List-Unsubscribe'].slice(1, -1)).pathname;
+      expect((await t.http.post(path).type('form').send('List-Unsubscribe=One-Click')).body).toMatchObject({ unsubscribed: true });
+
+      // Routine rotation: the new key is prepended. The old link still verifies and still reports the opt-out.
+      env.SIGNING_KEY = `${NEW},${OLD}`;
+      expect((await t.http.get(path)).body).toMatchObject({ unsubscribed: true });
+      await sql(`update campaigns set name = 'old' where id = $1`, [first]);
+      const second = await approvedCampaign(tenant, 'email');
+      const g = resendOk();
+      http.fetch = g.fetch;
+      const res = await t.http.post(m(tenant, `/campaigns/${second}/send`)).set(auth(tenant.owner));
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      expect(res.body.delivery).toMatchObject({ skippedUnsubscribed: 1, queued: 0 });
+      expect(g.calls).toHaveLength(0);
+      // The match under the old key was re-recorded under the active key...
+      expect(await sql(`select count(*)::int as n from channel_unsubscribes where org_id = $1`, [tenant.orgId])).toEqual([{ n: 2 }]);
+
+      // ...so dropping the old key later keeps the opt-out.
+      env.SIGNING_KEY = NEW;
+      await sql(`update campaigns set name = 'older' where id = $1`, [second]);
+      const third = await approvedCampaign(tenant, 'email');
+      const h = resendOk();
+      http.fetch = h.fetch;
+      const res3 = await t.http.post(m(tenant, `/campaigns/${third}/send`)).set(auth(tenant.owner));
+      expect(res3.body.delivery).toMatchObject({ skippedUnsubscribed: 1, queued: 0 });
+      expect(h.calls).toHaveLength(0);
+    } finally {
+      Object.assign(env, saved);
+    }
   });
 });
 
