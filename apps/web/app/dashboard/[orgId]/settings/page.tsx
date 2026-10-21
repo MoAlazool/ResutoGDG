@@ -19,7 +19,8 @@ const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
 
 
 interface Branch {
-  id: string; code: string; name: string; nameAr: string | null; address: string | null; city: string | null; phone: string | null; isActive: boolean;
+  id: string; code: string; name: string; nameAr: string | null; address: string | null; city: string | null; district?: string | null; districtAr?: string | null;
+  phone: string | null; isActive: boolean;
   acceptsDineIn: boolean; acceptsPickup: boolean; acceptsDelivery: boolean; acceptsReservations: boolean; deliveryFeeMinor: number; minOrderMinor: number;
   deliveryRadiusM: number | null; reservationDurationMin: number | null; reservationBufferMin: number | null; reservationDepositMinor: number | null; serviceMode?: ServiceMode;
 }
@@ -81,6 +82,18 @@ export default function SettingsPage() {
   return (
     <div style={FIT}>
       <PageHeader title={s.title} subtitle={s.subtitle} />
+      {/* The service model comes first, as in legacy settings; profile and the launch checklist follow (PAR-08). */}
+      {mb && (
+        <Card title={t('ops.mode.title')}>
+          <p className="fine" style={{ marginTop: 0 }}>{t('ops.mode.subtitle', { branch: pick(locale, mb.name, mb.nameAr) })}</p>
+          {activeBranches.length > 1 && (
+            <Tabs value={mb.id} onChange={setModeBranch} label={s.branches}
+              tabs={activeBranches.map((b) => ({ key: b.id, label: pick(locale, b.name, b.nameAr) }))} />
+          )}
+          <ServiceModeCards key={`${mb.id}:${mb.serviceMode}:${mb.acceptsReservations}`} orgId={org.id} branch={mb} canEdit={can('branches:manage')} onSaved={refreshAll} />
+          {mb.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={mb.id} />}
+        </Card>
+      )}
       <div className="grid grid-2" style={{ marginBlockEnd: 16 }}>
         <Card title={s.profile}>
           <form onSubmit={saveProfile}>
@@ -126,17 +139,6 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      {mb && (
-        <Card title={t('ops.mode.title')}>
-          <p className="fine" style={{ marginTop: 0 }}>{t('ops.mode.subtitle', { branch: pick(locale, mb.name, mb.nameAr) })}</p>
-          {activeBranches.length > 1 && (
-            <Tabs value={mb.id} onChange={setModeBranch} label={s.branches}
-              tabs={activeBranches.map((b) => ({ key: b.id, label: pick(locale, b.name, b.nameAr) }))} />
-          )}
-          <ServiceModeCards key={`${mb.id}:${mb.serviceMode}:${mb.acceptsReservations}`} orgId={org.id} branch={mb} canEdit={can('branches:manage')} onSaved={refreshAll} />
-          {mb.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={mb.id} />}
-        </Card>
-      )}
       {mb && <PolicyCard key={`policy:${mb.id}`} branch={mb} currency={d.currency} canEdit={can('branches:manage')} onSaved={refreshAll} />}
 
       <Card title={s.branches} actions={can('branches:manage') ? <button className="btn btn-sm btn-primary" onClick={() => setEditing('new')}>{s.addBranch}</button> : undefined}>
@@ -164,6 +166,7 @@ function BranchModal({ branch, currency, s, onClose, onSaved }: {
   const session = useSession();
   const [f, setF] = useState({
     name: branch?.name ?? '', nameAr: branch?.nameAr ?? '', code: branch?.code ?? '', address: branch?.address ?? '', city: branch?.city ?? '', phone: branch?.phone ?? '',
+    district: branch?.district ?? '', districtAr: branch?.districtAr ?? '',
     acceptsDineIn: branch?.acceptsDineIn ?? true, acceptsPickup: branch?.acceptsPickup ?? true, acceptsDelivery: branch?.acceptsDelivery ?? false,
     acceptsReservations: branch?.acceptsReservations ?? true, deliveryFee: major(branch?.deliveryFeeMinor ?? 0), minOrder: major(branch?.minOrderMinor ?? 0),
     isActive: branch?.isActive ?? true,
@@ -181,6 +184,7 @@ function BranchModal({ branch, currency, s, onClose, onSaved }: {
     try {
       const body = {
         name: f.name, nameAr: f.nameAr || null, address: f.address || null, city: f.city || null, phone: f.phone || null,
+        district: f.district || null, districtAr: f.districtAr || null,
         acceptsDineIn: f.acceptsDineIn, acceptsPickup: f.acceptsPickup, acceptsDelivery: f.acceptsDelivery, acceptsReservations: f.acceptsReservations,
         deliveryFeeMinor: parseMajor(f.deliveryFee || '0', currency), minOrderMinor: parseMajor(f.minOrder || '0', currency),
         ...(branch ? { isActive: f.isActive } : f.code ? { code: f.code } : {}),
@@ -209,6 +213,10 @@ function BranchModal({ branch, currency, s, onClose, onSaved }: {
           <Field label={s.phone} maxLength={30} dir="ltr" {...text('phone')} />
         </div>
         <Field label={s.address} maxLength={300} {...text('address')} />
+        <div className="form-row">
+          <Field label={s.district} hint={s.districtHint} maxLength={80} {...text('district')} />
+          <Field label={s.districtAr} dir="rtl" maxLength={80} {...text('districtAr')} />
+        </div>
         <div className="row" style={{ gap: 14, marginBlockEnd: 14 }}>
           {flag('acceptsDineIn', s.dineIn)}{flag('acceptsPickup', s.pickup)}{flag('acceptsDelivery', s.delivery)}{flag('acceptsReservations', s.reservations)}
         </div>

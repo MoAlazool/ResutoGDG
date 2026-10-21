@@ -9,6 +9,13 @@ import type { Locale } from './i18n/locale';
 export const money = (minor: number | null | undefined, currency: Currency | string = 'EGP', locale: Locale = 'en') =>
   minor === null || minor === undefined ? '—' : formatMoney(minor, currency as Currency, locale);
 
+/**
+ * Money on guest surfaces (menu, cart, bill, order status, payment, booking): always with its minor digits, like legacy
+ * ("EGP 145.00", PAR-07). Staff screens keep `money` (whole amounts without ".00"). Western digits in Arabic too.
+ */
+export const guestMoney = (minor: number | null | undefined, currency: Currency | string = 'EGP', locale: Locale = 'en') =>
+  minor === null || minor === undefined ? '—' : formatMoney(minor, currency as Currency, locale, { decimals: 'always' });
+
 export const dateTime = (iso: string | null | undefined, locale: Locale = 'en', timeZone?: string) => formatDateTime(iso, locale, timeZone);
 
 export const time = (iso: string | null | undefined, locale: Locale = 'en', timeZone?: string) => formatTime(iso, locale, timeZone);
@@ -26,6 +33,7 @@ export const pick = (locale: Locale, en: string | null | undefined, ar: string |
 
 /** Wraps user-entered text in first-strong isolates (FSI…PDI) so it keeps its own direction inside an interpolated sentence. */
 export const isolate = (text: string) => `⁨${text}⁩`;
+
 
 // --- Human-friendly durations and timestamps (VS-30) ------------------------------------------------------------
 // "20382 min" or "2839:59" for an order that has been open for two weeks is noise. Durations switch unit as they

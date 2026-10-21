@@ -1,8 +1,9 @@
 'use client';
 // Order status (legacy guest.js statusPage()/timeline()): a card per order with its number and total, the numbered
 // horizontal tracker (1 Order received → 2 Preparing → 3 Ready → 4 Served / Picked up / Delivered) and its lines.
+import { toWesternDigits } from '@resuto/contracts';
 import { useT } from '@/lib/i18n/client';
-import { money, pick, time } from '@/lib/format';
+import { guestMoney as money, pick, time } from '@/lib/format';
 
 const STAGES: Record<string, string[]> = {
   dine_in: ['placed', 'preparing', 'ready', 'served'],
@@ -41,7 +42,7 @@ export function StatusOrder({ order, currency }: { order: TrackedOrder; currency
   const { t, locale } = useT();
   return (
     <article className="gx-status-order">
-      <header><strong>#<bdi>{order.number}</bdi></strong><span><bdi>{money(order.totalMinor, order.currency ?? currency, locale)}</bdi></span></header>
+      <header><strong><bdi dir="ltr" className="num">#{toWesternDigits(String(order.number))}</bdi></strong><span><bdi>{money(order.totalMinor, order.currency ?? currency, locale)}</bdi></span></header>
       {order.status === 'cancelled' ? <p className="gx-note is-danger">{t('core.guest.status.cancelled')}</p>
         : order.status === 'awaiting_payment' ? <p className="gx-note is-warn">{t('core.web.awaitingPayment')}</p>
           : <OrderTimeline status={order.status} fulfillment={order.fulfillment} timeline={order.timeline} />}

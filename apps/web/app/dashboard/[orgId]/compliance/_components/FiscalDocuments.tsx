@@ -2,7 +2,7 @@
 import QRCode from 'qrcode';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { FiscalDocumentView, FiscalKind, FiscalLine } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, Skeleton, Tabs, useAction, type Tone, Phone, UserText } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, Skeleton, Tabs, useAction, type Tone, Phone, UserText, OrderRef } from '@resuto/ui';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -66,7 +66,7 @@ function Invoice({ view, innerRef }: { view: PrintView; innerRef: React.Ref<HTML
       <div className="row fine" style={{ gap: 14 }}>
         <span>{t('compliance.doc.number')}: <strong dir="ltr">{view.number}</strong></span>
         <span>{t('compliance.doc.issued')}: {dateTime(view.issuedAt, locale)}</span>
-        {view.orderNumber && <span>{t('compliance.doc.order')}: #{view.orderNumber}</span>}
+        {view.orderNumber && <span>{t('compliance.doc.order')}: <OrderRef n={view.orderNumber} /></span>}
         {view.reference && <span>{t('compliance.doc.references')}: <span dir="ltr">{view.reference.number}</span></span>}
         {view.buyer?.name && <span>{t('compliance.doc.buyer')}: {view.buyer.name}</span>}
       </div>
@@ -135,7 +135,7 @@ function DocumentModal({ id, onClose, onChanged }: { id: string; onClose(): void
             <strong>{t('compliance.doc.submissions')}</strong>
             {(subs.data?.items ?? []).map((x) => (
               <div key={x.id} className="spread fine" style={{ borderBlockEnd: '1px solid var(--line-soft)', paddingBlock: 6 }}>
-                <span>#{x.attempt} · {t(`compliance.mode.${x.mode}`)} · {x.environment}</span>
+                <span><OrderRef n={x.attempt} /> · {t(`compliance.mode.${x.mode}`)} · {x.environment}</span>
                 <span><Badge tone={x.status === 'rejected' ? 'danger' : 'info'}>{t(`compliance.subStatus.${x.status}`)}</Badge> {dateTime(x.submittedAt, locale)}</span>
                 {x.response?.localValidation?.problems?.length ? <span style={{ width: '100%', color: 'var(--danger)' }}>{x.response.localValidation.problems.join('; ')}</span> : null}
               </div>

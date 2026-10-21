@@ -2,6 +2,7 @@
 import { dateTimeFormat, formatClock, normalizeNumericInput } from '@resuto/contracts';
 import { useUiLocale } from './locale';
 import { PageHeading } from './primitives';
+import { figureOf, figureProps } from './figure';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type SelectHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
@@ -32,7 +33,7 @@ export function Stat({ label, value, hint, tone }: { label: ReactNode; value: Re
   return (
     <div className="card stat">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong {...figureProps(figureOf(value))}>{value}</strong>
       {hint && <em style={{ color: tone ? `var(--${tone})` : 'var(--muted)' }}>{hint}</em>}
     </div>
   );

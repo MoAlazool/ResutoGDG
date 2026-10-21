@@ -72,10 +72,10 @@ export class StorefrontsService {
     if (!org) throw storefrontNotFound();
     const pending = await this.db.withTenant(org.id, async (tx) => {
       const r = await tx.maybeOne<Row & { org_slug: string; org_name: string; org_name_ar: string | null; currency: string; demo: boolean;
-        code: string; name: string; name_ar: string | null; city: string | null; accepts_pickup: boolean; accepts_delivery: boolean; opening_hours: unknown; timezone: string }>(
+        code: string; name: string; name_ar: string | null; city: string | null; district: string | null; district_ar: string | null; accepts_pickup: boolean; accepts_delivery: boolean; opening_hours: unknown; timezone: string }>(
         `select s.*, o.slug as org_slug, o.name as org_name, o.name_ar as org_name_ar, o.currency,
                 coalesce((o.onboarding->>'demo')::boolean, false) as demo,
-                b.code, b.name, b.name_ar, b.city, b.accepts_pickup, b.accepts_delivery, b.opening_hours, coalesce(b.timezone, o.timezone) as timezone
+                b.code, b.name, b.name_ar, b.city, b.district, b.district_ar, b.accepts_pickup, b.accepts_delivery, b.opening_hours, coalesce(b.timezone, o.timezone) as timezone
            from branch_storefronts s join branches b on b.id = s.branch_id join organizations o on o.id = s.org_id
           where s.org_id = $1 and s.slug = $2 and s.is_published and b.is_active
             -- The storefront links back to the restaurant website and shares its brand, so it is public only while
@@ -89,7 +89,7 @@ export class StorefrontsService {
       return { urls, assemble: (): PublicStorefront => ({
         slug: r.slug,
         org: { slug: r.org_slug, name: r.org_name, nameAr: r.org_name_ar, currency: r.currency, demo: r.demo },
-        branch: { id: r.branch_id, code: r.code, name: r.name, nameAr: r.name_ar, city: r.city, acceptsPickup: r.accepts_pickup, acceptsDelivery: r.accepts_delivery, openingHours: r.opening_hours, timezone: r.timezone },
+        branch: { id: r.branch_id, code: r.code, name: r.name, nameAr: r.name_ar, city: r.city, district: r.district, districtAr: r.district_ar, acceptsPickup: r.accepts_pickup, acceptsDelivery: r.accepts_delivery, openingHours: r.opening_hours, timezone: r.timezone },
         brand: {
           name: r.brand_name, nameAr: r.brand_name_ar, tagline: r.tagline ?? {},
           primaryColor: r.theme.primaryColor, accentColor: r.theme.accentColor, inkColor: r.theme.inkColor ?? DEFAULT_INK, paperColor: r.theme.paperColor ?? DEFAULT_PAPER,

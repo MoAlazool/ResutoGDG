@@ -5,7 +5,7 @@
 // below them, as the legacy board listed off-site visits.
 import Link from 'next/link';
 import type { OrderSummary, VisitSummary } from '@resuto/contracts';
-import { Badge, EmptyState, Notice, PageHeading } from '@resuto/ui';
+import { Badge, EmptyState, Notice, PageHeading, OrderRef } from '@resuto/ui';
 import { useVisitActions } from '@/components/floor/LiveFloor';
 import { formatWhen, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -50,7 +50,7 @@ export function ActiveVisits({ orgId, branchId, timezone, canClose, canForce, or
           <div className="panel-body">
             {off.map((o) => (
               <div key={o.id} className="host-row">
-                <span><strong>#{o.number} · {t(`core.web.${o.fulfillment}`)}</strong><small>{o.customerName ? <bdi>{o.customerName}</bdi> : null} {t(`core.status.${o.status}`)} · <span className="num">{formatWhen(o.placedAt, locale, timezone)}</span></small></span>
+                <span><strong><OrderRef n={o.number} /> · {t(`core.web.${o.fulfillment}`)}</strong><small>{o.customerName ? <bdi>{o.customerName}</bdi> : null} {t(`core.status.${o.status}`)} · <span className="num">{formatWhen(o.placedAt, locale, timezone)}</span></small></span>
                 <span className="row"><b className="num">{money(o.dueMinor, o.currency, locale)}</b>{ordersHref && <Link className="btn btn-sm" href={ordersHref}>{t('ops.kds.openOrders')}</Link>}</span>
               </div>
             ))}

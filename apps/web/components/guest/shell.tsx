@@ -71,7 +71,11 @@ export function Photo({ src, name, size, eager, className = '' }: { src: string 
 }
 
 /** Legacy guest-sheet: a modal sheet (bottom sheet on phones) with a title and Close. Escape closes it. */
-export function Sheet({ title, onClose, children, chat, labelledBy }: { title: ReactNode; onClose: () => void; children: ReactNode; chat?: boolean; labelledBy?: string }) {
+/**
+ * `foot` stays pinned under the scrolling content (cart total + Confirm order are always in view on a phone, above the
+ * home indicator; gallery PAR-07).
+ */
+export function Sheet({ title, onClose, children, chat, labelledBy, foot }: { title: ReactNode; onClose: () => void; children: ReactNode; chat?: boolean; labelledBy?: string; foot?: ReactNode }) {
   const { t } = useT();
   const ref = useRef<HTMLElement | null>(null);
   const titleId = labelledBy ?? 'gx-sheet-title';
@@ -86,12 +90,12 @@ export function Sheet({ title, onClose, children, chat, labelledBy }: { title: R
   }, [onClose]);
   return (
     <div className="gx-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <section ref={ref} tabIndex={-1} className={`gx-sheet${chat ? ' is-chat' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section ref={ref} tabIndex={-1} className={`gx-sheet${chat ? ' is-chat' : ''}${foot ? ' has-foot' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="gx-sheet-head">
           <h2 id={titleId}>{title}</h2>
           <button type="button" className="gx-sheet-close" onClick={onClose}>{t('action.close')}</button>
         </div>
-        {children}
+        {foot ? <><div className="gx-sheet-scroll">{children}</div><div className="gx-sheet-foot">{foot}</div></> : children}
       </section>
     </div>
   );

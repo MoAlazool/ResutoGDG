@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import type { ReceiptView } from '@resuto/contracts';
-import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, Skeleton, useAction } from '@resuto/ui';
+import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, Skeleton, useAction, OrderRef } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
@@ -59,7 +59,7 @@ export default function PaymentDetailPage() {
           {p.checkoutSession && <p className="fine">{t('pay.detail.session')}: {t(`pay.purpose.${p.checkoutSession.purpose}`)} · {p.checkoutSession.channel} · {p.checkoutSession.status}</p>}
           <h3 style={{ marginTop: 16 }}>{t('pay.detail.allocations')}</h3>
           <DataTable rows={p.allocations} rowKey={(a: any) => String(a.id)} empty={<EmptyState title="—" />} columns={[
-            { key: 'o', header: t('pay.dash.col.orders'), render: (a: any) => `#${a.orderNumber}` },
+            { key: 'o', header: t('pay.dash.col.orders'), render: (a: any) => <OrderRef n={a.orderNumber} /> },
             { key: 'k', header: t('pay.dash.col.purpose'), render: (a: any) => a.kind },
             { key: 'a', header: t('pay.dash.col.amount'), align: 'end', render: (a: any) => <span dir="ltr">{m(a.amountMinor)}</span> },
           ]} />

@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import type { ReceiptView } from '@resuto/contracts';
 import { api, ApiRequestError } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { intentKey, safeRedirect } from '../../pay/[token]/_ui/PayFrame';
 import { Receipt } from '../../pay/[token]/_ui/Receipt';

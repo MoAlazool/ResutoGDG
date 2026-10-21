@@ -7,7 +7,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { ASSISTANT_ALLERGENS, type AssistantRequest, type AssistantResult } from '@resuto/contracts';
 import { api, ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { MoneyRow, Photo, Sheet } from './shell';
 
 /** The menu-assistant card under the cover (legacy .menu-assistant). */

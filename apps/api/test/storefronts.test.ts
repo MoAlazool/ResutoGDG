@@ -120,6 +120,24 @@ describe('branch storefronts', () => {
     expect(site.body.menuHighlights.map((m: any) => m.name)).toEqual(['Classic Smash', 'Seabass']);
   });
 
+  it('tells guests the branch district in both languages and its opening hours and time zone (PAR-02)', async () => {
+    const path = `/v1/public/sites/${tenant.slug}/storefronts/smash-and-co`;
+    expect((await publish()).status).toBeLessThan(300);
+    // A branch without a district says so (null), it does not invent one.
+    expect((await t.http.get(path)).body.branch).toMatchObject({ district: null, districtAr: null });
+    const hours = [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, opens: '11:00', closes: '00:00' }));
+    const patch = await t.http.patch(`/v1/o/${tenant.orgId}/branches/${burgerBranch}`).set(auth(tenant.owner))
+      .send({ district: ' Downtown ', districtAr: 'وسط البلد', timezone: 'Africa/Cairo', openingHours: hours });
+    expect(patch.status).toBe(200);
+    expect(patch.body).toMatchObject({ district: 'Downtown', districtAr: 'وسط البلد' });
+    const pub = await t.http.get(path);
+    expect(pub.body.branch).toMatchObject({ district: 'Downtown', districtAr: 'وسط البلد', timezone: 'Africa/Cairo', openingHours: hours });
+    // Clearing the field stores null (never an empty string), and over-long names are refused.
+    expect((await t.http.patch(`/v1/o/${tenant.orgId}/branches/${burgerBranch}`).set(auth(tenant.owner)).send({ districtAr: '' })).body.districtAr).toBeNull();
+    expect((await t.http.patch(`/v1/o/${tenant.orgId}/branches/${burgerBranch}`).set(auth(tenant.owner)).send({ district: 'x'.repeat(81) })).status).toBe(400);
+    expect((await t.http.get(path)).body.branch).toMatchObject({ district: 'Downtown', districtAr: null });
+  });
+
   it('marks the demo tenant so the site can label it an example restaurant', async () => {
     await sql(`update organizations set onboarding = onboarding || '{"demo": true}'::jsonb where id = $1`, [tenant.orgId]);
     expect((await t.http.get(`/v1/public/sites/${tenant.slug}`)).body.org.demo).toBe(true);

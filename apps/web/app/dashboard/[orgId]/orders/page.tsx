@@ -2,10 +2,11 @@
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useRef, useState } from 'react';
 import type { LoyaltyReward, MenuEditorView, OrderDetail, OrderSummary, FloorLayout } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt, OrderRef } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { Tabs } from '@resuto/ui';
 import '@/components/ops/ops.css';
+import { defaultOrdersView, readOrdersView, rememberOrdersView } from '@/components/ops/orders-view';
 import { useUrlParam } from '@/components/ops/use-url-state';
 import { KitchenBoard } from '../../../kitchen/[orgId]/_kds/KitchenBoard';
 import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
@@ -24,7 +25,7 @@ const NEXT: Record<string, Record<string, string[]>> = {
 };
 
 type View = 'list' | 'board';
-const VIEWS: readonly View[] = ['list', 'board'];
+const VIEWS: readonly View[] = ['board', 'list'];
 
 export default function OrdersPage() {
   return <ModuleGate module="core" permission="orders:read"><Suspense fallback={<Skeleton lines={6} />}><Orders /></Suspense></ModuleGate>;
@@ -32,14 +33,18 @@ export default function OrdersPage() {
 
 /**
  * Orders (legacy manager "Order board" + the filterable list). The board is the kitchen's five lanes with drag and
- * drop and service requests (VS-14); the list keeps filters. View, branch and filters live in the URL, so a reload or
- * a shared link keeps them (PCL-20); the branch defaults to the one chosen in the shell.
+ * drop and service requests (VS-14); the list keeps filters. It opens on the board like legacy (PAR-04). View, branch and
+ * filters live in the URL, so a reload or a shared link keeps them (PCL-20); the branch defaults to the one chosen in the
+ * shell.
  */
 function Orders() {
   const { t, locale } = useT();
   const { org, can, branchId: shellBranch } = useOrg();
   const canBoard = can('kitchen:operate');
-  const [view, setView] = useUrlParam<View>('view', 'list', canBoard ? VIEWS : ['list']);
+  // The board first, like legacy Orders; the user's last choice is remembered and ?view= still wins (PAR-04).
+  const [storedView] = useState(() => readOrdersView());
+  const [view, setViewParam] = useUrlParam<View>('view', defaultOrdersView(storedView, canBoard), canBoard ? VIEWS : ['list']);
+  const setView = (v: View) => { rememberOrdersView(v); setViewParam(v); };
   const [branchParam, setBranchId] = useUrlParam<string>('branch', '');
   const branchId = org.branches.some((b) => b.id === branchParam) ? branchParam : (shellBranch ?? org.branches[0]?.id ?? '');
   const [status, setStatus] = useUrlParam<string>('status', 'active');
@@ -86,7 +91,7 @@ function Orders() {
         actions={can('orders:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.orders.new')}</button>} />
       {canBoard && (
         <div className="orders-views">
-          <Tabs<View> value={view} onChange={setView} label={t('nav.orders')} tabs={[{ key: 'list', label: t('ops.orders.list') }, { key: 'board', label: t('ops.orders.board') }]} />
+          <Tabs<View> value={view} onChange={setView} label={t('nav.orders')} tabs={[{ key: 'board', label: t('ops.orders.board') }, { key: 'list', label: t('ops.orders.list') }]} />
           {org.branches.length > 1 && view === 'board' && (
             <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
               {org.branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
@@ -146,7 +151,7 @@ function Orders() {
         <DataTable rows={list.data?.items ?? []} rowKey={(o) => o.id} onRowClick={(o) => setSelected(o.id)} busy={list.pending}
           empty={<EmptyState title={t('core.orders.empty')}>{t('core.orders.emptyHint')}</EmptyState>}
           columns={[
-            { key: 'n', header: '#', render: (o) => <strong>#{o.number}</strong> },
+            { key: 'n', header: '#', render: (o) => <strong><OrderRef n={o.number} /></strong> },
             { key: 'time', header: t('core.orders.placed'), render: (o) => <span className="num">{formatWhen(o.placedAt, locale, org.timezone)}</span> },
             { key: 'where', header: t('core.orders.where'), render: (o) => o.tableLabel ? t('core.kds.table', { label: o.tableLabel }) : <>{t(`core.web.${o.fulfillment}`)}{o.customerName ? <> · <UserText>{o.customerName}</UserText></> : null}</> },
             { key: 'channel', header: t('core.orders.channel'), render: (o) => t(`core.channel.${o.channel}`) },

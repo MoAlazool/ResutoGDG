@@ -4,19 +4,18 @@
 // zoomable floor plan and the table list — 3 your details; a sticky summary bar carries the next step. Confirming holds
 // the table, then confirms it or opens the deposit checkout; the confirmation card follows.
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   dateTimeFormat, formatDateTime, normalizePhone, PHONE_EXAMPLE, TABLE_FEATURES,
   type AvailabilityResult, type PublicFloor, type PublicMenu, type ReservationHoldResult, type ReservationSlotsView, type ReservationView,
 } from '@resuto/contracts';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import { FloorPreview } from '@/components/floor/FloorPreview';
 import { normalizeLayout } from '@/components/floor/model';
 import type { SceneLayout, SceneTable } from '@/components/floor/FloorScene';
 import { useToast } from '@/components/guest/shell';
-import { downloadIcs } from './calendar';
 import '@/components/floor/floor.css';
 import '@/components/guest/consumer.css';
 
@@ -26,8 +25,10 @@ type Service = 'lunch' | 'dinner';
 const FILTERS = ['Non-smoking', 'Smoking', 'Window side', 'Terrace', 'Quiet area', 'Outdoor', 'Near bar', 'Accessible'].filter((f) => (TABLE_FEATURES as readonly string[]).includes(f));
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
-export function BookingExperience({ slug, info, branchCode, initialSlots, initialFloor }: {
+export function BookingExperience({ slug, info, branchCode, initialSlots, initialFloor, wordmark }: {
   slug: string; info: PublicMenu | null; branchCode: string | null; initialSlots: ReservationSlotsView | null; initialFloor: PublicFloor | null;
+  /** The Resuto wordmark in the page language, rendered on the server (components/brand/wordmark). */
+  wordmark: ReactNode;
 }) {
   const { t, locale } = useT();
   const toast = useToast();
@@ -172,7 +173,7 @@ export function BookingExperience({ slug, info, branchCode, initialSlots, initia
   const orgName = info ? pick(locale, info.org.name, info.org.nameAr) : '';
   const top = (
     <header className="gx-topbar">
-      <Link className="gx-wordmark" href="/"><i aria-hidden>r</i><span>resuto<b>.</b></span></Link>
+      {wordmark}
       <nav>{info && <Link href={`/r/${info.org.slug}`}>{orgName}</Link>}<LanguageToggle className="lang-toggle" /></nav>
     </header>
   );
@@ -373,7 +374,11 @@ function Confirmation({ slug, orgName, done, currency, tableLabel, timeZone }: {
       else { await navigator.clipboard.writeText(text); toast.show(t('core.res.done.copied')); }
     } catch { /* dismissed */ }
   }
-  const calendar = () => downloadIcs(r, `${orgName} · ${tableLabel ?? ''}`);
+  // The .ics helper loads once the booking is confirmed (it is only needed here), so the booking steps do not carry it;
+  // by the time the guest taps the button the module is in, and the download still runs inside the tap.
+  const ics = useRef<Promise<typeof import('./calendar')> | null>(null);
+  useEffect(() => { if (good) ics.current ??= import('./calendar'); }, [good]);
+  const calendar = () => { (ics.current ??= import('./calendar')).then((m) => m.downloadIcs(r, `${orgName} · ${tableLabel ?? ''}`)); };
   return (
     <main className="bk-done">
       <span className={`bk-seal${good ? '' : ' is-wait'}`} aria-hidden>{good ? '✓' : '◷'}</span>

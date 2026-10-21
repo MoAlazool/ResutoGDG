@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PublicSite } from '@resuto/contracts';
-import { Badge, EmptyState, Notice, PageHeader, Skeleton, Tabs, useConfirm, useToast } from '@resuto/ui';
+import { Badge, EmptyState, Notice, PageHeader, Skeleton, Tabs, useConfirm, useToast, OrderRef } from '@resuto/ui';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -179,7 +179,7 @@ function HistoryPanel({ orgId, canWrite, current, onRestored }: { orgId: string;
             <tbody>
               {revs.data.items.map((r) => (
                 <tr key={r.revision}>
-                  <td>#{r.revision} {r.revision === current && <Badge tone="ok">{t('studio.history.live')}</Badge>}{r.note && <div className="fine">{r.note}</div>}</td>
+                  <td><OrderRef n={r.revision} /> {r.revision === current && <Badge tone="ok">{t('studio.history.live')}</Badge>}{r.note && <div className="fine">{r.note}</div>}</td>
                   <td>{dateTime(r.publishedAt, locale)}</td>
                   <td>{r.publishedBy ?? '—'}</td>
                   <td className="num">{r.sectionCount}</td>

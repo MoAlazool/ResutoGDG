@@ -177,6 +177,41 @@ describe('recipes and kernel sales', () => {
     expect(await level(tenant.branchId, items.buns)).toBe(11);
     await assertLedgerConsistent();
   });
+
+  it('shows on the menu how many portions the ingredients on hand can make, per branch (PAR-03)', async () => {
+    const view = await t.http.get(`/v1/o/${tenant.orgId}/menu`).set(owner());
+    expect(view.status).toBe(200);
+    const burger = view.body.products.find((p: any) => p.id === menu.products.burger);
+    // 0.9 kg beef / 0.15 kg = 6, 11 buns / 1 = 11: the scarcest ingredient decides. The North branch holds no stock.
+    const byBranch = Object.fromEntries(burger.recipePortions.map((r: any) => [r.branchId, r.portions]));
+    expect(byBranch[tenant.branchId]).toBe(6);
+    expect(byBranch[branchB]).toBe(0);
+    // A dish without a recipe is not tracked by ingredients: null, not zero.
+    const other = view.body.products.find((p: any) => p.id !== menu.products.burger);
+    expect(other.recipePortions).toBeNull();
+    // A negative stock level (sold past zero) never reads as negative portions.
+    await move({ kind: 'adjustment', branchId: branchB, itemId: items.buns, quantityDelta: -3, note: 'count correction' });
+    const again = await t.http.get(`/v1/o/${tenant.orgId}/menu`).set(owner());
+    const north = again.body.products.find((p: any) => p.id === menu.products.burger).recipePortions.find((r: any) => r.branchId === branchB);
+    expect(north.portions).toBe(0);
+  });
+
+  it('gives recipe portions only to roles that may read stock; menu:read-only roles do not get them (review of PAR-03)', async () => {
+    const burgerFor = async (who: TestUser) => {
+      const res = await t.http.get(`/v1/o/${tenant.orgId}/menu`).set(auth(who));
+      expect(res.status).toBe(200);
+      return res.body.products.find((p: any) => p.id === menu.products.burger);
+    };
+    for (const role of ['cashier', 'waiter', 'marketing']) {
+      const burger = await burgerFor(await addMember(t, tenant, role));
+      expect(burger, role).toBeDefined();
+      expect('recipePortions' in burger, `${role} must not see stock-derived portions`).toBe(false);
+    }
+    for (const role of ['kitchen', 'manager']) {
+      const burger = await burgerFor(await addMember(t, tenant, role));
+      expect(Array.isArray(burger.recipePortions), role).toBe(true);
+    }
+  });
 });
 
 describe('low-stock detection', () => {

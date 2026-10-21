@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { PublicServiceArea } from '@resuto/contracts';
 import { api } from '@/lib/api';
-import { dateTime, money } from '@/lib/format';
+import { dateTime, guestMoney as money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 
 /** FT-09: what the checkout sends for opening hours and delivery coverage (the server decides; this only informs). */

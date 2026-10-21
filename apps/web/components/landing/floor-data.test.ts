@@ -9,6 +9,8 @@ describe('landing floor (VP-12)', () => {
     expect(f.tables.map((t) => t.label)).toEqual(['T1', 'T2', 'T3', 'T4', 'T5', 'T6']);
     expect(f.zones.map((z) => z.label)).toEqual(['Main room', 'Terrace']);
     expect(f.objects.map((o) => o.label)).toContain('Entrance');
+    // The room architecture reaches the hero (PAR-01): walls, the window strip and the service bar.
+    expect(new Set(f.objects.map((o) => o.type))).toEqual(new Set(['wall', 'door', 'window', 'counter']));
     expect(f.width).toBe(1200);
   });
 

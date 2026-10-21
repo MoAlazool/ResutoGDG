@@ -117,7 +117,8 @@ function Ctas({ ctx, s, smash }: { ctx: Ctx; s: Section; smash?: boolean }) {
   }
   return (
     <div className="site-ctas">
-      {order && <a className="primary button" href={links.order}>{label || t('studio.site.browseMenu')} <span aria-hidden>{arrow}</span></a>}
+      {/* Label and arrow are one flex item, so the button gap never pulls the arrow away from its label (PAR-09). */}
+      {order && <a className="primary button" href={links.order}><span className="button-label">{label || t('studio.site.browseMenu')}{' '}<span aria-hidden>{arrow}</span></span></a>}
       {reserve && <a className="secondary button" href={links.reserve}>{t('studio.site.bookTable')}</a>}
     </div>
   );
@@ -294,8 +295,8 @@ function Invitation({ s, ctx, kind }: { s: Section; ctx: Ctx; kind: 'reservation
       <p>{loc(s.content.body, locale) || t(kind === 'reservations' ? 'studio.site.reserveBody' : pickup && delivery ? 'studio.site.orderBodyBoth' : delivery ? 'studio.site.orderBodyDelivery' : 'studio.site.orderBodyPickup')}</p>
       <div className="site-ctas">
         {kind === 'reservations'
-          ? <a className="primary button" href={links.reserve}>{loc(s.content.ctaLabel, locale) || t('studio.site.reserveCta')} <span aria-hidden>{arrow}</span></a>
-          : <a className="primary button" href={links.order}>{loc(s.content.ctaLabel, locale) || t('studio.site.orderCta')} <span aria-hidden>{arrow}</span></a>}
+          ? <a className="primary button" href={links.reserve}><span className="button-label">{loc(s.content.ctaLabel, locale) || t('studio.site.reserveCta')}{' '}<span aria-hidden>{arrow}</span></span></a>
+          : <a className="primary button" href={links.order}><span className="button-label">{loc(s.content.ctaLabel, locale) || t('studio.site.orderCta')}{' '}<span aria-hidden>{arrow}</span></span></a>}
       </div>
     </section>
   );

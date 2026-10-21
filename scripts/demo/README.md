@@ -54,7 +54,16 @@ A second run against a completed tenant refreshes it instead of doing nothing:
 3. fresh live fixtures are created for today;
 4. fixed monthly costs are upserted per month and kind (`externalRef demo-fixed:<YYYY-MM>:<kind>`);
 5. a reconciliation run covers the new period, ending now (older runs that ended in the future are clamped);
-6. the integrity check must pass, or the run exits 1.
+6. demo content added since the tenant was loaded is filled in where it is missing, through the API, never
+   overwriting what is stored: the legacy room architecture on both floors (walls, windows, the service bar and the
+   pickup counter; `lib/floor-architecture.mjs`, gallery PAR-01) and the Smash & Co storefront signals (opening hours
+   11:00 to midnight in Cairo time, the Downtown / وسط البلد district, dish preparation times for the pickup estimate;
+   `lib/storefront-signals.mjs`, PAR-02). The storefront checks those hours against the time the loader runs, not the
+   back-dated hour of a history order, so a run between midnight and 11:00 Cairo time is refused for Smash & Co website
+   orders, as a regular who hits the per-phone rate limit is. Such an order is entered at the counter and keeps its
+   planned website channel (paid at pickup instead of online), so the channel mix of the history is the same whenever
+   the loader runs;
+7. the integrity check must pass, or the run exits 1.
 
 ### An interrupted refresh resumes, it never duplicates
 

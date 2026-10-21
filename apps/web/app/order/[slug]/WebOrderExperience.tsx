@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { normalizePhone, PHONE_EXAMPLE, type PublicMenu, type PublicMenuProduct } from '@resuto/contracts';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { AssistantCard, AssistantSheet } from '@/components/guest/assistant';
 import { CartSheet, useSuggestions } from '@/components/guest/cart';

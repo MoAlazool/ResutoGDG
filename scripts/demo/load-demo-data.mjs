@@ -56,6 +56,8 @@ import pg from 'pg';
 import { pgClientConfig } from '../db/pg-tls.mjs';
 import { checkDemoIntegrity, formatIntegrity, LIVE_STALE_HOURS } from './integrity-check.mjs';
 import { fixedCostSchedule } from './lib/fixed-costs.mjs';
+import { DEMO_FLOORS, withArchitecture } from './lib/floor-architecture.mjs';
+import { SMASH_PREP_MINUTES, smashBranchPatch } from './lib/storefront-signals.mjs';
 import { addDays, daysFrom, historyTag, planRange } from './lib/plan.mjs';
 import { claimLease, releaseLease, RENEW_SECONDS, renewLease } from './lib/lease.mjs';
 import { decideAction, decideTarget } from './lib/safety.mjs';
@@ -193,6 +195,11 @@ const ITEM_DEFS = [   // name, unit, cost/unit, reorder level, supplier key
   ['Potatoes', 'kg', 1800, 15, 'produce'], ['Tomatoes', 'kg', 2200, 6, 'produce'], ['Arborio rice', 'kg', 9500, 3, 'produce'],
   ['Brioche buns', 'pcs', 650, 40, null], ['Frying oil', 'l', 9500, 10, null], ['Burrata', 'pcs', 6500, 6, null], ['Mushrooms', 'kg', 16000, 2, 'produce'],
 ];
+// Arabic names of the ingredients: the inventory reads in Arabic on Arabic pages (gallery PAR-06).
+const ITEM_AR = {
+  'Beef patty mix': 'خلطة لحم البرجر', 'Chicken breast': 'صدور دجاج', 'Seabass fillet': 'فيليه قاروص', Potatoes: 'بطاطس', Tomatoes: 'طماطم',
+  'Arborio rice': 'أرز أربوريو', 'Brioche buns': 'خبز بريوش', 'Frying oil': 'زيت قلي', Burrata: 'جبنة بوراتا', Mushrooms: 'مشروم',
+};
 // Quantities in the item's base unit (kg, l, pcs) per portion.
 const RECIPES = {
   'Classic Smash': [['Beef patty mix', 0.15], ['Brioche buns', 1]], 'Double Smash': [['Beef patty mix', 0.3], ['Brioche buns', 1]],
@@ -286,26 +293,15 @@ async function createTenant() {
   log(`menu: ${Object.keys(C.categories).length} categories (Arabic names), ${fixture.length} dishes with photos, burger extras`);
 
   // --- 5. floor plans
-  const table = (label, cx, cy, zone, extra = {}) => ({ label, capacity: 4, zone, shape: 'square', cx, cy, width: 100, height: 100, rotation: 0,
-    features: [], reservable: true, minSpendMinor: 0, premium: false, internalNotes: '', ...extra });
-  async function floor(branch, tables, zones) {
+  // Tables and zones inside the legacy room architecture: walls, windows, the service bar and the entrance (PAR-01).
+  for (const branch of [C.MAIN, C.SMASH]) {
+    const code = branch === C.MAIN ? 'main' : 'burger';
     const cur = await must('GET', O(`/floor/${branch.id}`), { token: C.OWNER.token });
     await must('PUT', O(`/floor/${branch.id}`), { token: C.OWNER.token, body: { baseRevision: cur.revision, key: key('floor'), layout: {
       width: 1200, height: 800, background: { image: null, opacity: 0.4, locked: true, x: 0, y: 0, width: 1200, height: 800 },
-      zones, objects: [{ id: 'wall-top', type: 'wall', label: 'North wall', x: 600, y: 40, width: 1100, height: 10, rotation: 0 },
-        { id: 'door', type: 'door', label: 'Entrance', x: 120, y: 760, width: 90, height: 20, rotation: 0 }], tables,
+      zones: DEMO_FLOORS[code].zones, objects: withArchitecture([], code).objects, tables: DEMO_FLOORS[code].tables,
     } } });
   }
-  await floor(C.MAIN, [
-    table('T1', 250, 220, 'Main room', { shape: 'round', capacity: 2, width: 90, height: 90 }), table('T2', 500, 220, 'Main room'), table('T3', 750, 220, 'Main room'),
-    table('T4', 250, 560, 'Terrace', { shape: 'round', capacity: 6, width: 120, height: 120, features: ['Outdoor'] }), table('T5', 500, 560, 'Terrace', { features: ['Outdoor'] }),
-    table('T6', 750, 560, 'Terrace', { shape: 'rect', capacity: 8, width: 180, height: 90, features: ['Outdoor'], premium: true }),
-  ], [
-    { id: 'zone-main', type: 'zone', label: 'Main room', x: 600, y: 220, width: 1000, height: 300, rotation: 0, color: '#e9efe5' },
-    { id: 'zone-terrace', type: 'zone', label: 'Terrace', x: 600, y: 560, width: 1000, height: 300, rotation: 0, color: '#f3ead8' },
-  ]);
-  await floor(C.SMASH, [table('S1', 300, 300, 'Counter'), table('S2', 600, 300, 'Counter'), table('S3', 900, 300, 'Counter')],
-    [{ id: 'zone-counter', type: 'zone', label: 'Counter', x: 600, y: 300, width: 1000, height: 400, rotation: 0, color: '#f0e6e0' }]);
 
   // --- 7. inventory: suppliers, items, recipes (opening stock is booked with the history)
   const suppliers = {
@@ -313,7 +309,7 @@ async function createTenant() {
     meat: (await must('POST', O('/inventory/suppliers'), { token: C.OWNER.token, body: { name: 'Nile Meats (demo)', phone: '+20223450002' } })).id,
   };
   for (const [name, unit, cost, reorder, sup] of ITEM_DEFS) {
-    C.ITEMS[name] = (await must('POST', O('/inventory/items'), { token: C.OWNER.token, body: { name, unit, costPerUnitMinor: cost, reorderLevel: reorder, ...(sup ? { supplierId: suppliers[sup] } : {}) } })).id;
+    C.ITEMS[name] = (await must('POST', O('/inventory/items'), { token: C.OWNER.token, body: { name, nameAr: ITEM_AR[name] ?? null, unit, costPerUnitMinor: cost, reorderLevel: reorder, ...(sup ? { supplierId: suppliers[sup] } : {}) } })).id;
   }
   for (const [dish, comps] of Object.entries(RECIPES)) {
     const p = byName(new RegExp(`^${dish.replace(/[&()]/g, '.')}$`));
@@ -460,7 +456,11 @@ async function createHistoric(o) {
       else await must('POST', O(`/orders/${orderId}/collect`), { token: cashier, headers: { 'Idempotency-Key': `${tag}:collect` }, body: { method: 'cash' } });
       return orderId;
     }
-    if (r.status !== 429) throw new Error(`web order ${r.status} ${JSON.stringify(r.body)}`);
+    // Smash & Co publishes opening hours (PAR-02) and the storefront checks them against the clock of the run, not the
+    // back-dated hour: a run while it is closed is refused like a rate-limited regular. Both are entered at the counter
+    // here and keep their planned website channel in completeHistoric(), so the history's channel mix does not depend on
+    // when the loader ran (such an order is paid at pickup).
+    if (r.status !== 429 && r.body?.error?.code !== 'branch_closed') throw new Error(`web order ${r.status} ${JSON.stringify(r.body)}`);
   }
   const r = await must('POST', O('/orders'), { token: cashier, headers: { 'Idempotency-Key': tag }, body: {
     branchId: branch.id, fulfillment: 'pickup', lines: o.lines, customer: o.customer ? { name: o.customer.name, phone: o.customer.phone } : { name: 'Walk-in (demo)' },
@@ -477,6 +477,9 @@ async function createHistoric(o) {
  */
 async function completeHistoric(orderId, o) {
   const tag = historyTag(o);
+  // A planned website order the storefront refused at run time (closed now, or the per-phone rate limit) was entered at
+  // the counter by createHistoric(); it stays a website order in the history. Also covers a run interrupted before this.
+  if (o.web) await q(`update orders set channel = 'web' where id = $1 and org_id = $2 and channel = 'staff' and external_ref = $3`, [orderId, C.ORG, tag]);
   let detail = await must('GET', O(`/orders/${orderId}`), { token: C.OWNER.token });
   if (detail.status === 'awaiting_payment' && o.web && o.online) {
     // Interrupted between ordering and paying online: the same request (same key) returns the order with a fresh link.
@@ -838,6 +841,54 @@ async function repairOlderLoaderRows() {
   if (photos || stale.length) log(`repair: ${photos} dish photo(s) added, ${stale.length} order timeline(s) with load-time checkout sessions re-dated (older loader)`);
 }
 
+/**
+ * Floors saved by an older loader only had the north wall and the door. Adds the missing legacy architecture (walls,
+ * windows, the service bar, the pickup counter) through the floor API; objects already on a floor are kept as stored,
+ * so a second run changes nothing (PAR-01).
+ */
+async function ensureFloorArchitecture() {
+  const added = [];
+  for (const [branch, code] of [[C.MAIN, 'main'], [C.SMASH, 'burger']]) {
+    const cur = await must('GET', O(`/floor/${branch.id}`), { token: C.OWNER.token });
+    const next = withArchitecture(cur.objects, code);
+    if (!next.added.length) continue;
+    const { branchId: _b, revision: _r, schemaVersion: _s, ...layout } = cur;
+    await must('PUT', O(`/floor/${branch.id}`), { token: C.OWNER.token, body: { baseRevision: cur.revision, key: key('floor-arch'), layout: { ...layout, objects: next.objects } } });
+    added.push(`${code}: ${next.added.join(', ')}`);
+  }
+  if (added.length) log(`floor: legacy room architecture added (${added.join('; ')})`);
+}
+
+/**
+ * The Smash & Co storefront's guest signals (PAR-02): opening hours in the branch time zone, the Downtown district in
+ * English and Arabic, and dish preparation times (the storefront's pickup estimate is their median). Fills only what
+ * is missing, through the API; a second run changes nothing.
+ */
+async function ensureStorefrontSignals() {
+  const [cur] = await q(`select district, district_ar as "districtAr", timezone, opening_hours as "openingHours" from branches where org_id = $1 and id = $2`, [C.ORG, C.SMASH.id]);
+  const patch = smashBranchPatch(cur);
+  if (Object.keys(patch).length) await must('PATCH', O(`/branches/${C.SMASH.id}`), { token: C.OWNER.token, body: patch });
+  let prep = 0;
+  for (const [legacyId, minutes] of Object.entries(SMASH_PREP_MINUTES)) {
+    const prod = C.PRODUCTS[legacyId];
+    if (!prod) continue;
+    const [row] = await q(`select prep_minutes, version from products where org_id = $1 and id = $2`, [C.ORG, prod.id]);
+    if (row && row.prep_minutes == null) { await must('PATCH', O(`/menu/products/${prod.id}`), { token: C.OWNER.token, body: { prepMinutes: minutes, version: row.version } }); prep++; }
+  }
+  if (Object.keys(patch).length || prep) log(`storefront: Smash & Co ${Object.keys(patch).join(', ') || 'branch unchanged'}; ${prep} dish preparation time(s)`);
+}
+
+/** Ingredients created by an older loader have no Arabic name; they get one through the API (PAR-06). */
+async function ensureInventoryArabicNames() {
+  let n = 0;
+  for (const r of await q(`select id, name from inventory_items where org_id = $1 and coalesce(btrim(name_ar), '') = ''`, [C.ORG])) {
+    if (!ITEM_AR[r.name]) continue;
+    await must('PATCH', O(`/inventory/items/${r.id}`), { token: C.OWNER.token, body: { nameAr: ITEM_AR[r.name] } });
+    n++;
+  }
+  if (n) log(`inventory: Arabic names for ${n} ingredient(s)`);
+}
+
 async function ensureBranding() {
   // Arabic names for every category (Arabic pages never fall back to English).
   for (const c of await q(`select id, name from menu_categories where org_id = $1 and coalesce(btrim(name_ar), '') = ''`, [C.ORG])) {
@@ -981,6 +1032,8 @@ try {
     await upsertFixedCosts(historyFrom);
     await reconcileUpToNow();
     await ensureBranding();
+    await ensureFloorArchitecture();
+    await ensureStorefrontSignals();
     await firstLoadExtras(live);
     await must('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
     await setState({ demoLoader: 'complete' });
@@ -1011,6 +1064,9 @@ try {
     await upsertFixedCosts(historyFrom);
     await reconcileUpToNow();
     await ensureBranding();
+    await ensureFloorArchitecture();
+    await ensureStorefrontSignals();
+    await ensureInventoryArabicNames();
     await repairOlderLoaderRows();
     await call('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
   }

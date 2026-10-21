@@ -53,7 +53,7 @@ before(async () => {
   }
   const [main] = await q(`select id from branches where org_id = $1 and code = 'main'`, [orgId]);
   const [burger] = await q(`select id from branches where org_id = $1 and code <> 'main'`, [orgId]);
-  const [item] = await q(`insert into inventory_items(org_id, name, unit) values ($1, 'Potatoes', 'kg') returning id`, [orgId]);
+  const [item] = await q(`insert into inventory_items(org_id, name, name_ar, unit) values ($1, 'Potatoes', 'بطاطس', 'kg') returning id`, [orgId]);
   const [order] = await q(`select id, placed_at from orders where org_id = $1 and status <> 'cancelled' order by placed_at limit 1`, [orgId]);
   await q(`insert into stock_movements(org_id, branch_id, item_id, quantity_delta, reason, created_at) values ($1, $2, $3, 10, 'purchase', $4::timestamptz - interval '1 day')`,
     [orgId, main.id, item.id, order.placed_at]);
@@ -139,6 +139,7 @@ describe('demo integrity check', () => {
     ['order_timeline_consistent', 'an order accepted before it was placed',
       () => q(`update orders set accepted_at = placed_at - interval '1 hour' where id = (select id from orders where org_id = $1 limit 1)`, [orgId])],
     ['arabic_names_present', 'a category without its Arabic name', () => q(`update menu_categories set name_ar = null where id = (select id from menu_categories where org_id = $1 limit 1)`, [orgId])],
+    ['arabic_names_present', 'an ingredient without its Arabic name (PAR-06)', () => q(`update inventory_items set name_ar = null where org_id = $1`, [orgId])],
     ['photos_present', 'a dish without a photo', () => q(`update products set image_media_id = null where id = (select id from products where org_id = $1 and is_active limit 1)`, [orgId])],
     ['photos_present', 'a website without its hero', () => q(`update websites set theme = theme - 'heroMediaId' where org_id = $1`, [orgId])],
     ['smash_storefront_present', 'an unpublished Smash & Co storefront', () => q(`update branch_storefronts set is_published = false where org_id = $1`, [orgId])],

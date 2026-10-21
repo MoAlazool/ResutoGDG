@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Badge, Card, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
+import { Badge, Card, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction, OrderRef } from '@resuto/ui';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
@@ -194,7 +194,7 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
       {d.orderingSession && (
         <div style={{ padding: '8px 14px', background: 'var(--surface-warm)' }} className="spread">
           <span className="fine">{t('connect.inbox.session', { step: t(`connect.step.${d.orderingSession.step}`) })}
-            {d.orderingSession.orderNumber ? ` · #${d.orderingSession.orderNumber}` : ''}
+            {d.orderingSession.orderNumber ? <> · <OrderRef n={d.orderingSession.orderNumber} /></> : ''}
             {d.orderingSession.paymentMethod ? ` · ${t(`connect.inbox.pay_${d.orderingSession.paymentMethod}`)}` : ''}</span>
           {can('connect:reply') && !['completed', 'cancelled', 'expired'].includes(d.orderingSession.step) &&
             <button className="btn btn-sm btn-ghost btn-danger" disabled={act.pending} onClick={() => act.run('ordering/cancel')}>{t('connect.inbox.cancelSession')}</button>}

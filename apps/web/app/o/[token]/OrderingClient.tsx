@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Badge, Field, Modal, Notice, SelectField, Skeleton, useConfirm } from '@resuto/ui';
 import { api, ApiRequestError } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { LocaleProvider, useT } from '@/lib/i18n/client';
 import { LOCALE_COOKIE, type Locale } from '@/lib/i18n';
 

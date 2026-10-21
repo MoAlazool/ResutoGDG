@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GuestSession, PublicMenu, PublicMenuProduct, PublicTableView, ReceiptView } from '@resuto/contracts';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
-import { money, pick } from '@/lib/format';
+import { guestMoney as money, pick } from '@/lib/format';
 import { clearGuestVisit, loadGuestVisit, saveGuestVisit, visitHeaders, type GuestVisit } from '@/lib/guest-visit';
 import { useT } from '@/lib/i18n/client';
 import { Receipt } from '@/app/pay/[token]/_ui/Receipt';
@@ -238,6 +238,23 @@ function lastOrderedIds(view: ReturnType<typeof useVisitLive>['view'], menu: Pub
 }
 
 /** The cart for a table: server quote, kitchen note, Confirm order (one idempotency key per checkout intent). */
+/**
+ * The table cart's pinned footer: the "settling" note and an order error (price_changed, closed, …) sit right above
+ * Confirm order, so the reason for a refusal is in view on a phone, never below the scrolling lines (PAR-07 review).
+ */
+export function TableCartFooter({ settling, error, pending, disabled, onConfirm }: { settling: boolean; error: string | null; pending: boolean; disabled: boolean; onConfirm: () => void }) {
+  const { t } = useT();
+  return (
+    <>
+      {settling && <p className="gx-note is-warn">{t('core.guest.settling')}</p>}
+      {error && <p className="gx-note is-danger" role="alert">{error}</p>}
+      <button type="button" className="gx-btn is-primary is-block" disabled={disabled} onClick={onConfirm}>
+        {pending ? t('core.guest.cart.sending') : t('core.guest.cart.confirm')}
+      </button>
+    </>
+  );
+}
+
 function TableCart({ visit, ordering, settling, cart, products, currency, suggestions, onClose, onSuggest, onPlaced }: {
   visit: GuestVisit | null; ordering: boolean; settling: boolean; cart: ReturnType<typeof useCart>; products: Map<string, PublicMenuProduct>; currency: string;
   suggestions: ReturnType<typeof useSuggestions>; onClose: () => void; onSuggest: (id: string) => void; onPlaced: () => void;
@@ -287,11 +304,10 @@ function TableCart({ visit, ordering, settling, cart, products, currency, sugges
   const m = (v: number) => money(v, currency, locale);
   return (
     <CartSheet cart={cart} products={products} currency={currency} onClose={onClose} suggestions={suggestions} onSuggest={onSuggest}
-      footer={ordering ? (
-        <button type="button" className="gx-btn is-primary is-block" disabled={!quote || pending || settling || !cart.count} onClick={() => void place()}>
-          {pending ? t('core.guest.cart.sending') : t('core.guest.cart.confirm')}
-        </button>
-      ) : <p className="gx-note is-warn">{t('core.guest.askStaff')}</p>}>
+      total={ordering && quote ? quote.totalMinor : null}
+      footer={ordering
+        ? <TableCartFooter settling={settling} error={error} pending={pending} disabled={!quote || pending || settling || !cart.count} onConfirm={() => void place()} />
+        : <p className="gx-note is-warn">{t('core.guest.askStaff')}</p>}>
       {cart.items.length > 0 && ordering && (
         <>
           <label className="gx-field"><span>{t('core.guest.orderNotes')}</span>
@@ -301,13 +317,10 @@ function TableCart({ visit, ordering, settling, cart, products, currency, sugges
               {quote.discountMinor > 0 && <MoneyRow fine label={t('core.bill.discount')} value={`−${m(quote.discountMinor)}`} />}
               {quote.serviceChargeMinor > 0 && <MoneyRow fine label={t('core.bill.service')} value={m(quote.serviceChargeMinor)} />}
               {quote.taxMinor > 0 && <MoneyRow fine label={quote.taxInclusive ? t('core.bill.vatIncluded') : t('core.bill.vat')} value={m(quote.taxMinor)} />}
-              <MoneyRow grand label={t('core.bill.total')} value={m(quote.totalMinor)} />
             </div>
           )}
         </>
       )}
-      {settling && <p className="gx-note is-warn">{t('core.guest.settling')}</p>}
-      {error && <p className="gx-note is-danger" role="alert">{error}</p>}
     </CartSheet>
   );
 }

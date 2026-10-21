@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import type { RoutePlanResponse } from '@resuto/contracts';
-import { Badge, Card, Notice, SelectField, Skeleton, Stat, useAction } from '@resuto/ui';
+import { Badge, Card, Notice, SelectField, Skeleton, Stat, useAction, OrderRef } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { time } from '@/lib/format';
@@ -66,7 +66,7 @@ export default function RoutesPage() {
                 <ol style={{ margin: 0, paddingInlineStart: 20, display: 'grid', gap: 10 }}>
                   {plan.stops.map((s) => (
                     <li key={s.jobId}>
-                      <strong>#{s.orderNumber}</strong> <span dir="auto">{s.address ?? ''}</span>{' '}
+                      <strong><OrderRef n={s.orderNumber} /></strong> <span dir="auto">{s.address ?? ''}</span>{' '}
                       <span className="fine">{time(s.arrivesAt, locale, org.timezone)} / {time(s.promisedAt, locale, org.timezone)}</span>{' '}
                       {s.lateMinutes > 0 && <Badge tone="danger">+{fmtNum(s.lateMinutes, locale, 0)} min</Badge>}
                     </li>

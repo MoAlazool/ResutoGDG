@@ -5,12 +5,17 @@ import { useEffect, useState } from 'react';
 import { can } from '@resuto/contracts';
 import { Notice, Skeleton } from '@resuto/ui';
 import { pick } from '@/lib/format';
+import { kitchenDisplayPath } from '@/lib/home-path';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import type { OrgInfo } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { KitchenBoard, StationPicker } from './_kds/KitchenBoard';
 
-/** Full-screen kitchen display for wall tablets (no dashboard chrome). */
+/**
+ * Full-screen kitchen display for wall tablets (no dashboard chrome): the kitchen team's home. Staff who also have the
+ * workspace (owners, managers) open the KDS inside the staff shell like legacy, and reach this screen with its
+ * "Full screen" button (?display=full) (PAR-05).
+ */
 export default function KitchenScreen() {
   const { orgId } = useParams<{ orgId: string }>();
   const { t, locale } = useT();
@@ -27,6 +32,9 @@ export default function KitchenScreen() {
     if (!session.ready) return;
     if (!session.token) { router.replace(`/login?next=${encodeURIComponent(pathname)}`); return; }
     session.call<OrgInfo>(`/o/${orgId}`).then((o) => {
+      const full = new URLSearchParams(window.location.search).get('display') === 'full';
+      const target = kitchenDisplayPath(o.role, orgId, { full });
+      if (!target.startsWith(`/kitchen/${orgId}`)) { router.replace(target); return; }
       setOrg(o);
       let saved: string | null = null;
       try { saved = localStorage.getItem(`resuto.kds.${orgId}`); } catch { /* ignore */ }

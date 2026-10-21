@@ -45,3 +45,37 @@ describe('standard floor label lookup', () => {
     expect(labelForms('  service   &  bar ')).toEqual(['  service   &  bar ', 'service & bar', 'Service & bar', 'Service & Bar']);
   });
 });
+
+describe('floor room architecture (PAR-01)', async () => {
+  const { DEMO_FLOOR_MAIN } = await import('../landing/floor-data.fixture');
+  const { inDrawOrder } = await import('./FloorScene');
+  const f = DEMO_FLOOR_MAIN as unknown as { width: number; height: number; zones: FloorObject[]; objects: FloorObject[] };
+  const html = renderToStaticMarkup(createElement('svg', null, createElement(FloorSceneContent, {
+    layout: { width: f.width, height: f.height, zones: f.zones, objects: f.objects, tables: [] }, mode: 'operations',
+  })));
+  const ids = [...html.matchAll(/data-object-id="([^"]+)"/g)].map((m) => m[1]);
+
+  it('draws the demo room like legacy: four walls, the window strip, the service bar and the entrance', () => {
+    expect(html.match(/class="wall-core"/g)?.length).toBe(4);
+    expect(html).toContain('class="window-frame"');
+    expect(html).toContain('class="counter-surface"');
+    expect(html).toMatch(/<text[^>]*class="structure-label"[^>]*>Service &amp; bar<\/text>/);
+    expect(html).toContain('class="door-leaf"');
+  });
+
+  it('draws walls before the openings cut into them, whatever order the layout stores them in', () => {
+    // The stored order has the door before the south wall (older floors gained their walls later).
+    expect(f.objects.findIndex((o) => o.id === 'door')).toBeLessThan(f.objects.findIndex((o) => o.id === 'wall-bottom'));
+    expect(ids.indexOf('wall-bottom')).toBeLessThan(ids.indexOf('door'));
+    expect(ids.indexOf('wall-top')).toBeLessThan(ids.indexOf('window-north'));
+    // Non-wall objects keep their stored order.
+    expect(ids.filter((i) => !i.startsWith('wall-') && !i.startsWith('zone-'))).toEqual(['door', 'window-north', 'counter-bar']);
+  });
+
+  it('keeps the sort stable and leaves a layout without walls untouched', () => {
+    const o = (id: string, type: string) => ({ id, type });
+    expect(inDrawOrder([o('a', 'plant'), o('w', 'wall'), o('b', 'door'), o('d', 'divider')]).map((x) => x.id)).toEqual(['w', 'd', 'a', 'b']);
+    const plain = [o('a', 'plant'), o('b', 'door')];
+    expect(inDrawOrder(plain)).toEqual(plain);
+  });
+});

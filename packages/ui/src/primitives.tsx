@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, type ReactNode } from 'react';
+import { figureOf, figureProps } from './figure';
 
 // Page primitives restored from the original Resuto manager workspace (legacy/public/style.css .page-heading,
 // .stats, .panel/.panel-head): breadcrumb eyebrow, 32px heading, 13px subtitle and actions; a joined KPI strip
@@ -51,13 +52,16 @@ export interface StripItem {
 export function StatsStrip({ items, label, busy }: { items: StripItem[]; label?: string; busy?: boolean }) {
   return (
     <section className="stats-strip" aria-label={label} aria-busy={busy || undefined} data-count={items.length}>
-      {items.map((i, n) => (
-        <div key={i.key ?? n} className="stats-cell" data-tone={i.tone}>
-          <span className="stats-label">{i.label}</span>
-          <strong className="stats-value num">{i.value}{i.unit && <small>{i.unit}</small>}</strong>
-          {i.note && <p className="stats-note">{i.note}</p>}
-        </div>
-      ))}
+      {items.map((i, n) => {
+        const fig = figureProps(figureOf(i.value, i.unit));
+        return (
+          <div key={i.key ?? n} className="stats-cell" data-tone={i.tone}>
+            <span className="stats-label">{i.label}</span>
+            <strong {...fig} className={`stats-value num${fig.className ? ` ${fig.className}` : ''}`}>{i.value}{i.unit && <small>{i.unit}</small>}</strong>
+            {i.note && <p className="stats-note">{i.note}</p>}
+          </div>
+        );
+      })}
     </section>
   );
 }
