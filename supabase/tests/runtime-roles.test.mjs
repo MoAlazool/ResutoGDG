@@ -143,3 +143,12 @@ test('notification e-mails are read through a definer function only the platform
   }
 });
 
+test('shared rate-limit windows (PS-13) are platform-only and hold key hashes, not addresses', async () => {
+  await as('resuto_platform', {}, async (c) => {
+    await c.query(`insert into rate_limit_windows(key_hash, window_start, count, expires_at) values (repeat('a', 64), now(), 1, now() + interval '1 minute')`);
+    await assert.rejects(c.query(`insert into rate_limit_windows(key_hash, window_start, count, expires_at) values ('ip:203.0.113.9', now(), 1, now())`), /check constraint/);
+  });
+  for (const role of ['resuto_member', 'resuto_tenant', 'authenticated', 'anon']) {
+    await assert.rejects(as(role, { org: ids.A.org, user: ids.A.user }, (c) => c.query('select 1 from rate_limit_windows limit 1')), /permission denied/, role);
+  }
+});

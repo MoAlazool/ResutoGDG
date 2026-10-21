@@ -110,6 +110,9 @@ every service's build and fails with `EXPECT_COMMIT=<sha>` when one of them runs
 | `LOG_FORMAT` | `json` (default in staging) |
 | `ERROR_TRACKING_DSN` | optional Sentry-compatible DSN; unset = error tracking off. The same variable turns it on for the AI service, the MCP server and the web app (Vercel, server-only) |
 | `HEALTH_DETAILS_TOKEN` | optional secret (24+ characters) for the uptime monitor on `/v1/health/details` |
+| `MIGRATION_DATABASE_URL` | optional secret: the schema owner's URI for migrations and the demo loader once `DATABASE_URL` is the restricted `resuto_api` login (see "Least-privilege database role") |
+| `DATABASE_PLATFORM_ROLE` | optional, default `resuto_platform`; `off` is an emergency switch (owner connection only) |
+| `RATE_LIMIT_STORE` | optional, `memory` (default) or `postgres` for limits shared across instances (PS-13) |
 
 Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, then the optional demo loader).
 
@@ -119,6 +122,55 @@ Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, th
 values reach the browser, and none of them is a secret. Build: `apps/web/vercel.json`.
 
 **AI**: `AI_SERVICE_TOKEN`. **MCP**: `RESUTO_API_URL`, `MCP_PUBLIC_URL`, `MCP_PORT=10000`, `MCP_ALLOW_URL_KEY=false`.
+
+## Least-privilege database role (PS-16)
+
+Migrations `20261022030001_runtime_roles.sql` and `20261022030002_rate_limit_windows.sql` create two roles **without
+LOGIN and without a password** (no credentials ever live in a migration):
+
+| Role | What it is | Can do |
+|---|---|---|
+| `resuto_api` | the runtime identity for the API | nothing on its own (`NOINHERIT`, `NOBYPASSRLS`, owns nothing); it may `SET ROLE` to the three execution roles below |
+| `resuto_member` / `resuto_tenant` | existing RLS execution roles (staff in one restaurant / guest, webhook or job in one restaurant) | what their RLS policies allow |
+| `resuto_platform` | cross-tenant lookups and platform work (QR, slug, host and token lookups, webhook inbox, outbox claim, memberships, scheduled jobs, platform admin) | only the tables and commands granted to it with explicit `platform_*` policies, plus `EXECUTE` on four owner-defined `SECURITY DEFINER` functions (`app.notification_recipient_emails`, `app.analytics_discover_days`, `app.analytics_refresh_day`, `app.reconcile_customer_stats`; fixed `search_path`, revoked from `PUBLIC`). Never DDL, never other tables, never `auth.users` on Supabase |
+
+Platform mode already runs as `resuto_platform` (`DATABASE_PLATFORM_ROLE`, default `resuto_platform`) on today's
+single owner `DATABASE_URL`, so the deploy that brings these migrations changes nothing else. On an owner connection
+outside tests, a statement that the platform role is not granted is logged (`platform role lacks a grant`) and the
+transaction is retried once as the connection's own role, so a missing grant on an untested path degrades to the old
+behaviour instead of failing; tests (and the restricted login) have no such fallback.
+
+**Switching the API to the restricted login (owner steps, Supabase dashboard; nothing here is automated):**
+
+1. Supabase → SQL editor, as `postgres`, generate a long random password locally (for example
+   `openssl rand -base64 36`) and run, pasting it in place of the placeholder (never commit or share it):
+   `alter role resuto_api with login password '<generated password>';`
+   Optionally cap its connections: `alter role resuto_api connection limit 20;`.
+2. Check the role: `select rolname, rolsuper, rolbypassrls, rolinherit, rolcanlogin from pg_roles where rolname = 'resuto_api';`
+   must show `f, f, f, t`.
+3. Render → API service → Environment:
+   - `MIGRATION_DATABASE_URL` = the current owner URI (the value `DATABASE_URL` has today). Migrations
+     (`scripts/db/migrate.mjs`) and the demo loader use it.
+   - `DATABASE_URL` = the same pooler URI with the user `resuto_api.<project-ref>` (session pooler, port 5432) and the
+     new password. Keep `DATABASE_SSL_CA`.
+4. Deploy. The boot log line `database role resuto_api (restricted)` confirms the switch
+   (`owner/privileged` means the API still uses the owner). Run `node scripts/staging/smoke.mjs`.
+5. Rollback: set `DATABASE_URL` back to the owner URI (remove `MIGRATION_DATABASE_URL`); no migration is involved.
+   Emergency only: `DATABASE_PLATFORM_ROLE=off` makes platform mode use the connection's own role (works on an owner
+   connection only).
+
+Proof that nothing needs `BYPASSRLS`: `cd apps/api && TEST_DATABASE_URL=... npx vitest run -c vitest.restricted.config.ts`
+runs the whole API suite with the API connected as `resuto_api` (the test setup gives it a per-run random password on
+the disposable local cluster), and `supabase/tests/runtime-roles.test.mjs` checks the roles and grants.
+
+## Shared rate limits (PS-13)
+
+`RATE_LIMIT_STORE=memory` (default) counts fixed windows per API process. With several API instances set
+`RATE_LIMIT_STORE=postgres`: counters are shared through `public.rate_limit_windows` (keyed by a SHA-256 of the limiter
+key, which contains the client IP that `TRUST_PROXY` resolves, or a token hash; rows expire with their window). Each
+instance batches its increments (about every 200 ms) and decides with the shared count it last read plus its own
+unflushed hits, so the limit can be exceeded by at most what the other instances accepted since their last flush; if
+the database is unreachable the limiter keeps counting in memory (fail open, logged) rather than refusing traffic.
 
 ## Reproducing from scratch
 

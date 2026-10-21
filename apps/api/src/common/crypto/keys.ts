@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import type { Env } from '../../config/env';
 
 /** Purposes with their own derived key. Adding one never changes the keys of the others. */
-export type KeyPurpose = 'media-url' | 'delivery-otp' | 'guest-token';
+export type KeyPurpose = 'media-url' | 'delivery-otp' | 'guest-token' | 'channel-unsubscribe';
 
 export interface PurposeKeys {
   /** Signs everything new. */

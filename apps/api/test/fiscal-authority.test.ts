@@ -325,6 +325,30 @@ describe('ETA batches split by MaximumSizeExceeded (INT-26 review)', () => {
   });
 });
 
+describe('ETA status poll reads every page (ws7b follow-up)', () => {
+  it('settles receipts listed on later pages of a submission, not only the first page', async () => {
+    const { eg, menu } = await etaTenant();
+    const d1 = await paidOrder(eg, menu);
+    const d2 = await paidOrder(eg, menu);
+    const svc = t.app.get(FiscalAuthorityService);
+    http.fetch = scriptedFetch([tokenResponse,
+      (req) => ({ status: 202, body: { submissionUUID: 'SUBMISSIONPAGEDPAGEDPAGED1', acceptedDocuments: receiptUuidsOf(req).map((uuid: string) => ({ uuid })) } })]).fetch;
+    expect(await svc.submitEtaDue({ orgId: eg.orgId })).toMatchObject({ batches: 1, accepted: 2 });
+    await sql(`update government_submissions set submitted_at = now() - interval '5 minutes' where org_id = $1`, [eg.orgId]);
+    const pages: string[] = [];
+    http.fetch = scriptedFetch([(req) => {
+      if (req.url.endsWith('/connect/token')) return tokenResponse;
+      const page = new URL(req.url).searchParams.get('PageNo')!;
+      pages.push(page);
+      const doc = page === '1' ? d1 : d2;
+      return { body: { status: 'Valid', receiptsCount: 2, invalidReceiptCount: 0, receipts: page === '3' ? [] : [{ uuid: doc.authority_ref, receiptNumber: doc.number, status: 'Valid' }] } };
+    }]).fetch;
+    expect(await svc.pollEta({ orgId: eg.orgId })).toEqual({ submissions: 1, settled: 2 });
+    expect(pages).toEqual(['1', '2']);
+    expect((await sql(`select status from fiscal_documents where id = any($1::uuid[])`, [[d1.id, d2.id]])).map((r: any) => r.status)).toEqual(['accepted', 'accepted']);
+  });
+});
+
 describe('ETA e-receipt (INT-26, implementation incomplete)', () => {
   it('submits signed receipts of a connected POS after commit and settles them from the submission status', async () => {
     const eg = await createTenant(t, { country: 'EG' });

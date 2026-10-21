@@ -333,8 +333,17 @@ export class FiscalAuthorityService {
       try {
         const s = await client.submission(p.external_id);
         if (s.status === 'InProgress') continue;
+        // The details endpoint pages its receipts (PageNo/PageSize): read every page, so a submission of more than one
+        // page settles all its receipts, not only the first 100 (ws7b follow-up). Bounded; a failed page throws and the
+        // unsettled receipts stay 'submitted' for the next run.
+        const receipts = [...s.receipts];
+        for (let page = 2; receipts.length < s.receiptsCount && page <= ETA_POLL_MAX_PAGES; page++) {
+          const next = await client.submission(p.external_id, page);
+          if (!next.receipts.length) break;
+          receipts.push(...next.receipts);
+        }
         await this.db.withTenant(p.org_id, async (tx) => {
-          for (const r of s.receipts) {
+          for (const r of receipts) {
             const valid = r.status === 'Valid';
             const doc = await tx.maybeOne<{ id: string }>(`select id from fiscal_documents where org_id = $1 and authority = 'eta' and authority_ref = $2`, [p.org_id, r.uuid]);
             if (!doc) continue;
@@ -351,6 +360,9 @@ export class FiscalAuthorityService {
     return { submissions: pending.length, settled };
   }
 }
+
+/** Pages of receipt results read per ETA submission and poll (100 receipts a page). */
+const ETA_POLL_MAX_PAGES = 50;
 
 /** Compliance-check samples: the unit's own seller data, a 1.00 + 15 % line, notes referencing the sample invoice. */
 function sampleDocument(kind: 'simplified_invoice' | 'credit_note' | 'debit_note', p: any, counter: number, invoiceUuid: string): FiscalDocumentModel {
