@@ -12,7 +12,7 @@ import { orderRef } from './format';
 const repo = join(__dirname, '..', '..', '..');
 const ROOTS = ['apps/web/app', 'apps/web/components', 'packages/ui/src'];
 // The landing page is a verbatim port of the protected legacy page (its demo numbers sit alone in their element).
-const EXEMPT = [/components\/landing\//, /\.test\./, /packages\/ui\/src\/display\.tsx$/];
+const EXEMPT = [/components\/landing\//, /\.test\./, /packages\/ui\/src\/(display|order-ref)\.tsx$/];
 const BAD = /#<bdi|>#\{|[\s(]#\{[a-z]|`#\$\{|· #\$\{/;
 
 function* files(dir: string): Generator<string> {

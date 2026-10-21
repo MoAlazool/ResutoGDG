@@ -16,7 +16,6 @@ import { FloorPreview } from '@/components/floor/FloorPreview';
 import { normalizeLayout } from '@/components/floor/model';
 import type { SceneLayout, SceneTable } from '@/components/floor/FloorScene';
 import { useToast } from '@/components/guest/shell';
-import { downloadIcs } from './calendar';
 import '@/components/floor/floor.css';
 import '@/components/guest/consumer.css';
 
@@ -375,7 +374,11 @@ function Confirmation({ slug, orgName, done, currency, tableLabel, timeZone }: {
       else { await navigator.clipboard.writeText(text); toast.show(t('core.res.done.copied')); }
     } catch { /* dismissed */ }
   }
-  const calendar = () => downloadIcs(r, `${orgName} · ${tableLabel ?? ''}`);
+  // The .ics helper loads once the booking is confirmed (it is only needed here), so the booking steps do not carry it;
+  // by the time the guest taps the button the module is in, and the download still runs inside the tap.
+  const ics = useRef<Promise<typeof import('./calendar')> | null>(null);
+  useEffect(() => { if (good) ics.current ??= import('./calendar'); }, [good]);
+  const calendar = () => { (ics.current ??= import('./calendar')).then((m) => m.downloadIcs(r, `${orgName} · ${tableLabel ?? ''}`)); };
   return (
     <main className="bk-done">
       <span className={`bk-seal${good ? '' : ' is-wait'}`} aria-hidden>{good ? '✓' : '◷'}</span>
