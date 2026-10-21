@@ -47,6 +47,11 @@ describe('safeNext: same-origin paths only (VS-05 open-redirect regression)', ()
   it('never sends the user back to a sign-in page, and ignores empty or oversized values', () => {
     expect(safeNext('/login?next=/x', ORIGIN)).toBeNull();
     expect(safeNext('/signup', ORIGIN)).toBeNull();
+    // CR-05 account pages: never a post-sign-in destination (the callback allows only its own fixed targets).
+    expect(safeNext('/forgot-password', ORIGIN)).toBeNull();
+    expect(safeNext('/reset-password', ORIGIN)).toBeNull();
+    expect(safeNext('/auth/callback?next=/x', ORIGIN)).toBeNull();
+    expect(safeNext('/account', ORIGIN)).toBe('/account');
     expect(safeNext('/login/', ORIGIN)).toBeNull();
     expect(safeNext('/loginx', ORIGIN)).toBe('/loginx');
     expect(safeNext(null)).toBeNull();

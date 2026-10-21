@@ -17,6 +17,11 @@ const credentials = z.object({
   fullName: z.string().trim().max(120).optional(),
 });
 
+const passwordChange = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(10, 'Use at least 10 characters').max(200),
+}).strict();
+
 @Controller()
 export class AuthController {
   constructor(
@@ -81,6 +86,27 @@ export class AuthController {
       throw new DomainError('invalid_credentials', 'Email or password is incorrect', 401);
     }
     return this.session(user.id, body.email);
+  }
+
+  /**
+   * CR-05 change password for the development issuer (Supabase deployments change it through Supabase Auth
+   * updateUser). Requires the current password. Passwords are never logged or returned.
+   */
+  @Post('auth/dev/password')
+  @HttpCode(200)
+  async devChangePassword(@Principal() principal: AuthPrincipal, @Body(zod(passwordChange)) body: z.infer<typeof passwordChange>) {
+    this.assertDevMode();
+    if (principal.kind !== 'user') throw forbidden();
+    this.limiter.hit(`dev-password:${principal.userId}`, 10);
+    await this.db.withPlatform(async (tx) => {
+      const user = await tx.maybeOne<{ encrypted_password: string }>('select encrypted_password from auth.users where id = $1 for update', [principal.userId]);
+      if (!user || !(await verifyPassword(body.currentPassword, user.encrypted_password))) {
+        throw new DomainError('invalid_credentials', 'Current password is incorrect', 401);
+      }
+      if (body.currentPassword === body.newPassword) throw new DomainError('password_unchanged', 'Choose a password different from the current one', 400);
+      await tx.query('update auth.users set encrypted_password = $2, updated_at = now() where id = $1', [principal.userId, await hashPassword(body.newPassword)]);
+    });
+    return { ok: true };
   }
 
   private async session(userId: string, email: string) {

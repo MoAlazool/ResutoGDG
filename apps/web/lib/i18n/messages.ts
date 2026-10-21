@@ -4,6 +4,7 @@
 //
 // The module has no top-level side effects (merging is lazy), so a client file that imports only constants from
 // '@/lib/i18n' does not drag the dictionaries in.
+import { account } from './dict/account';
 import { common } from './dict/common';
 import { compliance } from './dict/compliance';
 import { connect } from './dict/connect';
@@ -25,7 +26,7 @@ import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, vocab, allergens, guest];
+const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, vocab, allergens, guest, account];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {
@@ -66,7 +67,7 @@ const LANDING = /^platform\.lp\./;
  * already ships; the full staff scope (every module's copy, ~140 KB of text) is serialised into each staff HTML
  * document, so these entry pages must not carry it. lib/i18n/scopes.test.ts checks their keys are covered.
  */
-export const AUTH_SCOPE: RegExp[] = [/^auth\./];
+export const AUTH_SCOPE: RegExp[] = [/^auth\./, /^role\./]; // role names: the account page lists memberships (CR-05)
 export type MessageScope = 'guest' | 'staff' | 'auth';
 export const inScope = (key: string, scope: MessageScope) => {
   if (LANDING.test(key)) return false;
