@@ -66,7 +66,7 @@ categories and dishes; a website hero and a photo per dish; the Smash & Co store
 
 ```bash
 DATABASE_URL=… node scripts/demo/integrity-check.mjs [--profile loader|migration] [--json]
-node --test scripts/demo/test/        # unit tests + one test per assertion (DEMO_TEST_DATABASE_URL, local only)
+node --test scripts/demo/test/*.test.mjs   # unit tests + one test per assertion (DEMO_TEST_DATABASE_URL, local only)
 ```
 
 ## Consistency rules

@@ -1,5 +1,5 @@
 // Unit tests for the pure parts of the demo loader (audits DF-10, DF-11): fixed monthly costs, target safety and the
-// deterministic order plan. No database or network:  node --test scripts/demo/test/
+// deterministic order plan. No database or network:  node --test scripts/demo/test/*.test.mjs
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { FIXED_COSTS, fixedCostSchedule } from '../lib/fixed-costs.mjs';

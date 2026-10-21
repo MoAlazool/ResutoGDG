@@ -9,6 +9,15 @@ export const API_URL = `http://localhost:${API_PORT}`;
 export const WEB_URL = `http://localhost:${WEB_PORT}`;
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers';
 
+/**
+ * Where pixel baselines live, per rendering environment (CR-11): `local` = this development container's Chromium and
+ * fonts (the default), `docker` = the official Playwright image CI runs the visual job in (E2E_SNAPSHOT_ENV=docker).
+ * Fonts and anti-aliasing differ between the two, so each compares only against baselines recorded where it runs.
+ */
+const SNAPSHOT_ENV = process.env.E2E_SNAPSHOT_ENV === 'docker' ? 'docker' : 'local';
+/** Phone-first guest and driver flows also run in WebKit on an iPhone 13 profile (CR-10) when E2E_WEBKIT=1 (CI installs WebKit). */
+const PHONE_SPECS = /(scenario-dine-in|scenario-whatsapp|scenario-driver)\.spec\.ts$/;
+
 export default defineConfig({
   testDir: '.',
   testMatch: /.*\.spec\.ts$/,
@@ -18,7 +27,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000, toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: 'disabled', caret: 'hide' } },
   reporter: [['list']],
-  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
+  snapshotPathTemplate: SNAPSHOT_ENV === 'docker' ? '{testDir}/__screenshots__/docker/{testFilePath}/{arg}{ext}' : '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
   use: {
     baseURL: WEB_URL,
     trace: 'retain-on-failure',
@@ -26,7 +35,18 @@ export default defineConfig({
     contextOptions: { reducedMotion: 'reduce' },
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    { name: 'chromium', testIgnore: /visual\.spec\.ts$/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    ...(process.env.E2E_WEBKIT === '1' ? [{
+      // Real WebKit (iOS Safari engine) with the iPhone 13 profile: viewport, touch, DPR and user agent. The specs open
+      // their phone contexts with newContext(browser, { mobile: true }), which runs in this project's browser.
+      name: 'webkit-iphone-13', testMatch: PHONE_SPECS, use: { ...devices['iPhone 13'] },
+    }] : []),
+    ...(process.env.E2E_VISUAL === '1' ? [{
+      name: 'visual', testMatch: /visual\.spec\.ts$/,
+      snapshotPathTemplate: `{testDir}/__visual__/${SNAPSHOT_ENV}/{arg}{ext}`,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, locale: 'en-US', timezoneId: 'Africa/Cairo',
+        colorScheme: 'light' as const, deviceScaleFactor: 1 },
+    }] : []),
   ],
   webServer: [
     {
