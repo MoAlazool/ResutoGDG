@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  constantTimeEqual, isE164, isEmailAddress, notificationAdapterFor, ProviderError, verifyResendWebhook, verifyTwilioStatusCallback, type DeliveryStatus, type StatusUpdate,
+  constantTimeEqual, isE164, isEmailAddress, notificationAdapterFor, ProviderError, TWILIO_TEST_TO, verifyResendWebhook, verifyTwilioStatusCallback, type DeliveryStatus, type StatusUpdate,
 } from '@resuto/integrations';
 import { TenantContext } from '../../common/auth/context';
 import { purposeKeys, type KeyPurpose } from '../../common/crypto/keys';
@@ -300,8 +300,11 @@ export class OutboundChannelsService {
       const conn = await this.connections.load(row.org_id, { id: row.connection_id });
       if (!conn.enabled || conn.status === 'revoked') throw new ProviderError(row.provider, 'connection_disabled', false);
       let to = this.box.open(row.recipient_sealed, `outbound:${row.org_id}:${row.id}`);
-      // A test (sandbox) Resend connection only ever writes to Resend's documented test inbox.
+      // A test (sandbox) message never reaches the customer: Resend's documented test inbox, Twilio's magic test
+      // number from the magic test sender (the adapter enforces the same for any sandbox context).
       if (row.sandbox && row.provider === 'resend') to = `delivered+${row.id.slice(0, 8)}@resend.dev`;
+      if (row.sandbox && row.provider === 'twilio_sms') to = TWILIO_TEST_TO;
+      const adapterCtx = row.sandbox ? { ...conn.adapter, environment: 'sandbox' as const } : conn.adapter;
       const marketing = row.purpose === 'marketing';
       const locale = row.customer_id ? (await this.db.withTenant(row.org_id, (tx) => tx.maybeOne<{ locale: string }>(
         'select locale from customers where id = $1', [row.customer_id]), 'system:outbound'))?.locale ?? 'en' : 'en';
@@ -310,7 +313,7 @@ export class OutboundChannelsService {
         : (locale === 'ar' ? `\n\nلإلغاء الاشتراك: ${page}` : `\n\nUnsubscribe: ${page}`)) : '';
       const html = row.body_html && page
         ? `${row.body_html}<p style="font-size:12px;color:#666"><a href="${page}">${locale === 'ar' ? 'إلغاء الاشتراك' : 'Unsubscribe'}</a></p>` : row.body_html;
-      const res = await adapter.send(conn.adapter, {
+      const res = await adapter.send(adapterCtx, {
         to, subject: row.subject ?? undefined, text: `${row.body_text}${footer}`, html, idempotencyKey: `resuto-outbound-${row.id}`,
         unsubscribeUrl: marketing && row.channel === 'email' ? this.unsubscribeApiUrl(row.id) : null,
         statusCallbackUrl: row.provider === 'twilio_sms' ? `${this.env.API_ORIGIN.replace(/\/$/, '')}/v1/webhooks/twilio/status/${row.connection_id}` : null,

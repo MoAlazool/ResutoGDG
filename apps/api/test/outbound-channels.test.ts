@@ -335,6 +335,38 @@ describe('SMS campaigns through Twilio (INT-28)', () => {
   });
 });
 
+describe('a test (sandbox) Twilio connection never texts a customer (INT-28 review)', () => {
+  it('the health check needs test credentials, and a sandbox campaign goes only to Twilio\'s magic test number', async () => {
+    const tenant = await createTenant(t);
+    await customers(tenant);
+    const conn = await connect(tenant, 'twilio_sms', { environment: 'sandbox', status: 'pending' });
+    // Live credentials on the test connection: Twilio refuses the magic test sender → not connected.
+    http.fetch = scriptedFetch([{ status: 400, body: { code: 21606, message: 'not owned' } }]).fetch;
+    const bad = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${conn}/health`).set(auth(tenant.owner));
+    expect((await sql(`select status from integration_connections where id = $1`, [conn]))[0].status, JSON.stringify(bad.body)).not.toBe('connected');
+    // Test credentials: the magic-number POST validates → connected.
+    const h = scriptedFetch([{ status: 201, body: { sid: 'SMcheck', status: 'queued' } }]);
+    http.fetch = h.fetch;
+    await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${conn}/health`).set(auth(tenant.owner));
+    expect((await sql(`select status from integration_connections where id = $1`, [conn]))[0].status).toBe('connected');
+    expect(Object.fromEntries(new URLSearchParams(h.calls[0]!.body!))).toMatchObject({ To: '+15005550010', From: '+15005550006' });
+
+    await noQuietHours(tenant);
+    const id = await approvedCampaign(tenant, 'sms');
+    let n = 0;
+    const f = scriptedFetch([() => ({ status: 201, body: { sid: `SMt${++n}`, status: 'queued' } })]);
+    http.fetch = f.fetch;
+    const res = await t.http.post(m(tenant, `/campaigns/${id}/send`)).set(auth(tenant.owner));
+    expect(res.body).toMatchObject({ isSandbox: true, delivery: { queued: 2, sandbox: 2, live: 0 } });
+    expect(f.calls).toHaveLength(2);
+    for (const call of f.calls) {
+      const form = Object.fromEntries(new URLSearchParams(call.body!));
+      expect(form).toMatchObject({ To: '+15005550010', From: '+15005550006' });
+      expect(call.body).not.toMatch(/100111000[13]/);
+    }
+  });
+});
+
 describe('staff notification email through the restaurant\'s Resend (INT-28)', () => {
   it('queues per recipient, sends right away and records sent only after Resend accepted', async () => {
     const tenant = await createTenant(t);

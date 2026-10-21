@@ -3,7 +3,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import type { AdapterContext } from '../core';
-import { isE164, isEmailAddress, notificationAdapterFor, resendAdapter, twilioSignature, twilioSmsAdapter, verifyResendWebhook, verifyTwilioStatusCallback } from './index';
+import { isE164, isEmailAddress, notificationAdapterFor, resendAdapter, TWILIO_TEST_FROM, TWILIO_TEST_TO, twilioSignature, twilioSmsAdapter, verifyResendWebhook, verifyTwilioStatusCallback } from './index';
 
 type Call = { url: string; init: RequestInit };
 function scripted(responses: Array<{ status?: number; body: unknown }>) {
@@ -149,8 +149,37 @@ describe('Twilio SMS adapter', () => {
   });
   it('health check reads the account without sending', async () => {
     const f = scripted([{ body: { status: 'active', type: 'Full', friendly_name: 'Olive' } }]);
-    expect(await twilioSmsAdapter.healthCheck!(ctx(f.fetch, { accountSid: sid, authToken: 't' }, {}))).toEqual({ ok: true, details: { status: 'active', type: 'Full' }, account: { id: sid, name: 'Olive' } });
+    expect(await twilioSmsAdapter.healthCheck!(ctx(f.fetch, { accountSid: sid, authToken: 't' }, {}))).toEqual({ ok: true, environment: 'live', details: { status: 'active', type: 'Full' }, account: { id: sid, name: 'Olive' } });
     expect(f.calls[0]!.url).toBe(`https://api.twilio.com/2010-04-01/Accounts/${sid}.json`);
+  });
+  it('a live connection with test credentials is reported as test (Twilio 20008), not connected', async () => {
+    const f = scripted([{ status: 403, body: { code: 20008, message: 'Resource not accessible with Test Account Credentials' } }]);
+    expect(await twilioSmsAdapter.healthCheck!(ctx(f.fetch, { accountSid: sid, authToken: 't' }, {}))).toEqual({ ok: false, environment: 'sandbox', details: { twilioCode: 20008 } });
+  });
+
+  describe('test (sandbox) connection (review: never texts a customer)', () => {
+    const sandbox = (fetch: typeof globalThis.fetch, config: Record<string, unknown> = { from: 'OLIVE', messagingServiceSid: 'MG1' }) =>
+      ({ environment: 'sandbox', credentials: { accountSid: sid, authToken: 't' }, config, fetch }) as AdapterContext;
+    it('sends from the magic test sender to the magic test number, whatever recipient and sender were given', async () => {
+      const f = scripted([{ status: 201, body: { sid: 'SMtest', status: 'queued' } }]);
+      await twilioSmsAdapter.send(sandbox(f.fetch), { to: '+201001234567', text: 'Hi', idempotencyKey: 'k' });
+      const form = Object.fromEntries(new URLSearchParams(String(f.calls[0]!.init.body)));
+      expect(form).toEqual({ To: TWILIO_TEST_TO, From: TWILIO_TEST_FROM, Body: 'Hi' });
+      expect(String(f.calls[0]!.init.body)).not.toContain('1001234567');
+    });
+    it('live credentials on a test connection: Twilio refuses the test sender, nothing is sent, the error says why', async () => {
+      const f = scripted([{ status: 400, body: { code: 21606, message: 'not owned' } }]);
+      await expect(twilioSmsAdapter.send(sandbox(f.fetch), { to: '+201001234567', text: 'x', idempotencyKey: 'k' }))
+        .rejects.toMatchObject({ retryable: false, message: expect.stringContaining('live credentials on a test connection') });
+    });
+    it('health check works with test credentials (a validated magic-number POST) and flags live credentials', async () => {
+      const ok = scripted([{ status: 201, body: { sid: 'SMtest', status: 'queued' } }]);
+      expect(await twilioSmsAdapter.healthCheck!(sandbox(ok.fetch))).toEqual({ ok: true, environment: 'sandbox', details: { testCredentials: true }, account: { id: sid, name: null } });
+      expect(ok.calls[0]!.url).toBe(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`);
+      expect(Object.fromEntries(new URLSearchParams(String(ok.calls[0]!.init.body)))).toMatchObject({ To: TWILIO_TEST_TO, From: TWILIO_TEST_FROM });
+      const live = scripted([{ status: 400, body: { code: 21659, message: 'not a Twilio number' } }]);
+      expect(await twilioSmsAdapter.healthCheck!(sandbox(live.fetch))).toEqual({ ok: false, environment: 'live', details: { twilioCode: 21659 } });
+    });
   });
 });
 

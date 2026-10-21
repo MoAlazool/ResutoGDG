@@ -172,6 +172,17 @@ export function verifyResendWebhook(input: { secret: string | undefined; headers
 // Twilio Programmable Messaging (SMS, KSA/EG sender rules apply)
 // ---------------------------------------------------------------------------
 export const TWILIO_API = 'https://api.twilio.com/2010-04-01';
+/**
+ * Twilio test credentials (https://www.twilio.com/docs/iam/test-credentials): with the magic From +15005550006 a
+ * Messages POST is validated and nothing is sent; any other valid To passes. A LIVE account does not own that From
+ * number, so the same request is refused (21606 / 21659 / 21212) and nothing is sent either. A test (sandbox)
+ * connection therefore always uses the magic From and a fixed test To: it can never text a customer, whatever
+ * credentials were pasted. Test credentials cannot read the Account resource (Twilio error 20008).
+ */
+export const TWILIO_TEST_FROM = '+15005550006';
+export const TWILIO_TEST_TO = '+15005550010';
+const TWILIO_NOT_OWNED_FROM = new Set([21606, 21659, 21212]);
+const TWILIO_TEST_CREDENTIALS_ONLY = 20008;
 
 export const twilioSmsDescriptor: ProviderDescriptor = {
   id: 'twilio_sms', name: 'Twilio SMS', category: 'messaging', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
@@ -180,6 +191,7 @@ export const twilioSmsDescriptor: ProviderDescriptor = {
   activation: [
     'Use the restaurant\'s own Twilio account. Saudi Arabia and Egypt require a registered alphanumeric Sender ID (or a Messaging Service with one); register it in the Twilio console before sending.',
     'Paste the Account SID and Auth Token (or an API key SID + secret with the Account SID), and either the From sender or a Messaging Service SID.',
+    'A test connection needs Twilio TEST credentials: it only ever sends to Twilio\'s magic test numbers (nothing reaches a phone). Live credentials on a test connection are refused by the connection check.',
     'Resuto sets the status callback for every message (signed with your Auth Token) so delivered / undelivered is tracked.',
     'Marketing SMS go only to customers who consented, outside quiet hours, with an opt-out link.',
   ],
@@ -205,25 +217,22 @@ export const twilioSmsAdapter: NotificationChannelAdapter = {
   async send(ctx, msg) {
     const { sid, header } = twilioAuth(ctx);
     if (!isE164(msg.to)) throw new ProviderError('twilio_sms', 'invalid recipient number (E.164 required)', false);
-    const form = new URLSearchParams({ To: msg.to, Body: msg.text.slice(0, 1600) });
+    const sandbox = ctx.environment === 'sandbox';
+    // A test connection never addresses the real recipient (see TWILIO_TEST_FROM).
+    const form = new URLSearchParams({ To: sandbox ? TWILIO_TEST_TO : msg.to, Body: msg.text.slice(0, 1600) });
     const service = typeof ctx.config.messagingServiceSid === 'string' && ctx.config.messagingServiceSid ? ctx.config.messagingServiceSid : null;
     const from = typeof ctx.config.from === 'string' && ctx.config.from ? ctx.config.from : null;
-    if (service) form.set('MessagingServiceSid', service); else if (from) form.set('From', from);
+    if (sandbox) form.set('From', TWILIO_TEST_FROM);
+    else if (service) form.set('MessagingServiceSid', service); else if (from) form.set('From', from);
     else throw new ProviderError('twilio_sms', 'Set the From sender or a Messaging Service SID', false);
     if (msg.statusCallbackUrl) form.set('StatusCallback', msg.statusCallbackUrl);
-    let res: Response;
-    try {
-      res = await ctx.fetch(`${TWILIO_API}/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
-        method: 'POST', headers: { Authorization: header, 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString(), signal: AbortSignal.timeout(15_000),
-      });
-    } catch (e) {
-      throw new ProviderError('twilio_sms', `network error (${(e as Error).name})`, true);
-    }
-    const text = await res.text();
+    const { res, text } = await twilioPost(ctx, sid, header, form);
     if (!res.ok) {
-      let code: string | null = null;
-      try { const j = JSON.parse(text); code = typeof j?.code === 'number' ? String(j.code) : null; } catch { /* ignore */ }
-      throw new ProviderError('twilio_sms', `HTTP ${res.status}${code ? ` (Twilio ${code})` : ''}`, res.status === 429 || res.status >= 500, res.status);
+      const code = twilioErrorCode(text);
+      if (sandbox && code !== null && TWILIO_NOT_OWNED_FROM.has(code)) {
+        throw new ProviderError('twilio_sms', 'live credentials on a test connection (Twilio refused the test sender); nothing was sent', false, res.status);
+      }
+      throw new ProviderError('twilio_sms', `HTTP ${res.status}${code !== null ? ` (Twilio ${code})` : ''}`, res.status === 429 || res.status >= 500, res.status);
     }
     let json: any;
     try { json = JSON.parse(text); } catch { throw new ProviderError('twilio_sms', 'non-JSON response', true); }
@@ -232,17 +241,54 @@ export const twilioSmsAdapter: NotificationChannelAdapter = {
     if (status === 'failed' || status === 'undelivered') throw new ProviderError('twilio_sms', `rejected (status ${json.status}${json.error_code ? `, ${json.error_code}` : ''})`, false);
     return { providerMessageId: json.sid, status };
   },
-  /** GET the account: proves the credentials without sending anything. */
+  /**
+   * Live connection: GET the account (proves the credentials without sending anything; test credentials are told
+   * apart by Twilio error 20008). Test connection: a Messages POST from the magic test sender to the magic test
+   * recipient, which test credentials validate without sending and live credentials refuse (sender not owned), so a
+   * test connection only becomes connected with test credentials.
+   */
   async healthCheck(ctx) {
     const { sid, header } = twilioAuth(ctx);
+    if (ctx.environment === 'sandbox') {
+      const form = new URLSearchParams({ To: TWILIO_TEST_TO, From: TWILIO_TEST_FROM, Body: 'Resuto connection check (test credentials)' });
+      const { res, text } = await twilioPost(ctx, sid, header, form);
+      if (!res.ok) {
+        const code = twilioErrorCode(text);
+        if (code !== null && TWILIO_NOT_OWNED_FROM.has(code)) return { ok: false, environment: 'live', details: { twilioCode: code } };
+        throw new ProviderError('twilio_sms', `HTTP ${res.status}${code !== null ? ` (Twilio ${code})` : ''}`, res.status === 429 || res.status >= 500, res.status);
+      }
+      let j: any = {};
+      try { j = JSON.parse(text); } catch { /* ignore */ }
+      return { ok: typeof j?.sid === 'string', environment: 'sandbox', details: { testCredentials: true }, account: { id: sid, name: null } };
+    }
     const res = await ctx.fetch(`${TWILIO_API}/Accounts/${encodeURIComponent(sid)}.json`, { headers: { Authorization: header }, signal: AbortSignal.timeout(10_000) });
     const text = await res.text();
-    if (!res.ok) throw new ProviderError('twilio_sms', `HTTP ${res.status}`, res.status >= 500, res.status);
+    if (!res.ok) {
+      const code = twilioErrorCode(text);
+      if (code === TWILIO_TEST_CREDENTIALS_ONLY) return { ok: false, environment: 'sandbox', details: { twilioCode: code } };
+      throw new ProviderError('twilio_sms', `HTTP ${res.status}`, res.status >= 500, res.status);
+    }
     let j: any = {};
     try { j = JSON.parse(text); } catch { /* ignore */ }
-    return { ok: j?.status === 'active', details: { status: j?.status ?? null, type: j?.type ?? null }, account: { id: sid, name: j?.friendly_name ?? null } };
+    return { ok: j?.status === 'active', environment: 'live', details: { status: j?.status ?? null, type: j?.type ?? null }, account: { id: sid, name: j?.friendly_name ?? null } };
   },
 };
+
+async function twilioPost(ctx: AdapterContext, sid: string, header: string, form: URLSearchParams) {
+  let res: Response;
+  try {
+    res = await ctx.fetch(`${TWILIO_API}/Accounts/${encodeURIComponent(sid)}/Messages.json`, {
+      method: 'POST', headers: { Authorization: header, 'Content-Type': 'application/x-www-form-urlencoded' }, body: form.toString(), signal: AbortSignal.timeout(15_000),
+    });
+  } catch (e) {
+    throw new ProviderError('twilio_sms', `network error (${(e as Error).name})`, true);
+  }
+  return { res, text: await res.text() };
+}
+
+function twilioErrorCode(text: string): number | null {
+  try { const j = JSON.parse(text); return typeof j?.code === 'number' ? j.code : null; } catch { return null; }
+}
 
 /** X-Twilio-Signature check (form-encoded status callbacks). `url` must be exactly the URL Twilio called. */
 export function twilioSignature(authToken: string, url: string, params: Record<string, string>): string {
