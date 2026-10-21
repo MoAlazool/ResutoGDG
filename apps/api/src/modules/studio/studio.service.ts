@@ -175,7 +175,7 @@ export class StudioService {
     const urls = this.storage.urls(3600);
     const out = await this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select * from media_assets where org_id = $1 and content_type like 'image/%' order by created_at desc limit $2`, [ctx.orgId, Math.min(limit, 200)]);
+        `select * from media_assets where org_id = $1 and content_type like 'image/%' and source <> 'import' order by created_at desc limit $2`, [ctx.orgId, Math.min(limit, 200)]);
       const used = await this.usedMedia(tx, ctx);
       const items = rows.map((r) => urls.set(toMedia(r, '', used.has(r.id)), 'url', r.path, { fallback: '', variants: r.variants, minWidth: 640 }));
       return { items, nextCursor: null };

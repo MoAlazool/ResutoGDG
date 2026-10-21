@@ -103,7 +103,8 @@ export const menuImportRequest = z.object({
   rows: z.array(menuImportRow).min(1).max(IMPORT_MAX_ROWS).optional(),
   /** Alternative to rows: a CSV document (legacy export columns are accepted). */
   csv: z.string().max(1_000_000).optional(),
-  source: z.enum(['csv', 'foodics', 'odoo', 'ai']).default('csv'),
+  // 'text': Resuto's heuristic parser of pasted or uploaded menu text (no model involved; Studio menu extraction).
+  source: z.enum(['csv', 'foodics', 'odoo', 'ai', 'text']).default('csv'),
   key: idempotencyKey.optional(),
 }).refine((b) => !!b.rows !== !!b.csv, { message: 'Send either rows or csv' });
 export type MenuImportRequest = z.infer<typeof menuImportRequest>;

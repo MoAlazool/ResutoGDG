@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { IntegrationsModule } from '../integrations/integrations.module';
+import { StudioAiService } from './ai/studio-ai.service';
+import { MenuExtractionService } from './menu-extraction/menu-extraction.service';
+import { StudioAiController } from './studio-ai.controller';
 import { CreativeService } from './creative.service';
 import { DNS_RESOLVER, DOMAIN_PROVIDER, domainProviderFromEnv, systemTxtResolver } from './domain-provider';
 import { DomainsService } from './domains.service';
@@ -16,8 +20,11 @@ import { StudioService } from './studio.service';
  * deployments can swap the resolver and hosting provider.
  */
 @Module({
-  controllers: [StudioController, PublicSitesController],
+  // IntegrationsModule: the restaurant's own model key (gemini_byok connection) for Studio AI.
+  imports: [IntegrationsModule],
+  controllers: [StudioController, PublicSitesController, StudioAiController],
   providers: [
+    StudioAiService, MenuExtractionService,
     StudioService, SiteBuilderService, DomainsService, CreativeService, PublicSitesService, StorefrontsService,
     { provide: DNS_RESOLVER, useValue: systemTxtResolver },
     { provide: DOMAIN_PROVIDER, useFactory: () => domainProviderFromEnv() },
