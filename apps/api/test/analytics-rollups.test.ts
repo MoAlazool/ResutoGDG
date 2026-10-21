@@ -80,8 +80,12 @@ describe('analytics rollups are exact', () => {
     expect(await staleOldDays()).toBe(0);
     expect(await freshDays()).toBe(owed);
     // Only days older than the live window (local today − 3) are rolled up.
-    const [{ newest }] = await sql(`select max(local_date)::text as newest from analytics_days where org_id = $1 and not stale`, [tenant.orgId]);
-    expect(newest <= day(4)).toBe(true);
+    // local_date is the restaurant's calendar day: compare in its time zone, not UTC (a UTC day(4) failed every night
+    // between 21:00 and 24:00 UTC, when Cairo is already on the next date).
+    const [{ newest, cutoff }] = await sql(
+      `select max(d.local_date)::text as newest, ((now() at time zone g.timezone)::date - 4)::text as cutoff
+         from analytics_days d join organizations g on g.id = d.org_id where d.org_id = $1 and not d.stale group by g.timezone`, [tenant.orgId]);
+    expect(newest <= cutoff).toBe(true);
     await expectEqualPaths();
   });
 
