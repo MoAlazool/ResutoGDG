@@ -127,3 +127,33 @@ export function requirePort<T>(port: T | null | undefined, name: string): T {
   if (!port) throw new DomainError('module_unavailable', `${name} is not available in this deployment`, 503);
   return port;
 }
+
+// ---------------------------------------------------------------------------
+// FT-09 service area (delivery module): opening hours in the branch time zone and delivery-zone coverage/fees.
+// ---------------------------------------------------------------------------
+export const SERVICE_AREA_PORT = Symbol.for('resuto.SERVICE_AREA_PORT');
+export interface ServiceAreaBranch {
+  id: string; latitude: string | number | null; longitude: string | number | null; timezone: string | null; org_timezone?: string | null;
+  opening_hours: unknown; delivery_radius_m: number | null; delivery_fee_minor: number | string; min_order_minor: number | string;
+}
+export interface ServiceAreaInput {
+  fulfillment: string;
+  channel?: string;
+  point?: { latitude: number; longitude: number } | null;
+  zoneId?: string | null;
+  /** When the order is wanted (scheduledFor); now when absent. */
+  at?: Date | null;
+  /** The order is being placed (not only quoted): missing zone choices are refused instead of reported. */
+  placing?: boolean;
+}
+export interface QuoteDeliveryZone { id: string; name: string; nameAr: string | null; etaMin: number | null }
+export interface ServiceAreaResult {
+  deliveryFeeMinor: number;
+  minOrderMinor: number;
+  zone: QuoteDeliveryZone | null;
+  /** The branch has zones and none was chosen yet (quote only; placing refuses). */
+  zoneRequired: boolean;
+}
+export interface ServiceAreaPort {
+  check(tx: Tx, orgId: string, branch: ServiceAreaBranch, input: ServiceAreaInput): Promise<ServiceAreaResult>;
+}

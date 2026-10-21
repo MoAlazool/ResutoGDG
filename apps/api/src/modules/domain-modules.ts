@@ -8,6 +8,7 @@ import { ComplianceModule } from './compliance/compliance.module';
 import { ConnectModule } from './connect/connect.module';
 import { CustomersModule } from './customers/customers.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { ServiceAreaModule } from './delivery/service-area.module';
 import { FinanceModule } from './finance/finance.module';
 import { FloorModule } from './floor/floor.module';
 import { GuestModule } from './guest/guest.module';
@@ -33,6 +34,7 @@ export const DOMAIN_MODULES: Type[] = [
   ConnectModule,
   CustomersModule,
   DeliveryModule,
+  ServiceAreaModule,
   FinanceModule,
   FloorModule,
   GuestModule,

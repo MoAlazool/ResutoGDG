@@ -14,6 +14,7 @@ import { MenuService } from '../menu/menu.service';
 import { guestCoverPath, signGuestCover } from '../orders/guest-cover';
 import { orgCountry } from '../orders/org-country';
 import { VisitsService } from '../orders/visits.service';
+import { PublicTrackingService } from '../delivery/tracking.service';
 
 const iso = (d: Date | null | undefined) => (d ? new Date(d).toISOString() : null);
 
@@ -26,6 +27,8 @@ export const toQuoteView = (q: Quote) => ({
   // when the channel identified the customer.
   loyalty: q.loyalty ? { reward: q.loyalty.reward ? { id: q.loyalty.reward.id, name: q.loyalty.reward.name, nameAr: q.loyalty.reward.nameAr,
     pointsCost: q.loyalty.reward.pointsCost, discountMinor: q.loyalty.reward.discountMinor } : null, earnPreview: q.loyalty.earnPreview, balance: q.loyalty.balance } : null,
+  // FT-09: the zone that priced delivery, and whether the customer still has to choose one.
+  deliveryZone: q.deliveryZone, deliveryZoneRequired: q.deliveryZoneRequired,
   lines: q.lines.map((l) => ({
     productId: l.productId, name: l.name, nameAr: l.nameAr, quantity: l.quantity, unitPriceMinor: l.unitPriceMinor,
     modifiers: l.modifiers.map((m) => ({ groupId: m.groupId, optionId: m.optionId, option: m.option, optionAr: m.optionAr, priceDeltaMinor: m.priceDeltaMinor })),
@@ -52,6 +55,8 @@ export class GuestService {
     private readonly entitlements: EntitlementsService,
     private readonly storage: StorageService,
     @Optional() @Inject(CHECKOUT_PORT) private readonly checkout?: CheckoutPort,
+    /** FT-14: delivery status, ETA and (en route only) a coarse driver position for the tracking page. */
+    @Optional() private readonly tracking?: PublicTrackingService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -144,6 +149,7 @@ export class GuestService {
       lines: lines.map((l) => ({ name: l.name, nameAr: l.name_ar, quantity: l.quantity, lineTotalMinor: l.line_total_minor, kitchenStatus: l.kitchen_status,
         modifiers: (l.modifiers as any[]).map((m) => m.option), notes: l.notes })),
       timeline: events.map((e) => ({ status: e.to_status, at: iso(e.created_at) })),
+      delivery: o.fulfillment === 'delivery' && this.tracking ? await this.tracking.forOrder(tx, o.id) : null,
     };
   }
 
@@ -180,11 +186,17 @@ export class GuestService {
     } };
   }
 
-  webQuote(slug: string, body: { branchId: string; fulfillment: 'pickup' | 'delivery'; lines: CartLine[]; promotionCode?: string | null }) {
+  webQuote(slug: string, body: {
+    branchId: string; fulfillment: 'pickup' | 'delivery'; lines: CartLine[]; promotionCode?: string | null;
+    deliveryAddress?: { latitude?: number | null; longitude?: number | null; zoneId?: string | null } | null; scheduledFor?: string | null;
+  }) {
     return this.webTenant(slug, async (tx, ctx) => {
       await this.assertBranch(tx, ctx.orgId, body.branchId);
+      const a = body.deliveryAddress;
       return toQuoteView(await this.pricing.quote(tx, ctx.orgId, {
         branchId: body.branchId, fulfillment: body.fulfillment, lines: cartLines(body.lines), promotionCode: body.promotionCode ?? null, channel: 'web',
+        deliveryPoint: typeof a?.latitude === 'number' && typeof a?.longitude === 'number' ? { latitude: a.latitude, longitude: a.longitude } : null,
+        deliveryZoneId: a?.zoneId ?? null, at: body.scheduledFor ? new Date(body.scheduledFor) : null,
       }));
     });
   }

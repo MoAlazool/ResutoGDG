@@ -2,7 +2,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 import { applyBasisPoints, taxFromInclusive, type Fulfillment, type QuoteLoyalty } from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError, invalid } from '../../common/errors/domain-error';
-import { LOYALTY_PORT, type LoyaltyPort } from './ports';
+import { LOYALTY_PORT, SERVICE_AREA_PORT, type LoyaltyPort, type QuoteDeliveryZone, type ServiceAreaPort } from './ports';
 
 export interface CartLineInput {
   productId: string;
@@ -42,6 +42,10 @@ export interface Quote {
   promotion: { id: string; code: string | null; name: string } | null;
   /** Loyalty reward applied (its discount is included in discountMinor), earn preview and balance; null when loyalty is off. */
   loyalty: QuoteLoyalty | null;
+  /** FT-09: the delivery zone that priced this order (fee, minimum, ETA); null without zones or before one is chosen. */
+  deliveryZone: QuoteDeliveryZone | null;
+  /** FT-09: the branch has delivery zones and the customer has not chosen one / shared a location yet. */
+  deliveryZoneRequired: boolean;
 }
 
 export interface QuoteInput {
@@ -55,6 +59,13 @@ export interface QuoteInput {
   loyaltyRewardId?: string | null;
   /** The caller has established who `customerId` is (never true for an unverified phone typed on the website). */
   customerIdentified?: boolean;
+  /** FT-09: drop-off point (from the delivery address) and/or the chosen delivery zone. */
+  deliveryPoint?: { latitude: number; longitude: number } | null;
+  deliveryZoneId?: string | null;
+  /** FT-09: when the order is wanted (scheduledFor); opening hours are checked at this instant for guest channels. */
+  at?: Date | null;
+  /** Set by the order kernel when placing: a delivery order without a zone choice is refused instead of reported. */
+  placing?: boolean;
 }
 
 const MAX_LINES = 60;
@@ -66,7 +77,10 @@ const MAX_LINES = 60;
  */
 @Injectable()
 export class PricingService {
-  constructor(@Optional() @Inject(LOYALTY_PORT) private readonly loyalty?: LoyaltyPort) {}
+  constructor(
+    @Optional() @Inject(LOYALTY_PORT) private readonly loyalty?: LoyaltyPort,
+    @Optional() @Inject(SERVICE_AREA_PORT) private readonly serviceArea?: ServiceAreaPort,
+  ) {}
 
   async quote(tx: Tx, orgId: string, input: QuoteInput): Promise<Quote> {
     if (!input.lines.length) throw invalid('cart_empty', 'Add at least one item');
@@ -76,10 +90,16 @@ export class PricingService {
     }
 
     const branch = await tx.maybeOne<any>(
-      `select b.*, o.currency from branches b join organizations o on o.id = b.org_id where b.id = $1 and b.org_id = $2`, [input.branchId, orgId]);
+      `select b.*, o.currency, o.timezone as org_timezone from branches b join organizations o on o.id = b.org_id where b.id = $1 and b.org_id = $2`, [input.branchId, orgId]);
     if (!branch || !branch.is_active) throw new DomainError('branch_unavailable', 'This branch is not taking orders', 409);
     const accepts = { dine_in: branch.accepts_dine_in, pickup: branch.accepts_pickup, delivery: branch.accepts_delivery }[input.fulfillment];
     if (!accepts) throw new DomainError('fulfillment_unavailable', `This branch does not offer ${input.fulfillment.replace('_', '-')}`, 409);
+    // FT-09: opening hours (guest channels) and delivery-zone coverage, fee and minimum, decided by the delivery module.
+    const area = this.serviceArea ? await this.serviceArea.check(tx, orgId, branch, {
+      fulfillment: input.fulfillment, channel: input.channel, point: input.deliveryPoint ?? null, zoneId: input.deliveryZoneId ?? null,
+      at: input.at ?? null, placing: !!input.placing,
+    }) : null;
+    const minOrder = area ? area.minOrderMinor : Number(branch.min_order_minor);
 
     const productIds = [...new Set(input.lines.map((l) => l.productId))];
     const products = await tx.query<any>(
@@ -143,15 +163,15 @@ export class PricingService {
     }
 
     const subtotal = lines.reduce((a, l) => a + l.lineTotalMinor, 0);
-    if (input.fulfillment === 'delivery' && subtotal < branch.min_order_minor) {
-      throw new DomainError('below_minimum', 'The order is below the minimum for delivery', 409, { minOrderMinor: branch.min_order_minor });
+    if (input.fulfillment === 'delivery' && subtotal < minOrder) {
+      throw new DomainError('below_minimum', 'The order is below the minimum for delivery', 409, { minOrderMinor: minOrder });
     }
     const tax = await tx.maybeOne<{ vat_rate_bp: number; prices_include_tax: boolean; service_charge_bp: number }>(
       'select vat_rate_bp, prices_include_tax, service_charge_bp from tax_profiles where org_id = $1', [orgId]);
     const vatRateBp = tax?.vat_rate_bp ?? 0;
     const inclusive = tax?.prices_include_tax ?? true;
 
-    let deliveryFee = input.fulfillment === 'delivery' ? Number(branch.delivery_fee_minor) : 0;
+    let deliveryFee = input.fulfillment === 'delivery' ? (area ? area.deliveryFeeMinor : Number(branch.delivery_fee_minor)) : 0;
     let discount = 0;
     let promotion: Quote['promotion'] = null;
     if (input.promotionCode) {
@@ -187,6 +207,8 @@ export class PricingService {
       branchId: input.branchId, currency: branch.currency, fulfillment: input.fulfillment, lines,
       subtotalMinor: subtotal, discountMinor: discount, deliveryFeeMinor: deliveryFee, serviceChargeMinor: serviceCharge,
       taxMinor, taxInclusive: inclusive, vatRateBp, totalMinor: total, promotion, loyalty,
+      deliveryZone: input.fulfillment === 'delivery' ? area?.zone ?? null : null,
+      deliveryZoneRequired: input.fulfillment === 'delivery' && !!area?.zoneRequired,
     };
   }
 

@@ -19,7 +19,7 @@ export interface PlaceOrderInput {
   visitId?: string | null;
   customer?: { name?: string | null; phone?: string | null; email?: string | null; marketingConsent?: boolean } | null;
   customerId?: string | null;
-  deliveryAddress?: { line1: string; area?: string | null; city?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null } | null;
+  deliveryAddress?: { line1: string; area?: string | null; city?: string | null; notes?: string | null; latitude?: number | null; longitude?: number | null; zoneId?: string | null } | null;
   notes?: string | null;
   promotionCode?: string | null;
   /** FT-03: redeem a loyalty reward; only callers that established the customer's identity set `customerIdentified`. */
@@ -86,6 +86,9 @@ export class OrdersKernelService {
     const quote = await this.pricing.quote(tx, ctx.orgId, {
       branchId: input.branchId, fulfillment: input.fulfillment, lines: input.lines, promotionCode: input.promotionCode,
       channel: input.channel, customerId, loyaltyRewardId: input.loyaltyRewardId ?? null, customerIdentified: !!input.customerIdentified,
+      // FT-09: drop-off point / chosen zone from the delivery address, and the wanted time for opening hours.
+      deliveryPoint: deliveryPointOf(input.deliveryAddress), deliveryZoneId: input.deliveryAddress?.zoneId ?? null,
+      at: input.scheduledFor ? new Date(input.scheduledFor) : null, placing: true,
     });
     if (input.expectedTotalMinor !== undefined && input.expectedTotalMinor !== quote.totalMinor) {
       throw new DomainError('price_changed', 'Prices changed since you opened the menu. Review your cart.', 409, { totalMinor: quote.totalMinor });
@@ -252,4 +255,11 @@ export class OrdersKernelService {
        update stock_levels sl set quantity = sl.quantity + b.quantity_delta, updated_at = now()
          from back b where sl.branch_id = $2 and sl.item_id = b.item_id`, [orderId, branchId, `${ctx.actorType}:${ctx.actorId}`]);
   }
+}
+
+/** FT-09: the drop-off point of a delivery address, when it carries valid coordinates. */
+function deliveryPointOf(a: unknown): { latitude: number; longitude: number } | null {
+  const v = a as { latitude?: unknown; longitude?: unknown } | null | undefined;
+  const lat = typeof v?.latitude === 'number' ? v.latitude : NaN, lng = typeof v?.longitude === 'number' ? v.longitude : NaN;
+  return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { latitude: lat, longitude: lng } : null;
 }

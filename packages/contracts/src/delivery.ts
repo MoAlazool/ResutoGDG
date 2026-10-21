@@ -170,3 +170,66 @@ export interface DriverView {
   activeJobs: number;
   cashOnHandMinor: number;
 }
+
+// ---------------------------------------------------------------------------
+// FT-09 delivery zones and the public service area (opening hours + zones)
+// ---------------------------------------------------------------------------
+export const DELIVERY_ZONE_KINDS = ['radius', 'polygon', 'area'] as const;
+export type DeliveryZoneKind = (typeof DELIVERY_ZONE_KINDS)[number];
+const latLng = z.tuple([z.number().min(-90).max(90), z.number().min(-180).max(180)]);
+export const deliveryZoneInput = z.object({
+  branchId: uuid,
+  name: z.string().trim().min(1).max(80),
+  nameAr: z.string().trim().min(1).max(80).nullable().optional(),
+  kind: z.enum(DELIVERY_ZONE_KINDS),
+  radiusM: z.number().int().min(100).max(100_000).nullable().optional(),
+  /** [latitude, longitude] ring, 3–200 points. */
+  polygon: z.array(latLng).min(3).max(200).nullable().optional(),
+  feeMinor: minor.default(0),
+  minOrderMinor: minor.default(0),
+  etaMin: z.number().int().min(5).max(600).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(999).default(0),
+  isActive: z.boolean().default(true),
+}).strict().superRefine((v, c) => {
+  if (v.kind === 'radius' && !v.radiusM) c.addIssue({ code: 'custom', path: ['radiusM'], message: 'A radius zone needs a radius in metres' });
+  if (v.kind === 'polygon' && !v.polygon) c.addIssue({ code: 'custom', path: ['polygon'], message: 'A polygon zone needs at least 3 points' });
+  if (v.kind !== 'radius' && v.radiusM) c.addIssue({ code: 'custom', path: ['radiusM'], message: 'Only radius zones have a radius' });
+  if (v.kind !== 'polygon' && v.polygon) c.addIssue({ code: 'custom', path: ['polygon'], message: 'Only polygon zones have points' });
+});
+export type DeliveryZoneInput = z.infer<typeof deliveryZoneInput>;
+export interface DeliveryZone {
+  id: string; branchId: string; name: string; nameAr: string | null; kind: DeliveryZoneKind; radiusM: number | null;
+  polygon: Array<[number, number]> | null; feeMinor: number; minOrderMinor: number; etaMin: number | null; sortOrder: number; isActive: boolean;
+}
+/** Public, per branch: is it open now (branch time zone), when it opens next, and the zones a guest can choose. */
+export interface PublicServiceArea {
+  branchId: string;
+  timezone: string;
+  openNow: boolean;
+  /** Next opening when closed now; null when always open or no hours are set. */
+  nextOpenAt: string | null;
+  hoursSet: boolean;
+  delivery: {
+    offered: boolean;
+    /** Zones the guest chooses from (geometry is not exposed; radius/polygon zones also need a shared location). */
+    zones: Array<{ id: string; name: string; nameAr: string | null; kind: DeliveryZoneKind; feeMinor: number; minOrderMinor: number; etaMin: number | null }>;
+    defaultFeeMinor: number;
+    defaultMinOrderMinor: number;
+  };
+}
+
+/**
+ * FT-14: what a guest's tracking page may show about the delivery. The driver's position is shared only while the
+ * job is en route (never before pickup), rounded to about 100 m and only when fresh; the driver is named by first
+ * name only; the drop-off point is rounded too (the tracking link can be forwarded).
+ */
+export interface PublicDeliveryTracking {
+  status: DeliveryStatus;
+  etaAt: string | null;
+  driverFirstName: string | null;
+  pickedUpAt: string | null;
+  deliveredAt: string | null;
+  restaurant: { latitude: number; longitude: number } | null;
+  destination: { latitude: number; longitude: number } | null;
+  driver: { latitude: number; longitude: number; at: string } | null;
+}

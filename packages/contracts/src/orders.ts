@@ -50,6 +50,8 @@ const deliveryAddress = z.object({
   notes: optionalText(300),
   latitude: z.number().min(-90).max(90).nullable().optional(),
   longitude: z.number().min(-180).max(180).nullable().optional(),
+  /** FT-09: the delivery zone (area) the customer chose; verified server-side against the branch's zones. */
+  zoneId: uuid.optional().nullable(),
 });
 
 export const webQuoteRequest = z.object({
@@ -57,6 +59,9 @@ export const webQuoteRequest = z.object({
   fulfillment: z.enum(['pickup', 'delivery']),
   lines,
   promotionCode: optionalText(40),
+  /** FT-09: priced by the delivery zone / point when given; scheduledFor is checked against opening hours. */
+  deliveryAddress: deliveryAddress.partial({ line1: true }).optional().nullable(),
+  scheduledFor: isoDateTime.optional().nullable(),
 });
 export const webOrderRequest = webQuoteRequest.extend({
   customer: z.object({
