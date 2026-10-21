@@ -73,6 +73,40 @@ describe('food-photo enhancement', () => {
     expect(await sql(`select byte_size from media_assets where id = $1`, [up.body.original.mediaId])).toEqual([{ byte_size: orig.byte_size }]);
     const del = await t.http.delete(`/v1/o/${a.orgId}/studio/media/${up.body.original.mediaId}`).set(auth(a.owner));
     expect(del.status).toBe(409);
+    // The original keeps the camera's metadata: it is private (own source), not in the media library, not placeable on the site.
+    expect(await sql(`select source from media_assets where id = $1`, [up.body.original.mediaId])).toEqual([{ source: 'photo_original' }]);
+    const lib = await t.http.get(`/v1/o/${a.orgId}/studio/media`).set(auth(a.owner));
+    expect(lib.status).toBe(200);
+    expect(lib.body.items.some((m: any) => m.id === up.body.original.mediaId)).toBe(false);
+    expect(lib.body.items.some((m: any) => m.id === job.output.mediaId)).toBe(true);
+    const site = (await t.http.get(`/v1/o/${a.orgId}/studio/website`).set(auth(a.owner))).body;
+    const hero = site.sections.find((x: any) => x.kind === 'hero');
+    const placed = await t.http.patch(`/v1/o/${a.orgId}/studio/website/sections/${hero.id}`).set(auth(a.owner))
+      .send({ content: { ...hero.content, mediaId: up.body.original.mediaId } });
+    expect(placed.status).toBe(422);
+    expect(placed.body.error.code).toBe('unknown_media');
+  });
+
+  it('runs one publish at a time per photo: concurrent publishes with one key write the menu image once', async () => {
+    const up = await upload(a, { productId: menu.products.burger });
+    await work();
+    await t.http.post(`${base(a)}/${up.body.id}/review`).set(auth(a.owner)).send({ decision: 'approve' });
+    const count = async () => (await sql<any>(`select count(*)::int as n from media_assets where org_id = $1`, [a.orgId]))[0].n as number;
+    const before = await count();
+    const rs = await Promise.all([0, 1, 2, 3].map(() => t.http.post(`${base(a)}/${up.body.id}/publish`).set(auth(a.owner))
+      .send({ target: 'product', productId: menu.products.burger, key: 'publish-race-0001' })));
+    for (const r of rs) {
+      expect([201, 409]).toContain(r.status);
+      if (r.status === 409) expect(r.body.error.code).toBe('photo_publish_in_progress');
+    }
+    expect(rs.some((r) => r.status === 201)).toBe(true);
+    expect(await count()).toBe(before + 1); // one menu image (the menu module's copy), not one per request
+    expect(await sql(`select 1 from audit_logs where org_id = $1 and entity_id = $2 and action = 'studio_photo.published'`, [a.orgId, up.body.id])).toHaveLength(1);
+    // A retry with the same key replays; the lease is released.
+    const again = await t.http.post(`${base(a)}/${up.body.id}/publish`).set(auth(a.owner)).send({ target: 'product', productId: menu.products.burger, key: 'publish-race-0001' });
+    expect(again.status).toBe(201);
+    expect(await count()).toBe(before + 1);
+    expect(await sql(`select 1 from studio_photo_jobs where id = $1 and lease is null`, [up.body.id])).toHaveLength(1);
   });
 
   it('publishes only after approval, through the menu module, idempotently; rejected results never publish', async () => {

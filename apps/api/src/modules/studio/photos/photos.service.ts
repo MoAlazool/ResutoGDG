@@ -14,6 +14,8 @@ import { StudioService } from '../studio.service';
 import { PHOTO_GENERATIVE_PROVIDERS, type PhotoGenerativeProvider } from './generative';
 
 const MAX_ATTEMPTS = 3;
+/** A publish holds the job this long; one that crashed is taken over after it. */
+const PUBLISH_LEASE_MINUTES = 2;
 const LEASE_MINUTES = 5;
 const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
@@ -58,10 +60,11 @@ export class StudioPhotosService {
     if (input.productId && !(await this.db.scoped(ctx, (tx) => tx.maybeOne('select 1 from products where id = $1 and org_id = $2', [input.productId, ctx.orgId])))) {
       throw invalid('unknown_product', 'This menu item does not exist');
     }
-    // The original is stored privately (not a guest-facing folder) and never modified.
+    // The original is stored privately (not a guest-facing folder, source 'photo_original': never in the media library
+    // or a website section, since it still carries the camera's metadata) and never modified.
     const original = await this.storage.store(ctx, { bytes: file.buffer, contentType: file.mimetype, folder: 'photo-originals' });
     const view = await this.db.scoped(ctx, async (tx) => {
-      const media = await this.storage.record(tx, ctx, original, { source: 'upload' });
+      const media = await this.storage.record(tx, ctx, original, { source: 'photo_original' });
       const row = await tx.one<any>(
         `insert into studio_photo_jobs(org_id, mode, provider, params, product_id, source_media_id, created_by)
          values ($1, $2, $3, $4, $5, $6, $7) returning *`,
@@ -104,34 +107,59 @@ export class StudioPhotosService {
     return this.get(ctx, id);
   }
 
-  /** Publishes an approved result. Idempotent per key; a published result may also be published to another target. */
+  /**
+   * Publishes an approved result. Idempotent per key; a published result may also be published to another target.
+   * One publish runs at a time per job: it claims the job under its row lock with a short lease (lease/leased_until,
+   * unused once processing ended), so a concurrent publish gets 409 photo_publish_in_progress instead of writing the
+   * menu image or website section a second time; the final update is fenced on that lease.
+   */
   async publish(ctx: TenantContext, id: string, input: PublishPhotoJob) {
-    const job = await this.db.scoped(ctx, (tx) => this.load(tx, ctx.orgId, id, false));
     const targetId = input.target === 'product' ? input.productId! : input.sectionId!;
-    if (job.status === 'published' && job.published_key === input.key && job.published_target === input.target && job.published_id === targetId) return this.get(ctx, id);
-    if (job.status !== 'approved' && job.status !== 'published') {
-      throw conflict('photo_not_approved', 'Approve the enhanced photo before publishing it', { status: job.status });
-    }
-    if (!job.output_path) throw conflict('photo_not_ready', 'The enhanced photo is missing');
-    if (input.target === 'product') {
-      ctx.require('menu:write');
-      const bytes = await this.storage.read(job.output_path);
-      if (!bytes) throw new DomainError('photo_missing', 'The enhanced photo could not be read', 500);
-      // Through the menu module's own image path (derivatives, menu version, audit).
-      await this.menu.uploadImage(ctx, targetId, { buffer: bytes, mimetype: 'image/jpeg' }, job.output_alt ?? undefined);
-    } else {
-      ctx.require('studio:write');
-      const section = await this.db.scoped(ctx, (tx) => tx.maybeOne<any>('select kind, content from website_sections where id = $1 and org_id = $2', [targetId, ctx.orgId]));
-      if (!section) throw notFound('Section');
-      const content = { ...(section.content ?? {}) };
-      if (section.kind === 'gallery') content.mediaIds = [...new Set([...(content.mediaIds ?? []), job.output_media_id])].slice(-24);
-      else content.mediaId = job.output_media_id;
-      // The website draft changes; the site goes live when the owner publishes the website (studio:publish).
-      await this.studio.updateSection(ctx, targetId, { content });
+    ctx.require(input.target === 'product' ? 'menu:write' : 'studio:write');
+    const lease = randomUUID();
+    const claim = await this.db.scoped(ctx, async (tx) => {
+      const job = await this.load(tx, ctx.orgId, id, true);
+      if (job.status === 'published' && job.published_key === input.key && job.published_target === input.target && job.published_id === targetId) {
+        return { replay: true as const };
+      }
+      if (job.status !== 'approved' && job.status !== 'published') {
+        throw conflict('photo_not_approved', 'Approve the enhanced photo before publishing it', { status: job.status });
+      }
+      if (!job.output_path) throw conflict('photo_not_ready', 'The enhanced photo is missing');
+      const live = job.lease && (await tx.one<{ live: boolean }>('select coalesce($1::timestamptz > now(), false) as live', [job.leased_until])).live;
+      if (live) throw conflict('photo_publish_in_progress', 'This photo is being published right now. Reload in a moment to see the result.', { status: job.status });
+      await tx.query(`update studio_photo_jobs set lease = $2, leased_until = now() + make_interval(mins => $3), updated_at = now() where id = $1`,
+        [id, lease, PUBLISH_LEASE_MINUTES]);
+      return { replay: false as const, job };
+    });
+    if (claim.replay) return this.get(ctx, id);
+    const job = claim.job;
+    const release = () => this.db.scoped(ctx, (tx) => tx.query(
+      `update studio_photo_jobs set lease = null, leased_until = null, updated_at = now() where id = $1 and lease = $2`, [id, lease])).catch(() => undefined);
+    try {
+      if (input.target === 'product') {
+        const bytes = await this.storage.read(job.output_path);
+        if (!bytes) throw new DomainError('photo_missing', 'The enhanced photo could not be read', 500);
+        // Through the menu module's own image path (derivatives, menu version, audit).
+        await this.menu.uploadImage(ctx, targetId, { buffer: bytes, mimetype: 'image/jpeg' }, job.output_alt ?? undefined);
+      } else {
+        const section = await this.db.scoped(ctx, (tx) => tx.maybeOne<any>('select kind, content from website_sections where id = $1 and org_id = $2', [targetId, ctx.orgId]));
+        if (!section) throw notFound('Section');
+        const content = { ...(section.content ?? {}) };
+        if (section.kind === 'gallery') content.mediaIds = [...new Set([...(content.mediaIds ?? []), job.output_media_id])].slice(-24);
+        else content.mediaId = job.output_media_id;
+        // The website draft changes; the site goes live when the owner publishes the website (studio:publish).
+        await this.studio.updateSection(ctx, targetId, { content });
+      }
+    } catch (e) {
+      await release();
+      throw e;
     }
     await this.db.scoped(ctx, async (tx) => {
-      await tx.query(`update studio_photo_jobs set status = 'published', published_target = $2, published_id = $3, published_key = $4, published_by = $5,
-                        published_at = now(), updated_at = now() where id = $1`, [id, input.target, targetId, input.key, ctx.userId]);
+      const row = await tx.maybeOne(`update studio_photo_jobs set status = 'published', published_target = $3, published_id = $4, published_key = $5, published_by = $6,
+                        published_at = now(), lease = null, leased_until = null, updated_at = now() where id = $1 and lease = $2 returning id`,
+        [id, lease, input.target, targetId, input.key, ctx.userId]);
+      if (!row) throw conflict('photo_publish_in_progress', 'Another request took over publishing this photo. Reload to see the result.', {});
       await this.audit.record(tx, ctx, { action: 'studio_photo.published', entityType: 'studio_photo_job', entityId: id,
         metadata: { target: input.target, targetId, outputMediaId: job.output_media_id, mode: job.mode } });
     });

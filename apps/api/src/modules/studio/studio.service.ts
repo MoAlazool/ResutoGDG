@@ -13,6 +13,9 @@ import { escapeLike } from '../mcp/mcp.util';
 
 const MAX_SECTIONS = 30;
 
+/** Media kept out of the library and of website sections: menu-import files and food-photo originals (EXIF/GPS intact). */
+const PRIVATE_MEDIA_SOURCES = ['import', 'photo_original'];
+
 @Injectable()
 export class StudioService {
   constructor(
@@ -175,7 +178,8 @@ export class StudioService {
     const urls = this.storage.urls(3600);
     const out = await this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select * from media_assets where org_id = $1 and content_type like 'image/%' and source <> 'import' order by created_at desc limit $2`, [ctx.orgId, Math.min(limit, 200)]);
+        `select * from media_assets where org_id = $1 and content_type like 'image/%' and source <> all($3::text[]) order by created_at desc limit $2`,
+        [ctx.orgId, Math.min(limit, 200), PRIVATE_MEDIA_SOURCES]);
       const used = await this.usedMedia(tx, ctx);
       const items = rows.map((r) => urls.set(toMedia(r, '', used.has(r.id)), 'url', r.path, { fallback: '', variants: r.variants, minWidth: 640 }));
       return { items, nextCursor: null };
@@ -303,7 +307,9 @@ export class StudioService {
   private async missingMedia(tx: Tx, ctx: TenantContext, ids: string[]) {
     const unique = [...new Set(ids)];
     if (!unique.length) return [];
-    const rows = await tx.query<{ id: string }>('select id from media_assets where org_id = $1 and id = any($2::uuid[])', [ctx.orgId, unique]);
+    // Private inputs (menu-import files, untouched food-photo originals) cannot be placed on the website.
+    const rows = await tx.query<{ id: string }>('select id from media_assets where org_id = $1 and id = any($2::uuid[]) and source <> all($3::text[])',
+      [ctx.orgId, unique, PRIVATE_MEDIA_SOURCES]);
     const found = new Set(rows.map((r) => r.id));
     return unique.filter((id) => !found.has(id));
   }
