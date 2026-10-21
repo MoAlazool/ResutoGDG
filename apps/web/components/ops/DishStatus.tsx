@@ -22,11 +22,16 @@ export function DishStatus({ p, branchId, timezone }: { p: Product; branchId: st
   return <Badge tone="ok">{t('core.menu.available')}</Badge>;
 }
 
-/** Portions left (legacy badge, red under 6); "—" with the reason when the dish has no recipe or stock count. */
+/** Portions left (legacy badge, red under 6); "—" with the reason when the dish has no recipe or stock count, or when
+ * the viewer's role may not read stock (the API leaves recipe portions out). */
 export function PortionsCell({ p, branchId }: { p: Product; branchId: string }) {
   const { t, locale } = useT();
   const n = portionsOf(p, branchId);
-  if (n === null) return <span className="fine" title={t('ops.menu.portionsUntracked')}>—<span className="sr-only"> {t('ops.menu.portionsUntracked')}</span></span>;
+  if (n === null) {
+    // No recipe and no count, or (recipePortions left out) a role that may not read stock levels.
+    const why = !p.trackStock && p.recipePortions === undefined ? t('ops.menu.portionsHidden') : t('ops.menu.portionsUntracked');
+    return <span className="fine" title={why}>—<span className="sr-only"> {why}</span></span>;
+  }
   return (
     <Badge tone={n.count < LOW_STOCK ? 'danger' : 'ok'}>
       <span className="num" title={n.source === 'recipe' ? t('ops.menu.portionsFromRecipe') : undefined}>{formatNumber(n.count, locale)}</span>

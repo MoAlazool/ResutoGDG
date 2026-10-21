@@ -186,7 +186,10 @@ export interface Product {
   branchSettings: ProductBranchSettingView[]; modifierGroupIds: string[];
   /**
    * Portions the ingredients on hand can make, per active branch (the scarcest ingredient of the recipe decides,
-   * gallery PAR-03). Null when the dish has no recipe, so its portions are not tracked by ingredients.
+   * gallery PAR-03). Null when the dish has no recipe, so its portions are not tracked by ingredients. Left out
+   * (undefined) when the caller may not read stock: the counts are derived from stock levels, so GET /o/:orgId/menu
+   * includes them only for inventory:read or kitchen:operate (owner, admin, manager, kitchen), not for menu:read-only
+   * roles such as cashier, waiter or marketing.
    */
   recipePortions?: Array<{ branchId: string; portions: number }> | null;
 }

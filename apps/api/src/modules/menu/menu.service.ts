@@ -88,7 +88,7 @@ export class MenuService {
       const org = await tx.one<{ currency: string }>('select currency from organizations where id = $1', [ctx.orgId]);
       const menus = await tx.query('select id, name, name_ar, branch_id, is_active from menus where org_id = $1 order by sort_order, created_at', [ctx.orgId]);
       const categories = await tx.query('select * from menu_categories where org_id = $1 order by sort_order, created_at', [ctx.orgId]);
-      const products = await this.loadProducts(tx, ctx.orgId, null, urls);
+      const products = await this.loadProducts(tx, ctx, null, urls);
       const modifierGroups = await this.loadGroups(tx, ctx.orgId, null, false);
       const stations = await tx.query<{ station: string }>(
         `select distinct station from (select station from products where org_id = $1 and is_active
@@ -107,7 +107,7 @@ export class MenuService {
   async getProduct(ctx: TenantContext, productId: string): Promise<Product> {
     const urls = this.storage.urls(MENU_IMAGE_TTL_SECONDS);
     const product = await this.db.scoped(ctx, async (tx) => {
-      const [p] = await this.loadProducts(tx, ctx.orgId, [productId], urls);
+      const [p] = await this.loadProducts(tx, ctx, [productId], urls);
       if (!p) throw notFound('Product');
       return p;
     });
@@ -119,7 +119,8 @@ export class MenuService {
    * Products with their image URLs. The URLs are filled when the caller resolves `urls` after its transaction (PCL-11:
    * a helper that receives a transaction never calls storage).
    */
-  private async loadProducts(tx: Tx, orgId: string, ids: string[] | null, urls: MediaUrls): Promise<Product[]> {
+  private async loadProducts(tx: Tx, ctx: TenantContext, ids: string[] | null, urls: MediaUrls): Promise<Product[]> {
+    const orgId = ctx.orgId;
     const own = urls;
     const rows = await tx.query<any>(
       `select p.*, m.path as media_path from products p left join media_assets m on m.id = p.image_media_id
@@ -131,7 +132,11 @@ export class MenuService {
     const groups = await tx.query<any>('select product_id, group_id from product_modifier_groups where product_id = any($1::uuid[]) order by sort_order', [productIds]);
     // Ingredient-tracked portions (legacy "Portions" column, PAR-03): per branch, the scarcest recipe ingredient decides
     // (stock on hand / quantity per portion, rounded down, never below zero). Stock levels follow branch scope (RLS).
-    const portions = await tx.query<{ product_id: string; branch_id: string; portions: number }>(
+    // They are derived from stock levels, so only a caller who may read stock gets them (inventory:read, or the kitchen's
+    // kitchen:operate); for menu:read-only roles (cashier, waiter, marketing) `recipePortions` is left out of the product
+    // (undefined), which is distinct from null = "no recipe" (review of PAR-03).
+    const seesStock = ctx.can('inventory:read') || ctx.can('kitchen:operate');
+    const portions = !seesStock ? [] : await tx.query<{ product_id: string; branch_id: string; portions: number }>(
       `select rc.product_id, b.id as branch_id,
               min(floor(greatest(coalesce(sl.quantity, 0), 0) / rc.quantity))::int as portions
          from recipe_components rc
@@ -153,7 +158,9 @@ export class MenuService {
           soldOutReason: s.sold_out_now ? s.sold_out_reason : null,
         })),
         modifierGroupIds: groups.filter((g) => g.product_id === r.id).map((g) => g.group_id),
-        recipePortions: ((xs) => (xs.length ? xs.map((x) => ({ branchId: x.branch_id, portions: Number(x.portions) })) : null))(portions.filter((x) => x.product_id === r.id)),
+        ...(seesStock ? {
+          recipePortions: ((xs) => (xs.length ? xs.map((x) => ({ branchId: x.branch_id, portions: Number(x.portions) })) : null))(portions.filter((x) => x.product_id === r.id)),
+        } : {}),
       } as Product, 'imageUrl', r.media_path, { fallback: r.image_url ?? null }));
     }
     return out;
@@ -261,7 +268,7 @@ export class MenuService {
           input.calories ?? null, input.imageUrl ?? null, input.isActive ?? true, input.trackStock ?? false, input.sortOrder ?? next,
           input.externalRef ?? null]);
       await this.changed(tx, ctx, 'menu.product.created', 'product', row.id);
-      return (await this.loadProducts(tx, ctx.orgId, [row.id], urls))[0]!;
+      return (await this.loadProducts(tx, ctx, [row.id], urls))[0]!;
     });
     await urls.resolve();
     return product;
@@ -284,7 +291,7 @@ export class MenuService {
           fields: entries.map(([k]) => k), ...(patch.priceMinor !== undefined && patch.priceMinor !== current.price_minor ? { priceFrom: current.price_minor, priceTo: patch.priceMinor } : {}),
         });
       }
-      return (await this.loadProducts(tx, ctx.orgId, [id], urls))[0]!;
+      return (await this.loadProducts(tx, ctx, [id], urls))[0]!;
     });
     await urls.resolve();
     return product;
@@ -311,7 +318,7 @@ export class MenuService {
       const media = await this.storage.record(tx, ctx, stored, { alt });
       await tx.query('update products set image_media_id = $2, image_url = null, version = version + 1 where id = $1', [id, media.id]);
       await this.changed(tx, ctx, 'menu.product.image_uploaded', 'product', id, { mediaId: media.id });
-      return (await this.loadProducts(tx, ctx.orgId, [id], urls))[0]!;
+      return (await this.loadProducts(tx, ctx, [id], urls))[0]!;
     });
     await urls.resolve();
     return product;
@@ -500,7 +507,7 @@ export class MenuService {
       }
       await tx.query('update products set version = version + 1 where id = $1', [productId]);
       await this.changed(tx, ctx, 'menu.product.modifiers_assigned', 'product', productId, { groupIds: unique });
-      return (await this.loadProducts(tx, ctx.orgId, [productId], urls))[0]!;
+      return (await this.loadProducts(tx, ctx, [productId], urls))[0]!;
     });
     await urls.resolve();
     return product;

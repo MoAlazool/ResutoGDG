@@ -39,6 +39,9 @@ describe('dish availability (PAR-08)', () => {
     expect(rowOf(html, 'Dish own')).toMatch(/badge-ok[^>]*><span class="num"[^>]*>12</);
     expect(rowOf(html, 'Dish recipe')).toMatch(/badge-danger[^>]*><span class="num" title="From the ingredients in stock \(recipe\)">4</);
     expect(rowOf(html, 'Dish untracked')).toContain('Not tracked: this dish has no recipe or stock count');
+    // Recipe portions left out by the API (a role without inventory:read): "—" says why, not "no recipe".
+    const hidden = render(h(AvailabilityTable, { rows: [dish('hidden', { recipePortions: undefined })], branchId: B }));
+    expect(rowOf(hidden, 'Dish hidden')).toContain('Portions from ingredients are shown to roles with inventory access');
     expect(rowOf(html, 'Dish own')).toMatch(/badge-ok[^>]*>Available</);
     expect(rowOf(html, 'Dish own')).toContain('Sold out today');
     expect(rowOf(html, 'Dish own')).toContain('href="/dashboard/o/menu"');

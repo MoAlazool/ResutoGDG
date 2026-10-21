@@ -195,6 +195,23 @@ describe('recipes and kernel sales', () => {
     const north = again.body.products.find((p: any) => p.id === menu.products.burger).recipePortions.find((r: any) => r.branchId === branchB);
     expect(north.portions).toBe(0);
   });
+
+  it('gives recipe portions only to roles that may read stock; menu:read-only roles do not get them (review of PAR-03)', async () => {
+    const burgerFor = async (who: TestUser) => {
+      const res = await t.http.get(`/v1/o/${tenant.orgId}/menu`).set(auth(who));
+      expect(res.status).toBe(200);
+      return res.body.products.find((p: any) => p.id === menu.products.burger);
+    };
+    for (const role of ['cashier', 'waiter', 'marketing']) {
+      const burger = await burgerFor(await addMember(t, tenant, role));
+      expect(burger, role).toBeDefined();
+      expect('recipePortions' in burger, `${role} must not see stock-derived portions`).toBe(false);
+    }
+    for (const role of ['kitchen', 'manager']) {
+      const burger = await burgerFor(await addMember(t, tenant, role));
+      expect(Array.isArray(burger.recipePortions), role).toBe(true);
+    }
+  });
 });
 
 describe('low-stock detection', () => {
