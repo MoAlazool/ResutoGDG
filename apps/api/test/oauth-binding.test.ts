@@ -30,7 +30,7 @@ const route = (c: RecordedRequest) => `${c.method} ${new URL(c.url).pathname}`;
 async function start(tenant: TestTenant, provider: string, user = tenant.owner) {
   const b = browser();
   const res = await t.http.post(`/v1/o/${tenant.orgId}/integrations/oauth/${provider}/start`).set(auth(user)).send({ browserBinding: b.binding });
-  expect(res.status).toBe(201);
+  expect(res.status).toBe(200);
   const url = new URL(res.body.url);
   return { ...b, url, state: url.searchParams.get('state')! };
 }
@@ -89,7 +89,7 @@ describe('PS-11: state bound to the initiating browser and user', () => {
     // The real starter, in the real browser, still can (state not consumed by the refusals) — and only once.
     script(metaExchange([{ id: 'act_1', account_id: '1', name: 'Only', currency: 'EGP', account_status: 1 }, { id: 'act_2', account_id: '2', name: 'Two', currency: 'EGP', account_status: 1 }]));
     const ok = await complete(attacker, 'meta_ads', { code: 'own-code', state: s.state, browserNonce: s.nonce });
-    expect(ok.status).toBe(201);
+    expect(ok.status).toBe(200);
     expect((await complete(attacker, 'meta_ads', { code: 'own-code', state: s.state, browserNonce: s.nonce })).body.error.code).toBe('oauth_state_invalid');
   });
 });
@@ -101,7 +101,7 @@ describe('INT-11: Meta long-lived token, account picker, appsecret_proof, revoca
     const f = script(metaExchange([{ id: 'act_111', account_id: '111', name: 'Olive Room', currency: 'EGP', account_status: 1 },
       { id: 'act_222', account_id: '222', name: 'Old brand', currency: 'USD', account_status: 101 }]));
     const res = await complete(tenant, 'meta_ads', { code: 'c0de', state: s.state, browserNonce: s.nonce });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ needsAccountSelection: true, accounts: [{ id: 'act_111', name: 'Olive Room' }, { id: 'act_222', status: 'CLOSED' }],
       connection: { provider: 'meta_ads', status: 'pending', config: { tokenSource: 'platform_app', tokenKind: 'user', metaUserId: '10229' } } });
     expect(f.calls.map(route)).toEqual(['GET /v26.0/oauth/access_token', 'GET /v26.0/oauth/access_token', 'GET /v26.0/me', 'GET /v26.0/me/adaccounts']);
@@ -120,7 +120,7 @@ describe('INT-11: Meta long-lived token, account picker, appsecret_proof, revoca
     expect(bad.body.error.code).toBe('account_not_granted');
     const h = script([{ body: { id: 'act_111', name: 'Olive Room', currency: 'EGP', account_status: 1 } }]);
     const picked = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${id}/account`).set(auth(tenant.owner)).send({ accountId: 'act_111' });
-    expect(picked.status).toBe(201);
+    expect(picked.status).toBe(200);
     expect(picked.body).toMatchObject({ status: 'connected', config: { adAccountId: 'act_111' } });
     const hu = new URL(h.calls[0]!.url);
     expect(hu.pathname).toBe('/v26.0/act_111');
@@ -140,7 +140,7 @@ describe('INT-11: Meta long-lived token, account picker, appsecret_proof, revoca
     const c = (await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections`).set(auth(tenant.owner))
       .send({ provider: 'meta_ads', environment: 'live', credentials: { accessToken: 'EAAB-pasted-token' }, config: { adAccountId: '123', metaUserId: '55' } })).body;
     const h = script([{ body: { id: 'act_123', account_status: 1 } }]);
-    await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${c.id}/health`).set(auth(tenant.owner)).expect(201);
+    await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${c.id}/health`).set(auth(tenant.owner)).expect(200);
     expect(new URL(h.calls[0]!.url).searchParams.get('appsecret_proof')).toBeNull();
     script([{ status: 500, body: { error: { message: 'unknown', code: 1 } } }]);
     const rev = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${c.id}/revoke`).set(auth(tenant.owner));
@@ -246,7 +246,7 @@ describe('INT-21: the Facebook Page (Messenger / Instagram) connects with Facebo
     const s = await start(tenant, 'meta_pages');
     const f = script(metaExchange(pages));
     const done = await complete(tenant, 'meta_pages', { code: 'auth-code', state: s.state, browserNonce: s.nonce });
-    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
     expect(f.calls.map(route)).toEqual(['GET /v26.0/oauth/access_token', 'GET /v26.0/oauth/access_token', 'GET /v26.0/me', 'GET /v26.0/me/accounts']);
     expect(done.body).toMatchObject({ needsAccountSelection: true, connection: { provider: 'meta_pages', authType: 'oauth', category: 'messaging', status: 'pending' } });
     expect(done.body.accounts.map((a: any) => a.id)).toEqual(['1111111111', '2222222222']);
@@ -266,7 +266,7 @@ describe('INT-21: the Facebook Page (Messenger / Instagram) connects with Facebo
       { body: { instagram_business_account: { id: '1784000', username: 'smash' } } },
     ]);
     const chosen = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${id}/account`).set(auth(tenant.owner)).send({ accountId: '2222222222' });
-    expect(chosen.status, JSON.stringify(chosen.body)).toBe(201);
+    expect(chosen.status, JSON.stringify(chosen.body)).toBe(200);
     expect(sel.calls.map(route)).toEqual(['GET /v26.0/2222222222', 'GET /v26.0/me', 'GET /v26.0/2222222222']);
     expect(sel.calls[0]!.headers.authorization).toBe('Bearer EAAB-long-lived');
     expect(sel.calls[1]!.headers.authorization).toBe('Bearer EAAPage-smash-own');
@@ -297,7 +297,7 @@ describe('INT-21: the Facebook Page (Messenger / Instagram) connects with Facebo
     const s = await start(tenant, 'meta_pages');
     script([...metaExchange([pages[0]!]), { body: { id: '1111111111', name: 'Olive Room', access_token: 'EAAPage-olive-own' } }, { body: { id: '1111111111', name: 'Olive Room' } }]);
     const done = await complete(tenant, 'meta_pages', { code: 'auth-code', state: s.state, browserNonce: s.nonce });
-    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
     expect(done.body).toMatchObject({ needsAccountSelection: false, connection: { status: 'connected', config: { pageId: '1111111111' } } });
     expect(done.body.connection.config.instagramAccountId).toBeUndefined();
 

@@ -124,7 +124,7 @@ describe('F2: health status never takes in-flight payments offline (R1 inverted)
     await ageHealth(conn, 7);
     expect(await health.scheduledHealth(new Date(), { orgId: k.tenant.orgId })).toEqual({ checked: 1, failed: 0, unreachable: 1 });
     const manual = await t.http.post(`/v1/o/${k.tenant.orgId}/integrations/connections/${conn}/health`).set(auth(k.tenant.owner));
-    expect(manual.status).toBe(201);
+    expect(manual.status).toBe(200);
     expect(manual.body).toMatchObject({ status: 'connected', lastError: null, health: { ok: false, transient: true } });
     const row = await connRow(conn);
     expect(row.status).toBe('connected');
@@ -166,7 +166,7 @@ describe('F2: health status never takes in-flight payments offline (R1 inverted)
 
     // "Edit settings" on a connected connection re-runs the check (status pending): webhooks keep working meanwhile.
     scriptHealth(s);
-    await t.http.post(`/v1/o/${k.tenant.orgId}/integrations/connections/${conn}/health`).set(auth(k.tenant.owner)).expect(201);
+    await t.http.post(`/v1/o/${k.tenant.orgId}/integrations/connections/${conn}/health`).set(auth(k.tenant.owner)).expect(200);
     const c = await stripeCheckout(k, conn);
     const patched = await t.http.patch(`/v1/o/${k.tenant.orgId}/integrations/connections/${conn}`).set(auth(k.tenant.owner)).send({ config: {} });
     expect(patched.status, JSON.stringify(patched.body)).toBe(200);
@@ -180,7 +180,7 @@ describe('F2: health status never takes in-flight payments offline (R1 inverted)
     const secret = 'whsec_f2c';
     const conn = (await connect(t, k.tenant, 'stripe', { secretKey: 'sk_test_f2c', webhookSecret: secret })).id;
     const a = await stripeCheckout(k, conn);
-    await t.http.post(`/v1/o/${k.tenant.orgId}/integrations/connections/${conn}/revoke`).set(auth(k.tenant.owner)).expect(201);
+    await t.http.post(`/v1/o/${k.tenant.orgId}/integrations/connections/${conn}/revoke`).set(auth(k.tenant.owner)).expect(200);
     expect((await sendStripe(conn, secret, stripeCompleted(a.csId, a.order.totalMinor))).status).toBe(401);
   });
 });

@@ -129,6 +129,7 @@ export class DriverController {
     return this.push.unsubscribe(ctx, deviceIdSchema.parse(deviceId));
   }
 
+  @HttpCode(200)
   @Post('me/push/:deviceId/test')
   @RequirePermission('delivery:drive')
   pushTest(@Tenant() ctx: TenantContext, @Param('deviceId') deviceId: string) {

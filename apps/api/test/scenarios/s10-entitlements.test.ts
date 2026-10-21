@@ -106,7 +106,7 @@ describe('S10 entitlements: Free → 402, upgrade → unlocked, past due beyond 
     expect(cod.status, JSON.stringify(cod.body)).toBe(201);
     const cashier = await addMember(t, free, 'cashier');
     const paid = await t.http.post(`/v1/o/${free.orgId}/orders/${cod.body.order.id}/collect`).set(auth(cashier)).set('Idempotency-Key', key()).send({ method: 'cash' });
-    expect(paid.status, JSON.stringify(paid.body)).toBe(201);
+    expect(paid.status, JSON.stringify(paid.body)).toBe(200);
     await t.app.get(EventDispatcher).drain();
     expect((await sql(`select count(*)::int as n from delivery_jobs where order_id = $1`, [cod.body.order.id]))[0].n).toBe(0);
     expect((await sql(`select count(*)::int as n from fiscal_documents where order_id = $1`, [cod.body.order.id]))[0].n).toBe(0);

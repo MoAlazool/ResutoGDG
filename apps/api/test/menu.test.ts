@@ -35,7 +35,7 @@ describe('menu CRUD', () => {
     expect(p.body).toMatchObject({ name: 'Koshari', nameAr: 'كشري', station: 'Grill', priceMinor: 9500, currency: 'EGP', version: 0, allergens: ['wheat'] });
 
     const reorder = await t.http.post(`${base()}/categories/reorder`).set(auth(tenant.owner)).send({ ids: [drinks.body.id, categoryId] });
-    expect(reorder.status).toBe(201);
+    expect(reorder.status).toBe(200);
     const view = await t.http.get(base()).set(auth(tenant.owner));
     expect(view.status).toBe(200);
     expect(view.body.categories.filter((c: any) => c.isActive).map((c: any) => c.name)).toEqual(['Drinks', 'Mains']);
@@ -63,7 +63,7 @@ describe('menu CRUD', () => {
   it('lets the kitchen 86 an item but not edit the menu', async () => {
     const p = await t.http.post(`${base()}/products`).set(auth(tenant.owner)).send({ categoryId, name: 'Molokhia', priceMinor: 7000 });
     const off = await t.http.post(`${base()}/products/${p.body.id}/availability`).set(auth(kitchen)).send({ branchId: tenant.branchId, available: false });
-    expect(off.status).toBe(201);
+    expect(off.status).toBe(200);
     expect(off.body).toMatchObject({ available: false, offered: true, soldOut: true });
     // An 86 is "sold out", not "not offered": the dish stays on the guest menu, shown as sold out (FT-02 / DF-01;
     // this test used to expect it to disappear, which is what made a kitchen 86 look like a menu change to guests).
@@ -122,7 +122,7 @@ describe('menu CRUD', () => {
   it('uploads a product image through storage and serves a signed URL', async () => {
     const p = await t.http.post(`${base()}/products`).set(auth(tenant.owner)).send({ categoryId, name: 'Feteer', priceMinor: 9000 });
     const up = await t.http.post(`${base()}/products/${p.body.id}/image`).set(auth(tenant.owner)).attach('file', PNG, { filename: 'f.png', contentType: 'image/png' });
-    expect(up.status).toBe(201);
+    expect(up.status).toBe(200);
     expect(up.body.imageMediaId).toBeTruthy();
     expect(up.body.imageUrl).toMatch(/^http:\/\/api\.test\/v1\/media\//);
     const fake = await t.http.post(`${base()}/products/${p.body.id}/image`).set(auth(tenant.owner)).attach('file', Buffer.from('not an image'), { filename: 'x.png', contentType: 'image/png' });
@@ -176,7 +176,7 @@ describe('menu import (§8 rows)', () => {
       { name: 'foul', category: 'Breakfast', priceMinor: 0 },
     ];
     const bad = await t.http.post(`${base()}/import/preview`).set(auth(tenant.owner)).send({ rows, source: 'foodics' });
-    expect(bad.status).toBe(201);
+    expect(bad.status).toBe(200);
     expect(bad.body.summary).toMatchObject({ total: 3, create: 3, errors: 1, newCategories: ['Breakfast'] });
     expect(bad.body.rows[2].errors).toEqual(expect.arrayContaining(['Duplicate item', 'Price must be a positive amount with up to two decimals']));
     const refused = await t.http.post(`${base()}/import/commit`).set(auth(tenant.owner)).send({ rows, source: 'foodics', key: 'import-bad-1' });
@@ -186,7 +186,7 @@ describe('menu import (§8 rows)', () => {
     const good = rows.slice(0, 2);
     const commit = () => t.http.post(`${base()}/import/commit`).set(auth(tenant.owner)).send({ rows: good, source: 'foodics', key: 'import-good-1' });
     const first = await commit();
-    expect(first.status).toBe(201);
+    expect(first.status).toBe(200);
     expect(first.body).toEqual({ created: 2, updated: 0, categoriesCreated: ['Breakfast'] });
     const replay = await commit();
     expect(replay.body).toEqual(first.body);
@@ -204,7 +204,7 @@ describe('menu import (§8 rows)', () => {
   it('accepts legacy CSV exports with formula-safe parsing', async () => {
     const csv = 'name,category,price_egp,station,allergens\r\n"Om Ali","Desserts",65.50,Pastry,milk|tree nuts\r\n"Basbousa, honey",Desserts,40,Pastry,\r\n';
     const preview = await t.http.post(`${base()}/import/preview`).set(auth(tenant.owner)).send({ csv, source: 'csv' });
-    expect(preview.status).toBe(201);
+    expect(preview.status).toBe(200);
     expect(preview.body.rows.map((r: any) => [r.item.name, r.item.priceMinor, r.item.allergens])).toEqual([
       ['Om Ali', 6550, ['milk', 'tree nuts']], ['Basbousa, honey', 4000, []],
     ]);

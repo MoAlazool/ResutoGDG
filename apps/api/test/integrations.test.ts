@@ -89,7 +89,7 @@ describe('connections and credentials', () => {
   it('runs a health check through the adapter and records health and logs', async () => {
     http.fetch = scriptedFetch([{ body: { data: { business: { name: 'Koshary Hub', reference: 123 } } } }]).fetch;
     const ok = await t.http.post(api(`/connections/${connId}/health`)).set(auth(tenant.owner));
-    expect(ok.status).toBe(201);
+    expect(ok.status).toBe(200);
     expect(ok.body).toMatchObject({ status: 'connected', lastError: null, health: { ok: true, details: { business: 'Koshary Hub' } } });
     http.fetch = scriptedFetch([{ status: 401, body: { message: 'Unauthenticated.' } }]).fetch;
     const bad = await t.http.post(api(`/connections/${connId}/health`)).set(auth(tenant.owner));
@@ -109,7 +109,7 @@ describe('connections and credentials', () => {
     let f = scriptedFetch(pages.map((body) => ({ body })));
     http.fetch = f.fetch;
     const run = await t.http.post(api(`/connections/${connId}/sync`)).set(auth(tenant.owner)).send({ resource: 'menu', maxPages: 1 });
-    expect(run.status).toBe(201);
+    expect(run.status).toBe(200);
     expect(run.body.run).toMatchObject({ status: 'partial', stats: { pages: 1, fetched: 2, conflicts: 1, unchanged: 1, importable: 0, nextCursor: '2' } });
     expect(run.body.importSource).toBe('foodics');
     // Resume from the stored cursor.

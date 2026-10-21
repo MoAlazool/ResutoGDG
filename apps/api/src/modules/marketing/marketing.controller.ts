@@ -60,6 +60,7 @@ export class MarketingController {
     return this.segments.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('segments/:id/refresh')
   @RequirePermission('marketing:write')
   refresh(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.segments.refresh(ctx, id); }
@@ -116,34 +117,41 @@ export class MarketingController {
     return this.campaigns.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/submit')
   @RequirePermission('marketing:write')
   submit(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.submit(ctx, id); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/approve')
   @RequirePermission('marketing:approve')
   approve(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.approve(ctx, id); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/reject')
   @RequirePermission('marketing:approve')
   reject(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(rejectCampaign)) body: z.infer<typeof rejectCampaign>) {
     return this.campaigns.reject(ctx, id, body.reason);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/schedule')
   @RequirePermission('marketing:write')
   schedule(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(scheduleCampaign)) body: z.infer<typeof scheduleCampaign>) {
     return this.campaigns.schedule(ctx, id, body.scheduledAt);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/send')
   @RequirePermission('marketing:write')
   send(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Headers('idempotency-key') key?: string) { return this.campaigns.sendNow(ctx, id, key); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/cancel')
   @RequirePermission('marketing:write')
   cancel(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.cancel(ctx, id); }
 
+  @HttpCode(200)
   @Post('campaigns/:id/launch')
   @RequirePermission('marketing:write')
   launch(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(launchCampaign)) body: z.infer<typeof launchCampaign>,
@@ -152,12 +160,14 @@ export class MarketingController {
   }
 
   /** PS-14: the owner checked the provider and no campaign carries the launch tag: release the stuck launch. */
+  @HttpCode(200)
   @Post('campaigns/:id/launch/reset')
   @RequirePermission('marketing:approve')
   resetLaunch(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(resetCampaignLaunch)) _body: z.infer<typeof resetCampaignLaunch>) {
     return this.campaigns.resetLaunch(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('campaigns/:id/insights/sync')
   @RequirePermission('marketing:write')
   insights(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(adInsightsSync)) body: z.infer<typeof adInsightsSync>) {
@@ -203,6 +213,7 @@ export class MarketingController {
   @RequirePermission('marketing:read')
   metaTracking(@Tenant() ctx: TenantContext) { return this.tracking.diagnostics(ctx); }
 
+  @HttpCode(200)
   @Post('tracking/meta/test-event')
   @RequirePermission('marketing:write')
   metaTestEvent(@Tenant() ctx: TenantContext, @Req() req: Request) {
@@ -214,12 +225,14 @@ export class MarketingController {
   @RequirePermission('marketing:read')
   sinkTracking(@Tenant() ctx: TenantContext, @Param('provider') provider: string) { return this.tracking.diagnosticsFor(ctx, TRACKING_SINK.parse(provider)); }
 
+  @HttpCode(200)
   @Post('tracking/sinks/:provider/test-event')
   @RequirePermission('marketing:write')
   sinkTestEvent(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Req() req: Request) {
     return this.tracking.sendTestEvent(ctx, typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null, TRACKING_SINK.parse(provider));
   }
 
+  @HttpCode(200)
   @Post('segments/:id/meta-audience/dry-run')
   @RequirePermission('marketing:write')
   audienceDryRun(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.tracking.audienceDryRun(ctx, id); }

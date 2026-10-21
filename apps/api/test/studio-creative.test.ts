@@ -76,7 +76,7 @@ describe('applying approved copy', () => {
     expect(ok.body).toMatchObject({ status: 'approved', reviewedBy: a.owner.userId });
     const [before] = await sql<any>(`select version from products where id = $1`, [menu.products.burger]);
     const res = await apply(a, gen.body.id, { variant: 0, key, target });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body.status).toBe('used');
     expect(res.body.applications).toHaveLength(1);
     expect(res.body.applications[0]).toMatchObject({ target: 'product_description', targetId: menu.products.burger, variant: 0, key, appliedBy: a.owner.userId });
@@ -87,7 +87,7 @@ describe('applying approved copy', () => {
 
     // Same key: the recorded result, nothing applied twice. Same key for something else: refused.
     const again = await apply(a, gen.body.id, { variant: 0, key, target });
-    expect(again.status).toBe(201);
+    expect(again.status).toBe(200);
     expect(again.body.applications).toHaveLength(1);
     expect((await sql<any>(`select version from products where id = $1`, [menu.products.burger]))[0].version).toBe(after.version);
     const reused = await apply(a, gen.body.id, { variant: 0, key, target: { kind: 'product_description', productId: menu.products.fries } });
@@ -114,7 +114,7 @@ describe('applying approved copy', () => {
     await approve(a, gen.body.id);
     const [before] = await sql<any>(`select description from products where id = $1`, [menu.products.fries]);
     const res = await apply(a, gen.body.id, { variant: 0, key: 'apply-desc-ar-0001', target: { kind: 'product_description', productId: menu.products.fries } });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     const [p] = await sql<any>(`select description, description_ar from products where id = $1`, [menu.products.fries]);
     expect(p.description_ar).toBe(gen.body.output.variants[0].text);
     expect(p.description).toBe(before.description);
@@ -130,7 +130,7 @@ describe('applying approved copy', () => {
     expect(wrong.body.error.code).toBe('target_not_supported');
 
     const res = await apply(a, gen.body.id, { variant: 0, key: 'apply-web-key-0001', target: { kind: 'website_section', sectionId: about.id } });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     const after = (await t.http.get(`/v1/o/${a.orgId}/studio/website`).set(auth(a.owner))).body;
     const section = after.sections.find((s: any) => s.id === about.id);
     expect(section.content.headline.en).toBe(gen.body.output.variants[0].title);
@@ -143,7 +143,7 @@ describe('applying approved copy', () => {
     const gen = await generate(a, { kind: 'caption', locale: 'en', brief: 'Two-for-one shakes on Thursdays' });
     await approve(a, gen.body.id);
     const res = await apply(a, gen.body.id, { variant: 0, key: 'apply-camp-key-001', target: { kind: 'campaign_draft', channel: 'organic', name: 'Thursday shakes' } });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     const app = res.body.applications[0];
     const [c] = await sql<any>(`select name, status, source, channel, content from campaigns where id = $1 and org_id = $2`, [app.targetId, a.orgId]);
     expect(c).toMatchObject({ name: 'Thursday shakes', status: 'draft', source: 'ai', channel: 'organic' });
@@ -160,7 +160,7 @@ describe('applying approved copy', () => {
     expect((await apply(a, desc.body.id, { variant: 0, key: 'apply-mkt-menu-01', target: { kind: 'product_description', productId: menu.products.soda } }, marketing)).status).toBe(403);
     const other = await generate(a, { kind: 'post', locale: 'ar', brief: 'عرض الخميس على المشروبات' });
     await approve(a, other.body.id);
-    expect((await apply(a, other.body.id, { variant: 0, key: 'apply-mkt-camp-01', target: { kind: 'campaign_draft', channel: 'whatsapp' } }, marketing)).status).toBe(201);
+    expect((await apply(a, other.body.id, { variant: 0, key: 'apply-mkt-camp-01', target: { kind: 'campaign_draft', channel: 'whatsapp' } }, marketing)).status).toBe(200);
     const waiter = await addMember(t, a, 'waiter');
     expect((await apply(a, other.body.id, { variant: 0, key: 'apply-waiter-0001', target: { kind: 'campaign_draft', channel: 'organic' } }, waiter)).status).toBe(403);
 
@@ -176,7 +176,7 @@ describe('applying approved copy', () => {
 describe('legacy generate-copy endpoint', () => {
   it('still answers but is marked deprecated in favour of Studio creative', async () => {
     const res = await t.http.post(`/v1/o/${a.orgId}/intelligence/generate-copy`).set(auth(a.owner)).send({ kind: 'caption', locale: 'en', productId: menu.products.burger });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.headers.deprecation).toBe('true');
     expect(res.body).toMatchObject({ provider: 'template', isFallback: true });
   });

@@ -77,7 +77,7 @@ describe('structured WhatsApp ordering (sandbox)', () => {
     const v0 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     expect(v0.address.line1).toBe('26 July St, building 4, floor 2');
     const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v0.version, lines: [burger(menu, 2), { productId: menu.products.fries, quantity: 1 }] });
-    expect(cart.status).toBe(201);
+    expect(cart.status).toBe(200);
     // (18500 + 3000) × 2 + 4500 = 47500, + 2500 delivery
     expect(cart.body.quote).toMatchObject({ subtotalMinor: 47500, deliveryFeeMinor: 2500, totalMinor: 50000, currency: 'EGP' });
     expect(cart.body.step).toBe('review');
@@ -85,7 +85,7 @@ describe('structured WhatsApp ordering (sandbox)', () => {
     expect(review.payload.buttons.map((b: any) => b.id)).toEqual(['pay:online', 'pay:cod']); // ResutoPay is deployed → online offered
     expect(review.body).toMatch(/Total EGP\s500/);
 
-    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: true }).expect(201);
+    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: true }).expect(200);
     const v1 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const done = await t.http.post(`/v1/public/connect/ordering/${token}/checkout`).send({ version: v1.version, paymentMethod: 'cod', expectedTotalMinor: 50000 });
     expect(done.status).toBe(201);
@@ -181,7 +181,7 @@ describe('structured WhatsApp ordering (sandbox)', () => {
     expect((await outbound(first.conversationId)).length).toBe(before); // bot silent
     // Staff reply works during handoff; then resolving resumes the bot.
     await t.http.post(`/v1/o/${tenant.orgId}/connect/conversations/${first.conversationId}/reply`).set(auth(tenant.owner)).send({ text: 'Hi, Ahmed here', key: 'reply-handoff-1' }).expect(201);
-    await t.http.post(`/v1/o/${tenant.orgId}/connect/conversations/${first.conversationId}/handoff/resolve`).set(auth(tenant.owner)).expect(201);
+    await t.http.post(`/v1/o/${tenant.orgId}/connect/conversations/${first.conversationId}/handoff/resolve`).set(auth(tenant.owner)).expect(200);
     await inbound(t, tenant, channelId, from, { reply: { id: 'ful:pickup' } });
     expect((await lastOutbound(first.conversationId)).body).toContain('What name');
   });

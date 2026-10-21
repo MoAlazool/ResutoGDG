@@ -30,7 +30,7 @@ async function whatsappOrder(from: string, consent: boolean, attribution?: Recor
   const { token } = await walkToMenu(t, tenant, channelId, from, 'pickup');
   const v = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
   const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v.version, lines: [{ productId: menu.fries, quantity: 2 }] });
-  await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: consent }).expect(201);
+  await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: consent }).expect(200);
   const v2 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
   const done = await t.http.post(`/v1/public/connect/ordering/${token}/checkout`)
     .send({ version: v2.version, paymentMethod: 'cod', expectedTotalMinor: PRICES.fries * 2, ...(attribution ? { attribution } : {}) });
@@ -56,7 +56,7 @@ describe('S05 marketing: segment → approved campaign → send → click → at
   it('1. customers build up activity: Amira (WhatsApp, consents), Bassem (WhatsApp, declines), Carla (web, consents)', async () => {
     const a = await whatsappOrder(phones.amira, true);
     const b = await whatsappOrder(phones.bassem, false);
-    for (const o of [a, b]) expect((await collectCash(o.id)).status).toBe(201);
+    for (const o of [a, b]) expect((await collectCash(o.id)).status).toBe(200);
     const web = await t.http.post(`/v1/public/order/${tenant.slug}/orders`).set('Idempotency-Key', key('web')).send({
       branchId: tenant.branchId, fulfillment: 'pickup', payment: 'pay_at_pickup', lines: [{ productId: menu.soda, quantity: 3 }],
       customer: { name: 'Carla', phone: phones.carla, marketingConsent: true }, expectedTotalMinor: PRICES.soda * 3,
@@ -77,7 +77,7 @@ describe('S05 marketing: segment → approved campaign → send → click → at
   it('2. a DSL segment counts its members exactly; invalid rules are rejected', async () => {
     const definition = { op: 'and', rules: [{ type: 'orders_gte', count: 1, withinDays: 30 }] };
     const preview = await t.http.post(mk('/segments/preview')).set(auth(marketer)).send({ definition });
-    expect(preview.status).toBe(201);
+    expect(preview.status).toBe(200);
     expect(preview.body).toEqual({ count: 3, consentedCount: 2 });
     const whatsappOnly = await t.http.post(mk('/segments/preview')).set(auth(marketer))
       .send({ definition: { op: 'and', rules: [{ type: 'consent', value: true }, { type: 'channel', channel: 'web' }] } });
@@ -107,7 +107,7 @@ describe('S05 marketing: segment → approved campaign → send → click → at
 
   it('4. a separate approver (manager) approves; the campaign is locked', async () => {
     const approved = await t.http.post(mk(`/campaigns/${campaign.id}/approve`)).set(auth(manager));
-    expect(approved.status).toBe(201);
+    expect(approved.status).toBe(200);
     expect(approved.body).toMatchObject({ status: 'approved', approvedBy: manager.userId });
     expect(approved.body.approvedBy).not.toBe(marketer.userId);
     expect((await t.http.patch(mk(`/campaigns/${campaign.id}`)).set(auth(marketer)).send({ name: 'Changed' })).body.error.code).toBe('campaign_not_editable');
@@ -115,7 +115,7 @@ describe('S05 marketing: segment → approved campaign → send → click → at
 
   it('5. sending on the sandbox channel reaches only consenting customers with a WhatsApp conversation', async () => {
     const sent = await t.http.post(mk(`/campaigns/${campaign.id}/send`)).set(auth(marketer));
-    expect(sent.status, JSON.stringify(sent.body)).toBe(201);
+    expect(sent.status, JSON.stringify(sent.body)).toBe(200);
     expect(sent.body).toMatchObject({ status: 'sent', isSandbox: true, delivery: { recipients: 3, queued: 1, skippedNoConsent: 1, failed: 1, sandbox: 1, live: 0 } });
     const deliveries = (await t.http.get(mk(`/campaigns/${campaign.id}/deliveries`)).set(auth(marketer))).body.items;
     const by = Object.fromEntries(deliveries.map((d: any) => [d.customerId, d]));
@@ -148,7 +148,7 @@ describe('S05 marketing: segment → approved campaign → send → click → at
     const [row] = await sql(`select campaign_id, attribution from orders where id = $1`, [order.id]);
     expect(row.campaign_id).toBe(campaign.id);
     expect(row.attribution).toMatchObject({ session_key: sessionKey });
-    expect((await collectCash(order.id)).status).toBe(201);
+    expect((await collectCash(order.id)).status).toBe(200);
     await t.app.get(EventDispatcher).drain();
     expect((await sql(`select count(*)::int as n from attribution_events where order_id = $1 and kind = 'order_paid'`, [order.id]))[0].n).toBe(1);
     const report = await t.http.get(mk(`/campaigns/${campaign.id}/report`)).set(auth(marketer));

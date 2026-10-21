@@ -84,7 +84,7 @@ describe('S03 (a) WhatsApp order paid online', () => {
     const badModifier = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v.version, lines: [{ productId: menu.burger, quantity: 1, modifiers: [] }] });
     expect(badModifier.body.error.code).toBe('invalid_modifiers');
     const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v.version, lines: cartLines() });
-    expect(cart.status, JSON.stringify(cart.body)).toBe(201);
+    expect(cart.status, JSON.stringify(cart.body)).toBe(200);
     expect(cart.body.quote).toMatchObject({ subtotalMinor: SUBTOTAL, deliveryFeeMinor: DELIVERY_FEE, totalMinor: TOTAL, currency: 'EGP' });
     expect(cart.body.step).toBe('review');
     expect(cart.body.paymentOnlineAvailable).toBe(true);
@@ -144,7 +144,7 @@ describe('S03 (b) WhatsApp order with cash on delivery', () => {
     const v = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const cart = await t.http.post(`/v1/public/connect/ordering/${token}/cart`).send({ version: v.version, lines: cartLines() });
     expect(cart.body.quote.totalMinor).toBe(TOTAL);
-    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: true }).expect(201);
+    await t.http.post(`/v1/public/connect/ordering/${token}/details`).send({ version: cart.body.version, marketingConsent: true }).expect(200);
     const v2 = (await t.http.get(`/v1/public/connect/ordering/${token}`)).body;
     const res = await t.http.post(`/v1/public/connect/ordering/${token}/checkout`).send({ version: v2.version, paymentMethod: 'cod', expectedTotalMinor: TOTAL });
     expect(res.status, JSON.stringify(res.body)).toBe(201);

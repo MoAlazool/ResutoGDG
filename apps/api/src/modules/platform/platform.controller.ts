@@ -62,6 +62,7 @@ export class PlatformController {
    * Former self-asserted checklist (FT-13): steps are now derived from data (GET /o/:orgId/setup). Only "launched"
    * remains, and it is gated on the required steps; any other step answers 409 setup_step_derived.
    */
+  @HttpCode(200)
   @Post('o/:orgId/onboarding/:step')
   @RequirePermission('org:manage')
   async onboardingStep(@Tenant() ctx: TenantContext, @Param('step') step: string) {

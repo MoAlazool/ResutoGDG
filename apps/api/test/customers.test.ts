@@ -162,7 +162,7 @@ describe('anonymise', () => {
     expect((await t.http.post(`${base}/${omar}/anonymise`).set(auth(manager)).send({ confirm: true, reason: 'GDPR request' })).status).toBe(403);
     expect((await t.http.post(`${base}/${omar}/anonymise`).set(owner()).send({ reason: 'GDPR request' })).status).toBe(400);
     const res = await t.http.post(`${base}/${omar}/anonymise`).set(owner()).send({ confirm: true, reason: 'Guest asked to be forgotten' });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body.ordersRetained).toBe(1);
     const p = await t.http.get(`${base}/${omar}`).set(owner());
     expect(p.body).toMatchObject({ displayName: null, phone: null, email: null, notes: null, tags: [], identities: [], marketingConsent: false });
@@ -187,7 +187,7 @@ describe('merge', () => {
     expect(dup).not.toBe(mona);
     const before = await t.http.get(`${base}/${mona}`).set(owner());
     const res = await t.http.post(`${base}/${mona}/merge`).set(owner()).send({ duplicateId: dup });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ survivorId: mona, moved: { orders: 1, customer_identities: 1 }, consentConflict: true });
     const after = await t.http.get(`${base}/${mona}`).set(owner());
     expect(after.body.totals.orderCount).toBe(before.body.totals.orderCount + 1);

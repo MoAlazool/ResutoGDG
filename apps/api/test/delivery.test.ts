@@ -383,7 +383,7 @@ describe('kitchen hand-over (KDS "Out for delivery")', () => {
     await makeReady(order.id);
     const version = (await sql(`select version from orders where id = $1`, [order.id]))[0].version;
     const bump = await t.http.post(K(`/orders/${order.id}/bump`)).set(auth(manager)).send({ to: 'delivered', version });
-    expect(bump.status, JSON.stringify(bump.body)).toBe(201);
+    expect(bump.status, JSON.stringify(bump.body)).toBe(200);
     expect(bump.body).toMatchObject({ status: 'ready', handedToDriver: true });
     const [o] = await sql(`select status, payment_status from orders where id = $1`, [order.id]);
     expect(o).toMatchObject({ status: 'ready', payment_status: 'unpaid' });

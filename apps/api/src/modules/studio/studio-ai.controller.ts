@@ -62,12 +62,14 @@ export class StudioAiController {
     return this.extraction.updateDraft(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('menu-import/jobs/:jobId/commit')
   @RequirePermission('menu:write')
   commit(@Tenant() ctx: TenantContext, @Param('jobId', uuid) id: string, @Body(zod(commitExtraction)) body: CommitExtraction) {
     return this.extraction.commit(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('menu-import/jobs/:jobId/discard')
   @RequirePermission('menu:write')
   discard(@Tenant() ctx: TenantContext, @Param('jobId', uuid) id: string) {

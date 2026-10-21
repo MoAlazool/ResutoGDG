@@ -94,7 +94,7 @@ describe('staff orders', () => {
     const stale = await t.http.post(o(`/${a.body.id}/cancel`)).set(auth(tenant.owner)).send({ reason: 'Changed mind', version: 7 });
     expect(stale.body.error.code).toBe('stale_order');
     const ok = await t.http.post(o(`/${a.body.id}/cancel`)).set(auth(tenant.owner)).send({ reason: 'Changed mind', version: 0 });
-    expect(ok.status).toBe(201);
+    expect(ok.status).toBe(200);
     expect(ok.body.status).toBe('cancelled');
 
     const paid = await t.http.post(o()).set(auth(waiter)).set('Idempotency-Key', key()).send(pickup());

@@ -50,18 +50,21 @@ export class ReservationsController {
     return this.reservations.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post(':id/cancel')
   @RequirePermission('reservations:write')
   cancel(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(reservationCancelRequest)) body: { reason?: string | null }) {
     return this.reservations.staffCancel(ctx, id, body.reason);
   }
 
+  @HttpCode(200)
   @Post(':id/no-show')
   @RequirePermission('reservations:write')
   noShow(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string) {
     return this.reservations.noShow(ctx, id);
   }
 
+  @HttpCode(200)
   @Post(':id/check-in')
   @RequirePermission('reservations:write', 'floor:seat')
   checkIn(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string, @Body(zod(checkInBody)) body: z.infer<typeof checkInBody>) {

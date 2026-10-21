@@ -54,6 +54,7 @@ export class StudioController {
     return this.studio.preview(ctx);
   }
 
+  @HttpCode(200)
   @Post('website/sections/reorder')
   @RequirePermission('studio:write')
   reorder(@Tenant() ctx: TenantContext, @Body(zod(reorderSections)) body: z.infer<typeof reorderSections>) {
@@ -78,6 +79,7 @@ export class StudioController {
     return this.studio.deleteSection(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('website/publish')
   @RequirePermission('studio:publish')
   publish(@Tenant() ctx: TenantContext, @Body(zod(publishWebsite)) body: z.infer<typeof publishWebsite>) {
@@ -162,12 +164,14 @@ export class StudioController {
     return this.domains.add(ctx, body.hostname);
   }
 
+  @HttpCode(200)
   @Post('domains/:domainId/verify')
   @RequirePermission('studio:publish')
   verifyDomain(@Tenant() ctx: TenantContext, @Param('domainId', ParseUUIDPipe) id: string) {
     return this.domains.verify(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('domains/:domainId/refresh')
   @RequirePermission('studio:publish')
   refreshDomain(@Tenant() ctx: TenantContext, @Param('domainId', ParseUUIDPipe) id: string) {
@@ -205,18 +209,21 @@ export class StudioController {
     return this.photosService.get(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('photos/:jobId/review')
   @RequirePermission('studio:write')
   reviewPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string, @Body(zod(reviewPhotoJob)) body: z.infer<typeof reviewPhotoJob>) {
     return this.photosService.review(ctx, id, body.decision, body.note);
   }
 
+  @HttpCode(200)
   @Post('photos/:jobId/publish')
   @RequirePermission('studio:write')
   publishPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string, @Body(zod(publishPhotoJob)) body: PublishPhotoJob) {
     return this.photosService.publish(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('photos/:jobId/retry')
   @RequirePermission('studio:write')
   retryPhoto(@Tenant() ctx: TenantContext, @Param('jobId', ParseUUIDPipe) id: string) {
@@ -243,6 +250,7 @@ export class StudioController {
   }
 
   /** FT-16: use approved copy (menu item description, website section draft or campaign draft); idempotent per key. */
+  @HttpCode(200)
   @Post('creative/:creativeId/apply')
   @RequirePermission('studio:write')
   applyCreative(@Tenant() ctx: TenantContext, @Param('creativeId', ParseUUIDPipe) id: string, @Body(zod(applyCreative)) body: ApplyCreative) {

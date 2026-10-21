@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
 import { anonymiseInput, consentUpdate, customerListQuery, customerUpdate, mergeInput } from '@resuto/contracts';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -44,6 +44,7 @@ export class CustomersController {
     return this.db.scoped(ctx, (tx) => this.customers.update(tx, ctx, id, body));
   }
 
+  @HttpCode(200)
   @Post(':id/consent')
   @RequirePermission('customers:write')
   consent(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(consentUpdate)) body: z.infer<typeof consentUpdate>) {
@@ -51,6 +52,7 @@ export class CustomersController {
   }
 
   /** Irreversible. Needs customers:write and customers:export (owner/admin by default) and all-branch access. */
+  @HttpCode(200)
   @Post(':id/anonymise')
   @RequirePermission('customers:write', 'customers:export')
   anonymise(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(anonymiseInput)) body: z.infer<typeof anonymiseInput>) {
@@ -58,6 +60,7 @@ export class CustomersController {
   }
 
   /** Merges body.duplicateId into :id (the surviving profile). */
+  @HttpCode(200)
   @Post(':id/merge')
   @RequirePermission('customers:write')
   merge(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(mergeInput)) body: z.infer<typeof mergeInput>) {

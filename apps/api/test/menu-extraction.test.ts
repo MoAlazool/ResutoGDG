@@ -38,7 +38,7 @@ async function connectGemini(x: TestTenant) {
     .send({ provider: 'gemini_byok', environment: 'live', credentials: { apiKey: 'AIza-test-restaurant-key-0001' } });
   expect(created.status).toBe(201);
   const health = await t.http.post(api(x, `/integrations/connections/${created.body.id}/health`)).set(auth(x.owner)).send({});
-  expect(health.status).toBe(201);
+  expect(health.status).toBe(200);
   expect(health.body.status).toBe('connected');
   return created.body.id as string;
 }
@@ -80,7 +80,7 @@ describe('menu extraction from text and CSV (no model)', () => {
     expect((await t.http.post(api(tenant, `/menu-import/jobs/${job.id}/commit`)).set(auth(tenant.owner)).send({ version: 1, key: 'commit-key-0001' })).status).toBe(409);
 
     const commit = await t.http.post(api(tenant, `/menu-import/jobs/${job.id}/commit`)).set(auth(tenant.owner)).send({ version: 2, key: 'commit-key-0001' });
-    expect(commit.status).toBe(201);
+    expect(commit.status).toBe(200);
     expect(commit.body).toMatchObject({ status: 'committed', commitResult: { created: 2, updated: 0, modifierGroupsCreated: 1 } });
     const products = await sql<any>(`select p.id, p.name, p.name_ar, p.price_minor, c.name as category from products p join menu_categories c on c.id = p.category_id
       where p.org_id = $1 order by p.name`, [tenant.orgId]);
@@ -98,7 +98,7 @@ describe('menu extraction from text and CSV (no model)', () => {
 
     // A retried commit replays: no second import, no duplicate groups.
     const again = await t.http.post(api(tenant, `/menu-import/jobs/${job.id}/commit`)).set(auth(tenant.owner)).send({ version: 2, key: 'commit-key-0001' });
-    expect(again.status).toBe(201);
+    expect(again.status).toBe(200);
     expect(again.body.status).toBe('committed');
     expect(await sql('select 1 from products where org_id = $1', [tenant.orgId])).toHaveLength(2);
     expect(await sql('select 1 from modifier_groups where org_id = $1', [tenant.orgId])).toHaveLength(1);
@@ -118,11 +118,11 @@ describe('menu extraction from text and CSV (no model)', () => {
       t.http.post(api(tenant, `/menu-import/jobs/${job.id}/commit`)).set(auth(tenant.owner)).send({ version: v, key: 'commit-race-0001' })));
     // One commit did the work; the others were told it is in progress (or replayed the finished result).
     for (const r of results) {
-      expect([201, 409]).toContain(r.status);
+      expect([200, 409]).toContain(r.status);
       if (r.status === 409) expect(r.body.error.code).toBe('extraction_commit_in_progress');
       else expect(r.body.status).toBe('committed');
     }
-    expect(results.some((r) => r.status === 201)).toBe(true);
+    expect(results.some((r) => r.status === 200)).toBe(true);
     expect(await sql('select 1 from products where org_id = $1', [tenant.orgId])).toHaveLength(3);
     expect(await sql('select 1 from modifier_groups where org_id = $1', [tenant.orgId])).toHaveLength(3);
     expect(await sql('select 1 from product_modifier_groups pg join products p on p.id = pg.product_id where p.org_id = $1', [tenant.orgId])).toHaveLength(3);
@@ -137,7 +137,7 @@ describe('menu extraction from text and CSV (no model)', () => {
     const v2 = (await t.http.patch(api(tenant, `/menu-import/jobs/${job2.id}`)).set(auth(tenant.owner))
       .send({ version: job2.version, rows: job2.rows.map((r: any) => ({ ...r, status: 'approved' })) })).body.version;
     // Simulate the crash after the import and the first row's sizes: the import replays by key, the first row is skipped.
-    expect((await t.http.post(api(tenant, `/menu-import/jobs/${job2.id}/commit`)).set(auth(tenant.owner)).send({ version: v2, key: 'commit-crash-0001' })).status).toBe(201);
+    expect((await t.http.post(api(tenant, `/menu-import/jobs/${job2.id}/commit`)).set(auth(tenant.owner)).send({ version: v2, key: 'commit-crash-0001' })).status).toBe(200);
     const groupsAfterFirst = (await sql<any>('select count(*)::int as n from modifier_groups where org_id = $1', [tenant.orgId]))[0].n;
     await sql(`update menu_extraction_jobs set status = 'committing', lease = gen_random_uuid(), leased_until = now() + interval '1 minute',
       commit_result = commit_result || jsonb_build_object('modifiersDone', jsonb_build_array($2::text), 'modifierGroupsCreated', 1) where id = $1`, [job2.id, job2.rows[0].id]);
@@ -149,7 +149,7 @@ describe('menu extraction from text and CSV (no model)', () => {
     expect(blocked.body.error.code).toBe('extraction_commit_in_progress');
     await sql(`update menu_extraction_jobs set leased_until = now() - interval '1 second' where id = $1`, [job2.id]);
     const resumed = await t.http.post(api(tenant, `/menu-import/jobs/${job2.id}/commit`)).set(auth(tenant.owner)).send({ version: v2, key: 'commit-crash-0002' });
-    expect(resumed.status).toBe(201);
+    expect(resumed.status).toBe(200);
     expect(resumed.body.status).toBe('committed');
     // Only the second row's group was recreated; the first row (recorded as done) was not touched again.
     expect((await sql<any>('select count(*)::int as n from modifier_groups where org_id = $1', [tenant.orgId]))[0].n).toBe(groupsAfterFirst);
@@ -161,7 +161,7 @@ describe('menu extraction from text and CSV (no model)', () => {
     const first = await t.http.post(api(tenant, '/menu-import/jobs/text')).set(auth(tenant.owner)).send({ kind: 'text', text: 'Starters\nHummus 85' });
     const rows1 = first.body.rows.map((r: any) => ({ ...r, status: 'approved' }));
     const v = (await t.http.patch(api(tenant, `/menu-import/jobs/${first.body.id}`)).set(auth(tenant.owner)).send({ version: 1, rows: rows1 })).body.version;
-    expect((await t.http.post(api(tenant, `/menu-import/jobs/${first.body.id}/commit`)).set(auth(tenant.owner)).send({ version: v, key: 'k-first-0001' })).status).toBe(201);
+    expect((await t.http.post(api(tenant, `/menu-import/jobs/${first.body.id}/commit`)).set(auth(tenant.owner)).send({ version: v, key: 'k-first-0001' })).status).toBe(200);
 
     const job = (await t.http.post(api(tenant, '/menu-import/jobs/text')).set(auth(tenant.owner)).send({ kind: 'text', text: 'Starters\nHummus 90\nBaba ghanoush 70' })).body;
     expect((await t.http.post(api(tenant, `/menu-import/jobs/${job.id}/commit`)).set(auth(tenant.owner)).send({ version: job.version, key: 'k-none-00001' })).body.error.code)
@@ -260,7 +260,7 @@ describe('menu extraction from photos and PDFs (restaurant BYOK only)', () => {
     const rows = job.rows.map((r: any) => ({ ...r, status: r.name === 'Soup' ? 'rejected' : 'approved' }));
     const saved = (await t.http.patch(api(tenant, `/menu-import/jobs/${job.id}`)).set(auth(tenant.owner)).send({ version: 1, rows })).body;
     const commit = await t.http.post(api(tenant, `/menu-import/jobs/${job.id}/commit`)).set(auth(tenant.owner)).send({ version: saved.version, key: 'k-vision-0001' });
-    expect(commit.status).toBe(201);
+    expect(commit.status).toBe(200);
     expect(await sql(`select 1 from audit_logs where org_id = $1 and action = 'menu.imported' and metadata->>'source' = 'ai'`, [tenant.orgId])).toHaveLength(1);
   });
 

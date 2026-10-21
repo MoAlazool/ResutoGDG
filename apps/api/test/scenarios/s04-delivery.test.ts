@@ -94,7 +94,7 @@ describe('S04 delivery from a WhatsApp COD order', () => {
     expect(early.status).toBe(409);
     expect(early.body.error.code).toBe('order_not_ready');
     for (const to of ['accepted', 'preparing', 'ready']) {
-      await t.http.post(`/v1/o/${tenant.orgId}/kitchen/orders/${order.id}/bump`).set(auth(kitchen)).send({ to }).expect(201);
+      await t.http.post(`/v1/o/${tenant.orgId}/kitchen/orders/${order.id}/bump`).set(auth(kitchen)).send({ to }).expect(200);
     }
     const picked = await t.http.post(D(`/jobs/${jobId}/pickup`)).set(auth(driver)).send({});
     expect(picked.body.status).toBe('picked_up');

@@ -80,6 +80,7 @@ export class PaymentsStaffController {
     return this.payments.createLink(ctx, body);
   }
 
+  @HttpCode(200)
   @Post('links/:linkId/cancel')
   @RequirePermission('payments:collect')
   cancelLink(@Tenant() ctx: TenantContext, @Param('linkId', ParseUUIDPipe) id: string) {
@@ -102,6 +103,7 @@ export class PaymentsStaffController {
   }
 
   /** Asks the provider about a pending or unconfirmed refund now (PAY-05/PAY-12); never sends a second refund while the provider has a record of the first. */
+  @HttpCode(200)
   @Post('refunds/:refundId/check')
   @RequirePermission('payments:refund')
   checkRefund(@Tenant() ctx: TenantContext, @Param('refundId', ParseUUIDPipe) id: string) {

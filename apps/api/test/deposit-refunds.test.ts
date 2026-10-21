@@ -49,7 +49,7 @@ describe('reservation deposit refunds', () => {
   it('refunds unused deposit credit when the seated visit closes, once', async () => {
     const reservationId = await paidReservation(5);
     const checkIn = await t.http.post(`/v1/o/${tenant.orgId}/reservations/${reservationId}/check-in`).set(auth(tenant.owner)).send({});
-    expect(checkIn.status).toBe(201);
+    expect(checkIn.status).toBe(200);
     const visitId = checkIn.body.visitId;
     // 2 × fries = 9000 consumed from the 20000 credit; 11000 is owed back.
     const order = await t.http.post(`/v1/o/${tenant.orgId}/orders`).set(auth(tenant.owner)).set('Idempotency-Key', `ord-${visitId}`)

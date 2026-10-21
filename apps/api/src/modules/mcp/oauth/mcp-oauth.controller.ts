@@ -71,6 +71,7 @@ export class McpOAuthController {
     return this.oauth.describeRequest(p.userId, id);
   }
 
+  @HttpCode(200)
   @Post('requests/:requestId/deny')
   deny(@Param('requestId', ParseUUIDPipe) id: string, @Principal() p: AuthPrincipal) {
     if (p.kind !== 'user') throw new DomainError('forbidden', 'Staff only', 403);
@@ -84,6 +85,7 @@ export class McpOAuthController {
 export class McpOAuthConsentController {
   constructor(private readonly oauth: McpOAuthService) {}
 
+  @HttpCode(200)
   @Post('requests/:requestId/approve')
   @RequirePermission('mcp:manage')
   approve(@Tenant() ctx: TenantContext, @Param('requestId', ParseUUIDPipe) id: string, @Body(zod(consentInput)) body: z.infer<typeof consentInput>) {

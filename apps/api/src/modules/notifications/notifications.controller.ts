@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { notificationsQuery } from '@resuto/contracts';
 import type { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -24,11 +24,13 @@ export class NotificationsController {
     return this.notifications.unreadCount(ctx);
   }
 
+  @HttpCode(200)
   @Post('read-all')
   readAll(@Tenant() ctx: TenantContext) {
     return this.notifications.markAllRead(ctx);
   }
 
+  @HttpCode(200)
   @Post(':notificationId/read')
   read(@Tenant() ctx: TenantContext, @Param('notificationId', ParseUUIDPipe) id: string) {
     return this.notifications.markRead(ctx, id);

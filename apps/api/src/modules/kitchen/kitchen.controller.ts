@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { kitchenBumpRequest, kitchenLineRequest } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -29,12 +29,14 @@ export class KitchenController {
     return this.kitchen.feed(ctx, branchId, q);
   }
 
+  @HttpCode(200)
   @Post('orders/:orderId/bump')
   @RequirePermission('kitchen:operate', 'orders:status')
   bump(@Tenant() ctx: TenantContext, @Param('orderId', uuidPipe) orderId: string, @Body(zod(kitchenBumpRequest)) body: z.infer<typeof kitchenBumpRequest>) {
     return this.kitchen.bump(ctx, orderId, body.to, body.version);
   }
 
+  @HttpCode(200)
   @Post('lines/:lineId')
   @RequirePermission('kitchen:operate')
   line(@Tenant() ctx: TenantContext, @Param('lineId', uuidPipe) lineId: string, @Body(zod(kitchenLineRequest)) body: z.infer<typeof kitchenLineRequest>) {

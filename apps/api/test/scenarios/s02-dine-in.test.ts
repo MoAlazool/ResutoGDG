@@ -84,7 +84,7 @@ describe('S02 dine-in: QR → order → kitchen → split bill → close → cle
     expect(ticket.lines.find((l: any) => l.name === 'Fries')).toMatchObject({ station: 'Fryer', notes: 'Extra crispy' });
     for (const to of ['accepted', 'preparing', 'ready']) {
       const r = await t.http.post(`/v1/o/${tenant.orgId}/kitchen/orders/${orderId}/bump`).set(auth(kitchen)).send({ to });
-      expect(r.status, JSON.stringify(r.body)).toBe(201);
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
     }
     const after = await t.http.get(`/v1/o/${tenant.orgId}/kitchen/${tenant.branchId}`).set(auth(kitchen));
     expect(after.body.tickets.find((x: any) => x.id === orderId).status).toBe('ready');
@@ -92,7 +92,7 @@ describe('S02 dine-in: QR → order → kitchen → split bill → close → cle
 
   it('5. the waiter serves it and the guest sees the full timeline', async () => {
     const served = await t.http.post(`/v1/o/${tenant.orgId}/orders/${orderId}/transition`).set(auth(waiter)).send({ to: 'served' });
-    expect(served.status).toBe(201);
+    expect(served.status).toBe(200);
     expect(served.body.status).toBe('served');
     const status = await t.http.get(`/v1/public/visits/current/orders/${orderId}`).set(V(visitToken));
     expect(status.body.timeline.map((e: any) => e.status)).toEqual(['placed', 'accepted', 'preparing', 'ready', 'served']);
@@ -151,7 +151,7 @@ describe('S02 dine-in: QR → order → kitchen → split bill → close → cle
 
   it('9. the waiter closes the visit; the table needs cleaning; the old guest token is rejected', async () => {
     const closed = await t.http.post(`/v1/o/${tenant.orgId}/visits/${visitId}/close`).set(auth(waiter)).send({ needsCleaning: true });
-    expect(closed.status, JSON.stringify(closed.body)).toBe(201);
+    expect(closed.status, JSON.stringify(closed.body)).toBe(200);
     expect(closed.body).toMatchObject({ ok: true });
     const live = await t.http.get(`/v1/o/${tenant.orgId}/floor/${tenant.branchId}/live`).set(auth(waiter));
     expect(live.body.tables.find((x: any) => x.id === tableId)).toMatchObject({ status: 'cleaning', visit: null });
@@ -166,7 +166,7 @@ describe('S02 dine-in: QR → order → kitchen → split bill → close → cle
   });
 
   it('10. after cleaning the table is available and the next scan opens a fresh visit', async () => {
-    expect((await t.http.post(`/v1/o/${tenant.orgId}/tables/${tableId}/clean`).set(auth(waiter))).status).toBe(201);
+    expect((await t.http.post(`/v1/o/${tenant.orgId}/tables/${tableId}/clean`).set(auth(waiter))).status).toBe(200);
     const live = await t.http.get(`/v1/o/${tenant.orgId}/floor/${tenant.branchId}/live`).set(auth(waiter));
     expect(live.body.tables.find((x: any) => x.id === tableId).status).toBe('available');
     const fresh = await t.http.post(`/v1/public/tables/${qr}/session`);

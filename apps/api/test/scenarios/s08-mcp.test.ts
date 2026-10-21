@@ -36,7 +36,7 @@ beforeAll(async () => {
     return r.body.id as string;
   };
   orders.paid = await place([{ productId: menu.fries, quantity: 2 }], { name: 'Mona Adel', phone: '+201001234567' });
-  await t.http.post(`/v1/o/${tenant.orgId}/orders/${orders.paid}/collect`).set(auth(cashier)).set('Idempotency-Key', key('cash')).send({ method: 'cash' }).expect(201);
+  await t.http.post(`/v1/o/${tenant.orgId}/orders/${orders.paid}/collect`).set(auth(cashier)).set('Idempotency-Key', key('cash')).send({ method: 'cash' }).expect(200);
   orders.unpaid = await place([{ productId: menu.soda, quantity: 3 }], { name: 'Omar Said', phone: '+201112223334' });
 });
 afterAll(async () => { await t.close(); });
@@ -99,7 +99,7 @@ describe('S08 MCP client: key → tools → reads → approved payment link → 
     const queue = await t.http.get(`/v1/o/${tenant.orgId}/mcp/approvals`).set(auth(manager));
     expect(queue.body.items.find((a: any) => a.id === approvalId)).toMatchObject({ status: 'pending', client: { id: client.id, name: 'Claude Desktop' } });
     const approved = await t.http.post(`/v1/o/${tenant.orgId}/mcp/approvals/${approvalId}/approve`).set(auth(manager)).send({ note: 'Customer asked by phone' });
-    expect(approved.status, JSON.stringify(approved.body)).toBe(201);
+    expect(approved.status, JSON.stringify(approved.body)).toBe(200);
     expect(approved.body).toMatchObject({ status: 'executed', decidedBy: manager.userId });
     expect(approved.body.result.url).toMatch(/^http:\/\/app\.test\/pay\/[A-Za-z0-9_-]+$/);
     expect(approved.body.result).toMatchObject({ amountMinor: PRICES.soda * 3, currency: 'EGP' });
@@ -134,7 +134,7 @@ describe('S08 MCP client: key → tools → reads → approved payment link → 
 
   it('7. a revoked key is rejected everywhere', async () => {
     const rev = await t.http.post(`/v1/o/${tenant.orgId}/mcp/clients/${client.id}/revoke`).set(auth(tenant.owner));
-    expect(rev.status).toBe(201);
+    expect(rev.status).toBe(200);
     expect((await call('list_orders')).status).toBe(401);
     expect((await t.http.get(`/v1/o/${tenant.orgId}/mcp/tools`).set(K(client.key))).status).toBe(401);
     expect((await t.http.get('/v1/mcp/whoami').set(K(client.key))).status).toBe(401);

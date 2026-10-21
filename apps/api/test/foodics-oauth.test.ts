@@ -26,7 +26,7 @@ const products = { data: [{ id: 'p1', name: 'Kabsa', name_localized: 'كبسة',
 async function connect(tenant: TestTenant, me = whoami) {
   const b = browser();
   const start = await t.http.post(`/v1/o/${tenant.orgId}/integrations/oauth/foodics/start`).set(auth(tenant.owner)).send({ browserBinding: b.binding });
-  expect(start.status, JSON.stringify(start.body)).toBe(201);
+  expect(start.status, JSON.stringify(start.body)).toBe(200);
   const url = new URL(start.body.url);
   const f = scriptedFetch([{ body: { token_type: 'Bearer', access_token: 'eyJ.foodics-sandbox-token' } }, { body: me }, { body: me }]);
   http.fetch = f.fetch;
@@ -54,7 +54,7 @@ describe('Foodics OAuth (INT-24)', () => {
     const { url, done, calls } = await connect(tenant);
     expect(url.origin + url.pathname).toBe('https://console-sandbox.foodics.com/authorize');
     expect([...url.searchParams.keys()].sort()).toEqual(['client_id', 'state']);
-    expect(done.status, JSON.stringify(done.body)).toBe(201);
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
     expect(calls.map(route)).toEqual(['POST https://api-sandbox.foodics.com/oauth/token', 'GET https://api-sandbox.foodics.com/v5/whoami', 'GET https://api-sandbox.foodics.com/v5/whoami']);
     expect(JSON.parse(calls[0]!.body!)).toMatchObject({ grant_type: 'authorization_code', code: 'def50200a27ea582', client_id: 'foodics-client-1',
       redirect_uri: 'http://api.test/v1/public/integrations/oauth/foodics/callback' });
@@ -78,7 +78,7 @@ describe('Foodics OAuth (INT-24)', () => {
     const f = scriptedFetch([{ body: {} }]);
     http.fetch = f.fetch;
     const rv = await t.http.post(`/v1/o/${tenant.orgId}/integrations/connections/${done.body.connection.id}/revoke`).set(auth(tenant.owner));
-    expect(rv.status, JSON.stringify(rv.body)).toBe(201);
+    expect(rv.status, JSON.stringify(rv.body)).toBe(200);
     expect(f.calls.map(route)).toEqual(['DELETE https://api-sandbox.foodics.com/v5/tokens/client']);
     expect(f.calls[0]!.headers.authorization).toBe('Bearer eyJ.foodics-sandbox-token');
   });

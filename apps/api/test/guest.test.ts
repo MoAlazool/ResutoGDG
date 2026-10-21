@@ -85,14 +85,14 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
     expect(unchanged.body).toMatchObject({ unchanged: true, tickets: [] });
     for (const to of ['accepted', 'preparing', 'ready']) {
       const r = await t.http.post(`/v1/o/${tenant.orgId}/kitchen/orders/${o1.body.id}/bump`).set(auth(kitchen)).send({ to });
-      expect(r.status).toBe(201);
+      expect(r.status).toBe(200);
     }
     const moved = await t.http.get(`/v1/o/${tenant.orgId}/kitchen/${tenant.branchId}?since=${feed.body.cursor}`).set(auth(kitchen));
     expect(moved.body.unchanged).toBeUndefined();
     expect(moved.body.tickets.find((x: any) => x.id === o1.body.id).status).toBe('ready');
     // Waiter serves it.
     const served = await t.http.post(`/v1/o/${tenant.orgId}/orders/${o1.body.id}/transition`).set(auth(waiter)).send({ to: 'served' });
-    expect(served.status).toBe(201);
+    expect(served.status).toBe(200);
     expect(served.body.status).toBe('served');
     const status = await t.http.get(`/v1/public/visits/current/orders/${o1.body.id}`).set(visitHeader(token));
     expect(status.body.timeline.map((e: any) => e.status)).toEqual(['placed', 'accepted', 'preparing', 'ready', 'served']);
@@ -110,7 +110,7 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
     const ck = key('cash');
     const pay = () => t.http.post(`/v1/o/${tenant.orgId}/visits/${scan.body.visitId}/collect`).set(auth(cashier)).set('Idempotency-Key', ck).send({ method: 'cash' });
     const p1 = await pay();
-    expect(p1.status).toBe(201);
+    expect(p1.status).toBe(200);
     expect(p1.body.totals.dueMinor).toBe(0);
     const p2 = await pay();
     expect(p2.body.paymentId).toBe(p1.body.paymentId);
@@ -121,7 +121,7 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
 
     // 7. Close; the token stops working and the next scan opens a new visit with a new token.
     const closed = await t.http.post(`/v1/o/${tenant.orgId}/visits/${scan.body.visitId}/close`).set(auth(waiter)).send({ needsCleaning: true });
-    expect(closed.status).toBe(201);
+    expect(closed.status).toBe(200);
     expect(closed.body).toMatchObject({ ok: true, unusedCreditMinor: 0 });
     const after = await t.http.get('/v1/public/visits/current').set(visitHeader(token));
     expect(after.status).toBe(401);
@@ -131,7 +131,7 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
     const dirty = await t.http.post(`/v1/public/tables/${tables.G1!.qr}/session`);
     expect(dirty.status).toBe(409);
     expect(dirty.body.error).toMatchObject({ code: 'table_unavailable', details: { reason: 'cleaning' } });
-    expect((await t.http.post(`/v1/o/${tenant.orgId}/tables/${tables.G1!.id}/clean`).set(auth(waiter))).status).toBe(201);
+    expect((await t.http.post(`/v1/o/${tenant.orgId}/tables/${tables.G1!.id}/clean`).set(auth(waiter))).status).toBe(200);
     const fresh = await t.http.post(`/v1/public/tables/${tables.G1!.qr}/session`);
     expect(fresh.body.visitId).not.toBe(scan.body.visitId);
     expect(fresh.body.token).not.toBe(token);
@@ -151,7 +151,7 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
     expect((await ask('dance')).status).toBe(400);
     const list = await t.http.get(`/v1/o/${tenant.orgId}/requests?branchId=${tenant.branchId}`).set(auth(waiter));
     expect(list.body.items.filter((r: any) => r.visitId === s.body.visitId).map((r: any) => r.kind).sort()).toEqual(['bill', 'waiter']);
-    expect((await t.http.post(`/v1/o/${tenant.orgId}/requests/${a.body.id}/resolve`).set(auth(waiter)).send({})).status).toBe(201);
+    expect((await t.http.post(`/v1/o/${tenant.orgId}/requests/${a.body.id}/resolve`).set(auth(waiter)).send({})).status).toBe(200);
     const c = await ask('waiter');
     expect(c.body.duplicate).toBe(false);
     const live = await t.http.get(`/v1/o/${tenant.orgId}/floor/${tenant.branchId}/live`).set(auth(waiter));
@@ -161,7 +161,7 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
   it('undoes an auto-opened table within 60 seconds only when nothing happened', async () => {
     const s = await t.http.post(`/v1/public/tables/${tables.G3!.qr}/session`);
     const undo = await t.http.post(`/v1/o/${tenant.orgId}/visits/${s.body.visitId}/undo`).set(auth(waiter));
-    expect(undo.status).toBe(201);
+    expect(undo.status).toBe(200);
     expect((await t.http.get('/v1/public/visits/current').set(visitHeader(s.body.token))).status).toBe(401);
 
     const s2 = await t.http.post(`/v1/public/tables/${tables.G3!.qr}/session`);
@@ -237,7 +237,7 @@ describe('branch menus: not offered vs sold out (86) vs out of stock', () => {
     // The kitchen 86es the burger at the main branch only, until the end of the branch's day.
     const off = await t.http.post(`/v1/o/${shop.orgId}/menu/products/${m.products.burger}/availability`).set(auth(shop.owner))
       .send({ branchId: shop.branchId, available: false, until: 'end_of_day', reason: 'Ran out of buns' });
-    expect(off.status).toBe(201);
+    expect(off.status).toBe(200);
     expect(off.body).toMatchObject({ available: false, offered: true, soldOut: true });
     expect(new Date(off.body.soldOutUntil).getTime()).toBeGreaterThan(Date.now());
     const shown = (body: any) => Object.fromEntries(body.categories.flatMap((c: any) => c.products).map((p: any) => [p.name, p.available]));
@@ -282,7 +282,7 @@ describe('branch menus: not offered vs sold out (86) vs out of stock', () => {
     const shop = await createTenant(t, { country: 'EG' });
     const m = await seedMenu(shop);
     await t.http.post(`/v1/o/${shop.orgId}/menu/products/${m.products.fries}/availability`).set(auth(shop.owner))
-      .send({ branchId: shop.branchId, available: false, until: new Date(Date.now() + 3_600_000).toISOString() }).expect(201);
+      .send({ branchId: shop.branchId, available: false, until: new Date(Date.now() + 3_600_000).toISOString() }).expect(200);
     const before = (await t.http.get(`/v1/public/menu/${shop.slug}`)).headers.etag;
     await sql(`update product_branch_settings set sold_out_until = now() - interval '1 second' where product_id = $1 and branch_id = $2`, [m.products.fries, shop.branchId]);
     const r = await t.app.get(MenuService).restoreExpired();

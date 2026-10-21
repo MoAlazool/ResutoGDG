@@ -69,18 +69,21 @@ export class IntegrationsController {
     return this.connections.update(ctx, id, body);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/integrations/connections/:id/enable')
   @RequirePermission('integrations:manage')
   enable(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.connections.setEnabled(ctx, id, true);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/integrations/connections/:id/disable')
   @RequirePermission('integrations:manage')
   disable(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.connections.setEnabled(ctx, id, false);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/integrations/connections/:id/revoke')
   @RequirePermission('integrations:manage')
   revoke(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -93,12 +96,14 @@ export class IntegrationsController {
     return this.connections.remove(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/integrations/connections/:id/health')
   @RequirePermission('integrations:manage')
   health(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.connections.healthCheck(ctx, id);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/integrations/connections/:id/sync')
   @RequirePermission('integrations:manage')
   runSync(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(integrationSyncRequest)) body: z.infer<typeof integrationSyncRequest>) {
@@ -143,6 +148,7 @@ export class IntegrationsController {
     return this.sync.resolve(ctx, id, body.resolution);
   }
 
+  @HttpCode(200)
   @Post('o/:orgId/integrations/oauth/:provider/start')
   @RequirePermission('integrations:manage')
   oauthStart(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Body(zod(integrationOauthStart)) body: z.infer<typeof integrationOauthStart>) {
@@ -150,6 +156,7 @@ export class IntegrationsController {
   }
 
   /** PS-11: completes the flow for the user who started it, from the browser holding the nonce. */
+  @HttpCode(200)
   @Post('o/:orgId/integrations/oauth/:provider/complete')
   @RequirePermission('integrations:manage')
   oauthComplete(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Body(zod(integrationOauthComplete)) body: z.infer<typeof integrationOauthComplete>) {
@@ -164,6 +171,7 @@ export class IntegrationsController {
   }
 
   /** INT-11: picks the account the connection uses, from the ones the provider granted; then checks its health. */
+  @HttpCode(200)
   @Post('o/:orgId/integrations/connections/:id/account')
   @RequirePermission('integrations:manage')
   selectAccount(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(integrationAccountSelection)) body: z.infer<typeof integrationAccountSelection>) {

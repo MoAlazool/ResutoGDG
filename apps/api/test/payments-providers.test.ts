@@ -127,7 +127,7 @@ describe('activation through the integrations API (INT-04, INT-05, INT-06, INT-1
     const order = await placeOrder(k);
     const view = async () => (await t.http.get(`/v1/public/pay/${(await link(k, order.id)).token}`)).body.methods.find((m: any) => m.method === 'card');
     expect((await view()).provider).toBe('stripe');
-    await t.http.post(`/v1/o/${k.tenant.orgId}/integrations/connections/${c.id}/disable`).set(auth(k.tenant.owner)).expect(201);
+    await t.http.post(`/v1/o/${k.tenant.orgId}/integrations/connections/${c.id}/disable`).set(auth(k.tenant.owner)).expect(200);
     expect((await view()).provider).toBe('simulated');
   });
 });

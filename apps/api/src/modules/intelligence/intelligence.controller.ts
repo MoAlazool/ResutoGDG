@@ -114,6 +114,7 @@ export class IntelligenceController {
   }
 
   /** Runs the insight rules for this restaurant now (deduplicated, safe to retry). */
+  @HttpCode(200)
   @Post('insights/refresh')
   @RequirePermission('ai:use')
   refreshInsights(@Tenant() ctx: TenantContext) {
@@ -165,6 +166,7 @@ export class IntelligenceController {
    * creative (POST /o/:orgId/studio/creative -> review -> POST .../creative/:id/apply), which records approval and every
    * use. Kept working for existing API callers; responses carry `Deprecation: true` (RFC 9745).
    */
+  @HttpCode(200)
   @Post('generate-copy')
   @Header('Deprecation', 'true')
   @RequirePermission('ai:use')

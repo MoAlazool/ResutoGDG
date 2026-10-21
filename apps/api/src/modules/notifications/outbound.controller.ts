@@ -83,6 +83,7 @@ export class OutboundPublicController {
   }
 
   @Post('webhooks/resend/:connectionId')
+  @HttpCode(200)
   @Public()
   async resend(@Param('connectionId') connectionId: string, @Req() req: Request & { rawBody?: Buffer }, @Res() res: Response) {
     this.limiter.hit(`resend-webhook:${req.ip}`, 600);
@@ -91,6 +92,7 @@ export class OutboundPublicController {
   }
 
   @Post('webhooks/twilio/status/:connectionId')
+  @HttpCode(200)
   @Public()
   async twilio(@Param('connectionId') connectionId: string, @Body() body: unknown, @Req() req: Request, @Res() res: Response) {
     this.limiter.hit(`twilio-webhook:${req.ip}`, 600);

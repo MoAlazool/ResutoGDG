@@ -260,7 +260,7 @@ describe('recommendations', () => {
 describe('route planning', () => {
   it("orders a driver's open jobs and compares with the naive order", async () => {
     const res = await t.http.post(`${base()}/routes/plan`).set(auth(A.owner)).send({ branchId: A.branchId, driverId });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body.start.source).toBe('branch');
     expect(res.body.stops.map((s: any) => s.lat)).toEqual([30.05, 30.07, 30.1]);
     expect(res.body.stops.map((s: any) => s.naiveSequence)).toEqual([2, 3, 1]);
@@ -290,7 +290,7 @@ describe('insights', () => {
 
   it('generates deterministic and model-based insights with evidence', async () => {
     const res = await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body.created).toBeGreaterThanOrEqual(5);
     const list = await t.http.get(`${base()}/insights`).set(auth(A.owner));
     const keys = (await sql(`select coalesce(dedupe_key, episode_key) as dedupe_key, method, severity, evidence, template_key, template_params from ai_insights where org_id = $1`, [A.orgId]));
@@ -356,7 +356,7 @@ describe('insights', () => {
     await sql(`update stock_levels set quantity = 20 where item_id = $1`, [id('Rice')]);
     await sql(`update product_branch_settings set stock_qty = 100000 where product_id = $1`, [menu.products.limited]);
     const res = await t.http.post(`${base()}/insights/refresh`).set(auth(A.owner));
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ created: 0 });
     expect(res.body.resolved).toBe(stockout[0] === 'dismissed' ? 1 : 2);
     // Closed by the system as 'resolved' (DF-03), not 'acted' (which records that a person acted on it).
@@ -535,7 +535,7 @@ describe('owner assistant (LLM function-calling path with a scripted model)', ()
 describe('copy generation, research registry, usage', () => {
   it('uses the labelled template fallback without GEMINI_API_KEY (Arabic and English)', async () => {
     const ar = await t.http.post(`${base()}/generate-copy`).set(auth(marketing)).send({ kind: 'caption', locale: 'ar', productId: menu.products.burger });
-    expect(ar.status).toBe(201);
+    expect(ar.status).toBe(200);
     expect(ar.body).toMatchObject({ provider: 'template', isFallback: true, locale: 'ar' });
     expect(ar.body.text).toContain('Smash burger');
     expect(ar.body.text).toContain('اطلب الآن');
@@ -616,10 +616,10 @@ describe('AI request quota (FT-10)', () => {
     expect(n).toBe(cap);
     // Insights: the model part is skipped and reported; deterministic rules are free.
     const refresh = await t.http.post(`${qb}/insights/refresh`).set(auth(Q.owner));
-    expect(refresh.status).toBe(201);
+    expect(refresh.status).toBe(200);
     expect(refresh.body.modelSkipped).toBe('plan_limit_reached');
     // Rules-mode assistant and template copy do not use a model and stay available.
-    expect((await t.http.post(`${qb}/generate-copy`).set(auth(Q.owner)).send({ kind: 'caption', locale: 'en', productId: qMenu.products.fries })).status).toBe(201);
+    expect((await t.http.post(`${qb}/generate-copy`).set(auth(Q.owner)).send({ kind: 'caption', locale: 'en', productId: qMenu.products.fries })).status).toBe(200);
   });
 });
 
@@ -641,7 +641,7 @@ describe('AI service unavailable', () => {
       branchId: C.branchId, channel: 'staff', fulfillment: 'pickup', lines: [{ productId: cMenu.products.fries, quantity: 2 }],
       customer: { name: 'Guest', phone: '+201234567890' } }));
     const refresh = await down.http.post(`/v1/o/${C.orgId}/intelligence/insights/refresh`).set(auth(C.owner));
-    expect(refresh.status).toBe(201);
+    expect(refresh.status).toBe(200);
     expect(refresh.body.modelSkipped).toBe('ai_service_unavailable');
     const status = await down.http.get(`${base()}/status`).set(auth(A.owner));
     expect(status.body.aiService.reachable).toBe(false);

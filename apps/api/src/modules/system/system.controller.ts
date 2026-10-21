@@ -7,6 +7,7 @@ import { DbService } from '../../common/db/db.service';
 import { DomainError } from '../../common/errors/domain-error';
 import { buildInfo } from '../../common/observability/build-info';
 import { errorReporter } from '../../common/observability/error-tracking';
+import { OpenApiService } from '../../common/http/openapi';
 import { StorageService, isPublicMediaPath } from '../../common/storage/storage.service';
 import { ENV, type Env } from '../../config/env';
 import { HealthDetailsService } from './health-details.service';
@@ -14,7 +15,17 @@ import { HealthDetailsService } from './health-details.service';
 @Controller()
 export class SystemController {
   constructor(private readonly db: DbService, private readonly storage: StorageService, @Inject(ENV) private readonly env: Env,
-    private readonly details: HealthDetailsService) {}
+    private readonly details: HealthDetailsService, private readonly openapi: OpenApiService) {}
+
+  /**
+   * OpenAPI 3.1 description of every route (PS-19), generated from the router and the @resuto/contracts schemas.
+   * Public on purpose: it lists routes, permissions and request schemas, never data, examples or secrets.
+   */
+  @Public()
+  @Get('openapi.json')
+  openApi() {
+    return this.openapi.document();
+  }
 
   @Public()
   @Get('health')

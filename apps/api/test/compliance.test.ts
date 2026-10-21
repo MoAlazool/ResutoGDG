@@ -263,7 +263,7 @@ describe('licences and reminders', () => {
 
     const pdf = Buffer.from('%PDF-1.4\n%resuto test\n');
     const file = await t.http.post(C(sa, `/documents/${valid.body.id}/file`)).set(auth(accountant)).attach('file', pdf, { filename: 'cert.pdf', contentType: 'application/pdf' });
-    expect(file.status).toBe(201);
+    expect(file.status).toBe(200);
     expect(file.body.file).toMatchObject({ contentType: 'application/pdf', url: expect.stringContaining('/v1/media/') });
 
     const summary = await t.http.get(C(sa, '/summary')).set(auth(accountant));

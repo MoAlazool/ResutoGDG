@@ -174,7 +174,7 @@ describe('deposits and check-in', () => {
     expect(paid).toEqual({ status: 'confirmed', deposit_status: 'paid' });
 
     const checkIn = await t.http.post(`/v1/o/${tenant.orgId}/reservations/${a.body.reservation.id}/check-in`).set(auth(host)).send({});
-    expect(checkIn.status).toBe(201);
+    expect(checkIn.status).toBe(200);
     expect(checkIn.body).toMatchObject({ tableId: tables.R4, creditMinor: 20000 });
     const [res] = await sql('select status, deposit_status, seated_visit_id from reservations where id = $1', [a.body.reservation.id]);
     expect(res).toEqual({ status: 'seated', deposit_status: 'applied', seated_visit_id: checkIn.body.visitId });
@@ -192,7 +192,7 @@ describe('deposits and check-in', () => {
     const order = (await sql('select id from orders where visit_id = $1', [checkIn.body.visitId]))[0];
     for (const to of ['accepted', 'preparing', 'ready', 'served']) await t.http.post(`/v1/o/${tenant.orgId}/orders/${order.id}/transition`).set(auth(waiter)).send({ to });
     const close = await t.http.post(`/v1/o/${tenant.orgId}/visits/${checkIn.body.visitId}/close`).set(auth(host)).send({});
-    expect(close.status).toBe(201);
+    expect(close.status).toBe(200);
     expect(close.body).toMatchObject({ unusedCreditMinor: 11000, dueMinor: 0 });
     const [credit] = await sql(`select method, amount_minor from payments where visit_id = $1`, [checkIn.body.visitId]);
     expect(credit).toEqual({ method: 'deposit_credit', amount_minor: 9000 });

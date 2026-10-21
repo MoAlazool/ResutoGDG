@@ -74,7 +74,7 @@ describe('customer read models follow the orders', () => {
     await sql(`update orders set branch_id = $2, number = number || '-m' where id = $1`, [a.id, north]);
     await expectExact(tenant.orgId);
     const merge = await t.http.post(`/v1/o/${tenant.orgId}/customers/${a.customerId}/merge`).set(auth(tenant.owner)).send({ duplicateId: b.customerId });
-    expect(merge.status).toBe(201);
+    expect(merge.status).toBe(200);
     await expectExact(tenant.orgId);
     const [merged] = await sql(`select order_count, any_orders from customer_stats where customer_id = $1`, [b.customerId]);
     expect(merged).toEqual({ order_count: 0, any_orders: 0 });

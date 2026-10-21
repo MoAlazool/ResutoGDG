@@ -45,7 +45,7 @@ async function world(name: string, phone: string): Promise<World> {
   const channelId = (await sandboxChannel(t, tenant)).id;
   const walk = await walkToMenu(t, tenant, channelId, phone, 'pickup');
   const img = await t.http.post(`/v1/o/${tenant.orgId}/menu/products/${menu.burger}/image`).set(auth(tenant.owner)).attach('file', PNG, { filename: 'b.png', contentType: 'image/png' });
-  expect(img.status).toBe(201);
+  expect(img.status).toBe(200);
   const mcp = await t.http.post(`/v1/o/${tenant.orgId}/mcp/clients`).set(auth(tenant.owner))
     .send({ name: `${name} bot`, actingRole: 'manager', allowedTools: ['list_orders', 'get_order', 'get_sales_summary'] });
   expect(mcp.status).toBe(201);
