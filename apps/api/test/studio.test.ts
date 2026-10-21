@@ -5,6 +5,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { DNS_RESOLVER, DOMAIN_PROVIDER, ManualDomainProvider, VercelDomainProvider, type DomainProvider } from '../src/modules/studio/domain-provider';
 import { addMember, auth, createTenant, seedMenu, sql, type TestApp, type TestTenant } from './helpers';
+import { TenantContext } from '../src/common/auth/context';
+import { DbService } from '../src/common/db/db.service';
+import { AuditService } from '../src/common/platform/audit.service';
+import { ENV } from '../src/config/env';
+import { PlanLimitsService } from '../src/modules/billing/plan-limits.service';
+import { CreativeService } from '../src/modules/studio/creative.service';
 
 // --- Injected test doubles (provider tokens, not a mocked database) ---------------
 const txtRecords = new Map<string, string[][]>();
@@ -306,6 +312,34 @@ describe('creative generator', () => {
     expect(list.body.items.map((c: any) => c.id)).toEqual([gen.body.id]);
     expect((await t.http.post(`${base(tenant)}/creative`).set(auth(tenant.owner)).send({ kind: 'caption', locale: 'en', brief: 'x' })).status).toBe(400);
     expect((await t.http.post(`${base(tenant)}/creative`).set(auth(tenant.owner)).send({ kind: 'caption', locale: 'en', brief: 'Valid brief', productId: '00000000-0000-4000-8000-000000000000' })).status).toBe(422);
+  });
+
+  it('FT-10: with a model configured, refuses before calling it once ai_requests_per_month is used, and meters model calls', async () => {
+    const tenant = await createTenant(t);
+    const ctx = new TenantContext(tenant.orgId, 'owner', null, tenant.owner.userId, 'user', tenant.owner.userId);
+    const env = { ...t.app.get(ENV), GEMINI_API_KEY: 'test-key', GEMINI_MODEL: 'gemini-test' };
+    const realFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls++;
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ variants: [{ title: 'T', text: 'Fresh bread daily' }] }) }] } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }) as typeof fetch;
+    try {
+      const svc = new CreativeService(t.app.get(DbService), t.app.get(AuditService), env as any, t.app.get(PlanLimitsService));
+      const capPlan = `ai-cap-${tenant.orgId.slice(0, 8)}`;
+      await sql(`insert into plans(id, name, is_public, limits) values ($1, 'AI cap', false, '{"ai_requests_per_month":1}')`, [capPlan]);
+      await sql(`update subscriptions set plan_id = $2 where org_id = $1`, [tenant.orgId, capPlan]);
+      const input = { kind: 'caption', locale: 'en', brief: 'Weekend bread special', variants: 1, tone: 'warm' } as any;
+      const first = await svc.generate(ctx, input);
+      expect(first).toMatchObject({ provider: 'gemini', isFallback: false });
+      expect(calls).toBe(1);
+      const [{ n }] = await sql(`select count(*)::int as n from usage_events where org_id = $1 and metric = 'ai_requests'`, [tenant.orgId]);
+      expect(n).toBe(1);
+      await expect(svc.generate(ctx, input)).rejects.toMatchObject({ status: 402, code: 'plan_limit_reached', details: { limit: 'ai_requests_per_month' } });
+      expect(calls).toBe(1); // refused before the model call
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });
 
