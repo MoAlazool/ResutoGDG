@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { MeResponse } from '@resuto/contracts';
 import { Field, Notice, Wordmark } from '@resuto/ui';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
+import { authErrorText } from '@/lib/auth-errors';
 import { homePath } from '@/lib/home-path';
 import { safeNext } from '@/lib/safe-next';
 import { AUTH_MODE, GOOGLE_AUTH, useSession } from '@/lib/session';
@@ -32,6 +33,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [confirmFor, setConfirmFor] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const routed = useRef(false);
   const next = params.get('next');
@@ -51,20 +53,22 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     setPending(true);
     setError(null);
     try {
-      if (mode === 'signup') await session.signUp(String(f.get('email')), String(f.get('password')), String(f.get('fullName') || ''));
-      else await session.signIn(String(f.get('email')), String(f.get('password')));
+      if (mode === 'signup') {
+        const r = await session.signUp(String(f.get('email')), String(f.get('password')), String(f.get('fullName') || ''));
+        if (r.confirmationRequired) { setConfirmFor(String(f.get('email'))); setPending(false); return; }
+      } else await session.signIn(String(f.get('email')), String(f.get('password')));
       const me = await session.refreshMe();
       routed.current = true;
       router.push(destinationFor(me, next));
     } catch (err) {
-      setError((err as Error).message);
+      setError(authErrorText(err, t));
       setPending(false);
     }
   }
 
   async function google() {
     setError(null);
-    try { await session.signInWithGoogle(safeNext(next)); } catch (err) { setError((err as Error).message); }
+    try { await session.signInWithGoogle(safeNext(next)); } catch (err) { setError(authErrorText(err, t)); }
   }
 
   const otherWorkspaces = WORKSPACES.filter((w) => w !== workspace);
@@ -90,6 +94,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           <Field label={t('auth.password')} name="password" type="password" required minLength={10}
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}
+          {confirmFor && <Notice tone="ok">{tn('auth.confirmSent', { email: <bdi dir="ltr">{confirmFor}</bdi> })}</Notice>}
           <button className="btn btn-primary btn-block" disabled={pending} aria-busy={pending || undefined}>
             {pending ? t('state.loading') : mode === 'signup' ? t('auth.submitSignup') : t('auth.submit')}
           </button>
@@ -98,7 +103,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           <div className="login-links">
             {mode === 'signup'
               ? <span>{t('auth.haveAccount')} <Link href={`/login${next ? `?next=${encodeURIComponent(next)}` : ''}`}>{t('auth.signIn')}</Link></span>
-              : <Link href="/signup">{t('auth.createAccount')}</Link>}
+              : <><Link href="/forgot-password">{t('auth.forgot')}</Link><Link href="/signup">{t('auth.createAccount')}</Link></>}
           </div>
           {mode === 'login' && (
             <nav className="login-roles" aria-label={t('auth.brand.foot')}>

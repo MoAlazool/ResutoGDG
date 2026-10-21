@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { BillingController, BillingPublicController } from './billing.controller';
 import { CatalogService } from './catalog.service';
+import { CostsService } from './costs.service';
 import { EntitlementsViewService } from './entitlements-view.service';
 import { BillingLifecycleService } from './lifecycle.service';
 import { PlanLimitsService } from './plan-limits.service';
@@ -15,7 +16,7 @@ import { UsageService } from './usage.service';
 @Global()
 @Module({
   controllers: [BillingPublicController, BillingController],
-  providers: [CatalogService, UsageService, PlanLimitsService, EntitlementsViewService, SubscriptionsService, BillingLifecycleService],
+  providers: [CatalogService, CostsService, UsageService, PlanLimitsService, EntitlementsViewService, SubscriptionsService, BillingLifecycleService],
   exports: [CatalogService, UsageService, PlanLimitsService, EntitlementsViewService, SubscriptionsService],
 })
 export class BillingModule {}

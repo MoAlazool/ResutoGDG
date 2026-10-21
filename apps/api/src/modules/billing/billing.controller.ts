@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Post, Query, Req } from '@nestjs/common';
 import {
-  cancelSubscription, changePlan, priceQuoteRequest, publicPlansQuery,
-  type ChangePlan, type EntitlementsView, type PriceQuote, type PriceQuoteRequest, type PublicPlansResponse,
+  cancelSubscription, changePlan, costsQuery, priceQuoteRequest, publicPlansQuery,
+  type ChangePlan, type CostsView, type EntitlementsView, type PriceQuote, type PriceQuoteRequest, type PublicPlansResponse,
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { ResutoRequest, TenantContext } from '../../common/auth/context';
@@ -10,6 +10,7 @@ import { DbService } from '../../common/db/db.service';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { CatalogService } from './catalog.service';
+import { CostsService } from './costs.service';
 import { EntitlementsViewService } from './entitlements-view.service';
 import { SubscriptionsService } from './subscriptions.service';
 
@@ -38,7 +39,7 @@ export class BillingPublicController {
 
 @Controller('o/:orgId/billing')
 export class BillingController {
-  constructor(private readonly db: DbService, private readonly view: EntitlementsViewService, private readonly subs: SubscriptionsService) {}
+  constructor(private readonly db: DbService, private readonly view: EntitlementsViewService, private readonly subs: SubscriptionsService, private readonly costs: CostsService) {}
 
   /** Any member: what is enabled and why, limits and current-period usage. */
   @Get('entitlements')
@@ -50,6 +51,13 @@ export class BillingController {
   @RequirePermission('billing:manage')
   subscription(@Tenant() ctx: TenantContext) {
     return this.db.scoped(ctx, (tx) => this.subs.view(tx, ctx.orgId));
+  }
+
+  /** FT-19: Resuto's own fees (platform invoices) next to the costs paid directly to other providers, by month. */
+  @Get('costs')
+  @RequirePermission('billing:manage')
+  costsView(@Tenant() ctx: TenantContext, @Query(zod(costsQuery)) q: z.infer<typeof costsQuery>): Promise<CostsView> {
+    return this.db.scoped(ctx, (tx) => this.costs.view(tx, ctx.orgId, q.months));
   }
 
   @Post('change-plan')

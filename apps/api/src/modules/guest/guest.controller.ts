@@ -101,6 +101,14 @@ export class GuestController {
     return this.read(req, token, () => this.guest.visitMenu(token));
   }
 
+  /** FT-03: rewards the identified visit customer can redeem (empty when the visit has no linked customer). */
+  @Public()
+  @Get('visits/current/rewards')
+  rewards(@Headers('x-visit-token') token: string | undefined, @Req() req: ResutoRequest) {
+    this.limit(req, 'rewards', token, 60, 60);
+    return this.guest.visitRewards(token);
+  }
+
   @Public()
   @Post('visits/current/quote')
   @HttpCode(200)

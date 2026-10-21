@@ -8,7 +8,7 @@ import { MediaUrls, StorageService } from '../../common/storage/storage.service'
 
 const COLUMNS: Record<string, string> = {
   categoryId: 'category_id', branchId: 'branch_id', amountMinor: 'amount_minor', taxMinor: 'tax_minor', incurredOn: 'incurred_on',
-  vendor: 'vendor', description: 'description', paymentMethod: 'payment_method', externalRef: 'external_ref',
+  vendor: 'vendor', description: 'description', paymentMethod: 'payment_method', externalRef: 'external_ref', providerSettlement: 'provider_settlement',
 };
 
 /** Expense categories and expenses (with receipt files in tenant storage). */
@@ -45,6 +45,7 @@ export class ExpensesService {
       id: r.id, branchId: r.branch_id, categoryId: r.category_id, categoryName: r.category_name ?? null, categoryKind: r.category_kind ?? null,
       amountMinor: r.amount_minor, taxMinor: r.tax_minor, netMinor: r.amount_minor - r.tax_minor, currency: r.currency, incurredOn: r.incurred_on,
       vendor: r.vendor, description: r.description, paymentMethod: r.payment_method, externalRef: r.external_ref, source: r.source,
+      providerSettlement: !!r.provider_settlement,
       receiptMediaId: r.receipt_media_id, receiptUrl: null as string | null,
       createdBy: r.created_by, createdAt: new Date(r.created_at).toISOString(),
     }, 'receiptUrl', r.receipt_path);
@@ -109,10 +110,10 @@ export class ExpensesService {
       await this.assertRefs(tx, ctx, body.categoryId, body.branchId ?? null);
       const org = await tx.one<any>('select currency from organizations where id = $1', [ctx.orgId]);
       const r = await tx.one<any>(
-        `insert into expenses(org_id, branch_id, category_id, amount_minor, tax_minor, currency, incurred_on, vendor, description, payment_method, external_ref, created_by)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
+        `insert into expenses(org_id, branch_id, category_id, amount_minor, tax_minor, currency, incurred_on, vendor, description, payment_method, external_ref, created_by, provider_settlement)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
         [ctx.orgId, body.branchId ?? null, body.categoryId, body.amountMinor, body.taxMinor ?? 0, org.currency, body.incurredOn, body.vendor ?? null,
-          body.description ?? null, body.paymentMethod ?? null, body.externalRef ?? null, ctx.userId]);
+          body.description ?? null, body.paymentMethod ?? null, body.externalRef ?? null, ctx.userId, !!body.providerSettlement]);
       await this.audit.record(tx, ctx, { action: 'expense.created', entityType: 'expense', entityId: r.id, branchId: body.branchId ?? null, metadata: { amountMinor: body.amountMinor } });
       return this.toExpense(await this.load(tx, r.id));
     });

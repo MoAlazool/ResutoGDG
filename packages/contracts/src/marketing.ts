@@ -25,6 +25,8 @@ export const segmentRule = z.discriminatedUnion('type', [
   z.object({ type: z.literal('purchased_product'), productId: uuid, withinDays }).strict(),
   /** Has ordered through this channel. */
   z.object({ type: z.literal('channel'), channel: z.enum(SEGMENT_ORDER_CHANNELS) }).strict(),
+  /** Loyalty points balance at least N (FT-03). */
+  z.object({ type: z.literal('points_balance_gte'), points: z.number().int().min(0).max(10_000_000) }).strict(),
 ]);
 export type SegmentRule = z.infer<typeof segmentRule>;
 

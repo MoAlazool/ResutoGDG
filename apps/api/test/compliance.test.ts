@@ -248,7 +248,8 @@ describe('licences and reminders', () => {
 
     await dispatcher.runDueJobs(Date.now(), true);
     const reminders = await sql(`select days_before, status from compliance_reminders where document_id = $1 order by days_before`, [expiring.body.id]);
-    expect(reminders).toEqual([{ days_before: 1, status: 'scheduled' }, { days_before: 7, status: 'sent' }, { days_before: 30, status: 'dismissed' }]);
+    // 'raised' (FT-06): handed to the notification centre; 'sent' only once an email provider delivered it.
+    expect(reminders).toEqual([{ days_before: 1, status: 'scheduled' }, { days_before: 7, status: 'raised' }, { days_before: 30, status: 'dismissed' }]);
     const events = await sql(`select payload from outbox_events where event_type = 'compliance.document_expiring' and aggregate_id = $1`, [expiring.body.id]);
     expect(events).toHaveLength(1);
     expect(events[0].payload).toMatchObject({ daysBefore: 7, daysLeft: 5, kind: 'municipal_license' });

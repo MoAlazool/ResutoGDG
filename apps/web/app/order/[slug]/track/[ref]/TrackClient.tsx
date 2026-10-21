@@ -8,11 +8,15 @@ import { MetaPurchase } from '@/lib/tracking/MetaPixel';
 import { RatingSheet } from '@/components/guest/rating';
 import { ConsumerFooter, ConsumerHeader, MoneyRow, useToast, type ShellOrg } from '@/components/guest/shell';
 import { StatusOrder, statusHeadline } from '@/components/guest/tracker';
+import type { PublicDeliveryTracking } from '@resuto/contracts';
+import { DeliveryPanel } from './DeliveryPanel';
 
 interface Tracked {
   number: string; status: string; paymentStatus: string; fulfillment: string; currency: string; totalMinor: number; dueMinor: number;
   deliveryFeeMinor: number; lines: Array<{ name: string; nameAr: string | null; quantity: number; lineTotalMinor: number; modifiers: string[] }>;
   timeline: Array<{ status: string; at: string | null }>;
+  /** FT-14: delivery job status, ETA, driver first name and (en route only) an approximate position. */
+  delivery?: PublicDeliveryTracking | null;
 }
 
 /** Polled every 5 s while visible (no customer contact data is returned); rating once paid or handed over. */
@@ -46,6 +50,7 @@ export function TrackClient({ slug, orderRef, org }: { slug: string; orderRef: s
         {error && <p className="gx-note is-danger" role="alert">{error}</p>}
         {order && (
           <>
+            {order.delivery && order.status !== 'cancelled' && <DeliveryPanel d={order.delivery} />}
             <StatusOrder order={{ ...order, id: orderRef }} currency={order.currency} />
             {order.deliveryFeeMinor > 0 && <MoneyRow fine label={t('core.bill.delivery')} value={money(order.deliveryFeeMinor, order.currency, locale)} />}
             {order.dueMinor > 0 && order.status !== 'cancelled' && (

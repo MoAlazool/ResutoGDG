@@ -1,4 +1,5 @@
 'use client';
+import { financeWarningText } from '@/lib/finance-warnings';
 import { Suspense } from 'react';
 import type { RevenueOverview } from '@resuto/contracts';
 import { Card, DataTable, EmptyState, Notice, Skeleton, Stat } from '@resuto/ui';
@@ -30,7 +31,7 @@ function Overview() {
         <div><Stat label={t('finance.netExVat')} value={<bdi>{m(T.netExVatMinor)}</bdi>} hint={`${t('finance.vat')} ${m(T.vatMinor)}`} /></div>
         <div><Stat label={t('finance.collected')} value={<bdi>{m(T.collectedMinor)}</bdi>} /></div>
       </div>
-      {rev.data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}:</strong> {rev.data.warnings.join(' ')}</Notice>}
+      {rev.data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}:</strong> {rev.data.warnings.map((w) => financeWarningText(w, t)).join(' ')}</Notice>}
       <div className="grid grid-2" style={{ alignItems: 'start' }}>
         <Card title={t('finance.insights')}>
           {!insights.data ? <Skeleton lines={3} /> : (

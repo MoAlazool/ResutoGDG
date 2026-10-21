@@ -83,16 +83,23 @@ export class ConnectEventsService {
   @OnDomainEvent('connect.delivery-status', 'delivery.status_changed')
   async deliveryStatus(e: OutboxEvent) {
     if (!e.orgId) return;
-    const job = await this.db.withTenant(e.orgId, (tx) => tx.maybeOne<{ order_id: string; status: string }>(
-      `select order_id, status::text from delivery_jobs where id = $1 or order_id = $2 limit 1`, [e.aggregateId, e.payload?.orderId ?? null]), 'connect.notifications')
+    const job = await this.db.withTenant(e.orgId, (tx) => tx.maybeOne<{ order_id: string; status: string; eta_at: Date | null; tz: string }>(
+      `select j.order_id, j.status::text, j.eta_at, coalesce(b.timezone, org.timezone) as tz
+         from delivery_jobs j join orders o on o.id = j.order_id join branches b on b.id = o.branch_id join organizations org on org.id = j.org_id
+        where j.id = $1 or j.order_id = $2 limit 1`, [e.aggregateId, e.payload?.orderId ?? null]), 'connect.notifications')
       .catch(() => null);
     const orderId = (e.payload?.orderId as string | undefined) ?? job?.order_id;
     const status = String(e.payload?.to ?? e.payload?.status ?? job?.status ?? '');
     // "On the way" is sent once per delivery (DF-14): every job passes through picked_up (the state machine has no
     // other way to en_route or delivered), so en_route, which followed it within milliseconds, sent the same message
-    // a second time.
+    // a second time. picked_up is also where the driver app first sets eta_at, so the ETA (FT-14) is known here.
     if (!orderId || status !== 'picked_up') return { skipped: 'not_applicable' };
-    return this.notify(e.orgId, orderId, () => ({ key: 'delivery_on_the_way' }), 'delivery.status_changed');
+    // FT-14: include the driver's ETA (branch-local time, Western digits) when one is set and still ahead.
+    const eta = job?.eta_at ? new Date(job.eta_at) : null;
+    const etaAhead = eta && eta.getTime() > Date.now() && eta.getTime() < Date.now() + 6 * 3_600_000 ? eta : null;
+    return this.notify(e.orgId, orderId, (_o, l) => etaAhead
+      ? { key: 'delivery_on_the_way_eta', vars: { eta: new Intl.DateTimeFormat(l === 'ar' ? INTL_LOCALE.ar : 'en-GB', { timeStyle: 'short', timeZone: job!.tz || 'UTC' }).format(etaAhead) } }
+      : { key: 'delivery_on_the_way' }, 'delivery.status_changed');
   }
 
   @OnDomainEvent('connect.reservation-confirmed', 'reservation.confirmed')

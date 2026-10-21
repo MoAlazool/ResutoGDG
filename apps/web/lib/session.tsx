@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MeResponse } from '@resuto/contracts';
 import { api, ApiRequestError, type ApiOptions } from './api';
+import { AuthFlowError } from './auth-errors';
 import { createAuthRunner } from './auth-recovery';
 import { queryCache, scopeOfToken, tenantPrefix } from './query-cache';
 import { googleReturnUrl, loginUrl } from './safe-next';
@@ -20,6 +21,21 @@ const STORAGE_KEY = 'resuto_session';
 // supabase-js (~50 KB gzip) is loaded only in Supabase mode and only by staff routes (SessionProvider is not in the
 // root layout), so guest pages and dev-auth builds never download it.
 let supabase: Promise<SupabaseClient> | null = null;
+/**
+ * CR-05: a password may be set without the current one only right after a recovery link (Supabase reports
+ * PASSWORD_RECOVERY), within 15 minutes, in this tab. Any other signed-in session must re-enter the current password.
+ */
+const RECOVERY_KEY = 'resuto.auth.recovery';
+const RECOVERY_TTL_MS = 15 * 60_000;
+export function markRecovery() { try { sessionStorage.setItem(RECOVERY_KEY, String(Date.now())); } catch { /* storage blocked: no recovery */ } }
+export function clearRecovery() { try { sessionStorage.removeItem(RECOVERY_KEY); } catch { /* ignore */ } }
+export function recoveryPending(now = Date.now()): boolean {
+  try {
+    const at = Number(sessionStorage.getItem(RECOVERY_KEY));
+    return Number.isFinite(at) && at > 0 && now - at < RECOVERY_TTL_MS;
+  } catch { return false; }
+}
+
 const sb = () => (supabase ??= import('@supabase/supabase-js').then(({ createClient }) =>
   createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, { auth: { persistSession: true } })));
 
@@ -37,7 +53,16 @@ export interface SessionValue {
   /** /me failed for a reason other than an expired session (offline, server error). */
   meError: ApiRequestError | null;
   signIn(email: string, password: string): Promise<void>;
-  signUp(email: string, password: string, fullName?: string): Promise<void>;
+  /** Resolves `confirmationRequired` when Supabase sent a confirmation email instead of starting a session (CR-05). */
+  signUp(email: string, password: string, fullName?: string): Promise<{ confirmationRequired: boolean }>;
+  /** CR-05: sends a reset link (Supabase Auth) that returns through /auth/callback to /reset-password. */
+  requestPasswordReset(email: string): Promise<void>;
+  /** CR-05: sets a new password. `currentPassword` is required to change it while signed in (re-verified first). */
+  updatePassword(newPassword: string, currentPassword?: string): Promise<void>;
+  /** CR-05: asks Supabase Auth to change the email (confirmed through a link to the new address). */
+  updateEmail(email: string): Promise<void>;
+  /** CR-05: finishes an email link (confirmation, recovery, email change, OAuth code) on /auth/callback. */
+  completeAuthLink(url: string): Promise<void>;
   signOut(): Promise<void>;
   /** Google sign-in through Supabase Auth (redirects away; only when GOOGLE_AUTH). Returns to /login?next=… */
   signInWithGoogle(next?: string | null): Promise<void>;
@@ -67,7 +92,9 @@ function readStored(): StoredSession | null {
 }
 const writeStored = (s: StoredSession) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* private mode */ } };
 const keepSession = (k: string) => k === STORAGE_KEY || /^sb-[a-z0-9]+-auth-token/.test(k);
-const AUTH_PAGES = /^\/(login|signup)(\/|$)/;
+const AUTH_PAGES = /^\/(login|signup|forgot-password|reset-password|auth\/callback)(\/|$)/;
+/** Where email links come back to (CR-05): the callback page finishes the session, then continues to `next`. */
+const callbackUrl = (next: string) => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
 export { loginUrl } from './safe-next';
 
@@ -151,13 +178,15 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
       let t: string | null = null;
       if (AUTH_MODE === 'supabase') {
         const client = await sb();
-        const { data } = await client.auth.getSession();
-        t = data.session?.access_token ?? null;
+        // Subscribe before reading the session: a recovery link is processed while the client initialises.
         const sub = client.auth.onAuthStateChange((e, s) => {
-          if (e === 'SIGNED_OUT' || !s) { clearUserStorage({ keep: keepSession }); queryCache.clear(); }
+          if (e === 'PASSWORD_RECOVERY') markRecovery();
+          if (e === 'SIGNED_OUT' || !s) { clearRecovery(); clearUserStorage({ keep: keepSession }); queryCache.clear(); }
           applyToken(s?.access_token ?? null);
         });
         off = () => sub.data.subscription.unsubscribe();
+        const { data } = await client.auth.getSession();
+        t = data.session?.access_token ?? null;
       } else {
         t = readStored()?.accessToken ?? null;
       }
@@ -186,7 +215,8 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     let t: string;
     if (AUTH_MODE === 'supabase') {
       const { data, error } = await (await sb()).auth.signInWithPassword({ email, password });
-      if (error || !data.session) throw new Error(error?.message ?? 'Sign-in failed');
+      if (error) throw error;
+      if (!data.session) throw new AuthFlowError('invalid_credentials');
       t = data.session.access_token;
     } else {
       const r = await api<{ accessToken: string; expiresIn: number }>('/auth/dev/login', { body: { email, password } });
@@ -199,17 +229,73 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
 
   const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
     if (AUTH_MODE === 'supabase') {
-      const { data, error } = await (await sb()).auth.signUp({ email, password, options: { data: { full_name: fullName } } });
-      if (error) throw new Error(error.message);
-      if (!data.session) throw new Error('Check your email to confirm your account, then sign in.');
+      const { data, error } = await (await sb()).auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: callbackUrl('/onboarding') } });
+      if (error) throw error;
+      // Email confirmation is on: no session until the link is opened (returns through /auth/callback).
+      if (!data.session) return { confirmationRequired: true };
       applyToken(data.session.access_token);
       await loadMe(data.session.access_token);
-      return;
+      return { confirmationRequired: false };
     }
     const r = await api<{ accessToken: string; expiresIn: number }>('/auth/dev/signup', { body: { email, password, fullName } });
     writeStored({ accessToken: r.accessToken, expiresAt: Date.now() + r.expiresIn * 1000, email });
     applyToken(r.accessToken);
     await loadMe(r.accessToken);
+    return { confirmationRequired: false };
+  }, [applyToken, loadMe]);
+
+  const requestPasswordReset = useCallback(async (email: string) => {
+    // The dev issuer has no email service: say so instead of pretending a link was sent.
+    if (AUTH_MODE !== 'supabase') throw new AuthFlowError('reset_unavailable');
+    const { error } = await (await sb()).auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: callbackUrl('/reset-password') });
+    if (error) throw error;
+  }, []);
+
+  const updatePassword = useCallback(async (newPassword: string, currentPassword?: string) => {
+    if (!tokenRef.current) throw new AuthFlowError('not_signed_in');
+    if (AUTH_MODE !== 'supabase') {
+      await withAuth((t) => api('/auth/dev/password', { token: t, body: { currentPassword: currentPassword ?? '', newPassword } }));
+      return;
+    }
+    const client = await sb();
+    // Without the current password only a fresh recovery link may set a new one (see recoveryPending).
+    if (currentPassword === undefined && !recoveryPending()) throw new AuthFlowError('current_password_required');
+    if (currentPassword !== undefined) {
+      const { data: u } = await client.auth.getUser();
+      const email = u.user?.email;
+      if (!email) throw new AuthFlowError('not_signed_in');
+      const { error: verify } = await client.auth.signInWithPassword({ email, password: currentPassword });
+      if (verify) throw (verify as { code?: string }).code === 'invalid_credentials' ? new AuthFlowError('current_password_incorrect') : verify;
+    }
+    const { error } = await client.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    clearRecovery();
+  }, [withAuth]);
+
+  const updateEmail = useCallback(async (email: string) => {
+    if (AUTH_MODE !== 'supabase') throw new AuthFlowError('email_change_unavailable');
+    const { error } = await (await sb()).auth.updateUser({ email: email.trim().toLowerCase() }, { emailRedirectTo: callbackUrl('/account/security') });
+    if (error) throw error;
+  }, []);
+
+  const completeAuthLink = useCallback(async (href: string) => {
+    if (AUTH_MODE !== 'supabase') throw new AuthFlowError('link_invalid');
+    const url = new URL(href);
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+    if (url.searchParams.get('error') || hash.get('error')) throw new AuthFlowError('link_invalid', url.searchParams.get('error_description') ?? hash.get('error_description') ?? undefined);
+    const client = await sb();
+    const code = url.searchParams.get('code');
+    // PKCE links carry ?code=; implicit links (#access_token=…) were already read by the client when it initialised.
+    if (code) {
+      const { data: ex, error } = await client.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      // PKCE recovery links say so in the exchange (the code verifier was stored by resetPasswordForEmail).
+      if ((ex as { redirectType?: string | null } | null)?.redirectType === 'PASSWORD_RECOVERY') markRecovery();
+    }
+    const { data } = await client.auth.getSession();
+    if (!data.session) throw new AuthFlowError('link_invalid');
+    applyToken(data.session.access_token);
+    await loadMe(data.session.access_token);
   }, [applyToken, loadMe]);
 
   const signOut = useCallback(async () => {
@@ -218,7 +304,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   }, [dropSession]);
 
   const signInWithGoogle = useCallback(async (next?: string | null) => {
-    if (!GOOGLE_AUTH) throw new Error('Google sign-in is not enabled.');
+    if (!GOOGLE_AUTH) throw new AuthFlowError('google_disabled');
     const back = googleReturnUrl(window.location.origin, next);
     const { error } = await (await sb()).auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back } });
     if (error) throw new Error(error.message);
@@ -228,7 +314,8 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
 
   const value = useMemo<SessionValue>(() => ({
     ready, tokenReady, token, scope: scopeOfToken(token), me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call,
-  }), [ready, tokenReady, token, me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call]);
+    requestPasswordReset, updatePassword, updateEmail, completeAuthLink,
+  }), [ready, tokenReady, token, me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call, requestPasswordReset, updatePassword, updateEmail, completeAuthLink]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

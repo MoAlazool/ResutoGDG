@@ -3,7 +3,7 @@ const PARSE_BASE = 'http://resuto.invalid';
 /** C0 controls, DEL, C1 controls and backslash: the URL parser drops or rewrites these (tab/LF/CR are removed,
  * `\` becomes `/`), which can turn `/<TAB>/evil.example` into the protocol-relative `//evil.example`. */
 const UNSAFE_NEXT_CHARS = /[\u0000-\u001F\u007F-\u009F\\]/;
-const AUTH_PATH = /^\/(login|signup)(\/|$)/;
+const AUTH_PATH = /^\/(login|signup|forgot-password|reset-password|auth\/callback)(\/|$)/;
 
 /**
  * The only post-sign-in destinations followed are same-origin paths (VS-05). The value is validated by parsing, not

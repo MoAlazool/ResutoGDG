@@ -30,11 +30,13 @@ export const cartLine = z.object({
 export type CartLine = z.infer<typeof cartLine>;
 const lines = z.array(cartLine).min(1).max(60);
 
-export const guestQuoteRequest = z.object({ lines, promotionCode: optionalText(40) });
+/** `loyaltyRewardId` (FT-03) applies only when the table's visit is linked to a customer by staff (identified). */
+export const guestQuoteRequest = z.object({ lines, promotionCode: optionalText(40), loyaltyRewardId: z.uuid().nullable().optional() });
 export const guestOrderRequest = z.object({
   lines,
   notes: optionalText(500),
   promotionCode: optionalText(40),
+  loyaltyRewardId: z.uuid().nullable().optional(),
   /** The total the guest saw; a different server total is a 409 `price_changed`. */
   expectedTotalMinor: z.number().int().min(0).optional(),
 });
@@ -48,6 +50,8 @@ const deliveryAddress = z.object({
   notes: optionalText(300),
   latitude: z.number().min(-90).max(90).nullable().optional(),
   longitude: z.number().min(-180).max(180).nullable().optional(),
+  /** FT-09: the delivery zone (area) the customer chose; verified server-side against the branch's zones. */
+  zoneId: uuid.optional().nullable(),
 });
 
 export const webQuoteRequest = z.object({
@@ -55,6 +59,9 @@ export const webQuoteRequest = z.object({
   fulfillment: z.enum(['pickup', 'delivery']),
   lines,
   promotionCode: optionalText(40),
+  /** FT-09: priced by the delivery zone / point when given; scheduledFor is checked against opening hours. */
+  deliveryAddress: deliveryAddress.partial({ line1: true }).optional().nullable(),
+  scheduledFor: isoDateTime.optional().nullable(),
 });
 export const webOrderRequest = webQuoteRequest.extend({
   customer: z.object({
@@ -90,6 +97,12 @@ export const staffOrderRequest = z.object({
   notes: optionalText(500),
   promotionCode: optionalText(40),
   channel: z.enum(['staff', 'phone']).default('staff'),
+  /**
+   * FT-03: an existing customer picked by staff (customer card / lookup); wins over `customer` for the order's profile.
+   * Staff are the ones who identify the guest, so a staff order may redeem that customer's points with `loyaltyRewardId`.
+   */
+  customerId: uuid.optional().nullable(),
+  loyaltyRewardId: uuid.optional().nullable(),
 });
 export type StaffOrderRequest = z.infer<typeof staffOrderRequest>;
 

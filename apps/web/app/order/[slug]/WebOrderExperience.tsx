@@ -12,6 +12,7 @@ import { CartSheet, useSuggestions } from '@/components/guest/cart';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart, type Cart } from '@/components/guest/menu';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 import { MetaPixel, metaOrderPlaced, metaTrack } from '@/lib/tracking/MetaPixel';
+import { AREA_ERRORS, NO_CHOICE, ServiceAreaFields, useServiceArea, type AreaChoice } from './ServiceArea';
 
 export type WebMenu = PublicMenu & {
   payment: { payAtPickup: boolean; cashOnDelivery: boolean; online: boolean };
@@ -19,7 +20,9 @@ export type WebMenu = PublicMenu & {
   cover: string | null;
 };
 type Fulfillment = 'pickup' | 'delivery';
-interface QuoteView { subtotalMinor: number; discountMinor: number; deliveryFeeMinor: number; serviceChargeMinor: number; taxMinor: number; taxInclusive: boolean; totalMinor: number }
+interface QuoteView { deliveryZoneRequired?: boolean; subtotalMinor: number; discountMinor: number; deliveryFeeMinor: number; serviceChargeMinor: number; taxMinor: number; taxInclusive: boolean; totalMinor: number;
+  /** FT-03: points this order earns once paid (website orders cannot spend points: the phone is not verified). */
+  loyalty?: { earnPreview: number | null } | null }
 
 export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: string; branchCode?: string; initialMenu: WebMenu | null }) {
   const { t, locale } = useT();
@@ -130,16 +133,28 @@ function CheckoutSheet({ slug, menu, cart, onClose, onDone }: {
   useEffect(() => { if (!methods.includes(payment) && methods[0]) setPayment(methods[0]); }, [methods, payment]);
   const intent = useRef(newIdempotencyKey());
   const linesKey = JSON.stringify(cart.items);
+  // FT-09: opening hours and delivery area (server-enforced; these fields only let the guest choose).
+  const area = useServiceArea(slug, b.id);
+  const [choice, setChoice] = useState<AreaChoice>(NO_CHOICE);
+  const choiceKey = JSON.stringify(choice);
+  const areaAddress = fulfillment === 'delivery' && (choice.zoneId || choice.point)
+    ? { zoneId: choice.zoneId, latitude: choice.point?.latitude ?? null, longitude: choice.point?.longitude ?? null } : null;
+  const explain = (e: unknown) => {
+    const ae = e as ApiRequestError;
+    return ae.code && AREA_ERRORS.has(ae.code) ? t(`core.web.area.err.${ae.code}`) : (e as Error).message;
+  };
 
   useEffect(() => {
     let live = true;
-    api<QuoteView>(`/public/order/${encodeURIComponent(slug)}/quote`, { body: { branchId: b.id, fulfillment, lines: cart.lines() } })
+    api<QuoteView>(`/public/order/${encodeURIComponent(slug)}/quote`, { body: {
+      branchId: b.id, fulfillment, lines: cart.lines(), ...(areaAddress ? { deliveryAddress: areaAddress } : {}), ...(choice.scheduledFor ? { scheduledFor: choice.scheduledFor } : {}),
+    } })
       .then((q) => { if (live) { setQuote(q); setError(null); } })
-      .catch((e) => { if (live) { setQuote(null); setError((e as Error).message); } });
+      .catch((e) => { if (live) { setQuote(null); setError(explain(e)); } });
     intent.current = newIdempotencyKey();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linesKey, fulfillment, slug, b.id]);
+  }, [linesKey, fulfillment, slug, b.id, choiceKey]);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -156,8 +171,9 @@ function CheckoutSheet({ slug, menu, cart, onClose, onDone }: {
         body: {
           branchId: b.id, fulfillment, lines: cart.lines(), payment, expectedTotalMinor: quote.totalMinor, attribution: attributionFromUrl(),
           customer: { name: String(f.get('name')).trim(), phone: String(f.get('phone')), email: (f.get('email') as string) || null, marketingConsent: f.get('consent') === 'on' },
-          deliveryAddress: fulfillment === 'delivery' ? { line1: String(f.get('line1')), area: (f.get('area') as string) || null, city: (f.get('city') as string) || null, notes: (f.get('addrNotes') as string) || null } : null,
+          deliveryAddress: fulfillment === 'delivery' ? { line1: String(f.get('line1')), area: (f.get('area') as string) || null, city: (f.get('city') as string) || null, notes: (f.get('addrNotes') as string) || null, ...(areaAddress ?? {}) } : null,
           notes: (f.get('notes') as string) || null,
+          scheduledFor: choice.scheduledFor,
           returnUrl: `${window.location.origin}/order/${slug}`,
         },
       });
@@ -166,7 +182,7 @@ function CheckoutSheet({ slug, menu, cart, onClose, onDone }: {
       const ae = err as ApiRequestError;
       if (ae.code === 'price_changed') intent.current = newIdempotencyKey();
       if (ae.code === 'phone_invalid') setPhoneError(t('core.res.bk.phoneInvalid', { example }));
-      else setError(ae.message);
+      else setError(explain(ae));
     } finally {
       setPending(false);
     }
@@ -181,7 +197,8 @@ function CheckoutSheet({ slug, menu, cart, onClose, onDone }: {
             {(['pickup', 'delivery'] as const).map((k) => <button key={k} type="button" aria-pressed={fulfillment === k} onClick={() => setFulfillment(k)}>{t(`core.web.${k}`)}</button>)}
           </div>
         )}
-        {fulfillment === 'delivery' && <p className="gx-fine">{t('core.web.deliveryInfo', { fee: m(b.deliveryFeeMinor), min: m(b.minOrderMinor) })}</p>}
+        {fulfillment === 'delivery' && !area?.delivery.zones.length && <p className="gx-fine">{t('core.web.deliveryInfo', { fee: m(b.deliveryFeeMinor), min: m(b.minOrderMinor) })}</p>}
+        <ServiceAreaFields area={area} fulfillment={fulfillment} currency={menu.org.currency} value={choice} onChange={setChoice} />
         <label className="gx-field"><span>{t('core.web.name')}</span><input name="name" required maxLength={100} autoComplete="name" dir="auto" /></label>
         <label className="gx-field"><span>{t('core.web.phone')}</span>
           <input name="phone" required inputMode="tel" autoComplete="tel" dir="ltr" placeholder={example} aria-describedby="gx-phone-hint"
@@ -216,11 +233,12 @@ function CheckoutSheet({ slug, menu, cart, onClose, onDone }: {
             {quote.deliveryFeeMinor > 0 && <MoneyRow fine label={t('core.bill.delivery')} value={m(quote.deliveryFeeMinor)} />}
             {quote.taxMinor > 0 && <MoneyRow fine label={quote.taxInclusive ? t('core.bill.vatIncluded') : t('core.bill.vat')} value={m(quote.taxMinor)} />}
             <MoneyRow grand label={t('core.bill.total')} value={m(quote.totalMinor)} />
+            {!!quote.loyalty?.earnPreview && <p className="gx-fine">{t('core.guest.loyalty.earn', { points: quote.loyalty.earnPreview })}</p>}
           </div>
         )}
         {cart.items.length > 0 && <p className="gx-fine">{t('core.guest.assistant.reviewCart')}</p>}
         {error && <p className="gx-note is-danger" role="alert">{error}</p>}
-        <button className="gx-btn is-primary is-block" disabled={!quote || pending || !methods.length}>
+        <button className="gx-btn is-primary is-block" disabled={!quote || pending || !methods.length || !!quote.deliveryZoneRequired}>
           {pending ? t('core.guest.cart.sending') : payment === 'online' ? t('core.web.payNow') : t('core.web.placeOrder')}
         </button>
       </form>

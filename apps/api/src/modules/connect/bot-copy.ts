@@ -19,6 +19,7 @@ const COPY = {
   openMenu: { en: 'Open menu', ar: 'افتح القائمة' },
   review: { en: 'Your order:\n{lines}\n\nSubtotal {subtotal}{delivery}\nTotal {total}\n\nHow would you like to pay?', ar: 'طلبك:\n{lines}\n\nالمجموع الفرعي {subtotal}{delivery}\nالإجمالي {total}\n\nكيف تحب أن تدفع؟' },
   deliveryFee: { en: '\nDelivery {fee}', ar: '\nالتوصيل {fee}' },
+  chooseZone: { en: 'Almost done: choose your delivery area on the order page so we can confirm the delivery fee.', ar: 'خطوة أخيرة: اختر منطقة التوصيل في صفحة الطلب لنؤكد رسوم التوصيل.' },
   payOnline: { en: 'Pay online', ar: 'ادفع أونلاين' },
   payCod: { en: 'Cash on delivery', ar: 'الدفع عند الاستلام' },
   payAtPickup: { en: 'Pay at pickup', ar: 'الدفع عند الاستلام' },
@@ -44,6 +45,7 @@ const COPY = {
   status_delivered: { en: 'Order #{number} was delivered. Enjoy your meal!', ar: 'تم توصيل الطلب رقم {number}. بالهناء والشفاء!' },
   status_cancelled: { en: 'Order #{number} was cancelled.', ar: 'تم إلغاء الطلب رقم {number}.' },
   delivery_on_the_way: { en: '🛵 Order #{number} is on the way.', ar: '🛵 الطلب رقم {number} في الطريق إليك.' },
+  delivery_on_the_way_eta: { en: '🛵 Order #{number} is on the way. Expected around {eta}.', ar: '🛵 الطلب رقم {number} في الطريق إليك. الوصول المتوقع حوالي {eta}.' },
   reservationConfirmed: { en: '📅 Your table for {party} on {when} is confirmed. Booking code {code}.', ar: '📅 تم تأكيد حجز طاولة لـ {party} في {when}. رمز الحجز {code}.' },
 } as const;
 

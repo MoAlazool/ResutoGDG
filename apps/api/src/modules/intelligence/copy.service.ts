@@ -5,6 +5,7 @@ import { DbService } from '../../common/db/db.service';
 import { DomainError, notFound } from '../../common/errors/domain-error';
 import { recordUsage } from './ai-client.service';
 import { GeminiClient } from './gemini.client';
+import { PlanLimitsService } from '../billing/plan-limits.service';
 
 interface Subject { name: string; nameAr: string | null; description: string | null; descriptionAr: string | null; price: string | null; restaurant: string; restaurantAr: string | null }
 
@@ -61,7 +62,7 @@ export function templateCopy(input: GenerateCopyInput, s: Subject): string {
 
 @Injectable()
 export class CopyService {
-  constructor(private readonly db: DbService, private readonly gemini: GeminiClient) {}
+  constructor(private readonly db: DbService, private readonly gemini: GeminiClient, private readonly limits: PlanLimitsService) {}
 
   async generate(ctx: TenantContext, input: GenerateCopyInput): Promise<GeneratedCopy> {
     const subject = await this.db.scoped(ctx, async (tx): Promise<Subject> => {
@@ -78,6 +79,7 @@ export class CopyService {
     if (!this.gemini.configured) {
       return { kind: input.kind, locale: input.locale, text: templateCopy(input, subject), provider: 'template', isFallback: true };
     }
+    await this.db.scoped(ctx, (tx) => this.limits.assertAiQuota(tx, ctx.orgId));
     const lang = input.locale === 'ar' ? 'Arabic (Egyptian/Gulf-friendly Modern Standard Arabic)' : 'English';
     const brief = {
       kind: input.kind, channel: input.channel, tone: input.tone, language: lang, maxCharacters: LIMITS[input.channel],

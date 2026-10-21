@@ -47,7 +47,7 @@ export class LicencesService {
 
   /** (Re)creates reminder rows. Expiry changes (renewals) reset sent reminders; otherwise sent ones are kept. */
   private async scheduleReminders(tx: Tx, orgId: string, doc: any, today: string, resetSent: boolean) {
-    await tx.query(`delete from compliance_reminders where document_id = $1 ${resetSent ? '' : `and status <> 'sent'`}`, [doc.id]);
+    await tx.query(`delete from compliance_reminders where document_id = $1 ${resetSent ? '' : `and status not in ('sent', 'raised')`}`, [doc.id]);
     if (!doc.expires_on || doc.expires_on < today) return;
     for (const days of doc.reminder_days ?? []) {
       await tx.query(
@@ -165,7 +165,7 @@ export class LicencesService {
    * reminder is sent (e.g. a licence added 5 days before expiry gets the 7-day
    * reminder once, not 30 and 7); larger ones are marked dismissed.
    */
-  async runReminders(): Promise<{ sent: number; dismissed: number }> {
+  async runReminders(): Promise<{ sent: number; dismissed: number }> { // `sent` counts reminders raised to the notification centre
     const orgs = await this.db.withPlatform((tx) => tx.query<{ org_id: string }>(
       `select distinct r.org_id from compliance_reminders r join organizations o on o.id = r.org_id
         where r.status = 'scheduled' and r.remind_on <= (now() at time zone o.timezone)::date limit 1000`));
@@ -190,7 +190,9 @@ export class LicencesService {
             type: 'compliance.document_expiring', aggregateType: 'compliance_document', aggregateId: r.document_id,
             payload: { kind: r.kind, title: r.title, expiresOn: r.expires_on, daysBefore: r.days_before, daysLeft: daysUntil(r.expires_on, today), branchId: r.branch_id },
           });
-          await tx.query(`update compliance_reminders set status = 'sent', sent_at = now() where id = $1`, [r.id]);
+          // 'raised': the notification centre picks it up (notifications.licence_expiring); it becomes 'sent' only
+          // when an email provider accepted the reminder (FT-06). Nothing was delivered at this point.
+          await tx.query(`update compliance_reminders set status = 'raised' where id = $1`, [r.id]);
           sent++;
         }
       }, 'system:compliance.expiry_reminders');

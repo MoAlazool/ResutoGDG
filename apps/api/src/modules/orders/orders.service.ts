@@ -175,9 +175,18 @@ export class OrdersService implements OrdersQueryPort {
           visitId = open ? open.id : (await this.visits.open(tx, ctx, { tableId, via: 'staff' })).visit.id;
         } else throw invalid('table_required', 'Dine-in orders need a table');
       }
+      if (body.customerId && !(await tx.maybeOne(`select 1 from customers where id = $1 and org_id = $2 and anonymized_at is null and merged_into_id is null`, [body.customerId, ctx.orgId]))) {
+        throw notFound('Customer');
+      }
+      if (body.loyaltyRewardId && !body.customerId && !body.customer?.phone) {
+        throw invalid('loyalty_customer_required', 'Choose the customer whose points are redeemed');
+      }
       const placed = await this.kernel.place(tx, ctx, {
         branchId: body.branchId, channel: body.channel, fulfillment: body.fulfillment, lines: body.lines, tableId, visitId,
-        customer: body.customer ?? null, deliveryAddress: body.deliveryAddress ?? null, notes: body.notes ?? null, promotionCode: body.promotionCode ?? null,
+        customer: body.customer ?? null, customerId: body.customerId ?? null, deliveryAddress: body.deliveryAddress ?? null, notes: body.notes ?? null,
+        promotionCode: body.promotionCode ?? null,
+        // FT-03: the signed-in staff member identifies the guest (and the redemption is attributed to them in the ledger).
+        loyaltyRewardId: body.loyaltyRewardId ?? null, customerIdentified: !!body.loyaltyRewardId,
       });
       await this.audit.record(tx, ctx, { action: 'order.created', entityType: 'order', entityId: placed.id, branchId: body.branchId, metadata: { channel: body.channel, totalMinor: placed.totalMinor } });
       return { id: placed.id, number: placed.number, publicRef: placed.publicRef, status: placed.status, totalMinor: placed.totalMinor, currency: placed.currency, visitId };

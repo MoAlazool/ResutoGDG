@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import type { Insight } from '@resuto/contracts';
+import { formatNumber, renderInsight, type Insight } from '@resuto/contracts';
 import { Badge, Notice, Skeleton, Tabs, useAction, type Tone } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { dateTime } from '@/lib/format';
@@ -54,17 +54,11 @@ export default function InsightsPage() {
                         <div className="row" style={{ gap: 8 }}>
                           <Badge tone={SEVERITY_TONE[i.severity]}>{t(`intelligence.severity.${i.severity}`)}</Badge>
                           <Badge>{t(`intelligence.method.${i.method}`)}</Badge>
-                          {i.status !== 'new' && <Badge>{t(`intelligence.status.${i.status}`)}</Badge>}
+                          {i.status !== 'new' && <Badge tone={i.status === 'resolved' ? 'ok' : undefined}>{t(`intelligence.status.${i.status}`)}</Badge>}
                           <span className="fine">{dateTime(i.createdAt, locale, org.timezone)}</span>
+                          {i.refreshedAt && <span className="fine">{t('intelligence.insights.updated', { at: dateTime(i.refreshedAt, locale, org.timezone) })}</span>}
                         </div>
-                        <strong style={{ fontSize: 16 }}>{i.title}</strong>
-                        <p style={{ margin: 0 }} dir="auto">{i.body}</p>
-                        <details>
-                          <summary className="fine" style={{ cursor: 'pointer' }}>{t('intelligence.insights.evidence')}</summary>
-                          <pre dir="ltr" style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: 'var(--surface-warm)', padding: 10, borderRadius: 8 }}>
-                            {JSON.stringify(i.evidence, null, 2)}
-                          </pre>
-                        </details>
+                        <InsightText insight={i} />
                       </div>
                       {(i.status === 'new' || i.status === 'seen') && (
                         <div className="row" style={{ gap: 6 }}>
@@ -79,5 +73,39 @@ export default function InsightsPage() {
               </ul>
             )}
     </IntelShell>
+  );
+}
+
+/**
+ * Title, body and evidence in the reader's language (FT-15): rendered from the insight's template key and params with
+ * the shared Western-digit formatters. Older insights without a template fall back to the stored English text and a
+ * plain label/value list of their evidence (never raw JSON).
+ */
+function InsightText({ insight }: { insight: Insight }) {
+  const { t, locale } = useT();
+  const rendered = renderInsight(insight.templateKey, insight.params, locale === 'ar' ? 'ar' : 'en');
+  const evidence = rendered?.evidence ?? Object.entries(insight.evidence ?? {})
+    .filter(([k, v]) => k !== 'rule' && (typeof v === 'number' || typeof v === 'string') && !/Ids?$/.test(k))
+    .map(([k, v]) => ({ label: k.replace(/([A-Z])/g, ' $1').toLowerCase(), value: typeof v === 'number' ? formatNumber(v, locale, { maximumFractionDigits: 2 }) : String(v) }));
+  return (
+    <>
+      <strong style={{ fontSize: 16 }} dir="auto">{rendered?.title ?? insight.title}</strong>
+      <p style={{ margin: 0 }} dir="auto">{rendered?.body ?? insight.body}</p>
+      {evidence.length > 0 && (
+        <details>
+          <summary className="fine" style={{ cursor: 'pointer' }}>{t('intelligence.insights.evidence')}</summary>
+          <dl className="evidence-list" style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '4px 14px', margin: '8px 0 0', fontSize: 13,
+            background: 'var(--surface-warm)', padding: 10, borderRadius: 8 }}>
+            {evidence.map((e) => (
+              <div key={e.label} style={{ display: 'contents' }}>
+                <dt className="muted">{e.label}</dt>
+                <dd style={{ margin: 0 }} className="num"><bdi>{e.value}</bdi></dd>
+              </div>
+            ))}
+          </dl>
+          <p className="fine" style={{ marginBlockEnd: 0 }}>{t(`intelligence.method.explain.${insight.method}`)}</p>
+        </details>
+      )}
+    </>
   );
 }

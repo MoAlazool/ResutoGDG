@@ -5,6 +5,8 @@ import { DbService } from '../../common/db/db.service';
 import { invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { ENV, type Env } from '../../config/env';
+import { PlanLimitsService } from '../billing/plan-limits.service';
+import { recordUsage } from '../intelligence/ai-client.service';
 import { generateCreativeCopy, type CreativeContext } from './creative-generator';
 import { toCreative } from './studio.mappers';
 
@@ -15,6 +17,8 @@ export class CreativeService {
     private readonly db: DbService,
     private readonly audit: AuditService,
     @Inject(ENV) private readonly env: Env,
+    /** FT-10: model-backed generation counts against ai_requests_per_month; the template fallback stays free. */
+    private readonly limits: PlanLimitsService,
   ) {}
 
   async generate(ctx: TenantContext, input: GenerateCreative) {
@@ -35,6 +39,8 @@ export class CreativeService {
           priceLabel: formatMoney(Number(p.price_minor), p.currency as Currency, input.locale), dietary: p.dietary ?? [],
         };
       }
+      // FT-10: refuse before the model is called when the plan's AI requests are used up.
+      if (this.env.GEMINI_API_KEY) await this.limits.assertAiQuota(tx, ctx.orgId);
       return { restaurant: { name: org.name, nameAr: org.name_ar, city: org.city }, product };
     });
     const result = await generateCreativeCopy(input, context, { apiKey: this.env.GEMINI_API_KEY, model: this.env.GEMINI_MODEL });
@@ -46,6 +52,7 @@ export class CreativeService {
           variants: result.variants, tone: input.tone, productId: input.productId ?? null,
           ...(result.fallbackReason ? { fallbackReason: result.fallbackReason } : {}),
         }, result.provider, result.model, result.isFallback, ctx.userId]);
+      if (result.provider === 'gemini' && !result.isFallback) await recordUsage(tx, ctx, { endpoint: 'studio-creative', provider: 'gemini' });
       await this.audit.record(tx, ctx, { action: 'creative.generated', entityType: 'creative_asset', entityId: row.id, metadata: { kind: input.kind, provider: result.provider, isFallback: result.isFallback } });
       return toCreative(row);
     });

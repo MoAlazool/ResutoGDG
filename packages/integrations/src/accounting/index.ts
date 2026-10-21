@@ -6,7 +6,10 @@
 import { providerRequest, ProviderError, type AdapterContext, type ProviderDescriptor } from '../core';
 import { guardedProviderCall } from '../net';
 
-export const ACCOUNT_ROLES = ['cash', 'card_clearing', 'wallet_clearing', 'bank', 'receivables', 'sales', 'delivery_income', 'discounts', 'vat_output', 'payment_fees', 'refunds'] as const;
+export const ACCOUNT_ROLES = ['cash', 'card_clearing', 'wallet_clearing', 'bank', 'receivables', 'sales', 'delivery_income', 'discounts', 'vat_output', 'payment_fees', 'refunds',
+  // FT-23: expense, purchase and COGS journals.
+  'vat_input', 'accounts_payable', 'inventory', 'cogs', 'expenses_labor', 'expenses_rent', 'expenses_utilities', 'expenses_marketing', 'expenses_delivery',
+  'expenses_maintenance', 'expenses_other'] as const;
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
 
 export interface JournalLine { role: AccountRole; description: string; debitMinor: number; creditMinor: number }

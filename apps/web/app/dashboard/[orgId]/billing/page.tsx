@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   MODULE_INFO, MODULE_KEYS, USAGE_LIMIT_FOR,
-  type ChangePlanResult, type DowngradeViolation, type EntitlementsView, type ModuleKey, type PriceQuote, type PublicPlansResponse, type SubscriptionView, INTL_LOCALE } from '@resuto/contracts';
+  type ChangePlanResult, type CostsView, type DowngradeViolation, type EntitlementsView, type ModuleKey, type PriceQuote, type PublicPlansResponse, type SubscriptionView, INTL_LOCALE } from '@resuto/contracts';
 import { Badge, Card, EmptyState, Modal, Notice, PageHeader, Skeleton, TextareaField, type Tone } from '@resuto/ui';
 import { ApiRequestError } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
@@ -115,6 +115,7 @@ export default function BillingPage() {
         </div>
       </Card>
 
+      {manage && <Costs s={s} />}
       {manage && v && <ChangePlan v={v} s={s} onChanged={refresh} />}
       {manage && v && (
         <div className="grid grid-2" style={{ marginBlockStart: 16 }}>
@@ -143,6 +144,55 @@ export default function BillingPage() {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+/** FT-19: Resuto's own fees next to the costs the restaurant pays other providers directly, by month. */
+function Costs({ s }: { s: BillingStrings }) {
+  const { locale } = useT();
+  const { org } = useOrg();
+  const costs = useApi<CostsView>(`/o/${org.id}/billing/costs?months=3`);
+  const month = (m: string) => new Intl.DateTimeFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${m}-01T00:00:00Z`));
+  const n = (x: number) => x.toLocaleString(locale === 'ar' ? INTL_LOCALE.ar : 'en');
+  return (
+    <div style={{ marginBlockEnd: 16 }}>
+      <Card title={s.costsTitle}>
+        <p className="fine" style={{ marginTop: 0 }}>{s.costsBody}</p>
+        {costs.error ? <Notice tone="danger">{s.loadError}</Notice> : !costs.data ? <Skeleton lines={4} /> : (
+          <div className="stack">
+            {costs.data.months.map((m) => (
+              <section key={m.month}>
+                <h3 style={{ marginBlock: '6px 8px' }}>{month(m.month)}</h3>
+                <div className="table-wrap">
+                  <table className="data">
+                    <tbody>
+                      <tr style={{ fontWeight: 600 }}>
+                        <td>{s.costsPlatform}</td><td />
+                        <td className="num" style={{ textAlign: 'end' }}>{m.platform.currency ? money(m.platform.invoicedMinor, m.platform.currency, locale) : s.costsNoInvoice}</td>
+                        <td>{m.platform.invoiceStatuses.includes('draft') ? <Badge tone="warn">{s.draft}</Badge> : null}</td>
+                      </tr>
+                      <tr><td colSpan={4} className="fine" style={{ paddingTop: 10 }}>{s.costsPassThrough}</td></tr>
+                      {m.passThrough.length === 0 ? <tr><td colSpan={4} className="muted">{s.costsNone}</td></tr> : m.passThrough.map((l) => (
+                        <tr key={`${l.category}:${l.detail}`}>
+                          <td style={{ paddingInlineStart: 28 }}>{s[`cat_${l.category}` as keyof BillingStrings]} <span className="fine">· <bdi dir="ltr">{l.detail}</bdi></span></td>
+                          <td className="num muted">{s.costsQty}: {n(l.quantity)}</td>
+                          <td className="num" style={{ textAlign: 'end' }}>{l.amountMinor === null ? '—' : money(l.amountMinor, l.currency ?? 'EGP', locale)}</td>
+                          <td><Badge tone={l.basis === 'count_only' ? 'neutral' : 'info'}>{s[`basis_${l.basis}` as keyof BillingStrings]}</Badge> <span className="fine">{s.costsBilledBy} <bdi dir="ltr">{l.billedBy}</bdi></span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ))}
+            {costs.data.months.some((m) => m.platform.invoiceStatuses.includes('draft')) && <p className="fine" style={{ margin: 0 }}>{s.costsDraftNote}</p>}
+            <ul className="fine" style={{ margin: 0, paddingInlineStart: 18 }}>
+              {costs.data.notes.map((k) => <li key={k}>{s[`note_${k}` as keyof BillingStrings]}</li>)}
+            </ul>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

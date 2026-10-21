@@ -83,13 +83,18 @@ export function BranchSelect({ value, onChange }: { value: string; onChange: (id
 /** Error state with a specific message when the AI service is down or not configured. */
 export function ApiErrorNotice({ error, onRetry }: { error: ApiRequestError | Error | null; onRetry?: () => void }) {
   const { t } = useT();
+  const { org } = useOrg();
   if (!error) return null;
   const code = (error as ApiRequestError).code;
+  const details = (error as ApiRequestError).details as { limit?: string; allowed?: number } | undefined;
+  const quota = code === 'plan_limit_reached' && details?.limit === 'ai_requests_per_month';
   const msg = code === 'ai_service_unavailable' ? t('intelligence.serviceDown')
-    : code === 'ai_service_not_configured' ? t('intelligence.notConfigured') : error.message;
+    : code === 'ai_service_not_configured' ? t('intelligence.notConfigured')
+      : quota ? t('intelligence.quotaReached', { allowed: Number(details?.allowed ?? 0) }) : error.message;
   return (
     <div className="stack">
-      <Notice tone={code === 'ai_service_unavailable' ? 'warn' : 'danger'}>{msg}</Notice>
+      <Notice tone={code === 'ai_service_unavailable' || quota ? 'warn' : 'danger'}>{msg}</Notice>
+      {quota && <div><Link className="btn btn-sm btn-primary" href={`/dashboard/${org.id}/billing`}>{t('intelligence.quotaUpgrade')}</Link></div>}
       {onRetry && <div><button type="button" className="btn btn-sm" onClick={onRetry}>{t('action.retry')}</button></div>}
     </div>
   );

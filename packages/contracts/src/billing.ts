@@ -159,3 +159,39 @@ export interface DowngradeViolation {
   current: number;
   allowed: number;
 }
+
+// ---------------------------------------------------------------------------
+// FT-19: platform fees vs pass-through costs
+// ---------------------------------------------------------------------------
+export const PASS_THROUGH_CATEGORIES = ['payment_fees', 'ad_spend', 'messaging', 'metered_external'] as const;
+export type PassThroughCategory = (typeof PASS_THROUGH_CATEGORIES)[number];
+/**
+ * How an amount is known. provider_reported: the provider reported the money (payment fees, ad reports);
+ * count_only: Resuto knows how many billable units were sent but not their price (Meta bills by its own rate card);
+ * metered: recorded on usage_events with an external cost.
+ */
+export type CostBasis = 'provider_reported' | 'count_only' | 'metered';
+export interface PassThroughLine {
+  category: PassThroughCategory;
+  /** Sub-category: payment method, ad provider, WhatsApp template category, metric. */
+  detail: string;
+  quantity: number;
+  /** Null when only a count is known (count_only). */
+  amountMinor: number | null;
+  currency: string | null;
+  basis: CostBasis;
+  /** Who charges it: always the provider, never Resuto. */
+  billedBy: string;
+}
+export interface CostsMonth {
+  month: string; // YYYY-MM
+  /** Resuto's own fees: platform invoices whose period starts in this month (draft until a billing provider settles them). */
+  platform: { invoicedMinor: number; currency: string | null; invoiceStatuses: string[] };
+  passThrough: PassThroughLine[];
+}
+export interface CostsView {
+  months: CostsMonth[];
+  /** Short notes on what is and is not included (codes; the UI localises them). */
+  notes: Array<'messaging_rate_card_not_known' | 'ai_included_in_plan' | 'sandbox_excluded'>;
+}
+export const costsQuery = z.object({ months: z.coerce.number().int().min(1).max(12).default(3) });

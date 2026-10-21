@@ -114,8 +114,12 @@ export class ExportsService {
           ['net_revenue', L.netRevenueMinor], ['cogs_from_sales', -L.cogsFromSalesMinor], ['cogs_expenses', -L.cogsExpensesMinor], ['gross_profit', L.grossProfitMinor],
           ...Object.entries(L.operatingExpensesByKind).sort().map(([k, v]) => [`opex_${k}`, -v] as [string, number]),
           ['payment_fees', -L.paymentFeesMinor], ['operating_profit', L.operatingProfitMinor],
+          // DF-04 memo lines: recorded but not counted under the policy below.
+          ['memo_inventory_purchases', L.memo.inventoryPurchasesMinor], ['memo_item_cost_of_sales', L.memo.itemCostOfSalesMinor],
+          ['memo_fee_expenses', L.memo.feeExpensesMinor], ['memo_provider_reported_fees', L.memo.providerReportedFeesMinor],
         ];
-        return { header: ['line', 'amount', 'currency'], rows: lines.map(([k, v]) => [tx_(k), n(amt(v)), tx_(pl.currency)]) };
+        return { header: ['line', 'amount', 'currency'], rows: [...lines.map(([k, v]) => [tx_(k), n(amt(v)), tx_(pl.currency)]),
+          [tx_('policy_cogs_method'), tx_(pl.policy.cogsMethod), tx_('')], [tx_('policy_fees_method'), tx_(pl.policy.feesMethod), tx_('')]] };
       }
       case 'tax': {
         const out = await tx.query<any>(
