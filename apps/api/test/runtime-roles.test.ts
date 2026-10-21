@@ -38,9 +38,10 @@ describe('platform mode runs as resuto_platform, not as the owner (PS-16)', () =
     // SET ROLE is checked against the session user: on an owner connection the owner could switch back, which is why
     // the restricted login (below) is the real boundary. As resuto_api there is nothing above the execution roles.
     if (restricted) {
-      for (const role of ['postgres', 'resuto_api']) {
-        await expect(db.withPlatform((tx) => tx.query(`set role ${role}`)), role).rejects.toThrow(/permission denied|does not exist/);
-      }
+      await expect(db.withPlatform((tx) => tx.query('set role postgres'))).rejects.toThrow(/permission denied|does not exist/);
+      // Switching back to the login itself is allowed (it is the session user) and yields nothing: NOINHERIT, no grants.
+      await expect(db.withPlatform(async (tx) => { await tx.query('set role resuto_api'); return tx.query('select 1 from public.organizations limit 1'); }))
+        .rejects.toThrow(/permission denied/);
     }
     // stock movements, order lines and payment credentials are tenant data the platform never touches
     for (const table of ['stock_movements', 'order_lines', 'expenses', 'customer_consent_events']) {
