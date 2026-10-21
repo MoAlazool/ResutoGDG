@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   assistantMessageInput, churnQuery, forecastQuery, generateCopyInput, insightStatusInput, insightsQuery, recommendationsQuery,
   routePlanInput, segmentKey, segmentMembersQuery, type AssistantMessageInput, type GenerateCopyInput, type RoutePlanInput,
@@ -150,7 +150,13 @@ export class IntelligenceController {
     });
   }
 
+  /**
+   * Deprecated (FT-16): stateless copy without review or a way to use it. The dashboard and new clients use Studio
+   * creative (POST /o/:orgId/studio/creative -> review -> POST .../creative/:id/apply), which records approval and every
+   * use. Kept working for existing API callers; responses carry `Deprecation: true` (RFC 9745).
+   */
   @Post('generate-copy')
+  @Header('Deprecation', 'true')
   @RequirePermission('ai:use')
   generateCopy(@Tenant() ctx: TenantContext, @Body(zod(generateCopyInput)) body: GenerateCopyInput) {
     return this.copy.generate(ctx, body);

@@ -3,6 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addDomain, createSection, generateCreative, publishWebsite, reorderSections, reviewCreative, updateMedia, updateSection, updateWebsite,
   upsertStorefront, type UpsertStorefront, createPhotoJob, PHOTO_JOB_STATUSES, publishPhotoJob, reviewPhotoJob, type CreatePhotoJob, type PublishPhotoJob,
+  applyCreative, type ApplyCreative,
 } from '@resuto/contracts';
 import { StudioPhotosService } from './photos/photos.service';
 import { z } from 'zod';
@@ -230,5 +231,12 @@ export class StudioController {
   @RequirePermission('studio:write')
   reviewCreative(@Tenant() ctx: TenantContext, @Param('creativeId', ParseUUIDPipe) id: string, @Body(zod(reviewCreative)) body: z.infer<typeof reviewCreative>) {
     return this.creative.review(ctx, id, body.status);
+  }
+
+  /** FT-16: use approved copy (menu item description, website section draft or campaign draft); idempotent per key. */
+  @Post('creative/:creativeId/apply')
+  @RequirePermission('studio:write')
+  applyCreative(@Tenant() ctx: TenantContext, @Param('creativeId', ParseUUIDPipe) id: string, @Body(zod(applyCreative)) body: ApplyCreative) {
+    return this.creative.apply(ctx, id, body);
   }
 }

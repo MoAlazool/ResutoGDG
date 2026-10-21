@@ -16,6 +16,11 @@ export interface StudioAiCapabilities {
   byok: { provider: typeof STUDIO_AI_PROVIDER; configured: boolean; connectionId: string | null; model: string | null; environment: 'sandbox' | 'live' | null };
   menuExtraction: { text: true; csv: true; image: boolean; pdf: boolean; floorPlan: false };
   photoEnhancement: { deterministic: boolean; generative: false; generativeReason: string };
+  /**
+   * Marketing copy (FT-16): written by a model with the restaurant's key when connected, else with the operator's
+   * platform key when the operator configured one, else by Resuto's templates (no AI). Every draft is labelled.
+   */
+  copyGeneration: { mode: 'model' | 'template'; keySource: 'restaurant' | 'resuto' | null; model: string | null };
 }
 
 // ---------------------------------------------------------------------------
@@ -173,5 +178,71 @@ export interface PhotoJobView {
   reviewedAt: string | null;
   reviewNote: string | null;
   published: { target: 'product' | 'website_section'; id: string; at: string } | null;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Approved copy: apply to the menu, the website draft or a campaign draft (FT-16)
+// ---------------------------------------------------------------------------
+
+export const CREATIVE_APPLY_TARGETS = ['product_description', 'website_section', 'campaign_draft'] as const;
+export type CreativeApplyTarget = (typeof CREATIVE_APPLY_TARGETS)[number];
+/** Which destinations each kind of copy can be used for. */
+export const CREATIVE_TARGETS_BY_KIND: Record<string, readonly CreativeApplyTarget[]> = {
+  menu_description: ['product_description'],
+  website_copy: ['website_section'],
+  caption: ['campaign_draft'],
+  post: ['campaign_draft'],
+};
+/** Campaign channels a copy draft can start (drafts never send; Marketing approval still applies). */
+export const CREATIVE_CAMPAIGN_CHANNELS = ['organic', 'whatsapp', 'sms', 'email'] as const;
+
+export const applyCreative = z.object({
+  variant: z.number().int().min(0).max(2).default(0),
+  key: idempotencyKey,
+  target: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('product_description'), productId: z.uuid() }).strict(),
+    z.object({ kind: z.literal('website_section'), sectionId: z.uuid() }).strict(),
+    z.object({ kind: z.literal('campaign_draft'), channel: z.enum(CREATIVE_CAMPAIGN_CHANNELS), name: z.string().trim().min(1).max(120).optional() }).strict(),
+  ]),
+}).strict();
+export type ApplyCreative = z.infer<typeof applyCreative>;
+
+export interface CreativeApplication {
+  target: CreativeApplyTarget;
+  targetId: string;
+  variant: number;
+  key: string;
+  appliedBy: string | null;
+  appliedAt: string;
+}
+
+/**
+ * How a piece of copy was written, for honest labels: `template` = Resuto's deterministic templates from the brief and
+ * real menu facts (no AI); `model` = a language model, with whose key. `fallbackCode` says why a template was used.
+ */
+export interface CreativeAuthorship {
+  mode: 'template' | 'model';
+  provider: string;
+  model: string | null;
+  keySource: 'restaurant' | 'resuto' | null;
+  fallbackCode: 'not_configured' | 'model_failed' | null;
+}
+
+/** A creative asset as Studio returns it (FT-16 adds authorship, applications and the reviewer). */
+export interface CreativeView {
+  id: string;
+  kind: string;
+  locale: 'en' | 'ar';
+  prompt: string;
+  output: { variants: Array<{ title?: string; text: string; hashtags?: string[] }>; fallbackReason?: string; productId?: string | null };
+  provider: string;
+  model: string | null;
+  isFallback: boolean;
+  status: 'draft' | 'approved' | 'rejected' | 'used';
+  authorship: CreativeAuthorship;
+  applications: CreativeApplication[];
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   createdAt: string;
 }

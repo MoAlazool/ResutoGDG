@@ -293,7 +293,8 @@ describe('creative generator', () => {
       .send({ kind: 'caption', locale: 'ar', brief: 'عرض نهاية الأسبوع على البرجر', productId: menu.products.burger, variants: 2 });
     expect(gen.status).toBe(201);
     expect(gen.body).toMatchObject({ kind: 'caption', locale: 'ar', provider: 'template_rules', isFallback: true, status: 'draft' });
-    expect(gen.body.output.fallbackReason).toContain('GEMINI_API_KEY');
+    expect(gen.body.output.fallbackReason).toContain('No language model key');
+    expect(gen.body.authorship).toEqual({ mode: 'template', provider: 'template_rules', model: null, keySource: null, fallbackCode: 'not_configured' });
     expect(gen.body.output.variants).toHaveLength(2);
     expect(gen.body.output.variants[0].text).toContain('Smash burger');
 

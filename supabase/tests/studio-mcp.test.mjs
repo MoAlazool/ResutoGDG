@@ -38,7 +38,10 @@ before(async () => {
     const [j] = await q(`insert into menu_extraction_jobs(org_id, status, mode, source_kind, provider, rows) values ($1, 'review', 'heuristic_text', 'text', 'resuto_parser', '[]') returning id`, [o.id]);
     const [c] = await q(`insert into mcp_clients(org_id, name, key_prefix, key_hash, acting_role, allowed_tools, created_by) values ($1, 'C', $2, $3, 'manager', '{list_menu}', $4) returning id`,
       [o.id, `rmcp_ws9${k}`, `hash-${k}`, u.id]);
-    ids[k] = { user: u.id, org: o.id, job: j.id, client: c.id };
+    const [m] = await q(`insert into media_assets(org_id, path, content_type, byte_size) values ($1, $2, 'image/jpeg', 10) returning id`, [o.id, `${o.id}/photo-originals/x.jpg`]);
+    const [p] = await q(`insert into studio_photo_jobs(org_id, source_media_id) values ($1, $2) returning id`, [o.id, m.id]);
+    const [cr] = await q(`insert into creative_assets(org_id, kind, prompt, output, provider) values ($1, 'caption', 'brief', '{"variants":[]}', 'template_rules') returning id`, [o.id]);
+    ids[k] = { user: u.id, org: o.id, job: j.id, client: c.id, photo: p.id, creative: cr.id };
   }
   await q(`insert into mcp_oauth_clients(client_id, kind, client_name, redirect_uris) values ('rmoc_ws9_test_client', 'dynamic', 'T', '{https://app.example/cb}')`);
   await q(`insert into mcp_oauth_tokens(token_hash, kind, family_id, client_id, mcp_client_id, org_id, resource, scopes, expires_at)
@@ -54,6 +57,26 @@ test('menu extraction jobs: staff see only their own restaurant, even with a for
   assert.equal(forged.rowCount, 0);
   const tenant = await as('resuto_tenant', { org: ids.B.org }, (c) => c.query('select id from menu_extraction_jobs'));
   assert.deepEqual(tenant.rows.map((r) => r.id), [ids.B.job]);
+});
+
+test('food-photo jobs: staff and tenant roles see only their own restaurant', async () => {
+  const own = await as('resuto_member', { user: ids.A.user, org: ids.A.org }, (c) => c.query('select id from studio_photo_jobs'));
+  assert.deepEqual(own.rows.map((r) => r.id), [ids.A.photo]);
+  const forged = await as('resuto_member', { user: ids.A.user, org: ids.B.org }, (c) => c.query('select id from studio_photo_jobs'));
+  assert.equal(forged.rowCount, 0);
+  const tenant = await as('resuto_tenant', { org: ids.B.org }, (c) => c.query('select id from studio_photo_jobs'));
+  assert.deepEqual(tenant.rows.map((r) => r.id), [ids.B.photo]);
+  const anon = await as('anon', {}, (c) => c.query('select count(*)::int as n from studio_photo_jobs')).then((r) => r.rows[0].n).catch((e) => String(e.message));
+  assert.ok(anon === 0 || /permission denied/.test(String(anon)), `anon: ${anon}`);
+});
+
+test('creative applications: tenant-scoped, and only arrays are stored', async () => {
+  const forged = await as('resuto_member', { user: ids.A.user, org: ids.B.org }, (c) => c.query('select id from creative_assets'));
+  assert.equal(forged.rowCount, 0);
+  await assert.rejects(pool.query(`update creative_assets set applications = '{"x":1}' where id = $1`, [ids.A.creative]), /creative_assets_applications_array/);
+  await assert.rejects(pool.query(`update creative_assets set key_source = 'someone' where id = $1`, [ids.A.creative]), /check constraint/);
+  const ok = await pool.query(`update creative_assets set applications = applications || '[{"target":"campaign_draft"}]'::jsonb returning jsonb_array_length(applications) as n`);
+  assert.ok(ok.rows.every((r) => r.n === 1));
 });
 
 test('OAuth state is platform-only: no staff, tenant, authenticated or anon access', async () => {

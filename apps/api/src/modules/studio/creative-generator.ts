@@ -12,6 +12,8 @@ export interface CreativeResult {
   isFallback: boolean;
   variants: Array<{ title?: string; text: string; hashtags?: string[] }>;
   fallbackReason?: string;
+  /** Why the template was used: no model key at all, or the model call failed. */
+  fallbackCode?: 'not_configured' | 'model_failed';
 }
 
 const geminiOutput = z.object({
@@ -30,17 +32,19 @@ const KIND_BRIEF: Record<GenerateCreative['kind'], string> = {
 };
 
 /**
- * Gemini (generativelanguage.googleapis.com generateContent, JSON response mode)
- * when GEMINI_API_KEY is configured; otherwise — or if the call fails — a
- * deterministic template generator whose output is labelled as a fallback.
+ * Gemini (generativelanguage.googleapis.com generateContent, JSON response mode) when a model key is available (the
+ * restaurant's own BYOK key first, then the operator's GEMINI_API_KEY); otherwise, or if the call fails, a
+ * deterministic template generator whose output is labelled as a template (fallbackCode says why).
  */
 export async function generateCreativeCopy(input: GenerateCreative, context: CreativeContext,
   opts: { apiKey?: string; model: string; fetch?: typeof fetch }): Promise<CreativeResult> {
-  if (!opts.apiKey) return { ...templateCopy(input, context), fallbackReason: 'GEMINI_API_KEY is not configured' };
+  if (!opts.apiKey) return { ...templateCopy(input, context), fallbackReason: 'No language model key is configured', fallbackCode: 'not_configured' };
   try {
     return await gemini(input, context, opts.apiKey, opts.model, opts.fetch ?? fetch);
   } catch (e) {
-    return { ...templateCopy(input, context), fallbackReason: `Gemini request failed: ${(e as Error).message.slice(0, 200)}` };
+    // The provider's response body is never echoed; only a short, key-free reason is kept.
+    const reason = e instanceof z.ZodError || e instanceof SyntaxError ? 'unreadable model output' : (e as Error).message.slice(0, 120);
+    return { ...templateCopy(input, context), fallbackReason: `The model request failed (${reason})`, fallbackCode: 'model_failed' };
   }
 }
 

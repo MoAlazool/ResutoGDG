@@ -1,4 +1,4 @@
-import type { SectionContent, WebsiteSeo, WebsiteTemplate, WebsiteTheme } from '@resuto/contracts';
+import type { CreativeView, SectionContent, WebsiteSeo, WebsiteTemplate, WebsiteTheme } from '@resuto/contracts';
 
 /** The publishable part of a website: what a revision snapshot stores. */
 export interface SiteDocument {
@@ -44,7 +44,7 @@ export const toMedia = (r: any, url: string, inUse: boolean) => ({
   createdAt: new Date(r.created_at).toISOString(),
 });
 
-export const toCreative = (r: any) => ({
+export const toCreative = (r: any): CreativeView => ({
   id: r.id,
   kind: r.kind,
   locale: r.locale,
@@ -54,6 +54,18 @@ export const toCreative = (r: any) => ({
   model: r.model,
   isFallback: r.is_fallback,
   status: r.status,
+  // Honest authorship label (FT-16): templates are never presented as AI; a model result names its key's owner.
+  authorship: {
+    mode: r.is_fallback ? 'template' : 'model',
+    provider: r.provider,
+    model: r.model ?? null,
+    keySource: r.is_fallback ? null : r.key_source ?? 'resuto',
+    fallbackCode: !r.is_fallback ? null
+      : r.output?.fallbackCode ?? (/request failed/i.test(String(r.output?.fallbackReason ?? '')) ? 'model_failed' : 'not_configured'),
+  },
+  applications: Array.isArray(r.applications) ? r.applications : [],
+  reviewedBy: r.reviewed_by ?? null,
+  reviewedAt: r.reviewed_at ? new Date(r.reviewed_at).toISOString() : null,
   createdAt: new Date(r.created_at).toISOString(),
 });
 

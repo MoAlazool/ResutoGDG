@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { STUDIO_AI_PROVIDER, type StudioAiCapabilities } from '@resuto/contracts';
 import { GEMINI_BYOK_DEFAULT_MODEL } from '@resuto/integrations';
 import type { TenantContext } from '../../../common/auth/context';
 import { DomainError } from '../../../common/errors/domain-error';
 import { sharpAvailable } from '../../../common/storage/image-enhance';
+import { ENV, type Env } from '../../../config/env';
 import { IntegrationConnectionsService } from '../../integrations/connections.service';
 
 /** A usable restaurant-owned model key (decrypted only for the call that needs it; never logged or returned). */
@@ -27,7 +28,7 @@ export const aiNotConfigured = () => new DomainError('ai_not_configured',
  */
 @Injectable()
 export class StudioAiService {
-  constructor(private readonly connections: IntegrationConnectionsService) {}
+  constructor(private readonly connections: IntegrationConnectionsService, @Inject(ENV) private readonly env: Env) {}
 
   /** The restaurant's own model, or null when not configured (no connection, disabled, not yet verified, no key). */
   async byok(orgId: string): Promise<ByokModel | null> {
@@ -53,6 +54,9 @@ export class StudioAiService {
         deterministic: sharpAvailable(), generative: false,
         generativeReason: 'Generative photo edits are not configured: no image-editing provider is connected, and edits that could change a dish are not offered by default.',
       },
+      copyGeneration: m ? { mode: 'model', keySource: 'restaurant', model: m.model }
+        : this.env.GEMINI_API_KEY ? { mode: 'model', keySource: 'resuto', model: this.env.GEMINI_MODEL }
+          : { mode: 'template', keySource: null, model: null },
     };
   }
 }
