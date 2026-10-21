@@ -144,6 +144,27 @@ describe('apiAll() full lists (PS-22)', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps the rows it has when a later page fails, instead of failing the whole screen (review of PS-22)', async () => {
+    const fetch = vi.fn(async (url: string) => {
+      const c = new URL(url).searchParams.get('cursor');
+      if (c === null) return page([1, 2], 'c1');
+      return new Response(JSON.stringify({ error: { code: 'invalid_cursor', message: 'The cursor is not valid for this list' } }), {
+        status: 400, headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetch);
+    expect(await apiAll('/o/1/inventory/suppliers')).toEqual({ items: [1, 2], nextCursor: 'c1' });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed first page or an expired session mid-walk still throws', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500, headers: { 'content-type': 'application/json' } })));
+    await expect(apiAll('/o/1/inventory/suppliers')).rejects.toBeInstanceOf(ApiRequestError);
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (new URL(url).searchParams.get('cursor') === null ? page([1], 'c1')
+      : new Response(JSON.stringify({ error: { code: 'unauthenticated', message: 'Sign in again' } }), { status: 401, headers: { 'content-type': 'application/json' } }))));
+    await expect(apiAll('/o/1/inventory/suppliers')).rejects.toMatchObject({ status: 401 });
+  });
+
   it('stops at the page cap and on a repeated cursor instead of looping', async () => {
     const fetch = vi.fn(async () => page([1], 'same'));
     vi.stubGlobal('fetch', fetch);

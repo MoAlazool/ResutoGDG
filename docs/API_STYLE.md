@@ -61,7 +61,13 @@ on the `CREATING_ACTIONS` allow-list (actions that do create something: `/invita
   (`TOP_N_LISTS`, e.g. the churn list).
 - Small configuration lists that are not pages (stations, branches, team members, MCP connections, the driver
   roster) keep their shape and have a fixed ceiling in SQL.
-- A malformed or tampered cursor is **400 `invalid_cursor`**.
+- A malformed or tampered cursor is **400 `invalid_cursor`**. A cursor the server issued is never rejected: text sort
+  keys (names, `name|language`, `branch|item`) can be long, so the key cap (`MAX_CURSOR_KEY_LENGTH`, 1,100 characters)
+  is above the longest key any list builds and `cursor` accepts up to `CURSOR_MAX_LENGTH` (9,000) characters, enough
+  for that key with every character JSON-escaped. `pagination.test.ts` pages across 120-character supplier names,
+  512-character template names and long Arabic branch/item names.
+- When a later page of a full list fails, `apiAll()` keeps the rows it has and returns them with `nextCursor` still
+  set; only a failed first page, an abort or a 401 throws.
 
 ## Errors
 

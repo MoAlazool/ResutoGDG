@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { decodeCursor, encodeCursor, keyset, pageOf } from '../src/common/http/pagination';
+import { CURSOR_MAX_LENGTH } from '@resuto/contracts';
+import { decodeCursor, encodeCursor, keyset, MAX_CURSOR_KEY_LENGTH, pageOf } from '../src/common/http/pagination';
 import { addMember, auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant } from './helpers';
 
 // Audit PS-21 / PS-22: a negative limit was a 500 (studio media), limits were parsed by hand, lists returned a
@@ -149,6 +150,75 @@ describe('keyset pagination (PS-22)', () => {
     const rest = await t.http.get(`/v1/o/${a.orgId}/payments/alerts?limit=2&cursor=${encodeURIComponent(res.body.nextCursor)}`).set(auth(manager));
     expect(rest.body.items).toHaveLength(1);
     expect(rest.body.nextCursor).toBeNull();
+  });
+});
+
+describe('long text sort keys (review of PS-22: the server must accept every nextCursor it issues)', () => {
+  /** Walks a list one row at a time and returns the ids; fails on any non-200 page (e.g. 400 invalid_cursor). */
+  async function walk(path: string, limit = 1) {
+    const ids: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 50; page++) {
+      const res = await get(`${path}${path.includes('?') ? '&' : '?'}limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      expect(res.status, `${path} page ${page}: ${JSON.stringify(res.body)}`).toBe(200);
+      ids.push(...res.body.items.map((r: { id?: string; itemId?: string; branchId?: string }) => r.id ?? `${r.branchId}:${r.itemId}`));
+      cursor = res.body.nextCursor;
+      if (!cursor) return ids;
+    }
+    throw new Error('did not finish');
+  }
+
+  it('a page boundary on a 120-character supplier name (ASCII, Arabic, quotes) pages on', async () => {
+    const t2 = await createTenant(t, { name: 'Long Names' });
+    const names = ['A'.repeat(120), `${'م'.repeat(118)}"\\`, 'B supplier', 'ز'.repeat(120)];
+    for (const name of names) {
+      const r = await t.http.post(`/v1/o/${t2.orgId}/inventory/suppliers`).set(auth(t2.owner)).send({ name });
+      expect(r.status, JSON.stringify(r.body)).toBe(201);
+    }
+    const ids: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const res = await t.http.get(`/v1/o/${t2.orgId}/inventory/suppliers?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).set(auth(t2.owner));
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      ids.push(...res.body.items.map((s: { id: string }) => s.id));
+      cursor = res.body.nextCursor;
+    } while (cursor && ids.length < 10);
+    expect(new Set(ids).size).toBe(names.length);
+  });
+
+  it('a page boundary on a 512-character message template name pages on', async () => {
+    for (const [i, name] of ['a'.repeat(512), `${'b'.repeat(511)}x`, 'c_short'].entries()) {
+      await sql(`insert into message_templates(org_id, name, language, category, body, variables) values ($1, $2, $3, 'utility', 'Hi', '{}')`,
+        [a.orgId, name, i === 1 ? 'ar' : 'en']);
+    }
+    const ids = await walk('/connect/templates');
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('inventory levels keyed on a long Arabic branch name and item name page on', async () => {
+    const t3 = await createTenant(t, { name: 'Long Levels' });
+    await sql(`update branches set name = $2 where id = $1`, [t3.branchId, 'فرع'.repeat(40)]);
+    for (const name of ['ص'.repeat(120), 'ض'.repeat(120), 'Oil']) {
+      const r = await t.http.post(`/v1/o/${t3.orgId}/inventory/items`).set(auth(t3.owner)).send({ name, unit: 'kg', costPerUnitMinor: 100 });
+      expect(r.status, JSON.stringify(r.body)).toBe(201);
+    }
+    const ids: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const res = await t.http.get(`/v1/o/${t3.orgId}/inventory/levels?limit=1${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`).set(auth(t3.owner));
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      ids.push(...res.body.items.map((r: { itemId: string }) => r.itemId));
+      cursor = res.body.nextCursor;
+    } while (cursor && ids.length < 10);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('the longest key the helper accepts fits the cursor cap even when every character is JSON-escaped', () => {
+    const worst = encodeCursor({ at: '\u0001'.repeat(MAX_CURSOR_KEY_LENGTH), id: '00000000-0000-4000-8000-000000000001:00000000-0000-4000-8000-000000000002' });
+    expect(worst.length).toBeLessThanOrEqual(CURSOR_MAX_LENGTH);
+    expect(decodeCursor(worst).at).toHaveLength(MAX_CURSOR_KEY_LENGTH);
+    expect(() => decodeCursor(encodeCursor({ at: 'x'.repeat(MAX_CURSOR_KEY_LENGTH + 1), id: 'a' }))).toThrow();
   });
 });
 

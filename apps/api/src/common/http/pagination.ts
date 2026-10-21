@@ -1,4 +1,4 @@
-import type { Page } from '@resuto/contracts';
+import { CURSOR_MAX_LENGTH, type Page } from '@resuto/contracts';
 import { DomainError } from '../errors/domain-error';
 
 /**
@@ -18,7 +18,14 @@ import { DomainError } from '../errors/domain-error';
  */
 export interface CursorKey { at: string | number; id: string }
 
-const MAX_CURSOR_LENGTH = 500;
+/**
+ * Text sort keys can be long: lower(name) of suppliers, items and recipes (120 characters), a message template's
+ * name||'|'||language (up to ~520), an inventory level's branch||'|'||item (~240). The cap on the key is well above the
+ * longest key an endpoint builds, and the cap on the cursor fits that key even when every character needs a six-byte
+ * JSON escape (×4/3 for base64url). A server must never reject the nextCursor it issued (review of PS-22).
+ */
+export const MAX_CURSOR_KEY_LENGTH = 1_100;
+export const MAX_CURSOR_LENGTH = CURSOR_MAX_LENGTH;
 
 export function encodeCursor(key: CursorKey): string {
   return Buffer.from(JSON.stringify({ at: key.at, id: key.id }), 'utf8').toString('base64url');
@@ -37,7 +44,7 @@ export function decodeCursor(cursor: string): CursorKey {
   const p = parsed as Partial<CursorKey> | null;
   if (!p || typeof p !== 'object' || typeof p.id !== 'string' || p.id.length === 0 || p.id.length > 100
     || !(typeof p.at === 'string' || (typeof p.at === 'number' && Number.isFinite(p.at)))) throw invalidCursor();
-  if (typeof p.at === 'string' && p.at.length > 100) throw invalidCursor();
+  if (typeof p.at === 'string' && p.at.length > MAX_CURSOR_KEY_LENGTH) throw invalidCursor();
   return { at: p.at, id: p.id };
 }
 

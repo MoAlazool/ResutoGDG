@@ -17,12 +17,19 @@ export const MAX_LIST_LIMIT = 200;
  * `nextCursor`). A negative, zero, fractional, non-numeric or too large limit is a 400 validation_failed, never a 500.
  * Extend it with the endpoint's own filters: `listQueryOf({ defaultLimit: 50 }).extend({ status: ... })`.
  */
+/**
+ * Longest `cursor` a list accepts. Cursors are base64url JSON of the last row's sort key and id; a text key of up to
+ * 1,100 characters fits even when every character is JSON-escaped (1,100 × 6 bytes × 4/3 ≈ 8,800 plus the id), and
+ * the URL stays far below Node's 16 KB header limit.
+ */
+export const CURSOR_MAX_LENGTH = 9_000;
+
 export function listQueryOf(opts: { defaultLimit?: number; maxLimit?: number } = {}) {
   const max = Math.min(opts.maxLimit ?? MAX_LIST_LIMIT, MAX_LIST_LIMIT);
   const def = Math.min(opts.defaultLimit ?? 50, max);
   return z.object({
     limit: z.coerce.number().int().min(1).max(max).default(def),
-    cursor: z.string().min(1).max(500).optional(),
+    cursor: z.string().min(1).max(CURSOR_MAX_LENGTH).optional(),
   });
 }
 
