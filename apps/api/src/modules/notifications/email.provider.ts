@@ -5,6 +5,9 @@
  * docs/OPEN_BLOCKERS.md B-14). The default provider therefore reports `configured: false`, and every attempt is
  * recorded as 'not_configured': the product never claims an email was sent when it was not. A real provider
  * implements `send` and returns the provider's message id only after the provider accepted the message.
+ *
+ * INT-28: when no platform provider is configured, a restaurant that connected its own Resend account gets staff
+ * email through it (OutboundChannelsService: queued → sent only after Resend accepted, retries with backoff).
  */
 export interface EmailMessage { to: string; subject: string; text: string }
 export interface EmailProvider {

@@ -176,6 +176,33 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
       { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select', options: ['on', 'off'] },
     ],
   },
+  // INT-28: the restaurant's own Resend account (transactional + consented marketing email).
+  resend: {
+    credentials: [
+      { key: 'apiKey', label: 'Resend API key', labelKey: 'intg.field.resendApiKey', secret: true, required: true, pattern: '^re_[A-Za-z0-9_]{8,200}$' },
+      { key: 'webhookSecret', label: 'Webhook signing secret (whsec_…)', labelKey: 'intg.field.resendWebhookSecret', secret: true, required: false, pattern: '^whsec_[A-Za-z0-9+/=]{8,200}$',
+        hint: 'Resend → Webhooks → the endpoint shown below → Signing secret. Without it delivery status stays "accepted".', hintKey: 'intg.field.resendWebhookSecretHint' },
+    ],
+    config: [
+      { key: 'from', label: 'From address', labelKey: 'intg.field.emailFrom', secret: false, required: true, placeholder: 'Olive Room <hello@olive.example>',
+        hint: 'An address on a domain verified in Resend.', hintKey: 'intg.field.emailFromHint' },
+      { key: 'replyTo', label: 'Reply-to address (optional)', labelKey: 'intg.field.emailReplyTo', secret: false, required: false },
+    ],
+  },
+  // INT-28: the restaurant's own Twilio account (SMS). The Auth Token also verifies status callbacks.
+  twilio_sms: {
+    credentials: [
+      { key: 'accountSid', label: 'Account SID (AC…)', labelKey: 'intg.field.twilioAccountSid', secret: false, required: true, pattern: '^AC[0-9a-fA-F]{32}$' },
+      { key: 'authToken', label: 'Auth Token', labelKey: 'intg.field.twilioAuthToken', secret: true, required: true },
+      { key: 'apiKeySid', label: 'API key SID (SK…, optional)', labelKey: 'intg.field.twilioApiKeySid', secret: false, required: false, pattern: '^SK[0-9a-fA-F]{32}$' },
+      { key: 'apiKeySecret', label: 'API key secret (optional)', labelKey: 'intg.field.twilioApiKeySecret', secret: true, required: false },
+    ],
+    config: [
+      { key: 'messagingServiceSid', label: 'Messaging Service SID (MG…)', labelKey: 'intg.field.twilioMessagingService', secret: false, required: false, pattern: '^MG[0-9a-fA-F]{32}$',
+        hint: 'Recommended in Saudi Arabia and Egypt: a Messaging Service with your registered alphanumeric Sender ID. Otherwise set From.', hintKey: 'intg.field.twilioMessagingServiceHint' },
+      { key: 'from', label: 'From (registered Sender ID or number)', labelKey: 'intg.field.smsFrom', secret: false, required: false, pattern: '^(\\+[1-9]\\d{6,14}|[A-Za-z0-9 ]{1,11})$' },
+    ],
+  },
   tiktok_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'advertiserId', label: 'Advertiser id', secret: false, required: true }] },
   snapchat_ads: {
     credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }, { key: 'refreshToken', label: 'Refresh token', secret: true, required: false }],
@@ -209,6 +236,14 @@ export function webhookFor(provider: string, connectionId: string, apiOrigin: st
       registeredByMerchant: true,
       verifyToken: typeof config.webhookVerifyToken === 'string' ? config.webhookVerifyToken : null,
     };
+  }
+  // INT-28: delivery status. Resend: the merchant adds this endpoint in Resend → Webhooks; Twilio: Resuto sets it on every message.
+  if (provider === 'resend') {
+    return { url: `${apiOrigin.replace(/\/$/, '')}/v1/webhooks/resend/${connectionId}`, registeredByMerchant: true,
+      events: ['email.sent', 'email.delivered', 'email.delivery_delayed', 'email.bounced', 'email.complained', 'email.failed', 'email.suppressed'] };
+  }
+  if (provider === 'twilio_sms') {
+    return { url: `${apiOrigin.replace(/\/$/, '')}/v1/webhooks/twilio/status/${connectionId}`, registeredByMerchant: false, events: ['StatusCallback (MessageStatus)'] };
   }
   const a = adapterFor(provider);
   if (a?.descriptor.category !== 'payments' || a.descriptor.readiness === 'simulated') return null;

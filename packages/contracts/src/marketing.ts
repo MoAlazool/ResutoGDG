@@ -102,7 +102,8 @@ export const promotionUpdate = promotionBase.partial().strict();
 export const CAMPAIGN_CHANNELS = ['whatsapp', 'sms', 'email', 'meta_ads', 'tiktok_ads', 'snapchat_ads', 'organic'] as const;
 export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
 export const AD_CHANNELS: readonly CampaignChannel[] = ['meta_ads', 'tiktok_ads', 'snapchat_ads'];
-export const MESSAGE_CHANNELS: readonly CampaignChannel[] = ['whatsapp', 'sms'];
+/** Channels sent to customers (consent-gated); sms/email go through the restaurant's own Twilio / Resend (INT-28). */
+export const MESSAGE_CHANNELS: readonly CampaignChannel[] = ['whatsapp', 'sms', 'email'];
 export const CAMPAIGN_OBJECTIVES = ['retention', 'reactivation', 'acquisition', 'upsell', 'awareness', 'reservations'] as const;
 export const CAMPAIGN_STATUSES = ['draft', 'pending_approval', 'approved', 'scheduled', 'sending', 'launching', 'sent', 'cancelled', 'failed'] as const;
 export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];
@@ -116,6 +117,8 @@ export const campaignContent = z.object({
   /** Path on the restaurant site for tracking links, e.g. "/order/my-slug". */
   landingPath: z.string().regex(/^\/(?!\/)[^\s]*$/).max(300).optional(),
   headline: z.string().trim().max(120).optional(),
+  /** Email subject (email campaigns; the campaign name when absent). */
+  subject: z.string().trim().min(1).max(200).optional(),
 }).strict();
 
 /**

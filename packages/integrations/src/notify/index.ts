@@ -108,24 +108,41 @@ export const resendAdapter: NotificationChannelAdapter = {
       throw new ProviderError('resend', `network error (${(e as Error).name})`, true);
     }
     const text = await res.text();
-    if (!res.ok) throw new ProviderError('resend', `HTTP ${res.status}`, res.status === 429 || res.status >= 500, res.status);
+    if (!res.ok) {
+      const name = errorName(text);
+      // 409 concurrent_idempotent_requests: the same key is in flight; retrying later returns the original result.
+      const retryable = res.status === 429 || res.status >= 500 || name === 'concurrent_idempotent_requests';
+      throw new ProviderError('resend', `HTTP ${res.status}${name ? ` (${name})` : ''}`, retryable, res.status);
+    }
     let json: any;
     try { json = JSON.parse(text); } catch { throw new ProviderError('resend', 'non-JSON response', true); }
     if (typeof json?.id !== 'string') throw new ProviderError('resend', 'unexpected response (no id)', false);
     return { providerMessageId: json.id, status: 'accepted' };
   },
-  /** Lists sending domains: proves the key works without sending anything (a sending-only key answers 401, reported as such). */
+  /**
+   * Lists sending domains: proves the key without sending anything. A "Sending access" key (Resend's recommended
+   * scope) answers 401 restricted_api_key ("This API key is restricted to only send emails."): the key authenticated,
+   * so the check passes and reports the scope. Any other 401/403 (invalid, inactive, suspended) fails.
+   * Error types: https://resend.com/docs/api-reference/errors
+   */
   async healthCheck(ctx) {
     const res = await ctx.fetch(`${RESEND_API}/domains`, { headers: { Authorization: `Bearer ${resendKey(ctx)}` }, signal: AbortSignal.timeout(10_000) });
-    await res.text().catch(() => '');
-    if (res.status === 401 || res.status === 403) {
-      // Resend's sending-only keys cannot list domains; the key may still send. Report honestly instead of guessing.
-      return { ok: false, details: { reason: 'key_cannot_list_domains', status: res.status } };
-    }
-    if (!res.ok) throw new ProviderError('resend', `HTTP ${res.status}`, res.status >= 500, res.status);
-    return { ok: true, details: { from: ctx.config.from ?? null } };
+    const text = await res.text().catch(() => '');
+    const name = errorName(text);
+    if (res.status === 401 && name === 'restricted_api_key') return { ok: true, details: { keyScope: 'sending_only', from: ctx.config.from ?? null } };
+    if (!res.ok) throw new ProviderError('resend', `HTTP ${res.status}${name ? ` (${name})` : ''}`, res.status === 429 || res.status >= 500, res.status);
+    let domains: Array<{ name?: string; status?: string }> = [];
+    try { const j = JSON.parse(text); domains = Array.isArray(j?.data) ? j.data : []; } catch { /* ignore */ }
+    const fromDomain = typeof ctx.config.from === 'string' ? (/@([^>\s]+)>?\s*$/.exec(ctx.config.from)?.[1] ?? '').toLowerCase() : '';
+    const match = domains.find((d) => (d.name ?? '').toLowerCase() === fromDomain);
+    return { ok: true, details: { keyScope: 'full', from: ctx.config.from ?? null, fromDomainStatus: fromDomain ? (match?.status ?? 'not_found') : null } };
   },
 };
+
+/** Resend error bodies carry { name, message }; only the name (an error type, never user data) is surfaced. */
+function errorName(text: string): string | null {
+  try { const j = JSON.parse(text); return typeof j?.name === 'string' && /^[a-z_]{3,60}$/.test(j.name) ? j.name : null; } catch { return null; }
+}
 
 /** Svix-signed Resend webhook → status update. Fails closed: any missing piece, bad signature or old timestamp is refused. */
 export function verifyResendWebhook(input: { secret: string | undefined; headers: Record<string, string | string[] | undefined>; rawBody: string; nowSeconds?: number; toleranceSeconds?: number })

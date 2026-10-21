@@ -8,14 +8,14 @@ import { runKey } from './payments-common';
 
 export const notifyChecks: AcceptanceCheck[] = [
   {
-    id: 'resend.list_domains', provider: 'resend', capability: 'credentials', modes: ['official_test', 'live'],
+    id: 'resend.key_check', provider: 'resend', capability: 'credentials', modes: ['official_test', 'live'],
     requires: ['RESEND_API_KEY'], effect: 'read',
-    prerequisites: ['A Resend API key with full access (a sending-only key cannot list domains and is reported as such).'],
+    prerequisites: ['A Resend API key (full access also reports the From domain status; a sending-only key passes with keyScope sending_only).'],
     docsUrl: 'https://resend.com/docs/api-reference/domains/list-domains',
     async run(ctx) {
       const h = await resendAdapter.healthCheck!({ ...ctx.adapter, credentials: { apiKey: ctx.env.RESEND_API_KEY! }, config: {} });
       ctx.evidence('domains listed', { ok: h.ok, details: h.details ?? null });
-      expectThat(h.ok, 'the key could not list domains');
+      expectThat(h.ok, 'the key was not accepted');
     },
   },
   {

@@ -96,11 +96,26 @@ describe('Resend adapter', () => {
     await expect(resendAdapter.send(c, { ...msg, to: 'not-an-email' })).rejects.toMatchObject({ retryable: false });
     expect(f.calls).toHaveLength(2);
   });
-  it('health check lists domains; a sending-only key is reported, not guessed', async () => {
-    const f = scripted([{ body: { data: [] } }, { status: 401, body: {} }]);
-    expect(await resendAdapter.healthCheck!(ctx(f.fetch, { apiKey: 'k' }, { from: 'a@b.example' }))).toMatchObject({ ok: true });
-    expect(await resendAdapter.healthCheck!(ctx(f.fetch, { apiKey: 'k' }, {}))).toEqual({ ok: false, details: { reason: 'key_cannot_list_domains', status: 401 } });
-    expect(f.calls.map((c) => c.url)).toEqual(['https://api.resend.com/domains', 'https://api.resend.com/domains']);
+  it('health check: full key reports the From domain status; a sending-only key passes with its scope; an invalid key fails', async () => {
+    const f = scripted([
+      { body: { data: [{ name: 'olive.example', status: 'verified' }] } },
+      { status: 401, body: { statusCode: 401, name: 'restricted_api_key', message: 'This API key is restricted to only send emails.' } },
+      { status: 401, body: { statusCode: 401, name: 'validation_error', message: 'API key is invalid' } },
+      { status: 403, body: { statusCode: 403, name: 'suspended_api_key', message: 'This API key is suspended' } },
+    ]);
+    expect(await resendAdapter.healthCheck!(ctx(f.fetch, { apiKey: 'k' }, { from: 'Olive <hello@olive.example>' })))
+      .toEqual({ ok: true, details: { keyScope: 'full', from: 'Olive <hello@olive.example>', fromDomainStatus: 'verified' } });
+    expect(await resendAdapter.healthCheck!(ctx(f.fetch, { apiKey: 'k' }, {}))).toEqual({ ok: true, details: { keyScope: 'sending_only', from: null } });
+    await expect(resendAdapter.healthCheck!(ctx(f.fetch, { apiKey: 'k' }, {}))).rejects.toMatchObject({ retryable: false, status: 401, message: 'resend: HTTP 401 (validation_error)' });
+    await expect(resendAdapter.healthCheck!(ctx(f.fetch, { apiKey: 'k' }, {}))).rejects.toMatchObject({ retryable: false, status: 403 });
+    expect(f.calls.map((c) => c.url)).toEqual(Array(4).fill('https://api.resend.com/domains'));
+  });
+  it('a concurrent request with the same idempotency key is retried later', async () => {
+    const f = scripted([{ status: 409, body: { name: 'concurrent_idempotent_requests' } }, { status: 409, body: { name: 'invalid_idempotent_request' } }]);
+    const c = ctx(f.fetch, { apiKey: 'k' }, { from: 'a@b.example' });
+    const msg = { to: 'g@example.com', subject: 's', text: 't', idempotencyKey: 'k1234567' };
+    await expect(resendAdapter.send(c, msg)).rejects.toMatchObject({ retryable: true, status: 409 });
+    await expect(resendAdapter.send(c, msg)).rejects.toMatchObject({ retryable: false, status: 409 });
   });
 });
 
