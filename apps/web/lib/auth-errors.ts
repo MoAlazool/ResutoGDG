@@ -9,6 +9,8 @@ export const AUTH_ERROR_CODES = [
   // AUTH-01: Resuto's compensating password checks (lib/auth/password-policy.ts) and Supabase's own weak_password reasons.
   'password_too_short', 'password_too_long', 'password_common', 'password_contains_email', 'password_contains_brand', 'password_breached',
   'weak_password_characters',
+  // AUTH-02: TOTP two-step verification (Supabase Auth MFA) and the API's 403 mfa_required.
+  'mfa_code_format', 'mfa_code_invalid', 'mfa_code_expired', 'mfa_unavailable', 'mfa_required', 'mfa_too_many', 'mfa_no_factor',
 ] as const;
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 
@@ -24,8 +26,12 @@ const SUPABASE_CODES: Record<string, AuthErrorCode> = {
   weak_password: 'weak_password', same_password: 'same_password', password_unchanged: 'same_password',
   over_email_send_rate_limit: 'rate_limited', over_request_rate_limit: 'rate_limited', rate_limited: 'rate_limited',
   otp_expired: 'link_invalid', flow_state_expired: 'link_invalid', flow_state_not_found: 'link_invalid', bad_code_verifier: 'link_invalid',
+  mfa_verification_failed: 'mfa_code_invalid', mfa_verification_rejected: 'mfa_code_invalid', mfa_challenge_expired: 'mfa_code_expired',
+  mfa_totp_enroll_not_enabled: 'mfa_unavailable', mfa_totp_verify_not_enabled: 'mfa_unavailable', insufficient_aal: 'mfa_required',
+  mfa_required: 'mfa_required', too_many_enrolled_mfa_factors: 'mfa_too_many', mfa_factor_not_found: 'mfa_no_factor',
 };
 const MESSAGES: Array<[RegExp, AuthErrorCode]> = [
+  [/invalid totp code/i, 'mfa_code_invalid'],
   [/current password is incorrect/i, 'current_password_incorrect'],
   [/invalid login credentials|email or password is incorrect/i, 'invalid_credentials'],
   [/email not confirmed/i, 'email_not_confirmed'],

@@ -38,10 +38,13 @@ export class JwtService {
     return payload as JWTPayload & { sub: string; email?: string };
   }
 
-  /** Mints a Supabase-compatible HS256 access token (dev auth and tests only). */
-  async issue(userId: string, email: string | null, ttlSeconds = 3600): Promise<string> {
+  /**
+   * Mints a Supabase-compatible HS256 access token (dev auth and tests only). The dev issuer has no second factor, so
+   * its sessions are aal1; tests pass `aal: 'aal2'` to stand in for a Supabase session that verified a TOTP code.
+   */
+  async issue(userId: string, email: string | null, ttlSeconds = 3600, opts: { aal?: 'aal1' | 'aal2' } = {}): Promise<string> {
     if (!this.secret) throw new Error('SUPABASE_JWT_SECRET is required to issue tokens');
-    return new SignJWT({ email, role: 'authenticated', aal: 'aal1', session_id: crypto.randomUUID() })
+    return new SignJWT({ email, role: 'authenticated', aal: opts.aal ?? 'aal1', session_id: crypto.randomUUID() })
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       .setSubject(userId)
       .setAudience(this.env.SUPABASE_JWT_AUDIENCE)

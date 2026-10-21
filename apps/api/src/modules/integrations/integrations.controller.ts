@@ -7,6 +7,7 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { Public, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { RequireMfa } from '../../common/auth/mfa.guard';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { IntegrationConnectionsService } from './connections.service';
@@ -43,6 +44,7 @@ export class IntegrationsController {
   }
 
   @Post('o/:orgId/integrations/connections')
+  @RequireMfa()
   @RequirePermission('integrations:manage')
   create(@Tenant() ctx: TenantContext, @Body(zod(createIntegrationConnection)) body: z.infer<typeof createIntegrationConnection>) {
     return this.connections.create(ctx, body);
@@ -55,6 +57,7 @@ export class IntegrationsController {
   }
 
   @Patch('o/:orgId/integrations/connections/:id')
+  @RequireMfa()
   @RequirePermission('integrations:manage')
   update(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(updateIntegrationConnection)) body: z.infer<typeof updateIntegrationConnection>) {
     return this.connections.update(ctx, id, body);
@@ -136,6 +139,7 @@ export class IntegrationsController {
   }
 
   @Post('o/:orgId/integrations/oauth/:provider/start')
+  @RequireMfa()
   @RequirePermission('integrations:manage')
   oauthStart(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Body(zod(integrationOauthStart)) body: z.infer<typeof integrationOauthStart>) {
     return this.oauth.start(ctx, integrationProviderId.parse(provider), body);
@@ -143,6 +147,7 @@ export class IntegrationsController {
 
   /** PS-11: completes the flow for the user who started it, from the browser holding the nonce. */
   @Post('o/:orgId/integrations/oauth/:provider/complete')
+  @RequireMfa()
   @RequirePermission('integrations:manage')
   oauthComplete(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Body(zod(integrationOauthComplete)) body: z.infer<typeof integrationOauthComplete>) {
     return this.oauth.complete(ctx, integrationProviderId.parse(provider), body);
@@ -157,6 +162,7 @@ export class IntegrationsController {
 
   /** INT-11: picks the account the connection uses, from the ones the provider granted; then checks its health. */
   @Post('o/:orgId/integrations/connections/:id/account')
+  @RequireMfa()
   @RequirePermission('integrations:manage')
   selectAccount(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(integrationAccountSelection)) body: z.infer<typeof integrationAccountSelection>) {
     return this.oauth.selectAccount(ctx, id, body.accountId);

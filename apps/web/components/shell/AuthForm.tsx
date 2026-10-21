@@ -10,6 +10,7 @@ import { MAX_PASSWORD, MIN_PASSWORD } from '@/lib/auth/password-policy';
 import { homePath } from '@/lib/home-path';
 import { safeNext } from '@/lib/safe-next';
 import { AUTH_MODE, GOOGLE_AUTH, useSession } from '@/lib/session';
+import { MfaStep } from '@/app/(auth)/_ui/MfaStep';
 
 const WORKSPACES = ['manager', 'kitchen', 'host'] as const;
 type Workspace = (typeof WORKSPACES)[number];
@@ -57,7 +58,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       if (mode === 'signup') {
         const r = await session.signUp(String(f.get('email')), String(f.get('password')), String(f.get('fullName') || ''));
         if (r.confirmationRequired) { setConfirmFor(String(f.get('email'))); setPending(false); return; }
-      } else await session.signIn(String(f.get('email')), String(f.get('password')));
+      } else {
+        const r = await session.signIn(String(f.get('email')), String(f.get('password')));
+        // AUTH-02: an authenticator is enrolled: the code step replaces the form (session.mfaRequired), then the
+        // effect above continues to the destination once the session is aal2.
+        if (r.mfaRequired) { setPending(false); return; }
+      }
       const me = await session.refreshMe();
       routed.current = true;
       router.push(destinationFor(me, next));
@@ -85,6 +91,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         <small>{t('auth.brand.foot')}</small>
       </section>
       <main className="login-main">
+        {session.mfaRequired ? <MfaStep onSignedOut={() => setError(null)} /> : (
         <form className="login-form" onSubmit={submit} aria-busy={pending || undefined}>
           <div className="eyebrow">{t(`auth.workspace.${workspace}`)}</div>
           <h1>{mode === 'signup' ? t('auth.signupTitle') : t('auth.welcome')}</h1>
@@ -117,6 +124,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               <span>{tn('auth.devMode', { provider: <bdi dir="ltr">Supabase Auth</bdi> })}</span></p>
           )}
         </form>
+        )}
       </main>
       <LanguageToggle className="ws-lang" label={t('lang.short')} />
     </div>

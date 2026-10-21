@@ -6,6 +6,10 @@ import type { MeResponse } from '@resuto/contracts';
 import { api, ApiRequestError, type ApiOptions } from './api';
 import { AuthFlowError } from './auth-errors';
 import { checkNewPassword } from './auth/password-policy';
+import {
+  assuranceOf, cancelTotpEnrolment, jwtClaims, listTotp, removeTotp, startTotpEnrolment, verifySignInCode, verifyTotp,
+  type MfaClient, type MfaSession, type TotpEnrolment, type TotpFactors,
+} from './auth/mfa';
 import { createAuthRunner } from './auth-recovery';
 import { queryCache, scopeOfToken, tenantPrefix } from './query-cache';
 import { googleReturnUrl, loginUrl } from './safe-next';
@@ -42,6 +46,23 @@ const sb = () => (supabase ??= import('@supabase/supabase-js').then(({ createCli
 
 interface StoredSession { accessToken: string; expiresAt: number; email: string }
 
+/**
+ * AUTH-02: TOTP two-step verification (Supabase Auth MFA). Only in Supabase mode; the local dev issuer has no MFA.
+ * Enrolment and removal live on Account > Security; the code step after sign-in is `verifyMfa`.
+ */
+export interface MfaControls {
+  available: boolean;
+  list(): Promise<TotpFactors>;
+  /** Starts adding an authenticator app: QR code and secret to scan or type. */
+  start(): Promise<TotpEnrolment>;
+  /** Verifies the first code of a new authenticator; the session becomes aal2. */
+  confirm(factorId: string, code: string): Promise<void>;
+  /** Abandons an enrolment that was never verified. */
+  cancel(factorId: string): Promise<void>;
+  /** Removes a verified authenticator after re-verifying a fresh code from it. */
+  remove(factorId: string, code: string): Promise<void>;
+}
+
 export interface SessionValue {
   /** The stored token was read and /me answered (or failed). */
   ready: boolean;
@@ -53,7 +74,8 @@ export interface SessionValue {
   me: MeResponse | null;
   /** /me failed for a reason other than an expired session (offline, server error). */
   meError: ApiRequestError | null;
-  signIn(email: string, password: string): Promise<void>;
+  /** Resolves `mfaRequired` when the account has a verified authenticator: the code step (`verifyMfa`) comes next. */
+  signIn(email: string, password: string): Promise<{ mfaRequired: boolean }>;
   /** Resolves `confirmationRequired` when Supabase sent a confirmation email instead of starting a session (CR-05). */
   signUp(email: string, password: string, fullName?: string): Promise<{ confirmationRequired: boolean }>;
   /** CR-05: sends a reset link (Supabase Auth) that returns through /auth/callback to /reset-password. */
@@ -63,7 +85,14 @@ export interface SessionValue {
   /** CR-05: asks Supabase Auth to change the email (confirmed through a link to the new address). */
   updateEmail(email: string): Promise<void>;
   /** CR-05: finishes an email link (confirmation, recovery, email change, OAuth code) on /auth/callback. */
-  completeAuthLink(url: string): Promise<void>;
+  completeAuthLink(url: string): Promise<{ mfaRequired: boolean }>;
+  /**
+   * AUTH-02: a password (or email link) session of an account with a verified authenticator, or one the API answered
+   * with 403 mfa_required: the app is not entered (token stays null) until `verifyMfa` succeeds.
+   */
+  mfaRequired: boolean;
+  verifyMfa(code: string): Promise<void>;
+  mfa: MfaControls;
   signOut(): Promise<void>;
   /** Google sign-in through Supabase Auth (redirects away; only when GOOGLE_AUTH). Returns to /login?next=… */
   signInWithGoogle(next?: string | null): Promise<void>;
@@ -94,6 +123,16 @@ function readStored(): StoredSession | null {
 const writeStored = (s: StoredSession) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* private mode */ } };
 const keepSession = (k: string) => k === STORAGE_KEY || /^sb-[a-z0-9]+-auth-token/.test(k);
 const AUTH_PAGES = /^\/(login|signup|forgot-password|reset-password|auth\/callback)(\/|$)/;
+/**
+ * AUTH-02: the API answered 403 mfa_required for this user (e.g. a factor was added on another device and this
+ * session's user object is stale). Kept per tab so another SessionProvider instance (the sign-in page's) honours it.
+ */
+const MFA_DEMANDED_KEY = 'resuto.auth.mfa-demanded';
+const mfaDemandedFor = (sub: unknown) => { try { return !!sub && sessionStorage.getItem(MFA_DEMANDED_KEY) === sub; } catch { return false; } };
+const setMfaDemanded = (sub: string | null) => {
+  try { if (sub) sessionStorage.setItem(MFA_DEMANDED_KEY, sub); else sessionStorage.removeItem(MFA_DEMANDED_KEY); } catch { /* storage blocked */ }
+};
+
 /** Where email links come back to (CR-05): the callback page finishes the session, then continues to `next`. */
 const callbackUrl = (next: string) => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
@@ -121,6 +160,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   const [meError, setMeError] = useState<ApiRequestError | null>(null);
   const [ready, setReady] = useState(false);
   const [tokenReady, setTokenReady] = useState(false);
+  const [mfaRequired, setMfaRequired] = useState(false);
   // Always the latest token: callbacks created before sign-in (e.g. refreshMe called
   // right after signIn) must not read a stale null token from their closure.
   const tokenRef = useRef<string | null>(null);
@@ -142,10 +182,28 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   const dropSession = useCallback(() => {
     clearUserStorage();
     queryCache.clear();
+    setMfaDemanded(null);
+    setMfaRequired(false);
     tokenRef.current = null;
     setToken(null);
     setMe(null);
   }, []);
+
+  /**
+   * AUTH-02: a Supabase session becomes the app's token only at the assurance level it needs. An aal1 session of a
+   * user with a verified factor (or one the API demanded aal2 from) is held back: token null, `mfaRequired` true,
+   * nothing of the app loads until the code is verified. Returns whether the code step is owed.
+   */
+  const admit = useCallback((s: MfaSession | null | undefined): boolean => {
+    const a = assuranceOf(s);
+    const sub = s ? jwtClaims(s.access_token).sub : null;
+    if (!s || a.current === 'aal2') setMfaDemanded(null);
+    const owed = !!s && (a.required || (a.current !== 'aal2' && mfaDemandedFor(sub)));
+    setMfaRequired(owed);
+    if (owed) setMe(null);
+    applyToken(owed ? null : s?.access_token ?? null);
+    return owed;
+  }, [applyToken]);
 
   /** The session can no longer be used: clear it and continue at the sign-in page, back here afterwards. */
   const expire = useCallback(() => {
@@ -195,11 +253,11 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
         const sub = client.auth.onAuthStateChange((e, s) => {
           if (e === 'PASSWORD_RECOVERY') markRecovery();
           if (e === 'SIGNED_OUT' || !s) { clearRecovery(); clearUserStorage({ keep: keepSession }); queryCache.clear(); }
-          applyToken(s?.access_token ?? null);
+          admit(s);
         });
         off = () => sub.data.subscription.unsubscribe();
         const { data } = await client.auth.getSession();
-        t = data.session?.access_token ?? null;
+        t = admit(data.session) ? null : data.session?.access_token ?? null;
       } else {
         t = readStored()?.accessToken ?? null;
       }
@@ -209,7 +267,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
       setReady(true);
     })();
     return () => off?.();
-  }, [loadMe, applyToken]);
+  }, [loadMe, applyToken, admit]);
 
   // Staff routes: a signed-out visitor goes to the sign-in page and comes back here afterwards.
   useEffect(() => {
@@ -223,8 +281,22 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   // next scheduled request simply carries the new token. Regression test: lib/session-stability.test.ts.
   const withAuthRef = useRef(withAuth);
   withAuthRef.current = withAuth;
+  const demandMfa = useCallback(async () => {
+    // AUTH-02: the API wants aal2 from this user. Remember it for this tab, refresh the session (its user object may not
+    // list a factor added elsewhere) and hold the token back: requireAuth pages then go to the sign-in code step.
+    setMfaDemanded(String(jwtClaims(tokenRef.current).sub ?? ''));
+    setMfaRequired(true);
+    applyToken(null);
+    setMe(null);
+    try { await (await sb()).auth.refreshSession(); } catch { /* the code step still runs */ }
+  }, [applyToken]);
+  const demandMfaRef = useRef(demandMfa);
+  demandMfaRef.current = demandMfa;
   const call = useCallback(async <T,>(path: string, opts?: Omit<ApiOptions, 'token'>): Promise<T> => {
-    const result = await withAuthRef.current((t) => api<T>(path, { ...opts, token: t }));
+    const result = await withAuthRef.current((t) => api<T>(path, { ...opts, token: t })).catch(async (e: unknown) => {
+      if (AUTH_MODE === 'supabase' && e instanceof ApiRequestError && e.code === 'mfa_required') await demandMfaRef.current();
+      throw e;
+    });
     const method = opts?.method ?? (opts?.body !== undefined ? 'POST' : 'GET');
     if (method !== 'GET') invalidateAfterMutation(path);
     return result;
@@ -236,6 +308,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
       const { data, error } = await (await sb()).auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (!data.session) throw new AuthFlowError('invalid_credentials');
+      if (admit(data.session)) return { mfaRequired: true };
       t = data.session.access_token;
     } else {
       const r = await api<{ accessToken: string; expiresIn: number }>('/auth/dev/login', { body: { email, password } });
@@ -244,7 +317,41 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     }
     applyToken(t);
     await loadMe(t);
-  }, [applyToken, loadMe]);
+    return { mfaRequired: false };
+  }, [applyToken, loadMe, admit]);
+
+  const verifyMfa = useCallback(async (code: string) => {
+    if (AUTH_MODE !== 'supabase') throw new AuthFlowError('mfa_unavailable');
+    const client = await sb();
+    await verifySignInCode(client as unknown as MfaClient, code);
+    const { data } = await client.auth.getSession();
+    if (!data.session || admit(data.session)) throw new AuthFlowError('mfa_code_invalid');
+    await loadMe(data.session.access_token);
+  }, [admit, loadMe]);
+
+  const mfa = useMemo<MfaControls>(() => {
+    const client = async () => {
+      if (AUTH_MODE !== 'supabase') throw new AuthFlowError('mfa_unavailable');
+      return (await sb()) as unknown as MfaClient;
+    };
+    const friendlyName = () => `Authenticator ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
+    return {
+      available: AUTH_MODE === 'supabase',
+      list: async () => listTotp(await client()),
+      start: async () => startTotpEnrolment(await client(), { friendlyName: friendlyName(), issuer: 'Resuto' }),
+      confirm: async (factorId, code) => {
+        await verifyTotp(await client(), factorId, code);
+        const { data } = await (await sb()).auth.getSession();
+        admit(data.session);
+      },
+      cancel: async (factorId) => cancelTotpEnrolment(await client(), factorId),
+      remove: async (factorId, code) => {
+        await removeTotp(await client(), factorId, code);
+        const { data } = await (await sb()).auth.getSession();
+        admit(data.session);
+      },
+    };
+  }, [admit]);
 
   const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
     await assertPasswordAllowed(password, email);
@@ -315,9 +422,11 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     }
     const { data } = await client.auth.getSession();
     if (!data.session) throw new AuthFlowError('link_invalid');
-    applyToken(data.session.access_token);
+    // AUTH-02: a link signs in at aal1; an account with an authenticator still owes its code.
+    if (admit(data.session)) return { mfaRequired: true };
     await loadMe(data.session.access_token);
-  }, [applyToken, loadMe]);
+    return { mfaRequired: false };
+  }, [admit, loadMe]);
 
   const signOut = useCallback(async () => {
     if (AUTH_MODE === 'supabase') { try { await (await sb()).auth.signOut(); } catch { /* local clear below */ } }
@@ -335,8 +444,9 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
 
   const value = useMemo<SessionValue>(() => ({
     ready, tokenReady, token, scope: scopeOfToken(token), me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call,
-    requestPasswordReset, updatePassword, updateEmail, completeAuthLink,
-  }), [ready, tokenReady, token, me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call, requestPasswordReset, updatePassword, updateEmail, completeAuthLink]);
+    requestPasswordReset, updatePassword, updateEmail, completeAuthLink, mfaRequired, verifyMfa, mfa,
+  }), [ready, tokenReady, token, me, meError, signIn, signUp, signOut, signInWithGoogle, refreshMe, call, requestPasswordReset, updatePassword,
+    updateEmail, completeAuthLink, mfaRequired, verifyMfa, mfa]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

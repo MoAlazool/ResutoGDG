@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n/client';
 import { loginUrl } from '@/lib/safe-next';
 import { AUTH_MODE, useSession } from '@/lib/session';
 import { AuthPanel, MAX_PASSWORD, MIN_PASSWORD } from '../../_ui/AuthPanel';
+import { MfaCard } from './MfaCard';
 
 /**
  * CR-05: the signed-in account (legacy /account "Account home"): who you are, your restaurants, change password and
@@ -41,6 +42,7 @@ export default function AccountPage() {
             )}
           </Card>
           <PasswordCard />
+          <MfaCard />
           <EmailCard />
           <button className="btn btn-block" onClick={async () => { await session.signOut(); router.push('/login'); }}>{t('auth.account.signOut')}</button>
           {AUTH_MODE === 'dev' && <p className="login-dev"><span className="badge badge-sandbox">DEV</span><span>{tn('auth.devMode', { provider: <bdi dir="ltr">Supabase Auth</bdi> })}</span></p>}

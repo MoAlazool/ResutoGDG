@@ -5,6 +5,7 @@ import {
 } from '@resuto/contracts';
 import type { ResutoRequest } from '../../common/auth/context';
 import { PlatformAdmin, Public } from '../../common/auth/decorators';
+import { RequireMfa } from '../../common/auth/mfa.guard';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { SalesInquiriesService } from './sales-inquiries.service';
@@ -27,6 +28,7 @@ export class SalesInquiriesPublicController {
 
 /** `GET /v1/admin/sales-inquiries`: platform staff read the inbox (support and finance included, read only). */
 @Controller('admin/sales-inquiries')
+@RequireMfa()
 export class SalesInquiriesAdminController {
   constructor(private readonly inquiries: SalesInquiriesService) {}
 

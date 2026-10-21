@@ -5,6 +5,7 @@ import {
 import { z } from 'zod';
 import type { AuthPrincipal, ResutoRequest, TenantContext } from '../../common/auth/context';
 import { Principal, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { RequireMfa } from '../../common/auth/mfa.guard';
 import { DbService } from '../../common/db/db.service';
 import { DomainError, forbidden } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
@@ -81,6 +82,7 @@ export class PlatformController {
   }
 
   @Post('o/:orgId/invitations')
+  @RequireMfa()
   @RequirePermission('members:manage')
   invite(@Tenant() ctx: TenantContext, @Body(zod(inviteMember)) body: z.infer<typeof inviteMember>) {
     return this.orgs.invite(ctx, body);
@@ -93,6 +95,7 @@ export class PlatformController {
   }
 
   @Patch('o/:orgId/members/:membershipId')
+  @RequireMfa()
   @RequirePermission('members:manage')
   updateMember(@Tenant() ctx: TenantContext, @Param('membershipId', ParseUUIDPipe) id: string, @Body(zod(updateMember)) body: z.infer<typeof updateMember>) {
     return this.orgs.updateMember(ctx, id, body);
