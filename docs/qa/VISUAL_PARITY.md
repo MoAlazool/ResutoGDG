@@ -15,6 +15,10 @@
 - **CI** (`.github/workflows/ci.yml`, job `visual`): runs in the Docker image, enforces every committed docker
   baseline, records missing ones (`--update-snapshots=missing`) and uploads them as the `visual-baselines` artifact.
   The ordinary `browser` job keeps `--ignore-snapshots` because a GitHub runner's fonts match no recorded environment.
+- **Status: not yet a gate (CR-11 partial).** No docker baseline is committed yet (only `__visual__/local/`), so
+  today the `visual` job records every surface and cannot fail on a pixel difference. It becomes a gate once the
+  owner approves the first run's `visual-baselines` artifact and the images are committed under
+  `tests/e2e/__visual__/docker/`; then drop `--update-snapshots=missing` from the job so a missing baseline fails it.
 - **Approval**: `docs/ui/visual-baselines.json` pairs each surface with the legacy capture (`docs/ui/baseline/`) it
   was compared against side by side, with notes on intended differences. A baseline becomes `approved` only when the
   owner has looked at the pair. Update a baseline with `--update-snapshots` only after such an approval.
