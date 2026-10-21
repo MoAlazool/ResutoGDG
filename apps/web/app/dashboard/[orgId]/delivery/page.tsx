@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
-import { PageHeader, Tabs } from '@resuto/ui';
+import { Suspense } from 'react';
+import { PageHeader, Skeleton, Tabs } from '@resuto/ui';
+import { useUrlParam } from '@/components/ops/use-url-state';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -12,10 +13,16 @@ type Tab = 'board' | 'drivers' | 'cash';
 
 /** ResutoDriver dispatch: live board, driver roster and COD cash settlement. */
 export default function DeliveryPage() {
+  return <Suspense fallback={<Skeleton lines={6} />}><Delivery /></Suspense>;
+}
+
+/** Tab and branch filter live in the URL (PCL-20), so a reload keeps the dispatcher's view. */
+function Delivery() {
   const { t, locale } = useT();
   const { org } = useOrg();
-  const [tab, setTab] = useState<Tab>('board');
-  const [branchId, setBranchId] = useState('');
+  const [tab, setTab] = useUrlParam<Tab>('tab', 'board', ['board', 'drivers', 'cash']);
+  const [branchParam, setBranchId] = useUrlParam<string>('branch', '');
+  const branchId = org.branches.some((b) => b.id === branchParam) ? branchParam : '';
   const branches = org.branches.filter((b) => b.isActive);
   return (
     <ModuleGate module="driver" permission="delivery:dispatch">

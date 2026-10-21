@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import type { CustomerSummary } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, useAction, Email, Phone, UserText } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -16,18 +16,38 @@ import { useApi } from '@/lib/use-api';
 interface Page { items: CustomerSummary[]; nextCursor: string | null; total: number }
 const EMPTY = { q: '', tag: '', consent: '', lastOrderBefore: '', lastOrderAfter: '', minOrders: '', minSpend: '', branchId: '', sort: 'last_order' };
 
+type Filters = typeof EMPTY;
+/** Filters as they appear in the URL (PCL-20): only non-default values, so plain links stay clean. */
+const fromUrl = (sp: URLSearchParams): Filters => {
+  const out = { ...EMPTY };
+  for (const k of Object.keys(EMPTY) as Array<keyof Filters>) { const v = sp.get(k); if (v !== null) out[k] = v; }
+  return out;
+};
+
 export default function CustomersPage() {
+  return <Suspense fallback={<div className="card"><Skeleton lines={6} /></div>}><Customers /></Suspense>;
+}
+
+function Customers() {
   const { t, locale } = useT();
   const { org, can } = useOrg();
   const session = useSession();
   const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
   const f = useFormat();
-  const [draft, setDraft] = useState(EMPTY);
-  const [filters, setFilters] = useState(EMPTY);
+  const [draft, setDraft] = useState<Filters>(() => fromUrl(new URLSearchParams(search.toString())));
+  const [filters, setFilters] = useState<Filters>(draft);
   const [cursor, setCursor] = useState<string | undefined>();
-  // Debounce the search box; other filters apply immediately.
+  // Debounce the search box; other filters apply immediately. Applied filters are mirrored into the URL.
   useEffect(() => {
-    const h = setTimeout(() => { setFilters(draft); setCursor(undefined); }, draft.q !== filters.q ? 300 : 0);
+    const h = setTimeout(() => {
+      setFilters(draft); setCursor(undefined);
+      const q = new URLSearchParams();
+      for (const [k, v] of Object.entries(draft)) if (v !== EMPTY[k as keyof Filters]) q.set(k, v);
+      const next = q.toString() ? `?${q}` : '';
+      if (next !== window.location.search) router.replace(`${pathname}${next}`, { scroll: false });
+    }, draft.q !== filters.q ? 300 : 0);
     return () => clearTimeout(h);
   }, [draft]); // eslint-disable-line react-hooks/exhaustive-deps
   const params = {

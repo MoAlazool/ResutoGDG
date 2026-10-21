@@ -139,7 +139,7 @@ function MenuPageInner() {
           </section>
         )
       ) : tab === 'categories' ? (
-        <CategoriesTab categories={m.categories} products={m.products} onRun={(fn) => run(fn)} />
+        <CategoriesTab categories={m.categories} products={m.products} onRun={(fn) => run(fn, 'categories')} />
       ) : tab === 'modifiers' ? <ModifiersTab menu={m} reload={() => menu.reload()} /> : <ImportTab onDone={() => menu.reload()} />}
       {editing && m && <ProductModal menu={m} product={editing === 'new' ? null : editing} branchId={branchId} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void menu.reload(); }} />}
     </ModuleGate>
@@ -150,7 +150,7 @@ function MenuPageInner() {
     return (
       <section className="panel">
         <div className="panel-head"><h2>{t('ops.menu.categories')}</h2>
-          <button className="btn btn-sm" onClick={async () => {
+          <button className="btn btn-sm" disabled={pendingId !== null} onClick={async () => {
             const name = await prompt({ title: t('core.menu.category'), label: t('core.menu.categoryName'), maxLength: 120, confirmLabel: t('action.create') });
             if (name) void onRun(() => call(`/o/${org.id}/menu/categories`, { body: { name } }));
           }}>＋ {t('core.menu.category')}</button></div>
@@ -159,19 +159,19 @@ function MenuPageInner() {
             <div key={c.id} className="host-row">
               <span><strong>{pick(locale, c.name, c.nameAr)}</strong><small>{t('ops.menu.itemsCount', { n: products.filter((p) => p.categoryId === c.id && p.isActive).length })}</small></span>
               <span className="row">
-                <button className="btn btn-sm btn-ghost" disabled={idx === 0} aria-label={t('core.menu.moveUp')} onClick={() => {
+                <button className="btn btn-sm btn-ghost" disabled={idx === 0 || pendingId !== null} aria-label={t('core.menu.moveUp')} onClick={() => {
                   const ids = arr.map((x) => x.id); [ids[idx - 1], ids[idx]] = [ids[idx]!, ids[idx - 1]!];
                   void onRun(() => call(`/o/${org.id}/menu/categories/reorder`, { body: { ids } }));
                 }}>↑</button>
-                <button className="btn btn-sm btn-ghost" disabled={idx === arr.length - 1} aria-label={t('core.menu.moveDown')} onClick={() => {
+                <button className="btn btn-sm btn-ghost" disabled={idx === arr.length - 1 || pendingId !== null} aria-label={t('core.menu.moveDown')} onClick={() => {
                   const ids = arr.map((x) => x.id); [ids[idx + 1], ids[idx]] = [ids[idx]!, ids[idx + 1]!];
                   void onRun(() => call(`/o/${org.id}/menu/categories/reorder`, { body: { ids } }));
                 }}>↓</button>
-                <button className="btn btn-sm" onClick={async () => {
+                <button className="btn btn-sm" disabled={pendingId !== null} onClick={async () => {
                   const name = await prompt({ title: t('action.edit'), label: t('core.menu.categoryName'), defaultValue: c.name, maxLength: 120, confirmLabel: t('action.save') });
                   if (name && name !== c.name) void onRun(() => call(`/o/${org.id}/menu/categories/${c.id}`, { method: 'PATCH', body: { name } }));
                 }}>{t('action.edit')}</button>
-                <button className="btn btn-sm btn-danger" onClick={async () => {
+                <button className="btn btn-sm btn-danger" disabled={pendingId !== null} onClick={async () => {
                   if (await confirm({ title: t('core.menu.archiveCategory'), tone: 'danger', confirmLabel: t('core.menu.archive') })) void onRun(() => call(`/o/${org.id}/menu/categories/${c.id}`, { method: 'DELETE' }));
                 }}>{t('core.menu.archive')}</button>
               </span>
@@ -283,9 +283,10 @@ function ProductModal({ menu, product, branchId, onClose, onSaved }: { menu: Men
         {error && <Notice tone="danger">{error}</Notice>}
         <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
           {product ? <button type="button" className="btn btn-danger" onClick={async () => {
-            if (!(await confirm({ title: t('core.menu.archiveItem'), tone: 'danger', confirmLabel: t('core.menu.archive') }))) return;
-            try { await call(`/o/${org.id}/menu/products/${product.id}`, { method: 'DELETE' }); onSaved(); } catch (e) { setError((e as Error).message); }
-          }}>{t('core.menu.archive')}</button> : <span />}
+            if (pending || !(await confirm({ title: t('core.menu.archiveItem'), tone: 'danger', confirmLabel: t('core.menu.archive') }))) return;
+            setPending(true); setError(null);
+            try { await call(`/o/${org.id}/menu/products/${product.id}`, { method: 'DELETE' }); onSaved(); } catch (e) { setError((e as Error).message); } finally { setPending(false); }
+          }} disabled={pending}>{t('core.menu.archive')}</button> : <span />}
           <div className="row">
             <button type="button" className="btn" onClick={onClose}>{t('action.cancel')}</button>
             <button className="btn btn-primary" disabled={pending}>{pending ? t('state.loading') : t('action.save')}</button>
@@ -301,7 +302,13 @@ function ModifiersTab({ menu, reload }: { menu: MenuEditorView; reload: () => Pr
   const { org } = useOrg();
   const { call } = useSession();
   const [error, setError] = useState<string | null>(null);
-  const run = async (fn: () => Promise<unknown>) => { setError(null); try { await fn(); await reload(); } catch (e) { setError((e as Error).message); } };
+  const [busy, setBusy] = useState(false);
+  /** One modifier mutation at a time; the buttons below are disabled while it runs (PCL-21). */
+  const run = async (fn: () => Promise<unknown>) => {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try { await fn(); await reload(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  };
   const currency = menu.currency as 'EGP' | 'SAR';
 
   async function addGroup(e: FormEvent<HTMLFormElement>) {
@@ -330,21 +337,21 @@ function ModifiersTab({ menu, reload }: { menu: MenuEditorView; reload: () => Pr
           <Field label={t('core.menu.min')} name="min" type="number" min={0} max={20} defaultValue={0} />
           <Field label={t('core.menu.max')} name="max" type="number" min={1} max={20} defaultValue={1} />
         </div>
-        <button className="btn btn-primary">{t('action.add')}</button>
+        <button className="btn btn-primary" disabled={busy}>{t('action.add')}</button>
       </form>
       {!menu.modifierGroups.length && <div className="card"><EmptyState title={t('core.menu.noGroups')} /></div>}
       {menu.modifierGroups.map((g) => (
         <section key={g.id} className="card" style={{ opacity: g.isActive ? 1 : 0.55 }}>
           <div className="spread">
             <h2 style={{ margin: 0 }}>{pick(locale, g.name, g.nameAr)} <span className="fine">{t('core.menu.selectRange', { min: g.minSelect, max: g.maxSelect })}</span></h2>
-            {g.isActive && <button className="btn btn-sm btn-danger" onClick={() => void run(() => call(`/o/${org.id}/menu/modifier-groups/${g.id}`, { method: 'DELETE' }))}>{t('core.menu.archive')}</button>}
+            {g.isActive && <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => void run(() => call(`/o/${org.id}/menu/modifier-groups/${g.id}`, { method: 'DELETE' }))}>{t('core.menu.archive')}</button>}
           </div>
           {g.options.map((o) => (
             <div key={o.id} className="spread" style={{ borderBottom: '1px solid var(--line-soft)', padding: '8px 0' }}>
               <span>{pick(locale, o.name, o.nameAr)} {o.priceDeltaMinor ? <span className="fine">+{money(o.priceDeltaMinor, currency, locale)}</span> : null}</span>
               <span className="row">
-                <label className="check"><input type="checkbox" checked={o.isAvailable} onChange={(e) => void run(() => call(`/o/${org.id}/menu/modifier-options/${o.id}`, { method: 'PATCH', body: { isAvailable: e.target.checked } }))} /> {t('core.menu.available')}</label>
-                <button className="btn btn-sm btn-ghost" aria-label={t('action.delete')} onClick={() => void run(() => call(`/o/${org.id}/menu/modifier-options/${o.id}`, { method: 'DELETE' }))}>✕</button>
+                <label className="check"><input type="checkbox" checked={o.isAvailable} disabled={busy} onChange={(e) => void run(() => call(`/o/${org.id}/menu/modifier-options/${o.id}`, { method: 'PATCH', body: { isAvailable: e.target.checked } }))} /> {t('core.menu.available')}</label>
+                <button className="btn btn-sm btn-ghost" aria-label={t('action.delete')} disabled={busy} onClick={() => void run(() => call(`/o/${org.id}/menu/modifier-options/${o.id}`, { method: 'DELETE' }))}>✕</button>
               </span>
             </div>
           ))}
@@ -353,7 +360,7 @@ function ModifiersTab({ menu, reload }: { menu: MenuEditorView; reload: () => Pr
               <Field label={t('core.menu.option')} name="name" required maxLength={80} />
               <Field label={t('core.menu.nameAr')} name="nameAr" dir="rtl" maxLength={80} />
               <Field label={t('core.menu.delta', { currency })} name="delta" inputMode="decimal" pattern="\d+(\.\d{1,2})?" />
-              <div className="field"><button className="btn">{t('action.add')}</button></div>
+              <div className="field"><button className="btn" disabled={busy}>{t('action.add')}</button></div>
             </form>
           )}
         </section>

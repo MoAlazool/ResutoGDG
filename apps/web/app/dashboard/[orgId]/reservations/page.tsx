@@ -1,8 +1,9 @@
 'use client';
-import { useRef, useState, type FormEvent } from 'react';
+import { Suspense, useRef, useState, type FormEvent } from 'react';
 import type { AvailabilityResult, ReservationView } from '@resuto/contracts';
 import { Badge, Code, EmptyState, Field, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, UserText, useConfirm, type Tone } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
+import { useUrlParam } from '@/components/ops/use-url-state';
 import { newIdempotencyKey } from '@/lib/api';
 import { money, pick, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -14,11 +15,17 @@ const tone = (s: string): Tone => ({ held: 'warn', pending_deposit: 'pay', confi
 const today = (tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
 export default function ReservationsPage() {
+  return <Suspense fallback={<Skeleton lines={6} />}><Reservations /></Suspense>;
+}
+
+function Reservations() {
   const { t, locale } = useT();
-  const { org, can } = useOrg();
+  const { org, can, branchId: shellBranch } = useOrg();
   const { call } = useSession();
-  const [branchId, setBranchId] = useState(org.branches[0]?.id ?? '');
-  const [date, setDate] = useState(today(org.timezone));
+  // Branch and day live in the URL (PCL-20): a reload or a shared link keeps them; the shell's branch is the default.
+  const [branchParam, setBranchId] = useUrlParam<string>('branch', '');
+  const branchId = org.branches.some((b) => b.id === branchParam) ? branchParam : (shellBranch ?? org.branches[0]?.id ?? '');
+  const [date, setDate] = useUrlParam<string>('date', today(org.timezone));
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
