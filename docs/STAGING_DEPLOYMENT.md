@@ -65,7 +65,9 @@ every service's build and fails with `EXPECT_COMMIT=<sha>` when one of them runs
   never the raw path, which can hold guest or payment tokens), `status, ms, orgId, actor, ip`. Render's log
   stream shows it; any log drain can parse it. The request id is the validated `X-Request-Id` (PS-15).
 - **Error tracking (optional)**: set `ERROR_TRACKING_DSN` to a Sentry-compatible DSN (Sentry's free tier, or a
-  self-hosted GlitchTip). Unset = off. Unexpected 500s and crashes are sent in the Sentry envelope format with no
+  self-hosted GlitchTip) on each service that should report: the API (and worker), the AI service, the MCP server
+  and the web app (Vercel, server-only variable; server render/route errors through `instrumentation.ts`,
+  `onRequestError`). Unset = off. Unexpected 500s and crashes are sent in the Sentry envelope format with no
   new dependency, carrying only the error type, a scrubbed message and stack, the route pattern, the request id,
   the commit and the environment — never bodies, headers, query strings, user ids, emails, phone numbers or
   tokens (`apps/api/src/common/observability/error-tracking.ts`). A process crash (API or worker) always writes
@@ -106,7 +108,7 @@ every service's build and fails with `EXPECT_COMMIT=<sha>` when one of them runs
 | `DATABASE_POOL_MAX` | `6` (free session pooler) |
 | `DEMO_SEED_ON_BOOT`, `DEMO_TARGET`, `DEMO_*_PASSWORD` | demo data on boot (see below); passwords are secrets. The staging database is shared: the loader must run with `--demo-tenant-only` (it refuses otherwise) and only creates or updates the demo tenant |
 | `LOG_FORMAT` | `json` (default in staging) |
-| `ERROR_TRACKING_DSN` | optional Sentry-compatible DSN; unset = error tracking off |
+| `ERROR_TRACKING_DSN` | optional Sentry-compatible DSN; unset = error tracking off. The same variable turns it on for the AI service, the MCP server and the web app (Vercel, server-only) |
 | `HEALTH_DETAILS_TOKEN` | optional secret (24+ characters) for the uptime monitor on `/v1/health/details` |
 
 Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, then the optional demo loader).

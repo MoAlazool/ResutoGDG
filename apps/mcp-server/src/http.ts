@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { ApiError, ResutoApi } from './api.js';
 import { buildHeader, readBuildInfo } from './build-info.js';
+import { mcpErrorReporter, routeLabel } from './error-tracking.js';
 import type { Config } from './config.js';
 import { log } from './log.js';
 import { createMcpServer, SERVER_INFO } from './mcp.js';
@@ -210,6 +211,7 @@ export function createHttpApp(config: Config) {
     } catch (e) {
       if (e instanceof HttpFailure) return rpcError(res, e.status, e.message, e.headers);
       log('error', 'request failed', { error: (e as Error)?.message });
+      void mcpErrorReporter(build.commit).capture(e, { route: routeLabel(path), source: 'mcp' });   // CR-14, optional
       return rpcError(res, 500, 'Internal server error');
     }
   }
@@ -217,6 +219,7 @@ export function createHttpApp(config: Config) {
   const http: HttpServer = createServer((req, res) => {
     handle(req, res).catch((e) => {
       log('error', 'response failed', { error: (e as Error)?.message });
+      void mcpErrorReporter(build.commit).capture(e, { route: routeLabel((req.url ?? '/').split('?')[0]), source: 'mcp' });
       res.destroy();
     });
   });

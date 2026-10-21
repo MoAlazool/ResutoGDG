@@ -71,7 +71,8 @@ not environment variables.
 - Build identity: `X-Build` on every API/AI/MCP/web response; `build { commit, branch, builtAt, startedAt }` in the
   health checks and `GET /api/version` on the web app (CR-07).
 - Structured access log: one JSON line per response in staging and production (`LOG_FORMAT`).
-- Error tracking: optional, `ERROR_TRACKING_DSN` (Sentry-compatible, PII scrubbed, no new dependency).
+- Error tracking: optional, `ERROR_TRACKING_DSN` on the API/worker, AI service, MCP server and web app (Sentry-compatible
+  envelope, PII scrubbed, route patterns only, no new dependency); a crash always logs one JSON line on stderr.
 - Health: `GET /v1/health` (DB latency, build); `GET /v1/health/details` (platform admin or `HEALTH_DETAILS_TOKEN`):
   outbox backlog and oldest pending age, dead handlers, last run per job, webhook failures, `status ok|degraded`.
 - Uptime checks: documented in `docs/STAGING_DEPLOYMENT.md` (owner enables a free monitor; always-on is an owner

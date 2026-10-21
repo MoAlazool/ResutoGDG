@@ -20,7 +20,7 @@ from datetime import timezone
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from . import __version__
+from . import __version__, error_tracking
 from .core import customers as cust
 from .core import forecast as fc
 from .core import recommend as rec
@@ -107,6 +107,11 @@ class RequestId:
 
         try:
             await self.app(scope, receive, send_with_id)
+        except Exception as error:
+            # Unexpected error (the response is a 500): report it with the route PATTERN only (CR-14, optional).
+            route = getattr(scope.get("route"), "path", None) or "unmatched"
+            error_tracking.reporter().capture(error, route=route, request_id=request_id)
+            raise
         finally:
             path = scope.get("path", "")
             if not (path == "/v1/health" and status["code"] < 400):

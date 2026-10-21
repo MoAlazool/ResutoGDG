@@ -48,7 +48,7 @@ for CI but has not run anywhere yet (CR-10). Test counts: `docs/TEST_RESULTS.md`
 | Area | Status | Notes |
 |---|---|---|
 | Demo data | Working | Loader re-times relative to load, upserts only the demo tenant, post-load integrity check (DF-10/11, `scripts/demo`) |
-| Observability | Working (no paid service) | Build identity on every service (CR-07), JSON access log, optional error tracking DSN, `/v1/health/details` (CR-14) |
+| Observability | Working (no paid service) | Build identity on every service (CR-07), JSON access log, optional error tracking DSN on API/worker, AI, MCP and web (crashes included), `/v1/health/details` (CR-14); uptime monitor and DSN are owner setup on staging |
 | Visual parity gate | Partial | 14 restored surfaces captured deterministically; local baselines recorded; Docker baselines and owner approval pending (CR-11) |
 | API quality | Planned | PS-19 OpenAPI, PS-20 error contract, PS-21 validation, PS-22 pagination, PS-23 HTTP semantics |
 | Web performance | Partial | Bundle budget enforced in CI (green): 4 routes already over their group budget (/, /pricing, /t/[qr], website editor) are held at their measured size by per-route ratchets until they are split |

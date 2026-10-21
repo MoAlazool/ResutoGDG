@@ -167,3 +167,50 @@ def _request_id_calls(client, auth):
     assert r.headers["x-request-id"] == "evt:route-check-0001"
     denied = client.post("/v1/routing/optimize", json=body, headers={"X-Request-Id": "job:denied-0000001"})
     assert denied.status_code == 401 and denied.headers["x-request-id"] == "job:denied-0000001"
+
+
+def test_unexpected_errors_reach_error_tracking_scrubbed_with_the_route_pattern():
+    """CR-14: error tracking for the AI service (optional; same envelope and PII rules as the API)."""
+    import json as _json
+    import threading as _threading
+
+    from fastapi.testclient import TestClient
+
+    from app import error_tracking
+
+    sent, done = [], _threading.Event()
+
+    def sender(endpoint, body, key):
+        sent.append((endpoint, body.decode(), key))
+        done.set()
+
+    error_tracking.configure(error_tracking.ErrorReporter("https://pub@errors.example.test/3", "staging", "abc1234", sender=sender))
+    try:
+        app = create_app(token="t" * 32)
+
+        @app.get("/v1/boom/{store}")
+        def boom(store: str):  # noqa: ARG001
+            raise RuntimeError("forecast failed for +201090001001 owner@example.com")
+
+        res = TestClient(app, raise_server_exceptions=False).get("/v1/boom/secret-store-token?x=1", headers={"X-Request-Id": "req-12345678"})
+        assert res.status_code == 500
+        assert done.wait(5)
+        endpoint, body, key = sent[0]
+        assert endpoint == "https://errors.example.test/api/3/envelope/" and key == "pub"
+        event = _json.loads(body.split("\n")[2])
+        assert event["tags"] == {"service": "ai", "source": "ai", "route": "/v1/boom/{store}", "request_id": "req-12345678"}
+        assert event["release"] == "abc1234"
+        assert event["exception"]["values"][0]["value"] == "forecast failed for [number] [email]"
+        assert "secret-store-token" not in body and "1090001001" not in body
+        assert len(sent) == 1
+    finally:
+        error_tracking.configure(None)
+
+
+def test_error_tracking_is_off_without_a_dsn_and_refuses_bad_dsns():
+    from app import error_tracking
+
+    assert error_tracking.ErrorReporter(None).capture(RuntimeError("x")) == "skipped"
+    assert error_tracking.parse_dsn("https://errors.example.test/3") is None
+    assert error_tracking.parse_dsn("ftp://pub@errors.example.test/3") is None
+    assert error_tracking.scrub("Bearer abc.def") == "Bearer [redacted]"
