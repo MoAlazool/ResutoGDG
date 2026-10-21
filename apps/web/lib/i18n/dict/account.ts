@@ -98,6 +98,7 @@ export const account = {
     'auth.error.mfa_required': 'Enter the code from your authenticator app to continue.',
     'auth.error.mfa_too_many': 'You already have the maximum number of authenticator apps. Remove one first.',
     'auth.error.mfa_no_factor': 'No authenticator app is set up for this account any more. Sign in again.',
+    'auth.error.password_change_sign_in_again': 'For your security, a password change needs a recent sign-in. Sign out, sign in again (with your authenticator code), then change the password.',
     // AUTH-03: email-dependent flows without a custom SMTP sender.
     'auth.checkEmail.title': 'Check your email.',
     'auth.checkEmail.body': 'We asked Supabase Auth to send a confirmation link to {email}. Open it to finish creating your account; the link works once and expires. Your account stays inactive until then.',
@@ -218,6 +219,7 @@ export const account = {
     'auth.error.mfa_required': 'أدخل الرمز من تطبيق المصادقة للمتابعة.',
     'auth.error.mfa_too_many': 'لديك الحد الأقصى من تطبيقات المصادقة. أزل واحدًا أولًا.',
     'auth.error.mfa_no_factor': 'لم يعد هناك تطبيق مصادقة مُعدّ لهذا الحساب. سجّل الدخول مرة أخرى.',
+    'auth.error.password_change_sign_in_again': 'لحماية حسابك، يتطلب تغيير كلمة المرور تسجيل دخول حديثًا. سجّل الخروج ثم سجّل الدخول مرة أخرى (مع رمز تطبيق المصادقة)، ثم غيّر كلمة المرور.',
     'auth.checkEmail.title': 'تحقّق من بريدك.',
     'auth.checkEmail.body': 'طلبنا من Supabase Auth إرسال رابط تأكيد إلى {email}. افتحه لإكمال إنشاء حسابك؛ يعمل الرابط مرة واحدة وتنتهي صلاحيته. يبقى حسابك غير مفعّل حتى ذلك الحين.',
     'auth.checkEmail.other': 'استخدم بريدًا آخر',

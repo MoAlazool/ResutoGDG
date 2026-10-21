@@ -13,6 +13,8 @@ export const AUTH_ERROR_CODES = [
   'mfa_code_format', 'mfa_code_invalid', 'mfa_code_expired', 'mfa_unavailable', 'mfa_required', 'mfa_too_many', 'mfa_no_factor',
   // AUTH-03: email links and resends.
   'link_expired', 'link_other_browser', 'resend_unavailable',
+  // AUTH-02: a signed-in password change that needs a fresh sign-in ("secure password change", session over 24 hours).
+  'password_change_sign_in_again',
 ] as const;
 export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[number];
 
@@ -31,10 +33,13 @@ const SUPABASE_CODES: Record<string, AuthErrorCode> = {
   mfa_verification_failed: 'mfa_code_invalid', mfa_verification_rejected: 'mfa_code_invalid', mfa_challenge_expired: 'mfa_code_expired',
   mfa_totp_enroll_not_enabled: 'mfa_unavailable', mfa_totp_verify_not_enabled: 'mfa_unavailable', insufficient_aal: 'mfa_required',
   mfa_required: 'mfa_required', too_many_enrolled_mfa_factors: 'mfa_too_many', mfa_factor_not_found: 'mfa_no_factor',
+  reauthentication_needed: 'password_change_sign_in_again',
 };
 const MESSAGES: Array<[RegExp, AuthErrorCode]> = [
   [/invalid totp code/i, 'mfa_code_invalid'],
   [/current password is incorrect/i, 'current_password_incorrect'],
+  // Supabase Auth counts the 72-character limit in UTF-8 bytes (validation_failed "Password cannot be longer than 72 characters").
+  [/password cannot be longer than/i, 'password_too_long'],
   [/invalid login credentials|email or password is incorrect/i, 'invalid_credentials'],
   [/email not confirmed/i, 'email_not_confirmed'],
   [/already (registered|exists)/i, 'email_taken'],

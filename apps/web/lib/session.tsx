@@ -45,6 +45,18 @@ export function recoveryPending(now = Date.now()): boolean {
 const sb = () => (supabase ??= import('@supabase/supabase-js').then(({ createClient }) =>
   createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, { auth: { persistSession: true } })));
 
+/**
+ * AUTH-02: re-checks the current password for a signed-in password change WITHOUT touching the app's session. Signing
+ * in again on the main client would replace an aal2 session with an aal1 one: Supabase Auth then refuses the password
+ * update of an account with an authenticator (insufficient_aal) and the session drops to the sign-in code step.
+ * Nothing is stored (memory only, its own storage key, no refresh timer, no URL detection, no cross-tab broadcast).
+ */
+let reverifier: Promise<SupabaseClient> | null = null;
+const sbReverify = () => (reverifier ??= import('@supabase/supabase-js').then(({ createClient }) =>
+  createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'resuto-password-reverify' },
+  })));
+
 interface StoredSession { accessToken: string; expiresAt: number; email: string }
 
 /**
@@ -409,15 +421,42 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
     const client = await sb();
     // Without the current password only a fresh recovery link may set a new one (see recoveryPending).
     if (currentPassword === undefined && !recoveryPending()) throw new AuthFlowError('current_password_required');
-    if (currentPassword !== undefined) {
-      const { data: u } = await client.auth.getUser();
-      const email = u.user?.email;
-      if (!email) throw new AuthFlowError('not_signed_in');
-      const { error: verify } = await client.auth.signInWithPassword({ email, password: currentPassword });
-      if (verify) throw (verify as { code?: string }).code === 'invalid_credentials' ? new AuthFlowError('current_password_incorrect') : verify;
+    if (currentPassword === undefined) {
+      const { error } = await client.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      clearRecovery();
+      return;
     }
-    const { error } = await client.auth.updateUser({ password: newPassword });
-    if (error) throw error;
+    const { data: u } = await client.auth.getUser();
+    const email = u.user?.email;
+    if (!email) throw new AuthFlowError('not_signed_in');
+    // The current password is checked on a separate, memory-only client: the app's session (aal2 for an account with an
+    // authenticator) stays as it is and is the one that changes the password, so Supabase keeps it and signs out the
+    // account's other sessions (including the check's own).
+    const verifier = await sbReverify();
+    const { data: checked, error: verify } = await verifier.auth.signInWithPassword({ email, password: currentPassword });
+    if (verify) throw (verify as { code?: string }).code === 'invalid_credentials' ? new AuthFlowError('current_password_incorrect') : verify;
+    let adopted = false;
+    let changed = false;
+    try {
+      let { error } = await client.auth.updateUser({ password: newPassword });
+      if (error && (error as { code?: string }).code === 'reauthentication_needed' && checked.session) {
+        // "Secure password change" is on and this sign-in is over 24 hours old. The password was just re-entered, so
+        // continue on that fresh sign-in, but only when it needs no second step: an account with an authenticator
+        // signs in again (password and code) instead, which this page cannot do without leaving it.
+        if (assuranceOf(checked.session).required) throw new AuthFlowError('password_change_sign_in_again');
+        const { error: set } = await client.auth.setSession(checked.session);
+        if (set) throw set;
+        adopted = true;
+        ({ error } = await client.auth.updateUser({ password: newPassword }));
+      }
+      if (error) throw error;
+      changed = true;
+    } finally {
+      // A refused change leaves the check's session behind on the server: end it (best effort). After a change Supabase
+      // has already ended it.
+      if (!adopted && !changed) await verifier.auth.signOut({ scope: 'local' }).catch(() => undefined);
+    }
     clearRecovery();
   }, [withAuth]);
 
