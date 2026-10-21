@@ -82,6 +82,19 @@ export const CHECKS = [
              and (m.created_at < o.placed_at - interval '1 minute' or m.created_at > o.placed_at + interval '1 day')`,
   },
   {
+    name: 'checkout_sessions_follow_their_order',
+    description: 'An order\'s online checkout session is dated with that order (not stamped at load time)',
+    sql: `select count(*)::int as violations, coalesce((array_agg(s.id::text || ' order ' || o.id::text))[1:5], '{}') as sample
+            from checkout_sessions s join orders o on o.id = s.order_id and o.org_id = s.org_id
+           where s.org_id = $1 and (s.created_at < o.placed_at - interval '1 minute' or s.created_at > o.placed_at + interval '1 day')`,
+  },
+  {
+    name: 'history_orders_unique',
+    description: 'Each planned history order (date, index) exists once: an interrupted refresh never places a day twice',
+    sql: `select count(*)::int as violations, coalesce((array_agg(external_ref || ' x' || n::text))[1:5], '{}') as sample
+            from (select external_ref, count(*) as n from orders where org_id = $1 and external_ref like 'demo-hist:%' group by 1 having count(*) > 1) d`,
+  },
+  {
     name: 'fixed_costs_every_month',
     description: 'Every month from the first order to the current month books rent, utilities, fees and payroll (labor)',
     sql: `with bounds as (select date_trunc('month', min(business_date))::date as first, date_trunc('month', (now() at time zone $2)::date)::date as cur

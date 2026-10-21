@@ -34,13 +34,19 @@ export function planDay(date, { menus, ramp = 0 }) {
     const branch = rand() < 0.7 ? 'main' : 'smash';
     const lines = pickN(menus[branch], 1 + Math.floor(rand() * 3)).map((p) => ({ productId: p.id, quantity: rand() < 0.25 ? 2 : 1 }));
     out.push({
-      date, hour: HOURS[Math.floor(rand() * HOURS.length)], minute: Math.floor(rand() * 60), branch, lines,
+      index: i, date, hour: HOURS[Math.floor(rand() * HOURS.length)], minute: Math.floor(rand() * 60), branch, lines,
       customer: rand() < 0.85 ? customer() : null, web: rand() < 0.45, online: rand() < 0.5, cancel: rand() < 0.03,
       walkInPhone: `+2011${String(Math.floor(rand() * 1e8)).padStart(8, '0')}`, transfer: rand() >= 0.7,
     });
   }
   return out;
 }
+
+/**
+ * The stable identity of a planned history order: the same (date, index) on every run, so a refresh that was interrupted
+ * can tell which planned orders already exist (stored in orders.external_ref and used as the creation Idempotency-Key).
+ */
+export const historyTag = (o) => `demo-hist:${o.date}:${o.index}`;
 
 /** Plan for the business days [from, to] (inclusive). `historyFrom` anchors the volume ramp. */
 export function planRange({ from, to, historyFrom = from, historyDays = 56, menus }) {

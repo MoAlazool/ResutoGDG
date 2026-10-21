@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { FIXED_COSTS, fixedCostSchedule } from '../lib/fixed-costs.mjs';
-import { addDays, planDay, planRange } from '../lib/plan.mjs';
+import { addDays, historyTag, planDay, planRange } from '../lib/plan.mjs';
 import { decideAction, decideTarget } from '../lib/safety.mjs';
 
 const KINDS = FIXED_COSTS.map((c) => c.kind).sort();
@@ -115,5 +115,15 @@ describe('deterministic order plan', () => {
     for (const o of planRange({ from: '2026-09-01', to: addDays('2026-09-01', 20), menus })) {
       for (const l of o.lines) assert.ok(menus[o.branch].some((p) => p.id === l.productId));
     }
+  });
+
+  it('gives every planned order a stable identity (date, index), the same on every run, unique in a range', () => {
+    const a = planRange({ from: '2026-09-01', to: '2026-09-20', historyFrom: '2026-09-01', menus });
+    const tags = a.map(historyTag);
+    assert.equal(new Set(tags).size, tags.length);
+    const tail = planRange({ from: '2026-09-11', to: '2026-09-20', historyFrom: '2026-09-01', menus });
+    assert.deepEqual(tail.map(historyTag), tags.filter((t) => t.slice(10, 20) >= '2026-09-11'));
+    assert.match(historyTag(a[0]), /^demo-hist:2026-09-01:0$/);
+    for (const t of tags) assert.ok(t.length >= 8 && t.length <= 200, 'usable as an Idempotency-Key');
   });
 });

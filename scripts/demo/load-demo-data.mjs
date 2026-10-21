@@ -14,6 +14,9 @@
 //   * fixed monthly costs are upserted for every month of the period (prorated partial months, payroll month to date);
 //   * fresh live fixtures are created for today, a reconciliation run covers the new period (never past now);
 //   * the post-load integrity check (scripts/demo/integrity-check.mjs) must pass, or the run exits 1.
+// A refresh that is interrupted (killed, crashed, redeployed) resumes on the next run without placing anything twice:
+// planned history orders are identified by (date, index), and a partial set of live fixtures is completed first.
+// One run at a time (lease); a concurrent run exits 3.
 //
 // Direct SQL is limited to what no API offers, and is listed here:
 //   1. nothing for accounts: Supabase Auth users are created through the Supabase Admin Auth API
@@ -24,8 +27,11 @@
 //      movements) after they were placed or completed through the API, because the API always stamps "now";
 //   5. repairing what older loaders wrote wrongly into the demo tenant: a reconciliation run whose period ended after
 //      the run was made (the old loader used now + 1 h) is clamped to the time the run was made (audit DF-11);
-//   6. reading ids, the loader state in organizations.onboarding, and the integrity check (read-only).
-// Every statement is scoped to the demo organization's id. Nothing is ever deleted, truncated or reset.
+//   6. reading ids, the loader state in organizations.onboarding, and the integrity check (read-only);
+//   7. tagging each planned history order with its plan identity (orders.external_ref = demo-hist:<date>:<index>) and
+//      reading idempotency_keys to find planned orders an interrupted run created, so a re-run never places them twice;
+//   8. the loader's single-runner lease row in job_leases (demo-loader:<slug>; the only row outside the tenant).
+// Every other statement is scoped to the demo organization's id. Nothing is ever deleted, truncated or reset.
 //
 // Environment (see scripts/demo/README.md):
 //   API_URL                    e.g. http://127.0.0.1:4000 (no /v1)
@@ -50,7 +56,8 @@ import pg from 'pg';
 import { pgClientConfig } from '../db/pg-tls.mjs';
 import { checkDemoIntegrity, formatIntegrity, LIVE_STALE_HOURS } from './integrity-check.mjs';
 import { fixedCostSchedule } from './lib/fixed-costs.mjs';
-import { addDays, daysFrom, planRange } from './lib/plan.mjs';
+import { addDays, daysFrom, historyTag, planRange } from './lib/plan.mjs';
+import { claimLease, releaseLease, RENEW_SECONDS, renewLease } from './lib/lease.mjs';
 import { decideAction, decideTarget } from './lib/safety.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -376,6 +383,13 @@ async function settleTimeline(orderIds) {
     from orders o where o.org_id = $2 and pm.org_id = $2 and o.id = any($1::uuid[])
       and (pm.order_id = o.id or pm.id in (select a.payment_id from payment_allocations a where a.order_id = o.id))
       and pm.created_at > o.placed_at + interval '20 min'`, p);
+  // Online checkout sessions open with their order (the guest pays from the order page). Fiscal documents are NOT
+  // re-dated: they are immutable and hash-chained (issued_at is inside the hash and the QR payload), so a receipt shows
+  // when it was really issued; see scripts/demo/README.md.
+  await q(`update checkout_sessions s set created_at = o.placed_at, expires_at = o.placed_at + (s.expires_at - s.created_at),
+      paid_at = case when s.paid_at is null then null else o.placed_at + interval '21 min' end
+    from orders o where s.order_id = o.id and o.id = any($1::uuid[]) and o.org_id = $2 and s.org_id = $2
+      and s.created_at > o.placed_at + interval '20 min'`, p);
   await q(`update payment_allocations a set created_at = o.placed_at + interval '21 min' from orders o
     where a.order_id = o.id and o.id = any($1::uuid[]) and o.org_id = $2 and a.org_id = $2`, p);
   await q(`update order_events e set created_at = o.placed_at + make_interval(secs => 60 + 30 * r.n)
@@ -394,41 +408,95 @@ async function settleTimeline(orderIds) {
     where e.id = r.id and e.job_id = j.id and j.org_id = $2 and e.org_id = $2`, p).catch(() => undefined);   // older schemas: no delivery_events
 }
 
-/** Places a planned order through the API and back-dates it. */
-async function placeHistoric(o) {
+/**
+ * History orders are idempotent per planned order (date, index): the creation request uses the order's tag as its
+ * Idempotency-Key and the order is tagged (orders.external_ref) right after it is created, so a refresh that was
+ * interrupted finds what it already placed and only completes it, instead of placing the day again.
+ */
+const PAID = ['paid', 'partially_refunded', 'refunded'];
+/** Tags a freshly created planned order; fails loudly if the API handed back an order that belongs to another plan entry. */
+async function tagOrder(orderId, tag) {
+  const [t] = await q(`update orders set external_ref = coalesce(external_ref, $2) where id = $1 and org_id = $3 returning external_ref`, [orderId, tag, C.ORG]);
+  if (t?.external_ref !== tag) throw new Error(`history: the API returned order ${orderId} (tag ${t?.external_ref ?? 'none'}) for planned order ${tag}`);
+}
+const webOrderBody = (o, branch) => ({
+  branchId: branch.id, fulfillment: 'pickup', payment: o.online ? 'online' : 'pay_at_pickup', lines: o.lines,
+  customer: o.customer ? { name: o.customer.name, phone: o.customer.phone, marketingConsent: o.customer.consent } : { name: 'Website guest (demo)', phone: o.walkInPhone },
+});
+// The transfer reference is derived from the order, so a resumed collect repeats the same request (same key, same body).
+const collectBody = (o, orderId) => (o.transfer ? { method: 'instapay', reference: `DEMO-IP-${orderId}` } : { method: 'cash' });
+async function payCheckout(url) {
+  const tok = url.split('/pay/')[1];
+  await must('POST', `/public/pay/${tok}/start`, { body: { method: 'card' } });
+  await must('POST', `/public/pay/${tok}/sandbox/complete`, { body: { outcome: 'success' } });
+}
+
+/** Planned orders of `plan` that already exist: tagged orders, plus orders whose creation committed before the tag. */
+async function findPlanned(plan) {
+  const tags = plan.map(historyTag);
+  const found = new Map((await q(`select external_ref as tag, id from orders where org_id = $1 and external_ref = any($2::text[])`, [C.ORG, tags])).map((r) => [r.tag, r.id]));
+  for (const k of await q(`select key, response->'value'->>'id' as id from idempotency_keys
+                            where org_id = $1 and scope in ('staff-order', 'web-order') and key = any($2::text[]) and response is not null`, [C.ORG, tags])) {
+    if (found.has(k.key) || !k.id) continue;
+    // An order the interrupted run created but could not tag yet is adopted (tagOrder refuses one that carries another tag).
+    await tagOrder(k.id, k.key);
+    found.set(k.key, k.id);
+  }
+  return found;
+}
+
+/** Creates a planned order through the API (website or counter, paid the planned way) and tags it. */
+async function createHistoric(o) {
   const branch = o.branch === 'smash' ? C.SMASH : C.MAIN;
   const cashier = C.STAFF.cashier.token;
-  let orderId = null;
+  const tag = historyTag(o);
   if (o.web) {
     // Website order. The public endpoint limits orders per phone per minute; a regular who hits it is served at the counter instead.
-    const r = await call('POST', `/public/order/${SLUG}/orders`, { headers: { 'Idempotency-Key': key('hist-web') }, body: {
-      branchId: branch.id, fulfillment: 'pickup', payment: o.online ? 'online' : 'pay_at_pickup', lines: o.lines,
-      customer: o.customer ? { name: o.customer.name, phone: o.customer.phone, marketingConsent: o.customer.consent } : { name: 'Website guest (demo)', phone: o.walkInPhone },
-    } });
+    const r = await call('POST', `/public/order/${SLUG}/orders`, { headers: { 'Idempotency-Key': tag }, body: webOrderBody(o, branch) });
     if (r.status < 300) {
-      orderId = r.body.order.id;
-      if (o.online) {
-        const tok = r.body.checkout.url.split('/pay/')[1];
-        await must('POST', `/public/pay/${tok}/start`, { body: { method: 'card' } });
-        await must('POST', `/public/pay/${tok}/sandbox/complete`, { body: { outcome: 'success' } });
-      } else {
-        await must('POST', O(`/orders/${orderId}/collect`), { token: cashier, headers: { 'Idempotency-Key': key('cash') }, body: { method: 'cash' } });
+      const orderId = r.body.order.id;
+      await tagOrder(orderId, tag);
+      if (o.online) await payCheckout(r.body.checkout.url);
+      else await must('POST', O(`/orders/${orderId}/collect`), { token: cashier, headers: { 'Idempotency-Key': `${tag}:collect` }, body: { method: 'cash' } });
+      return orderId;
+    }
+    if (r.status !== 429) throw new Error(`web order ${r.status} ${JSON.stringify(r.body)}`);
+  }
+  const r = await must('POST', O('/orders'), { token: cashier, headers: { 'Idempotency-Key': tag }, body: {
+    branchId: branch.id, fulfillment: 'pickup', lines: o.lines, customer: o.customer ? { name: o.customer.name, phone: o.customer.phone } : { name: 'Walk-in (demo)' },
+  } });
+  await tagOrder(r.id, tag);
+  // Transfers need the reference staff verified (PAY-19); demo references are labelled and unique.
+  if (!o.cancel) await must('POST', O(`/orders/${r.id}/collect`), { token: cashier, headers: { 'Idempotency-Key': `${tag}:collect` }, body: collectBody(o, r.id) });
+  return r.id;
+}
+
+/**
+ * Takes a planned order, new or left half-done by an interrupted run, to its planned end state (cancelled, or paid and
+ * picked up) and back-dates it. Every step checks the order first, and payments reuse the order's deterministic keys.
+ */
+async function completeHistoric(orderId, o) {
+  const tag = historyTag(o);
+  let detail = await must('GET', O(`/orders/${orderId}`), { token: C.OWNER.token });
+  if (detail.status === 'awaiting_payment' && o.web && o.online) {
+    // Interrupted between ordering and paying online: the same request (same key) returns the order with a fresh link.
+    const r = await call('POST', `/public/order/${SLUG}/orders`, { headers: { 'Idempotency-Key': tag }, body: webOrderBody(o, o.branch === 'smash' ? C.SMASH : C.MAIN) });
+    if (r.status < 300 && r.body.order.id === orderId && r.body.checkout?.url) await payCheckout(r.body.checkout.url).catch(() => undefined);
+    detail = await must('GET', O(`/orders/${orderId}`), { token: C.OWNER.token });
+  }
+  if (!['cancelled', 'picked_up'].includes(detail.status)) {
+    const unpaid = !PAID.includes(detail.paymentStatus);
+    const cancelled = unpaid && (o.cancel || detail.status === 'awaiting_payment')
+      && (await call('POST', O(`/orders/${orderId}/cancel`), { token: C.STAFF.manager.token, body: { reason: 'Customer changed plans (demo)', version: detail.version } })).status < 300;
+    if (!cancelled) {
+      if (unpaid) {
+        await must('POST', O(`/orders/${orderId}/collect`), { token: C.STAFF.cashier.token, headers: { 'Idempotency-Key': `${tag}:collect` },
+          body: o.web ? { method: 'cash' } : collectBody(o, orderId) });
       }
-    } else if (r.status !== 429) throw new Error(`web order ${r.status} ${JSON.stringify(r.body)}`);
+      const steps = ['accepted', 'preparing', 'ready', 'picked_up'];
+      await advance(orderId, steps.slice(steps.indexOf(detail.status) + 1));
+    }
   }
-  if (!orderId) {
-    const r = await must('POST', O('/orders'), { token: cashier, headers: { 'Idempotency-Key': key('hist') }, body: {
-      branchId: branch.id, fulfillment: 'pickup', lines: o.lines, customer: o.customer ? { name: o.customer.name, phone: o.customer.phone } : { name: 'Walk-in (demo)' },
-    } });
-    orderId = r.id;
-    // Transfers need the reference staff verified (PAY-19); demo references are labelled and unique.
-    const method = o.cancel ? null : o.transfer ? 'instapay' : 'cash';
-    if (method) await must('POST', O(`/orders/${orderId}/collect`), { token: cashier, headers: { 'Idempotency-Key': key('cash') }, body: method === 'cash' ? { method } : { method, reference: key('DEMO-IP') } });
-  }
-  const detail = await must('GET', O(`/orders/${orderId}`), { token: C.OWNER.token });
-  const cancelled = o.cancel && detail.paymentStatus === 'unpaid'
-    && (await call('POST', O(`/orders/${orderId}/cancel`), { token: C.STAFF.manager.token, body: { reason: 'Customer changed plans (demo)', version: detail.version } })).status < 300;
-  if (!cancelled) await advance(orderId, ['accepted', 'preparing', 'ready', 'picked_up']);
   await backdate(orderId, o.date, o.hour, o.minute);
 }
 
@@ -458,8 +526,11 @@ async function bookStock(plan, at, note) {
 async function placeHistory(from, to, historyFrom, first) {
   if (from > to) return 0;
   const plan = planRange({ from, to, historyFrom, historyDays: DAYS, menus: { main: menuOf(C.MAIN), smash: menuOf(C.SMASH) } });
+  // An interrupted earlier run may have placed part of this range already: those orders are completed, not placed again.
+  const existing = await findPlanned(plan);
+  const todo = plan.filter((o) => !existing.has(historyTag(o)));
   const stockAt = `${addDays(from, -1)}T09:00:00+02:00`;
-  const booked = await bookStock(plan, stockAt, first ? 'Opening stock (demo)' : `Restock for ${from}..${to} (demo)`);
+  const booked = todo.length ? await bookStock(todo, stockAt, first ? 'Opening stock (demo)' : `Restock for ${from}..${to} (demo)`) : 0;
   if (first) {
     // Waste records inside the history (not at load time).
     for (const [name, qty, reason, note, d] of [['Tomatoes', 1.5, 'spoiled', 'Overripe batch (demo)', 12], ['Burrata', 2, 'expired', 'Past date (demo)', 5]]) {
@@ -467,11 +538,17 @@ async function placeHistory(from, to, historyFrom, first) {
       await q(`update stock_movements set created_at = $2 where id = $1::bigint and org_id = $3`, [m.movementId, `${addDays(to, -d)}T23:00:00+02:00`, C.ORG]);
     }
   }
-  for (const o of plan) await placeHistoric(o);
+  for (const o of plan) await completeHistoric(existing.get(historyTag(o)) ?? await createHistoric(o), o);
+  // Self-check: every planned order exists exactly once.
+  const counts = new Map((await q(`select external_ref as tag, count(*)::int as n from orders where org_id = $1 and external_ref = any($2::text[]) group by 1`,
+    [C.ORG, plan.map(historyTag)])).map((r) => [r.tag, r.n]));
+  const wrong = plan.map(historyTag).filter((t) => counts.get(t) !== 1);
+  if (wrong.length) throw new Error(`history self-check: planned order(s) missing or duplicated: ${wrong.slice(0, 5).join(', ')}`);
   await q(`update customers c set first_seen_at = least(c.first_seen_at, s.first), created_at = least(c.created_at, s.first), last_seen_at = greatest(s.last, least(c.last_seen_at, now()))
            from (select customer_id, min(placed_at) as first, max(placed_at) as last from orders where org_id = $1 and customer_id is not null group by 1) s
            where c.id = s.customer_id and c.org_id = $1`, [C.ORG]);
-  log(`history: ${plan.length} orders for ${from}..${to} (website and counter), placed through the API, then back-dated; ${booked} stock purchase(s) dated ${stockAt.slice(0, 10)}`);
+  log(`history: ${plan.length} orders for ${from}..${to} (website and counter), placed through the API, then back-dated`
+    + `${existing.size ? ` (${existing.size} already placed by an interrupted run: completed, not placed again)` : ''}; ${booked} stock purchase(s) dated ${stockAt.slice(0, 10)}`);
   return plan.length;
 }
 
@@ -503,6 +580,8 @@ async function deliverJob(job, driver, codMinor, recipient) {
 }
 
 async function createLive() {
+  // Marks the start: a run interrupted before demoLiveAt is written left a partial set, which the next run retires first.
+  await setState({ demoLiveStartedAt: new Date().toISOString() });
   const chicken = byName(/Grilled chicken/), soup = byName(/pumpkin soup/), hibiscus = byName(/Hibiscus/), risotto = byName(/risotto/), seabass = byName(/Seabass/);
   const live = [];
   for (const [lines, to, who, notes] of [
@@ -603,8 +682,14 @@ async function createLive() {
 }
 
 // --- refresh: complete stale live fixtures the way staff would, then date them as history -------------------------
-async function retireStaleLive() {
+/**
+ * `partialSince` (ISO time): an earlier run was interrupted while it created live fixtures; everything it placed since
+ * then is completed too (whatever its age), so the fresh set created next is the only one.
+ */
+async function retireStaleLive(partialSince = null) {
   const cutoff = `now() - make_interval(hours => ${LIVE_STALE_HOURS})`;
+  const since = partialSince ? new Date(partialSince).toISOString() : null;   // our own state; re-serialised before use in SQL
+  const due = (col) => (since ? `(${col} < ${cutoff} or ${col} >= '${since}'::timestamptz)` : `${col} < ${cutoff}`);
   const retired = new Set();
   const counts = { orders: 0, deliveries: 0, visits: 0, requests: 0, reservations: 0 };
   const manager = C.STAFF.manager.token, cashier = C.STAFF.cashier.token;
@@ -614,7 +699,7 @@ async function retireStaleLive() {
   // Deliveries first: the driver completes the run (proof photo; cash on delivery collected and settled).
   for (const j of await q(`select j.id, j.status::text, j.driver_id, j.order_id, j.cod_amount_minor::int as cod, o.status::text as order_status
                              from delivery_jobs j join orders o on o.id = j.order_id
-                            where j.org_id = $1 and j.status in ('unassigned', 'offered', 'assigned', 'accepted', 'picked_up', 'en_route') and o.placed_at < ${cutoff}`, [C.ORG])) {
+                            where j.org_id = $1 and j.status in ('unassigned', 'offered', 'assigned', 'accepted', 'picked_up', 'en_route') and ${due('o.placed_at')}`, [C.ORG])) {
     let driver = driverFor(j.driver_id);
     if (['unassigned', 'offered'].includes(j.status)) {
       driver = fleet[0];
@@ -632,7 +717,7 @@ async function retireStaleLive() {
   }
   // Counter, website and table orders: collect what is due, finish the kitchen work, hand over or serve.
   for (const o of await q(`select id, fulfillment::text, visit_id, payment_status::text from orders
-                            where org_id = $1 and status in ('awaiting_payment', 'placed', 'accepted', 'preparing', 'ready') and fulfillment <> 'delivery' and placed_at < ${cutoff}`, [C.ORG])) {
+                            where org_id = $1 and status in ('awaiting_payment', 'placed', 'accepted', 'preparing', 'ready') and fulfillment <> 'delivery' and ${due('placed_at')}`, [C.ORG])) {
     let detail = await must('GET', O(`/orders/${o.id}`), { token: C.OWNER.token });
     if (detail.status === 'awaiting_payment' || (!o.visit_id && detail.paymentStatus === 'unpaid' && detail.status === 'placed' && o.fulfillment === 'pickup' && detail.channel === 'web')) {
       // Never paid online: the guest did not come back; cancelled like staff would.
@@ -649,12 +734,12 @@ async function retireStaleLive() {
     retired.add(o.id); counts.orders++;
   }
   // Waiter and bill calls are answered.
-  for (const r of await q(`select id from service_requests where org_id = $1 and status <> 'resolved' and created_at < ${cutoff}`, [C.ORG])) {
+  for (const r of await q(`select id from service_requests where org_id = $1 and status <> 'resolved' and ${due('created_at')}`, [C.ORG])) {
     await must('POST', O(`/requests/${r.id}/resolve`), { token: manager, body: { status: 'resolved' } });
     counts.requests++;
   }
   // Table visits: the bill is settled in cash and the table is closed.
-  for (const v of await q(`select id from visits where org_id = $1 and status = 'open' and opened_at < ${cutoff}`, [C.ORG])) {
+  for (const v of await q(`select id from visits where org_id = $1 and status = 'open' and ${due('opened_at')}`, [C.ORG])) {
     const detail = await must('GET', O(`/visits/${v.id}`), { token: manager });
     const due = Number(detail?.totals?.dueMinor ?? detail?.bill?.dueMinor ?? detail?.dueMinor ?? 0);
     if (due > 0) await must('POST', O(`/visits/${v.id}/collect`), { token: cashier, headers: { 'Idempotency-Key': key('retire-visit') }, body: { method: 'cash' } });
@@ -667,13 +752,16 @@ async function retireStaleLive() {
     await must('POST', O(`/reservations/${r.id}/no-show`), { token: C.STAFF.host.token, body: {} });
     counts.reservations++;
   }
-  // Everything completed above happened shortly after it started: date the milestones accordingly.
-  await settleTimeline([...retired]);
+  // Stale fixtures completed above (and any an interrupted run completed without dating them) happened shortly after
+  // they started: date the milestones accordingly. Fixtures of the partial set are minutes old and keep their real times.
+  const settle = await q(`select id from orders where org_id = $1 and placed_at < ${cutoff}
+                            and (id = any($2::uuid[]) or coalesce(fulfilled_at, cancelled_at) > placed_at + make_interval(hours => ${LIVE_STALE_HOURS}))`, [C.ORG, [...retired]]);
+  await settleTimeline(settle.map((r) => r.id));
   await q(`update visits v set closed_at = least(now(), greatest(v.opened_at + interval '75 min',
              coalesce((select max(o.fulfilled_at) from orders o where o.visit_id = v.id), v.opened_at) + interval '15 min'))
            where v.org_id = $1 and v.status = 'closed' and v.closed_at > v.opened_at + interval '6 hours'`, [C.ORG]);
   await q(`update service_requests set resolved_at = created_at + interval '4 min' where org_id = $1 and resolved_at > created_at + interval '6 hours'`, [C.ORG]);
-  log(`refresh: completed stale live fixtures — ${counts.orders} order(s), ${counts.deliveries} delivery run(s), ${counts.visits} visit(s), ${counts.requests} call(s); ${counts.reservations} no-show(s)`);
+  log(`refresh: completed ${since ? `stale live fixtures and the partial set an interrupted run created since ${since}` : 'stale live fixtures'} — ${counts.orders} order(s), ${counts.deliveries} delivery run(s), ${counts.visits} visit(s), ${counts.requests} call(s); ${counts.reservations} no-show(s)`);
   return counts;
 }
 
@@ -821,57 +909,81 @@ async function firstLoadExtras(live) {
 }
 
 // --- main ------------------------------------------------------------------------------------------------------
-const [{ today }] = await q(`select (now() at time zone 'Africa/Cairo')::date::text as today`);
-C.today = today;
-const [foreign] = await q(`select count(*)::int as n from organizations where slug <> $1 and coalesce((onboarding->>'demo')::boolean, false) = false`, [SLUG]);
-const [prior] = await q(`select id, coalesce((onboarding->>'demo')::boolean, false) as demo, onboarding->>'demoLoader' as state, onboarding->>'demoHistoryFrom' as history_from,
-                                onboarding->>'demoHistoryThrough' as history_through, onboarding->>'demoLiveAt' as live_at,
-                                ((created_at at time zone 'Africa/Cairo')::date)::text as created_day, created_at
-                           from organizations where slug = $1`, [SLUG]);
-const decision = decideAction({ target, org: prior, foreign: foreign.n });
-if (decision.refuse) fail(decision.refuse);
-log(`mode: ${target.mode}; action: ${decision.action}${target.demoTenantOnly ? ' (only the demo tenant is created or updated)' : ''}`);
-
-if (decision.action === 'load') {
-  await createTenant();
-  const historyFrom = addDays(today, -DAYS);
-  await placeHistory(historyFrom, addDays(today, -1), historyFrom, true);
-  await setState({ demoHistoryFrom: historyFrom, demoHistoryThrough: addDays(today, -1) });
-  const { live } = await createLive();
-  await upsertFixedCosts(historyFrom);
-  await reconcileUpToNow();
-  await ensureBranding();
-  await firstLoadExtras(live);
-  await must('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
-  await setState({ demoLoader: 'complete' });
-} else {
-  await loadContext(prior.id);
-  // Tenants from older loaders carry no dates in their state: their history ended the day before they were created.
-  const [first] = await q(`select min(business_date)::text as d from orders where org_id = $1`, [C.ORG]);
-  const historyFrom = prior.history_from ?? first?.d ?? addDays(prior.created_day, -DAYS);
-  const historyThrough = prior.history_through ?? addDays(prior.created_day, -1);
-  const liveAt = new Date(prior.live_at ?? prior.created_at);
-  const stale = Date.now() - liveAt.getTime() > LIVE_STALE_HOURS * 3600_000;
-  if (stale) await retireStaleLive();
-  const yesterday = addDays(today, -1);
-  if (historyThrough < yesterday) {
-    const gapFrom = addDays(historyThrough, 1);
-    const from = daysFrom(gapFrom, yesterday) >= DAYS ? addDays(today, -DAYS) : gapFrom;   // a very old tenant gets the last DAYS days
-    await placeHistory(from, yesterday, historyFrom, false);
-    await setState({ demoHistoryFrom: historyFrom, demoHistoryThrough: yesterday });
-  } else {
-    log(`history already runs through ${historyThrough}`);
-  }
-  if (stale) await createLive();
-  else log(`live fixtures are fresh (created ${liveAt.toISOString()}); kept`);
-  await upsertFixedCosts(historyFrom);
-  await reconcileUpToNow();
-  await ensureBranding();
-  await call('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
+// One run at a time per tenant (scripts/demo/lib/lease.mjs); a second run exits 3 without touching anything.
+const lease = await claimLease(q, SLUG);
+if (!lease.owner) {
+  console.error(`demo loader: another run holds the loader lease (${lease.heldBy ?? 'unknown'}) until ${lease.until ? new Date(lease.until).toISOString() : '?'}; nothing done`);
+  await db.end();
+  process.exit(3);
 }
+const heartbeat = setInterval(() => {
+  renewLease(q, SLUG, lease.owner).then((ok) => { if (!ok) fail('lost the loader lease (another run took it over); stopping'); },
+    (e) => console.warn(`  lease renewal failed: ${e.message}`));
+}, RENEW_SECONDS * 1000);
+heartbeat.unref();
+const finish = async (status) => { clearInterval(heartbeat); await releaseLease(q, SLUG, lease.owner, status).catch(() => undefined); };
+let decision;
+let report;
+try {
+  const [{ today }] = await q(`select (now() at time zone 'Africa/Cairo')::date::text as today`);
+  C.today = today;
+  const [foreign] = await q(`select count(*)::int as n from organizations where slug <> $1 and coalesce((onboarding->>'demo')::boolean, false) = false`, [SLUG]);
+  const [prior] = await q(`select id, coalesce((onboarding->>'demo')::boolean, false) as demo, onboarding->>'demoLoader' as state, onboarding->>'demoHistoryFrom' as history_from,
+                                  onboarding->>'demoHistoryThrough' as history_through, onboarding->>'demoLiveAt' as live_at,
+                                  onboarding->>'demoLiveStartedAt' as live_started_at,
+                                  ((created_at at time zone 'Africa/Cairo')::date)::text as created_day, created_at
+                             from organizations where slug = $1`, [SLUG]);
+  decision = decideAction({ target, org: prior, foreign: foreign.n });
+  if (decision.refuse) { await finish('failed'); fail(decision.refuse); }
+  log(`mode: ${target.mode}; action: ${decision.action}${target.demoTenantOnly ? ' (only the demo tenant is created or updated)' : ''}`);
 
-const report = await checkDemoIntegrity(q, { slug: SLUG });
-console.log(formatIntegrity(report));
+  if (decision.action === 'load') {
+    await createTenant();
+    const historyFrom = addDays(today, -DAYS);
+    await placeHistory(historyFrom, addDays(today, -1), historyFrom, true);
+    await setState({ demoHistoryFrom: historyFrom, demoHistoryThrough: addDays(today, -1) });
+    const { live } = await createLive();
+    await upsertFixedCosts(historyFrom);
+    await reconcileUpToNow();
+    await ensureBranding();
+    await firstLoadExtras(live);
+    await must('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
+    await setState({ demoLoader: 'complete' });
+  } else {
+    await loadContext(prior.id);
+    // Tenants from older loaders carry no dates in their state: their history ended the day before they were created.
+    const [first] = await q(`select min(business_date)::text as d from orders where org_id = $1`, [C.ORG]);
+    const historyFrom = prior.history_from ?? first?.d ?? addDays(prior.created_day, -DAYS);
+    const historyThrough = prior.history_through ?? addDays(prior.created_day, -1);
+    const liveAt = new Date(prior.live_at ?? prior.created_at);
+    // createLive() writes demoLiveStartedAt first and demoLiveAt last: a later start means it was interrupted.
+    const partialLive = prior.live_started_at && new Date(prior.live_started_at) > liveAt ? prior.live_started_at : null;
+    if (partialLive) log(`live fixtures: an earlier run was interrupted while creating them (${partialLive}); that partial set is completed first`);
+    const stale = Boolean(partialLive) || Date.now() - liveAt.getTime() > LIVE_STALE_HOURS * 3600_000;
+    if (stale) await retireStaleLive(partialLive);
+    const yesterday = addDays(today, -1);
+    if (historyThrough < yesterday) {
+      const gapFrom = addDays(historyThrough, 1);
+      const from = daysFrom(gapFrom, yesterday) >= DAYS ? addDays(today, -DAYS) : gapFrom;   // a very old tenant gets the last DAYS days
+      await placeHistory(from, yesterday, historyFrom, false);
+      await setState({ demoHistoryFrom: historyFrom, demoHistoryThrough: yesterday });
+    } else {
+      log(`history already runs through ${historyThrough}`);
+    }
+    if (stale) await createLive();
+    else log(`live fixtures are fresh (created ${liveAt.toISOString()}); kept`);
+    await upsertFixedCosts(historyFrom);
+    await reconcileUpToNow();
+    await ensureBranding();
+    await call('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
+  }
+  report = await checkDemoIntegrity(q, { slug: SLUG });
+  console.log(formatIntegrity(report));
+} catch (e) {
+  await finish('failed');
+  throw e;
+}
+await finish(report.ok ? 'succeeded' : 'failed');
 await db.end();
 if (!report.ok) fail('the demo data failed its integrity check (see above)');
 console.log(`\nDemo data ${decision.action === 'load' ? 'loaded' : 'refreshed'} for ${SLUG} (${C.ORG}). Accounts: owner@${DOMAIN}, platform-admin@${DOMAIN}, <role>@${DOMAIN} (manager, kitchen, cashier, marketing, accountant, host, waiter, driver1, driver2). Passwords come from the DEMO_*_PASSWORD variables.`);

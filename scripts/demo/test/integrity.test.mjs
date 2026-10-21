@@ -115,6 +115,13 @@ describe('demo integrity check', () => {
     ['stock_levels_match_movements', 'a balance that disagrees with its ledger', () => q(`update stock_levels set quantity = quantity + 3 where org_id = $1`, [orgId])],
     ['sale_movements_follow_their_order', 'stock deducted at load time instead of with its order',
       () => q(`update stock_movements set created_at = now() where org_id = $1 and reason = 'sale'`, [orgId])],
+    ['checkout_sessions_follow_their_order', 'a checkout session stamped at load time for an order placed weeks earlier', async () => {
+      const [o] = await q(`select id, branch_id, currency, total_minor from orders where org_id = $1 and total_minor > 0 order by placed_at limit 1`, [orgId]);
+      await q(`insert into checkout_sessions(org_id, branch_id, token_hash, purpose, order_id, amount_minor, currency, status, expires_at, paid_at)
+               values ($1, $2, md5(random()::text), 'order', $3, $4, $5, 'paid', now() + interval '30 min', now())`, [orgId, o.branch_id, o.id, o.total_minor, o.currency]);
+    }],
+    ['history_orders_unique', 'a history day placed twice after an interrupted refresh (two orders with one plan tag)',
+      () => q(`update orders set external_ref = 'demo-hist:2026-10-12:0' where id in (select id from orders where org_id = $1 order by placed_at limit 2)`, [orgId])],
     ['fixed_costs_every_month', 'a month without payroll (old loader: no payroll in the current month)',
       () => q(`delete from expenses where org_id = $1 and external_ref like 'demo-fixed:%:labor' and incurred_on >= date_trunc('month', current_date)`, [orgId])],
     ['no_stale_reservations', 'a booking still confirmed a day after its start',

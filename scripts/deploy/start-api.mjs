@@ -34,7 +34,7 @@ if (process.env.DEMO_SEED_ON_BOOT === '1') {
     const loader = spawn(process.execPath, args, {
       cwd: root, stdio: 'inherit', env: { ...process.env, API_URL: `http://127.0.0.1:${port}` },
     });
-    loader.on('exit', (code) => console.log(`[demo] loader finished with code ${code}`));
+    loader.on('exit', (code) => console.log(`[demo] loader finished with code ${code}${code === 3 ? ' (another loader run holds the lease; this boot skipped it)' : ''}`));
   } else {
     console.error('[demo] API did not become healthy; demo data not loaded');
   }
