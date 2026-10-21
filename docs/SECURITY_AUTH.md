@@ -17,7 +17,7 @@ Related: `docs/OPEN_BLOCKERS.md` (B-14: dashboard settings and email), `docs/STA
 | Sessions in the browser: supabase-js keeps the session in `localStorage` (`sb-<ref>-auth-token`) and refreshes it; one shared refresh then retry on a 401, otherwise sign-out to `/login?next=` (same-origin `next` only) | `apps/web/lib/session.tsx`, `lib/auth-recovery.ts`, `lib/safe-next.ts` | Supabase Auth (token expiry, refresh-token rotation) | web unit tests |
 | Script injection, which could read the stored token: per-request nonce CSP, no inline script | `apps/web/lib/csp.ts`, `middleware.ts` | Browser (CSP) | `lib/csp.test.ts`, ws1 browser proof |
 | Email-link flow: **implicit** (supabase-js default; `createClient` sets no `flowType`). `/auth/callback` also handles PKCE `?code=` links and explains a PKCE link opened in another browser | `apps/web/lib/session.tsx`, `lib/auth/links.ts` | Supabase Auth | `lib/auth/session-links.test.ts` |
-| *New* password rules before every new password (sign-up, reset, change): 10-72 characters, very common passwords, not the email or its local part, not "Resuto", and the **Pwned Passwords** k-anonymity lookup (AUTH-01, section 3) | `apps/web/lib/auth/password-policy.ts` | **No** (client-side, compensating). Server floor: dashboard minimum length + character rules | `lib/auth/password-policy.test.ts`, `lib/auth/session-password.test.ts`, browser proof |
+| *New* password rules before every new password (sign-up, reset, change): 10 characters to 72 bytes (Supabase's limit: 72 Latin characters, about 36 Arabic letters), very common passwords, not the email or its local part, not "Resuto", and the **Pwned Passwords** k-anonymity lookup (AUTH-01, section 3) | `apps/web/lib/auth/password-policy.ts` | **No** (client-side, compensating). Server floor: dashboard minimum length + character rules | `lib/auth/password-policy.test.ts`, `lib/auth/session-password.test.ts`, browser proof |
 | *New* TOTP two-step verification, opt-in per user, code step at sign-in (AUTH-02, section 4) | `apps/web/lib/auth/mfa.ts`, `app/(auth)/account/security/MfaCard.tsx`, `app/(auth)/_ui/MfaStep.tsx` | Supabase Auth (aal2 only after a verified code) | `lib/auth/mfa.test.ts`, `lib/auth/session-mfa.test.ts`, browser proof |
 | *New* aal2 step-up on sensitive API routes for users with a verified factor | `apps/api/src/common/auth/mfa.guard.ts` (`@RequireMfa()`) | **API** | `t:mfa-step-up.test.ts` |
 | Current password required to change the password while signed in; a password may be set without it only right after a recovery link (15 min, same tab) | `apps/web/lib/session.tsx` (CR-05) | Browser only, unless the dashboard's **Secure password change** is on (Supabase then asks for a reauthentication nonce) | web unit tests |
@@ -49,7 +49,7 @@ Related: `docs/OPEN_BLOCKERS.md` (B-14: dashboard settings and email), `docs/STA
 | Email provider → **Confirm email** | **ON** | Never disable it to make a flow "work": an unconfirmed account cannot sign in, and the web shows the pending state with resend. |
 | Email provider → **Secure email change** | ON | A change needs a link opened from the current and the new address; `/auth/callback` reports the first half. |
 | Email provider → **Secure password change** | ON | The server asks for a recent sign-in (reauthentication) before a password change; Resuto's current-password check is browser-only. |
-| Password requirements → **Minimum length** | **10** | The server-side floor that matches the web's rule (the web also refuses more than 72, Supabase's limit). |
+| Password requirements → **Minimum length** | **10** | The server-side floor that matches the web's rule (the web also refuses more than 72 bytes, Supabase's limit, counted in UTF-8 like Supabase). |
 | Password requirements → **Required characters** | lower + upper case letters and digits (symbols optional) | The only server-side strength rule on Free; the web maps the `characters` refusal to a clear message. |
 | Multi-factor → **TOTP (app authenticator)** | enrol and verify **enabled** | Needed for section 4. |
 | Rate limits | defaults, or lower | Do not raise. |
@@ -60,7 +60,8 @@ Related: `docs/OPEN_BLOCKERS.md` (B-14: dashboard settings and email), `docs/STA
 
 Before Resuto calls Supabase with a new password (sign-up, `/reset-password`, Account → Security):
 
-1. Length 10-72, not one of a small built-in list of very common passwords (and base words such as "password",
+1. Length: at least 10 characters and at most 72 **bytes** in UTF-8 (Supabase Auth counts bytes, so about 36 Arabic
+   letters; Supabase's own "cannot be longer than 72 characters" answer maps to the same message), not one of a small built-in list of very common passwords (and base words such as "password",
    "qwerty", "restaurant", "welcome" padded with digits or symbols), not two or fewer distinct characters, not
    containing the account's email or its part before `@` (4+ characters), not containing "Resuto" / "ريسوتو".
 2. **Pwned Passwords range API** (free, no key): the browser hashes the password with SHA-1 and sends **only the first
@@ -92,8 +93,10 @@ dashboard's minimum length + required characters (section 2).
 - **API step-up** (`@RequireMfa()`): for a user with a verified factor in `auth.mfa_factors`, an aal1 token gets
   `403 mfa_required` (standard error envelope with `details.requiredAal = "aal2"` and the request id) on:
   every platform-admin route (`/v1/admin/**`, enforced for all `@PlatformAdmin` routes by a metadata test), integration
-  and payment-provider credentials (create / update connection, OAuth start / complete, account selection), MCP client
-  keys (create / update) and MCP OAuth grant approval, and role grants (invitations, member role changes). The web
+  and payment-provider credentials (create / update connection, OAuth start / complete, account selection), WhatsApp
+  Embedded Signup completion (stores the WhatsApp Business token), ZATCA EGS creation and compliance / production CSID
+  requests (signing key and CSIDs), MCP client keys (create / update) and MCP OAuth grant approval, and role grants
+  (invitations, member role changes, member removal). The web
   turns that answer into the code step (also when this tab's user object did not yet list a factor added elsewhere).
   Users **without** a verified factor, including the demo accounts, are not affected. The guard runs after access
   control, so it never reveals a tenant or overrides a permission refusal.
@@ -104,6 +107,11 @@ dashboard's minimum length + required characters (section 2).
   `503 mfa_check_unavailable` instead of skipping the check. Without Supabase (local dev issuer, which has no MFA)
   the check passes. The API reads `auth.mfa_factors` in the platform database context, like other `auth.*` reads; a
   future least-privilege runtime role needs `select` on it (or a definer function).
+- **Password change while signed in** (Account → Security): the current password is re-checked on a separate,
+  memory-only Supabase client, so the app's session (aal2 for an enrolled user) is not replaced; that session makes
+  the change (Supabase refuses a password change from an aal1 session of an enrolled user) and Supabase then signs out
+  the user's other sessions. With "secure password change" on and a session older than 24 hours, a user without an
+  authenticator continues on the fresh sign-in; an enrolled user is asked to sign out and in again (with the code).
 - **Lost authenticator**: Supabase TOTP has no recovery codes. Users should add a second authenticator. The owner (or
   Resuto support) removes a user's factor in Supabase → Authentication → Users → the user → MFA factors, after
   verifying the person out of band; the user then signs in with the password and enrols again.
@@ -116,7 +124,7 @@ dashboard's minimum length + required characters (section 2).
 | Sign-up | "Check your email" with the address; account inactive until the link is opened; "send again" after a visible 60 s cooldown (restarts from Supabase's "after N seconds" answer); the link returns to `next` (e.g. the invitation) | Supabase: confirm email ON, never auto-confirmed | **Unverified** (team addresses only) |
 | Sign-in before confirming | "Confirm your email first" + resend | Supabase refuses `email_not_confirmed` | Unverified |
 | Password reset | Same answer for every address ("If an account exists for …"), resend with cooldown | Supabase answers alike for unknown addresses | **Unverified** |
-| Email change | Confirmation requested; with secure email change both addresses get a link; the callback reports the first half and the completed change; resend | Supabase | **Unverified** |
+| Email change | Confirmation requested; with secure email change both addresses get a link; the callback reports the first half and the completed change; resend (sent for the account's CURRENT address, which is how Supabase finds the pending change; with none pending the page says so) | Supabase | **Unverified** |
 | Expired / used link | "This link has expired" + the way to a new one for that flow (new confirmation email, new reset link, email change again) | Supabase `otp_expired` | Covered by tests and browser proof with a simulated link |
 | PKCE link opened in another browser | "Open it in the same browser … if confirming, try signing in" | — | tests |
 | Invitations | Copyable link for the inviter ("Share this link"); **no email is sent** by Resuto | Resuto tokens | n/a (link shared manually) |
