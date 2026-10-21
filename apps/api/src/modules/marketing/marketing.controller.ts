@@ -17,6 +17,8 @@ import { PromotionsService } from './promotions.service';
 import { RecommendationsService } from './recommendations.service';
 import { SegmentsService } from './segments.service';
 
+const TRACKING_SINK = z.enum(['meta_capi', 'tiktok_events', 'snap_capi']);
+
 @Controller('o/:orgId/marketing')
 @RequiresModule('marketing')
 export class MarketingController {
@@ -194,6 +196,17 @@ export class MarketingController {
   @RequirePermission('marketing:write')
   metaTestEvent(@Tenant() ctx: TenantContext, @Req() req: Request) {
     return this.tracking.sendTestEvent(ctx, typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null);
+  }
+
+  // INT-23: the other ad-measurement sinks (TikTok Events API, Snap Conversions API): same diagnostics and test button.
+  @Get('tracking/sinks/:provider')
+  @RequirePermission('marketing:read')
+  sinkTracking(@Tenant() ctx: TenantContext, @Param('provider') provider: string) { return this.tracking.diagnosticsFor(ctx, TRACKING_SINK.parse(provider)); }
+
+  @Post('tracking/sinks/:provider/test-event')
+  @RequirePermission('marketing:write')
+  sinkTestEvent(@Tenant() ctx: TenantContext, @Param('provider') provider: string, @Req() req: Request) {
+    return this.tracking.sendTestEvent(ctx, typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : null, TRACKING_SINK.parse(provider));
   }
 
   @Post('segments/:id/meta-audience/dry-run')

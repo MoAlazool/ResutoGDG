@@ -1,7 +1,7 @@
 // INT-29: optional Google Routes (restaurant-owned key) behind the driver route plan and ETA, with a daily cap,
 // caching and the labelled offline baseline as fallback. No real request is made: ProviderHttp is scripted.
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { scriptedFetch } from '../../../packages/integrations/src/messaging/testing/scripted-fetch';
+import { scriptedFetch } from './growth-helpers';
 import { TenantContext } from '../src/common/auth/context';
 import { DbService } from '../src/common/db/db.service';
 import { EventDispatcher } from '../src/common/events/dispatcher.service';

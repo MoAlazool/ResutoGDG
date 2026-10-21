@@ -8,5 +8,6 @@ import './meta';
 import './domains';
 import './gemini';
 import './maps';
+import './tracking';
 
 export { ACCEPTANCE_CHECKS } from './index';

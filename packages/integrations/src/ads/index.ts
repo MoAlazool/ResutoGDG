@@ -12,6 +12,15 @@ export * from './snapchat-ads';
 export * from './sandbox';
 export * from './meta-capi';
 export * from './audiences';
+export * from './tracking-sinks';
+export * from '../tiktok/events-api';
+export * from '../snapchat/capi';
+
+import { metaCapiAdapter } from './meta-capi';
+import { tiktokEventsAdapter } from '../tiktok/events-api';
+import { snapCapiAdapter } from '../snapchat/capi';
+/** Ad-measurement sinks (INT-20 Meta, INT-23 TikTok + Snap): the catalogue lists them through this array. */
+export const trackingAdapters = [metaCapiAdapter, tiktokEventsAdapter, snapCapiAdapter] as const;
 
 export const adsAdapters = [metaAdsAdapter, tiktokAdsAdapter, snapchatAdsAdapter, adsSandboxAdapter] as const;
 

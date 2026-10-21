@@ -171,5 +171,4 @@ export const metaCapiAdapter = {
   },
 };
 
-/** Connection forms (Integrations): exported through `trackingAdapters` so the catalogue lists the provider. */
-export const trackingAdapters = [metaCapiAdapter] as const;
+/** Connection forms (Integrations): exported through `trackingAdapters` (ads/index.ts) so the catalogue lists the provider. */

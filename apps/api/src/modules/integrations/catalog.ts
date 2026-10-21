@@ -109,6 +109,29 @@ export const CONNECTION_FIELDS: Record<string, { credentials: FieldSpec[]; confi
     config: [{ key: 'dailyRequestCap', label: 'Daily request cap', labelKey: 'intg.field.dailyRequestCap', secret: false, required: false, kind: 'number',
       pattern: '^\\d{1,6}$', hint: 'Resuto makes at most this many Routes requests per day (default 300), then uses the offline estimate.', hintKey: 'intg.field.dailyRequestCapHint' }],
   },
+  // INT-23: TikTok Pixel + Events API (one per restaurant). The Test event code is also used by the health check on Live.
+  tiktok_events: {
+    credentials: [{ key: 'accessToken', label: 'Events API access token', labelKey: 'intg.field.tiktokEventsToken', secret: true, required: true }],
+    config: [
+      { key: 'pixelCode', label: 'Pixel code', labelKey: 'intg.field.tiktokPixelCode', secret: false, required: true, pattern: '^[A-Z0-9]{10,40}$' },
+      { key: 'testEventCode', label: 'Test event code', labelKey: 'intg.field.tiktokTestEventCode', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{4,40}$',
+        hint: 'Events Manager > the Pixel > Test events. Test connections send it with every event; the health check uses it on Live too, so checks never count as conversions.',
+        hintKey: 'intg.field.tiktokTestEventCodeHint' },
+      { key: 'codPurchase', label: 'Cash orders count as Purchase', labelKey: 'intg.field.codPurchase', secret: false, required: false, kind: 'select', options: ['on_completion', 'never'] },
+      { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select', options: ['on', 'off'] },
+    ],
+  },
+  // INT-23: Snap Pixel + Conversions API v3. Test connections only call Snap's /validate endpoint.
+  snap_capi: {
+    credentials: [{ key: 'accessToken', label: 'Conversions API token', labelKey: 'intg.field.snapCapiToken', secret: true, required: true }],
+    config: [
+      { key: 'pixelId', label: 'Snap Pixel id', labelKey: 'intg.field.snapPixelId', secret: false, required: true,
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' },
+      { key: 'testEventCode', label: 'Test event code (optional, test connections only)', labelKey: 'intg.field.snapTestEventCode', secret: false, required: false, pattern: '^[A-Za-z0-9_-]{1,60}$' },
+      { key: 'codPurchase', label: 'Cash orders count as Purchase', labelKey: 'intg.field.codPurchase', secret: false, required: false, kind: 'select', options: ['on_completion', 'never'] },
+      { key: 'browserPixel', label: 'Browser Pixel on the website (with consent)', labelKey: 'intg.field.browserPixel', secret: false, required: false, kind: 'select', options: ['on', 'off'] },
+    ],
+  },
   tiktok_ads: { credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }], config: [{ key: 'advertiserId', label: 'Advertiser id', secret: false, required: true }] },
   snapchat_ads: {
     credentials: [{ key: 'accessToken', label: 'Access token', secret: true, required: true }, { key: 'refreshToken', label: 'Refresh token', secret: true, required: false }],

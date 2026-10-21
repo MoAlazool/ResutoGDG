@@ -164,6 +164,11 @@ export const metaTrackingContext = z.object({
   fbc: z.string().max(600).regex(/^fb\.[0-2]\.\d{10,13}\.[A-Za-z0-9_-]{8,}$/).nullable().optional(),
   /** The https page the order was placed on (event_source_url). */
   pageUrl: z.string().max(1000).regex(/^https?:\/\/[^\s]+$/).nullable().optional(),
+  // INT-23: TikTok (_ttp cookie, ttclid URL parameter) and Snap (_scid cookie, ScCid URL parameter) browser ids.
+  ttp: z.string().regex(/^[A-Za-z0-9._-]{8,200}$/).nullable().optional(),
+  ttclid: z.string().regex(/^[A-Za-z0-9._-]{8,500}$/).nullable().optional(),
+  scid: z.string().regex(/^[A-Za-z0-9-]{8,100}$/).nullable().optional(),
+  scClickId: z.string().regex(/^[A-Za-z0-9._-]{8,500}$/).nullable().optional(),
 }).strict();
 export type MetaTrackingContext = z.infer<typeof metaTrackingContext>;
 
