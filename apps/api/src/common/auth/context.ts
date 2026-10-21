@@ -16,6 +16,8 @@ export interface AuthMcpClient {
   branchIds: string[] | null;
   allowedTools: string[];
   rateLimitPerMin: number;
+  /** Set for OAuth access tokens (FT-17): the MCP resource URI the token was issued for. */
+  oauthResource?: string;
 }
 
 export type AuthPrincipal = AuthUser | AuthMcpClient;

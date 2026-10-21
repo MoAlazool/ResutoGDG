@@ -78,6 +78,13 @@ export const envSchema = z.object({
   // Platform-level ad app credentials for merchant OAuth (each restaurant connects its own ad account).
   META_APP_ID: z.string().optional(),
   META_APP_SECRET: z.string().optional(),
+  /**
+   * OAuth 2.1 for MCP clients (FT-17). Issuer = the Resuto MCP server's public origin (it serves the authorization
+   * server metadata and forwards /oauth/* to the API); resources = the MCP endpoint URI(s) tokens may be issued for,
+   * comma-separated (e.g. https://mcp.example.com/mcp). Both unset: OAuth is off and only connection keys work.
+   */
+  MCP_OAUTH_ISSUER: z.url().optional(),
+  MCP_OAUTH_RESOURCES: z.string().optional(),
   TIKTOK_APP_ID: z.string().optional(),
   TIKTOK_APP_SECRET: z.string().optional(),
   SNAPCHAT_CLIENT_ID: z.string().optional(),

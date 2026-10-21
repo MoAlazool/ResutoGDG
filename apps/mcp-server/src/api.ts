@@ -14,6 +14,9 @@ export interface WhoAmI {
   branchIds: string[] | null;
   allowedTools: string[];
   rateLimitPerMin: number;
+  /** 'oauth' for access tokens, with the resource (audience) they were issued for. */
+  auth?: 'key' | 'oauth';
+  resource?: string | null;
 }
 
 /** Mirrors `McpToolDescriptor` in @resuto/contracts. */
@@ -47,7 +50,16 @@ export class ApiError extends Error {
 export const newRequestId = () => `mcp-${randomUUID()}`;
 
 export class ResutoApi {
-  constructor(private readonly baseUrl: string, private readonly key: string, private readonly timeoutMs = 30_000) {}
+  /**
+   * `resource`: for OAuth access tokens, the MCP resource URI this server serves; sent as X-Mcp-Resource so the API
+   * accepts the token only for that audience. The token's own audience is checked again by the API on every call.
+   */
+  constructor(private readonly baseUrl: string, private key: string, private readonly timeoutMs = 30_000, private readonly resource: string | null = null) {}
+
+  /** A refreshed OAuth access token for the same grant replaces the old one on an open session. */
+  setKey(key: string) {
+    this.key = key;
+  }
 
   private async request<T>(method: 'GET' | 'POST', path: string, body?: unknown, label = path): Promise<T> {
     const requestId = newRequestId();
@@ -62,6 +74,7 @@ export class ResutoApi {
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           'User-Agent': 'resuto-mcp-server/0.1',
           'X-Request-Id': requestId,
+          ...(this.resource && this.key.startsWith('rmat_') ? { 'X-Mcp-Resource': this.resource } : {}),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(this.timeoutMs),
@@ -100,6 +113,30 @@ export class ResutoApi {
   callTool(orgId: string, tool: string, input: unknown) {
     return this.request<ToolCallResponse>('POST', `/o/${encodeURIComponent(orgId)}/mcp/tools/${encodeURIComponent(tool)}`, { input: input ?? {} },
       `tools/call:${tool.slice(0, 80)}`);
+  }
+
+  /** Authorization-server calls (no credential of the caller is involved; the API answers in OAuth's error format). */
+  static async oauth(baseUrl: string, path: string, body: unknown, timeoutMs: number): Promise<{ status: number; body: any }> {
+    const requestId = newRequestId();
+    try {
+      const res = await fetch(`${baseUrl}/v1/mcp/oauth/${path}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Request-Id': requestId, 'User-Agent': 'resuto-mcp-server/0.1' },
+        body: JSON.stringify(body ?? {}), signal: AbortSignal.timeout(timeoutMs), redirect: 'error',
+      });
+      const text = await res.text();
+      let json: any = null;
+      try { json = text ? JSON.parse(text) : {}; } catch { json = null; }
+      log('info', 'api call', { requestId, call: `oauth/${path}`, status: res.status });
+      if (json === null) return { status: 502, body: { error: 'server_error', error_description: 'Resuto API returned a non-JSON response' } };
+      // Resuto domain errors ({error:{code,message}}) are mapped onto OAuth's flat format.
+      if (json && typeof json.error === 'object' && json.error) {
+        return { status: res.status, body: { error: res.status >= 500 ? 'server_error' : res.status === 429 ? 'slow_down' : 'invalid_request', error_description: String(json.error.message ?? '') } };
+      }
+      return { status: res.status, body: json };
+    } catch (e) {
+      log('warn', 'api call failed', { requestId, call: `oauth/${path}`, error: (e as Error).name });
+      return { status: 502, body: { error: 'temporarily_unavailable', error_description: 'Resuto API is unreachable' } };
+    }
   }
 
   health() {

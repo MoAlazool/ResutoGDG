@@ -117,6 +117,9 @@ export interface McpClientSummary {
   lastUsedAt: string | null;
   createdAt: string;
   revokedAt: string | null;
+  /** 'key': an rmcp_ connection key; 'oauth': created by an admin's OAuth consent for an MCP client (FT-17). */
+  authKind: 'key' | 'oauth';
+  oauthClientId: string | null;
 }
 
 /** Returned once, on creation. The plaintext key is never retrievable again. */
@@ -465,4 +468,7 @@ export interface McpWhoAmI {
   branchIds: string[] | null;
   allowedTools: McpToolName[];
   rateLimitPerMin: number;
+  /** How the caller authenticated; OAuth access tokens also carry their audience (the MCP resource URI). */
+  auth?: 'key' | 'oauth';
+  resource?: string | null;
 }

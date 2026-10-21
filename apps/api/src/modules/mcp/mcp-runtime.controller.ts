@@ -35,7 +35,8 @@ export class McpRuntimeController {
       `select c.name, o.name as org_name from mcp_clients c join organizations o on o.id = c.org_id where c.id = $1`, [p.clientId]),
     `mcp_client:${p.clientId}`);
     return { clientId: p.clientId, name: row.name, orgId: p.orgId, orgName: row.org_name, actingRole: p.role, branchIds: p.branchIds,
-      allowedTools: p.allowedTools as McpWhoAmI['allowedTools'], rateLimitPerMin: p.rateLimitPerMin };
+      allowedTools: p.allowedTools as McpWhoAmI['allowedTools'], rateLimitPerMin: p.rateLimitPerMin,
+      auth: p.oauthResource ? 'oauth' : 'key', resource: p.oauthResource ?? null };
   }
 
   @Get('o/:orgId/mcp/tools')
