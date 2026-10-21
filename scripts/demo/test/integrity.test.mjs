@@ -8,7 +8,8 @@
 //
 //   DEMO_TEST_DATABASE_URL (default: <TEST_DATABASE_URL name>_demo_integrity on the local cluster)
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -36,7 +37,7 @@ before(async () => {
     restaurantId: manifest.restaurantId, slug: manifest.slug, planId: 'pro', subscriptionStatus: 'active',
     nameAr: manifest.nameAr, categoryNamesAr: manifest.categoryNamesAr,
     retimeTo: new Date(Date.now() - 30 * 60_000), closeStaleAfterHours: LIVE_STALE_HOURS,
-  } });
+  }, media: { assetsDir: path.join(ROOT, 'legacy/public'), storageDir: mkdtempSync(path.join(tmpdir(), 'demo-integrity-')) } });
   assert.equal(report.committed, true, 'the re-timed fixture still reconciles');
   orgId = report.orgId;
   db = new pg.Client({ connectionString: url });

@@ -22,6 +22,9 @@ const url = process.env.LEGACY_TEST_DATABASE_URL ?? 'postgres://postgres@127.0.0
 const fixtureBytes = readFileSync(fixturePath);
 const fixture = () => JSON.parse(fixtureBytes.toString('utf8'));
 const sha = (b) => createHash('sha256').update(b).digest('hex');
+const storageDir = mkdtempSync(path.join(tmpdir(), 'legacy-media-'));
+/** The legacy public/ folder (storefront photos) and a scratch tenant storage. */
+const media = { assetsDir: path.join(here, '../../../legacy/public'), storageDir };
 
 pg.types.setTypeParser(20, (v) => Number(v));
 let db;
@@ -39,14 +42,14 @@ describe('legacy migration of the Olive Room fixture', () => {
   let report;
 
   it('dry run reconciles but writes nothing', async () => {
-    const r = await migrateLegacy({ url, document: fixture(), dryRun: true });
+    const r = await migrateLegacy({ url, document: fixture(), dryRun: true, media });
     assert.equal(r.reconciliation.ok, true);
     assert.equal(r.committed, false);
     assert.deepEqual(await q(`select id from organizations where legacy_id = 'olive-room-demo'`), []);
   });
 
   it('migrates in one transaction with a clean reconciliation', async () => {
-    report = await migrateLegacy({ url, document: fixture(), options: { planId: 'pro', subscriptionStatus: 'active' } });
+    report = await migrateLegacy({ url, document: fixture(), options: { planId: 'pro', subscriptionStatus: 'active' }, media });
     assert.equal(report.committed, true);
     assert.equal(report.rerun, false);
     assert.equal(report.reconciliation.ok, true, JSON.stringify(report.reconciliation.metrics.filter((m) => !m.match)));
@@ -133,7 +136,7 @@ describe('legacy migration of the Olive Room fixture', () => {
   it('is idempotent: a re-run writes nothing new and still reconciles', async () => {
     const before = await q(`select (select count(*) from order_events where org_id = $1)::int as events, (select count(*) from payment_allocations where org_id = $1)::int as alloc,
                                    (select count(*) from audit_logs where org_id = $1)::int as audit`, [report.orgId]);
-    const again = await migrateLegacy({ url, document: fixture(), options: { planId: 'pro', subscriptionStatus: 'active' } });
+    const again = await migrateLegacy({ url, document: fixture(), options: { planId: 'pro', subscriptionStatus: 'active' }, media });
     assert.equal(again.rerun, true);
     assert.equal(again.committed, true);
     assert.equal(again.reconciliation.ok, true);
@@ -152,6 +155,7 @@ describe('legacy migration of the Olive Room fixture', () => {
     for (const t of doc.state.tables) t.qr = `${t.qr.slice(0, 24)}tampered`;
     for (const x of [...doc.state.visits, ...doc.state.reservations]) x.token = `${x.token}-copy`;
     for (const p of doc.state.payments) if (p.providerId) p.providerId = `${p.providerId}-copy`;
+    doc.state.settings.venueQr = `${doc.state.settings.venueQr}copy`;   // a printed venue code belongs to one restaurant
     const dir = mkdtempSync(path.join(tmpdir(), 'resuto-legacy-'));
     const file = path.join(dir, 'tampered.json');
     writeFileSync(file, JSON.stringify(doc));
@@ -167,6 +171,7 @@ describe('legacy migration of the Olive Room fixture', () => {
     doc._fixture.restaurantId = 'qr-clash';
     doc._fixture.slug = 'qr-clash';
     for (const x of [...doc.state.visits, ...doc.state.reservations]) x.token = `${x.token}-clash`;
+    doc.state.settings.venueQr = `${doc.state.settings.venueQr}clash`;
     const dir = mkdtempSync(path.join(tmpdir(), 'resuto-legacy-'));
     const file = path.join(dir, 'clash.json');
     writeFileSync(file, JSON.stringify(doc));
@@ -187,8 +192,80 @@ describe('legacy migration of the Olive Room fixture', () => {
     // The source document was never modified.
     assert.equal(sha(readFileSync(fixturePath)), sha(fixtureBytes));
     // And migrating again after rollback works.
-    const again = await migrateLegacy({ url, document: fixture() });
+    const again = await migrateLegacy({ url, document: fixture(), media });
     assert.equal(again.committed, true);
     assert.equal(again.rerun, false);
+  });
+});
+
+// CR-13: legacy photos are copied into tenant storage and counted, venue QR tokens are mapped and counted, and
+// in-progress legacy work can be imported as closed history. Rehearsed on the Olive Room (table service, storefront
+// photos from legacy public/) and Smash & Co (counter service: venue QR, media-store upload, public/ assets, data: URL).
+const smashPath = path.join(here, '../fixtures/smash-and-co.legacy-state.json');
+const smash = () => JSON.parse(readFileSync(smashPath, 'utf8'));
+const smashMedia = { ...media, mediaDir: path.join(here, '../fixtures/media') };
+
+describe('legacy media and venue QR (CR-13)', () => {
+  it('rehearses Smash & Co (counter service) with a clean reconciliation including media and the venue QR', async () => {
+    const r = await migrateLegacy({ url, document: smash(), options: { planId: 'pro', subscriptionStatus: 'active' }, media: smashMedia });
+    const byName = Object.fromEntries(r.reconciliation.metrics.map((m) => [m.name, m]));
+    assert.equal(r.committed, true, JSON.stringify(r.reconciliation.metrics.filter((m) => !m.match)) + r.warnings.join('\n'));
+    assert.deepEqual([byName.media.legacy, byName.media.migrated], [9, 9]);
+    assert.deepEqual([byName.venue_qr_tokens.legacy, byName.venue_qr_tokens.migrated, byName.venue_qr_tokens.match], [1, 1, true]);
+    // Every dish has its photo in tenant storage, byte for byte, with the type read from the bytes.
+    const rows = await q(`select p.legacy_id, a.path, a.content_type, a.byte_size from products p join media_assets a on a.id = p.image_media_id where p.org_id = $1 order by 1`, [r.orgId]);
+    assert.equal(rows.length, 9);
+    const b1 = rows.find((x) => x.legacy_id === 'b1');
+    assert.equal(sha(readFileSync(path.join(storageDir, 'tenant-media', b1.path))), sha(readFileSync(path.join(here, '../fixtures/media/menu-b1-3f9c2a7d1e4b.webp'))));
+    assert.equal(rows.find((x) => x.legacy_id === 'b8').content_type, 'image/png');
+    assert.equal(rows.find((x) => x.legacy_id === 'b0').content_type, 'image/webp');
+    // The venue token maps to the counter branch (resolved by GET /v1/public/venue/:token, apps/api test venue-qr).
+    const [venue] = await q(`select m.new_id, b.code from legacy_id_map m join branches b on b.id = m.new_id where m.org_id = $1 and m.entity_type = 'venue_qr'`, [r.orgId]);
+    assert.equal(venue.code, 'main');
+    // A re-run copies nothing new and still reconciles.
+    const again = await migrateLegacy({ url, document: smash(), options: { planId: 'pro', subscriptionStatus: 'active' }, media: smashMedia });
+    assert.equal(again.committed, true);
+    assert.equal(again.checkpoints.media.inserted, 0);
+  });
+
+  it('copies the Olive Room storefront photos (legacy burger.js) and maps its venue QR to the main branch', async () => {
+    const [org] = await q(`select id from organizations where legacy_id = 'olive-room-demo'`);
+    const photos = await q(`select p.legacy_id from products p join media_assets a on a.id = p.image_media_id where p.org_id = $1 order by 1`, [org.id]);
+    assert.deepEqual(photos.map((x) => x.legacy_id), ['b0', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']);
+    const [venue] = await q(`select b.code from legacy_id_map m join branches b on b.id = m.new_id where m.org_id = $1 and m.entity_type = 'venue_qr'`, [org.id]);
+    assert.equal(venue.code, 'main');
+  });
+
+  it('does not commit when a legacy photo cannot be found or stored (media is part of the reconciliation)', async () => {
+    const doc = smash();
+    doc._fixture.restaurantId = 'smash-missing-media'; doc._fixture.slug = 'smash-missing-media';
+    doc.state.settings.venueQr = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    const noStore = await migrateLegacy({ url, document: doc, media: { ...smashMedia, mediaDir: null } });
+    assert.equal(noStore.committed, false);
+    const m = noStore.reconciliation.metrics.find((x) => x.name === 'media');
+    assert.deepEqual([m.legacy, m.migrated, m.match], [9, 8, false]);
+    assert.ok(noStore.warnings.some((w) => /needs --media-dir/.test(w)));
+    const noDestination = await migrateLegacy({ url, document: doc, media: { mediaDir: smashMedia.mediaDir, assetsDir: media.assetsDir } });
+    assert.equal(noDestination.committed, false);
+    assert.ok(noDestination.warnings.some((w) => /need a destination/.test(w)));
+    assert.deepEqual(await q(`select 1 from organizations where legacy_id = 'smash-missing-media'`), []);
+  });
+
+  it('refuses a venue QR token that already belongs to another restaurant', async () => {
+    const doc = smash();
+    doc._fixture.restaurantId = 'smash-venue-clash'; doc._fixture.slug = 'smash-venue-clash';
+    await assert.rejects(migrateLegacy({ url, document: doc, media: smashMedia }), /venue QR token already belongs/);
+  });
+
+  it('imports stale in-progress legacy work as closed history when asked (demo/rehearsal re-timing)', () => {
+    const now = new Date('2026-10-21T12:00:00Z');
+    const plan = buildPlan(fixture(), { now, retimeTo: new Date('2026-10-21T11:30:00Z'), closeStaleAfterHours: 6 });
+    const orders = plan.rows.orders;
+    const active = orders.filter((o) => ['awaiting_payment', 'placed', 'accepted', 'preparing', 'ready'].includes(o.status) && o.placed_at < new Date(now - 6 * 3600e3));
+    assert.deepEqual(active, []);
+    assert.ok(plan.warnings.some((w) => /imported as closed/.test(w)));
+    assert.ok(orders.every((o) => o.placed_at <= now));
+    // The reconciliation still compares against the untouched legacy document.
+    assert.equal(plan.legacy.orders, fixture().state.orders.length);
   });
 });

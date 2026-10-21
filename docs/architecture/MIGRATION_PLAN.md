@@ -35,12 +35,30 @@ Tool: `tools/legacy-migration` (Agent A).
 5. **Load** in one transaction per tenant with checkpoints (per entity type),
    resumable by entity.
 6. **Reconcile**: report counts and sums (orders, order totals, payments, reservation
-   counts, menu items, tables, QR tokens) legacy vs. new; any mismatch fails the run.
+   counts, menu items, tables, QR tokens, **media**, **venue QR tokens**) legacy vs. new; any
+   mismatch fails the run (nothing is committed).
+   - **Media (CR-13)**: every legacy menu photo is copied into tenant storage — uploads from the
+     exported legacy media store (`--media-dir`, `imageMediaKey` / `/media/<key>`), files from the
+     legacy `public/` folder (`--assets-dir`, `assets/…`, including the Smash & Co storefront photos
+     the legacy `burger.js` showed for burger-branch items) and inline `data:` URLs. Types are read
+     from the bytes; files go to local storage (`--storage-dir`) or Supabase Storage (`SUPABASE_URL`
+     + `SUPABASE_SERVICE_ROLE_KEY`, bucket `tenant-media`) and are recorded in `media_assets` and
+     `products.image_media_id`. A photo that cannot be found or stored fails the reconciliation.
+   - **Venue QR (CR-13)**: the legacy venue token (`settings.venueQr`, printed as `<origin>/t/<token>`
+     for counter service) is mapped to the main branch in `legacy_id_map`; `GET /v1/public/venue/:token`
+     resolves it and the web app's `/t/<token>` redirects to the FT-07 venue route
+     (`/order/<slug>?branch=<code>`). A token already mapped to another restaurant aborts the run.
+   - Demo and rehearsal loads can re-time the document (`retimeTo`) and import in-progress work older
+     than N hours as closed history (`closeStaleAfterHours`); every change is reported as a warning and
+     the reconciliation still compares against the untouched document.
 7. **Rollback**: delete the tenant's migrated rows via `legacy_id_map` (organization
    cascade) — legacy data is never modified.
 
-Rehearse on the sanitized demo dataset (legacy seed: The Olive Room) before any real
-tenant. Production cutover requires explicit owner approval and a maintenance window
+Rehearse on the sanitized demo datasets before any real tenant: The Olive Room (table service,
+`fixtures/olive-room.legacy-state.json`) and Smash & Co (counter service with a venue QR, a media-store
+upload, `public/` photos and a `data:` URL; `fixtures/smash-and-co.legacy-state.json`, built by
+`build-smash-fixture.mjs`). Both reconcile cleanly including media and venue QR tokens
+(`node --test tools/legacy-migration/test/*.test.mjs`). Production cutover requires explicit owner approval and a maintenance window
 (see DEPLOYMENT_READINESS.md).
 
 ## Behaviour parity checklist (from the audit)

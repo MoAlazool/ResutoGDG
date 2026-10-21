@@ -99,6 +99,8 @@ const report = await migrateLegacy({
     ownerEmail: config.owner.email, subscriptionNote: 'Demo tenant: complimentary Pro access, no payment collected.',
     nameAr: config.nameAr, categoryNamesAr: config.categoryNamesAr,
     retimeTo: new Date(Date.now() - 30 * 60_000), closeStaleAfterHours: LIVE_STALE_HOURS },
+  // Legacy photos (the Smash & Co storefront's) are copied into local tenant storage by the migration (CR-13).
+  media: { assetsDir: path.join(root, 'legacy/public'), storageDir },
 });
 if (!report.committed) {
   console.error(formatReport(report));

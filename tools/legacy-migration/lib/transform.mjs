@@ -34,6 +34,40 @@ export function normalizePhone(v) {
 }
 export const normalizeEmail = (v) => (typeof v === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim()) ? v.trim().toLowerCase() : null);
 
+/**
+ * Photos the legacy Smash & Co storefront showed for its menu items (legacy/public/burger.js PHOTOS): the storefront
+ * rendered /assets/smash/<name>.webp for every burger-branch item, so these are that item's photo after cutover.
+ */
+export const LEGACY_STOREFRONT_PHOTOS = { b0: 'classic-smash', b1: 'double-smash', b2: 'crispy-chicken', b3: 'veggie-smash', b4: 'loaded-fries',
+  b5: 'classic-fries', b6: 'onion-rings', b7: 'chocolate-shake', b8: 'cola' };
+const MEDIA_TYPES = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif' };
+
+/**
+ * Where a legacy menu item's photo comes from (CR-13), or null when it has none to copy:
+ *   { kind: 'media', key }     an upload in the legacy media store (imageMediaKey, or an imageUrl /media/<key>);
+ *   { kind: 'asset', path }    a file the legacy app served from public/ (assets/…), including the storefront photos;
+ *   { kind: 'inline', data }   a data: URL stored in the document.
+ * An https URL is kept as products.image_url and not copied.
+ */
+export function mediaSourceOf(m, { storefrontPhotos = true } = {}) {
+  const url = [m.imageMediaKey && `/media/${m.imageMediaKey}`, m.imageUrl, m.image].find((v) => typeof v === 'string' && v);
+  if (url) {
+    if (/^https:\/\//.test(url)) return null;
+    const media = /^\/media\/([A-Za-z0-9._-]{1,200})$/.exec(url);
+    if (media) return { kind: 'media', key: media[1], ext: media[1].split('.').pop().toLowerCase() };
+    const asset = /^\/?(assets\/[A-Za-z0-9/._-]{1,200}\.(png|jpe?g|webp|gif))$/i.exec(url);
+    if (asset && !asset[1].includes('..')) return { kind: 'asset', path: asset[1], ext: asset[2].toLowerCase() };
+    const inline = /^data:(image\/(png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(url);
+    if (inline) return { kind: 'inline', data: inline[3], ext: inline[2] === 'jpeg' ? 'jpg' : inline[2] };
+    return { kind: 'unsupported', url: url.slice(0, 120) };
+  }
+  const branches = Array.isArray(m.branchIds) ? m.branchIds : [];
+  if (storefrontPhotos && branches.includes('burger') && LEGACY_STOREFRONT_PHOTOS[m.id]) {
+    return { kind: 'asset', path: `assets/smash/${LEGACY_STOREFRONT_PHOTOS[m.id]}.webp`, ext: 'webp', storefront: true };
+  }
+  return null;
+}
+
 /** Accepts the SQLite `state` JSON, a Firestore `restaurants/{id}/private/state` export ({state, revision, updatedAt}), or the fixture wrapper. */
 export function readDocument(doc) {
   if (!doc || typeof doc !== 'object') throw new Error('Input is not a JSON object');
@@ -225,6 +259,7 @@ export function buildPlan(doc, options = {}) {
   const menuId = add('menus', { id: id('menu', 'main'), org_id: orgId, name: 'Main menu', name_ar: 'القائمة الرئيسية' }, ['menu', 'main']).id;
   const categoryId = new Map();
   const productId = new Map();
+  const media = [];              // legacy photos to copy into tenant storage (CR-13), written by load.mjs
   const groupFor = new Map();     // `${item}:${modifier}` → { groupId, optionId, group }
   s.menu.forEach((m, index) => {
     const cat = String(m.category ?? 'Menu').trim() || 'Menu';
@@ -239,11 +274,17 @@ export function buildPlan(doc, options = {}) {
       price_minor: Math.max(0, int(m.price)), currency, station: m.station || 'Kitchen',
       prep_minutes: Number.isSafeInteger(m.prepMinutes) ? clamp(m.prepMinutes, 0, 600) : null, spice_level: clamp(int(m.spice), 0, 3),
       dietary: m.dietary ?? (m.vegetarian ? ['vegetarian'] : []), allergens: m.allergens ?? [], ingredients: m.ingredients ?? [],
-      image_url: typeof m.image === 'string' && /^https:\/\//.test(m.image) ? m.image : null,
+      image_url: [m.imageUrl, m.image].find((v) => typeof v === 'string' && /^https:\/\//.test(v)) ?? null,
       is_active: true, track_stock: Number.isSafeInteger(m.stock), sort_order: index, legacy_id: m.id, version: int(m.version),
     }, ['product', m.id]).id;
     productId.set(m.id, pid);
-    if (typeof m.image === 'string' && !/^https:\/\//.test(m.image)) warnings.push(`menu item ${m.id}: legacy media "${m.image}" not copied (re-upload in 2.0)`);
+    const source = mediaSourceOf(m, { storefrontPhotos: options.storefrontPhotos !== false });
+    if (source?.kind === 'unsupported') warnings.push(`menu item ${m.id}: legacy image "${source.url}" is not a media key, asset or https URL; not copied`);
+    else if (source) {
+      const ext = MEDIA_TYPES[source.ext] ? source.ext : 'webp';
+      media.push({ id: id('media', `menu:${m.id}`), productId: pid, legacyItem: m.id, source, contentType: MEDIA_TYPES[ext],
+        objectPath: `${orgId}/menu/legacy-${m.id}.${ext === 'jpeg' ? 'jpg' : ext}`, alt: String(m.name).slice(0, 200) });
+    }
     const listed = Array.isArray(m.branchIds) && m.branchIds.length ? m.branchIds : ['main'];
     for (const lb of legacyBranches) {
       const inBranch = listed.includes(lb.id);
@@ -295,7 +336,9 @@ export function buildPlan(doc, options = {}) {
     }, ['table', t.id]);
     tableId.set(t.id, row.id);
   }
-  if (s.settings?.venueQr) idMap.push({ entity: 'venue_qr', legacyId: s.settings.venueQr, newId: orgId });
+  // The legacy venue QR (printed counter codes: <origin>/t/<venueQr>) maps to the main branch; the public venue route
+  // (FT-07, GET /v1/public/venue/:token) resolves it to that branch's ordering page, so printed codes keep working.
+  if (s.settings?.venueQr) idMap.push({ entity: 'venue_qr', legacyId: s.settings.venueQr, newId: mainBranch });
 
   // --- Customers (derived from contacts) ---------------------------------------------------------
   const customers = new Map();
@@ -526,7 +569,10 @@ export function buildPlan(doc, options = {}) {
   add('audit_logs', { _parent: orgId, org_id: orgId, actor_type: 'system', actor_id: 'legacy-migration', action: 'organization.migrated', entity_type: 'organization',
     entity_id: orgId, source: 'migration', metadata: json({ restaurantId, warnings: warnings.length }), created_at: now });
 
-  return { orgId, restaurantId, slug, rows, idMap, after, warnings, legacy: legacyMetrics(original, { tableId, visitRows }) };
+  const legacy = legacyMetrics(original, { tableId, visitRows });
+  legacy.media = media.length;
+  legacy.venue_qr_tokens = s.settings?.venueQr ? [s.settings.venueQr] : [];
+  return { orgId, restaurantId, slug, rows, idMap, after, warnings, media, legacy };
 }
 
 /** Totals computed directly from the legacy document, used for reconciliation. */

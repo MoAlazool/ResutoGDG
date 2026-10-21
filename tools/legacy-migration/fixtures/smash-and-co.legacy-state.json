@@ -1,0 +1,488 @@
+{
+  "_fixture": {
+    "restaurantId": "smash-and-co-demo",
+    "slug": "smash-and-co",
+    "description": "Legacy counter-service restaurant derived from the Olive Room fixture (build-smash-fixture.mjs) for the CR-13 media and venue QR rehearsal.",
+    "sanitized": [
+      "credentials",
+      "sessions",
+      "idem",
+      "audit (seed entries)"
+    ],
+    "synthetic": "Fictional demo restaurant; no real people, orders or payments.",
+    "generatedBy": "tools/legacy-migration/build-smash-fixture.mjs"
+  },
+  "state": {
+    "demo": true,
+    "tables": [],
+    "menu": [
+      {
+        "id": "b0",
+        "name": "Classic Smash",
+        "nameAr": "برجر سماش كلاسيك",
+        "category": "Burgers",
+        "price": 13500,
+        "station": "Grill",
+        "stock": 40,
+        "allergens": [
+          "wheat",
+          "milk"
+        ],
+        "vegetarian": false,
+        "description": "Two smashed patties, cheese, pickles, house sauce.",
+        "descriptionAr": "قطعتا لحم مسحوق، جبنة، مخلل، وصوص البيت.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [
+          {
+            "id": "extra-cheese",
+            "name": "Extra cheese",
+            "nameAr": "جبنة إضافية",
+            "price": 1500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "bacon",
+            "name": "Add bacon",
+            "nameAr": "إضافة بيكون",
+            "price": 2500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "spicy",
+            "name": "Make it spicy",
+            "nameAr": "زودها حرارة",
+            "price": 0,
+            "available": true,
+            "required": false
+          }
+        ],
+        "imageUrl": "/assets/smash/classic-smash.webp"
+      },
+      {
+        "id": "b1",
+        "name": "Double Smash",
+        "nameAr": "دوبل سماش",
+        "category": "Burgers",
+        "price": 18500,
+        "station": "Grill",
+        "stock": 30,
+        "allergens": [
+          "wheat",
+          "milk"
+        ],
+        "vegetarian": false,
+        "description": "Four patties for a serious appetite.",
+        "descriptionAr": "أربع قطع لحم لمن يريد وجبة دسمة.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [
+          {
+            "id": "extra-cheese",
+            "name": "Extra cheese",
+            "nameAr": "جبنة إضافية",
+            "price": 1500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "bacon",
+            "name": "Add bacon",
+            "nameAr": "إضافة بيكون",
+            "price": 2500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "spicy",
+            "name": "Make it spicy",
+            "nameAr": "زودها حرارة",
+            "price": 0,
+            "available": true,
+            "required": false
+          }
+        ],
+        "imageMediaKey": "menu-b1-3f9c2a7d1e4b.webp"
+      },
+      {
+        "id": "b2",
+        "name": "Crispy Chicken",
+        "nameAr": "برجر دجاج مقرمش",
+        "category": "Burgers",
+        "price": 14500,
+        "station": "Fryer",
+        "stock": 35,
+        "allergens": [
+          "wheat"
+        ],
+        "vegetarian": false,
+        "description": "Buttermilk chicken, slaw, spicy mayo.",
+        "descriptionAr": "دجاج متبّل مقرمش مع سلطة كول سلو ومايونيز حار.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [
+          {
+            "id": "extra-cheese",
+            "name": "Extra cheese",
+            "nameAr": "جبنة إضافية",
+            "price": 1500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "bacon",
+            "name": "Add bacon",
+            "nameAr": "إضافة بيكون",
+            "price": 2500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "spicy",
+            "name": "Make it spicy",
+            "nameAr": "زودها حرارة",
+            "price": 0,
+            "available": true,
+            "required": false
+          }
+        ],
+        "imageUrl": "/assets/smash/crispy-chicken.webp"
+      },
+      {
+        "id": "b3",
+        "name": "Veggie Smash",
+        "nameAr": "برجر نباتي",
+        "category": "Burgers",
+        "price": 12500,
+        "station": "Grill",
+        "stock": 20,
+        "allergens": [
+          "wheat"
+        ],
+        "vegetarian": true,
+        "description": "Charred mushroom patty, smoked cheese.",
+        "descriptionAr": "قرص فطر مشوي مع جبنة مدخّنة.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [
+          "vegetarian"
+        ],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [
+          {
+            "id": "extra-cheese",
+            "name": "Extra cheese",
+            "nameAr": "جبنة إضافية",
+            "price": 1500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "bacon",
+            "name": "Add bacon",
+            "nameAr": "إضافة بيكون",
+            "price": 2500,
+            "available": true,
+            "required": false
+          },
+          {
+            "id": "spicy",
+            "name": "Make it spicy",
+            "nameAr": "زودها حرارة",
+            "price": 0,
+            "available": true,
+            "required": false
+          }
+        ],
+        "imageUrl": "/assets/smash/veggie-smash.webp"
+      },
+      {
+        "id": "b4",
+        "name": "Loaded Fries",
+        "nameAr": "بطاطس محمّلة",
+        "category": "Sides",
+        "price": 8500,
+        "station": "Fryer",
+        "stock": 45,
+        "allergens": [
+          "milk"
+        ],
+        "vegetarian": true,
+        "description": "Fries under cheese sauce and jalapeños.",
+        "descriptionAr": "بطاطس تحت صوص الجبنة والهالابينو.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [
+          "vegetarian"
+        ],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [
+          {
+            "id": "cheese-sauce",
+            "name": "Cheese sauce",
+            "nameAr": "صوص جبنة",
+            "price": 1200,
+            "available": true,
+            "required": false
+          }
+        ],
+        "imageUrl": "/assets/smash/loaded-fries.webp"
+      },
+      {
+        "id": "b5",
+        "name": "Classic Fries",
+        "nameAr": "بطاطس مقلية",
+        "category": "Sides",
+        "price": 5500,
+        "station": "Fryer",
+        "stock": 60,
+        "allergens": [],
+        "vegetarian": true,
+        "description": "Skin-on, salted, straight from the fryer.",
+        "descriptionAr": "مقرمشة بقشرها، مملّحة، من المقلاة مباشرة.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [
+          "vegetarian"
+        ],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [
+          {
+            "id": "cheese-sauce",
+            "name": "Cheese sauce",
+            "nameAr": "صوص جبنة",
+            "price": 1200,
+            "available": true,
+            "required": false
+          }
+        ],
+        "imageUrl": "/assets/smash/classic-fries.webp"
+      },
+      {
+        "id": "b6",
+        "name": "Onion Rings",
+        "nameAr": "حلقات بصل",
+        "category": "Sides",
+        "price": 6500,
+        "station": "Fryer",
+        "stock": 30,
+        "allergens": [
+          "wheat"
+        ],
+        "vegetarian": true,
+        "description": "Thick-cut rings in a crisp batter.",
+        "descriptionAr": "حلقات سميكة بعجينة مقرمشة.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [
+          "vegetarian"
+        ],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [
+          {
+            "id": "cheese-sauce",
+            "name": "Cheese sauce",
+            "nameAr": "صوص جبنة",
+            "price": 1200,
+            "available": true,
+            "required": false
+          }
+        ],
+        "imageUrl": "/assets/smash/onion-rings.webp"
+      },
+      {
+        "id": "b7",
+        "name": "Chocolate Shake",
+        "nameAr": "ميلك شيك شوكولاتة",
+        "category": "Shakes",
+        "price": 7500,
+        "station": "Bar",
+        "stock": 25,
+        "allergens": [
+          "milk"
+        ],
+        "vegetarian": true,
+        "description": "Thick shake, real chocolate.",
+        "descriptionAr": "ميلك شيك كثيف بشوكولاتة حقيقية.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [
+          "vegetarian"
+        ],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [],
+        "imageUrl": "/assets/smash/chocolate-shake.webp"
+      },
+      {
+        "id": "b8",
+        "name": "Cola",
+        "nameAr": "كولا",
+        "category": "Drinks",
+        "price": 3500,
+        "station": "Bar",
+        "stock": 80,
+        "allergens": [],
+        "vegetarian": true,
+        "description": "Served over ice.",
+        "descriptionAr": "تُقدَّم مع الثلج.",
+        "available": true,
+        "version": 0,
+        "branchIds": [
+          "main"
+        ],
+        "imageIndex": -1,
+        "spice": 0,
+        "prepMinutes": null,
+        "ingredients": [],
+        "dietary": [
+          "vegetarian"
+        ],
+        "variants": [],
+        "addons": [],
+        "internalNotes": "",
+        "modifiers": [],
+        "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+      }
+    ],
+    "reservations": [],
+    "visits": [],
+    "orders": [],
+    "payments": [],
+    "requests": [],
+    "audit": [],
+    "idem": {},
+    "sessions": [],
+    "settings": {
+      "name": "Smash & Co",
+      "branch": "Smash & Co Downtown",
+      "duration": 90,
+      "buffer": 15,
+      "deposit": 0,
+      "deliveryFee": 3500,
+      "deliveryEnabled": true,
+      "serviceMode": "counter",
+      "reservationsEnabled": false,
+      "venueQr": "5d1c9e0b7a3f48e2a6c4b2d09f17e3a8"
+    },
+    "credentials": {},
+    "floor": {
+      "schemaVersion": 2,
+      "revision": 0,
+      "width": 1200,
+      "height": 800,
+      "background": {
+        "image": null,
+        "opacity": 0.45,
+        "locked": true,
+        "x": 0,
+        "y": 0,
+        "width": 1200,
+        "height": 800
+      },
+      "zones": [],
+      "objects": []
+    },
+    "branches": [
+      {
+        "id": "main",
+        "name": "Smash & Co Downtown",
+        "nameAr": "سماش آند كو وسط البلد",
+        "active": true,
+        "pickup": true,
+        "delivery": true,
+        "deliveryAreas": [
+          "Downtown",
+          "وسط البلد"
+        ],
+        "paymentProvider": "auto",
+        "reservations": false
+      }
+    ],
+    "splits": [],
+    "shares": [],
+    "ratings": [],
+    "integrations": {},
+    "revision": 0,
+    "platformVersion": 4
+  }
+}
