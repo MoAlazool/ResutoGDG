@@ -158,6 +158,8 @@ const en: Record<string, string> = {
   'ops.stock.system': 'System quantity', 'ops.stock.counted': 'Counted', 'ops.stock.countedFor': 'Counted quantity of {item}', 'ops.stock.variance': 'Variance',
   'ops.stock.invalid': 'Not a number', 'ops.stock.preview': '{n} items counted · variance value {value}', 'ops.stock.submit': 'Save stocktake',
   'ops.stock.saved': 'Stocktake saved: {n} items, variance value {value}.', 'ops.stock.editSupplier': 'Edit supplier', 'ops.stock.notes': 'Notes',
+  'ops.inbox.unassigned': 'Unassigned', 'ops.inbox.assignee': 'Assigned to', 'ops.inbox.resend': 'Resend',
+  'ops.inbox.resent': 'Queued again. It is sent under the same 24-hour rules as a new message.', 'ops.inbox.notResent': 'Not resent: the message is {status} now.',
 };
 
 const ar: Record<string, string> = {
@@ -303,6 +305,8 @@ const ar: Record<string, string> = {
   'ops.stock.system': 'كمية النظام', 'ops.stock.counted': 'المعدود', 'ops.stock.countedFor': 'الكمية المعدودة من {item}', 'ops.stock.variance': 'الفرق',
   'ops.stock.invalid': 'ليس رقمًا', 'ops.stock.preview': 'تم عدّ {n} صنف · قيمة الفرق {value}', 'ops.stock.submit': 'حفظ الجرد',
   'ops.stock.saved': 'تم حفظ الجرد: {n} صنف، قيمة الفرق {value}.', 'ops.stock.editSupplier': 'تعديل المورد', 'ops.stock.notes': 'ملاحظات',
+  'ops.inbox.unassigned': 'غير مُسند', 'ops.inbox.assignee': 'مُسند إلى', 'ops.inbox.resend': 'إعادة الإرسال',
+  'ops.inbox.resent': 'أُعيدت إلى قائمة الإرسال، وتُرسل بنفس قواعد الـ24 ساعة لأي رسالة جديدة.', 'ops.inbox.notResent': 'لم تُعد: حالة الرسالة الآن {status}.',
 };
 
 export const ops = { en, ar };

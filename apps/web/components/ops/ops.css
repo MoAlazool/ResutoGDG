@@ -305,3 +305,7 @@ button.ticket-line:hover { background: var(--nav-hover); }
 [data-tone='danger'].num { color: var(--danger); }
 [data-tone='ok'].num { color: var(--ok); }
 .stock-footer { margin-top: 14px; gap: 12px; flex-wrap: wrap; }
+
+/* ---------- Inbox assignee (FT-12) ---------- */
+.inbox-assign { padding: 10px 14px 0; max-width: 360px; }
+.inbox-assign .field { margin: 0; }
