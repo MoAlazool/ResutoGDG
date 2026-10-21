@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import {
-  idempotencyKey, inventoryItemInput, inventoryItemUpdate, movementListQuery, recipeInput, stockMovementInput, stocktakeInput,
+  fullListQuery, idempotencyKey, inventoryItemInput, inventoryItemUpdate, movementListQuery, recipeInput, stockMovementInput, stocktakeInput,
   supplierInput, supplierUpdate, uuid, wasteReportQuery,
 } from '@resuto/contracts';
 import { z } from 'zod';
@@ -12,7 +12,10 @@ import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { InventoryService } from './inventory.service';
 
 const optionalBranch = z.object({ branchId: uuid.optional() });
-const itemListQuery = z.object({ includeArchived: z.enum(['true', 'false']).optional(), q: z.string().max(120).optional() });
+// Lists the dashboard reads whole: bounded pages of up to 200 rows; `X-Resuto-List: full` tells the web client to
+// follow nextCursor so screens that show every row keep doing so (PS-22, docs/API_STYLE.md).
+const branchList = fullListQuery.extend({ branchId: uuid.optional() });
+const itemListQuery = fullListQuery.extend({ includeArchived: z.enum(['true', 'false']).optional(), q: z.string().max(120).optional() });
 
 @Controller('o/:orgId/inventory')
 export class InventoryController {
@@ -21,8 +24,9 @@ export class InventoryController {
   // Suppliers ---------------------------------------------------------------
   @Get('suppliers')
   @RequirePermission('inventory:read')
-  suppliers(@Tenant() ctx: TenantContext) {
-    return this.db.scoped(ctx, (tx) => this.inventory.listSuppliers(tx, ctx));
+  @Header('X-Resuto-List', 'full')
+  suppliers(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.db.scoped(ctx, (tx) => this.inventory.listSuppliers(tx, ctx, q));
   }
 
   @Post('suppliers')
@@ -40,8 +44,9 @@ export class InventoryController {
   // Items -------------------------------------------------------------------
   @Get('items')
   @RequirePermission('inventory:read')
+  @Header('X-Resuto-List', 'full')
   items(@Tenant() ctx: TenantContext, @Query(zod(itemListQuery)) q: z.infer<typeof itemListQuery>) {
-    return this.db.scoped(ctx, (tx) => this.inventory.listItems(tx, ctx, { includeArchived: q.includeArchived === 'true', q: q.q }));
+    return this.db.scoped(ctx, (tx) => this.inventory.listItems(tx, ctx, { ...q, includeArchived: q.includeArchived === 'true' }));
   }
 
   @Post('items')
@@ -59,8 +64,9 @@ export class InventoryController {
   // Levels, valuation, alerts --------------------------------------------------
   @Get('levels')
   @RequirePermission('inventory:read')
-  levels(@Tenant() ctx: TenantContext, @Query(zod(optionalBranch)) q: z.infer<typeof optionalBranch>) {
-    return this.db.scoped(ctx, (tx) => this.inventory.levels(tx, ctx, q.branchId));
+  @Header('X-Resuto-List', 'full')
+  levels(@Tenant() ctx: TenantContext, @Query(zod(branchList)) q: z.infer<typeof branchList>) {
+    return this.db.scoped(ctx, (tx) => this.inventory.levels(tx, ctx, q.branchId, q));
   }
 
   @Get('valuation')
@@ -71,8 +77,9 @@ export class InventoryController {
 
   @Get('alerts')
   @RequirePermission('inventory:read')
-  alerts(@Tenant() ctx: TenantContext, @Query(zod(optionalBranch)) q: z.infer<typeof optionalBranch>) {
-    return this.db.scoped(ctx, (tx) => this.inventory.openAlerts(tx, ctx, q.branchId));
+  @Header('X-Resuto-List', 'full')
+  alerts(@Tenant() ctx: TenantContext, @Query(zod(branchList)) q: z.infer<typeof branchList>) {
+    return this.db.scoped(ctx, (tx) => this.inventory.openAlerts(tx, ctx, q.branchId, q));
   }
 
   @Get('waste-report')
@@ -109,8 +116,9 @@ export class InventoryController {
   // Recipes -------------------------------------------------------------------
   @Get('recipes')
   @RequirePermission('inventory:read')
-  recipes(@Tenant() ctx: TenantContext) {
-    return this.db.scoped(ctx, (tx) => this.inventory.listRecipes(tx, ctx));
+  @Header('X-Resuto-List', 'full')
+  recipes(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.db.scoped(ctx, (tx) => this.inventory.listRecipes(tx, ctx, q));
   }
 
   @Get('recipes/:productId')

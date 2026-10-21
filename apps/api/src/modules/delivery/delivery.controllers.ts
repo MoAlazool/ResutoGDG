@@ -17,6 +17,8 @@ const uploadLimits = FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1
 const historyQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(30), cursor: z.string().max(200).optional() });
 const optionalBody = <T extends z.ZodTypeAny>(s: T) => z.preprocess((v) => v ?? {}, s);
 const deviceIdSchema = z.string().trim().min(8).max(200);
+const driversQuery = z.object({ includeSuspended: z.enum(['true', 'false']).optional() });
+const pushConfigQuery = z.object({ deviceId: deviceIdSchema.optional().or(z.literal('')) });
 const pushSubscribe = z.object({ deviceId: deviceIdSchema, subscription: z.unknown(), appVersion: z.string().trim().max(40).optional().nullable() });
 
 /** Dispatch board and driver management (managers: delivery:dispatch). */
@@ -73,8 +75,8 @@ export class DispatchController {
 
   @Get('drivers')
   @RequirePermission('delivery:dispatch')
-  drivers(@Tenant() ctx: TenantContext, @Query('includeSuspended') includeSuspended?: string) {
-    return this.delivery.listDrivers(ctx, { includeSuspended: includeSuspended === 'true' });
+  drivers(@Tenant() ctx: TenantContext, @Query(zod(driversQuery)) q: z.infer<typeof driversQuery>) {
+    return this.delivery.listDrivers(ctx, { includeSuspended: q.includeSuspended === 'true' });
   }
 
   @Get('drivers/:driverId')
@@ -111,8 +113,8 @@ export class DriverController {
   /** FT-22: whether Web Push is available (VAPID public key) and this device is subscribed. */
   @Get('me/push')
   @RequirePermission('delivery:drive')
-  pushConfig(@Tenant() ctx: TenantContext, @Query('deviceId') deviceId?: string) {
-    return this.push.config(ctx, deviceId ? deviceIdSchema.parse(deviceId) : null);
+  pushConfig(@Tenant() ctx: TenantContext, @Query(zod(pushConfigQuery)) q: z.infer<typeof pushConfigQuery>) {
+    return this.push.config(ctx, q.deviceId || null);
   }
 
   @Post('me/push')

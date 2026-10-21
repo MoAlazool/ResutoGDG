@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
 import {
-  createIntegrationConnection, integrationAccountSelection, integrationOauthComplete, integrationOauthStart, integrationProviderId, integrationSyncRequest,
+  createIntegrationConnection, fullListQuery, integrationAccountSelection, listQuery, listQueryOf, integrationOauthComplete, integrationOauthStart, integrationProviderId, integrationSyncRequest,
   resolveIntegrationConflict, updateIntegrationConnection,
 } from '@resuto/contracts';
 import type { Response } from 'express';
@@ -15,7 +15,15 @@ import { IntegrationOAuthService } from './oauth.service';
 import { PosWebhooksService } from './pos-webhooks.service';
 import { IntegrationSyncService } from './sync.service';
 
-const limitOf = (v?: string, d = 50) => Math.min(Math.max(Number(v) || d, 1), 200);
+// List queries (PS-21): limit 1..200 and an opaque cursor, validated before the handler runs. `before` is the cursor
+// parameter older clients send for the log lists.
+const connectionsQuery = fullListQuery.extend({ category: z.string().max(20).optional() });
+const runsQuery = listQueryOf({ defaultLimit: 20 });
+const logsQuery = listQuery.extend({ before: z.string().min(1).max(500).optional() });
+const conflictsQuery = fullListQuery.extend({
+  status: z.enum(['pending', 'kept_local', 'kept_external', 'merged', 'ignored']).optional(),
+  connectionId: z.uuid().optional(),
+});
 
 /**
  * Integration framework. Core capability (no paid module): every route needs
@@ -39,8 +47,8 @@ export class IntegrationsController {
 
   @Get('o/:orgId/integrations/connections')
   @RequirePermission('integrations:manage')
-  list(@Tenant() ctx: TenantContext, @Query('category') category?: string) {
-    return this.connections.list(ctx, { category: category ? z.string().max(20).parse(category) : undefined });
+  list(@Tenant() ctx: TenantContext, @Query(zod(connectionsQuery)) q: z.infer<typeof connectionsQuery>) {
+    return this.connections.list(ctx, q);
   }
 
   @Post('o/:orgId/integrations/connections')
@@ -99,8 +107,8 @@ export class IntegrationsController {
 
   @Get('o/:orgId/integrations/connections/:id/sync-runs')
   @RequirePermission('integrations:manage')
-  runs(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query('limit') limit?: string) {
-    return this.sync.runs(ctx, id, limitOf(limit, 20));
+  runs(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query(zod(runsQuery)) q: z.infer<typeof runsQuery>) {
+    return this.sync.runs(ctx, id, q.limit, q.cursor);
   }
 
   @Get('o/:orgId/integrations/sync-runs/:runId')
@@ -111,25 +119,24 @@ export class IntegrationsController {
 
   @Get('o/:orgId/integrations/connections/:id/logs')
   @RequirePermission('integrations:manage')
-  connectionLogs(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query('limit') limit?: string, @Query('before') before?: string) {
-    return this.connections.logs(ctx, id, limitOf(limit), before ? Number(before) : undefined);
+  connectionLogs(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query(zod(logsQuery)) q: z.infer<typeof logsQuery>) {
+    return this.connections.logs(ctx, id, q.limit, q.cursor ?? q.before);
   }
 
   @Get('o/:orgId/integrations/logs')
   @RequirePermission('integrations:manage')
-  logs(@Tenant() ctx: TenantContext, @Query('limit') limit?: string, @Query('before') before?: string) {
-    return this.connections.logs(ctx, null, limitOf(limit), before ? Number(before) : undefined);
+  logs(@Tenant() ctx: TenantContext, @Query(zod(logsQuery)) q: z.infer<typeof logsQuery>) {
+    return this.connections.logs(ctx, null, q.limit, q.cursor ?? q.before);
   }
 
   @Get('o/:orgId/integrations/conflicts')
   @RequirePermission('integrations:manage')
-  conflicts(@Tenant() ctx: TenantContext, @Query('status') status?: string, @Query('connectionId') connectionId?: string) {
-    return this.sync.conflicts(ctx, {
-      status: status ? z.enum(['pending', 'kept_local', 'kept_external', 'merged', 'ignored']).parse(status) : undefined,
-      connectionId: connectionId ? z.uuid().parse(connectionId) : undefined,
-    });
+  conflicts(@Tenant() ctx: TenantContext, @Query(zod(conflictsQuery)) q: z.infer<typeof conflictsQuery>) {
+    return this.sync.conflicts(ctx, q);
   }
 
+
+  @HttpCode(200)
   @Post('o/:orgId/integrations/conflicts/:conflictId/resolve')
   @RequirePermission('integrations:manage')
   resolve(@Tenant() ctx: TenantContext, @Param('conflictId', ParseUUIDPipe) id: string, @Body(zod(resolveIntegrationConflict)) body: z.infer<typeof resolveIntegrationConflict>) {

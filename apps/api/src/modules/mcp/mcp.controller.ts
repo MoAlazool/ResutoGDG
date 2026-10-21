@@ -82,7 +82,7 @@ export class McpController {
   @Get('approvals')
   @RequirePermission('mcp:approve')
   approvals(@Tenant() ctx: TenantContext, @Query(zod(mcpApprovalsQuery)) q: z.infer<typeof mcpApprovalsQuery>) {
-    return this.exec.listApprovals(ctx, q.status, q.limit);
+    return this.exec.listApprovals(ctx, q.status, q.limit, q.cursor);
   }
 
   @Get('approvals/:approvalId')

@@ -110,7 +110,7 @@ export class WhatsAppSignupService {
       }, verification);
       return { connectionId, existingId: null, channel };
     }, `${ctx.actorType}:${ctx.actorId}`);
-    const channel = out.channel ?? (await this.channels.list(ctx)).items.find((c) => c.id === out.existingId);
+    const channel = out.channel ?? (out.existingId ? await this.channels.find(ctx, out.existingId) : undefined);
     return { connectionId: out.connectionId, channel, registered: !coexistence };
   }
 

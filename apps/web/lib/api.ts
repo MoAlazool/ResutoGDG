@@ -88,7 +88,37 @@ export function noteServerCachePolicy(cacheControl: string | null): void {
 /** Test hook: forget what was learned (a new page load). */
 export const resetServerCachePolicy = () => { serverCachePolicy = 'unknown'; };
 
+/**
+ * Lists the dashboard shows whole (PS-22): the API answers bounded pages (at most 200 rows) and marks such lists with
+ * `X-Resuto-List: full`; api() then follows `nextCursor` and returns every row, as the endpoint did before it was
+ * paginated. Capped so a runaway list can never loop: past the cap the last nextCursor is kept for the caller.
+ */
+export const FULL_LIST_MAX_PAGES = 25;
+
+const withCursor = (path: string, cursor: string) => {
+  const [base, query = ''] = path.split('?', 2);
+  const params = new URLSearchParams(query);
+  params.set('cursor', cursor);
+  return `${base}?${params.toString()}`;
+};
+
 export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise<T> {
+  const first = await apiPage<T>(path, opts);
+  if (!first.fullList) return first.data;
+  const data: any = first.data;
+  if (!data || !Array.isArray(data.items) || typeof data.nextCursor !== 'string') return data as T;
+  const items = [...data.items];
+  let cursor: string | null = data.nextCursor;
+  for (let page = 1; cursor && page < FULL_LIST_MAX_PAGES; page++) {
+    const next: any = (await apiPage(withCursor(path, cursor), opts)).data;
+    if (!next || !Array.isArray(next.items)) break;
+    items.push(...next.items);
+    cursor = typeof next.nextCursor === 'string' && next.nextCursor !== cursor ? next.nextCursor : null;
+  }
+  return { ...data, items, nextCursor: cursor } as T;
+}
+
+async function apiPage<T = any>(path: string, opts: ApiOptions): Promise<{ data: T; fullList: boolean }> {
   const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers };
   if (opts.body !== undefined && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
@@ -124,7 +154,8 @@ export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise
     throw new ApiRequestError(res.status, e.code ?? 'http_error', e.message ?? res.statusText, e.details, e.requestId ?? requestId);
   }
   if (data === undefined) throw new ApiRequestError(res.status, 'bad_response', copy('bad_response', res.status), undefined, requestId);
-  return data as T;
+  const method = opts.method ?? (opts.body !== undefined ? 'POST' : 'GET');
+  return { data: data as T, fullList: method === 'GET' && !/[?&](cursor|limit)=/.test(path) && res.headers.get('x-resuto-list') === 'full' };
 }
 
 /** Stable idempotency key for one user intent (reuse it when retrying that intent). */

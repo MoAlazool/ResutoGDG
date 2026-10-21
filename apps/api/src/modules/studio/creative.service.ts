@@ -6,6 +6,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService } from '../../common/db/db.service';
 import { conflict, DomainError, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { ENV, type Env } from '../../config/env';
 import { PlanLimitsService } from '../billing/plan-limits.service';
 import { recordUsage } from '../intelligence/ai-client.service';
@@ -85,13 +86,14 @@ export class CreativeService {
     });
   }
 
-  async list(ctx: TenantContext, filters: { status?: string; kind?: string; limit?: number }) {
+  async list(ctx: TenantContext, filters: { status?: string; kind?: string; limit: number; cursor?: string }) {
+    const k = keyset(filters.cursor);
     return this.db.scoped(ctx, async (tx) => {
-      const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
       const rows = await tx.query(
-        `select * from creative_assets where org_id = $1 and ($2::text is null or status = $2) and ($3::text is null or kind = $3)
-          order by created_at desc limit $4`, [ctx.orgId, filters.status ?? null, filters.kind ?? null, limit]);
-      return { items: rows.map(toCreative), nextCursor: null };
+        `select *, ${cursorAt('created_at')} as cursor_at from creative_assets
+          where org_id = $1 and ($2::text is null or status = $2) and ($3::text is null or kind = $3) ${k.after('created_at', 'id', 4)}
+          order by created_at desc, id desc limit ${k.fetch(filters.limit)}`, [ctx.orgId, filters.status ?? null, filters.kind ?? null, ...k.params]);
+      return pageOf(rows, filters.limit, (r) => ({ at: r.cursor_at, id: r.id }), toCreative);
     });
   }
 

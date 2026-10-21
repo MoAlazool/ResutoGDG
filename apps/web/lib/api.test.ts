@@ -113,3 +113,37 @@ describe('errorKind', () => {
     expect(errorKind(502)).toBe('server');
   });
 });
+
+describe('api() full lists (PS-22)', () => {
+  const page = (items: number[], nextCursor: string | null, full = true) => new Response(JSON.stringify({ items, nextCursor }), {
+    status: 200, headers: { 'content-type': 'application/json', 'cache-control': 'private, no-store', ...(full ? { 'x-resuto-list': 'full' } : {}) },
+  });
+
+  it('follows nextCursor on lists marked X-Resuto-List: full and returns every row', async () => {
+    const fetch = vi.fn(async (url: string) => {
+      const c = new URL(url).searchParams.get('cursor');
+      return c === null ? page([1, 2], 'c1') : c === 'c1' ? page([3, 4], 'c2') : page([5], null);
+    });
+    vi.stubGlobal('fetch', fetch);
+    expect(await api('/o/1/inventory/items?q=oil')).toEqual({ items: [1, 2, 3, 4, 5], nextCursor: null });
+    expect(fetch.mock.calls.map(([u]) => new URL(u).search)).toEqual(['?q=oil', '?q=oil&cursor=c1', '?q=oil&cursor=c2']);
+  });
+
+  it('returns one page when the list is not marked full, or the caller asked for a page', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => page([1], 'c1', false)));
+    expect(await api('/o/1/orders')).toEqual({ items: [1], nextCursor: 'c1' });
+    const fetch = vi.fn(async () => page([1], 'c1'));
+    vi.stubGlobal('fetch', fetch);
+    expect(await api('/o/1/inventory/items?limit=1')).toEqual({ items: [1], nextCursor: 'c1' });
+    expect(await api('/o/1/inventory/items?cursor=c0')).toEqual({ items: [1], nextCursor: 'c1' });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops at the page cap and on a repeated cursor instead of looping', async () => {
+    const fetch = vi.fn(async () => page([1], 'same'));
+    vi.stubGlobal('fetch', fetch);
+    const r = await api('/o/1/marketing/segments');
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(r).toEqual({ items: [1, 1], nextCursor: null });
+  });
+});

@@ -68,8 +68,8 @@ describe('guest QR flow (session → order → kitchen → bill → close)', () 
     expect(o1.body).toMatchObject({ status: 'placed', totalMinor: 47500, currency: 'EGP' });
     const [order] = await sql('select channel, fulfillment, table_id from orders where id = $1', [o1.body.id]);
     expect(order).toMatchObject({ channel: 'qr', fulfillment: 'dine_in', table_id: tables.G1!.id });
-    // No key → rejected; stale price → 409.
-    expect((await t.http.post('/v1/public/visits/current/orders').set(visitHeader(token)).send({ lines: [burger()] })).status).toBe(422);
+    // No key → rejected as a malformed request (400 since PS-20; it was 422); stale price → 409.
+    expect((await t.http.post('/v1/public/visits/current/orders').set(visitHeader(token)).send({ lines: [burger()] })).status).toBe(400);
     const stale = await t.http.post('/v1/public/visits/current/orders').set(visitHeader(token)).set('Idempotency-Key', key())
       .send({ lines: [{ productId: menu.products.soda, quantity: 1 }], expectedTotalMinor: 1 });
     expect(stale.status).toBe(409);

@@ -10,6 +10,7 @@ import { DbService, type Tx } from '../../../common/db/db.service';
 import { conflict, DomainError, invalid, notFound } from '../../../common/errors/domain-error';
 import { Scheduled } from '../../../common/events/events';
 import { AuditService } from '../../../common/platform/audit.service';
+import { cursorAt, keyset, pageOf } from '../../../common/http/pagination';
 import { StorageService } from '../../../common/storage/storage.service';
 import { ENV, type Env } from '../../../config/env';
 import { csvToRows, previewRows } from '../../menu/menu-import';
@@ -118,11 +119,13 @@ export class MenuExtractionService {
   // Read / edit / discard
   // ---------------------------------------------------------------------------
 
-  async list(ctx: TenantContext, limit = 20) {
+  async list(ctx: TenantContext, q: { limit: number; cursor?: string } = { limit: 20 }) {
+    const k = keyset(q.cursor);
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select * from menu_extraction_jobs where org_id = $1 and status <> 'discarded' order by created_at desc limit $2`, [ctx.orgId, Math.min(Math.max(limit, 1), 50)]);
-      return { items: rows.map((r) => this.toJob(r, [])) };
+        `select *, ${cursorAt('created_at')} as cursor_at from menu_extraction_jobs where org_id = $1 and status <> 'discarded' ${k.after('created_at', 'id', 2)}
+          order by created_at desc, id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, ...k.params]);
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => this.toJob(r, []));
     });
   }
 

@@ -5,6 +5,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { branchScope, cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { PaymentProvidersService } from './providers.service';
 import { iso, SETTLED } from './util';
 
@@ -178,10 +179,13 @@ export class ReconciliationService {
       source: r.source, totals: r.totals, createdBy: r.created_by, createdAt: iso(r.created_at), completedAt: iso(r.completed_at) };
   }
 
-  async listRuns(ctx: TenantContext, limit = 50) {
+  async listRuns(ctx: TenantContext, q: { limit: number; cursor?: string } = { limit: 50 }) {
+    const k = keyset(q.cursor);
     return this.db.scoped(ctx, async (tx) => {
-      const rows = await tx.query<any>('select * from reconciliation_runs where org_id = $1 order by created_at desc limit $2', [ctx.orgId, Math.min(limit, 200)]);
-      return { items: rows.map((r) => this.toRun(r)), nextCursor: null };
+      const rows = await tx.query<any>(
+        `select *, ${cursorAt('created_at')} as cursor_at from reconciliation_runs where org_id = $1 and ${branchScope('branch_id', 2)} ${k.after('created_at', 'id', 3)}
+          order by created_at desc, id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, ctx.branchFilter, ...k.params]);
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => this.toRun(r));
     });
   }
 

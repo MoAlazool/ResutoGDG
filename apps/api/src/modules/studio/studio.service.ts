@@ -4,6 +4,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { MediaUrls, StorageService } from '../../common/storage/storage.service';
@@ -126,19 +127,18 @@ export class StudioService {
     });
   }
 
-  async revisions(ctx: TenantContext) {
+  async revisions(ctx: TenantContext, q: { limit: number; cursor?: string } = { limit: 50 }) {
+    // Revision numbers are unique per website: the number is both the sort key and the tie-break.
+    const k = keyset(q.cursor, { atType: 'int', idType: 'text' });
     return this.db.scoped(ctx, async (tx) => {
       const site = await this.site(tx, ctx);
       const rows = await tx.query<any>(
         `select r.revision, r.note, r.published_at, r.published_by, p.full_name, p.email,
                 jsonb_array_length(r.snapshot->'sections') as section_count
            from website_revisions r left join profiles p on p.id = r.published_by
-          where r.website_id = $1 order by r.revision desc limit 50`, [site.id]);
-      return {
-        items: rows.map((r) => ({ revision: r.revision, note: r.note, publishedAt: new Date(r.published_at).toISOString(),
-          publishedBy: r.full_name ?? r.email ?? null, sectionCount: r.section_count })),
-        nextCursor: null,
-      };
+          where r.website_id = $1 ${k.after('r.revision', 'r.revision::text', 2)} order by r.revision desc limit ${k.fetch(q.limit)}`, [site.id, ...k.params]);
+      return pageOf(rows, q.limit, (r) => ({ at: Number(r.revision), id: String(r.revision) }), (r) => ({ revision: r.revision, note: r.note,
+        publishedAt: new Date(r.published_at).toISOString(), publishedBy: r.full_name ?? r.email ?? null, sectionCount: r.section_count }));
     });
   }
 
@@ -173,16 +173,19 @@ export class StudioService {
   }
 
   // --- Media library -------------------------------------------------------------
-  async listMedia(ctx: TenantContext, limit = 100) {
+  async listMedia(ctx: TenantContext, q: { limit: number; cursor?: string } = { limit: 100 }) {
+    const k = keyset(q.cursor);
     // Library thumbnails: the 640 px derivative when there is one, signed in one batch after the transaction (PS-18).
     const urls = this.storage.urls(3600);
     const out = await this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select * from media_assets where org_id = $1 and content_type like 'image/%' and source <> all($3::text[]) order by created_at desc limit $2`,
-        [ctx.orgId, Math.min(limit, 200), PRIVATE_MEDIA_SOURCES]);
+        `select *, ${cursorAt('created_at')} as cursor_at from media_assets
+          where org_id = $1 and content_type like 'image/%' and source <> all($2::text[]) ${k.after('created_at', 'id', 3)}
+          order by created_at desc, id desc limit ${k.fetch(q.limit)}`,
+        [ctx.orgId, PRIVATE_MEDIA_SOURCES, ...k.params]);
       const used = await this.usedMedia(tx, ctx);
-      const items = rows.map((r) => urls.set(toMedia(r, '', used.has(r.id)), 'url', r.path, { fallback: '', variants: r.variants, minWidth: 640 }));
-      return { items, nextCursor: null };
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }),
+        (r) => urls.set(toMedia(r, '', used.has(r.id)), 'url', r.path, { fallback: '', variants: r.variants, minWidth: 640 }));
     });
     await urls.resolve();
     for (const m of out.items) m.url ??= '';

@@ -89,7 +89,8 @@ export const movementListQuery = z.object({
   from: isoDate.optional(),
   to: isoDate.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  cursor: z.string().regex(/^\d+$/).optional(),
+  /** The previous page's nextCursor (opaque; a bare numeric id from older clients is still accepted). */
+  cursor: z.string().min(1).max(500).optional(),
 });
 
 export const wasteReportQuery = z.object({ from: isoDate, to: isoDate, branchId: uuid.optional() });

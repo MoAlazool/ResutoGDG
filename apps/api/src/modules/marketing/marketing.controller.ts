@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Headers, HttpCode, Inject, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import {
-  adInsightsSync, CAMPAIGN_STATUSES, campaignInput, campaignUpdate, launchCampaign, promotionInput, promotionUpdate, rejectCampaign, resetCampaignLaunch, scheduleCampaign, segmentInput,
+  adInsightsSync, CAMPAIGN_STATUSES, fullListQuery, listQuery, campaignInput, campaignUpdate, launchCampaign, promotionInput, promotionUpdate, rejectCampaign, resetCampaignLaunch, scheduleCampaign, segmentInput,
   metaTrackingContext, segmentPreview, segmentUpdate, trackingLinkInput,
 } from '@resuto/contracts';
 import type { Request } from 'express';
@@ -19,6 +19,9 @@ import { SegmentsService } from './segments.service';
 
 const TRACKING_SINK = z.enum(['meta_capi', 'tiktok_events', 'snap_capi']);
 
+const campaignListQuery = fullListQuery.extend({ status: z.enum(CAMPAIGN_STATUSES).optional() });
+const linkListQuery = fullListQuery.extend({ campaignId: z.uuid().optional() });
+
 @Controller('o/:orgId/marketing')
 @RequiresModule('marketing')
 export class MarketingController {
@@ -35,8 +38,10 @@ export class MarketingController {
   // Segments -------------------------------------------------------------------
   @Get('segments')
   @RequirePermission('marketing:read')
-  listSegments(@Tenant() ctx: TenantContext) { return this.segments.list(ctx); }
+  @Header('X-Resuto-List', 'full')
+  listSegments(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) { return this.segments.list(ctx, q); }
 
+  @HttpCode(200)
   @Post('segments/preview')
   @RequirePermission('marketing:read')
   preview(@Tenant() ctx: TenantContext, @Body(zod(segmentPreview)) body: z.infer<typeof segmentPreview>) { return this.segments.preview(ctx, body.definition); }
@@ -61,8 +66,8 @@ export class MarketingController {
 
   @Get('segments/:id/members')
   @RequirePermission('customers:read')
-  members(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query('limit') limit?: string) {
-    return this.segments.members(ctx, id, Math.min(Math.max(Number(limit) || 50, 1), 200));
+  members(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query(zod(listQuery)) q: z.infer<typeof listQuery>) {
+    return this.segments.members(ctx, id, q);
   }
 
   @Delete('segments/:id')
@@ -72,7 +77,8 @@ export class MarketingController {
   // Promotions -----------------------------------------------------------------
   @Get('promotions')
   @RequirePermission('marketing:read')
-  listPromotions(@Tenant() ctx: TenantContext) { return this.promotions.list(ctx); }
+  @Header('X-Resuto-List', 'full')
+  listPromotions(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) { return this.promotions.list(ctx, q); }
 
   @Post('promotions')
   @RequirePermission('marketing:write')
@@ -91,8 +97,9 @@ export class MarketingController {
   // Campaigns ------------------------------------------------------------------
   @Get('campaigns')
   @RequirePermission('marketing:read')
-  listCampaigns(@Tenant() ctx: TenantContext, @Query('status') status?: string) {
-    return this.campaigns.list(ctx, status ? z.enum(CAMPAIGN_STATUSES).parse(status) : undefined);
+  @Header('X-Resuto-List', 'full')
+  listCampaigns(@Tenant() ctx: TenantContext, @Query(zod(campaignListQuery)) q: z.infer<typeof campaignListQuery>) {
+    return this.campaigns.list(ctx, q);
   }
 
   @Post('campaigns')
@@ -163,13 +170,17 @@ export class MarketingController {
 
   @Get('campaigns/:id/deliveries')
   @RequirePermission('marketing:read')
-  deliveries(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.campaigns.deliveries(ctx, id); }
+  @Header('X-Resuto-List', 'full')
+  deliveries(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.campaigns.deliveries(ctx, id, q);
+  }
 
   // Tracking links -------------------------------------------------------------
   @Get('links')
   @RequirePermission('marketing:read')
-  listLinks(@Tenant() ctx: TenantContext, @Query('campaignId') campaignId?: string) {
-    return this.links.list(ctx, this.env.APP_ORIGIN, campaignId ? z.uuid().parse(campaignId) : undefined);
+  @Header('X-Resuto-List', 'full')
+  listLinks(@Tenant() ctx: TenantContext, @Query(zod(linkListQuery)) q: z.infer<typeof linkListQuery>) {
+    return this.links.list(ctx, this.env.APP_ORIGIN, q);
   }
 
   @Post('links')

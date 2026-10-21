@@ -378,7 +378,8 @@ export class DeliveryService {
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query(
         `${DRIVER_SELECT} where d.org_id = $1 and ($2::uuid[] is null or d.branch_ids is null or d.branch_ids && $2)
-            and ($3 or d.status <> 'suspended') order by d.status, d.display_name`, [ctx.orgId, ctx.branchFilter, !!opts.includeSuspended]);
+            and ($3 or d.status <> 'suspended') order by d.status, d.display_name, d.id limit 500`, [ctx.orgId, ctx.branchFilter, !!opts.includeSuspended]);
+      // Bounded roster (PS-22): the dispatcher shows every driver at once; 500 is the enforced ceiling.
       return { items: rows.map(toDriverView) };
     });
   }

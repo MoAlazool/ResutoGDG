@@ -5,6 +5,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { branchScope, cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { PaymentLedgerService, type PaymentMethod } from '../kernel/payment-ledger.service';
 import { BillsService } from './bills.service';
@@ -169,14 +170,18 @@ export class StaffPaymentsService {
     };
   }
 
-  async listLinks(ctx: TenantContext, q: { status?: string; limit?: number }) {
+  async listLinks(ctx: TenantContext, q: { status?: string; limit: number; cursor?: string }) {
+    const k = keyset(q.cursor);
     return this.db.scoped(ctx, async (tx) => {
+      // Branch scope is part of the query (before the limit), so a page is never short because rows were dropped after it.
       const rows = await tx.query<any>(
         `select id, branch_id, purpose, order_id, visit_id, share_id, reservation_id, amount_minor, currency, description, allowed_methods, status, channel,
-                expires_at, paid_at, created_at, created_by, is_test from checkout_sessions
-          where org_id = $1 and ($2::text is null or status = $2) order by created_at desc limit $3`, [ctx.orgId, q.status ?? null, Math.min(q.limit ?? 50, 200)]);
-      const sealed = await this.sealed(ctx.orgId, rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => r.id));
-      return { items: rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => this.linkView(ctx.orgId, r, sealed)), nextCursor: null };
+                expires_at, paid_at, created_at, created_by, is_test, ${cursorAt('created_at')} as cursor_at from checkout_sessions
+          where org_id = $1 and ($2::text is null or status = $2) and ${branchScope('branch_id', 3)} ${k.after('created_at', 'id', 4)}
+          order by created_at desc, id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, q.status ?? null, ctx.branchFilter, ...k.params]);
+      const page = rows.slice(0, q.limit);
+      const sealed = await this.sealed(ctx.orgId, page.map((r) => r.id));
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => this.linkView(ctx.orgId, r, sealed));
     });
   }
 
@@ -250,12 +255,14 @@ export class StaffPaymentsService {
     });
   }
 
-  async listRefunds(ctx: TenantContext, q: { status?: string; limit?: number }) {
+  async listRefunds(ctx: TenantContext, q: { status?: string; limit: number; cursor?: string }) {
+    const k = keyset(q.cursor);
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select r.*, p.method, p.currency, p.branch_id from refunds r join payments p on p.id = r.payment_id
-          where r.org_id = $1 and ($2::text is null or r.status = $2) order by r.created_at desc limit $3`, [ctx.orgId, q.status ?? null, Math.min(q.limit ?? 50, 200)]);
-      return { items: rows.filter((r) => ctx.canAccessBranch(r.branch_id)).map((r) => ({ ...toRefund(r), method: r.method, currency: r.currency })), nextCursor: null };
+        `select r.*, p.method, p.currency, p.branch_id, ${cursorAt('r.created_at')} as cursor_at from refunds r join payments p on p.id = r.payment_id
+          where r.org_id = $1 and ($2::text is null or r.status = $2) and ${branchScope('p.branch_id', 3)} ${k.after('r.created_at', 'r.id', 4)}
+          order by r.created_at desc, r.id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, q.status ?? null, ctx.branchFilter, ...k.params]);
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => ({ ...toRefund(r), method: r.method, currency: r.currency }));
     });
   }
 
@@ -269,12 +276,15 @@ export class StaffPaymentsService {
   }
 
   // ---------------------------------------------------------------------------
-  async alerts(ctx: TenantContext, status: 'open' | 'resolved' | 'all' = 'open') {
+  async alerts(ctx: TenantContext, q: { status: 'open' | 'resolved' | 'all'; limit: number; cursor?: string }) {
+    const k = keyset(q.cursor);
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select * from payment_alerts where org_id = $1 and ($2 = 'all' or status = $2) order by created_at desc limit 200`, [ctx.orgId, status]);
-      return { items: rows.map((a) => ({ id: a.id, kind: a.kind, branchId: a.branch_id, paymentId: a.payment_id, checkoutSessionId: a.checkout_session_id,
-        provider: a.provider, details: a.details, status: a.status, createdAt: iso(a.created_at), resolvedAt: iso(a.resolved_at) })), nextCursor: null };
+        `select *, ${cursorAt('created_at')} as cursor_at from payment_alerts
+          where org_id = $1 and ($2 = 'all' or status = $2) and ${branchScope('branch_id', 3)} ${k.after('created_at', 'id', 4)}
+          order by created_at desc, id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, q.status, ctx.branchFilter, ...k.params]);
+      return pageOf(rows, q.limit, (a) => ({ at: a.cursor_at, id: a.id }), (a) => ({ id: a.id, kind: a.kind, branchId: a.branch_id, paymentId: a.payment_id,
+        checkoutSessionId: a.checkout_session_id, provider: a.provider, details: a.details, status: a.status, createdAt: iso(a.created_at), resolvedAt: iso(a.resolved_at) }));
     });
   }
 

@@ -8,9 +8,10 @@ import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { cursorAt, idKeyset, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
 import { branchScope, int, iso, num, TZ } from '../analytics/scope';
-import type { inventoryItemUpdate, movementListQuery, stocktakeInput, supplierUpdate, wasteReportQuery } from '@resuto/contracts';
+import type { ListQuery, inventoryItemUpdate, movementListQuery, stocktakeInput, supplierUpdate, wasteReportQuery } from '@resuto/contracts';
 import { StockAlertsService } from './stock-alerts.service';
 import { escapeLike } from '../mcp/mcp.util';
 
@@ -26,10 +27,13 @@ export class InventoryService {
   // -------------------------------------------------------------------------
   // Suppliers
   // -------------------------------------------------------------------------
-  async listSuppliers(tx: Tx, ctx: TenantContext) {
-    const rows = await tx.query(`select s.*, (select count(*)::int from inventory_items i where i.supplier_id = s.id and i.is_active) as item_count
-                                   from suppliers s where s.org_id = $1 order by lower(s.name)`, [ctx.orgId]);
-    return { items: rows.map(mapSupplier), nextCursor: null };
+  async listSuppliers(tx: Tx, ctx: TenantContext, page: ListQuery) {
+    const k = keyset(page.cursor, { atType: 'text', direction: 'asc' });
+    const rows = await tx.query(`select s.*, lower(s.name) as sort_key,
+                                        (select count(*)::int from inventory_items i where i.supplier_id = s.id and i.is_active) as item_count
+                                   from suppliers s where s.org_id = $1 ${k.after('lower(s.name)', 's.id', 2)}
+                                  order by lower(s.name), s.id limit ${k.fetch(page.limit)}`, [ctx.orgId, ...k.params]);
+    return pageOf(rows, page.limit, (r) => ({ at: r.sort_key, id: r.id }), mapSupplier);
   }
 
   async createSupplier(tx: Tx, ctx: TenantContext, input: SupplierInput) {
@@ -54,15 +58,18 @@ export class InventoryService {
   // -------------------------------------------------------------------------
   // Items
   // -------------------------------------------------------------------------
-  async listItems(tx: Tx, ctx: TenantContext, opts: { includeArchived?: boolean; q?: string }) {
+  async listItems(tx: Tx, ctx: TenantContext, opts: { includeArchived?: boolean; q?: string } & ListQuery) {
     const scope = branchScope(ctx);
+    const k = keyset(opts.cursor, { atType: 'text', direction: 'asc' });
     const rows = await tx.query(
-      `select i.*, s.name as supplier_name,
+      `select i.*, s.name as supplier_name, lower(i.name) as sort_key,
               coalesce((select sum(sl.quantity) from stock_levels sl where sl.item_id = i.id and ($3::uuid[] is null or sl.branch_id = any($3))), 0) as total_quantity
          from inventory_items i left join suppliers s on s.id = i.supplier_id
         where i.org_id = $1 and ($2 or i.is_active) and ($4::text is null or i.name ilike '%' || $4 || '%' or i.name_ar ilike '%' || $4 || '%' or i.sku ilike $4 || '%')
-        order by lower(i.name)`, [ctx.orgId, !!opts.includeArchived, scope, opts.q?.trim() ? escapeLike(opts.q.trim()) : null]);
-    return { items: rows.map(mapItem), nextCursor: null };
+          ${k.after('lower(i.name)', 'i.id', 5)}
+        order by lower(i.name), i.id limit ${k.fetch(opts.limit)}`,
+      [ctx.orgId, !!opts.includeArchived, scope, opts.q?.trim() ? escapeLike(opts.q.trim()) : null, ...k.params]);
+    return pageOf(rows, opts.limit, (r) => ({ at: r.sort_key, id: r.id }), mapItem);
   }
 
   async createItem(tx: Tx, ctx: TenantContext, input: InventoryItemInput) {
@@ -98,29 +105,32 @@ export class InventoryService {
   // -------------------------------------------------------------------------
   // Levels, valuation, alerts
   // -------------------------------------------------------------------------
-  async levels(tx: Tx, ctx: TenantContext, branchId?: string): Promise<{ items: StockLevelView[]; nextCursor: null }> {
+  async levels(tx: Tx, ctx: TenantContext, branchId: string | undefined, page: ListQuery): Promise<{ items: StockLevelView[]; nextCursor: string | null }> {
     const scope = branchScope(ctx, branchId);
+    // One row per (branch, item): the sort key is branch name then item name; the row id is branch:item.
+    const sortKey = `lower(b.name) || '|' || lower(i.name)`;
+    const rowId = `b.id::text || ':' || i.id::text`;
+    const k = keyset(page.cursor, { atType: 'text', idType: 'text', direction: 'asc' });
     const rows = await tx.query(
       `select i.id as item_id, i.name, i.name_ar, i.unit, i.reorder_level, i.cost_per_unit_minor, b.id as branch_id,
-              coalesce(sl.quantity, 0) as quantity,
+              coalesce(sl.quantity, 0) as quantity, ${sortKey} as sort_key, ${rowId} as row_id,
               (select max(c.created_at) from stock_counts c where c.branch_id = b.id and c.item_id = i.id) as last_counted_at
          from inventory_items i
          cross join branches b
          left join stock_levels sl on sl.item_id = i.id and sl.branch_id = b.id
         where i.org_id = $1 and b.org_id = $1 and i.is_active and b.is_active and ($2::uuid[] is null or b.id = any($2))
-        order by b.name, lower(i.name)`, [ctx.orgId, scope]);
-    return {
-      items: rows.map((r) => {
+          ${k.after(sortKey, rowId, 3)}
+        order by ${sortKey}, ${rowId} limit ${k.fetch(page.limit)}`, [ctx.orgId, scope, ...k.params]);
+    return pageOf(rows, page.limit, (r) => ({ at: r.sort_key, id: r.row_id }), (r) => {
         const quantity = num(r.quantity);
         const reorderLevel = num(r.reorder_level);
-        return {
+        const level: StockLevelView = {
           itemId: r.item_id, name: r.name, nameAr: r.name_ar, unit: r.unit, branchId: r.branch_id, quantity, reorderLevel,
           costPerUnitMinor: r.cost_per_unit_minor, valueMinor: Math.round(Math.max(quantity, 0) * r.cost_per_unit_minor),
           low: reorderLevel > 0 && quantity <= reorderLevel, lastCountedAt: iso(r.last_counted_at),
         };
-      }),
-      nextCursor: null,
-    };
+        return level;
+      });
   }
 
   async valuation(tx: Tx, ctx: TenantContext, branchId?: string) {
@@ -154,22 +164,20 @@ export class InventoryService {
     };
   }
 
-  async openAlerts(tx: Tx, ctx: TenantContext, branchId?: string) {
+  async openAlerts(tx: Tx, ctx: TenantContext, branchId: string | undefined, page: ListQuery) {
     const scope = branchScope(ctx, branchId);
+    const k = keyset(page.cursor);
     const rows = await tx.query(
       `select a.id, a.branch_id, a.item_id, a.quantity_at_open, a.reorder_level, a.opened_at, i.name, i.name_ar, i.unit,
-              coalesce(sl.quantity, 0) as quantity, s.name as supplier_name, s.phone as supplier_phone
+              coalesce(sl.quantity, 0) as quantity, s.name as supplier_name, s.phone as supplier_phone, ${cursorAt('a.opened_at')} as cursor_at
          from stock_alerts a join inventory_items i on i.id = a.item_id
          left join stock_levels sl on sl.branch_id = a.branch_id and sl.item_id = a.item_id
          left join suppliers s on s.id = i.supplier_id
-        where a.org_id = $1 and a.status = 'open' and ($2::uuid[] is null or a.branch_id = any($2))
-        order by a.opened_at desc limit 200`, [ctx.orgId, scope]);
-    return {
-      items: rows.map((r) => ({ id: r.id, branchId: r.branch_id, itemId: r.item_id, name: r.name, nameAr: r.name_ar, unit: r.unit,
-        quantity: num(r.quantity), quantityAtOpen: num(r.quantity_at_open), reorderLevel: num(r.reorder_level), openedAt: iso(r.opened_at),
-        supplierName: r.supplier_name, supplierPhone: r.supplier_phone })),
-      nextCursor: null,
-    };
+        where a.org_id = $1 and a.status = 'open' and ($2::uuid[] is null or a.branch_id = any($2)) ${k.after('a.opened_at', 'a.id', 3)}
+        order by a.opened_at desc, a.id desc limit ${k.fetch(page.limit)}`, [ctx.orgId, scope, ...k.params]);
+    return pageOf(rows, page.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => ({ id: r.id, branchId: r.branch_id, itemId: r.item_id,
+      name: r.name, nameAr: r.name_ar, unit: r.unit, quantity: num(r.quantity), quantityAtOpen: num(r.quantity_at_open),
+      reorderLevel: num(r.reorder_level), openedAt: iso(r.opened_at), supplierName: r.supplier_name, supplierPhone: r.supplier_phone }));
   }
 
   // -------------------------------------------------------------------------
@@ -266,38 +274,37 @@ export class InventoryService {
 
   async listMovements(tx: Tx, ctx: TenantContext, q: z.infer<typeof movementListQuery>) {
     const scope = branchScope(ctx, q.branchId);
+    const k = idKeyset(q.cursor);
     const rows = await tx.query(
       `select m.*, i.name as item_name, i.unit from stock_movements m
          join inventory_items i on i.id = m.item_id
          join branches b on b.id = m.branch_id join organizations o on o.id = m.org_id
         where m.org_id = $1 and ($2::uuid[] is null or m.branch_id = any($2)) and ($3::uuid is null or m.item_id = $3)
           and ($4::text is null or m.reason = $4) and ($5::date is null or (m.created_at at time zone ${TZ})::date >= $5)
-          and ($6::date is null or (m.created_at at time zone ${TZ})::date <= $6) and ($7::bigint is null or m.id < $7)
-        order by m.id desc limit $8`,
-      [ctx.orgId, scope, q.itemId ?? null, q.reason ?? null, q.from ?? null, q.to ?? null, q.cursor ? Number(q.cursor) : null, q.limit]);
-    const items: StockMovementView[] = rows.map((r) => ({
+          and ($6::date is null or (m.created_at at time zone ${TZ})::date <= $6) ${k.after('m.id', 7)}
+        order by m.id desc limit ${k.fetch(q.limit)}`,
+      [ctx.orgId, scope, q.itemId ?? null, q.reason ?? null, q.from ?? null, q.to ?? null, ...k.params]);
+    return pageOf(rows, q.limit, (r) => ({ at: Number(r.id), id: String(r.id) }), (r): StockMovementView => ({
       id: String(r.id), branchId: r.branch_id, itemId: r.item_id, itemName: r.item_name, unit: r.unit, quantityDelta: num(r.quantity_delta),
       reason: r.reason, wasteReason: r.waste_reason, unitCostMinor: r.unit_cost_minor, referenceType: r.reference_type,
       referenceId: r.reference_id, note: r.note, actorId: r.actor_id, createdAt: iso(r.created_at)!,
     }));
-    return { items, nextCursor: rows.length === q.limit ? String(rows[rows.length - 1].id) : null };
   }
 
   // -------------------------------------------------------------------------
   // Recipes
   // -------------------------------------------------------------------------
-  async listRecipes(tx: Tx, ctx: TenantContext) {
+  async listRecipes(tx: Tx, ctx: TenantContext, page: ListQuery) {
+    const k = keyset(page.cursor, { atType: 'text', direction: 'asc' });
     const rows = await tx.query(
-      `select p.id, p.name, p.name_ar, p.price_minor, p.cost_minor, p.is_active,
+      `select p.id, p.name, p.name_ar, p.price_minor, p.cost_minor, p.is_active, lower(p.name) as sort_key,
               count(rc.item_id)::int as components,
               coalesce(sum(round(rc.quantity * i.cost_per_unit_minor)), 0)::bigint as recipe_cost_minor
          from products p left join recipe_components rc on rc.product_id = p.id left join inventory_items i on i.id = rc.item_id
-        where p.org_id = $1 and p.is_active group by p.id order by lower(p.name)`, [ctx.orgId]);
-    return {
-      items: rows.map((r) => ({ productId: r.id, name: r.name, nameAr: r.name_ar, priceMinor: r.price_minor, costMinor: r.cost_minor,
-        components: r.components, recipeCostMinor: r.components ? int(r.recipe_cost_minor) : null })),
-      nextCursor: null,
-    };
+        where p.org_id = $1 and p.is_active ${k.after('lower(p.name)', 'p.id', 2)}
+        group by p.id order by lower(p.name), p.id limit ${k.fetch(page.limit)}`, [ctx.orgId, ...k.params]);
+    return pageOf(rows, page.limit, (r) => ({ at: r.sort_key, id: r.id }), (r) => ({ productId: r.id, name: r.name, nameAr: r.name_ar,
+      priceMinor: r.price_minor, costMinor: r.cost_minor, components: r.components, recipeCostMinor: r.components ? int(r.recipe_cost_minor) : null }));
   }
 
   async getRecipe(tx: Tx, ctx: TenantContext, productId: string) {

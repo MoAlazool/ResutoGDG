@@ -8,6 +8,7 @@ import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
 import { Scheduled } from '../../common/events/events';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
@@ -99,12 +100,12 @@ export class CampaignsService implements CampaignsPort {
     });
   }
 
-  list(ctx: TenantContext, status?: string) {
-    return this.db.scoped(ctx, async (tx) => ({
-      items: (await tx.query(`select * from campaigns where org_id = $1 and ($2::campaign_status is null or status = $2) order by created_at desc limit 200`,
-        [ctx.orgId, status ?? null])).map(campaignView),
-      nextCursor: null,
-    }));
+  list(ctx: TenantContext, q: { status?: string; limit: number; cursor?: string }) {
+    const k = keyset(q.cursor);
+    return this.db.scoped(ctx, async (tx) => pageOf(await tx.query(
+      `select *, ${cursorAt('created_at')} as cursor_at from campaigns where org_id = $1 and ($2::campaign_status is null or status = $2)
+         ${k.after('created_at', 'id', 3)} order by created_at desc, id desc limit ${k.fetch(q.limit)}`,
+      [ctx.orgId, q.status ?? null, ...k.params]), q.limit, (r) => ({ at: r.cursor_at, id: r.id }), campaignView));
   }
 
   get(ctx: TenantContext, id: string) {
@@ -615,12 +616,17 @@ export class CampaignsService implements CampaignsPort {
     });
   }
 
-  deliveries(ctx: TenantContext, id: string) {
+  deliveries(ctx: TenantContext, id: string, q: { limit: number; cursor?: string }) {
+    // Latest sends first; not yet sent (null) last, as before; ties on the delivery id.
+    const sent = `coalesce(d.sent_at, 'epoch'::timestamptz)`;
+    const k = keyset(q.cursor);
     return this.db.scoped(ctx, async (tx) => {
       await this.row(tx, ctx, id);
-      const rows = await tx.query(`select d.id, d.customer_id, c.display_name, d.status, d.error, d.sent_at, d.message_id from campaign_deliveries d
-          join customers c on c.id = d.customer_id where d.campaign_id = $1 order by d.sent_at desc nulls last limit 500`, [id]);
-      return { items: rows.map((r) => ({ id: r.id, customerId: r.customer_id, name: r.display_name, status: r.status, error: r.error, sentAt: iso(r.sent_at), messageId: r.message_id })), nextCursor: null };
+      const rows = await tx.query(`select d.id, d.customer_id, c.display_name, d.status, d.error, d.sent_at, d.message_id, ${cursorAt(sent)} as cursor_at
+           from campaign_deliveries d join customers c on c.id = d.customer_id
+          where d.campaign_id = $1 ${k.after(sent, 'd.id', 2)} order by ${sent} desc, d.id desc limit ${k.fetch(q.limit)}`, [id, ...k.params]);
+      return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => ({ id: r.id, customerId: r.customer_id, name: r.display_name,
+        status: r.status, error: r.error, sentAt: iso(r.sent_at), messageId: r.message_id }));
     });
   }
 }

@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
-  commitExtraction, createTextExtraction, EXTRACTION_MAX_FILE_BYTES, updateExtractionDraft,
+  commitExtraction, createTextExtraction, EXTRACTION_MAX_FILE_BYTES, listQueryOf, updateExtractionDraft,
   type CommitExtraction, type CreateTextExtraction, type UpdateExtractionDraft,
 } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
@@ -9,6 +9,10 @@ import { RequirePermission, Tenant } from '../../common/auth/decorators';
 import { zod } from '../../common/http/zod.pipe';
 import { StudioAiService } from './ai/studio-ai.service';
 import { MenuExtractionService } from './menu-extraction/menu-extraction.service';
+
+import { z } from 'zod';
+
+const jobsQuery = listQueryOf({ defaultLimit: 20, maxLimit: 50 });
 
 interface UploadedFileLike { buffer: Buffer; mimetype: string; size: number; originalname: string }
 const uuid = new ParseUUIDPipe();
@@ -29,8 +33,8 @@ export class StudioAiController {
 
   @Get('menu-import/jobs')
   @RequirePermission('menu:write')
-  list(@Tenant() ctx: TenantContext, @Query('limit') limit?: string) {
-    return this.extraction.list(ctx, Number(limit) || 20);
+  list(@Tenant() ctx: TenantContext, @Query(zod(jobsQuery)) q: z.infer<typeof jobsQuery>) {
+    return this.extraction.list(ctx, q);
   }
 
   @Post('menu-import/jobs/text')

@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import {
-  connectSandboxInbound, createMessagingChannel, inboxAssignConversation, inboxConversationFilters, inboxHandoffRequest, inboxStaffReply,
+  connectSandboxInbound, createMessagingChannel, fullListQuery, inboxAssignConversation, inboxConversationFilters, inboxHandoffRequest, inboxStaffReply,
   messageTemplateInput, messageTemplateUpdate, updateMessagingChannel, whatsappEmbeddedSignup,
 } from '@resuto/contracts';
 import { z } from 'zod';
@@ -30,8 +30,9 @@ export class ConnectController {
   // Channels -----------------------------------------------------------------
   @Get('channels')
   @RequirePermission('connect:read')
-  listChannels(@Tenant() ctx: TenantContext) {
-    return this.channels.list(ctx);
+  @Header('X-Resuto-List', 'full')
+  listChannels(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.channels.list(ctx, q);
   }
 
   @Post('channels')
@@ -163,8 +164,9 @@ export class ConnectController {
   // Templates ------------------------------------------------------------------
   @Get('templates')
   @RequirePermission('connect:read')
-  templates(@Tenant() ctx: TenantContext) {
-    return this.channels.listTemplates(ctx);
+  @Header('X-Resuto-List', 'full')
+  templates(@Tenant() ctx: TenantContext, @Query(zod(fullListQuery)) q: z.infer<typeof fullListQuery>) {
+    return this.channels.listTemplates(ctx, q);
   }
 
   @Post('templates')

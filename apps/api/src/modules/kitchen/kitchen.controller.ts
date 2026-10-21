@@ -6,6 +6,9 @@ import { RequirePermission, Tenant } from '../../common/auth/decorators';
 import { zod } from '../../common/http/zod.pipe';
 import { KitchenService } from './kitchen.service';
 
+/** PS-21: validated by the pipe, so a bad value names its field (details.path "days"). */
+const prepTimesQuery = z.object({ days: z.coerce.number().int().min(1).max(90).default(7) });
+
 const uuidPipe = new ParseUUIDPipe();
 const feedQuery = z.object({ station: z.string().trim().min(1).max(40).optional(), since: z.string().max(24).optional() });
 
@@ -15,8 +18,8 @@ export class KitchenController {
 
   @Get(':branchId/prep-times')
   @RequirePermission('kitchen:operate')
-  prepTimes(@Tenant() ctx: TenantContext, @Param('branchId', uuidPipe) branchId: string, @Query('days') days?: string) {
-    return this.kitchen.prepTimes(ctx, branchId, z.coerce.number().int().min(1).max(90).default(7).parse(days ?? undefined));
+  prepTimes(@Tenant() ctx: TenantContext, @Param('branchId', uuidPipe) branchId: string, @Query(zod(prepTimesQuery)) q: z.infer<typeof prepTimesQuery>) {
+    return this.kitchen.prepTimes(ctx, branchId, q.days);
   }
 
   /** KDS feed. Poll every ~2 s with `since=<cursor>`; `unchanged: true` means nothing moved. */

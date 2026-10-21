@@ -4,6 +4,7 @@ import {
   type SalesInquiryInput, type SalesInquiryListQuery, type SalesInquiryReceipt, type SalesInquiryView,
 } from '@resuto/contracts';
 import { DbService } from '../../common/db/db.service';
+import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { conflict, DomainError } from '../../common/errors/domain-error';
 
 /** At most this many inquiries per email address per rolling day (shared across API instances, unlike the IP limiter). */
@@ -62,10 +63,12 @@ export class SalesInquiriesService {
     }, 'public:sales-inquiry');
   }
 
-  async list(q: SalesInquiryListQuery): Promise<{ items: SalesInquiryView[] }> {
-    const rows = await this.db.withPlatform((tx) => tx.query<Row>(
-      `select * from sales_inquiries where ($1::text is null or status = $1) order by created_at desc limit $2`,
-      [q.status ?? null, q.limit]));
-    return { items: rows.map(view) };
+  async list(q: SalesInquiryListQuery): Promise<{ items: SalesInquiryView[]; nextCursor: string | null }> {
+    const k = keyset(q.cursor);
+    const rows = await this.db.withPlatform((tx) => tx.query<Row & { cursor_at: string }>(
+      `select *, ${cursorAt('created_at')} as cursor_at from sales_inquiries where ($1::text is null or status = $1) ${k.after('created_at', 'id', 2)}
+        order by created_at desc, id desc limit ${k.fetch(q.limit)}`,
+      [q.status ?? null, ...k.params]));
+    return pageOf(rows, q.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => view(r));
   }
 }
