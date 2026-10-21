@@ -76,6 +76,16 @@ describe('role-aware landing (VS-05)', () => {
     expect(homePath('marketing', 'o1')).toBe('/dashboard/o1');
     expect(homePath('something-new', 'o1')).toBe('/dashboard/o1');
   });
+
+  it('opens the kitchen display inside the workspace for managers, full screen for the kitchen team (PAR-05)', async () => {
+    const { kitchenDisplayPath } = await import('./home-path');
+    expect(kitchenDisplayPath('owner', 'o1')).toBe('/dashboard/o1/kitchen');
+    expect(kitchenDisplayPath('manager', 'o1')).toBe('/dashboard/o1/kitchen');
+    expect(kitchenDisplayPath('kitchen', 'o1')).toBe('/kitchen/o1');
+    // The workspace's "Full screen" button keeps the dedicated wall screen for anyone.
+    expect(kitchenDisplayPath('manager', 'o1', { full: true })).toBe('/kitchen/o1?display=full');
+    expect(kitchenDisplayPath('kitchen', 'o1', { full: true })).toBe('/kitchen/o1?display=full');
+  });
 });
 
 describe('service model drives the navigation (VS-16)', () => {
