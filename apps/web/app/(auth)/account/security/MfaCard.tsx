@@ -109,7 +109,7 @@ export function MfaCard() {
             <p className="fine" style={{ margin: 0 }}>{t('auth.mfa.scan')}</p>
             <img src={enrol.qrCode} alt={t('auth.mfa.qrAlt')} width={180} height={180}
               style={{ background: 'var(--card)', padding: 8, borderRadius: 8, alignSelf: 'center' }} />
-            <div className="fine">{t('auth.mfa.secret')}: <code dir="ltr" style={{ userSelect: 'all', wordBreak: 'break-all' }}>{groupSecret(enrol.secret)}</code></div>
+            <div className="fine">{t('auth.mfa.secret')}: <code dir="ltr" style={{ userSelect: 'all', wordBreak: 'normal', overflowWrap: 'normal' }}>{groupSecret(enrol.secret)}</code></div>
             <p className="fine" style={{ margin: 0 }}>{t('auth.mfa.enterFirst')}</p>
             <Field label={t('auth.mfa.code')} name="code" required inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={9} />
             <div className="row" style={{ gap: 8 }}>

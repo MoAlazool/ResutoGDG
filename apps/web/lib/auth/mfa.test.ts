@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { authErrorCode } from '../auth-errors';
 import {
-  assuranceOf, groupSecret, listTotp, normalizeTotpCode, removeTotp, startTotpEnrolment, verifySignInCode, verifyTotp,
+  assuranceOf, groupSecret, qrImageSrc, listTotp, normalizeTotpCode, removeTotp, startTotpEnrolment, verifySignInCode, verifyTotp,
   type MfaClient, type MfaFactor,
 } from './mfa';
 import { fakeJwt } from './test-dom';
@@ -57,6 +57,17 @@ describe('AUTH-02 code input', () => {
     expect(normalizeTotpCode('1234567')).toBeNull();
     expect(normalizeTotpCode('12a456')).toBeNull();
   });
+  it('re-encodes the raw SVG QR code so colours (#) do not cut the data URL (browser proof showed a broken image)', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><path fill="#000000" d="M0 0h1"/></svg>';
+    const src = qrImageSrc(`data:image/svg+xml;utf-8,${svg}`);
+    expect(src.startsWith('data:image/svg+xml;charset=utf-8,')).toBe(true);
+    expect(src).not.toContain('#');
+    expect(decodeURIComponent(src.slice(src.indexOf(',') + 1))).toBe(svg);
+    expect(qrImageSrc(svg)).toBe(src);
+    expect(qrImageSrc('data:image/png;base64,AAAA')).toBe('data:image/png;base64,AAAA');
+    expect(qrImageSrc('data:image/svg+xml;utf-8,%3Csvg%2F%3E')).toBe('data:image/svg+xml;utf-8,%3Csvg%2F%3E');
+  });
+
   it('groups the setup key for typing', () => {
     expect(groupSecret('JBSWY3DPEHPK3PXP')).toBe('JBSW Y3DP EHPK 3PXP');
   });
@@ -74,7 +85,7 @@ describe('AUTH-02 enrolment, verification and removal with a mocked Supabase cli
     const { client, calls } = mockClient([factor('old', 'unverified'), factor('a', 'verified')]);
     const e = await startTotpEnrolment(client, { friendlyName: 'Authenticator 2026-10-21 10:00' });
     expect(calls).toEqual(['list', 'unenroll:old', 'enroll:Authenticator 2026-10-21 10:00:Resuto']);
-    expect(e).toEqual({ factorId: 'new', qrCode: 'data:image/svg+xml;utf-8,<svg/>', secret: 'JBSWY3DPEHPK3PXPJBSWY3DP', uri: 'otpauth://totp/Resuto' });
+    expect(e).toEqual({ factorId: 'new', qrCode: 'data:image/svg+xml;charset=utf-8,%3Csvg%2F%3E', secret: 'JBSWY3DPEHPK3PXPJBSWY3DP', uri: 'otpauth://totp/Resuto' });
   });
 
   it('refuses a malformed code without calling Supabase, and maps a wrong code to a localized error', async () => {

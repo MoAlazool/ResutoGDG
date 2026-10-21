@@ -55,6 +55,18 @@ export function normalizeTotpCode(input: string): string | null {
   return /^\d{6}$/.test(digits) ? digits : null;
 }
 
+/**
+ * Supabase Auth returns the TOTP QR code as raw SVG markup and supabase-js prefixes it with
+ * `data:image/svg+xml;utf-8,` without encoding it, so any `#` in the SVG (colours) ends the data URL and the image
+ * does not render. Re-encode the SVG; already-encoded or other image URLs pass through.
+ */
+export function qrImageSrc(qr: string): string {
+  const m = /^data:image\/svg\+xml;(?:utf-?8|charset=utf-?8),(.*)$/is.exec(qr);
+  if (!m) return qr.trim().startsWith('<svg') ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qr.trim())}` : qr;
+  const body = m[1]!;
+  return body.trim().startsWith('<') ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(body.trim())}` : qr;
+}
+
 /** "ABCD EFGH IJKL ..." for typing the secret by hand. */
 export const groupSecret = (secret: string) => secret.replace(/\s+/g, '').replace(/(.{4})(?=.)/g, '$1 ');
 
@@ -81,7 +93,7 @@ export async function startTotpEnrolment(client: MfaClient, opts: { friendlyName
   for (const f of unverified) await client.auth.mfa.unenroll({ factorId: f.id });
   const { data, error } = await client.auth.mfa.enroll({ factorType: 'totp', friendlyName: opts.friendlyName, issuer: opts.issuer ?? 'Resuto' });
   if (error || !data) fail(error ?? new AuthFlowError('mfa_unavailable'));
-  return { factorId: data!.id, qrCode: data!.totp.qr_code, secret: data!.totp.secret, uri: data!.totp.uri };
+  return { factorId: data!.id, qrCode: qrImageSrc(data!.totp.qr_code), secret: data!.totp.secret, uri: data!.totp.uri };
 }
 
 /** Checks a code for a factor (challenge + verify). On success Supabase Auth replaces the session with an aal2 one. */
