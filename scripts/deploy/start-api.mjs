@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Container entrypoint for hosted API services (Render staging):
-//   1. applies pending migrations from supabase/migrations (scripts/db/migrate.mjs),
+//   1. applies pending migrations from supabase/migrations (scripts/db/migrate.mjs) over MIGRATION_DATABASE_URL when set
+//      (the schema owner), else DATABASE_URL: the API itself may run as the restricted resuto_api role (PS-16),
 //   2. starts the API (dist/main.js) and forwards stop signals to it,
 //   3. with DEMO_SEED_ON_BOOT=1, runs scripts/demo/load-demo-data.mjs once the API is healthy
 //      (the loader refuses production; a completed tenant is refreshed relative to the boot time, see
@@ -10,7 +11,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { migrate } from '../db/migrate.mjs';
+import { migrate, migrationUrl } from '../db/migrate.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const port = process.env.PORT ?? '4000';
@@ -31,8 +32,9 @@ if (process.env.DEMO_SEED_ON_BOOT === '1') {
   };
   if (await healthy()) {
     const args = ['scripts/demo/load-demo-data.mjs', ...(process.env.DEMO_TARGET === 'staging' ? ['--demo-tenant-only'] : [])];
+    // The loader arranges fixtures directly in the database, so it uses the owner connection like migrations do.
     const loader = spawn(process.execPath, args, {
-      cwd: root, stdio: 'inherit', env: { ...process.env, API_URL: `http://127.0.0.1:${port}` },
+      cwd: root, stdio: 'inherit', env: { ...process.env, DATABASE_URL: migrationUrl(), API_URL: `http://127.0.0.1:${port}` },
     });
     loader.on('exit', (code) => console.log(`[demo] loader finished with code ${code}${code === 3 ? ' (another loader run holds the lease; this boot skipped it)' : ''}`));
   } else {

@@ -105,6 +105,20 @@ export const envSchema = z.object({
   ERROR_TRACKING_DSN: z.url().optional(),
   HEALTH_DETAILS_TOKEN: z.string().min(24).optional(),
   LOG_FORMAT: z.enum(['json', 'text']).optional(),
+  /**
+   * Least-privilege database access (PS-16, docs/STAGING_DEPLOYMENT.md). MIGRATION_DATABASE_URL: the schema owner's
+   * connection, used only by scripts/db/migrate.mjs and the demo loader (scripts/deploy/start-api.mjs); unset, they use
+   * DATABASE_URL. DATABASE_URL may then be the restricted `resuto_api` login. DATABASE_PLATFORM_ROLE: the role
+   * cross-tenant platform work runs as (`set local role`); `off` keeps the connection's own role, which only works on an
+   * owner connection and exists as an emergency switch.
+   */
+  MIGRATION_DATABASE_URL: z.string().optional(),
+  DATABASE_PLATFORM_ROLE: z.string().regex(/^(off|[a-z_][a-z0-9_]{0,62})$/, 'a role name or "off"').default('resuto_platform'),
+  /**
+   * Rate-limit counters (PS-13): `memory` (default) counts per API process; `postgres` shares fixed windows across
+   * instances in the rate_limit_windows table, keyed by a hash of the limiter key (client IP after TRUST_PROXY).
+   */
+  RATE_LIMIT_STORE: z.enum(['memory', 'postgres']).default('memory'),
 }).superRefine((env, ctx) => {
   // Deployed environments (staging included) only trust Supabase Auth.
   const deployed = env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';
