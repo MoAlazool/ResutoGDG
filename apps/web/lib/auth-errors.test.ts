@@ -16,6 +16,16 @@ describe('CR-05 auth errors are localised codes', () => {
     expect(authErrorCode(null)).toBeNull();
   });
 
+  it('AUTH-01: maps Supabase weak_password reasons (dashboard character rules, paid-plan leaked-password check)', () => {
+    expect(authErrorCode({ name: 'AuthWeakPasswordError', code: 'weak_password', reasons: ['characters'] })).toBe('weak_password_characters');
+    expect(authErrorCode({ code: 'weak_password', reasons: ['length', 'pwned'] })).toBe('password_breached');
+    expect(authErrorCode({ code: 'weak_password', reasons: ['length'] })).toBe('weak_password');
+    expect(authErrorCode(new AuthFlowError('password_breached'))).toBe('password_breached');
+    // Supabase's own 72-byte limit (internal/api/password.go) and "secure password change" on an old session.
+    expect(authErrorCode({ code: 'validation_failed', status: 400, message: 'Password cannot be longer than 72 characters' })).toBe('password_too_long');
+    expect(authErrorCode({ code: 'reauthentication_needed', status: 400 })).toBe('password_change_sign_in_again');
+  });
+
   it('has an English and an Arabic message for every code and the generic fallback', () => {
     for (const code of [...AUTH_ERROR_CODES, 'generic']) {
       expect(dictionaries.en[`auth.error.${code}`], code).toBeTruthy();

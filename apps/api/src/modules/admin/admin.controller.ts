@@ -5,6 +5,7 @@ import {
 } from '@resuto/contracts';
 import type { AuthPrincipal } from '../../common/auth/context';
 import { PlatformAdmin, Principal } from '../../common/auth/decorators';
+import { RequireMfa } from '../../common/auth/mfa.guard';
 import { zod } from '../../common/http/zod.pipe';
 import { AdminService } from './admin.service';
 
@@ -14,6 +15,7 @@ import { AdminService } from './admin.service';
  * finance additionally reads billing and prices, superadmins mutate.
  */
 @Controller('admin')
+@RequireMfa()
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
 

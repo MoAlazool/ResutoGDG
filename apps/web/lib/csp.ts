@@ -5,7 +5,8 @@
  * reads the nonce from the request's CSP header and puts it on its own bootstrap and chunk scripts. There is no
  * 'unsafe-inline' for scripts on pages, so an injected <script> or inline event handler does not run.
  *
- * Defence in depth around that: connections only to this site, the API and Supabase (connect-src), no plugins, no
+ * Defence in depth around that: connections only to this site, the API, Supabase and the Pwned Passwords range API
+ * (connect-src; AUTH-01), no plugins, no
  * <base> hijack, forms post only here, no framing (also covers the hosted pay page). Product images are tenant URLs on
  * any HTTPS host, so img-src allows https:; that only matters once script runs, which the nonce prevents, and script
  * that did run could navigate away with the token anyway (CSP cannot block top-level navigation).
@@ -56,6 +57,13 @@ export function documentAllowsMetaSdk(loadedUrl: string | null | undefined): boo
 }
 
 export const META_PIXEL_CONNECT = ['https://www.facebook.com', 'https://connect.facebook.net'];
+/**
+ * AUTH-01: the Pwned Passwords range API (k-anonymity: the browser sends only a 5-character SHA-1 prefix) checks every
+ * new password on sign-up, reset and Account → Security. It is allowed on every page, not only the auth pages: a
+ * document keeps the policy it was loaded with, and Account → Security is reached by client-side navigation from any
+ * staff page (the dashboard shell links to it), so a path-scoped entry would silently disable the check there.
+ */
+export const PWNED_PASSWORDS_CONNECT = ['https://api.pwnedpasswords.com'];
 /** TikTok Pixel script and event host (analytics.tiktok.com/i18n/pixel/events.js, events to the same host). */
 export const TIKTOK_PIXEL_CONNECT = ['https://analytics.tiktok.com'];
 /** Snap Pixel script host and event host (sc-static.net/scevent.min.js, tr.snapchat.com). */
@@ -81,7 +89,7 @@ export function buildCsp(o: CspOptions): string {
     "style-src 'self' 'unsafe-inline'",
     list("img-src 'self' data: blob: https:", api, supabase),
     "font-src 'self' data:",
-    list("connect-src 'self'", api, supabase, supabaseWs, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : []),
+    list("connect-src 'self'", api, supabase, supabaseWs, ...PWNED_PASSWORDS_CONNECT, o.dev && 'ws: wss:', ...(o.metaPixel ? META_PIXEL_CONNECT : []),
       ...(o.tiktokPixel ? TIKTOK_PIXEL_CONNECT : []), ...(o.snapPixel ? SNAP_PIXEL_CONNECT : []), ...(o.metaSdk ? META_SDK_HOSTS : [])),
     list("media-src 'self' blob: https:", api),
     "worker-src 'self' blob:",

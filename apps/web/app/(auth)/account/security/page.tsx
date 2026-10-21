@@ -8,7 +8,9 @@ import { homePath } from '@/lib/home-path';
 import { useT } from '@/lib/i18n/client';
 import { loginUrl } from '@/lib/safe-next';
 import { AUTH_MODE, useSession } from '@/lib/session';
-import { AuthPanel, MIN_PASSWORD } from '../../_ui/AuthPanel';
+import { AuthPanel, MAX_PASSWORD, MIN_PASSWORD } from '../../_ui/AuthPanel';
+import { MfaCard } from './MfaCard';
+import { EmailDeliveryNote, ResendEmail } from '../../_ui/ResendEmail';
 
 /**
  * CR-05: the signed-in account (legacy /account "Account home"): who you are, your restaurants, change password and
@@ -41,6 +43,7 @@ export default function AccountPage() {
             )}
           </Card>
           <PasswordCard />
+          <MfaCard />
           <EmailCard />
           <button className="btn btn-block" onClick={async () => { await session.signOut(); router.push('/login'); }}>{t('auth.account.signOut')}</button>
           {AUTH_MODE === 'dev' && <p className="login-dev"><span className="badge badge-sandbox">DEV</span><span>{tn('auth.devMode', { provider: <bdi dir="ltr">Supabase Auth</bdi> })}</span></p>}
@@ -77,8 +80,9 @@ function PasswordCard() {
     <Card title={t('auth.account.passwordTitle')}>
       <form onSubmit={submit} className="stack" style={{ gap: 10 }} aria-busy={pending || undefined}>
         <Field label={t('auth.currentPassword')} name="current" type="password" required autoComplete="current-password" dir="ltr" />
-        <Field label={t('auth.newPassword')} name="password" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" dir="ltr" />
-        <Field label={t('auth.confirmPassword')} name="confirm" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" dir="ltr" />
+        <Field label={t('auth.newPassword')} name="password" type="password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
+          hint={t('auth.passwordHint')} autoComplete="new-password" dir="ltr" />
+        <Field label={t('auth.confirmPassword')} name="confirm" type="password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD} autoComplete="new-password" dir="ltr" />
         {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
         <button className="btn btn-primary" disabled={pending}>{pending ? t('state.loading') : t('auth.account.passwordSubmit')}</button>
       </form>
@@ -105,7 +109,14 @@ function EmailCard() {
   return (
     <Card title={t('auth.account.emailTitle')}>
       <p className="fine">{t('auth.account.emailBody')}</p>
-      {sent ? <Notice tone="ok">{tn('auth.account.emailSent', { email: <bdi dir="ltr">{sent}</bdi> })}</Notice> : (
+      {sent ? (
+        <div className="stack" style={{ gap: 10 }} data-testid="email-change-sent">
+          <Notice tone="ok">{tn('auth.account.emailSent', { email: <bdi dir="ltr">{sent}</bdi> })}</Notice>
+          <EmailDeliveryNote />
+          {/* Supabase finds the account by its current address and re-sends to the pending one (see session.resendEmail). */}
+          <ResendEmail onResend={() => session.resendEmail('email_change')} />
+        </div>
+      ) : (
         <form onSubmit={submit} className="stack" style={{ gap: 10 }}>
           <Field label={t('auth.account.newEmail')} name="email" type="email" required autoComplete="email" dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}

@@ -59,8 +59,8 @@ describe('CSP', () => {
   it('only restaurant website pages may talk to Meta; script-src stays nonce + strict-dynamic', () => {
     const site = buildCsp({ nonce: 'n1', dev: false, apiUrl: 'https://api.resuto.app', metaPixel: true });
     const staff = buildCsp({ nonce: 'n1', dev: false, apiUrl: 'https://api.resuto.app' });
-    expect(directive(site, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://www.facebook.com https://connect.facebook.net");
-    expect(directive(staff, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app");
+    expect(directive(site, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://api.pwnedpasswords.com https://www.facebook.com https://connect.facebook.net");
+    expect(directive(staff, 'connect-src')).toBe("connect-src 'self' https://api.resuto.app https://api.pwnedpasswords.com"); // AUTH-01 breach check
     expect(directive(site, 'script-src')).toBe("script-src 'self' 'nonce-n1' 'strict-dynamic'");
     expect(directive(site, 'frame-src')).toBe("frame-src 'none'");
   });

@@ -5,6 +5,7 @@ import { LICENSING_REGISTRIES, MAPS_PROVIDERS, TAX_PROVIDERS } from '@resuto/int
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
+import { RequireMfa } from '../../common/auth/mfa.guard';
 import { DbService } from '../../common/db/db.service';
 import { zod } from '../../common/http/zod.pipe';
 import { FiscalAuthorityService } from './fiscal-authority.service';
@@ -42,11 +43,14 @@ export class ComplianceController {
   @RequirePermission('compliance:read')
   egsList(@Tenant() ctx: TenantContext) { return this.authority.listEgs(ctx); }
 
+  // AUTH-02: the EGS routes create the signing key and obtain the ZATCA CSIDs (sealed credentials): aal2 for enrolled users.
   @Post('zatca/egs')
+  @RequireMfa()
   @RequirePermission('compliance:write')
   egsCreate(@Tenant() ctx: TenantContext, @Body(zod(egsInput)) body: z.infer<typeof egsInput>) { return this.authority.createEgs(ctx, body); }
 
   @Post('zatca/egs/:id/compliance-csid')
+  @RequireMfa()
   @RequirePermission('compliance:write')
   egsComplianceCsid(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(otpInput)) body: z.infer<typeof otpInput>) {
     return this.authority.complianceCsid(ctx, id, body.otp);
@@ -57,6 +61,7 @@ export class ComplianceController {
   egsChecks(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.authority.complianceChecks(ctx, id); }
 
   @Post('zatca/egs/:id/production-csid')
+  @RequireMfa()
   @RequirePermission('compliance:write')
   egsProduction(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) { return this.authority.productionCsid(ctx, id); }
 

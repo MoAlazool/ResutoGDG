@@ -31,5 +31,5 @@ export function AuthPanel({ eyebrow, title, body, children }: { eyebrow: string;
   );
 }
 
-/** Minimum length the API and Supabase Auth accept for a password. */
-export const MIN_PASSWORD = 10;
+/** Length range for a new password (AUTH-01: lib/auth/password-policy.ts is the single source). */
+export { MAX_PASSWORD, MIN_PASSWORD } from '@/lib/auth/password-policy';

@@ -7,7 +7,7 @@ import { destinationFor } from '@/components/shell/AuthForm';
 import { authErrorText } from '@/lib/auth-errors';
 import { useT } from '@/lib/i18n/client';
 import { AUTH_MODE, recoveryPending, useSession } from '@/lib/session';
-import { AuthPanel, MIN_PASSWORD } from '../_ui/AuthPanel';
+import { AuthPanel, MAX_PASSWORD, MIN_PASSWORD } from '../_ui/AuthPanel';
 
 /** CR-05: set a new password after opening a recovery link (the link signed the user in through /auth/callback). */
 export default function ResetPasswordPage() {
@@ -56,8 +56,9 @@ export default function ResetPasswordPage() {
         </>
       ) : (
         <form onSubmit={submit} aria-busy={pending || undefined} className="stack" style={{ gap: 12 }}>
-          <Field label={t('auth.newPassword')} name="password" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" dir="ltr" />
-          <Field label={t('auth.confirmPassword')} name="confirm" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" dir="ltr" />
+          <Field label={t('auth.newPassword')} name="password" type="password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD}
+            hint={t('auth.passwordHint')} autoComplete="new-password" dir="ltr" />
+          <Field label={t('auth.confirmPassword')} name="confirm" type="password" required minLength={MIN_PASSWORD} maxLength={MAX_PASSWORD} autoComplete="new-password" dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}
           <button className="btn btn-primary btn-block" disabled={pending}>{pending ? t('state.loading') : t('auth.resetSubmit')}</button>
         </form>

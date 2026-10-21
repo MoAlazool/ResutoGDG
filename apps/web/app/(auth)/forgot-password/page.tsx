@@ -6,8 +6,12 @@ import { authErrorText } from '@/lib/auth-errors';
 import { useT } from '@/lib/i18n/client';
 import { useSession } from '@/lib/session';
 import { AuthPanel } from '../_ui/AuthPanel';
+import { EmailDeliveryNote, ResendEmail } from '../_ui/ResendEmail';
 
-/** CR-05: request a password reset link (Supabase Auth). Never says whether the account exists. */
+/**
+ * CR-05: request a password reset link (Supabase Auth). Never says whether the account exists: the same answer for
+ * every address (AUTH-03), with a rate-limited "send again" and the honest delivery note when there is no SMTP sender.
+ */
 export default function ForgotPasswordPage() {
   const { t, tn } = useT();
   const session = useSession();
@@ -32,7 +36,14 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthPanel eyebrow={t('auth.workspace.staff')} title={t('auth.forgotTitle')} body={t('auth.forgotBody')}>
-      {sentTo ? <Notice tone="ok">{tn('auth.forgotSent', { email: <bdi dir="ltr">{sentTo}</bdi> })}</Notice> : (
+      {sentTo ? (
+        <div className="stack" style={{ gap: 12 }} data-testid="reset-sent">
+          <Notice tone="ok">{tn('auth.forgotSent', { email: <bdi dir="ltr">{sentTo}</bdi> })}</Notice>
+          <EmailDeliveryNote />
+          <ResendEmail onResend={() => session.requestPasswordReset(sentTo)} />
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSentTo(null)}>{t('auth.checkEmail.other')}</button>
+        </div>
+      ) : (
         <form onSubmit={submit} aria-busy={pending || undefined} className="stack" style={{ gap: 12 }}>
           <Field label={t('auth.email')} name="email" type="email" required autoComplete="email" dir="ltr" />
           {error && <Notice tone="danger">{error}</Notice>}

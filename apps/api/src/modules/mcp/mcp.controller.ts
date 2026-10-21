@@ -3,6 +3,7 @@ import { createMcpClient, mcpApprovalsQuery, mcpCallsQuery, mcpDecision, updateM
 import type { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
+import { RequireMfa } from '../../common/auth/mfa.guard';
 import { DbService } from '../../common/db/db.service';
 import { conflict, notFound } from '../../common/errors/domain-error';
 import { zod } from '../../common/http/zod.pipe';
@@ -28,6 +29,7 @@ export class McpController {
   }
 
   @Post('clients')
+  @RequireMfa()
   @RequirePermission('mcp:manage')
   create(@Tenant() ctx: TenantContext, @Body(zod(createMcpClient)) body: z.infer<typeof createMcpClient>) {
     return this.clients.create(ctx, body);
@@ -40,6 +42,7 @@ export class McpController {
   }
 
   @Patch('clients/:clientId')
+  @RequireMfa()
   @RequirePermission('mcp:manage')
   update(@Tenant() ctx: TenantContext, @Param('clientId', ParseUUIDPipe) id: string, @Body(zod(updateMcpClient)) body: z.infer<typeof updateMcpClient>) {
     return this.clients.update(ctx, id, body);

@@ -36,3 +36,16 @@ create or replace function auth.role() returns text language sql stable as $$
   select coalesce(nullif(current_setting('request.jwt.claim.role', true), ''), auth.jwt() ->> 'role')
 $$;
 grant execute on function auth.jwt(), auth.uid(), auth.role() to anon, authenticated, service_role;
+
+-- AUTH-02: Supabase Auth's MFA factor table (subset of columns), so the API's aal2 step-up check (MfaGuard) can be
+-- tested locally. On a Supabase project the platform owns this table; Resuto only reads verified factors.
+create table if not exists auth.mfa_factors (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  friendly_name text,
+  factor_type text not null default 'totp' check (factor_type in ('totp', 'phone', 'webauthn')),
+  status text not null default 'unverified' check (status in ('unverified', 'verified')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists mfa_factors_user_id_idx on auth.mfa_factors(user_id);

@@ -6,6 +6,7 @@ import {
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { RequiresModule, RequirePermission, Tenant } from '../../common/auth/decorators';
+import { RequireMfa } from '../../common/auth/mfa.guard';
 import { DbService } from '../../common/db/db.service';
 import { conflict, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
@@ -62,6 +63,7 @@ export class ConnectController {
 
   /** INT-13: completes Embedded Signup (code exchange, ownership proof, webhook subscription, registration). */
   @Post('whatsapp/embedded-signup')
+  @RequireMfa()   // AUTH-02: stores (and replaces) the WhatsApp Business access token
   @RequirePermission('connect:manage')
   signupComplete(@Tenant() ctx: TenantContext, @Body(zod(whatsappEmbeddedSignup)) body: z.infer<typeof whatsappEmbeddedSignup>) {
     return this.signup.complete(ctx, body);

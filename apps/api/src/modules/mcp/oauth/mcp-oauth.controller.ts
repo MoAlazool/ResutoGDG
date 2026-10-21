@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import type { AuthPrincipal, ResutoRequest, TenantContext } from '../../../common/auth/context';
 import { Principal, Public, RequirePermission, RequiresModule, Tenant } from '../../../common/auth/decorators';
+import { RequireMfa } from '../../../common/auth/mfa.guard';
 import { DomainError } from '../../../common/errors/domain-error';
 import { RateLimiter } from '../../../common/http/rate-limiter';
 import { zod } from '../../../common/http/zod.pipe';
@@ -85,6 +86,7 @@ export class McpOAuthConsentController {
   constructor(private readonly oauth: McpOAuthService) {}
 
   @Post('requests/:requestId/approve')
+  @RequireMfa()
   @RequirePermission('mcp:manage')
   approve(@Tenant() ctx: TenantContext, @Param('requestId', ParseUUIDPipe) id: string, @Body(zod(consentInput)) body: z.infer<typeof consentInput>) {
     return this.oauth.approve(ctx, id, body);

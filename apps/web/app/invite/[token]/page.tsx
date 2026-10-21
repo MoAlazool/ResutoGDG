@@ -69,7 +69,8 @@ export default function InvitePage() {
           </div>
         ) : (
           <div className="stack">
-            <p className="fine">{s.signedInAs.replace('{email}', session.me?.user.email ?? '')}</p>
+            {/* The email stays left-to-right inside the Arabic sentence (bidi isolation). */}
+            <p className="fine">{s.signedInAs.split('{email}')[0]}<bdi dir="ltr">{session.me?.user.email ?? ''}</bdi>{s.signedInAs.split('{email}')[1]}</p>
             {error && <Notice tone="danger">{error}</Notice>}
             {done && <Notice tone="ok">{s.joined}</Notice>}
             <button className="btn btn-primary btn-block" onClick={() => void accept()} disabled={pending || done}>{pending ? s.accepting : s.accept}</button>
