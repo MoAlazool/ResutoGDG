@@ -11,5 +11,6 @@ import './maps';
 import './tracking';
 import './pos';
 import './accounting';
+import './notify';
 
 export { ACCEPTANCE_CHECKS } from './index';
