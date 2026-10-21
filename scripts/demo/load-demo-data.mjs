@@ -456,7 +456,10 @@ async function createHistoric(o) {
       else await must('POST', O(`/orders/${orderId}/collect`), { token: cashier, headers: { 'Idempotency-Key': `${tag}:collect` }, body: { method: 'cash' } });
       return orderId;
     }
-    // Smash & Co publishes opening hours (PAR-02): a refresh run while it is closed serves that guest at the counter too.
+    // Smash & Co publishes opening hours (PAR-02) and the storefront checks them against the clock of the run, not the
+    // back-dated hour: a run while it is closed is refused like a rate-limited regular. Both are entered at the counter
+    // here and keep their planned website channel in completeHistoric(), so the history's channel mix does not depend on
+    // when the loader ran (such an order is paid at pickup).
     if (r.status !== 429 && r.body?.error?.code !== 'branch_closed') throw new Error(`web order ${r.status} ${JSON.stringify(r.body)}`);
   }
   const r = await must('POST', O('/orders'), { token: cashier, headers: { 'Idempotency-Key': tag }, body: {
@@ -474,6 +477,9 @@ async function createHistoric(o) {
  */
 async function completeHistoric(orderId, o) {
   const tag = historyTag(o);
+  // A planned website order the storefront refused at run time (closed now, or the per-phone rate limit) was entered at
+  // the counter by createHistoric(); it stays a website order in the history. Also covers a run interrupted before this.
+  if (o.web) await q(`update orders set channel = 'web' where id = $1 and org_id = $2 and channel = 'staff' and external_ref = $3`, [orderId, C.ORG, tag]);
   let detail = await must('GET', O(`/orders/${orderId}`), { token: C.OWNER.token });
   if (detail.status === 'awaiting_payment' && o.web && o.online) {
     // Interrupted between ordering and paying online: the same request (same key) returns the order with a fresh link.
