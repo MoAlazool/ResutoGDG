@@ -220,10 +220,8 @@ function SceneObject({ o, selected, opts }: { o: SceneTable | FloorObject; selec
  * a wall and must sit on top of it whatever order the layout stores them in (a wall added after the door would
  * otherwise paint over the opening). The sort is stable, so every other object keeps its stored order (PAR-01).
  */
-export function inDrawOrder<T extends { type?: string }>(objects: T[]): T[] {
-  const shell = (o: T) => (o.type === 'wall' || o.type === 'divider' ? 0 : 1);
-  return objects.map((o, i) => [o, i] as const).sort((a, b) => shell(a[0]) - shell(b[0]) || a[1] - b[1]).map(([o]) => o);
-}
+const isShell = (o: { type?: string }) => o.type === 'wall' || o.type === 'divider';
+export const inDrawOrder = <T extends { type?: string }>(objects: T[]): T[] => [...objects.filter(isShell), ...objects.filter((o) => !isShell(o))];
 
 /** The scene contents (place inside an <svg viewBox=…>). */
 export function FloorSceneContent({ layout, ...options }: { layout: SceneLayout } & SceneOptions) {

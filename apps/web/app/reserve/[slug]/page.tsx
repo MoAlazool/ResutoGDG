@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { PublicFloor, PublicMenu, ReservationSlotsView } from '@resuto/contracts';
+import { GuestWordmark } from '@/components/brand/wordmark';
 import { plausible, serverRead } from '@/components/guest/server';
+import { getLocale } from '@/lib/i18n/server';
 import { MetaPixel } from '@/lib/tracking/MetaPixel';
 import { BookingExperience } from './BookingExperience';
 
@@ -29,7 +31,7 @@ export default async function ReservePage({ params, searchParams }: { params: Pr
     <>
       {/* Meta Pixel (INT-20): only after the guest agreed; renders nothing for restaurants that do not measure with Meta. */}
       <MetaPixel slug={slug} />
-      <BookingExperience slug={slug} info={menu} branchCode={code}
+      <BookingExperience slug={slug} info={menu} branchCode={code} wordmark={<GuestWordmark locale={await getLocale()} />}
         initialSlots={slots?.status === 'ok' ? slots.data : null} initialFloor={floor?.status === 'ok' ? floor.data : null} />
     </>
   );
