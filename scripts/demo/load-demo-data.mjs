@@ -803,6 +803,27 @@ async function reconcileUpToNow() {
 }
 
 // --- 14. Studio website and the Smash & Co storefront (VP-05, VP-14); idempotent ---------------------------------
+/**
+ * Tenants loaded by an older loader keep two gaps the integrity check reports: dishes created without a photo, and
+ * online checkout sessions of back-dated orders still stamped at load time (the old loader re-dated the order but not
+ * its session). Both are repaired in place on the demo tenant only; nothing is deleted.
+ */
+async function repairOlderLoaderRows() {
+  let photos = 0;
+  for (const [legacyId, rel] of [...Object.entries(seedManifest.photos), ...Object.entries(seedManifest.smash.photos)]) {
+    const prod = C.PRODUCTS[legacyId];
+    if (legacyId.startsWith('_') || !prod) continue;
+    const [has] = await q(`select 1 from products p join media_assets a on a.org_id = p.org_id and a.id = p.image_media_id where p.org_id = $1 and p.id = $2`, [C.ORG, prod.id]);
+    if (has) continue;
+    await upload(O(`/menu/products/${prod.id}/image`), C.OWNER.token, readFileSync(path.join(ROOT, 'supabase/seeds', rel)), `${legacyId}.webp`, 'image/webp', prod.name);
+    photos++;
+  }
+  const stale = await q(`select distinct o.id from checkout_sessions s join orders o on o.id = s.order_id and o.org_id = s.org_id
+                          where s.org_id = $1 and (s.created_at < o.placed_at - interval '1 minute' or s.created_at > o.placed_at + interval '1 day')`, [C.ORG]);
+  if (stale.length) await settleTimeline(stale.map((r) => r.id));
+  if (photos || stale.length) log(`repair: ${photos} dish photo(s) added, ${stale.length} order timeline(s) with load-time checkout sessions re-dated (older loader)`);
+}
+
 async function ensureBranding() {
   // Arabic names for every category (Arabic pages never fall back to English).
   for (const c of await q(`select id, name from menu_categories where org_id = $1 and coalesce(btrim(name_ar), '') = ''`, [C.ORG])) {
@@ -975,6 +996,7 @@ try {
     await upsertFixedCosts(historyFrom);
     await reconcileUpToNow();
     await ensureBranding();
+    await repairOlderLoaderRows();
     await call('POST', O('/intelligence/insights/refresh'), { token: C.OWNER.token });
   }
   report = await checkDemoIntegrity(q, { slug: SLUG });
