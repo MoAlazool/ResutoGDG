@@ -99,7 +99,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
           footer={<button type="button" className="gx-btn is-primary is-block" disabled={!cart.count || !canOrder} onClick={() => { metaTrack(slug, 'InitiateCheckout'); setSheet('checkout'); }}>{t('core.web.checkout')}</button>} />
       )}
       {sheet === 'assistant' && menu && (
-        <AssistantSheet endpoint={`/public/order/${encodeURIComponent(slug)}/assistant`} extra={{ branch: menu.branch.code }} currency={currency} onClose={() => setSheet(null)}
+        <AssistantSheet endpoint={`/public/order/${encodeURIComponent(slug)}/assistant`} extra={{ branch: menu.branch.code }} currency={currency} products={products} onClose={() => setSheet(null)}
           onAccept={(items) => { cart.addMany(items.map((i) => ({ productId: i.productId, quantity: i.quantity, modifiers: i.modifiers }))); setSheet('cart'); toast.show(t('core.guest.assistant.reviewCart')); }} />
       )}
       {sheet === 'checkout' && menu && (

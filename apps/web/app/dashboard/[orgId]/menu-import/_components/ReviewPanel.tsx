@@ -193,7 +193,7 @@ export function ReviewPanel({ jobId, onChanged, onClose }: { jobId: string; onCh
       <div className="spread">
         <div>
           <h2 className="mi-h2">{data.sourceName ? t('studio.ai.review.title', { name: isolate(data.sourceName) }) : t('studio.ai.review.untitled')}</h2>
-          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          <div className="row gap-6 wrap">
             <Badge tone={statusTone(data.status)}>{t(`studio.ai.status.${data.status}`)}</Badge>
             <Badge tone="neutral">{modeLabel(t, data)}</Badge>
             {data.status === 'review' && <>
@@ -318,7 +318,7 @@ function RowDetails({ row, editable, t, currency, update, updateGroup }: {
           <div className="mi-group-head">
             <input className="mi-input" aria-label={t('studio.ai.group.name')} value={g.name} maxLength={80} disabled={!editable} onChange={(e) => updateGroup(row, gi, { name: e.target.value })} />
             <input className="mi-input" aria-label={t('studio.ai.group.nameAr')} value={g.nameAr ?? ''} maxLength={80} dir="rtl" disabled={!editable} onChange={(e) => updateGroup(row, gi, { nameAr: e.target.value || null })} />
-            <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={g.minSelect > 0} disabled={!editable}
+            <label className="row gap-6"><input type="checkbox" checked={g.minSelect > 0} disabled={!editable}
               onChange={(e) => updateGroup(row, gi, { minSelect: e.target.checked ? 1 : 0, maxSelect: e.target.checked ? 1 : Math.max(1, g.options.length) })} />{t('studio.ai.group.required')}</label>
             {editable && <button type="button" className="btn btn-sm btn-ghost" onClick={() => updateGroup(row, gi, null)}>{t('studio.ai.group.remove')}</button>}
           </div>
@@ -340,7 +340,7 @@ function RowDetails({ row, editable, t, currency, update, updateGroup }: {
         </fieldset>
       ))}
       {editable && row.modifiers.length < 10 && (
-        <div className="row" style={{ gap: 6 }}>
+        <div className="row gap-6">
           <button type="button" className="btn btn-sm" onClick={() => addGroup('size')}>{t('studio.ai.group.addSizes')}</button>
           <button type="button" className="btn btn-sm" onClick={() => addGroup('extras')}>{t('studio.ai.group.addExtras')}</button>
         </div>

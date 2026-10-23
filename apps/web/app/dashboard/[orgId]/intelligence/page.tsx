@@ -40,8 +40,8 @@ export default function InsightsPage() {
         { key: 'all', label: t('intelligence.insights.filter.all') },
         { key: 'dismissed', label: t('intelligence.insights.filter.dismissed') },
       ]} />
-      {message && <div style={{ marginBlockEnd: 12 }}><Notice tone="ok">{message}</Notice></div>}
-      {(refresh.error || update.error) && <div style={{ marginBlockEnd: 12 }}><Notice tone="danger">{refresh.error ?? update.error}</Notice></div>}
+      {message && <div className="mbe-12"><Notice tone="ok">{message}</Notice></div>}
+      {(refresh.error || update.error) && <div className="mbe-12"><Notice tone="danger">{refresh.error ?? update.error}</Notice></div>}
       {loading && !data ? <div className="card"><Skeleton lines={5} /></div>
         : error ? <ApiErrorNotice error={error} onRetry={reload} />
           : !items.length ? <Empty title={t('intelligence.insights.empty')} body={t('intelligence.insights.emptyBody')} />
@@ -49,9 +49,9 @@ export default function InsightsPage() {
               <ul className="stack" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {items.map((i) => (
                   <li key={i.id} className="card rise" style={{ padding: 18 }}>
-                    <div className="spread" style={{ alignItems: 'flex-start' }}>
+                    <div className="spread items-start">
                       <div className="stack" style={{ gap: 6, minWidth: 0, flex: '1 1 280px' }}>
-                        <div className="row" style={{ gap: 8 }}>
+                        <div className="row gap-8">
                           <Badge tone={SEVERITY_TONE[i.severity]}>{t(`intelligence.severity.${i.severity}`)}</Badge>
                           <Badge>{t(`intelligence.method.${i.method}`)}</Badge>
                           {i.status !== 'new' && <Badge tone={i.status === 'resolved' ? 'ok' : undefined}>{t(`intelligence.status.${i.status}`)}</Badge>}
@@ -61,7 +61,7 @@ export default function InsightsPage() {
                         <InsightText insight={i} />
                       </div>
                       {(i.status === 'new' || i.status === 'seen') && (
-                        <div className="row" style={{ gap: 6 }}>
+                        <div className="row gap-6">
                           {i.status === 'new' && <button type="button" className="btn btn-sm btn-ghost" disabled={update.pending} onClick={() => update.run(i.id, 'seen')}>{t('intelligence.insights.seen')}</button>}
                           <button type="button" className="btn btn-sm btn-leaf" disabled={update.pending} onClick={() => update.run(i.id, 'acted')}>{t('intelligence.insights.acted')}</button>
                           <button type="button" className="btn btn-sm btn-danger" disabled={update.pending} onClick={() => update.run(i.id, 'dismissed')}>{t('intelligence.insights.dismiss')}</button>
@@ -90,16 +90,16 @@ function InsightText({ insight }: { insight: Insight }) {
   return (
     <>
       <strong style={{ fontSize: 16 }} dir="auto">{rendered?.title ?? insight.title}</strong>
-      <p style={{ margin: 0 }} dir="auto">{rendered?.body ?? insight.body}</p>
+      <p className="m-0" dir="auto">{rendered?.body ?? insight.body}</p>
       {evidence.length > 0 && (
         <details>
-          <summary className="fine" style={{ cursor: 'pointer' }}>{t('intelligence.insights.evidence')}</summary>
+          <summary className="fine cursor-pointer">{t('intelligence.insights.evidence')}</summary>
           <dl className="evidence-list" style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '4px 14px', margin: '8px 0 0', fontSize: 13,
             background: 'var(--surface-warm)', padding: 10, borderRadius: 8 }}>
             {evidence.map((e) => (
               <div key={e.label} style={{ display: 'contents' }}>
                 <dt className="muted">{e.label}</dt>
-                <dd style={{ margin: 0 }} className="num"><bdi>{e.value}</bdi></dd>
+                <dd className="num m-0"><bdi>{e.value}</bdi></dd>
               </div>
             ))}
           </dl>

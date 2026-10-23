@@ -238,8 +238,17 @@ copy.
 ### Not done here (follow-ups)
 
 - PCL-23 push "change ticks" (SSE): needs client changes in `apps/web/lib/use-api.ts` and the polling screens.
-- Pollers sending `If-None-Match` and skipping re-render on 304; guest pages using `imageSrcSet` and
-  `imageWidth`/`imageHeight`; preloading the locale's primary font in the root layout; a lighter placeholder than
-  the 211 KB `menu-photography.webp` in `guest.css` (all web components owned elsewhere).
+- Done in ws14b (REM-W01..W03): pollers send `If-None-Match` (the API exposes `ETag` to the web origin) and a 304
+  keeps the same data object (useApi still renders when a poll starts and ends: open); guest menu, web order, storefront and the restaurant site highlights use
+  `imageSrcSet`; the root layout preloads the locale's primary font. Still open: the connect ordering link
+  (`/o/<token>`) serves `products.image_url` only (no stored copies); the kitchen board (`serverTime`, `ageSeconds`)
+  and analytics (`meta.generatedAt`) change on every request, so their polls never get a 304; a lighter placeholder
+  than the 211 KB `menu-photography.webp` in `guest.css`.
+- Repeat-visit LCP on `/order/<slug>` (and already on `/t/<qr>` before ws14b): the content streams behind
+  `(menu)/loading.tsx`, and React 19.2's batched Suspense reveal (a timer about 300 ms after first paint) often loses
+  to the cached JavaScript executing on a repeat visit, so the heading paints at hydration (~1.3 s on the lab profile)
+  instead of ~0.3 s. ws14b's W01 change tipped web-order into that race (A/B: base 296 ms, HEAD ~1.35 s, 10/10 runs);
+  neither srcset nor the font preload is the cause (variants measured). Fix: render the cached menu in the shell
+  rather than behind the loading boundary, or reveal it without the batch throttle.
 - Cross-instance cache invalidation (`LISTEN/NOTIFY` or Redis) once the API runs more than one instance.
 - Staging measurement with this harness (attach mode) after deploy.

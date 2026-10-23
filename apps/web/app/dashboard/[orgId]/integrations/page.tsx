@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { capabilityLabel } from '@/lib/vocab';
 import { beginOAuth } from '../../oauth/binding';
 
 interface FieldSpec {
@@ -101,30 +102,31 @@ function ProviderReadiness({ item }: { item: CatalogItem }) {
   return <StateBadge state={item.readinessDetail.summary} />;
 }
 
-function CapabilityTable({ detail }: { detail: ReadinessDetail }) {
+function CapabilityTable({ detail, provider }: { detail: ReadinessDetail; provider: string }) {
   const { t, tx, locale } = useTx();
+  const r = detail.restriction;
   return (
-    <div className="stack" style={{ gap: 6 }}>
+    <div className="stack gap-6">
       <strong className="fine">{t('intg.readiness.title')}</strong>
-      {detail.restriction && <Notice tone="danger">{detail.restriction.reason} <a href={detail.restriction.source} target="_blank" rel="noreferrer" dir="ltr">{new URL(detail.restriction.source).host}</a></Notice>}
+      {r && <Notice tone="danger">{tx(`intg.restricted.${r.country}`, r.reason, { provider })} <a href={r.source} target="_blank" rel="noreferrer" dir="ltr">{new URL(r.source).host}</a></Notice>}
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>{t('intg.readiness.col.capability')}</th><th>{t('intg.readiness.col.test')}</th><th>{t('intg.readiness.col.live')}</th></tr></thead>
           <tbody>{detail.capabilities.map((c) => (
             <tr key={c.capability}>
-              <td>{tx(`intg.capability.${c.capability}`, c.capability)}{c.note && locale === 'en' && <div className="fine">{c.note}</div>}</td>
+              <td>{capabilityLabel(t, c.capability)}{c.note && locale === 'en' && <div className="fine">{c.note}</div>}</td>
               <td><StateBadge state={c.test} /></td>
               <td><StateBadge state={c.live} /></td>
             </tr>))}</tbody>
         </table>
       </div>
-      <p className="fine" style={{ margin: 0 }}>{t('intg.readiness.help')}</p>
+      <p className="fine m-0">{t('intg.readiness.help')}</p>
     </div>
   );
 }
 
 function Catalog({ onConnected }: { onConnected: () => void }) {
-  const { t, tx } = useTx();
+  const { t, tx, locale } = useTx();
   const { org } = useOrg();
   const catalog = useApi<{ items: CatalogItem[] }>(`/o/${org.id}/integrations/catalog`);
   const [connecting, setConnecting] = useState<CatalogItem | null>(null);
@@ -145,16 +147,16 @@ function Catalog({ onConnected }: { onConnected: () => void }) {
           <h2>{t(`connect.int.category.${g}`)}</h2>
           <div className="grid grid-3">
             {catalog.data!.items.filter((p) => p.category === g).map((p) => (
-              <article key={p.id} className="card stack integ-card" style={{ gap: 8 }}>
+              <article key={p.id} className="card stack integ-card gap-8">
                 <div className="integ-title">
                   <ProviderTile name={p.name} id={p.id} />
                   <span><strong><bdi>{p.name}</bdi></strong><small>{t(`connect.int.category.${g}`)}</small></span>
                 </div>
                 <ProviderReadiness item={p} />
-                <span className="fine" dir="ltr" style={{ textAlign: 'start' }}>{p.countries.join(' · ')}{p.countries.length ? ' · ' : ''}{p.capabilities.slice(0, 4).join(', ')}</span>
+                <span className="fine text-start">{p.countries.length > 0 && <><bdi dir="ltr">{p.countries.join(' · ')}</bdi> · </>}{p.capabilities.slice(0, 4).map((c) => capabilityLabel(t, c)).join(locale === 'ar' ? '، ' : ', ')}</span>
                 <details><summary className="fine">{t('connect.int.activation')}</summary>
                   <ol className="fine" style={{ paddingInlineStart: 18, overflowWrap: 'anywhere' }}>{p.activation.map((s, i) => <li key={i}>{tx(p.activationKeys?.[i], s)}</li>)}</ol>
-                  {p.readinessDetail && <CapabilityTable detail={p.readinessDetail} />}
+                  {p.readinessDetail && <CapabilityTable detail={p.readinessDetail} provider={p.name} />}
                   {p.docsUrl && <a className="fine" href={p.docsUrl} target="_blank" rel="noreferrer">{t('connect.int.docs')}</a>}
                 </details>
                 <button className="btn btn-sm" onClick={() => setConnecting(p)}>{p.sandboxOnly ? t('connect.int.enableSandbox') : t('connect.int.connect')}</button>
@@ -266,10 +268,10 @@ function ConnectModal({ provider, onClose, onDone }: { provider: CatalogItem; on
     <Modal open onClose={onClose} title={<bdi>{provider.name}</bdi>}>
       <div className="row" style={{ marginBlockEnd: 10 }}><ProviderReadiness item={provider} /></div>
       {provider.readiness === 'implemented_unverified' && <Notice tone="warn">{t('connect.int.unverifiedNotice')}</Notice>}
-      <form onSubmit={save.run} style={{ marginBlockStart: 12 }}>
+      <form className="mbs-12" onSubmit={save.run}>
         {provider.sandboxOnly ? <p className="fine">{t('connect.int.sandboxNotice')}</p> : <>
           {provider.authType === 'oauth' && (
-            <div className="stack" style={{ marginBlockEnd: 12 }}>
+            <div className="stack mbe-12">
               <button type="button" className="btn btn-leaf" disabled={oauth.pending || !provider.oauthConfigured} onClick={() => oauth.run()}>{t('connect.int.oauth')}</button>
               {!provider.oauthConfigured && <p className="fine">{t('connect.int.oauthMissing')}</p>}
               {oauth.error && <Notice tone="danger">{oauth.error}</Notice>}
@@ -301,14 +303,14 @@ function WebhookPanel({ webhook }: { webhook: WebhookInfo }) {
     try { await navigator.clipboard.writeText(webhook.url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked: the URL stays selectable */ }
   };
   return (
-    <div className="stack" style={{ gap: 6 }}>
+    <div className="stack gap-6">
       <strong className="fine">{t('intg.webhook.title')}</strong>
       <div className="row" style={{ gap: 6, alignItems: 'center' }}>
         <code dir="ltr" className="fine" style={{ wordBreak: 'break-all', background: 'var(--surface-warm)', padding: '6px 8px', borderRadius: 6, flex: 1 }}>{webhook.url}</code>
         <button type="button" className="btn btn-sm" onClick={copy}>{copied ? t('intg.webhook.copied') : t('intg.webhook.copy')}</button>
       </div>
-      <p className="fine" style={{ margin: 0 }}>{webhook.registeredByMerchant ? t('intg.webhook.registerInDashboard') : t('intg.webhook.sentPerCheckout')}</p>
-      {webhook.verifyToken && <span className="fine">{t('intg.webhook.verifyToken')} <code dir="ltr" style={{ wordBreak: 'break-all' }}>{webhook.verifyToken}</code></span>}
+      <p className="fine m-0">{webhook.registeredByMerchant ? t('intg.webhook.registerInDashboard') : t('intg.webhook.sentPerCheckout')}</p>
+      {webhook.verifyToken && <span className="fine">{t('intg.webhook.verifyToken')} <code className="break-all" dir="ltr">{webhook.verifyToken}</code></span>}
       {webhook.events.length > 0 && <>
         <span className="fine">{t('intg.webhook.events')}</span>
         <ul className="fine" style={{ margin: 0, paddingInlineStart: 18 }}>{webhook.events.map((e) => <li key={e}><code dir="ltr">{e}</code></li>)}</ul>
@@ -353,7 +355,7 @@ function Connections() {
       {revocation && <Notice tone={revocation.revoked ? 'ok' : 'warn'}>{t(revocation.revoked ? 'intg.revoke.providerOk' : revocation.attempted ? 'intg.revoke.providerUnconfirmed' : 'intg.revoke.providerManual')} <bdi dir="ltr">{revocation.note}</bdi></Notice>}
       {setSot.error && <Notice tone="danger">{setSot.error}</Notice>}
       <DataTable rows={list.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('connect.int.noConnections')}>{t('connect.int.noConnectionsBody')}</EmptyState>} columns={[
-        { key: 'p', header: t('connect.int.provider'), render: (c) => <><strong><bdi>{specOf(c)?.name ?? c.provider}</bdi></strong> <div className="row" style={{ gap: 4 }}>
+        { key: 'p', header: t('connect.int.provider'), render: (c) => <><strong><bdi>{specOf(c)?.name ?? c.provider}</bdi></strong> <div className="row gap-4">
           {specOf(c)?.readinessDetail ? <StateBadge state={specOf(c)!.readinessDetail!.summary} /> : c.readiness && <ReadinessBadge readiness={c.readiness} />}
           <Badge tone={c.environment === 'live' ? 'info' : 'sandbox'}>{c.environment === 'live' ? t('intg.env.liveBadge') : t('intg.env.testBadge')}</Badge></div></> },
         { key: 's', header: t('connect.channels.status'), render: (c) => <div className="stack" style={{ gap: 2 }}><Badge tone={statusTone(c.status)}>{t(`connect.int.status.${c.status}`)}</Badge>
@@ -364,7 +366,7 @@ function Connections() {
           <select className="select" style={{ minHeight: 32, width: 'auto' }} value={c.sourceOfTruth.menu} onChange={(e) => setSot.run(c, e.target.value)} aria-label={t('connect.int.sourceOfTruth')}>
             <option value="resuto">{t('connect.int.sot.resuto')}</option><option value="provider">{t('connect.int.sot.provider')}</option></select>) : <span className="fine">{t('connect.int.sot.ordersResuto')}</span> },
         { key: 'a', header: '', align: 'end', render: (c) => (
-          <div className="row" style={{ gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="row gap-4 justify-end wrap">
             {needsAccount(c) && <button className="btn btn-sm btn-primary" onClick={() => setPicking(c.id)}>{t(pickerKey(c.provider, 'choose'))}</button>}
             {!needsAccount(c) && hasChoices(c) && <button className="btn btn-sm btn-ghost" onClick={() => setPicking(c.id)}>{t(pickerKey(c.provider, 'change'))}</button>}
             {c.status !== 'revoked' && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'health')}>{t('connect.int.check')}</button>}
@@ -410,7 +412,7 @@ function AccountPicker({ connection, onClose, onSaved }: { connection: Connectio
   return (
     <Modal open onClose={onClose} title={t(pickerKey(connection.provider, 'title'))}>
       <form onSubmit={save.run} className="stack">
-        <p className="fine" style={{ margin: 0 }}>{t(pickerKey(connection.provider, 'help'))}</p>
+        <p className="fine m-0">{t(pickerKey(connection.provider, 'help'))}</p>
         {choices.length === 0 ? <Notice tone="warn">{t(pickerKey(connection.provider, 'none'))}</Notice> : (
           <SelectField label={t(pickerKey(connection.provider, 'label'))} value={value} onChange={(e) => setValue(e.target.value)}>
             {choices.map((a) => <option key={a.id} value={a.id}>{[a.name ?? a.id, a.id, a.currency, a.status].filter(Boolean).join(' · ')}</option>)}
@@ -418,7 +420,7 @@ function AccountPicker({ connection, onClose, onSaved }: { connection: Connectio
         )}
         {refresh.error && <Notice tone="danger">{refresh.error}</Notice>}
         {save.error && <Notice tone="danger">{save.error}</Notice>}
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row gap-8">
           <button type="button" className="btn btn-ghost" disabled={refresh.pending} onClick={() => refresh.run()}>{t('intg.account.refresh')}</button>
           <button className="btn btn-primary" disabled={save.pending || !value}>{t(pickerKey(connection.provider, 'use'))}</button>
         </div>
@@ -456,7 +458,7 @@ function EditConnection({ connection, spec, mode, onClose, onSaved }: { connecti
   return (
     <Modal open onClose={onClose} title={<>{t(mode === 'credentials' ? 'intg.action.updateCredentials' : 'intg.action.editSettings')} · <bdi>{spec.name}</bdi></>}>
       <form onSubmit={save.run} className="stack">
-        <p className="fine" style={{ margin: 0 }}>{t(mode === 'credentials' ? 'intg.update.credentialsHelp' : 'intg.update.settingsHelp')}</p>
+        <p className="fine m-0">{t(mode === 'credentials' ? 'intg.update.credentialsHelp' : 'intg.update.settingsHelp')}</p>
         {mode === 'credentials' && <>
           <SelectField label={t('intg.env.label')} value={environment} onChange={(e) => { setEnvironment(e.target.value as 'sandbox' | 'live'); setLiveConfirmed(false); }}>
             <option value="sandbox">{t('intg.env.sandbox')}</option><option value="live">{t('intg.env.live')}</option></SelectField>
@@ -489,7 +491,7 @@ function ConnectionDetail({ connection, spec, onClose }: { connection: Connectio
   return (
     <Modal open onClose={onClose} title={<bdi>{spec?.name ?? connection.provider}</bdi>}>
       <div className="stack">
-        <h3 style={{ margin: 0 }}>{t('intg.diag.title')}</h3>
+        <h3 className="m-0">{t('intg.diag.title')}</h3>
         <KeyValueList items={[
           { key: 'h', label: t('connect.int.health'), value: <Badge tone={health.ok === true ? 'ok' : health.ok === false ? (health.transient ? 'warn' : 'danger') : 'neutral'}>
             {health.ok === true ? t('intg.diag.healthOk') : health.ok === false ? t(health.transient ? 'intg.diag.healthUnreachable' : 'intg.diag.healthFailed') : t('intg.diag.healthUnknown')}</Badge> },
@@ -503,13 +505,13 @@ function ConnectionDetail({ connection, spec, onClose }: { connection: Connectio
         ]} />
         {connection.webhook && <WebhookPanel webhook={connection.webhook} />}
         {configItems.length > 0 && <>
-          <h3 style={{ margin: 0 }}>{t('intg.diag.settings')}</h3>
+          <h3 className="m-0">{t('intg.diag.settings')}</h3>
           <KeyValueList items={configItems.map(([k, v]) => {
             const f = spec?.fields.config.find((x) => x.key === k);
             return { key: k, label: f?.labelKey ? t(f.labelKey) : k, value: <bdi dir="ltr">{String(v)}</bdi> };
           })} />
         </>}
-        {spec?.readinessDetail && <CapabilityTable detail={spec.readinessDetail} />}
+        {spec?.readinessDetail && <CapabilityTable detail={spec.readinessDetail} provider={spec.name} />}
         {connection.category === 'pos' && <><h3>{t('connect.int.syncRuns')}</h3>
           {(runs.data?.items ?? []).length === 0 ? <p className="fine">{t('state.empty')}</p> : <ul className="fine">{runs.data!.items.map((r) => (
             <li key={r.id}>{dateTime(r.startedAt, locale)} · <Badge tone={r.status === 'succeeded' ? 'ok' : r.status === 'failed' ? 'danger' : 'warn'}>{r.status}</Badge> · <OrderRef n={r.attempt} /> · {r.stats?.fetched ?? 0} / {r.stats?.conflicts ?? 0} {r.error ? `· ${r.error}` : ''}</li>))}</ul>}</>}
@@ -571,8 +573,8 @@ function PosImport() {
         </div>
         <p className="fine">{selected?.sourceOfTruth.menu === 'provider' ? t('connect.int.pos.providerOwns') : t('connect.int.pos.resutoOwns')}</p>
         {sync.error && <Notice tone="danger">{sync.error}</Notice>}
-        {result && <div className="stack" style={{ gap: 6 }}>
-          <div className="row" style={{ gap: 6 }}>
+        {result && <div className="stack gap-6">
+          <div className="row gap-6">
             <Badge tone={result.run.status === 'succeeded' ? 'ok' : result.run.status === 'failed' ? 'danger' : 'warn'}>{result.run.status}</Badge>
             {result.run.stats?.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             <span className="fine">{t('connect.int.pos.stats', { fetched: result.run.stats?.fetched ?? 0, rows: result.rows.length, unchanged: result.run.stats?.unchanged ?? 0, conflicts: result.run.stats?.conflicts ?? 0 })}</span>
@@ -588,7 +590,7 @@ function PosImport() {
             { key: 'id', header: t('connect.int.pos.externalId'), render: (k) => <code dir="ltr">{k.externalId}</code> },
             { key: 'l', header: t('connect.int.pos.resutoValue'), render: (k) => <>{k.local?.name} · {money(k.local?.priceMinor, org.currency, locale)}</> },
             { key: 'e', header: t('connect.int.pos.providerValue'), render: (k) => <>{k.external?.name} · {money(k.external?.priceMinor, org.currency, locale)}</> },
-            { key: 'a', header: '', align: 'end', render: (k) => <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+            { key: 'a', header: '', align: 'end', render: (k) => <div className="row gap-4 justify-end">
               <button className="btn btn-sm" disabled={resolve.pending} onClick={() => resolve.run(k, 'kept_local')}>{t('connect.int.keepResuto')}</button>
               <button className="btn btn-sm btn-leaf" disabled={resolve.pending} onClick={() => resolve.run(k, 'kept_external')}>{t('connect.int.keepProvider')}</button>
               <button className="btn btn-sm btn-ghost" disabled={resolve.pending} onClick={() => resolve.run(k, 'ignored')}>{t('connect.int.ignore')}</button></div> },

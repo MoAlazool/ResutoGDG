@@ -32,7 +32,7 @@ function Overview() {
         <div><Stat label={t('finance.collected')} value={<bdi>{m(T.collectedMinor)}</bdi>} /></div>
       </div>
       {rev.data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}:</strong> {rev.data.warnings.map((w) => financeWarningText(w, t)).join(' ')}</Notice>}
-      <div className="grid grid-2" style={{ alignItems: 'start' }}>
+      <div className="grid grid-2 items-start">
         <Card title={t('finance.insights')}>
           {!insights.data ? <Skeleton lines={3} /> : (
             <div className="stack">
@@ -67,7 +67,7 @@ function Overview() {
           ]} />
         </Card>
       </div>
-      <div className="grid grid-2" style={{ alignItems: 'start' }}>
+      <div className="grid grid-2 items-start">
         <Card title={t('finance.byDay')}>
           <DataTable rows={rev.data.byDay} rowKey={(r) => r.date} empty={<EmptyState title={t('finance.noData')} />} columns={[
             { key: 'd', header: t('finance.date'), render: (r) => <span dir="ltr">{r.date}</span> },
@@ -84,7 +84,7 @@ function Overview() {
               { key: 'f', header: t('finance.fees'), align: 'end', render: (r: any) => <span dir="ltr">{m(r.feesMinor)}{r.unknownFee ? ` (${r.unknownFee} ${t('finance.unknownFee')})` : ''}</span> },
             ]} />
           ) : <Skeleton lines={3} />}
-          {recon.data && <p className="fine" style={{ marginTop: 12 }}>{t('finance.reconciliation')}: {t('finance.openExceptions', { n: recon.data.openExceptions })}</p>}
+          {recon.data && <p className="fine mbs-12">{t('finance.reconciliation')}: {t('finance.openExceptions', { n: recon.data.openExceptions })}</p>}
         </Card>
       </div>
       {rev.data.byBranch.length > 1 && (

@@ -119,7 +119,7 @@ function SourcePanel({ fileEnabled, onCreated }: { fileEnabled: boolean; onCreat
     <section className="card">
       <Tabs tabs={[{ key: 'text', label: t('studio.ai.src.text') }, { key: 'csv', label: t('studio.ai.src.csv') }, { key: 'file', label: t('studio.ai.src.file') }]}
         value={source} onChange={(k) => { setSource(k); setError(null); }} label={t('studio.ai.import.title')} />
-      <div className="stack" style={{ marginBlockStart: 12 }}>
+      <div className="stack mbs-12">
         {source === 'text' && <>
           <p className="fine">{t('studio.ai.src.textHint')}</p>
           <TextareaField label={t('studio.ai.src.textLabel')} value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={200_000} dir="auto" />

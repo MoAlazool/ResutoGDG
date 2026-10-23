@@ -98,12 +98,12 @@ export function CreativePanel({ orgId, canWrite }: { orgId: string; canWrite: bo
             </label>
             <button className="btn btn-primary" disabled={pending}>{pending ? t('studio.creative.generating') : t('studio.creative.generate')}</button>
           </form>
-          {latest && <div style={{ marginBlockStart: 16 }}><CreativeCard c={latest} {...ctx} /></div>}
+          {latest && <div className="mbs-16"><CreativeCard c={latest} {...ctx} /></div>}
         </section>
       )}
       <section className="card">
         <div className="spread">
-          <h2 style={{ margin: 0 }}>{t('studio.creative.library')}</h2>
+          <h2 className="m-0">{t('studio.creative.library')}</h2>
           <select className="select" style={{ width: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label={t('studio.creative.filter')}>
             {FILTERS.map((f) => <option key={f} value={f}>{t(`studio.creative.status.${f}`)}</option>)}
           </select>
@@ -111,7 +111,7 @@ export function CreativePanel({ orgId, canWrite }: { orgId: string; canWrite: bo
         {list.error ? <Notice tone="danger">{list.error.message}</Notice> : !list.data ? <Skeleton lines={3} /> : !list.data.items.length ? (
           <EmptyState title={t('studio.creative.emptyTitle')}>{t('studio.creative.emptyBody')}</EmptyState>
         ) : (
-          <div className="stack" style={{ marginBlockStart: 12 }}>
+          <div className="stack mbs-12">
             {list.data.items.map((c) => <CreativeCard key={c.id} c={c} at={dateTime(c.createdAt, locale)} {...ctx} />)}
           </div>
         )}
@@ -140,7 +140,7 @@ function CreativeCard(props: CardProps) {
   return (
     <article className="ws-creative">
       <div className="spread">
-        <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        <span className="row gap-6 wrap">
           <Badge>{t(`studio.creative.kind.${c.kind}`)}</Badge>
           <Badge tone={c.status === 'approved' || c.status === 'used' ? 'ok' : c.status === 'rejected' ? 'danger' : 'neutral'}>{t(`studio.creative.status.${c.status}`)}</Badge>
           <Authorship c={c} />
@@ -233,9 +233,9 @@ function ApplyBox({ c, orgId, products, sections, onApplied }: CardProps) {
     <div className="stack" style={{ gap: 8, borderBlockStart: '1px solid var(--line-soft)', paddingBlockStart: 10 }}>
       <strong>{t('studio.creative.use')}</strong>
       {c.output.variants.length > 1 && (
-        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }} role="radiogroup" aria-label={t('studio.creative.useVersion')}>
+        <div className="row gap-12 wrap" role="radiogroup" aria-label={t('studio.creative.useVersion')}>
           {c.output.variants.map((_, i) => (
-            <label key={i} className="row" style={{ gap: 6 }}><input type="radio" checked={variant === i} onChange={() => setVariant(i)} />{t('studio.creative.version', { index: i + 1 })}</label>
+            <label key={i} className="row gap-6"><input type="radio" checked={variant === i} onChange={() => setVariant(i)} />{t('studio.creative.version', { index: i + 1 })}</label>
           ))}
         </div>
       )}
@@ -256,8 +256,8 @@ function ApplyBox({ c, orgId, products, sections, onApplied }: CardProps) {
           {CREATIVE_CAMPAIGN_CHANNELS.map((ch) => <option key={ch} value={ch}>{t(`marketing.channel.${ch}`)}</option>)}
         </select>
       )}
-      <p className="fine" style={{ margin: 0 }}>{t(`studio.creative.hint.${target}`, { language: t(`studio.lang.${c.locale}`) })}</p>
-      {!allowed && <p className="fine" style={{ margin: 0 }}>{t('studio.creative.noPermission')}</p>}
+      <p className="fine m-0">{t(`studio.creative.hint.${target}`, { language: t(`studio.lang.${c.locale}`) })}</p>
+      {!allowed && <p className="fine m-0">{t('studio.creative.noPermission')}</p>}
       <div>
         <button type="button" className="btn btn-primary btn-sm" disabled={!ready || !allowed || busy} aria-busy={busy} onClick={() => void submit()}>
           {t(`studio.creative.cta.${target}`)}

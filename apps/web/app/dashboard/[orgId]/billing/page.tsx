@@ -48,10 +48,10 @@ export default function BillingPage() {
   return (
     <div style={FIT}>
       <PageHeader title={s.title} subtitle={s.subtitle} />
-      {!manage && <div style={{ marginBlockEnd: 16 }}><Notice>{s.noAccess}</Notice></div>}
+      {!manage && <div className="mbe-16"><Notice>{s.noAccess}</Notice></div>}
       <Banners e={e} v={v ?? null} s={s} onChanged={refresh} />
 
-      <div className="grid grid-2" style={{ marginBlockEnd: 16 }}>
+      <div className="grid grid-2 mbe-16">
         <Card title={s.currentPlan}>
           <div className="stack">
             <div className="spread">
@@ -60,14 +60,14 @@ export default function BillingPage() {
             </div>
             {v && (
               <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', margin: 0, fontSize: 14 }}>
-                <dt className="muted">{s.interval}</dt><dd style={{ margin: 0 }}>{v.interval === 'year' ? s.year : s.month}</dd>
-                <dt className="muted">{s.period}</dt><dd style={{ margin: 0 }}>{day(v.currentPeriodStart, locale)} – {day(v.currentPeriodEnd, locale)}</dd>
+                <dt className="muted">{s.interval}</dt><dd className="m-0">{v.interval === 'year' ? s.year : s.month}</dd>
+                <dt className="muted">{s.period}</dt><dd className="m-0">{day(v.currentPeriodStart, locale)} – {day(v.currentPeriodEnd, locale)}</dd>
                 <dt className="muted">{s.recurring}</dt>
-                <dd style={{ margin: 0 }} className="num">{v.recurring ? `${money(v.recurring.subtotalMinor, v.currency, locale)} ${v.interval === 'year' ? s.perYear : s.perMonth}` : '—'}</dd>
+                <dd className="num m-0">{v.recurring ? `${money(v.recurring.subtotalMinor, v.currency, locale)} ${v.interval === 'year' ? s.perYear : s.perMonth}` : '—'}</dd>
               </dl>
             )}
-            {v && <p className="fine" style={{ margin: 0 }}><Badge tone="sandbox">{s.providerNote}</Badge> {s.providerBody}</p>}
-            <p className="fine" style={{ margin: 0 }}>{s.external}</p>
+            {v && <p className="fine m-0"><Badge tone="sandbox">{s.providerNote}</Badge> {s.providerBody}</p>}
+            <p className="fine m-0">{s.external}</p>
           </div>
         </Card>
         {/* breaks the global .card + .card margin inside grids */}<span hidden />
@@ -118,15 +118,15 @@ export default function BillingPage() {
       {manage && <Costs s={s} />}
       {manage && v && <ChangePlan v={v} s={s} onChanged={refresh} />}
       {manage && v && (
-        <div className="grid grid-2" style={{ marginBlockStart: 16 }}>
+        <div className="grid grid-2 mbs-16">
           <Card title={s.invoices}>
             {v.invoices.length ? (
               <div className="table-wrap">
                 <table className="data">
-                  <thead><tr><th>{s.invoiceNumber}</th><th>{s.invoicePeriod}</th><th style={{ textAlign: 'end' }}>{s.amount}</th><th>{s.status}</th></tr></thead>
+                  <thead><tr><th>{s.invoiceNumber}</th><th>{s.invoicePeriod}</th><th className="text-end">{s.amount}</th><th>{s.status}</th></tr></thead>
                   <tbody>{v.invoices.map((i) => (
                     <tr key={i.id}><td className="num">{i.number}</td><td>{day(i.periodStart, locale)} – {day(i.periodEnd, locale)}</td>
-                      <td className="num" style={{ textAlign: 'end' }}>{money(i.totalMinor, i.currency, locale)}</td>
+                      <td className="num text-end">{money(i.totalMinor, i.currency, locale)}</td>
                       <td><Badge tone={i.status === 'paid' ? 'ok' : 'warn'}>{i.status === 'draft' ? s.draft : invoiceStatusLabel(t, i.status)}</Badge></td></tr>
                   ))}</tbody>
                 </table>
@@ -156,9 +156,9 @@ function Costs({ s }: { s: BillingStrings }) {
   const month = (m: string) => new Intl.DateTimeFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${m}-01T00:00:00Z`));
   const n = (x: number) => x.toLocaleString(locale === 'ar' ? INTL_LOCALE.ar : 'en');
   return (
-    <div style={{ marginBlockEnd: 16 }}>
+    <div className="mbe-16">
       <Card title={s.costsTitle}>
-        <p className="fine" style={{ marginTop: 0 }}>{s.costsBody}</p>
+        <p className="fine mbs-0">{s.costsBody}</p>
         {costs.error ? <Notice tone="danger">{s.loadError}</Notice> : !costs.data ? <Skeleton lines={4} /> : (
           <div className="stack">
             {costs.data.months.map((m) => (
@@ -169,7 +169,7 @@ function Costs({ s }: { s: BillingStrings }) {
                     <tbody>
                       <tr style={{ fontWeight: 600 }}>
                         <td>{s.costsPlatform}</td><td />
-                        <td className="num" style={{ textAlign: 'end' }}>{m.platform.currency ? money(m.platform.invoicedMinor, m.platform.currency, locale) : s.costsNoInvoice}</td>
+                        <td className="num text-end">{m.platform.currency ? money(m.platform.invoicedMinor, m.platform.currency, locale) : s.costsNoInvoice}</td>
                         <td>{m.platform.invoiceStatuses.includes('draft') ? <Badge tone="warn">{s.draft}</Badge> : null}</td>
                       </tr>
                       <tr><td colSpan={4} className="fine" style={{ paddingTop: 10 }}>{s.costsPassThrough}</td></tr>
@@ -177,7 +177,7 @@ function Costs({ s }: { s: BillingStrings }) {
                         <tr key={`${l.category}:${l.detail}`}>
                           <td style={{ paddingInlineStart: 28 }}>{s[`cat_${l.category}` as keyof BillingStrings]} <span className="fine">· <bdi dir="ltr">{l.detail}</bdi></span></td>
                           <td className="num muted">{s.costsQty}: {n(l.quantity)}</td>
-                          <td className="num" style={{ textAlign: 'end' }}>{l.amountMinor === null ? '—' : money(l.amountMinor, l.currency ?? 'EGP', locale)}</td>
+                          <td className="num text-end">{l.amountMinor === null ? '—' : money(l.amountMinor, l.currency ?? 'EGP', locale)}</td>
                           <td><Badge tone={l.basis === 'count_only' ? 'neutral' : 'info'}>{s[`basis_${l.basis}` as keyof BillingStrings]}</Badge> <span className="fine">{s.costsBilledBy} <bdi dir="ltr">{l.billedBy}</bdi></span></td>
                         </tr>
                       ))}
@@ -186,7 +186,7 @@ function Costs({ s }: { s: BillingStrings }) {
                 </div>
               </section>
             ))}
-            {costs.data.months.some((m) => m.platform.invoiceStatuses.includes('draft')) && <p className="fine" style={{ margin: 0 }}>{s.costsDraftNote}</p>}
+            {costs.data.months.some((m) => m.platform.invoiceStatuses.includes('draft')) && <p className="fine m-0">{s.costsDraftNote}</p>}
             <ul className="fine" style={{ margin: 0, paddingInlineStart: 18 }}>
               {costs.data.notes.map((k) => <li key={k}>{s[`note_${k}` as keyof BillingStrings]}</li>)}
             </ul>
@@ -283,8 +283,8 @@ function ChangePlan({ v, s, onChanged }: { v: SubscriptionView; s: BillingString
   return (
     <Card title={s.changePlan} actions={!v.cancelAtPeriodEnd && !free && v.status !== 'canceled'
       ? <button className="btn btn-sm btn-danger" onClick={() => setCancelOpen(true)}>{s.cancel}</button> : undefined}>
-      <p className="fine" style={{ marginTop: 0 }}>{s.upgradeHint}</p>
-      <div role="tablist" className="row" style={{ gap: 6, marginBlockEnd: 14 }}>
+      <p className="fine mbs-0">{s.upgradeHint}</p>
+      <div role="tablist" className="row gap-6 mbe-14">
         {(['month', 'year'] as const).map((i) => (
           <button key={i} type="button" className={`btn btn-sm btn-pill ${interval === i ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={interval === i} onClick={() => setBillingInterval(i)}>{i === 'year' ? s.year : s.month}</button>
         ))}
@@ -304,7 +304,7 @@ function ChangePlan({ v, s, onChanged }: { v: SubscriptionView; s: BillingString
       {catalog && (
         <>
           <h3 style={{ marginBlock: '18px 10px' }}>{s.addons}</h3>
-          <div className="row" style={{ gap: 8 }}>
+          <div className="row gap-8">
             {catalog.modules.filter((m) => m.key !== 'core').map((m) => {
               const inPlan = plan?.modules.includes(m.key) ?? false;
               const on = inPlan || addons.includes(m.key);
@@ -328,7 +328,7 @@ function ChangePlan({ v, s, onChanged }: { v: SubscriptionView; s: BillingString
         <button className="btn btn-primary" disabled={pending || unchanged} onClick={() => void apply()}>{pending ? s.applying : s.apply}</button>
       </div>
       {result && (
-        <div style={{ marginBlockStart: 12 }}>
+        <div className="mbs-12">
           <Notice tone={result.tone}>
             {result.text}
             {result.violations && <>{' '}{result.violations.map((x) => `${x.current}/${x.allowed} ${s[`limitName_${x.limit}` as keyof BillingStrings] ?? x.limit}`).join(', ')}. {s.reduce}</>}

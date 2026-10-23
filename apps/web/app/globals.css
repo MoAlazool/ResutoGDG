@@ -528,3 +528,35 @@ body:has(.gx-dock, .bk-bar, .gx-sheet-foot) .ws-lang { inset-block-end: calc(88p
 .err-inline p { margin: 0; color: var(--muted); font-size: 14px; max-width: 520px; }
 
 .lang-toggle { background: transparent; border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 6px 12px; font-size: 12px; cursor: pointer; }
+
+/* Shared dashboard surfaces (REM-W11): replace per-page inline styles and local colours. Kept after .card so their
+   border and background win over the workspace card defaults. */
+.card-sandbox { border: 2px dashed var(--sandbox-line); background: var(--sandbox-soft); }
+:where(.ws) .card.card-sandbox { border-color: var(--sandbox-line); }
+.card-sandbox.is-thin { border-width: 1px; }
+.card-sandbox.is-strong { background: var(--sandbox-bg); color: var(--sandbox-ink); }
+.sandbox-ink { color: var(--sandbox-ink); }
+.code-block { padding: 12px; overflow: auto; border: 1px solid var(--line-soft); border-radius: 10px; background: var(--surface-code); font-size: 12px; }
+.code-block.is-dark { margin: 0; padding: 14px 16px; border: 0; border-radius: 12px; background: var(--code-bg); color: var(--code-text); font-size: 12.5px; overflow-x: auto; }
+.code-block.is-tall { max-height: 360px; }
+tr.row-strong { font-weight: 700; background: var(--surface-code); }
+
+/* Layout utilities for dashboard pages (REM-W11). They replace one-off inline styles, so they carry !important to keep
+   the precedence those inline styles had over component rules (.row/.stack gaps, card margins). Prefer a component or a
+   page class for anything with more than a property or two. */
+.m-0 { margin: 0 !important; }
+.gap-4 { gap: 4px !important; } .gap-6 { gap: 6px !important; } .gap-8 { gap: 8px !important; }
+.gap-10 { gap: 10px !important; } .gap-12 { gap: 12px !important; } .gap-16 { gap: 16px !important; }
+.text-end { text-align: end !important; } .text-start { text-align: start !important; }
+.justify-end { justify-content: flex-end !important; }
+.items-start { align-items: flex-start !important; } .items-end { align-items: end !important; }
+.mbe-6 { margin-block-end: 6px !important; } .mbe-12 { margin-block-end: 12px !important; }
+.mbe-14 { margin-block-end: 14px !important; } .mbe-16 { margin-block-end: 16px !important; }
+.mbs-0 { margin-block-start: 0 !important; } .mbs-4 { margin-block-start: 4px !important; } .mbs-8 { margin-block-start: 8px !important; }
+.mbs-10 { margin-block-start: 10px !important; } .mbs-12 { margin-block-start: 12px !important; }
+.mbs-14 { margin-block-start: 14px !important; } .mbs-16 { margin-block-start: 16px !important; }
+.cursor-pointer { cursor: pointer !important; }
+.min-w-0 { min-width: 0 !important; }
+.wrap { flex-wrap: wrap !important; }
+.nowrap { white-space: nowrap !important; }
+.break-all { word-break: break-all !important; }

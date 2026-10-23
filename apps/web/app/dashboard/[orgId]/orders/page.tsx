@@ -160,7 +160,7 @@ function Orders() {
             { key: 'total', header: t('core.bill.total'), align: 'end', render: (o) => <span className="num">{money(o.totalMinor, o.currency, locale)}</span> },
           ]} />
       )}
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row mbs-12">
         {cursor && <button className="btn btn-sm" onClick={() => setCursor(undefined)}>{t('core.orders.latest')}</button>}
         {list.data?.nextCursor && <button className="btn btn-sm" onClick={() => setCursor(list.data!.nextCursor!)}>{t('core.orders.older')}</button>}
       </div>
@@ -243,7 +243,7 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
           </div>
           {o.visitId && o.dueMinor > 0 && <p className="fine">{t('core.orders.tableBillHint')}</p>}
           <details>
-            <summary className="fine" style={{ cursor: 'pointer' }}>{t('core.orders.history')}</summary>
+            <summary className="fine cursor-pointer">{t('core.orders.history')}</summary>
             <ol className="fine">
               {o.events.map((e) => <li key={e.id}>{time(e.at, locale, org.timezone)} · {e.to ? t(`core.status.${e.to}`) : e.type} · {e.actorType}</li>)}
               {o.payments.map((p) => <li key={p.id}>{t(`core.method.${p.method}`)} · {money(p.amountMinor, o.currency, locale)} · {p.status}{p.isTest ? ` · ${t('state.sandbox')}` : ''}</li>)}
@@ -304,7 +304,7 @@ function NewOrderModal({ branchId, customerId, onClose, onCreated }: { branchId:
     </>}>
       {!menu.data ? <Skeleton lines={4} /> : (
         <div className="stack">
-          {customerId && loyalty.data && <p style={{ margin: 0 }}><strong>{t('loyalty.staff.for', { name: loyalty.data.displayName ?? '—' })}</strong></p>}
+          {customerId && loyalty.data && <p className="m-0"><strong>{t('loyalty.staff.for', { name: loyalty.data.displayName ?? '—' })}</strong></p>}
           <div className="g-seg ops-seg" role="group" aria-label={t('core.orders.fulfillment')}>
             {(['dine_in', 'pickup', 'delivery'] as const).map((f) => (
               <button key={f} type="button" className={`btn btn-sm btn-pill ${fulfillment === f ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFulfillment(f)}>{t(`core.web.${f}`)}</button>
@@ -362,7 +362,7 @@ function NewOrderModal({ branchId, customerId, onClose, onCreated }: { branchId:
                   </option>
                 ))}
               </SelectField>
-              <p className="fine" style={{ marginBlockStart: 4 }}>{t('loyalty.staff.balance', { points: num(loyalty.data.balance, locale) })}</p>
+              <p className="fine mbs-4">{t('loyalty.staff.balance', { points: num(loyalty.data.balance, locale) })}</p>
             </div>
           )}
           <p className="fine">{t('core.orders.serverPrices')}</p>

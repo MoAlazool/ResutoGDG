@@ -49,7 +49,10 @@ test('edit in ResutoStudio → publish → /r/<slug> renders the new revision', 
   await expect(site.locator('.dish-card h3')).toHaveText(['Burrata & heirloom tomato', 'Roasted pumpkin soup', 'Grilled chicken supreme']);
   await expect(site.locator('.dish-card').first()).toHaveAttribute('href', `/order/${tenant.slug}`);
   await expect(site.getByRole('link', { name: /Reserve a table/ })).toHaveAttribute('href', `/reserve/${tenant.slug}`);
-  expect(await site.content()).not.toContain('cost');
+  // No product cost reaches the public site: no cost field in the HTML or the RSC payload, no "cost" in the visible text.
+  // (The page ships the guest dictionary, whose key names such as core.guest.loyalty.cost are not data.)
+  expect(await site.content()).not.toMatch(/cost_?minor|"cost"\s*:/i);
+  expect(await site.locator('body').innerText()).not.toMatch(/\bcost/i);
   expect(siteErrors).toEqual([]);
   await site.close();
 });
@@ -119,9 +122,9 @@ test('Studio editor manages media, domains and labelled AI creative', async ({ p
   await page.getByRole('tab', { name: 'AI creative' }).click();
   await page.getByLabel('Brief').fill('Weekend brunch is back from 10 am');
   await page.getByRole('button', { name: 'Generate drafts' }).click();
-  await expect(page.getByText('Template fallback · not AI').first()).toBeVisible();
+  await expect(page.getByText('Template · no AI').first()).toBeVisible();
   await page.getByRole('button', { name: 'Approve' }).first().click();
-  await expect(page.locator('.ws-creative').first().getByText('Approved')).toBeVisible();
+  await expect(page.getByRole('main').getByRole('article').first().getByText('Approved', { exact: true })).toBeVisible();
 });
 
 test('Studio pages have no serious accessibility violations', async ({ page, request }) => {

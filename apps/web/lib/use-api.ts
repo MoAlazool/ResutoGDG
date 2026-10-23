@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { ApiRequestError } from './api';
+import { revalidatingCall } from './api-conditional';
 import { interactionPaused } from './live-pause';
 import { nextPollDelay, queryCache, resourceOf, SECOND, staleTimeFor } from './query-cache';
 import { useSession } from './session';
@@ -50,7 +51,9 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
   const { call, token, tokenReady, scope } = useSession();
   const [, force] = useReducer((x: number) => x + 1, 0);
   const key = path && tokenReady && token && scope ? `${scope}|${path}` : null;
-  const fetcher = useCallback((signal: AbortSignal) => call<T>(path!, { signal }), [call, path]);
+  // Polls and revisits send the last ETag; an unchanged answer (304) keeps the same object (REM-W02). The memory is
+  // partitioned by the signed-in user (scope), which a token refresh does not change.
+  const fetcher = useCallback((signal: AbortSignal) => revalidatingCall<T>(call, path!, scope, { signal }), [call, path, scope]);
   const staleMs = opts.staleMs ?? (path ? staleTimeFor(path) : 0);
 
   useEffect(() => {

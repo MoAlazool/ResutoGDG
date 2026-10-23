@@ -32,22 +32,23 @@ test('QR order with a modifier → KDS ready → served → equal split paid by 
     await test.step('guest A scans the table QR on a phone and orders a Large burger', async () => {
       const g = guestA.page;
       await g.goto(qr);
-      await expect(g.locator('.g-brand')).toContainText('Table T1');
+      await expect(g.getByRole('main')).toContainText('Table T1');
       await expectNoHorizontalOverflow(g);
-      const burger = g.locator('.g-dish').filter({ hasText: 'Smash burger' });
-      await burger.getByRole('button', { name: /Choose/ }).click();
-      const sheet = g.getByRole('dialog');
+      await g.getByRole('button', { name: 'Choose Smash burger' }).click();
+      const sheet = g.getByRole('dialog', { name: 'Smash burger' });
       await expect(sheet.getByRole('button', { name: /^Add to order/ })).toBeDisabled(); // Size is required
-      await sheet.locator('.g-option').filter({ hasText: 'Large' }).click();
+      await sheet.getByRole('radio', { name: /^Large/ }).check();
       await expect(sheet.getByRole('button', { name: /^Add to order/ })).toContainText('215');
       await sheet.getByRole('button', { name: /^Add to order/ }).click();
-      await expect(g.getByRole('status')).toContainText('Added to your order');
-      await g.getByRole('button', { name: 'View cart' }).click();
+      await expect(g.getByRole('status').filter({ hasText: 'Added to your order' })).toBeVisible();
+      await g.getByRole('button', { name: /^View cart/ }).click();
       const cart = g.getByRole('dialog', { name: 'Your order' });
-      await expect(cart.locator('.g-grand')).toContainText('215');
-      await cart.getByRole('button', { name: 'Send to kitchen' }).click();
-      await expect(g.getByRole('dialog', { name: /^Order #/ })).toBeVisible();
-      await expect(g.locator('.g-timeline')).toBeVisible();
+      await expect(cart).toContainText('Large');
+      await expect(cart).toContainText(/Total\s*EGP\s*215\.00/);
+      await cart.getByRole('button', { name: 'Confirm order' }).click();
+      // The live status page replaces the menu: order #1 with its numbered steps.
+      await expect(g.getByRole('heading', { level: 1, name: 'Your order is on its way.' })).toBeVisible();
+      await expect(g.getByRole('main').getByRole('listitem').first()).toContainText('Order received');
     });
 
     const [order] = await sql<{ id: string; number: string; total_minor: string }>(`select id, number, total_minor from orders where org_id = $1`, [tenant.orgId]);
@@ -56,44 +57,48 @@ test('QR order with a modifier → KDS ready → served → equal split paid by 
     await test.step('the KDS shows the ticket with its modifier and bumps it to ready, then served', async () => {
       const k = staff.page;
       await k.goto(`/kitchen/${tenant.orgId}`);
-      const ticket = k.locator('.kds-col').filter({ hasText: 'New orders' }).locator('article').filter({ hasText: 'Smash burger' });
+      const ticket = k.getByRole('region', { name: 'New orders' }).locator('article').filter({ hasText: 'Smash burger' });
       await expect(ticket).toBeVisible({ timeout: 15_000 });
       await expect(ticket).toContainText('Large');
       await expect(ticket).toContainText('Table T1');
       await ticket.getByRole('button', { name: 'Start preparing' }).click();
-      const preparing = k.locator('.kds-col').filter({ hasText: 'Preparing' }).locator('article').filter({ hasText: 'Smash burger' });
-      await preparing.getByRole('button', { name: 'Ready' }).click();
-      const ready = k.locator('.kds-col').filter({ hasText: 'Ready to serve' }).locator('article').filter({ hasText: 'Smash burger' });
+      const preparing = k.getByRole('region', { name: 'Preparing' }).locator('article').filter({ hasText: 'Smash burger' });
+      await preparing.getByRole('button', { name: 'Mark ready' }).click();
+      const ready = k.getByRole('region', { name: 'Ready to serve' }).locator('article').filter({ hasText: 'Smash burger' });
       await expect(ready).toBeVisible();
       await expect.poll(async () => (await sql(`select status from orders where id = $1`, [order!.id]))[0].status).toBe('ready');
-      await ready.getByRole('button', { name: 'Served' }).click();
+      await ready.getByRole('button', { name: 'Mark served' }).click();
       await expect(ready).toHaveCount(0);
       await expect.poll(async () => (await sql(`select status from orders where id = $1`, [order!.id]))[0].status).toBe('served');
     });
 
     await test.step('guest A sees the order served and the bill due', async () => {
       const g = guestA.page;
-      const tracking = g.getByRole('dialog', { name: /^Order #/ });
-      await expect(tracking.locator('[aria-current="step"]')).toContainText('Served', { timeout: 10_000 });
-      // Closing the tracking sheet does not stick while it polls (H-4), so reload instead.
+      // The status page polls: the current step moves to "Served" without a reload.
+      await expect(g.getByRole('main').locator('[aria-current="step"]')).toContainText('Served', { timeout: 15_000 });
+      // A reload returns to the menu; "View order" brings the status back from the server.
       await g.reload();
-      await expect(g.getByRole('button', { name: /^Order #1 .*Served$/ })).toBeVisible();
-      await g.getByRole('button', { name: /^View bill/ }).click();
-      await expect(g.getByRole('dialog', { name: 'Bill · Table T1' })).toContainText('215');
+      await g.getByRole('button', { name: 'View order' }).click();
+      await expect(g.getByRole('main').locator('[aria-current="step"]')).toContainText('Served');
+      await g.getByRole('main').getByRole('button', { name: 'View bill' }).click();
+      const bill = g.getByRole('dialog', { name: 'Split & pay' });
+      await expect(bill).toContainText(/Remaining\s*EGP\s*215\.00/);
     });
 
     await test.step('guest A splits the bill equally between two people', async () => {
       const g = guestA.page;
       await g.goto(`${qr}/pay`);
-      await expect(g.locator('.pay-totals .due')).toContainText('215');
-      await g.getByRole('link', { name: 'Split the bill' }).click();
-      await expect(g).toHaveURL(/\/pay\/split$/);
-      await expect(g.locator('.pay-lines li')).toHaveCount(2);
-      await expect(g.locator('.pay-lines li').first()).toContainText('107.50');
-      await g.getByRole('button', { name: 'Create split' }).click();
-      await expect(g).toHaveURL(new RegExp(`${qr}/pay$`));
-      await expect(g.getByText('This bill is split')).toBeVisible();
-      await expect(g.locator('.pay-share')).toHaveCount(2);
+      await expect(g.getByRole('heading', { level: 1, name: 'Split & pay' })).toBeVisible();
+      await expect(g.getByRole('main')).toContainText(/Remaining\s*EGP\s*215\.00/);
+      await g.getByRole('button', { name: 'Split bill' }).click();
+      await g.getByRole('dialog', { name: 'Split bill' }).getByRole('button', { name: 'Split equally' }).click();
+      const equal = g.getByRole('dialog', { name: 'Split equally' });
+      await equal.getByRole('spinbutton', { name: 'People' }).fill('2');
+      await expect(equal.getByText('EGP 107.50')).toHaveCount(2);
+      await equal.getByRole('button', { name: 'Create payment links' }).click();
+      await expect(g.getByRole('link', { name: 'Pay this share' })).toHaveCount(2);
+      await expect(g.getByRole('main')).toContainText('Share 1');
+      await expect(g.getByRole('main')).toContainText('Share 2');
       await expectNoHorizontalOverflow(g);
     });
 
@@ -101,23 +106,24 @@ test('QR order with a modifier → KDS ready → served → equal split paid by 
       // Guest B joins the same table session from the QR, then opens the bill.
       const b = guestB.page;
       await b.goto(qr);
-      await expect(b.locator('.g-brand')).toContainText('Table T1');
+      await expect(b.getByRole('main')).toContainText('Table T1');
       await b.goto(`${qr}/pay`);
-      await expect(b.locator('.pay-share')).toHaveCount(2);
+      await expect(b.getByRole('link', { name: 'Pay this share' })).toHaveCount(2);
 
       const a = guestA.page;
-      await a.locator('.pay-share').nth(0).getByRole('link', { name: 'Pay my share' }).click();
+      await a.getByRole('link', { name: 'Pay this share' }).first().click();
       await expect(a).toHaveURL(/\/s\//);
-      await expect(a.locator('.pay-amount')).toContainText('107.50');
-      await a.getByRole('button', { name: 'Pay my share' }).click();
+      await expect(a.getByRole('main')).toContainText(/Your share\s*EGP\s*107\.50/);
+      await a.getByRole('button', { name: 'Continue to payment' }).click();
       await paySandboxInBrowser(a);
       await expect(a.getByText('Payment successful')).toBeVisible({ timeout: 20_000 });
 
       await b.reload();
-      await expect(b.locator('.pay-share').nth(0)).toContainText('Paid');
-      await b.locator('.pay-share').nth(1).getByRole('link', { name: 'Pay my share' }).click();
-      await expect(b.locator('.pay-amount')).toContainText('107.50');
-      await b.getByRole('button', { name: 'Pay my share' }).click();
+      await expect(b.getByRole('main')).toContainText(/Share 1\s*EGP\s*107\.50 · Paid/);
+      await expect(b.getByRole('link', { name: 'Pay this share' })).toHaveCount(1);
+      await b.getByRole('link', { name: 'Pay this share' }).click();
+      await expect(b.getByRole('main')).toContainText(/Your share\s*EGP\s*107\.50/);
+      await b.getByRole('button', { name: 'Continue to payment' }).click();
       await paySandboxInBrowser(b);
       await expect(b.getByText('Payment successful')).toBeVisible({ timeout: 20_000 });
     });
@@ -125,8 +131,8 @@ test('QR order with a modifier → KDS ready → served → equal split paid by 
     await test.step('the bill shows settled', async () => {
       const a = guestA.page;
       await a.goto(`${qr}/pay`);
-      await expect(a.getByText('All shares are paid.')).toBeVisible({ timeout: 15_000 });
-      await expect(a.locator('.pay-totals .due')).toContainText('0');
+      await expect(a.getByText('Your current balance is settled.')).toBeVisible({ timeout: 15_000 });
+      await expect(a.getByRole('main')).toContainText(/Remaining\s*EGP\s*0\.00/);
       const [o] = await sql(`select payment_status, paid_minor from orders where id = $1`, [order!.id]);
       expect(o).toMatchObject({ payment_status: 'paid', paid_minor: '21500' });
     });
@@ -135,8 +141,9 @@ test('QR order with a modifier → KDS ready → served → equal split paid by 
       const s = staff.page;
       await s.goto(`/dashboard/${tenant.orgId}/floor?tab=live`);
       await s.getByRole('button', { name: /^T1,/ }).click();
-      await expect(s.locator('.live-panel .badge').first()).toHaveText('Paid');
-      await s.getByRole('button', { name: 'Close table' }).click();
+      const detail = s.getByRole('region', { name: 'T1', exact: true });
+      await expect(detail.getByText('Ready to close', { exact: true })).toBeVisible();
+      await detail.getByRole('button', { name: 'Close visit' }).click();
       await expect(s.getByText('T1 closed.')).toBeVisible();
       await expect(s.locator('dialog.rui-confirm[open]')).toHaveCount(0);
       expect((await visitOf(tenant, tableId))!.status).toBe('closed');
@@ -155,36 +162,40 @@ test('after staff close the visit, reloading the guest page shows the session en
   const guest = await newContext(browser, { mobile: true });
   try {
     await guest.page.goto(qr);
-    await expect(guest.page.locator('.g-brand')).toContainText('Table T1');
+    await expect(guest.page.getByRole('main')).toContainText('Table T1');
+    await expect.poll(async () => (await visitOf(tenant, tableId))?.status).toBe('open');
     const first = (await visitOf(tenant, tableId))!;
     await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/visits/${first.id}/close`, {});
     await guest.page.reload();
-    await expect(guest.page.getByRole('heading', { name: 'This table session has ended' })).toBeVisible();
+    await expect(guest.page.getByText('This table session has ended')).toBeVisible();
     expect((await sql(`select count(*)::int as n from visits where table_id = $1`, [tableId]))[0].n).toBe(1);
   } finally {
     await guest.context.close();
   }
 });
 
-// Regression for H-4 (fixed): the order-tracking sheet polls at its cadence (no tight refresh loop) and closing it sticks.
-test('the order-tracking sheet polls at the 2.5 s cadence and stays closed when dismissed', async ({ browser, request }) => {
+// Regression for H-4 (fixed): the order status polls at its cadence (no tight refresh loop) and leaving it sticks.
+// The cadence is the guest poll of PCL-18 (components/guest/schedule.ts): one request every 5 s while visible.
+test('the order status polls at the 5 s guest cadence and stays closed when the guest goes back to the menu', async ({ browser, request }) => {
   const { qr } = await setup(request);
   const guest = await newContext(browser, { mobile: true });
   try {
     const g = guest.page;
     await g.goto(qr);
-    await g.locator('.g-dish').filter({ hasText: 'Fries' }).getByRole('button', { name: /Add/ }).click();
-    await g.getByRole('button', { name: 'View cart' }).click();
-    await g.getByRole('dialog', { name: 'Your order' }).getByRole('button', { name: 'Send to kitchen' }).click();
-    const tracking = g.getByRole('dialog', { name: /^Order #/ });
+    await g.getByRole('button', { name: 'Add Fries' }).click();
+    await g.getByRole('button', { name: /^View cart/ }).click();
+    await g.getByRole('dialog', { name: 'Your order' }).getByRole('button', { name: 'Confirm order' }).click();
+    const tracking = g.getByRole('heading', { level: 1, name: 'Your order is on its way.' });
     await expect(tracking).toBeVisible();
     let polls = 0;
-    g.on('request', (r) => { if (/\/v1\/public\/visits\/current\/orders\//.test(r.url())) polls++; });
-    await g.waitForTimeout(5000);
-    expect(polls, 'order-status requests in 5 s (2.5 s poll → ≤ 3)').toBeLessThanOrEqual(3);
-    await tracking.getByRole('button', { name: 'Back to the menu' }).click();
-    await g.waitForTimeout(3000);
+    g.on('request', (r) => { if (/\/v1\/public\/visits\/current(\?|$)/.test(r.url())) polls++; });
+    await g.waitForTimeout(10_000);
+    expect(polls, 'visit polls in 10 s (5 s cadence → ≤ 3)').toBeLessThanOrEqual(3);
+    expect(polls, 'the status keeps polling').toBeGreaterThanOrEqual(1);
+    await g.getByRole('button', { name: 'Browse menu' }).click();
+    await g.waitForTimeout(6000); // longer than one poll
     await expect(tracking).toHaveCount(0);
+    await expect(g.getByRole('button', { name: 'View order' })).toBeVisible();
   } finally {
     await guest.context.close();
   }

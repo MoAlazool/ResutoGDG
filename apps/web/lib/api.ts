@@ -52,6 +52,20 @@ const COPY = {
 const docLocale = (): 'en' | 'ar' => (typeof document !== 'undefined' && document.documentElement.lang === 'ar' ? 'ar' : 'en');
 const copy = (k: keyof (typeof COPY)['en'], status = 0) => COPY[docLocale()][k].replace('{status}', String(status));
 
+/**
+ * The message for an API error in the page language (REM-W05): Arabic pages get the localised text for the error
+ * code (lib/api-errors, a chunk loaded only when an error needs it); English pages keep the API's sentence (one with
+ * a space), which can be more specific. Never throws: any failure keeps the API's text.
+ */
+async function errorText(code: string, details: unknown, message: string): Promise<string> {
+  try {
+    const locale = docLocale();
+    return locale === 'en' && / /.test(message) ? message : await (await import('./api-errors')).localizedErrorMessage(code, details, locale, message);
+  } catch {
+    return message;
+  }
+}
+
 export interface ApiOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
@@ -59,6 +73,11 @@ export interface ApiOptions {
   idempotencyKey?: string;
   headers?: Record<string, string>;
   signal?: AbortSignal;
+  /**
+   * Called with the raw response before its body is read (status and headers only). lib/api-conditional.ts uses it
+   * to learn ETags for conditional GETs (REM-W02) without adding that machinery to every page.
+   */
+  onResponse?: (res: Response) => void;
 }
 
 const isJson = (contentType: string | null) => !!contentType && /\bjson\b/i.test(contentType);
@@ -107,10 +126,11 @@ export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boo
   if (opts.body !== undefined && !(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
+  const method = opts.method ?? (opts.body !== undefined ? 'POST' : 'GET');
   let res: Response;
   try {
     res = await fetch(`${API_URL}/v1${path}`, {
-      method: opts.method ?? (opts.body !== undefined ? 'POST' : 'GET'),
+      method,
       headers,
       body: opts.body === undefined ? undefined : opts.body instanceof FormData ? opts.body : JSON.stringify(opts.body),
       signal: opts.signal,
@@ -123,6 +143,7 @@ export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boo
   }
   // Topbar connection status: a gateway/server outage means "reconnecting"; any other answer means the API is reachable.
   reportConnection(!(res.status === 502 || res.status === 503 || res.status === 504));
+  opts.onResponse?.(res);
   noteServerCachePolicy(res.headers.get('cache-control'));
   const requestId = res.headers.get('x-request-id') ?? undefined;
   const text = await res.text().catch(() => '');
@@ -135,11 +156,12 @@ export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boo
   if (!res.ok) {
     const e = data?.error;
     if (!e) throw new ApiRequestError(res.status, res.status >= 500 ? 'service_unavailable' : 'http_error', copy('server', res.status), undefined, requestId);
-    throw new ApiRequestError(res.status, e.code ?? 'http_error', e.message ?? res.statusText, e.details, e.requestId ?? requestId);
+    const code: string = e.code ?? 'http_error';
+    throw new ApiRequestError(res.status, code, await errorText(code, e.details, e.message ?? res.statusText), e.details, e.requestId ?? requestId);
   }
   if (data === undefined) throw new ApiRequestError(res.status, 'bad_response', copy('bad_response', res.status), undefined, requestId);
-  const method = opts.method ?? (opts.body !== undefined ? 'POST' : 'GET');
-  return [data, method === 'GET' && !/[?&](cursor|limit)=/.test(path) && res.headers.get('x-resuto-list') === 'full'];
+  const full = method === 'GET' && !/[?&](cursor|limit)=/.test(path) && res.headers.get('x-resuto-list') === 'full';
+  return [data, full];
 }
 
 /** Stable idempotency key for one user intent (reuse it when retrying that intent). */

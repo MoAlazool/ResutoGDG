@@ -117,12 +117,12 @@ function DocumentModal({ id, onClose, onChanged }: { id: string; onClose(): void
           </div>
           {act.error && <Notice tone="danger">{act.error}</Notice>}
           {payload && (
-            <div className="stack" style={{ gap: 6 }}>
+            <div className="stack gap-6">
               <span className="fine">{payload.note} {payload.matchesIssued ? `· ${t('compliance.doc.payloadMatches')}` : ''}</span>
               <pre className={s.payload} dir="ltr">{payload.payload}</pre>
             </div>
           )}
-          <div className="stack" style={{ gap: 4 }}>
+          <div className="stack gap-4">
             <span className="fine">{t('compliance.doc.chain')}</span>
             <span className={s.mono} dir="ltr">prev {d.previousHash ?? '∅ (first)'}</span>
             <span className={s.mono} dir="ltr">hash {d.documentHash}</span>
@@ -221,7 +221,7 @@ export function FiscalDocuments() {
             { key: 'total', header: t('compliance.doc.total'), align: 'end', render: (d) => money(d.totalMinor, d.currency, locale) },
             { key: 'vat', header: t('compliance.doc.vat'), align: 'end', render: (d) => money(d.taxMinor, d.currency, locale) },
             { key: 'status', header: t('compliance.doc.status'), render: (d) => (
-              <div className="row" style={{ gap: 4 }}>
+              <div className="row gap-4">
                 <Badge tone={STATUS_TONE[d.status]}>{t(`compliance.status.${d.status}`)}</Badge>
                 {d.lastSubmission?.mode === 'sandbox_stub' && <span className="badge badge-sandbox">{t('compliance.doc.sandboxStub')}</span>}
               </div>
@@ -230,7 +230,7 @@ export function FiscalDocuments() {
       )}
       {cursor && <button className="btn" disabled={loading} onClick={() => void load(cursor)}>{t('compliance.loadMore')}</button>}
       {can('compliance:write') && (
-        <form className="row" onSubmit={issue} style={{ alignItems: 'end' }}>
+        <form className="row items-end" onSubmit={issue}>
           <Field label={t('compliance.doc.issueManual')} name="orderId" placeholder="00000000-0000-0000-0000-000000000000" pattern="[0-9a-fA-F-]{36}" required dir="ltr" hint={t('compliance.doc.issueHint')} />
           <div className="field"><button className="btn" disabled={act.pending}>{t('compliance.doc.issue')}</button></div>
         </form>

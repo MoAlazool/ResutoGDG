@@ -99,9 +99,9 @@ export function MovementTab() {
   if (!items.data.items.length) return <div className="card"><EmptyState title={t('insights.inventory.noItems')}>{t('insights.inventory.noItemsHint')}</EmptyState></div>;
   const branches = org.branches.filter((b) => b.isActive);
   return (
-    <div className="grid grid-2" style={{ alignItems: 'start' }}>
+    <div className="grid grid-2 items-start">
       <Section title={t('insights.inventory.record')}>
-        <div role="radiogroup" aria-label={t('insights.inventory.kind')} className="row" style={{ gap: 6, marginBlockEnd: 14 }}>
+        <div role="radiogroup" aria-label={t('insights.inventory.kind')} className="row gap-6 mbe-14">
           {(['purchase', 'waste', 'adjustment', 'transfer', 'count'] as Kind[]).filter((k) => k !== 'transfer' || branches.length > 1).map((k) => (
             <button key={k} type="button" role="radio" aria-checked={kind === k} className={`btn btn-sm btn-pill ${kind === k ? 'btn-primary' : ''}`} onClick={() => { setKind(k); setResult(null); }}>
               {t(`insights.movement.${k}`)}
@@ -220,7 +220,7 @@ export function ItemsTab() {
   });
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <Section title={t('insights.inventory.tab.items')} actions={<>
         <label className="check"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t('insights.inventory.showArchived')}</label>
         {writable && <button className="btn btn-sm btn-primary" onClick={() => open('new')}>{t('insights.inventory.newItem')}</button>}
@@ -236,7 +236,7 @@ export function ItemsTab() {
             { key: 'total', header: t('insights.inventory.onHandAll'), align: 'end', render: (i) => <span className="num">{f.num(i.totalQuantity)} {unitLabel(t, i.unit)}</span> },
             { key: 'supplier', header: t('insights.inventory.supplier'), render: (i) => i.supplierName ?? '—' },
             ...(writable ? [{ key: 'actions', header: '', align: 'end' as const, render: (i: InventoryItemView) => (
-              <span className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+              <span className="row justify-end gap-6">
                 <button className="btn btn-sm" onClick={() => open(i)}>{t('action.edit')}</button>
                 <button className="btn btn-sm btn-ghost" onClick={() => archive.run(i)}>{i.isActive ? t('insights.inventory.archive') : t('insights.inventory.restore')}</button>
               </span>) }] : []),
@@ -256,7 +256,7 @@ export function ItemsTab() {
         )}
         {editingSupplier && <SupplierModal supplier={editingSupplier} onClose={() => setEditingSupplier(null)} onSaved={async () => { setEditingSupplier(null); await Promise.all([suppliers.reload(), items.reload()]); }} />}
         {writable && (
-          <form onSubmit={addSupplier.run} className="form-row" style={{ marginBlockStart: 14, alignItems: 'end' }}>
+          <form onSubmit={addSupplier.run} className="form-row mbs-14 items-end">
             <Field label={t('insights.inventory.supplierName')} required value={supplier.name} onChange={(e) => setSupplier({ ...supplier, name: e.target.value })} />
             <Field label={t('insights.customers.phone')} dir="ltr" value={supplier.phone} onChange={(e) => setSupplier({ ...supplier, phone: e.target.value })} />
             <Field label={t('insights.customers.email')} type="email" value={supplier.email} onChange={(e) => setSupplier({ ...supplier, email: e.target.value })} />
@@ -286,7 +286,7 @@ export function ItemsTab() {
             {(suppliers.data?.items ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </SelectField>
           {save.error && <Notice tone="danger">{save.error}</Notice>}
-          <div className="row" style={{ justifyContent: 'flex-end' }}>
+          <div className="row justify-end">
             <button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>{t('action.cancel')}</button>
             <button className="btn btn-primary" disabled={save.pending}>{t('action.save')}</button>
           </div>
@@ -329,7 +329,7 @@ export function RecipesTab() {
   if (list.error) return <LoadError error={list.error} retry={list.reload} />;
   if (!list.data) return <Loading />;
   return (
-    <div className="grid grid-2" style={{ alignItems: 'start' }}>
+    <div className="grid grid-2 items-start">
       <Section title={t('insights.inventory.tab.recipes')}>
         <DataTable rows={list.data.items} rowKey={(r) => r.productId} onRowClick={(r) => { setProductId(r.productId); setRows(null); }}
           empty={<EmptyState title={t('insights.recipes.noProducts')} />} columns={[
@@ -353,7 +353,7 @@ export function RecipesTab() {
             {editRows.map((r, i) => {
               const it = itemById.get(r.itemId);
               return (
-                <div key={i} className="row" style={{ gap: 8, alignItems: 'end' }}>
+                <div key={i} className="row gap-8 items-end">
                   <label className="field" style={{ flex: '2 1 160px', margin: 0 }}><span>{t('insights.inventory.item')}</span>
                     <select className="select" value={r.itemId} disabled={!writable} onChange={(e) => update(i, { itemId: e.target.value })}>
                       <option value="">—</option>
@@ -408,7 +408,7 @@ export function AlertsTab() {
           { key: 'supplier', header: t('insights.inventory.supplier'), render: (a) => a.supplierName ? <><UserText>{a.supplierName}</UserText> {a.supplierPhone && <span className="fine"><Phone value={a.supplierPhone} link /></span>}</> : '—' },
         ]} />
       )}
-      <p className="fine" style={{ marginBlockStart: 10 }}>{t('insights.inventory.alertsHint')}</p>
+      <p className="fine mbs-10">{t('insights.inventory.alertsHint')}</p>
     </Section>
   );
 }
@@ -433,7 +433,7 @@ export function ValueWasteTab() {
   const valuation = useApi<{ totalValueMinor: number; branches: Array<{ branchId: string; branchName: string; valueMinor: number; itemsInStock: number; negativeLevels: number; itemsWithoutCost: number }>; meta: AnalyticsMeta }>(`${base}/valuation${qs({ branchId })}`);
   const waste = useApi<Waste>(`${base}/waste-report${qs({ from: period.from, to: period.to, branchId })}`);
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <div className="row"><BranchSelect value={branchId} onChange={setBranchId} /></div>
       <Section title={t('insights.inventory.valuation')}>
         <LoadError error={valuation.error} retry={valuation.reload} />
@@ -512,7 +512,7 @@ export function HistoryTab() {
           { key: 'note', header: t('insights.movement.note'), render: (m) => <span className="fine">{m.note ?? (m.referenceType === 'order' ? t('insights.inventory.fromOrder') : '')}</span> },
         ]} />
       )}
-      {cursor && <div className="row" style={{ marginBlockStart: 12 }}><button className="btn btn-sm" disabled={loadMore.pending} onClick={() => loadMore.run()}>{t('insights.loadMore')}</button></div>}
+      {cursor && <div className="row mbs-12"><button className="btn btn-sm" disabled={loadMore.pending} onClick={() => loadMore.run()}>{t('insights.loadMore')}</button></div>}
     </Section>
   );
 }

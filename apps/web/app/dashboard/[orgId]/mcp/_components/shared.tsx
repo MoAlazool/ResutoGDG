@@ -108,7 +108,7 @@ export function ToolBadges({ tool }: { tool: CatalogTool }) {
   const { t } = useT();
   const kind = toolKind(tool);
   return (
-    <span className="row" style={{ gap: 6 }}>
+    <span className="row gap-6">
       {kind === 'sensitive' && <Badge tone="warn">{t('mcp.badge.sensitive')}</Badge>}
       {kind === 'draft' && <Badge tone="info">{t('mcp.badge.draft')}</Badge>}
       {kind === 'read' && <Badge tone="ok">{t('mcp.badge.readOnly')}</Badge>}
@@ -137,20 +137,20 @@ export function ToolChecklist({ catalog, value, onChange, role, disabled }: {
               </button>
             )}
           </div>
-          <div className="stack" style={{ gap: 10 }}>
+          <div className="stack gap-10">
             {tools.map((tool) => {
               const blocked = tool.permission !== null && !can(role, tool.permission);
               return (
                 <label key={tool.name} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: disabled ? 'default' : 'pointer' }}>
-                  <input type="checkbox" style={{ marginBlockStart: 4 }} checked={value.includes(tool.name)}
+                  <input className="mbs-4" type="checkbox" checked={value.includes(tool.name)}
                     onChange={(e) => toggle(tool.name, e.target.checked)} />
-                  <span className="stack" style={{ gap: 4, minWidth: 0 }}>
-                    <span className="row" style={{ gap: 8 }}>
+                  <span className="stack gap-4 min-w-0">
+                    <span className="row gap-8">
                       <strong>{locale === 'ar' ? tool.titleAr : tool.title}</strong>
                       <code className="fine" dir="ltr">{tool.name}</code>
                       <ToolBadges tool={tool} />
                     </span>
-                    <span className="fine" dir="ltr" style={{ textAlign: 'start' }}>{tool.description}</span>
+                    <span className="fine text-start" dir="ltr">{tool.description}</span>
                     {blocked && <span className="fine" style={{ color: 'var(--warn)' }}>{t('mcp.roleCannot', { role: t(`mcp.role.${role}`) })}</span>}
                   </span>
                 </label>
@@ -190,7 +190,7 @@ export function ScopeForm({ catalog, initial, submitLabel, pending, error, disab
   }
 
   return (
-    <form onSubmit={submit} className="stack" style={{ gap: 16 }}>
+    <form onSubmit={submit} className="stack gap-16">
       <Card>
         <div className="form-row">
           <Field label={t('mcp.form.name')} hint={t('mcp.form.nameHint')} value={v.name} required maxLength={80} disabled={disabled}
@@ -232,7 +232,7 @@ export function ScopeForm({ catalog, initial, submitLabel, pending, error, disab
 
       {(localError || error) && <Notice tone="danger">{localError ?? error}</Notice>}
       {!disabled && (
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <div className="row justify-end">
           <button className="btn btn-primary" disabled={pending}>{pending ? t('state.loading') : submitLabel}</button>
         </div>
       )}

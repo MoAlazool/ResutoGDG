@@ -65,7 +65,7 @@ export default function AssistantPage() {
         <div style={{ minWidth: 0, flex: '2 1 420px' }}>
           <Card title={t('intelligence.tab.assistant')} actions={rules
             ? <Badge tone="sandbox">{t('intelligence.assistant.rulesMode')}</Badge> : <Badge tone="info">{t('intelligence.assistant.geminiMode')}</Badge>}>
-            {rules && <div style={{ marginBlockEnd: 12 }}><Notice>{t('intelligence.assistant.rulesModeHint')}</Notice></div>}
+            {rules && <div className="mbe-12"><Notice>{t('intelligence.assistant.rulesModeHint')}</Notice></div>}
             <div role="log" aria-live="polite" className="stack" style={{ minHeight: 240, maxHeight: '55dvh', overflowY: 'auto', paddingInlineEnd: 4 }}>
               {!messages.length && <p className="muted">{t('intelligence.assistant.empty')}</p>}
               {messages.map((m) => (
@@ -85,7 +85,7 @@ export default function AssistantPage() {
               {pending && <Skeleton lines={2} />}
               <div ref={endRef} />
             </div>
-            {error && <div style={{ marginBlockStart: 10 }}><ApiErrorNotice error={error} /></div>}
+            {error && <div className="mbs-10"><ApiErrorNotice error={error} /></div>}
             <form onSubmit={send} className="row" style={{ marginBlockStart: 14, flexWrap: 'nowrap' }}>
               <label className="sr-only" htmlFor="assistant-input">{t('intelligence.assistant.placeholder')}</label>
               <input id="assistant-input" className="input" style={{ flex: 1, minWidth: 0 }} dir="auto" maxLength={1000} value={text}

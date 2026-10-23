@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { DishImage } from '@/components/public/DishImage';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
+import { DISH_SIZES, dishSrcSet, fixedSizes } from '@/lib/dish-image';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import { deliveryArea, openStatus, pickupEta } from './hours';
 
@@ -164,7 +165,7 @@ export function Storefront({ sf, initialMenu, locale, siteHref }: { sf: PublicSt
               {promoFrom !== null && <strong>{t('studio.site.sf.comboFrom', { price: money(promoFrom) })}</strong>}
             </div>
             <div className="sf-combo-pics" aria-hidden>
-              {promoItems.map(({ p, category: c }) => <DishImage key={p.id} url={p.imageUrl} name="" englishName={p.name} category={c.name} />)}
+              {promoItems.map(({ p, category: c }) => <DishImage key={p.id} url={p.imageUrl} srcSet={dishSrcSet(p)} sizes={DISH_SIZES.storefrontCombo} name="" englishName={p.name} category={c.name} />)}
             </div>
             {promo.ctaCategoryId && groups.some((g) => g.id === promo.ctaCategoryId) && (
               <button type="button" className="sf-btn dark" onClick={() => setCategory(promo.ctaCategoryId!)}>{loc(promo.ctaLabel, locale) || pick(locale, groups.find((g) => g.id === promo.ctaCategoryId)?.name, groups.find((g) => g.id === promo.ctaCategoryId)?.nameAr)} {arrow}</button>
@@ -245,7 +246,7 @@ function Card({ p, category, eager, bag, locale, money, onOpen, canOrder }: {
   return (
     <article className={`sf-card${n ? ' in-bag' : ''}${p.available ? '' : ' is-sold'}`} data-product={p.id}>
       <button type="button" className="sf-art" onClick={() => onOpen(p)} aria-label={name}>
-        <DishImage url={p.imageUrl} name={name} englishName={p.name} category={category} eager={eager} />
+        <DishImage url={p.imageUrl} srcSet={dishSrcSet(p)} sizes={DISH_SIZES.storefrontCard} width={p.imageWidth} height={p.imageHeight} name={name} englishName={p.name} category={category} eager={eager} />
       </button>
       <div className="sf-body">
         <div className="sf-tagrow">{veg && <span className="sf-tag veg">{t('studio.site.veggie')}</span>}</div>
@@ -291,7 +292,7 @@ function ProductSheet({ p, category, locale, money, canOrder, onClose, onAdd }: 
   const rule = (min: number, max: number) => (min === max ? t('studio.site.sf.chooseExactly', { n: min }) : min === 0 ? t('studio.site.sf.chooseUpTo', { n: max }) : t('studio.site.sf.chooseRange', { min, max }));
   return (
     <Sheet title={name} onClose={onClose}>
-      <div className="sf-product-photo"><DishImage url={p.imageUrl} name={name} englishName={p.name} category={category} eager /></div>
+      <div className="sf-product-photo"><DishImage url={p.imageUrl} srcSet={dishSrcSet(p)} sizes={DISH_SIZES.storefrontSheet} width={p.imageWidth} height={p.imageHeight} name={name} englishName={p.name} category={category} eager /></div>
       {pick(locale, p.description, p.descriptionAr) && <p className="sf-note">{pick(locale, p.description, p.descriptionAr)}</p>}
       <p className="sf-note">{t('studio.site.sf.allergens')}: {p.allergens.length ? p.allergens.map((a) => (t(`core.allergen.${a}`) === `core.allergen.${a}` ? a : t(`core.allergen.${a}`))).join(locale === 'ar' ? '، ' : ', ') : '—'}. {t('studio.site.sf.crossContact')}</p>
       <form onSubmit={(e) => { e.preventDefault(); if (valid && p.available && canOrder) onAdd(mods); }}>
@@ -378,7 +379,7 @@ function BagSheet({ sf, menu, bag, products, fulfillment, setFulfillment, locale
         const opts = i.modifiers.map((m) => x.p.modifierGroups.find((g) => g.id === m.groupId)?.options.find((o) => o.id === m.optionId)).filter((o): o is NonNullable<typeof o> => !!o);
         return (
           <div key={i.key} className="sf-line">
-            <div className="sf-line-art"><DishImage url={x.p.imageUrl} name="" englishName={x.p.name} category={x.category.name} /></div>
+            <div className="sf-line-art"><DishImage url={x.p.imageUrl} srcSet={dishSrcSet(x.p)} sizes={fixedSizes(64)} name="" englishName={x.p.name} category={x.category.name} /></div>
             <div className="sf-line-body">
               <strong>{name}</strong>
               {opts.length > 0 && <small>{opts.map((o) => pick(locale, o.name, o.nameAr)).join(' · ')}</small>}

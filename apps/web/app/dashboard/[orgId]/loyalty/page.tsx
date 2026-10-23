@@ -81,7 +81,7 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
     return next.length === all.length ? null : next.length ? next : cur;
   };
   return (
-    <form className="card stack" onSubmit={save.run} style={{ gap: 16 }}>
+    <form className="card stack gap-16" onSubmit={save.run}>
       <label className="check"><input type="checkbox" checked={p.isActive} disabled={!editable} onChange={(e) => setP({ ...p, isActive: e.target.checked })} /> <strong>{t('loyalty.rules.active')}</strong></label>
       <div className="form-row">
         <SelectField label={t('loyalty.rules.mode')} value={p.earnMode} disabled={!editable} onChange={(e) => setP({ ...p, earnMode: e.target.value as 'spend' | 'visit' })}>
@@ -98,7 +98,7 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
         </> : <Field label={t('loyalty.rules.stamps')} inputMode="numeric" value={String(p.stampsPerVisit)} disabled={!editable}
           onChange={(e) => setP({ ...p, stampsPerVisit: Math.max(0, Math.min(100, Math.floor(Number(e.target.value) || 0))) })} />}
       </div>
-      <p className="fine" style={{ margin: 0 }}>{t('loyalty.rules.example', { amount: formatMoney(sample, currency, locale), points: examplePoints })}</p>
+      <p className="fine m-0">{t('loyalty.rules.example', { amount: formatMoney(sample, currency, locale), points: examplePoints })}</p>
       <div className="form-row">
         <Field label={`${t('loyalty.rules.minOrder')} (${currency})`} inputMode="decimal" value={minMajor} disabled={!editable} onChange={(e) => setMinMajor(e.target.value)} />
         <Field label={t('loyalty.rules.expiry')} inputMode="numeric" value={p.expiryDays === null ? '' : String(p.expiryDays)} hint={t('loyalty.rules.expiryHint')} disabled={!editable}
@@ -106,7 +106,7 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
       </div>
       <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
         <legend className="fine">{t('loyalty.rules.channels')} {p.eligibleChannels === null && <Badge>{t('loyalty.rules.allChannels')}</Badge>}</legend>
-        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+        <div className="row gap-12 wrap">
           {LOYALTY_CHANNELS.map((c) => (
             <label key={c} className="check"><input type="checkbox" disabled={!editable} checked={p.eligibleChannels === null || p.eligibleChannels.includes(c)}
               onChange={() => setP({ ...p, eligibleChannels: toggle(p.eligibleChannels, LOYALTY_CHANNELS, c) })} /> {t(`insights.channel.${c}`)}</label>
@@ -116,7 +116,7 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
       {org.branches.length > 1 && (
         <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
           <legend className="fine">{t('loyalty.rules.branches')} {p.eligibleBranchIds === null && <Badge>{t('loyalty.rules.allBranches')}</Badge>}</legend>
-          <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
+          <div className="row gap-12 wrap">
             {org.branches.map((b) => (
               <label key={b.id} className="check"><input type="checkbox" disabled={!editable} checked={p.eligibleBranchIds === null || p.eligibleBranchIds.includes(b.id)}
                 onChange={() => setP({ ...p, eligibleBranchIds: toggle(p.eligibleBranchIds, org.branches.map((x) => x.id), b.id) })} /> <bdi>{pick(locale, b.name, b.nameAr)}</bdi></label>
@@ -138,7 +138,7 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
       <Notice>{t('loyalty.rules.policy')}</Notice>
       {save.error && <Notice tone="danger">{save.error}</Notice>}
       {saved && <Notice tone="ok">{t('loyalty.rules.saved')}</Notice>}
-      {editable && <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={save.pending}>{t('action.save')}</button></div>}
+      {editable && <div className="row justify-end"><button className="btn btn-primary" disabled={save.pending}>{t('action.save')}</button></div>}
     </form>
   );
 }
@@ -202,7 +202,7 @@ function Rewards({ rewards, onChange }: { rewards: LoyaltyReward[]; onChange: ()
               <Field label={`${t('loyalty.rewards.minOrder')} (${currency})`} inputMode="decimal" value={draft.min} onChange={(e) => setDraft({ ...draft, min: e.target.value })} />
             </div>
             {create.error && <Notice tone="danger">{create.error}</Notice>}
-            <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={create.pending}>{t('action.save')}</button></div>
+            <div className="row justify-end"><button className="btn btn-primary" disabled={create.pending}>{t('action.save')}</button></div>
           </form>
         )}
       </Modal>

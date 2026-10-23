@@ -35,7 +35,7 @@ export default function NewMcpClientPage() {
           <div className="stack">
             <Notice tone="warn">{t('mcp.key.warning')}</Notice>
             <div className="row" style={{ alignItems: 'stretch' }}>
-              <code dir="ltr" aria-label={t('mcp.col.key')} style={{ flex: '1 1 320px', padding: '10px 12px', borderRadius: 10, background: '#fff',
+              <code dir="ltr" aria-label={t('mcp.col.key')} style={{ flex: '1 1 320px', padding: '10px 12px', borderRadius: 10, background: 'var(--card)',
                 border: '1px solid var(--line)', wordBreak: 'break-all', userSelect: 'all', fontSize: 14 }}>{created.key}</code>
               <CopyButton text={created.key} label={t('mcp.key.copy')} className="btn btn-primary" />
             </div>

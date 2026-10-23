@@ -34,13 +34,13 @@ export function Board({ branchId }: { branchId: string }) {
         <button className="btn btn-ghost btn-sm" style={{ paddingInline: 0, fontWeight: 750 }} onClick={() => setOpen(j.id)}>
           {t('driver.order', { n: j.orderNumber })}
         </button>
-        <div className="row" style={{ gap: 6 }}>
+        <div className="row gap-6">
           <JobStatus status={j.status} />
           <span className="fine">{t('driver.dispatch.age', { elapsed: formatElapsed(j.createdAt, locale) })}</span>
         </div>
       </div>
       <div style={{ fontSize: 14 }}><bdi>{addressOf(j) || '—'}</bdi></div>
-      <div className="row fine" style={{ gap: 10 }}>
+      <div className="row fine gap-10">
         {j.driverName && <span><bdi>{j.driverName}</bdi></span>}
         {j.offer && <span>{t('driver.dispatch.offerExpires', { t: time(j.offer.expiresAt, locale) })}</span>}
         {j.etaAt && <span>{t('driver.eta', { t: time(j.etaAt, locale) })}</span>}
@@ -72,7 +72,7 @@ export function Board({ branchId }: { branchId: string }) {
         <Card title={t('driver.dispatch.active')}>
           <div className="stack">
             {b.active.length ? b.active.map((j) => jobRow(j, ['assigned', 'accepted'].includes(j.status) ? (
-              <div className="stack" style={{ gap: 6 }}>
+              <div className="stack gap-6">
                 <AssignControl job={j} drivers={b.drivers.filter((d) => d.id !== j.driverId)} pending={act.pending} onAssign={assign(j)} compact />
                 <div><button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => void act.run(() => call(`/o/${org.id}/delivery/jobs/${j.id}/unassign`, { body: {} }))}>{t('driver.dispatch.unassign')}</button></div>
               </div>
@@ -80,7 +80,7 @@ export function Board({ branchId }: { branchId: string }) {
           </div>
         </Card>
         <Card title={t('driver.dispatch.drivers')}>
-          <div className="stack" style={{ gap: 8 }}>
+          <div className="stack gap-8">
             {b.drivers.length ? b.drivers.map((d) => (
               <div key={d.id} className="spread" style={{ borderBlockEnd: '1px solid var(--line-soft)', paddingBlockEnd: 8 }}>
                 <div>

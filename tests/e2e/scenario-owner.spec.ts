@@ -3,8 +3,8 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { request as playwrightRequest, type Page } from '@playwright/test';
 import {
-  apiAs, apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, API_URL, collectApiFailures, collectErrors, expect, newContext, ROOT, test, unique,
-  type Tenant,
+  apiAs, apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, API_URL, collectApiFailures, collectErrors, expect, navLockFor, newContext, ROOT, test, unique,
+  workspaceNav, type Tenant,
 } from './fixtures';
 
 // Owner journey across every dashboard page, in English and Arabic, at 1280 px and
@@ -72,7 +72,7 @@ for (const key of PAGES) {
         const tag = `${locale}@${width}`;
         try {
           await page.goto(href);
-          await expect(page.locator('aside.sidebar')).toBeAttached({ timeout: 15_000 });
+          await expect(workspaceNav(page)).toBeAttached({ timeout: 15_000 });
           await expect(page.locator('h1').first()).toBeVisible({ timeout: 15_000 });
           await page.waitForLoadState('networkidle', { timeout: 6_000 }).catch(() => undefined);
           await page.waitForTimeout(800);
@@ -123,7 +123,7 @@ test('a free-plan owner sees the upgrade prompt on paid module pages (en/ar) and
         await expect(page.locator('.empty strong')).toHaveText(UPGRADE[locale].title);
         await expect(page.getByRole('link', { name: UPGRADE[locale].cta })).toHaveAttribute('href', `/dashboard/${free.orgId}/billing`);
         // The sidebar marks paid modules as locked.
-        await expect(page.locator(`aside.sidebar a[href$="/${key}"] .lock`)).toBeVisible();
+        await expect(navLockFor(page, key)).toBeVisible();
       }
       await page.getByRole('link', { name: UPGRADE[locale].cta }).click();
       await expect(page).toHaveURL(/\/billing$/);

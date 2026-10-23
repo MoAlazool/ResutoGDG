@@ -6,7 +6,7 @@
 // Each createClient() call gets its own client and session, like supabase-js with separate storage keys.
 import { createElement, act, type ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { fakeJwt, installFakeDom, json } from './test-dom';
+import { fakeJwt, installFakeDom, json, waitUntil } from './test-dom';
 
 vi.mock('next/navigation', () => {
   const router = { replace: () => undefined, push: () => undefined, refresh: () => undefined, prefetch: () => undefined, back: () => undefined };
@@ -22,6 +22,8 @@ const server = {
   live: new Set<number>(),
   next: 1,
   calls: [] as string[],
+  /** How long getSession takes (a busy machine or a slow storage read); 0 by default. */
+  sessionDelayMs: 0,
 };
 const aalOf = (s: Sess | null) => (s ? JSON.parse(Buffer.from(s.access_token.split('.')[1]!, 'base64url').toString()).aal : null);
 const newSession = (aal: 'aal1' | 'aal2', old = false): Sess => {
@@ -43,7 +45,10 @@ vi.mock('@supabase/supabase-js', () => ({
     return {
       auth: {
         onAuthStateChange(cb: Listener) { state.listeners.push(cb); return { data: { subscription: { unsubscribe() { state.listeners = state.listeners.filter((l) => l !== cb); } } } }; },
-        getSession: async () => ({ data: { session: state.session }, error: null }),
+        getSession: async () => {
+          if (server.sessionDelayMs) await new Promise((r) => setTimeout(r, server.sessionDelayMs));
+          return { data: { session: state.session }, error: null };
+        },
         getUser: async () => ({ data: { user: state.session?.user ?? null }, error: null }),
         signInWithPassword: async ({ password }: { email: string; password: string }) => {
           server.calls.push(`${key}:signInWithPassword`);
@@ -98,6 +103,7 @@ afterEach(() => {
   server.factors = [];
   server.secureChange = false;
   server.calls = [];
+  server.sessionDelayMs = 0;
 });
 
 /** The app's (main) client state; clients are created once per module (lazy singletons), so look them up by key. */
@@ -113,13 +119,18 @@ async function mount(start: Sess) {
   function Probe(): ReactNode { session = useSession(); return null; }
   const root = createRoot(dom.container as unknown as Element);
   await act(async () => { root.render(createElement(SessionProvider, null, createElement(Probe))); });
-  await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+  // Wait until the provider has signed in from the stored session. A fixed 10 ms sleep raced its asynchronous start
+  // (auth client import, getSession, /me) on a busy machine, and the test then acted on a signed-out session (REM-W10).
+  await waitUntil(() => !!(session as ReturnType<typeof useSession> | null)?.ready, 'the session provider to be ready');
   return { get: () => session!, unmount: () => act(async () => { root.unmount(); }) };
 }
 
 const enrol = () => { server.factors = [{ id: 'f-1', status: 'verified', factor_type: 'totp' }]; };
 
-describe('AUTH-02 signed-in password change keeps the session', () => {
+// Each case waits up to 10 s for the provider to sign in (waitUntil in mount) and then runs its own flow, so the case
+// budget must be larger than that wait: with vitest's default 5 s a slow start on a saturated machine ended the case
+// before the clear "waiting for the session provider" message could ever fire (REM-W10, second cause).
+describe('AUTH-02 signed-in password change keeps the session', { timeout: 30_000 }, () => {
   it('an account with an authenticator (aal2) changes its password; the token and the code step are untouched', async () => {
     enrol();
     const s = await mount(newSession('aal2'));
@@ -133,6 +144,17 @@ describe('AUTH-02 signed-in password change keeps the session', () => {
     expect(s.get().token).toBe(before);
     expect(s.get().mfaRequired).toBe(false);
     expect(server.live.has(main().session!.id)).toBe(true);   // the app's session survives the change
+    await s.unmount();
+  });
+
+  it('a slow session start (busy machine) is waited for, not raced (REM-W10 root cause)', async () => {
+    // With the old fixed 10 ms sleep this failed every time: the test acted while the provider was still signed out.
+    enrol();
+    server.sessionDelayMs = 60;
+    const s = await mount(newSession('aal2'));
+    expect(s.get().token).not.toBeNull();
+    await act(async () => { await s.get().updatePassword('Quiet-Orchard-Lamp-7319', 'Old-Current-Password-1'); });
+    expect(server.password).toBe('Quiet-Orchard-Lamp-7319');
     await s.unmount();
   });
 

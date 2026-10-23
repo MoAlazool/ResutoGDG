@@ -340,7 +340,7 @@ function ModifiersTab({ menu, reload }: { menu: MenuEditorView; reload: () => Pr
       {menu.modifierGroups.map((g) => (
         <section key={g.id} className="card" data-archived={!g.isActive || undefined}>
           <div className="spread">
-            <h2 style={{ margin: 0 }}>{pick(locale, g.name, g.nameAr)} <span className="fine">{t('core.menu.selectRange', { min: g.minSelect, max: g.maxSelect })}</span></h2>
+            <h2 className="m-0">{pick(locale, g.name, g.nameAr)} <span className="fine">{t('core.menu.selectRange', { min: g.minSelect, max: g.maxSelect })}</span></h2>
             {g.isActive && <button className="btn btn-sm btn-danger" disabled={busy} onClick={() => void run(() => call(`/o/${org.id}/menu/modifier-groups/${g.id}`, { method: 'DELETE' }))}>{t('core.menu.archive')}</button>}
           </div>
           {g.options.map((o) => (
@@ -403,7 +403,7 @@ function ImportTab({ onDone }: { onDone: () => Promise<void> }) {
   return (
     <div className="stack">
       <section className="card">
-        <div className="spread"><h2 style={{ margin: 0 }}>{t('core.menu.importTitle')}</h2><button className="btn btn-sm" onClick={() => void exportCsv()}>{t('action.export')}</button></div>
+        <div className="spread"><h2 className="m-0">{t('core.menu.importTitle')}</h2><button className="btn btn-sm" onClick={() => void exportCsv()}>{t('action.export')}</button></div>
         <p className="fine">{t('core.menu.importHint')}</p>
         <code className="fine" style={{ display: 'block', marginBottom: 10 }}>externalId,name,nameAr,category,description,price,station,allergens,available</code>
         <input type="file" accept=".csv,text/csv" aria-label={t('core.menu.chooseCsv')} onChange={async (e) => { const f = e.target.files?.[0]; if (f) setCsv(await f.text()); }} />
@@ -415,7 +415,7 @@ function ImportTab({ onDone }: { onDone: () => Promise<void> }) {
       {preview && (
         <section className="card">
           <div className="spread">
-            <h2 style={{ margin: 0 }}>{t('core.menu.previewTitle', { n: preview.summary.total })}</h2>
+            <h2 className="m-0">{t('core.menu.previewTitle', { n: preview.summary.total })}</h2>
             <span className="row">
               <Badge tone="info">{t('core.menu.toCreate', { n: preview.summary.create })}</Badge>
               <Badge tone="pay">{t('core.menu.toUpdate', { n: preview.summary.update })}</Badge>
@@ -437,7 +437,7 @@ function ImportTab({ onDone }: { onDone: () => Promise<void> }) {
               </tbody>
             </table>
           </div>
-          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={errors > 0 || pending} onClick={() => void commit()}>{t('core.menu.commit')}</button>
+          <button className="btn btn-primary mbs-12" disabled={errors > 0 || pending} onClick={() => void commit()}>{t('core.menu.commit')}</button>
           {errors > 0 && <p className="fine">{t('core.menu.fixErrors')}</p>}
         </section>
       )}

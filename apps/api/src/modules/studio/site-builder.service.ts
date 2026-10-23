@@ -68,7 +68,7 @@ export class SiteBuilderService {
     // restaurant's own highlights. Pinned dishes keep the owner's order. Photos first.
     const products = await tx.query<any>(
       `select p.id, p.name, p.name_ar, p.description, p.description_ar, p.price_minor, p.currency, p.dietary,
-              p.image_url, ma.path as image_path, ma.variants as image_variants
+              p.image_url, ma.path as image_path, ma.variants as image_variants, ma.width as image_width, ma.height as image_height
          from products p
          join menu_categories c on c.id = p.category_id and c.is_active
          join menus m on m.id = c.menu_id and m.is_active
@@ -87,7 +87,10 @@ export class SiteBuilderService {
     const menuHighlights = products.map((p) => urls.set({
       id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar,
       priceMinor: Number(p.price_minor), currency: p.currency, dietary: p.dietary ?? [], imageUrl: null as string | null,
-    }, 'imageUrl', p.image_path, { fallback: safeImageUrl(p.image_url), variants: p.image_variants, minWidth: 640 }));
+      // Responsive copies as on the public menu (CR-12 / REM-W01): a phone's two-column card loads the 320 px copy.
+      imageSrcSet: null as string | null,
+      imageWidth: p.image_path ? p.image_width ?? null : null, imageHeight: p.image_path ? p.image_height ?? null : null,
+    }, 'imageUrl', p.image_path, { fallback: safeImageUrl(p.image_url), variants: p.image_variants, minWidth: 640, srcSetKey: 'imageSrcSet' }));
 
     const domain = await tx.maybeOne<{ hostname: string }>(
       `select hostname from custom_domains where org_id = $1 and status = 'active' order by activated_at nulls last limit 1`, [orgId]);

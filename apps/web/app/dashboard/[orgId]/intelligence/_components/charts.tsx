@@ -50,7 +50,7 @@ export function Legend({ items }: { items: Array<{ color: string; label: string;
   return (
     <div className="row" style={{ gap: 16, fontSize: 12, color: 'var(--muted)' }}>
       {items.map((it) => (
-        <span key={it.label} className="row" style={{ gap: 6 }}>
+        <span key={it.label} className="row gap-6">
           <svg width="22" height="10" aria-hidden="true">
             {it.band ? <rect width="22" height="10" fill={it.color} opacity="0.2" />
               : <line x1="0" x2="22" y1="5" y2="5" stroke={it.color} strokeWidth="2.5" strokeDasharray={it.dashed ? '5 3' : undefined} />}
@@ -111,8 +111,8 @@ export function RouteMap({ start, stops, label, naiveLabel, plannedLabel, startL
       <rect x={px(start) - 8} y={py(start) - 8} width="16" height="16" rx="3" fill="var(--ink)"><title>{startLabel}</title></rect>
       {planned.map((s) => (
         <g key={s.jobId}>
-          <circle cx={px(s)} cy={py(s)} r="12" fill={s.lateMinutes > 0 ? 'var(--danger)' : 'var(--chart-2)'} stroke="#fff" strokeWidth="2" />
-          <text x={px(s)} y={py(s) + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">{s.sequence}</text>
+          <circle cx={px(s)} cy={py(s)} r="12" fill={s.lateMinutes > 0 ? 'var(--danger)' : 'var(--chart-2)'} stroke="var(--on-ink)" strokeWidth="2" />
+          <text x={px(s)} y={py(s) + 4} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--on-ink)">{s.sequence}</text>
         </g>
       ))}
     </svg>

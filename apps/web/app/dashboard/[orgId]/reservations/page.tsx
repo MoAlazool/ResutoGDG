@@ -148,7 +148,7 @@ function NewReservation({ branchId, date, onClose, onCreated }: { branchId: stri
             {avail.tables.filter((x) => x.available).map((x) => <option key={x.id} value={x.id}>{x.label} · {t('core.res.seats', { n: x.capacity })}</option>)}
           </SelectField>
         )}
-        <div className="form-row" style={{ marginTop: 12 }}>
+        <div className="form-row mbs-12">
           <Field label={t('core.web.name')} name="name" required maxLength={100} />
           <Field label={t('core.web.phone')} name="phone" dir="ltr" placeholder="+20…" />
         </div>
@@ -158,7 +158,7 @@ function NewReservation({ branchId, date, onClose, onCreated }: { branchId: stri
         <Field label={t('core.res.notes')} name="notes" maxLength={500} />
         <label className="check"><input type="checkbox" name="deposit" /> {t('core.resdash.requireDeposit')}</label>
         {error && <Notice tone="danger">{error}</Notice>}
-        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
+        <div className="row justify-end mbs-16">
           <button type="button" className="btn" onClick={onClose}>{t('action.cancel')}</button>
           <button className="btn btn-primary" disabled={pending}>{t('action.create')}</button>
         </div>

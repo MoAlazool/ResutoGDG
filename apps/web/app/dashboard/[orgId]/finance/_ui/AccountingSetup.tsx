@@ -33,11 +33,11 @@ export function PolicyCard({ onSaved }: { onSaved?: () => void }) {
       <p className="fine">{t('finance.policy.body')}</p>
       {state.data?.source === 'derived' && <Notice tone="warn">{t('finance.policy.derived')}</Notice>}
       {state.data?.source === 'default' && <p className="fine">{t('finance.policy.notChosen')}</p>}
-      <form onSubmit={save.run} className="stack" style={{ gap: 12 }}>
+      <form onSubmit={save.run} className="stack gap-12">
         <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
           <legend className="fine">{t('finance.policy.cogs')}</legend>
           {(['item_cost', 'purchases'] as const).map((m) => (
-            <label key={m} className="check" style={{ alignItems: 'flex-start' }}>
+            <label key={m} className="check items-start">
               <input type="radio" name="cogs" disabled={!editable} checked={draft.cogsMethod === m} onChange={() => { setSaved(false); setDraft({ ...draft, cogsMethod: m }); }} />
               <span><strong>{t(`finance.policy.cogs.${m}`)}</strong><br /><small className="fine">{t(`finance.policy.cogs.${m}.help`)}</small></span>
             </label>
@@ -46,7 +46,7 @@ export function PolicyCard({ onSaved }: { onSaved?: () => void }) {
         <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
           <legend className="fine">{t('finance.policy.fees')}</legend>
           {(['provider_reports', 'expenses'] as const).map((m) => (
-            <label key={m} className="check" style={{ alignItems: 'flex-start' }}>
+            <label key={m} className="check items-start">
               <input type="radio" name="fees" disabled={!editable} checked={draft.feesMethod === m} onChange={() => { setSaved(false); setDraft({ ...draft, feesMethod: m }); }} />
               <span><strong>{t(`finance.policy.fees.${m}`)}</strong><br /><small className="fine">{t(`finance.policy.fees.${m}.help`)}</small></span>
             </label>
@@ -54,7 +54,7 @@ export function PolicyCard({ onSaved }: { onSaved?: () => void }) {
         </fieldset>
         {save.error && <Notice tone="danger">{save.error}</Notice>}
         {saved && !changed && <Notice tone="ok">{t('finance.policy.saved')}</Notice>}
-        {editable && <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={!changed || save.pending}>{t('action.save')}</button></div>}
+        {editable && <div className="row justify-end"><button className="btn btn-primary" disabled={!changed || save.pending}>{t('action.save')}</button></div>}
       </form>
     </Card>
   );
@@ -105,7 +105,7 @@ export function AccountMapping() {
             ))}
           </div>
           {save.error && <Notice tone="danger">{save.error}</Notice>}
-          {can('finance:write') && <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={save.pending}>{t('action.save')}</button></div>}
+          {can('finance:write') && <div className="row justify-end"><button className="btn btn-primary" disabled={save.pending}>{t('action.save')}</button></div>}
         </form>
       )}
     </Card>
@@ -150,7 +150,7 @@ export function Payouts() {
             <Field label={t('finance.payouts.reference')} dir="ltr" maxLength={120} value={d.reference} onChange={(e) => setD({ ...d, reference: e.target.value })} />
           </div>
           {add.error && <Notice tone="danger">{add.error}</Notice>}
-          <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn" disabled={add.pending || !d.amount}>{t('finance.payouts.add')}</button></div>
+          <div className="row justify-end"><button className="btn" disabled={add.pending || !d.amount}>{t('finance.payouts.add')}</button></div>
         </form>
       )}
       <DataTable rows={list.data?.items ?? []} rowKey={(r) => r.id} busy={list.loading} empty={<EmptyState title={t('finance.payouts.empty')} />} columns={[

@@ -25,7 +25,7 @@ export function RatingsPanel({ period, branchId }: { period: Period; branchId: s
   const outOf = (v: number | null) => (v === null ? undefined : t('insights.ratings.outOf'));
   const source = (s: string) => (SOURCES.has(s) ? t(`insights.ratings.source.${s}`) : s);
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <div>
         <h2 style={{ margin: 0, fontSize: 18 }}>{t('insights.ratings.title')}</h2>
         <p className="muted" style={{ margin: '4px 0 0' }}>{t('insights.ratings.subtitle')}</p>
@@ -50,7 +50,7 @@ export function RatingsPanel({ period, branchId }: { period: Period; branchId: s
             </Section>
           </div>
           <Section title={t('insights.ratings.comments')}>
-            {data.comments.length === 0 ? <p className="muted" style={{ margin: 0 }}>{t('insights.ratings.noComments')}</p> : (
+            {data.comments.length === 0 ? <p className="muted m-0">{t('insights.ratings.noComments')}</p> : (
               <ul className="stack" style={{ gap: 12, margin: 0, padding: 0, listStyle: 'none' }}>
                 {data.comments.map((c, i) => (
                   <li key={`${c.at}-${i}`} style={{ borderBlockEnd: '1px solid var(--line)', paddingBlockEnd: 10 }}>

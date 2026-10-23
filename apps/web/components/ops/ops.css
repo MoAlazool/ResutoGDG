@@ -171,6 +171,7 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .studio-back { display: inline-flex; align-items: center; min-height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 5px;
   font-size: 13px; color: var(--leaf-text); text-decoration: none; background: var(--card); white-space: nowrap; }
 .studio-back:hover { background: var(--nav-hover); }
+.studio-fullbleed .studio-pending { margin: 16px; } .studio-pending-back { margin: 0 0 12px; }
 .studio-choices { display: flex; gap: 10px; flex-wrap: wrap; padding: 14px 30px; background: var(--card); border-bottom: 1px solid var(--border); }
 .studio-choices > button, .floor-studio .studio-choice-upload { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 8px;
   padding: 10px 14px; min-height: 42px; font-size: 13px; color: var(--leaf-text); background: var(--card); cursor: pointer; margin: 0; flex-direction: row; }

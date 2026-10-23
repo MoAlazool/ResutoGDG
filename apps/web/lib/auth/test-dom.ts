@@ -31,3 +31,16 @@ export const fakeJwt = (claims: Record<string, unknown>) =>
   `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`;
 
 export const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+/**
+ * Waits, inside act(), until `ready()` holds (REM-W10). The SessionProvider initialises asynchronously (dynamic
+ * import of the auth client, getSession, /me), so a fixed sleep after render races it on a busy machine: the test then
+ * acts on a session that is not signed in yet. Fails with a clear message after `timeoutMs`.
+ */
+export async function waitUntil(ready: () => boolean, what: string, timeoutMs = 10_000) {
+  const end = Date.now() + timeoutMs;
+  while (!ready()) {
+    if (Date.now() > end) throw new Error(`timed out after ${timeoutMs} ms waiting for ${what}`);
+    await React.act(async () => { await new Promise((r) => setTimeout(r, 5)); });
+  }
+}

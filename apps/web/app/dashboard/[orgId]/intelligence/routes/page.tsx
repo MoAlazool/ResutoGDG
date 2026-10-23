@@ -47,7 +47,7 @@ export default function RoutesPage() {
             : !drivers.data?.items.length ? <Empty title={t('intelligence.routes.noDrivers')} /> : null}
         {run.error && <Notice tone="danger">{run.error}</Notice>}
         {plan && (
-          <div className="stack" style={{ marginBlockStart: 8 }}>
+          <div className="stack mbs-8">
             <div className="grid grid-4">
               <Stat label={t('intelligence.routes.distance')} value={`${fmtNum(plan.distanceKm, locale)} km`}
                 hint={`${fmtNum(plan.distanceSavingPct, locale)}% ${t('intelligence.routes.saving')}`} tone={plan.distanceSavingPct > 0 ? 'ok' : undefined} />
@@ -56,13 +56,13 @@ export default function RoutesPage() {
               <Stat label={t('intelligence.routes.naive')} value={`${fmtNum(plan.naive.distanceKm, locale)} km`} hint={t('intelligence.routes.computed', { ms: fmtNum(plan.computationMs, locale, 1) })} />
             </div>
             <div className="grid grid-2">
-              <div style={{ minWidth: 0 }}><Card title={t('intelligence.routes.optimised')}>
+              <div className="min-w-0"><Card title={t('intelligence.routes.optimised')}>
                 <RouteMap start={plan.start} stops={plan.stops} label={`${t('intelligence.routes.optimised')}: ${plan.stops.length} stops, ${fmtNum(plan.distanceKm, locale)} km`}
                   naiveLabel={t('intelligence.routes.naive')} plannedLabel={t('intelligence.routes.optimised')} startLabel={t('intelligence.routes.start')} />
                 <p className="fine">{t('intelligence.routes.model', { factor: plan.distanceModel.roadFactor, speed: plan.distanceModel.speedKmh })}</p>
                 {plan.skipped.length > 0 && <Notice tone="warn">{t('intelligence.routes.skipped', { n: plan.skipped.length })}</Notice>}
               </Card></div>
-              <div style={{ minWidth: 0 }}><Card title={`#`}>
+              <div className="min-w-0"><Card title={`#`}>
                 <ol style={{ margin: 0, paddingInlineStart: 20, display: 'grid', gap: 10 }}>
                   {plan.stops.map((s) => (
                     <li key={s.jobId}>

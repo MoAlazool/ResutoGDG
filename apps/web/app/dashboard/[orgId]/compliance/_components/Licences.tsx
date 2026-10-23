@@ -68,7 +68,7 @@ export function Licences() {
     <div className="stack">
       {confirmDialog}
       <div className="spread">
-        <div className="row" style={{ gap: 6 }}>
+        <div className="row gap-6">
           {(['', 'expired', 'expiring', 'valid', 'no_expiry'] as const).map((k) => (
             <button key={k || 'all'} className={`btn btn-sm btn-pill ${filter === k ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFilter(k)}>
               {k ? t(`compliance.lic.status.${k}`) : t('compliance.doc.all')}
@@ -91,7 +91,7 @@ export function Licences() {
               <span className="fine">{d.reminders.map((r) => `${r.daysBefore}d${r.status === 'sent' ? ' ✓' : r.status === 'dismissed' ? ' –' : ''}`).join(' · ') || '—'}</span>
             ) },
             { key: 'actions', header: '', render: (d) => (
-              <div className="row" style={{ gap: 6 }}>
+              <div className="row gap-6">
                 {d.file && <button className="btn btn-sm" onClick={() => void openFile(d.id)}>{t('compliance.lic.file')}</button>}
                 {editable && <button className="btn btn-sm" onClick={() => setEditing(d)}>{t('action.edit')}</button>}
                 {editable && <button className="btn btn-sm btn-danger" disabled={act.pending}
@@ -128,7 +128,7 @@ export function Licences() {
             <TextareaField label={t('compliance.lic.notes')} name="notes" maxLength={2000} rows={2} defaultValue={current?.notes ?? ''} />
             <Field label={t('compliance.lic.upload')} name="file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" hint={current?.file ? t('compliance.lic.replaceFile') : t('compliance.lic.fileHint')} />
             {act.error && <Notice tone="danger">{act.error}</Notice>}
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <div className="row justify-end">
               <button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>{t('action.cancel')}</button>
               <button className="btn btn-primary" disabled={act.pending}>{act.pending ? t('state.loading') : t('action.save')}</button>
             </div>

@@ -48,7 +48,7 @@ export function MetaTracking() {
         </EmptyState>
       ) : (
         <Card title={t('marketing.meta.connection')}>
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <div className="row gap-8 wrap">
             <Badge tone={c.status === 'connected' && c.enabled ? 'ok' : c.status === 'error' ? 'danger' : 'warn'}>{t(`marketing.meta.status.${c.enabled ? c.status : 'off'}`)}</Badge>
             <Badge tone={c.testMode ? 'sandbox' : 'info'}>{c.testMode ? t('marketing.meta.testMode') : t('marketing.meta.liveMode')}</Badge>
             <span className="fine" dir="ltr">{t('marketing.meta.pixel')}: {c.pixelId ?? '—'}</span>
@@ -58,7 +58,7 @@ export function MetaTracking() {
           {c.lastError && <Notice tone="danger">{c.lastError}</Notice>}
           {c.testMode && !c.hasTestEventCode && <Notice tone="warn">{t('marketing.meta.needsCode')}</Notice>}
           {can('integrations:manage') && c.testMode && (
-            <button className="btn btn-sm" style={{ marginBlockStart: 10 }} disabled={test.pending} onClick={() => test.run()}>{t('marketing.meta.sendTest')}</button>
+            <button className="btn btn-sm mbs-10" disabled={test.pending} onClick={() => test.run()}>{t('marketing.meta.sendTest')}</button>
           )}
           {note && <Notice tone="info">{note}</Notice>}
           {test.error && <Notice tone="danger">{test.error}</Notice>}

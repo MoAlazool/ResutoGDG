@@ -78,7 +78,7 @@ function RuleEditor({ rule, onChange, onRemove }: { rule: SegmentRule; onChange:
         {['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone'].map((c) => <option key={c} value={c}>{t(`marketing.orderChannel.${c}`)}</option>)}</SelectField>}
       {rule.type === 'points_balance_gte' && <Field label={t('marketing.seg.points')} type="number" inputMode="numeric" min={0} value={rule.points}
         onChange={(e) => onChange({ ...rule, points: num(e.target.value) })} />}
-      <button type="button" className="btn btn-sm btn-ghost btn-danger" onClick={onRemove} aria-label={t('action.delete')} style={{ marginBlockEnd: 14 }}>✕</button>
+      <button type="button" className="btn btn-sm btn-ghost btn-danger mbe-14" onClick={onRemove} aria-label={t('action.delete')}>✕</button>
     </div>
   );
 }
@@ -115,7 +115,7 @@ function Segments() {
       {can('marketing:write') && (
         <Card title={t('marketing.seg.builder')}>
           <form onSubmit={save.run}>
-            <div className="row" style={{ gap: 8 }}>
+            <div className="row gap-8">
               <span className="fine">{t('marketing.seg.match')}</span>
               <SelectField label={t('marketing.seg.combine')} value={def.op} onChange={(e) => setDef({ ...def, op: e.target.value as 'and' | 'or' })}>
                 <option value="and">{t('marketing.seg.all')}</option><option value="or">{t('marketing.seg.any')}</option></SelectField>
@@ -140,7 +140,7 @@ function Segments() {
           { key: 'name', header: t('marketing.seg.name'), render: (s) => <><strong>{s.name}</strong> {s.source !== 'manual' && <Badge>{t(`marketing.source.${s.source}`)}</Badge>}</> },
           { key: 'n', header: t('marketing.seg.members'), align: 'end', render: (s) => <span className="num">{s.memberCount}</span> },
           { key: 'at', header: t('marketing.seg.computed'), render: (s) => dateTime(s.lastComputedAt, locale) },
-          { key: 'a', header: '', align: 'end', render: (s) => can('marketing:write') && <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+          { key: 'a', header: '', align: 'end', render: (s) => can('marketing:write') && <div className="row gap-4 justify-end">
             <button className="btn btn-sm btn-ghost" disabled={refresh.pending} onClick={() => refresh.run(s.id)}>{t('marketing.seg.refresh')}</button><AudienceDryRunButton segmentId={s.id} /></div> },
         ]} />
       )}
@@ -201,13 +201,13 @@ function Campaigns() {
       {!list.data ? <Skeleton /> : (
         <DataTable rows={list.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('marketing.camp.empty')}>{t('marketing.camp.emptyBody')}</EmptyState>} columns={[
           { key: 'name', header: t('marketing.camp.name'), render: (c) => <><strong>{c.name}</strong><div className="fine">{t(`marketing.channel.${c.channel}`)} · {t(`marketing.objective.${c.objective}`)}</div></> },
-          { key: 'status', header: t('marketing.camp.status'), render: (c) => <div className="row" style={{ gap: 4 }}><Badge tone={statusTone(c.status)}>{t(`marketing.status.${c.status}`)}</Badge>
+          { key: 'status', header: t('marketing.camp.status'), render: (c) => <div className="row gap-4"><Badge tone={statusTone(c.status)}>{t(`marketing.status.${c.status}`)}</Badge>
             {c.isSandbox && ['sent', 'sending'].includes(c.status) && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}
             {c.status === 'launching' && <span className="fine" style={{ flexBasis: '100%' }}>{c.launch?.error ? <bdi dir="ltr">{c.launch.error}</bdi> : t('marketing.camp.launchingNote')}</span>}</div> },
           { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `◷ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
           { key: 'a', header: '', align: 'end', render: (c) => (
-            <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+            <div className="row gap-4 justify-end">
               {c.status === 'draft' && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'submit')}>{t('marketing.camp.submit')}</button>}
               {c.status === 'pending_approval' && can('marketing:approve') && <>
                 <button className="btn btn-sm btn-leaf" disabled={act.pending} onClick={() => act.run(c, 'approve')}>{t('marketing.camp.approve')}</button>
@@ -320,7 +320,7 @@ function Promotions() {
           { key: 'v', header: t('marketing.promo.value'), render: describe },
           { key: 'used', header: t('marketing.promo.used'), align: 'end', render: (p) => <span className="num">{p.redemptionCount}{p.maxRedemptions ? ` / ${p.maxRedemptions}` : ''}</span> },
           { key: 'on', header: t('marketing.camp.status'), render: (p) => <Badge tone={p.isActive ? 'ok' : 'neutral'}>{t(p.isActive ? 'marketing.promo.active' : 'marketing.promo.inactive')}</Badge> },
-          { key: 'a', header: '', align: 'end', render: (p) => can('marketing:write') && <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+          { key: 'a', header: '', align: 'end', render: (p) => can('marketing:write') && <div className="row gap-4 justify-end">
             <button className="btn btn-sm btn-ghost" onClick={() => act.run(p, 'toggle')}>{t(p.isActive ? 'marketing.promo.deactivate' : 'marketing.promo.activate')}</button>
             <button className="btn btn-sm btn-ghost btn-danger" onClick={() => act.run(p, 'delete')}>{t('action.delete')}</button></div> },
         ]} />
@@ -368,7 +368,7 @@ function Links() {
       <Notice>{t('marketing.links.help')}</Notice>
       {!list.data ? <Skeleton /> : (
         <DataTable rows={list.data.items} rowKey={(l) => l.id} empty={<EmptyState title={t('marketing.links.empty')} />} columns={[
-          { key: 'url', header: t('marketing.links.short'), render: (l) => <span className="row" style={{ gap: 6 }}><code dir="ltr">{l.shortUrl}</code>
+          { key: 'url', header: t('marketing.links.short'), render: (l) => <span className="row gap-6"><code dir="ltr">{l.shortUrl}</code>
             <button className="btn btn-sm btn-ghost" onClick={() => void navigator.clipboard?.writeText(l.shortUrl)}>{t('marketing.links.copy')}</button></span> },
           { key: 'dest', header: t('marketing.links.destination'), render: (l) => <code dir="ltr" className="fine">{l.destinationPath}</code> },
           { key: 'camp', header: t('marketing.links.campaign'), render: (l) => campaigns.data?.items.find((c) => c.id === l.campaignId)?.name ?? '—' },
@@ -417,7 +417,7 @@ function Recommendations({ onApplied }: { onApplied: () => void }) {
             <p>{r.rationale}</p>
             <details><summary className="fine">{t('marketing.recs.evidence')}</summary><pre className="fine" dir="ltr" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(r.evidence, null, 2)}</pre></details>
             {r.action.kind === 'create_campaign_draft' && can('marketing:write') && (
-              <button className="btn btn-primary" style={{ marginBlockStart: 10 }} disabled={apply.pending} onClick={() => apply.run(r.key)}>{t('marketing.recs.createDraft')}</button>
+              <button className="btn btn-primary mbs-10" disabled={apply.pending} onClick={() => apply.run(r.key)}>{t('marketing.recs.createDraft')}</button>
             )}
           </Card>
         ))}

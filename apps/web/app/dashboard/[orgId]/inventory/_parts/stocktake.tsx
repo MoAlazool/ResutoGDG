@@ -57,7 +57,7 @@ export function StocktakeTab() {
         {branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
       </SelectField>
     ) : undefined}>
-      <p className="fine" style={{ marginTop: 0 }}>{t('ops.stock.hint')}</p>
+      <p className="fine mbs-0">{t('ops.stock.hint')}</p>
       <LoadError error={levels.error} retry={levels.reload} />
       {done && <Notice tone="ok">{t('ops.stock.saved', { n: done.lines, value: f.money(done.varianceValueMinor) })}</Notice>}
       {error && <Notice tone="danger">{error}</Notice>}
@@ -117,7 +117,7 @@ export function SupplierModal({ supplier, onClose, onSaved }: { supplier: Suppli
         </div>
         <TextareaField label={t('ops.stock.notes')} name="notes" maxLength={500} defaultValue={supplier.notes ?? ''} />
         {error && <Notice tone="danger">{error}</Notice>}
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <div className="row justify-end">
           <button type="button" className="btn" onClick={onClose}>{t('action.cancel')}</button>
           <button className="btn btn-primary" disabled={pending}>{pending ? t('state.loading') : t('action.save')}</button>
         </div>

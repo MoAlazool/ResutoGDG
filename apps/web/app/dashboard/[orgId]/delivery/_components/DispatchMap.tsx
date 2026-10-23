@@ -44,13 +44,13 @@ export function DispatchMap({ branchId }: { branchId: string }) {
   const missing = jobs.filter((j) => j.dropoff.latitude === null).length;
   return (
     <Card title={t('dispatchMap.title')}>
-      <p className="fine" style={{ marginTop: 0 }}>{t('dispatchMap.body')}</p>
+      <p className="fine mbs-0">{t('dispatchMap.body')}</p>
       {pins.length === 0 ? <EmptyState title={t('dispatchMap.empty')} /> : (
         <SchematicMap label={t('dispatchMap.title')} pins={pins} lines={lines} width={760} height={420} />
       )}
       <div className="row fine" style={{ gap: 14, marginTop: 10 }}>
         {([['restaurant', 'dispatchMap.legend.branch'], ['job', 'dispatchMap.legend.job'], ['driver', 'dispatchMap.legend.driver']] as const).map(([k, label]) => (
-          <span key={k} className="row" style={{ gap: 6 }}><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 99, background: PIN_COLOR[k], display: 'inline-block' }} />{t(label)}</span>
+          <span key={k} className="row gap-6"><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 99, background: PIN_COLOR[k], display: 'inline-block' }} />{t(label)}</span>
         ))}
       </div>
       {missing > 0 && <p className="fine">{t('dispatchMap.noCoords', { n: missing })}</p>}

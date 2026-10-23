@@ -5,6 +5,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { PublicSite, PublicSiteSection } from '@resuto/contracts';
 import { DishImage as PublicDishImage } from '@/components/public/DishImage';
+import { DISH_SIZES, dishSrcSet } from '@/lib/dish-image';
 import { LanguageToggle } from '@/lib/i18n/client';
 import { acceptsOrders, acceptsReservations, clock, DAY_KEYS, heroCopy, loc, openingHours, pickName, price, showsDemoStory, type SiteLocale, type T } from './site-utils';
 import './site.css';
@@ -182,8 +183,8 @@ function About({ s, ctx }: { s: Section; ctx: Ctx }) {
   );
 }
 
-function DishImage({ url, name, englishName }: { url: string | null; name: string; englishName?: string }) {
-  return <PublicDishImage url={url} name={name} englishName={englishName} className="dish-photo" />;
+function DishImage({ url, name, englishName, srcSet, sizes }: { url: string | null; name: string; englishName?: string; srcSet?: string; sizes?: string }) {
+  return <PublicDishImage url={url} srcSet={srcSet} sizes={sizes} name={name} englishName={englishName} className="dish-photo" />;
 }
 
 /**
@@ -207,7 +208,8 @@ function OliveMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
             <p>{t('studio.site.tpl.storyBody')}</p>
             <a className="site-link" href={ctx.links.order}>{t('studio.site.browseMenu')} <span aria-hidden>{locale === 'ar' ? '↖' : '↗'}</span></a>
           </div>
-          <img className="dish-photo" src={lead.imageUrl!} alt={pickName(locale, lead.name, lead.nameAr)} loading="lazy" />
+          <img className="dish-photo" srcSet={dishSrcSet(lead)} sizes={dishSrcSet(lead) ? DISH_SIZES.siteStory : undefined} src={lead.imageUrl!}
+            alt={pickName(locale, lead.name, lead.nameAr)} loading="lazy" />
         </section>
       )}
       <section className="consumer-main" aria-labelledby={`h-${s.id}`}>
@@ -222,7 +224,8 @@ function OliveMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
             const desc = pickName(locale, m.description, m.descriptionAr);
             const inner = (
               <>
-                <DishImage url={m.imageUrl} name={name} englishName={m.name} />
+                {/* The card's CSS box is square (aspect-ratio: 1), so no width/height attributes: they would set its height. */}
+                <DishImage url={m.imageUrl} srcSet={dishSrcSet(m)} sizes={DISH_SIZES.siteCard} name={name} englishName={m.name} />
                 <div className="dish-body">
                   <h3>{name}</h3>
                   {!olive && desc && <p>{desc}</p>}
@@ -254,7 +257,7 @@ function SmashMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
             const desc = pickName(locale, m.description, m.descriptionAr);
             return (
               <article key={m.id} className="bg-card">
-                <div className="bg-art"><PublicDishImage url={m.imageUrl} name={name} englishName={m.name} /></div>
+                <div className="bg-art"><PublicDishImage url={m.imageUrl} srcSet={dishSrcSet(m)} sizes={DISH_SIZES.storefrontCard} name={name} englishName={m.name} /></div>
                 <div className="bg-body">
                   <div className="bg-tagrow">{m.dietary.includes('vegetarian') && <span className="bg-tag veg">{t('studio.site.veggie')}</span>}</div>
                   <h3>{name}</h3>

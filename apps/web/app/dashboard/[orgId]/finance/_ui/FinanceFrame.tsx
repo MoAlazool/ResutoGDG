@@ -50,7 +50,7 @@ export function FinanceFrame({ children, actions }: { children: ReactNode; actio
         e.preventDefault();
         router.push(`${pathname}?${new URLSearchParams({ from: draft.from, to: draft.to, ...(draft.branchId ? { branchId: draft.branchId } : {}) })}`);
       }}>
-        <div className="form-row" style={{ alignItems: 'end' }}>
+        <div className="form-row items-end">
           <Field label={t('finance.period.from')} type="date" value={draft.from} onChange={(e) => setDraft({ ...draft, from: e.target.value })} />
           <Field label={t('finance.period.to')} type="date" value={draft.to} onChange={(e) => setDraft({ ...draft, to: e.target.value })} />
           <SelectField label={t('finance.period.branch')} value={draft.branchId} onChange={(e) => setDraft({ ...draft, branchId: e.target.value })}>

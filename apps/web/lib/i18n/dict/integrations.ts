@@ -45,6 +45,9 @@ export const integrations = {
     'intg.activation.moyasar.4': 'Enable the methods (mada, Visa/Mastercard, Apple Pay, STC Pay) on the account; run one test payment end to end before creating the live connection.',
     // Readiness (INT-16)
     'intg.readiness.title': 'Readiness by capability',
+    // Provider country restrictions (REM-W06): the API sends English text; the page shows these by country code.
+    'intg.restricted.EG': '{provider} does not list Egypt as a supported business location.',
+    'intg.restricted.SA': '{provider} does not list Saudi Arabia as a supported business location.',
     'intg.readiness.not_configured': 'Not configured',
     'intg.readiness.implementation_incomplete': 'Implementation incomplete',
     'intg.readiness.pending_external_verification': 'Implemented; external verification pending',
@@ -175,6 +178,8 @@ export const integrations = {
     'intg.activation.moyasar.3': 'اللوحة ← الإعدادات ← Webhooks: أضف رابط الويب هوك الظاهر في الربط (الطريقة POST) للأحداث المذكورة هناك، واختر رمزًا سريًا وأدخل الرمز نفسه هنا.',
     'intg.activation.moyasar.4': 'فعّل طرق الدفع (مدى، فيزا/ماستركارد، Apple Pay، STC Pay) في الحساب، ونفّذ دفعة تجريبية كاملة قبل إنشاء الربط المباشر.',
     'intg.readiness.title': 'الجاهزية حسب الإمكانية',
+    'intg.restricted.EG': 'لا تُدرج {provider} مصر ضمن دول الأعمال المدعومة لديها.',
+    'intg.restricted.SA': 'لا تُدرج {provider} السعودية ضمن دول الأعمال المدعومة لديها.',
     'intg.readiness.not_configured': 'غير مُعد',
     'intg.readiness.implementation_incomplete': 'التنفيذ غير مكتمل',
     'intg.readiness.pending_external_verification': 'منفّذ؛ بانتظار التحقق مع المزود',

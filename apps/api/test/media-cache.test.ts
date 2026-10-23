@@ -150,6 +150,21 @@ describe('image derivatives (CR-12) and the public menu', () => {
     expect(Number(/max-age=(\d+)/.exec(cc)![1])).toBeGreaterThanOrEqual(86_400 - 5);
   });
 
+  it('the published website’s menu highlights carry the same srcset and the original size (REM-W01)', async () => {
+    const pub = await t.http.post(`/v1/o/${tenant.orgId}/studio/website/publish`).set(auth(tenant.owner)).send({ key: 'media-cache-site-0001' });
+    expect(pub.status).toBe(200);
+    const site = await t.http.get(`/v1/public/sites/${tenant.slug}`);
+    expect(site.status).toBe(200);
+    const dish = site.body.menuHighlights.find((p: any) => p.id === productId);
+    expect(dish.imageUrl).toMatch(/\.w640\.webp\?exp=\d+&sig=/);
+    expect(dish.imageSrcSet.split(', ').map((s: string) => s.split(' ')[1])).toEqual(['320w', '640w', '1280w']);
+    expect(dish.imageSrcSet).toContain(`${dish.imageUrl} 640w`);
+    expect([dish.imageWidth, dish.imageHeight]).toEqual([2000, 1500]);
+    // A dish without an uploaded photo has neither.
+    const plain = site.body.menuHighlights.find((p: any) => p.id !== productId && !p.imageUrl);
+    if (plain) expect([plain.imageSrcSet, plain.imageWidth, plain.imageHeight]).toEqual([null, null, null]);
+  });
+
   it('returns the same image URLs on every request in the window (browsers and CDNs reuse them)', async () => {
     await new Promise((r) => setTimeout(r, 1100)); // the old URLs changed every second
     const again = (await t.http.get(`/v1/public/menu/${tenant.slug}`)).body;

@@ -16,7 +16,10 @@ export async function createApp(): Promise<INestApplication> {
   app.setGlobalPrefix('v1');
   app.enableCors({
     origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: false, maxAge: 600,
-    exposedHeaders: ['X-Request-Id', 'X-Build', 'Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'X-Resuto-List'],
+    // ETag: the web app (another origin) revalidates its polls with If-None-Match (PCL-24 / REM-W02); a browser hides
+    // the validator from script unless it is exposed here. If-None-Match and Cache-Control in the request need no entry:
+    // with no allowedHeaders, cors reflects the preflight's Access-Control-Request-Headers.
+    exposedHeaders: ['X-Request-Id', 'X-Build', 'Retry-After', 'RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'X-Resuto-List', 'ETag'],
   });
   const http = app.getHttpAdapter().getInstance();
   http.disable('x-powered-by');

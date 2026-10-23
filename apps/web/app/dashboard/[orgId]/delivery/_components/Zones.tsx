@@ -63,7 +63,7 @@ export function Zones({ branchId: filter }: { branchId: string }) {
 
   return (
     <Card title={t('zones.title')} actions={editable ? <button className="btn btn-sm btn-primary" onClick={() => setDraft({ ...EMPTY })}>{t('zones.add')}</button> : undefined}>
-      <p className="fine" style={{ marginTop: 0 }}>{t('zones.body')}</p>
+      <p className="fine mbs-0">{t('zones.body')}</p>
       {branches.length > 1 && (
         <SelectField label={t('zones.branch')} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
           {branches.map((b) => <option key={b.id} value={b.id}>{locale === 'ar' && b.nameAr ? b.nameAr : b.name}</option>)}
@@ -78,7 +78,7 @@ export function Zones({ branchId: filter }: { branchId: string }) {
           { key: 'e', header: t('zones.eta'), align: 'end', render: (z) => (z.etaMin ? <span className="num">{z.etaMin}</span> : '—') },
           { key: 's', header: '', render: (z) => <Badge tone={z.isActive ? 'ok' : 'neutral'}>{z.isActive ? t('zones.active') : t('zones.inactive')}</Badge> },
           { key: 'a', header: '', render: (z) => editable ? (
-            <div className="row" style={{ gap: 6 }}>
+            <div className="row gap-6">
               <button className="btn btn-sm" onClick={() => edit(z)}>{t('zones.edit')}</button>
               <button className="btn btn-sm btn-ghost" disabled={remove.pending} onClick={() => void remove.run(z)}>{t('zones.delete')}</button>
             </div>) : null },
@@ -88,7 +88,7 @@ export function Zones({ branchId: filter }: { branchId: string }) {
       {confirmDialog}
       <Modal open={!!draft} onClose={() => setDraft(null)} title={draft?.id ? t('zones.edit') : t('zones.add')}>
         {draft && (
-          <form onSubmit={save.run} className="stack" style={{ gap: 4 }}>
+          <form onSubmit={save.run} className="stack gap-4">
             <div className="form-row">
               <Field label={t('zones.name')} required maxLength={80} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
               <Field label={t('zones.nameAr')} maxLength={80} dir="rtl" lang="ar" value={draft.nameAr} onChange={(e) => setDraft({ ...draft, nameAr: e.target.value })} />
@@ -110,7 +110,7 @@ export function Zones({ branchId: filter }: { branchId: string }) {
             </div>
             <label className="check"><input type="checkbox" checked={draft.isActive} onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })} /> {t('zones.active')}</label>
             {(formError || save.error) && <Notice tone="danger">{formError ?? save.error}</Notice>}
-            <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={save.pending || !draft.name.trim()}>{t('zones.save')}</button></div>
+            <div className="row justify-end"><button className="btn btn-primary" disabled={save.pending || !draft.name.trim()}>{t('zones.save')}</button></div>
           </form>
         )}
       </Modal>

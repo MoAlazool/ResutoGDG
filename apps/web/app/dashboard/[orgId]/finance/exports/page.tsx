@@ -45,10 +45,10 @@ function Exports() {
 
   return (
     <>
-      <div className="grid grid-2" style={{ alignItems: 'start' }}>
+      <div className="grid grid-2 items-start">
       <Card title={t('finance.export.title')}>
         <p className="fine">{t('finance.export.body')}</p>
-        <div className="form-row" style={{ alignItems: 'end' }}>
+        <div className="form-row items-end">
           <SelectField label={t('finance.export.kind')} value={kind} onChange={(e) => setKind(e.target.value)}>
             {EXPORT_KINDS.map((k) => <option key={k} value={k}>{t(`finance.export.kind.${k}`)}</option>)}
           </SelectField>
@@ -73,11 +73,11 @@ function Exports() {
         <button className="btn" disabled={preview.pending} onClick={() => preview.run()}>{t('finance.acc.preview')}</button>
         {preview.error && <Notice tone="danger">{preview.error}</Notice>}
         {journal && (
-          <div className="stack" style={{ marginTop: 12 }}>
+          <div className="stack mbs-12">
             <p className="fine">{t('finance.acc.entries', { n: journal.entries.length })}</p>
             {journal.entries.slice(0, 7).map((e: any) => (
               <details key={e.reference}>
-                <summary dir="ltr" style={{ cursor: 'pointer' }}>{e.date} · {e.reference}</summary>
+                <summary className="cursor-pointer" dir="ltr">{e.date} · {e.reference}</summary>
                 <DataTable rows={e.lines.map((l: any, i: number) => ({ ...l, i }))} rowKey={(l: any) => String(l.i)} columns={[
                   { key: 'a', header: t('finance.acc.account'), render: (l: any) => <>{t(`finance.role.${l.role}`)}<div className="fine" dir="ltr">{l.description}</div></> },
                   { key: 'd', header: t('finance.acc.debit'), align: 'end', render: (l: any) => l.debitMinor ? <span dir="ltr">{m(l.debitMinor)}</span> : '' },
@@ -98,7 +98,7 @@ function Exports() {
         {push.error && <Notice tone="danger">{push.error}</Notice>}
         {(pushes.data?.items ?? []).length > 0 && (
           <>
-            <h3 style={{ marginTop: 12 }}>{t('finance.acc.status')}</h3>
+            <h3 className="mbs-12">{t('finance.acc.status')}</h3>
             {pushes.data!.items.map((x) => (
               <p key={x.id} className="fine">{x.provider} · <Badge tone={x.status === 'succeeded' ? 'ok' : x.status === 'partial' ? 'warn' : 'danger'}>{x.status}</Badge> · {dateTime(x.createdAt, locale)}{x.error ? ` · ${x.error}` : ''}</p>
             ))}

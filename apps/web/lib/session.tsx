@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MeResponse } from '@resuto/contracts';
 import { api, apiAll, ApiRequestError, type ApiOptions } from './api';
+import { forgetValidators } from './api-conditional';
 import { AuthFlowError } from './auth-errors';
 import { checkNewPassword } from './auth/password-policy';
 import {
@@ -23,6 +24,8 @@ export const AUTH_MODE: 'supabase' | 'dev' = SUPABASE_URL && SUPABASE_ANON_KEY ?
 /** "Continue with Google" is offered only when Supabase Auth has the Google provider enabled for this deployment. */
 export const GOOGLE_AUTH = AUTH_MODE === 'supabase' && process.env.NEXT_PUBLIC_AUTH_GOOGLE === 'true';
 const STORAGE_KEY = 'resuto_session';
+/** Sign-out or another user: drop every read the previous user made (query cache and remembered ETags). */
+const clearReadCaches = () => { queryCache.clear(); forgetValidators(); };
 
 // supabase-js (~50 KB gzip) is loaded only in Supabase mode and only by staff routes (SessionProvider is not in the
 // root layout), so guest pages and dev-auth builds never download it.
@@ -200,7 +203,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   const applyToken = useCallback((t: string | null) => {
     const scope = scopeOfToken(t);
     // A different user on this browser: drop the previous user's cached reads and stored per-user state.
-    if (scope && claimUserStorage(scope, keepSession)) queryCache.clear();
+    if (scope && claimUserStorage(scope, keepSession)) clearReadCaches();
     tokenRef.current = t;
     setToken(t);
   }, []);
@@ -208,7 +211,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
   /** Clears everything the signed-in user had in this tab. */
   const dropSession = useCallback(() => {
     clearUserStorage();
-    queryCache.clear();
+    clearReadCaches();
     setMfaDemanded(null);
     setMfaRequired(false);
     tokenRef.current = null;
@@ -279,7 +282,7 @@ export function SessionProvider({ children, requireAuth = false }: { children: R
         // Subscribe before reading the session: a recovery link is processed while the client initialises.
         const sub = client.auth.onAuthStateChange((e, s) => {
           if (e === 'PASSWORD_RECOVERY') markRecovery();
-          if (e === 'SIGNED_OUT' || !s) { clearRecovery(); clearUserStorage({ keep: keepSession }); queryCache.clear(); }
+          if (e === 'SIGNED_OUT' || !s) { clearRecovery(); clearUserStorage({ keep: keepSession }); clearReadCaches(); }
           admit(s);
         });
         off = () => sub.data.subscription.unsubscribe();

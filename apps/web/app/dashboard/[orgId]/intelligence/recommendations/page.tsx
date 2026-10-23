@@ -39,14 +39,14 @@ export default function RecommendationsPage() {
                 <p className="fine">{t('intelligence.rec.stats', { baskets: data.stats.baskets })}</p>
                 <div className="grid grid-3">
                   {data.items.map((it) => (
-                    <div key={it.productId} style={{ minWidth: 0 }}>
+                    <div className="min-w-0" key={it.productId}>
                       <Card title={<span dir="auto">{pick(locale, it.name, it.nameAr)}</span>}>
                         <div className="overline" style={{ marginBlockEnd: 8 }}>{t('intelligence.rec.title')}</div>
                         {it.frequentlyBoughtWith.length ? <RecList items={it.frequentlyBoughtWith} /> : <span className="muted">—</span>}
                       </Card>
                     </div>
                   ))}
-                  <div style={{ minWidth: 0 }}><Card warm title={t('intelligence.rec.popular')}><RecList items={data.popular} /></Card></div>
+                  <div className="min-w-0"><Card warm title={t('intelligence.rec.popular')}><RecList items={data.popular} /></Card></div>
                 </div>
               </div>
             )}

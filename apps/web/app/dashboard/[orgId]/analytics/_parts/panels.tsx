@@ -49,7 +49,7 @@ export function SalesPanel(props: PanelProps) {
   const prevDaily = prevPath && prev.data ? prev.data.daily : null;
   const days = data.daily.length;
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       {tot.orders === 0 && <Notice>{t('insights.empty.period')}</Notice>}
       <div className="grid grid-4">
         <Stat label={t('insights.kpi.net')} value={f.money(tot.netMinor)} hint={<Delta value={ch.netMinor} />} />
@@ -61,7 +61,7 @@ export function SalesPanel(props: PanelProps) {
         <Stat label={t('insights.kpi.refunds')} value={f.money(tot.refundsMinor)} hint={<Delta value={ch.refundsMinor} inverse />} />
         <Stat label={t('insights.kpi.vat')} value={f.money(tot.vatMinor)} hint={t('insights.kpi.cancelled', { count: tot.cancelledOrders })} />
       </div>
-      {data.comparison && <p className="fine" style={{ margin: 0 }}>{t('insights.compare.note', { from: f.date(data.comparison.from), to: f.date(data.comparison.to) })}</p>}
+      {data.comparison && <p className="fine m-0">{t('insights.compare.note', { from: f.date(data.comparison.from), to: f.date(data.comparison.to) })}</p>}
       <Section title={t('insights.sales.daily')}>
         <LineChart title={t('insights.sales.daily')} rtl={dir === 'rtl'} labels={data.daily.map((d) => f.date(d.date))}
           series={[{ name: t('insights.series.thisPeriod'), values: data.daily.map((d) => d.netMinor) },
@@ -122,7 +122,7 @@ export function ProductsPanel(props: PanelProps) {
     { key: 'margin', header: t('insights.products.margin'), align: 'end' as const, render: margin },
   ];
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <div className="grid grid-4">
         <Stat label={t('insights.kpi.netExVat')} value={f.money(g.netExVatMinor)} />
         <Stat label={t('insights.products.grossMargin')} value={g.grossMarginMinor === null ? '—' : f.money(g.grossMarginMinor)} hint={g.marginPct !== null ? f.pct(g.marginPct) : t('insights.products.noCost')} />
@@ -164,7 +164,7 @@ export function CustomersPanel(props: PanelProps) {
   const cov = data.meta.dataCoverage;
   const maxOffset = Math.max(0, ...data.cohorts.map((c) => c.active.length));
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <div className="grid grid-4">
         <Stat label={t('insights.customers.identified')} value={f.num(data.customers)} />
         <Stat label={t('insights.customers.new')} value={f.num(data.newCustomers)} hint={f.money(data.newCustomerNetMinor)} />
@@ -177,11 +177,11 @@ export function CustomersPanel(props: PanelProps) {
         {data.cohorts.length ? (
           <div className="table-wrap">
             <table className="data">
-              <thead><tr><th>{t('insights.customers.cohort')}</th><th style={{ textAlign: 'end' }}>{t('insights.customers.size')}</th>
-                {Array.from({ length: maxOffset }, (_, i) => <th key={i} style={{ textAlign: 'end' }}>{t('insights.customers.month', { n: i })}</th>)}</tr></thead>
+              <thead><tr><th>{t('insights.customers.cohort')}</th><th className="text-end">{t('insights.customers.size')}</th>
+                {Array.from({ length: maxOffset }, (_, i) => <th className="text-end" key={i}>{t('insights.customers.month', { n: i })}</th>)}</tr></thead>
               <tbody>
                 {data.cohorts.map((c) => (
-                  <tr key={c.cohort}><td className="num">{c.cohort}</td><td className="num" style={{ textAlign: 'end' }}>{c.size}</td>
+                  <tr key={c.cohort}><td className="num">{c.cohort}</td><td className="num text-end">{c.size}</td>
                     {Array.from({ length: maxOffset }, (_, i) => {
                       const p = c.retentionPct[i];
                       return <td key={i} className="num" style={{ textAlign: 'end', background: p ? `color-mix(in srgb, var(--chart-1) ${Math.round(p * 0.6)}%, transparent)` : undefined }}>
@@ -216,7 +216,7 @@ export function MarketingPanel(props: PanelProps) {
   if (!data) return null;
   const cov = data.meta.dataCoverage;
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <Notice>{t('insights.marketing.attributionNote')}</Notice>
       <div className="grid grid-4">
         <Stat label={t('insights.marketing.attributedRevenue')} value={f.money(data.attributed.netMinor)} hint={t('insights.ordersCount', { count: data.attributed.orders })} />
@@ -262,7 +262,7 @@ export function OperationsPanel(props: PanelProps) {
   const k = data.kitchen;
   const d = data.delivery;
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <Section title={t('insights.ops.kitchen')}>
         <div className="grid grid-4">
           <Stat label={t('insights.ops.readyAvg')} value={f.minutes(k.placedToReadyAvgMinutes)} hint={t('insights.ops.measured', { count: k.ordersMeasured })} />
@@ -309,7 +309,7 @@ export function SustainabilityPanel(props: PanelProps) {
   const w = data.foodWaste;
   const p = data.paper;
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <Section title={t('insights.sust.waste')} actions={<Link className="btn btn-sm" href={`/dashboard/${org.id}/inventory?tab=waste`}>{t('insights.sust.recordWaste')}</Link>}>
         {w.entries === 0 ? <p className="muted">{t('insights.sust.noWaste')}</p> : (
           <div className="grid grid-4">
@@ -319,7 +319,7 @@ export function SustainabilityPanel(props: PanelProps) {
             <Stat label={t('insights.sust.wasteToPurchases')} value={f.pct(w.wasteToPurchasesPct)} hint={t('insights.sust.purchases', { value: f.money(w.purchasesValueMinor) })} />
           </div>
         )}
-        <p className="fine" style={{ marginBlockStart: 10 }}>{t('insights.sust.wasteMethod')}</p>
+        <p className="fine mbs-10">{t('insights.sust.wasteMethod')}</p>
       </Section>
       <Section title={t('insights.sust.paper')}>
         <div className="grid grid-4">

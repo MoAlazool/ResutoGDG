@@ -3,37 +3,37 @@
 .ws-editor{min-width:0}
 .ws-preview{position:sticky;top:16px;min-width:0;display:grid;gap:10px}
 .ws-preview-bar{background:var(--card);border:1px solid var(--line-soft);border-radius:var(--radius);padding:8px 12px}
-.ws-frame{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;box-shadow:var(--shadow-card)}
+.ws-frame{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--card);box-shadow:var(--shadow-card)}
 .ws-frame-inner{height:min(78vh,860px);overflow:auto;overscroll-behavior:contain}
 .ws-frame-desktop .ws-frame-inner>.site-root{zoom:.62}
-.ws-frame-mobile{width:390px;max-width:100%;margin-inline:auto;border-radius:28px;border:8px solid #163d34}
+.ws-frame-mobile{width:390px;max-width:100%;margin-inline:auto;border-radius:28px;border:8px solid var(--ink)}
 .ws-frame-mobile .ws-frame-inner>.site-root{zoom:.9}
 .ws-frame .consumer-app,.ws-frame .bg-app{min-height:0}
 @media(max-width:1180px){.ws-layout{grid-template-columns:1fr}.ws-preview{position:static}}
 .ws-loc{border:1px solid var(--line-soft);border-radius:var(--radius);padding:12px 14px 4px;margin:0 0 12px}
 .ws-loc legend{font-size:13px;font-weight:650;color:var(--ink);padding:0 4px}
 .ws-sections{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
-.ws-sections li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:#fff}
+.ws-sections li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line-soft);border-radius:12px;background:var(--card)}
 .ws-sections li[data-hidden]{background:var(--surface-warm);opacity:.85}
 .ws-section-main{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
 .ws-section-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px}
 .ws-section-actions{gap:4px}
 .ws-templates{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.ws-template{display:grid;gap:6px;text-align:start;padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff;cursor:pointer}
+.ws-template{display:grid;gap:6px;text-align:start;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);cursor:pointer}
 .ws-template[aria-checked=true]{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink) inset}
 .ws-template small{color:var(--muted);font-size:12px}
 .ws-swatch{display:flex;gap:4px}.ws-swatch i{width:22px;height:22px;border-radius:6px;border:1px solid #0001}
-.ws-color{width:48px;height:38px;border:1px solid var(--line);border-radius:8px;padding:2px;background:#fff}
+.ws-color{width:48px;height:38px;border:1px solid var(--line);border-radius:8px;padding:2px;background:var(--card)}
 .ws-thumb{width:64px;height:48px;border-radius:8px;object-fit:cover;border:1px solid var(--line-soft);display:inline-grid;place-items:center;color:var(--muted)}
 .ws-thumb-empty{background:var(--surface-warm)}
 .ws-media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
-.ws-media{margin:0;border:1px solid var(--line-soft);border-radius:12px;overflow:hidden;background:#fff}
+.ws-media{margin:0;border:1px solid var(--line-soft);border-radius:12px;overflow:hidden;background:var(--card)}
 .ws-media img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--surface-warm)}
 .ws-media figcaption{padding:10px}
 .ws-media-pick{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));max-height:50vh;overflow:auto}
 .ws-media-option{padding:0;border:2px solid transparent;border-radius:10px;overflow:hidden;cursor:pointer;background:none}
 .ws-media-option img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
-.ws-media-option[aria-selected=true]{border-color:var(--ink);box-shadow:0 0 0 2px #fff inset}
+.ws-media-option[aria-selected=true]{border-color:var(--ink);box-shadow:0 0 0 2px var(--card) inset}
 .ws-product-list{display:grid;gap:4px;max-height:280px;overflow:auto}
 .ws-domain{border:1px solid var(--line-soft);border-radius:14px;padding:16px;display:grid;gap:10px}
 .ws-steps{margin:0;padding-inline-start:20px;display:grid;gap:12px}

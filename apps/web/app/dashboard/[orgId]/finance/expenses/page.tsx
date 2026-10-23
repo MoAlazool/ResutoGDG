@@ -49,9 +49,9 @@ function Expenses() {
           { key: 'a', header: t('finance.exp.amount'), align: 'end', render: (r: any) => <span dir="ltr" className="num">{m(r.amountMinor)}</span> },
           { key: 't', header: t('finance.exp.tax'), align: 'end', render: (r: any) => <span dir="ltr" className="num">{m(r.taxMinor)}</span> },
           { key: 'r', header: t('finance.exp.receipt'), render: (r: any) => r.receiptUrl ? <a href={r.receiptUrl} target="_blank" rel="noreferrer">{t('finance.exp.viewReceipt')}</a> : writable ? (
-            <label className="btn btn-sm" style={{ cursor: 'pointer' }}>{t('finance.exp.upload')}
+            <label className="btn btn-sm cursor-pointer">{t('finance.exp.upload')}
               <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload.run(r.id, f); }} /></label>) : '—' },
-          { key: 'x', header: '', render: (r: any) => writable && <div className="row" style={{ gap: 4 }}>
+          { key: 'x', header: '', render: (r: any) => writable && <div className="row gap-4">
             <button className="btn btn-sm btn-ghost" onClick={() => setEditing(r)}>{t('action.edit')}</button>
             <button className="btn btn-sm btn-ghost btn-danger" onClick={() => remove.run(r.id)}>{t('action.delete')}</button></div> },
         ]} />
@@ -106,7 +106,7 @@ function ExpenseModal({ expense, categories, onClose, onSaved }: { expense: any;
       </div>
       <Field label={t('finance.exp.description')} value={f.description} maxLength={500} onChange={set('description')} />
       {isFees && (
-        <label className="check" style={{ alignItems: 'flex-start' }}>
+        <label className="check items-start">
           <input type="checkbox" checked={settlement} onChange={(e) => setSettlement(e.target.checked)} />
           <span>{t('finance.exp.providerSettlement')}<br /><small className="fine">{t('finance.exp.providerSettlementHelp')}</small></span>
         </label>

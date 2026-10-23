@@ -84,7 +84,7 @@ function Customers() {
       {exportCsv.error && <Notice tone="danger">{exportCsv.error}</Notice>}
       {truncated && <Notice tone="warn">{t('insights.customers.truncated')}</Notice>}
       {can('customers:export') && <p className="fine">{t('insights.customers.exportNote')}</p>}
-      <section className="card" style={{ marginBlockEnd: 16 }}>
+      <section className="card mbe-16">
         <div className="form-row">
           <Field label={t('action.search')} type="search" placeholder={t('insights.customers.searchHint')} value={draft.q} onChange={set('q')} />
           <Field label={t('insights.customers.tag')} value={draft.tag} onChange={set('tag')} />
@@ -98,8 +98,8 @@ function Customers() {
           </SelectField>
         </div>
         <details>
-          <summary className="fine" style={{ cursor: 'pointer' }}>{t('insights.customers.moreFilters')}</summary>
-          <div className="form-row" style={{ marginBlockStart: 10 }}>
+          <summary className="fine cursor-pointer">{t('insights.customers.moreFilters')}</summary>
+          <div className="form-row mbs-10">
             <Field label={t('insights.customers.lastOrderAfter')} type="date" value={draft.lastOrderAfter} onChange={set('lastOrderAfter')} />
             <Field label={t('insights.customers.lastOrderBefore')} type="date" value={draft.lastOrderBefore} onChange={set('lastOrderBefore')} hint={t('insights.customers.lapsedHint')} />
             <Field label={t('insights.customers.minOrders')} type="number" min={0} value={draft.minOrders} onChange={set('minOrders')} />
@@ -121,9 +121,9 @@ function Customers() {
               { key: 'spend', header: t('insights.customers.spend'), align: 'end', render: (c) => <span className="num">{f.money(c.totalSpendMinor)}</span> },
               { key: 'last', header: t('insights.customers.lastOrder'), render: (c) => <span className="fine">{c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'}</span> },
               { key: 'consent', header: t('insights.customers.consent'), render: (c) => c.marketingConsent ? <Badge tone="ok">✓ {t('insights.customers.consentGranted')}</Badge> : <Badge>{t('insights.customers.consentNot')}</Badge> },
-              { key: 'tags', header: t('insights.customers.tags'), render: (c) => <span className="row" style={{ gap: 4 }}>{c.tags.slice(0, 3).map((tg) => <Badge key={tg} tone="info">{tg}</Badge>)}</span> },
+              { key: 'tags', header: t('insights.customers.tags'), render: (c) => <span className="row gap-4">{c.tags.slice(0, 3).map((tg) => <Badge key={tg} tone="info">{tg}</Badge>)}</span> },
             ]} />
-          <div className="row" style={{ marginBlockStart: 12 }}>
+          <div className="row mbs-12">
             {cursor && <button className="btn btn-sm" onClick={() => setCursor(undefined)}>{t('insights.firstPage')}</button>}
             {data.nextCursor && <button className="btn btn-sm" onClick={() => setCursor(data.nextCursor!)}>{t('insights.nextPage')}</button>}
           </div>

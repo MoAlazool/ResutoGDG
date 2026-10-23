@@ -65,7 +65,7 @@ export function ZatcaOnboarding() {
               </form>
             )}
             {editable && (unit.status === 'compliance_csid' || unit.status === 'compliance_checked') && (
-              <div className="row" style={{ gap: 8 }}>
+              <div className="row gap-8">
                 <button className="btn" disabled={run.pending} onClick={() => void run.run(`/${unit.id}/compliance-checks`)}>{t('compliance.zatca.runChecks')}</button>
                 {unit.status === 'compliance_checked' && <button className="btn btn-primary" disabled={run.pending} onClick={() => void run.run(`/${unit.id}/production-csid`)}>{t('compliance.zatca.production')}</button>}
               </div>

@@ -55,10 +55,10 @@ export default function McpClientPage() {
       ? <button type="button" className="btn btn-danger" onClick={() => setConfirmRevoke(true)}>{t('mcp.detail.revoke')}</button> : undefined}>
       <LoadState loading={client.loading || catalog.loading} error={client.error ?? catalog.error} retry={() => { void client.reload(); void catalog.reload(); }}>
         {c && (
-          <div className="stack" style={{ gap: 16 }}>
+          <div className="stack gap-16">
             <div className="spread">
               <div className="row">
-                <h2 style={{ margin: 0 }}>{c.name}</h2>
+                <h2 className="m-0">{c.name}</h2>
                 <ClientStatus client={c} />
                 <code dir="ltr" className="fine">{c.keyPrefix}…</code>
               </div>
@@ -112,7 +112,7 @@ export default function McpClientPage() {
             <section aria-labelledby="recent-h">
               <h3 id="recent-h">{t('mcp.detail.recent')}</h3>
               <LoadState loading={calls.loading} error={calls.error} retry={calls.reload}>
-                <DataTable rows={calls.data?.items ?? []} rowKey={(r) => r.id} empty={<p className="muted" style={{ margin: 0 }}>{t('mcp.calls.empty')}</p>} columns={[
+                <DataTable rows={calls.data?.items ?? []} rowKey={(r) => r.id} empty={<p className="muted m-0">{t('mcp.calls.empty')}</p>} columns={[
                   { key: 'time', header: t('mcp.col.time'), render: (r) => dateTime(r.createdAt, locale, org.timezone) },
                   { key: 'tool', header: t('mcp.col.tool'), render: (r) => <code dir="ltr">{r.tool}</code> },
                   { key: 'outcome', header: t('mcp.col.outcome'), render: (r) => <OutcomeBadge outcome={r.outcome} /> },
@@ -160,7 +160,7 @@ function TestPanel({ client, catalog, onRan }: { client: McpClient; catalog: Cat
   });
   return (
     <Card title={t('mcp.test.title')}>
-      <p className="fine" style={{ marginBlockStart: 0 }}>{t('mcp.test.body')}</p>
+      <p className="fine mbs-0">{t('mcp.test.body')}</p>
       {!tools.length ? <p className="muted">{t('mcp.test.none')}</p> : (
         <form className="stack" onSubmit={(e) => { e.preventDefault(); void run.run(); }}>
           <SelectField label={t('mcp.test.tool')} value={tool} onChange={(e) => setTool(e.target.value)}>
@@ -174,7 +174,7 @@ function TestPanel({ client, catalog, onRan }: { client: McpClient; catalog: Cat
           {result !== null && (
             <div>
               <strong>{t('mcp.test.result')}</strong>
-              <pre dir="ltr" style={{ maxHeight: 360, overflow: 'auto', background: '#fbfbf8', border: '1px solid var(--line-soft)', borderRadius: 10, padding: 12, fontSize: 12 }}>
+              <pre dir="ltr" className="code-block is-tall">
                 {JSON.stringify(result, null, 2)}
               </pre>
             </div>
