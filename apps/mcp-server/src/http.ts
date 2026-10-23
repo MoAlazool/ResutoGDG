@@ -2,14 +2,14 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from 'node:http';
 import type { Server as McpSdkServer } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
+import { isInitializeRequest, SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
 import { ApiError, ResutoApi } from './api.js';
 import { buildHeader, readBuildInfo } from './build-info.js';
 import { mcpErrorReporter, routeLabel } from './error-tracking.js';
 import type { Config } from './config.js';
 import { log } from './log.js';
-import { createMcpServer, SERVER_INFO } from './mcp.js';
-import { bearerChallenge, handleOAuth } from './oauth.js';
+import { createMcpServer, SERVER_INFO, type PrefetchedCalls } from './mcp.js';
+import { bearerChallenge, handleOAuth, insufficientScopeChallenge } from './oauth.js';
 
 interface Session {
   transport: StreamableHTTPServerTransport;
@@ -20,6 +20,9 @@ interface Session {
   api: ResutoApi;
   /** OAuth sessions: when the access token was last confirmed valid by the API (re-checked every minute). */
   oauthCheckedAt: number | null;
+  orgId: string;
+  /** OAuth sessions: tool calls already answered by the API during the scope check, handed to the MCP handler. */
+  prefetched: PrefetchedCalls;
 }
 
 const OAUTH_RECHECK_MS = 60_000;
@@ -104,13 +107,14 @@ export function createHttpApp(config: Config) {
     if (sessions.size >= config.maxSessions) throw new HttpFailure(503, 'Too many open sessions; retry later');
     const api = new ResutoApi(config.apiUrl, key, config.apiTimeoutMs, config.oauth?.resource ?? null);
     const who = await identify(api, key);
-    const server = createMcpServer(api, who);
+    const prefetched: PrefetchedCalls = new Map();
+    const server = createMcpServer(api, who, prefetched);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       maxRequestBodySize: config.maxBodyBytes,
       onsessioninitialized: (id) => {
         sessions.set(id, { transport, server, keyHash: keyHash.toString('hex'), clientId: who.clientId, lastSeen: Date.now(), api,
-          oauthCheckedAt: key.startsWith('rmat_') ? Date.now() : null });
+          oauthCheckedAt: key.startsWith('rmat_') ? Date.now() : null, orgId: who.orgId, prefetched });
         log('info', 'session opened', { sessionId: id, clientId: who.clientId, orgId: who.orgId, keyPrefix: key.slice(0, 13) });
       },
       onsessionclosed: (id) => { sessions.delete(id); },
@@ -140,6 +144,40 @@ export function createHttpApp(config: Config) {
     }
     s.lastSeen = Date.now();
     return s;
+  }
+
+  /**
+   * Scope step-up for OAuth sessions (MCP authorization spec, "Scope Challenge Handling"; RFC 6750 §3.1). A tools/call
+   * whose tool needs a scope the access token was not granted must be answered with HTTP 403 and
+   * `WWW-Authenticate: Bearer error="insufficient_scope", scope="…"`, so the client can authorize again with that scope
+   * and retry — not with a tool error, which a client cannot act on. Which scope a tool needs is decided by the API, so
+   * the call is made here, before the transport answers: an insufficient_scope refusal becomes the HTTP challenge (the
+   * API refused before running anything), any other outcome is handed to the MCP handler for this request id, so the
+   * tool runs exactly once. The transport's own request checks are applied first, so a request it would reject never
+   * reaches the API.
+   */
+  async function scopeCheck(req: IncomingMessage, s: Session, body: unknown) {
+    if (s.oauthCheckedAt === null || !body || typeof body !== 'object' || Array.isArray(body)) return;
+    const msg = body as { method?: unknown; id?: unknown; params?: { name?: unknown; arguments?: unknown } };
+    if (msg.method !== 'tools/call' || (typeof msg.id !== 'string' && typeof msg.id !== 'number') || typeof msg.params?.name !== 'string') return;
+    const accept = header(req, 'accept') ?? '';
+    const type = (header(req, 'content-type') ?? '').split(';')[0]!.trim().toLowerCase();
+    const version = header(req, 'mcp-protocol-version');
+    if (!accept.includes('application/json') || !accept.includes('text/event-stream') || type !== 'application/json'
+      || (version !== undefined && !SUPPORTED_PROTOCOL_VERSIONS.includes(version))) return;   // the transport answers these
+    let outcome;
+    try {
+      outcome = await s.api.callTool(s.orgId, msg.params.name, msg.params.arguments ?? {});
+    } catch (e) {
+      if (!(e instanceof ApiError)) throw e;
+      outcome = e;
+    }
+    if (outcome instanceof ApiError && outcome.status === 403 && outcome.code === 'insufficient_scope') {
+      const needed = (outcome.details as { scope?: unknown } | undefined)?.scope;
+      throw new HttpFailure(403, outcome.message, { 'WWW-Authenticate': insufficientScopeChallenge(config, typeof needed === 'string' ? needed : 'mcp:act') });
+    }
+    if (s.prefetched.size >= 64) s.prefetched.clear();   // abandoned entries (the transport never dispatched them)
+    s.prefetched.set(msg.id, outcome);
   }
 
   async function handleMcp(req: IncomingMessage, res: ServerResponse, urlKey: string | null) {
@@ -172,7 +210,11 @@ export function createHttpApp(config: Config) {
 
     if (req.method === 'POST') {
       const body = await readJson(req, config.maxBodyBytes);
-      if (header(req, 'mcp-session-id')) return (await sessionFor(req, key, keyHash)).transport.handleRequest(req, res, body);
+      if (header(req, 'mcp-session-id')) {
+        const s = await sessionFor(req, key, keyHash);
+        await scopeCheck(req, s, body);
+        return s.transport.handleRequest(req, res, body);
+      }
       const init = Array.isArray(body) ? body.some((m) => isInitializeRequest(m)) : isInitializeRequest(body);
       if (!init) throw new HttpFailure(400, 'Bad Request: No valid session ID provided');
       return openSession(req, res, key, keyHash, body);
