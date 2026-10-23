@@ -29,12 +29,48 @@ const tenantRow = (r: any): AdminTenantRow => ({
   counts: { branches: Number(r.branches), members: Number(r.members), orders30d: Number(r.orders30d) },
 });
 
+/**
+ * Orders placed in the last 30 days (every status, `placed_at > now() − 30 days`), computed the way the analytics
+ * reports are (PCL-28 remainder): whole local days inside the window that have a fresh rollup and are older than the
+ * live window (local today − 3) are summed from analytics_order_rollups (orders + cancelled + awaiting_payment = every
+ * order of that day); every other (branch, local day) slice of the window — the partial first day, the live days and
+ * stale days — is counted from orders through orders_branch_time_idx, one bounded slice at a time. The result equals
+ * the raw count (test/admin-orders30d.test.ts) without scanning a tenant's month of orders per row.
+ */
+export const ORDERS_30D = `(
+  with since as (select now() - interval '30 days' as t),
+  days as materialized (
+    select b.id as branch_id, coalesce(b.timezone, o.timezone) as tz, g.d::date as local_date
+      from branches b
+     cross join lateral generate_series(((select t from since) at time zone coalesce(b.timezone, o.timezone))::date,
+                                        (now() at time zone coalesce(b.timezone, o.timezone))::date, interval '1 day') g(d)
+     where b.org_id = o.id),
+  covered as materialized (
+    select d.branch_id, d.local_date from days d
+      join analytics_days a on a.branch_id = d.branch_id and a.local_date = d.local_date and not a.stale
+     where d.local_date < (now() at time zone d.tz)::date - 3
+       and (d.local_date::timestamp at time zone d.tz) > (select t from since)),
+  live as materialized (
+    select d.branch_id, d.tz, d.local_date, greatest((select t from since), d.local_date::timestamp at time zone d.tz) as from_ts,
+           case when d.local_date = (now() at time zone d.tz)::date then 'infinity'::timestamptz
+                else (d.local_date + 1)::timestamp at time zone d.tz end as to_ts
+      from days d
+     where not exists (select 1 from covered c where c.branch_id = d.branch_id and c.local_date = d.local_date))
+  select coalesce((select sum(r.orders + r.cancelled + r.awaiting_payment) from covered c
+                     join analytics_order_rollups r on r.branch_id = c.branch_id and r.local_date = c.local_date), 0)
+       + coalesce((select count(*) from live d
+                     cross join lateral (
+                       select 1 from orders x
+                        where x.org_id = o.id and x.branch_id = d.branch_id
+                          and x.placed_at > (select t from since) and x.placed_at >= d.from_ts and x.placed_at < d.to_ts
+                       offset 0) x), 0))`;
+
 const TENANT_SELECT = `
   select o.id, o.name, o.name_ar, o.slug, o.country, o.status, o.timezone, o.created_at, s.plan_id, s.status as sub_status,
          (select max(placed_at) from orders where org_id = o.id) as last_order_at,
          (select count(*) from branches b where b.org_id = o.id and b.is_active) as branches,
          (select count(*) from memberships m where m.org_id = o.id and m.status = 'active') as members,
-         (select count(*) from orders x where x.org_id = o.id and x.placed_at > now() - interval '30 days') as orders30d
+         ${ORDERS_30D} as orders30d
     from organizations o
     left join lateral (select plan_id, status from subscriptions where org_id = o.id
                         order by (status <> 'canceled') desc, created_at desc limit 1) s on true`;
