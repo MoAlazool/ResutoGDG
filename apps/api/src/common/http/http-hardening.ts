@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { Env } from '../../config/env';
 import type { ResutoRequest } from '../auth/context';
 import { writeAccessLog } from '../observability/log';
+import { forwardedClientIp } from './client-forwarding';
 import { acceptRequestId, requestContext } from './request-context';
 
 /** Request headers that change who the caller is; every response varies on them (PCL-04). */
@@ -39,10 +40,14 @@ function routeOf(req: Request): string {
  * - one structured access-log line per response (method, route pattern, status, ms, request id, org, actor); JSON
  *   lines in staging and production (LOG_FORMAT, CR-14).
  */
-export function hardeningMiddleware(env: Pick<Env, 'NODE_ENV'>) {
+export function hardeningMiddleware(env: Pick<Env, 'NODE_ENV'> & Partial<Pick<Env, 'CLIENT_IP_FORWARD_SECRET'>>) {
   const deployed = env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';
   return (req: Request & { id?: string }, res: Response, next: NextFunction) => {
     const started = process.hrtime.bigint();
+    // REM-A11: a guest address forwarded by the web server with a valid signature replaces the web server's own
+    // address for everything keyed on req.ip (rate limits, access log). Unsigned or foreign headers are ignored.
+    const forwarded = forwardedClientIp(req.headers, env.CLIENT_IP_FORWARD_SECRET);
+    if (forwarded) Object.defineProperty(req, 'ip', { value: forwarded, configurable: true, enumerable: true });
     req.id = acceptRequestId(req.headers['x-request-id']);
     res.setHeader('X-Request-Id', req.id);
     res.setHeader('X-Content-Type-Options', 'nosniff');
