@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { PublicMenuProduct, SuggestionsResult } from '@resuto/contracts';
 import { api } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
+import { dishSrcSet } from '@/lib/dish-image';
 import { guestMoney as money, pick } from '@/lib/format';
 import { estimate, unitPrice, type Cart } from './menu';
 import { MoneyRow, Photo, Sheet, Stepper } from './shell';
@@ -22,7 +23,7 @@ export function CartLines({ cart, products, currency }: { cart: Cart; products: 
         const unit = p ? unitPrice(p, i.modifiers) : 0;
         return (
           <div className="gx-cart-item" key={i.key}>
-            <Photo src={p?.imageUrl ?? null} name={name} size={88} />
+            <Photo src={p?.imageUrl ?? null} srcSet={dishSrcSet(p)} name={name} size={88} />
             <div className="gx-cart-item-body">
               <strong>{name}</strong>
               {mods.length > 0 && <small>{mods.join(' · ')}</small>}
@@ -40,8 +41,13 @@ export function CartLines({ cart, products, currency }: { cart: Cart; products: 
   );
 }
 
-/** Legacy .suggest block: why (ordered together / a drink / a dessert), the dishes with + to add, and where it came from. */
-export function Suggestions({ result, currency, onAdd, compact }: { result: SuggestionsResult | null; currency: string; onAdd: (productId: string) => void; compact?: boolean }) {
+/**
+ * Legacy .suggest block: why (ordered together / a drink / a dessert), the dishes with + to add, and where it came from.
+ * `products` (the menu) supplies each suggested dish's responsive image copies, so a 40 px thumbnail loads the 320 px one.
+ */
+export function Suggestions({ result, currency, onAdd, compact, products }: {
+  result: SuggestionsResult | null; currency: string; onAdd: (productId: string) => void; compact?: boolean; products?: Map<string, PublicMenuProduct>;
+}) {
   const { t, locale } = useT();
   if (!result || !result.items.length) return null;
   const head = result.reason === 'together' ? t('core.guest.suggest.together') : result.reason === 'dessert' ? t('core.guest.suggest.dessert') : t('core.guest.suggest.drink');
@@ -53,7 +59,7 @@ export function Suggestions({ result, currency, onAdd, compact }: { result: Sugg
           const name = pick(locale, s.name, s.nameAr);
           return (
             <button type="button" key={s.productId} className="gx-suggest-item" onClick={() => onAdd(s.productId)} aria-label={t('core.guest.suggest.add', { name })}>
-              <Photo src={s.imageUrl} name={name} size={40} />
+              <Photo src={s.imageUrl} srcSet={dishSrcSet(products?.get(s.productId))} name={name} size={40} />
               <span><strong>{name}</strong><small><bdi>{money(s.priceMinor, currency, locale)}</bdi></small></span>
               <i aria-hidden>+</i>
             </button>
@@ -99,7 +105,7 @@ export function CartSheet({ cart, products, currency, onClose, suggestions, onSu
         </div>
       )}
       {cart.items.length > 0 && <MoneyRow label={t('core.bill.subtotal')} value={money(estimate(cart, products), currency, locale)} />}
-      {cart.items.length > 0 && <Suggestions result={suggestions} currency={currency} onAdd={onSuggest} compact />}
+      {cart.items.length > 0 && <Suggestions result={suggestions} currency={currency} onAdd={onSuggest} compact products={products} />}
       {children}
     </Sheet>
   );

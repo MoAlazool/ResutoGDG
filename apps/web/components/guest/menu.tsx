@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { PublicMenu, PublicMenuProduct } from '@resuto/contracts';
 import { useT } from '@/lib/i18n/client';
+import { DISH_SIZES, dishSrcSet } from '@/lib/dish-image';
 import { guestMoney as money, pick } from '@/lib/format';
 import { Photo, Sheet, Stepper } from './shell';
 
@@ -136,7 +137,7 @@ export function MenuBrowser({ menu, cart, onOpen, assistant, ordering }: {
           return (
             <article key={p.id} className={`gx-dish${n ? ' in-cart' : ''}${p.available ? '' : ' is-sold'}`}>
               <button type="button" className="gx-photo-btn" onClick={() => onOpen(p)} aria-label={t('core.guest.dish.details', { name })}>
-                <Photo src={p.imageUrl} name={name} size={420} />
+                <Photo src={p.imageUrl} srcSet={dishSrcSet(p)} sizes={DISH_SIZES.guestCard} name={name} size={420} />
               </button>
               <div className="gx-dish-body">
                 <DishTags p={p} />
@@ -189,7 +190,7 @@ export function ProductSheet({ product, currency, ordering, onAdd, onClose }: {
     <Sheet title={name} onClose={onClose}>
       {product.imageUrl
         // eslint-disable-next-line @next/next/no-img-element -- tenant media from the API
-        ? <img className="gx-product-photo" src={product.imageUrl} alt="" width={800} height={500} />
+        ? <img className="gx-product-photo" srcSet={dishSrcSet(product)} sizes={DISH_SIZES.guestSheet} src={product.imageUrl} alt="" width={800} height={500} />
         : null}
       {(product.description || product.descriptionAr) && <p>{pick(locale, product.description, product.descriptionAr)}</p>}
       <p className="gx-fine">

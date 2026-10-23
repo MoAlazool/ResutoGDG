@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
+import { fixedSizes } from '@/lib/dish-image';
 import { pick } from '@/lib/format';
 import './consumer.css';
 
@@ -63,11 +64,17 @@ export function Cover({ image, overline, title, body }: { image: string | null; 
   );
 }
 
-/** A dish photo with its box reserved (square), or the restaurant initial when there is no photo. */
-export function Photo({ src, name, size, eager, className = '' }: { src: string | null; name: string; size: number; eager?: boolean; className?: string }) {
+/**
+ * A dish photo with its box reserved (square), or the restaurant initial when there is no photo. `srcSet` (lib/dish-image
+ * dishSrcSet) with `sizes` lets a phone download the 320 px copy; `sizes` defaults to the fixed `size` in CSS pixels.
+ */
+export function Photo({ src, name, size, eager, className = '', srcSet, sizes }: {
+  src: string | null; name: string; size: number; eager?: boolean; className?: string; srcSet?: string; sizes?: string;
+}) {
   if (!src) return <span className={`gx-photo is-empty ${className}`} aria-hidden>{name.trim().charAt(0).toUpperCase() || '·'}</span>;
   // eslint-disable-next-line @next/next/no-img-element -- tenant media from the API (signed URL); width/height keep CLS at 0
-  return <img className={`gx-photo ${className}`} src={src} alt="" width={size} height={size} loading={eager ? 'eager' : 'lazy'} decoding="async" />;
+  return <img className={`gx-photo ${className}`} loading={eager ? 'eager' : 'lazy'} decoding="async"
+    srcSet={srcSet} sizes={srcSet ? sizes ?? fixedSizes(size) : undefined} src={src} alt="" width={size} height={size} />;
 }
 
 /** Legacy guest-sheet: a modal sheet (bottom sheet on phones) with a title and Close. Escape closes it. */

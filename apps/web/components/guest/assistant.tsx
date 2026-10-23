@@ -4,8 +4,9 @@
 // a validated plan from this menu (rules and this restaurant's order history — labelled as such, not a chatbot).
 // Adding the meal only fills the cart; the guest still reviews and confirms.
 import { useRef, useState, type FormEvent } from 'react';
-import { ASSISTANT_ALLERGENS, type AssistantRequest, type AssistantResult } from '@resuto/contracts';
+import { ASSISTANT_ALLERGENS, type AssistantRequest, type AssistantResult, type PublicMenuProduct } from '@resuto/contracts';
 import { api, ApiRequestError } from '@/lib/api';
+import { dishSrcSet } from '@/lib/dish-image';
 import { useT } from '@/lib/i18n/client';
 import { guestMoney as money, pick } from '@/lib/format';
 import { MoneyRow, Photo, Sheet } from './shell';
@@ -24,9 +25,10 @@ export function AssistantCard({ onOpen }: { onOpen: () => void }) {
 
 type Turn = { who: 'user'; text: string } | { who: 'bot'; result: AssistantResult } | { who: 'error'; text: string };
 
-export function AssistantSheet({ endpoint, headers, extra, currency, onClose, onAccept }: {
+/** `products` (the menu, optional) supplies each proposed dish's responsive image copies (lib/dish-image). */
+export function AssistantSheet({ endpoint, headers, extra, currency, onClose, onAccept, products }: {
   endpoint: string; headers?: Record<string, string>; extra?: Partial<AssistantRequest>; currency: string; onClose: () => void;
-  onAccept: (items: AssistantResult['items']) => void;
+  onAccept: (items: AssistantResult['items']) => void; products?: Map<string, PublicMenuProduct>;
 }) {
   const { t, locale } = useT();
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -111,7 +113,7 @@ export function AssistantSheet({ endpoint, headers, extra, currency, onClose, on
                       const name = pick(locale, item.name, item.nameAr);
                       return (
                         <article key={item.productId} className="gx-meal">
-                          <Photo src={item.imageUrl} name={name} size={105} />
+                          <Photo src={item.imageUrl} srcSet={dishSrcSet(products?.get(item.productId))} name={name} size={105} />
                           <div>
                             <h3>{name}</h3>
                             <p>{item.reasons.map((r) => t(`core.guest.assistant.reason.${r}`)).join(' · ')}</p>
