@@ -254,3 +254,42 @@ Staging:
   district, districtAr, timezone, openingHours …", "inventory: Arabic names for 10 ingredient(s)", **"all assertions
   hold."**; `smoke.mjs` **40 / 40**, `mcp-check.mjs` **7 / 7**. Web/AI/MCP stay at `145156d` (the later commits only
   change the demo loader, which runs in the API container).
+
+## Continuation wave 7 (polish, remainders, counter session) — integrated (2026-10-23, `72fb1e7` … `435f602`)
+
+ws13 closed the last gallery gaps (POL-01 landing floor architecture on phones and in the sample room, POL-02 guest
+dock at 390 px, POL-03 reservation hold note in the first viewport). ws14a/b closed the internal follow-ups earlier
+lanes had left open (webhook inbox lease/backoff/dead letters/replay, accounting health checks, real idempotent
+status, admin counts from rollups, Arabic for API-generated text, MCP 403 scope challenge, shared per-phone limits,
+guest IP forwarding, responsive dish photos, ETag revalidation from the browser, error codes in EN/AR, staff labels,
+inline-style ratchet, E2E specs on the current UI). ws14c ported the legacy counter / venue QR session (FT-07). Each
+stream had an independent review (ws14a 1 major + 3 minor, ws14b 4 minor, ws14c 1 major + 4 minor), all addressed.
+Merge fixes on the line: EN/AR text for the three counter error codes; Floor Studio and the QR sheet load on their
+tabs and the booking page imports only the toast hook (floor 220.6 → 210.9 kB, reserve 170.0 → 168.8 kB).
+
+| Suite (merged head `7c9001b`/`e711f39`) | Result |
+|---|---|
+| API integration (110 files) | **914 passed, 4 skipped / 918** |
+| Database security / roles | **82 / 82** |
+| Contracts | **59 / 59** |
+| Integrations | **320 / 320** |
+| MCP server | **27 / 27** |
+| Web unit | **442 / 442** |
+| Demo loader / staging / UI scripts | **60 / 60** |
+| OpenAPI drift check | **5 / 5** |
+| API + web typecheck, web production build, bundle budget gate | pass (staff max 218.5/220 kB, public 221.4/226, guest within ratchets) |
+| E2E Chromium (ws14b, own stack) | 56 passed, 4 failed: scenario-driver ×2 and scenario-whatsapp ×2 answer `branch_closed` at night (wall-clock opening hours; same on the base) |
+
+Staging:
+- `e711f39` on web (`dpl_6wAam4UoTkeQYL8KsoS1Tr1mP86a`, aliased to the staging URL, Deployment Protection still
+  302 → Vercel SSO), API, AI and MCP; migrations `20261023020001..3` and `20261023040001..2` applied at boot;
+  `smoke.mjs` **43 / 43** (commit identity pinned for all three Render services), `mcp-check.mjs` **7 / 7**.
+- The boot-time demo refresh then failed `no_stale_open_visits`: a QR visit from 11:49 UTC was 5.5 h old when the
+  17:21 boot created a fresh live set and was never retired afterwards. Fixed in `c0bbe20` (every refresh completes
+  items older than the cutoff); reproduced and verified locally on a copy of the demo. API at `c0bbe20`:
+  "refresh: completed stale live fixtures — 3 order(s), 1 visit(s)", **"all assertions hold."**
+- The old instance logged `Cannot use a pool after calling end on the pool` while shutting down (the in-process
+  worker was mid-tick when Nest ended the pool). Fixed in `435f602` (the signal drains the worker before closing);
+  three local SIGTERM runs: no errors, 200-300 ms.
+- Open: repeat-visit LCP on `/order/<slug>` regressed from ~0.3 s to ~1.35 s (a pre-existing Suspense reveal race
+  that the responsive-photo change tipped; `/t/<qr>` already had it). Being fixed in ws15 (PERF-01).

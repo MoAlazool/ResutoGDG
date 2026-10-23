@@ -9,7 +9,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | VP-01 | P0 | Arabic-Indic digits rendered on every AR public/guest page (must be 0-9) | lead | done (lead d660d21) |
 | VP-02 | P0 | Arabic brand name misspelled 'ريزوتو' (legacy 'ريسوتو'); pricing header uses text instead of Arabic logo | ws3-staff-shell | done (wave 1, 5274252) |
 | VP-03 | P0 | Landing pricing teaser broken: all cards 'See plans and prices', Monthly/Yearly toggle missing | ws4a-public | done (wave 2, 85c176e) |
-| VP-04 | P0 | Contact sheet (menu-photography.webp 2x4 grid) used as the image of every photo-less dish | ws4a-public | partial (wave 2; remainder in follow-ups) |
+| VP-04 | P0 | Contact sheet (menu-photography.webp 2x4 grid) used as the image of every photo-less dish | ws4a-public | done (wave 2 site/storefront; guest sprite gone, guarded by dish-art.test) |
 | VP-05 | P0 | Smash & Co storefront missing (legacy /burger) and its 9 product photos not migrated | ws4a-public | done (wave 2, 85c176e) |
 | VP-06 | P0 | Restaurant site /r/the-olive-room lost the legacy hero, story section, tagline and disclosure; shows Smash content | ws4a-public | done (wave 2, 85c176e) |
 | VP-07 | P0 | Guest menu/order/table pages do not use the legacy consumer shell (platform.css) | ws4b-guest | done (wave 2, 85c176e) |
@@ -31,7 +31,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | VP-23 | P2 | Emoji used as icons on guest/payment UI | ws4a-public | deferred (see results) |
 | VP-24 | P2 | Landing service-demo QR points to the site, not a table | ws4a-public | partial (wave 2; remainder in follow-ups) |
 | VP-25 | P2 | Landing extras not in legacy: 'Create your restaurant' in CTA and footer | ws4a-public | done (wave 2, 85c176e) |
-| VP-26 | P2 | Price formatting drops decimals ('EGP 145' vs legacy 'EGP 145.00') | ws4a-public | partial (wave 2; remainder in follow-ups) |
+| VP-26 | P2 | Price formatting drops decimals ('EGP 145' vs legacy 'EGP 145.00') | ws4a-public | done (wave 6, PAR-07: guest prices keep .00) |
 | VP-27 | P2 | Duplicate legacy images in apps/web/public (brand/ and landing/) | ws4a-public | done (wave 2, 85c176e) |
 | VS-01 | P0 | Single design-token source; port missing legacy staff tokens; guard against hex literals | ws3-staff-shell | done (wave 1, 5274252) |
 | VS-02 | P0 | Restore the legacy staff shell (sidebar, wordmark, restaurant chip, topbar, footer, profile, floating language switch) | ws3-staff-shell | done (wave 1, 5274252) |
@@ -54,7 +54,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | VS-18 | P1 | Menu & inventory table parity (portions/stock, image action, AR vocabulary) and native control styling | ws5-ops | done (wave 3, 93abad9) |
 | VS-19 | P1 | Replace native window.confirm/prompt with styled Modal/useConfirm | ws3-staff-shell | done (wave 1, 5274252) |
 | VS-20 | P1 | Live/polling behaviour: pause while editing, skip unchanged revisions, global connection status | ws5-ops | done (wave 3, 93abad9) |
-| VS-21 | P1 | Untranslated operator-facing strings in Arabic (server-generated text, technical keys, vocabulary) | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
+| VS-21 | P1 | Untranslated operator-facing strings in Arabic (server-generated text, technical keys, vocabulary) | ws3-staff-shell | done (wave 7: capability/provider labels REM-W06, API text templated REM-A07) |
 | VS-22 | P1 | Plural-aware i18n (Arabic six forms) | ws3-staff-shell | done (wave 1, 5274252) |
 | VS-23 | P1 | Floor Studio as a full-bleed editor (not squeezed inside the dashboard shell) | ws5-ops | done (wave 3, 93abad9) |
 | VS-27 | P1 | Guest satisfaction ratings missing end-to-end | ws4b-guest | done (wave 2, 85c176e) |
@@ -62,14 +62,14 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | VS-26 | P2 | Studio AI: AI menu extraction review flow and AI floor import | ws9-studio-mcp | partial (wave 3; remainder in follow-ups) |
 | VS-28 | P2 | Consolidated Import & export hub | ws5-ops | done (wave 3, 93abad9) |
 | VS-30 | P2 | Human-friendly durations and timestamps (Elapsed/When formatters) | ws3-staff-shell | done (wave 1, 5274252) |
-| VS-31 | P2 | New-only modules: migrate inline styles/local hex to shared components so they inherit the restored legacy language | ws5-ops | partial (wave 3; remainder in follow-ups) |
+| VS-31 | P2 | New-only modules: migrate inline styles/local hex to shared components so they inherit the restored legacy language | ws5-ops | done (wave 7: dashboard on shared surfaces/tokens, inline-style ratchet, REM-W11) |
 | VS-32 | P2 | Integrations cards visual parity (provider tile/logo, filter chips) | ws5-ops | done (wave 3, 93abad9) |
 | FT-01 | P0 | MCP keys bypass tool allowlist, approvals and MCP audit via @AllowMcp REST routes | ws1-security | done (wave 1, 5274252) |
 | FT-02 | P1 | Menu: temporary unavailability (86) conflated with branch assignment | ws5-ops | done (wave 3, 93abad9) |
 | FT-03 | P1 | Loyalty missing: no earning/redemption rules, no auditable ledger, no UI | ws8-features | partial (wave 3; remainder in follow-ups) |
 | FT-05 | P1 | Connect: Messenger and Instagram channels missing | ws7a-meta | done (wave 2, 85c176e) |
 | FT-06 | P1 | Owner/staff notifications never delivered (licence expiry reminders marked 'sent', low stock, MCP approvals, invitations) | ws8-features | partial (wave 3; remainder in follow-ups) |
-| FT-07 | P1 | Counter / single venue QR mode (takeaway, cloud kitchen) not ported | ws5-ops, ws14c-counter | done (wave 7: counter session, venue credential, tickets, staff collection; ws14c) |
+| FT-07 | P1 | Counter / single venue QR mode (takeaway, cloud kitchen) not ported | ws5-ops, ws14c-counter | done (wave 7, ws14c: venue QR counter session, ticket numbers, /v/<code>) |
 | FT-08 | P1 | AI menu extraction from PDF/photo missing although the landing advertises it | ws9-studio-mcp | done (wave 3, 93abad9) |
 | FT-09 | P1 | Pickup/delivery ordering ignores opening hours and delivery area; no delivery zones | ws8-features | done (wave 3, 93abad9) |
 | FT-10 | P1 | ai_requests_per_month plan limit displayed but never enforced | ws8-features | done (wave 3, 93abad9) |
@@ -89,14 +89,14 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | FT-23 | P2 | Finance journals cover sales only; account mapping not editable; invoices push unused | ws8-features | done (wave 3, 93abad9) |
 | FT-24 | P2 | Regulator adapters are stubs: ZATCA Phase-2 signing/clearance and ETA submission | ws7b-integrations | partial (wave 4; remainder in follow-ups) |
 | FT-25 | P2 | Inventory bulk stocktake and supplier edit have API but no UI | ws5-ops | done (wave 3, 93abad9) |
-| FT-26 | P2 | Connection health is manual only; payment and accounting adapters lack health checks | ws2-payments | partial (wave 1; remainder in follow-ups) |
+| FT-26 | P2 | Connection health is manual only; payment and accounting adapters lack health checks | ws2-payments | done (wave 7: accounting health checks in the scheduled job, REM-A04; provider verification pending) |
 | FT-27 | P2 | SMS and email marketing channels have no provider | ws7b-integrations | done (wave 4, a0dfda0) |
 | INT-01 | P0 | Production can run simulated payments: PAYMENT_MODE defaults to sandbox with no deployed-env guard | ws1-security | done (wave 1, 5274252) |
 | INT-02 | P0 | SSRF through tenant-supplied provider URLs (Odoo POS and Odoo Accounting), with the response reflected in last_error | ws1-security | done (wave 1, 5274252) |
 | INT-03 | P0 | WhatsApp channel phone_number_id and WABA ownership not verified, so inbound messages can be intercepted across tenants | ws7a-meta | done (wave 2, 85c176e) |
 | INT-04 | P1 | Credential AAD mismatch: payments and accounting cannot decrypt connections created through Integrations (do first in P1) | ws2-payments | done (wave 1, 5274252) |
-| INT-05 | P1 | Payment and accounting connections never become 'connected': no healthCheck and no account identity check | ws2-payments | partial (wave 1; remainder in follow-ups) |
-| INT-06 | P1 | Setup UI cannot configure payment or accounting providers; labels not localised; defaults to live; no edit or reconnect UI | ws2-payments | partial (wave 1; remainder in follow-ups) |
+| INT-05 | P1 | Payment and accounting connections never become 'connected': no healthCheck and no account identity check | ws2-payments | done (wave 7: Wafeq/Qoyod/Odoo health with identity, REM-A04; provider verification pending) |
+| INT-06 | P1 | Setup UI cannot configure payment or accounting providers; labels not localised; defaults to live; no edit or reconnect UI | ws2-payments | done (wave 7: accounting field specs verified, REM-A04) |
 | INT-07 | P1 | The 'enabled=false' flag is ignored by payments and accounting | ws2-payments | done (wave 1, 5274252) |
 | INT-08 | P1 | No guard against test and live mixing: live connections accept test keys; webhook livemode not checked | ws2-payments | done (wave 1, 5274252) |
 | INT-09 | P1 | Moyasar contract errors: invoice callback_url aimed at the webhook endpoint; failure-event spelling; minimum amount | ws2-payments | done (wave 1, 5274252) |
@@ -166,10 +166,10 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | PS-21 | P2 | Runtime validation gaps: negative limit causes a 500; hand-parsed query params; unvalidated body; raw snake_case audit rows | ws10-data-quality | done (wave 5, 23f0a99) |
 | PS-22 | P2 | Pagination is fake, unbounded or inconsistent (29 hard-coded nextCursor:null, branch filter after LIMIT, 4 cursor formats) | ws10-data-quality | done (wave 5, 23f0a99) |
 | PS-23 | P2 | HTTP semantics and naming: 46 non-creating action POSTs answer 201; mixed resource naming | ws10-data-quality | done (wave 5, 23f0a99) |
-| PS-24 | P2 | Idempotency, inbox and outbox retention; rejected webhooks stored in full; refund key race returns 409 instead of a replay | ws2-payments | partial (wave 1; remainder in follow-ups) |
+| PS-24 | P2 | Idempotency, inbox and outbox retention; rejected webhooks stored in full; refund key race returns 409 instead of a replay | ws2-payments | done (wave 7: real status replayed, REM-A03; outbox retention verified) |
 | PS-25 | P2 | Auth details: HS256 accepted next to JWKS, is_anonymous not rejected, weak invite email binding, key reuse for media and guest tokens | ws1-security | partial (wave 1; remainder in follow-ups) |
 | PS-26 | P2 | Scheduled jobs hold session advisory locks on pooled connections (session-pooler lock-in, stuck locks) | ws1-security | done (wave 1, 5274252) |
-| PS-27 | P2 | Small hardening items: sandbox transport not env-gated, demo loader in production image, LIKE wildcards unescaped, unused config and dependencies | ws1-security | partial (wave 1; remainder in follow-ups) |
+| PS-27 | P2 | Small hardening items: sandbox transport not env-gated, demo loader in production image, LIKE wildcards unescaped, unused config and dependencies | ws1-security | done (wave 7: ioredis removed REM-A06; LIKE wildcards escaped) |
 | PCL-01 | P0 | Outbox claim has no lease: concurrent/overlapping workers double-process events (duplicate WhatsApp notifications) | ws1-security | done (wave 1, 5274252) |
 | PCL-02 | P0 | Supabase 'realtime' grants let every staff member read orders/messages/reservations/delivery PII via PostgREST (bypasses API role, branch and PII rules); realtime is unused | ws1-security | done (wave 1, 5274252) |
 | PCL-03 | P0 | fetch cache:'no-store' disables Chromium's CORS preflight cache: every API call (and every poll) costs an extra OPTIONS round-trip | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
@@ -182,7 +182,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | PCL-10 | P1 | DB connection safety: JIT on for OLTP (+260-330 ms on KDS query), pool without connect/statement/idle-in-transaction timeouts | ws1-security | done (wave 1, 5274252) |
 | PCL-11 | P1 | Provider/Storage network calls inside DB transactions; 5000-recipient campaign dispatch in one transaction on the request path; tx retry re-runs side effects | ws6-perf | done (wave 2, 85c176e) |
 | PCL-12 | P1 | WhatsApp sender: missing/undecryptable credential loops forever (no attempt++), Retry-After ignored, no jitter, campaigns starve other tenants' transactional messages | ws6-perf | done (wave 2, 85c176e) |
-| PCL-13 | P1 | Outbox/jobs operations: no handler timeout, no retention (outbox, handlings, job_runs ~35k rows/day, idempotency_keys), no dead-letter replay, stuck 'running' job_runs, per-process job cadence | ws1-security | partial (wave 1; remainder in follow-ups) |
+| PCL-13 | P1 | Outbox/jobs operations: no handler timeout, no retention (outbox, handlings, job_runs ~35k rows/day, idempotency_keys), no dead-letter replay, stuck 'running' job_runs, per-process job cadence | ws1-security | done (wave 7: webhook inbox lease, backoff, dead letters, audited replay REM-A02; admin Replay REM-W07) |
 | PCL-14 | P1 | Menu/site images: signed URL regenerated every request (exp changes each second) so browsers/CDN never reuse them; served private, max-age=300 | ws6-perf | done (wave 2, 85c176e) |
 | PCL-15 | P1 | Public menu/order endpoints have no Cache-Control or versioning; each guest load runs a fresh RLS transaction (+ select * branches) | ws6-perf | done (wave 2, 85c176e) |
 | PCL-16 | P1 | Order detail payments query (OR across LEFT JOIN) seq-scans all payments; polled every 5 s while drawer open | ws6-perf | done (wave 2, 85c176e) |
@@ -191,17 +191,17 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | PCL-19 | P1 | KDS client: no in-flight/sequence guard (station/branch switch can show wrong station until next order change), overlapping 2 s polls, isNew never clears | ws5-ops | done (wave 3, 93abad9) |
 | PCL-20 | P1 | Branch/filter state not persisted or shared (resets on reload) and per-user prefs not cleared on sign-out (shared tablets) | ws5-ops | done (wave 3, 93abad9) |
 | PCL-21 | P1 | Unprotected mutation buttons (no pending/disable/error handling) and sparse idempotency keys in UI | ws5-ops | done (wave 3, 93abad9) |
-| PCL-22 | P1 | Static /public assets served max-age=0; fonts are 1.13 MB of TTF (no woff2, subsetting, or preload) | ws6-perf | partial (wave 2; remainder in follow-ups) |
+| PCL-22 | P1 | Static /public assets served max-age=0; fonts are 1.13 MB of TTF (no woff2, subsetting, or preload) | ws6-perf | done (wave 7: locale font preload, REM-W03) |
 | PCL-23 | P2 | Realtime is polling-only; add push 'change ticks' with reconnect reconciliation | ws6-perf | deferred (see results) |
-| PCL-24 | P2 | No API response compression and no conditional GET for polls | ws6-perf | partial (wave 2; remainder in follow-ups) |
+| PCL-24 | P2 | No API response compression and no conditional GET for polls | ws6-perf | partial (wave 7: browser polls revalidate with ETag/304, REM-W02; polls still re-render on start/end) |
 | PCL-25 | P2 | Server in-memory caches are per-instance and incoherent; entitlements cache unbounded; 429 lacks Retry-After header | ws6-perf | partial (wave 2; remainder in follow-ups) |
 | PCL-26 | P2 | Analytics over long ranges scan raw orders/lines (365-day products 1.5 s, on-disk sort) | ws6-perf | done (wave 2, 85c176e) |
 | PCL-27 | P2 | Landing and public restaurant site HTML are not CDN-cacheable (private, no-store) because locale/host are read from cookies/headers | ws4a-public | deferred (see results) |
-| PCL-28 | P2 | SELECT * on polled list/detail endpoints and full-table admin counters | ws6-perf | partial (wave 2; remainder in follow-ups) |
+| PCL-28 | P2 | SELECT * on polled list/detail endpoints and full-table admin counters | ws6-perf | done (wave 7: admin orders30d from rollups, REM-A05) |
 | DF-06 | P0 | Arabic UI renders Arabic-Indic digits (٠-٩) on 25 of 31 pages scanned; ~25 formatters + 52 hard-coded literals; sentences mix both digit sets | lead | done (lead d660d21) |
-| DF-08 | P0 | The full menu photo sprite (a grid of Olive Room dishes) is shown as the photo of every dish without an image; the Smash & Co ordering hero uses the Olive dining room | ws4a-public | partial (wave 2; remainder in follow-ups) |
+| DF-08 | P0 | The full menu photo sprite (a grid of Olive Room dishes) is shown as the photo of every dish without an image; the Smash & Co ordering hero uses the Olive dining room | ws4a-public | done (wave 2 site/storefront; guest sprite gone, guarded by dish-art.test) |
 | DF-09 | P0 | Restaurant site hero is empty when no hero media is set (no template fallback); 'Chef's favourites' can show a dish from another concept or branch | ws4a-public | done (wave 2, 85c176e) |
-| DF-07 | P0 | User-entered names, phones and addresses are not direction-isolated outside the driver portal, dispatch board, KDS and inbox | ws3-staff-shell | done (wave 2, 85c176e) |
+| DF-07 | P0 | User-entered names, phones and addresses are not direction-isolated outside the driver portal, dispatch board, KDS and inbox | ws3-staff-shell | done (wave 7: payments provider/time pairs isolated, REM-W06) |
 | DF-01 | P1 | One is_available flag means both 'not sold at this branch' and 'temporarily unavailable'; a kitchen 86 hides the dish instead of showing it sold out, and staff and guest labels are inverted | ws5-ops | done (wave 3, 93abad9) |
 | DF-02 | P1 | KDS 'Out for delivery' marks a delivery order delivered (terminal, fulfilled) when there is no active driver job | ws5-ops | done (wave 3, 93abad9) |
 | DF-03 | P1 | Restocking leaves the low-stock AI insight open for up to an hour; same-day re-breach is suppressed; a continuing breach creates a duplicate insight each day with stale quantities | ws8-features | done (wave 3, 93abad9) |
@@ -212,14 +212,14 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | DF-14 | P1 | WhatsApp sends 'Order is on the way' twice per delivery (on both picked_up and en_route) | ws5-ops | done (wave 3, 93abad9) |
 | DF-12 | P2 | Intermittent Vercel staging 502s on static JS chunks: root cause unproven (Vercel edge vs sandbox egress proxy); harness lacks header capture; app lacks chunk-load recovery | ws10-data-quality | partial (wave 4; remainder in follow-ups) |
 | DF-13 | P2 | Every poller and the KDS board restart (and the KDS blanks) whenever the session value changes, such as a Supabase token refresh | ws10-data-quality | done (wave 4, a0dfda0) |
-| DF-15 | P2 | English strings in Arabic UI: unit codes (kg/pcs/l), server-generated insight titles and bodies, raw fallback reasons | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
+| DF-15 | P2 | English strings in Arabic UI: unit codes (kg/pcs/l), server-generated insight titles and bodies, raw fallback reasons | ws3-staff-shell | done (wave 7: insight templates backfilled, activation steps in AR, REM-A07) |
 | NR-01 | P1 | KDS handoff with an active driver job, and pickup handoff, do not mark the order delivered or paid | lead | not reproduced |
 | NR-02 | P1 | Closed visits stay closed after guest and staff reload | lead | not reproduced |
 | NR-03 | P1 | Polling does not loop or reopen sheets and drawers | lead | not reproduced |
 | NR-04 | P1 | No payroll double-count; no future-dated expenses, orders, payments or movements; no negative current stock; not-offered dishes hidden on every public menu | lead | not reproduced |
 | CR-01 | P0 | Reconcile the audit backlog before implementing: merge lead/p0-digits, dedupe overlapping items, settle priority conflicts, apply corrections | lead | done (lead) |
 | CR-02 | P0 | CI never runs the web unit tests (including the lead's Western-digits guard); there is no dependency audit and no lint | lead | done (lead 544bf7d) |
-| CR-03 | P0 | Error and not-found UX foundation is missing: unbranded English 404 in Arabic, no error or global-error boundaries, and soft-404 (HTTP 200) for unknown restaurants and tokens | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
+| CR-03 | P0 | Error and not-found UX foundation is missing: unbranded English 404 in Arabic, no error or global-error boundaries, and soft-404 (HTTP 200) for unknown restaurants and tokens | ws3-staff-shell | done (verified wave 7: unknown /t/<qr> answers 404, REM-A01) |
 | CR-04 | P0 | Western digits: residual sources the lead fix and its guard do not cover (legacy copy to port, demo data, raw guest inputs, server side) | ws3-staff-shell | done (wave 1, 5274252) |
 | CR-05 | P1 | Account lifecycle missing: no password reset, no email-confirmation callback, no change password, no Google sign-in (legacy /account had them) | ws8-features | done (wave 3, 93abad9) |
 | CR-06 | P1 | Guest phone entry rejects local Egyptian/Saudi formats and Arabic-Indic digits (an English error), a regression from legacy | ws4b-guest | done (wave 2, 85c176e) |
@@ -228,7 +228,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | CR-09 | P1 | Integration setup never shows the merchant's actual webhook URL; activation steps are raw English templates with placeholders | ws2-payments | done (wave 1, 5274252) |
 | CR-10 | P1 | No WebKit / iOS Safari coverage anywhere for phone-first guest and driver flows | ws10-data-quality | partial (wave 4; remainder in follow-ups) |
 | CR-11 | P1 | No visual-fidelity regression gate against legacy: CI ignores snapshots, and the existing baselines encode the non-legacy design | ws10-data-quality | partial (wave 4; remainder in follow-ups) |
-| CR-12 | P1 | Image pipeline has no resizing or derivatives; up-to-15 MB originals are served to guest menus, and the perf baseline hides this | ws6-perf | partial (wave 2; remainder in follow-ups) |
+| CR-12 | P1 | Image pipeline has no resizing or derivatives; up-to-15 MB originals are served to guest menus, and the perf baseline hides this | ws6-perf | partial (wave 7: srcset on guest menu, web order, storefront and site, REM-W01; the WhatsApp ordering link /o/<token> still serves one URL) |
 | CR-13 | P2 | Legacy data migration tool unaudited: drops all legacy media and maps the venue QR to a mode 2.0 does not have | ws10-data-quality | done (wave 4, a0dfda0) |
 | CR-14 | P2 | No observability for staging QA: no error tracking, structured access log, uptime or queue-lag alerting | ws10-data-quality | done (wave 4, a0dfda0) |
 | CR-15 | P2 | Status docs and code comments instruct unsafe or incorrect configuration (beyond PAY-22 and INT-16) | ws10-data-quality | done (wave 4, a0dfda0) |
