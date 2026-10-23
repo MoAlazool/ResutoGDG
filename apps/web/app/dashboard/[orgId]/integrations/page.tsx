@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { capabilityLabel } from '@/lib/vocab';
 import { beginOAuth } from '../../oauth/binding';
 
 interface FieldSpec {
@@ -112,7 +113,7 @@ function CapabilityTable({ detail }: { detail: ReadinessDetail }) {
           <thead><tr><th>{t('intg.readiness.col.capability')}</th><th>{t('intg.readiness.col.test')}</th><th>{t('intg.readiness.col.live')}</th></tr></thead>
           <tbody>{detail.capabilities.map((c) => (
             <tr key={c.capability}>
-              <td>{tx(`intg.capability.${c.capability}`, c.capability)}{c.note && locale === 'en' && <div className="fine">{c.note}</div>}</td>
+              <td>{capabilityLabel(t, c.capability)}{c.note && locale === 'en' && <div className="fine">{c.note}</div>}</td>
               <td><StateBadge state={c.test} /></td>
               <td><StateBadge state={c.live} /></td>
             </tr>))}</tbody>
@@ -124,7 +125,7 @@ function CapabilityTable({ detail }: { detail: ReadinessDetail }) {
 }
 
 function Catalog({ onConnected }: { onConnected: () => void }) {
-  const { t, tx } = useTx();
+  const { t, tx, locale } = useTx();
   const { org } = useOrg();
   const catalog = useApi<{ items: CatalogItem[] }>(`/o/${org.id}/integrations/catalog`);
   const [connecting, setConnecting] = useState<CatalogItem | null>(null);
@@ -151,7 +152,7 @@ function Catalog({ onConnected }: { onConnected: () => void }) {
                   <span><strong><bdi>{p.name}</bdi></strong><small>{t(`connect.int.category.${g}`)}</small></span>
                 </div>
                 <ProviderReadiness item={p} />
-                <span className="fine" dir="ltr" style={{ textAlign: 'start' }}>{p.countries.join(' · ')}{p.countries.length ? ' · ' : ''}{p.capabilities.slice(0, 4).join(', ')}</span>
+                <span className="fine" style={{ textAlign: 'start' }}>{p.countries.length > 0 && <><bdi dir="ltr">{p.countries.join(' · ')}</bdi> · </>}{p.capabilities.slice(0, 4).map((c) => capabilityLabel(t, c)).join(locale === 'ar' ? '، ' : ', ')}</span>
                 <details><summary className="fine">{t('connect.int.activation')}</summary>
                   <ol className="fine" style={{ paddingInlineStart: 18 }}>{p.activation.map((s, i) => <li key={i}>{tx(p.activationKeys?.[i], s)}</li>)}</ol>
                   {p.readinessDetail && <CapabilityTable detail={p.readinessDetail} />}

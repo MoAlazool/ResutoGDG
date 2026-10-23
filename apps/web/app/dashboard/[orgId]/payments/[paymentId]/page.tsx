@@ -6,11 +6,12 @@ import type { ReceiptView } from '@resuto/contracts';
 import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, Skeleton, useAction, OrderRef } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
-import { dateTime, money } from '@/lib/format';
+import { dateTime, isolate, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { paymentProviderLabel } from '@/lib/vocab';
 import { Receipt } from '../../../../pay/[token]/_ui/Receipt';
 import { statusTone } from '../tone';
 
@@ -41,7 +42,7 @@ export default function PaymentDetailPage() {
   return (
     <ModuleGate module="pay" permission="payments:read">
       <PageHeader overline={<Link href={`/dashboard/${org.id}/payments`}>← {t('pay.dash.title')}</Link>} title={`${t('pay.detail.title')} · ${m(p.amountMinor)}`}
-        subtitle={`${t(`pay.method.${p.method}`)} · ${p.provider} · ${dateTime(p.capturedAt ?? p.createdAt, locale)}`}
+        subtitle={`${t(`pay.method.${p.method}`)} · ${isolate(paymentProviderLabel(t, p.provider))} · ${isolate(dateTime(p.capturedAt ?? p.createdAt, locale))}`}
         actions={<>
           <Badge tone={statusTone(p.status)}>{t(`pay.payment.status.${p.status}`)}</Badge>
           {p.isTest && <Badge tone="sandbox">{t('pay.dash.test')}</Badge>}
@@ -86,7 +87,7 @@ export default function PaymentDetailPage() {
           {check.error && <Notice tone="danger">{check.error}</Notice>}
           {can('payments:refund') && p.refundableMinor > 0 ? (
             <>
-              <p className="fine">{t('pay.detail.refundable', { amount: m(p.refundableMinor) })} · {p.refundMode === 'provider' ? t('pay.detail.refundProvider', { provider: p.provider }) : t('pay.detail.refundManual')}</p>
+              <p className="fine">{t('pay.detail.refundable', { amount: m(p.refundableMinor) })} · {p.refundMode === 'provider' ? t('pay.detail.refundProvider', { provider: isolate(paymentProviderLabel(t, p.provider)) }) : t('pay.detail.refundManual')}</p>
               <Field label={t('pay.dash.col.amount')} inputMode="decimal" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} />
               <Field label={t('pay.detail.reason')} value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
               {refund.error && <Notice tone="danger">{refund.error}</Notice>}

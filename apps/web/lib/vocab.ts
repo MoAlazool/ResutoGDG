@@ -37,6 +37,21 @@ export const invoiceStatusLabel = (t: Translate, status: string) => lookup(t, `v
 /** Where an activity-log entry came from (api, mcp, worker, migration…). */
 export const sourceLabel = (t: Translate, source: string) => lookup(t, `vocab.source.${source}`) ?? humanise(source);
 
+/** Integration capability ("transaction_listing" -> "Transaction listing" / "قائمة المعاملات"); REM-W06. */
+export const capabilityLabel = (t: Translate, code: string) =>
+  lookup(t, `vocab.capability.${code}`) ?? lookup(t, `intg.capability.${code}`) ?? humanise(code);
+
+/** Payment brands keep their Latin names in both languages (wrap them in <bdi> where they sit in Arabic text). */
+const PROVIDER_BRANDS: Record<string, string> = { paymob: 'Paymob', moyasar: 'Moyasar', stripe: 'Stripe', fawry: 'Fawry', tap: 'Tap' };
+
+/** Payment provider id as a display name ("simulated" -> "Simulated provider" / "مزوّد محاكاة", "paymob" -> "Paymob"). */
+export const paymentProviderLabel = (t: Translate, id: string | null | undefined) =>
+  !id ? '—' : PROVIDER_BRANDS[id] ?? lookup(t, `vocab.payProvider.${id}`) ?? humanise(id);
+
+/** Reconciliation item outcome and run source (payments reconciliation). */
+export const reconStatusLabel = (t: Translate, status: string) => lookup(t, `vocab.recon.${status}`) ?? humanise(status);
+export const reconSourceLabel = (t: Translate, source: string) => lookup(t, `vocab.recon.source.${source}`) ?? humanise(source);
+
 function humanise(code: string): string {
   const s = code.replace(/[._]+/g, ' ').trim();
   return s ? s[0]!.toUpperCase() + s.slice(1) : code;

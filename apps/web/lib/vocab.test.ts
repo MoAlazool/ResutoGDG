@@ -5,7 +5,7 @@ import { ALLERGENS, INVENTORY_UNITS } from '@resuto/contracts';
 import { formatMessage } from './i18n/format-message';
 import { allergens, vocab } from './i18n/dict/vocab';
 import type { Locale } from './i18n/locale';
-import { actionLabel, allergenLabel, entityLabel, forecastReason, invoiceStatusLabel, sourceLabel, stationLabel, subscriptionEventLabel, unitLabel, type Translate } from './vocab';
+import { actionLabel, allergenLabel, capabilityLabel, entityLabel, forecastReason, invoiceStatusLabel, paymentProviderLabel, reconSourceLabel, reconStatusLabel, sourceLabel, stationLabel, subscriptionEventLabel, unitLabel, type Translate } from './vocab';
 
 // VS-21 / DF-15: codes the API stores in English are shown in the page language.
 
@@ -105,5 +105,39 @@ describe('operator vocabulary', () => {
       .filter((c) => /history|baseline|backtest/.test(c) && c !== 'lowest_backtest_wape' && !c.startsWith('empirical_')));
     expect(codes.size).toBeGreaterThan(0);
     for (const c of codes) expect(Object.keys(vocab.en), c).toContain(`vocab.forecast.${c}`);
+  });
+});
+
+describe('integration capabilities and payment providers (REM-W06)', () => {
+  /** Every capability code a provider adapter declares (packages/integrations descriptors). */
+  const declared = () => {
+    const codes = new Set<string>();
+    for (const file of sources(join(repo, 'packages', 'integrations', 'src'))) {
+      for (const m of readFileSync(file, 'utf8').matchAll(/capabilities:\s*\[([^\]]*)\]/g)) {
+        for (const c of m[1]!.matchAll(/'([a-z0-9_]+)'/g)) codes.add(c[1]!);
+      }
+    }
+    return [...codes].sort();
+  };
+
+  it('labels every capability an adapter declares, in both languages (no raw codes on Integrations)', () => {
+    const codes = declared();
+    expect(codes.length).toBeGreaterThan(50);
+    for (const c of codes) {
+      expect(capabilityLabel(en, c), c).not.toBe(c);
+      expect(capabilityLabel(ar, c), c).toMatch(/[؀-ۿ]/);
+    }
+  });
+
+  it('shows provider names, not ids, and reconciliation outcomes as words', () => {
+    expect(paymentProviderLabel(en, 'simulated')).toBe('Simulated provider');
+    expect(paymentProviderLabel(ar, 'simulated')).toMatch(/[؀-ۿ]/);
+    expect(paymentProviderLabel(ar, 'paymob')).toBe('Paymob');
+    expect(paymentProviderLabel(en, 'some_new_psp')).toBe('Some new psp');
+    expect(paymentProviderLabel(en, null)).toBe('—');
+    for (const s of ['matched', 'missing_in_provider', 'missing_in_resuto', 'amount_mismatch', 'status_mismatch', 'cash_count']) {
+      expect(reconStatusLabel(ar, s), s).toMatch(/[؀-ۿ]/);
+    }
+    expect(reconSourceLabel(ar, 'statement_upload')).toMatch(/[؀-ۿ]/);
   });
 });

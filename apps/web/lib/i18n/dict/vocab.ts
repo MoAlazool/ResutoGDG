@@ -447,6 +447,73 @@ const arEntities: Record<string, string> = {
 
 const prefix = (p: string, m: Record<string, string>) => Object.fromEntries(Object.entries(m).map(([k, v]) => [`${p}${k}`, v]));
 
+/**
+ * Integration capabilities (REM-W06): the codes provider adapters declare (packages/integrations descriptors), shown
+ * on Integrations cards. lib/vocab.test.ts checks every code an adapter declares has both languages.
+ */
+const capabilities: Record<string, [string, string]> = {
+  ad_account_picker: ['Ad account choice', 'اختيار حساب الإعلانات'], advertiser_picker: ['Advertiser choice', 'اختيار المعلن'],
+  appsecret_proof: ['Signed API calls', 'طلبات موقّعة'], batched_submission: ['Batch submission', 'إرسال على دفعات'],
+  browser_pixel_consented: ['Browser pixel (with consent)', 'بكسل المتصفح (بموافقة)'], cades_bes_signature: ['Electronic signature (CAdES)', 'توقيع إلكتروني (CAdES)'],
+  campaign_create_disabled: ['Campaign creation off', 'إنشاء الحملات متوقف'], campaign_create_paused: ['Campaigns created paused', 'إنشاء الحملات متوقفة مؤقتًا'],
+  campaign_create_recorded: ['Campaign creation recorded', 'تسجيل إنشاء الحملات'], cancel_checkout: ['Cancel checkout', 'إلغاء جلسة الدفع'],
+  checkout: ['Checkout', 'الدفع'], clearance_client: ['Invoice clearance', 'اعتماد الفواتير'],
+  compliance_csid: ['Compliance certificate', 'شهادة الامتثال'], csr: ['Certificate request', 'طلب شهادة'],
+  cta_url: ['Call-to-action link', 'رابط الدعوة لاتخاذ إجراء'], custom_audience_dry_run: ['Audience dry run', 'تجربة الجمهور المخصص'],
+  daily_insights: ['Daily insights', 'رؤى يومية'], daily_push: ['Daily push', 'إرسال يومي'],
+  daily_reports: ['Daily reports', 'تقارير يومية'], daily_stats: ['Daily statistics', 'إحصاءات يومية'],
+  delivery_webhook: ['Delivery updates', 'تحديثات التوصيل'], diagnostics: ['Diagnostics', 'التشخيص'],
+  distance: ['Distance', 'المسافة'], email_marketing: ['Marketing email', 'بريد تسويقي'],
+  email_transactional: ['Transactional email', 'بريد المعاملات'], embedded_signup: ['Embedded signup', 'التسجيل المدمج'],
+  eta_baseline: ['Arrival estimate', 'تقدير وقت الوصول'], event_id_dedup: ['Duplicate event protection', 'منع تكرار الأحداث'],
+  expiry_reminders: ['Expiry reminders', 'تذكيرات الانتهاء'], handoff: ['Hand-off to staff', 'التحويل إلى الفريق'],
+  hashed_user_data: ['Hashed customer data', 'بيانات عملاء مُشفّرة'], health_check: ['Health check', 'فحص الاتصال'],
+  human_agent_tag: ['Human agent replies', 'ردود موظف'], idempotent_push: ['Safe retries (push)', 'إعادة محاولة آمنة (إرسال)'],
+  idempotent_send: ['Safe retries (send)', 'إعادة محاولة آمنة (رسائل)'], inbound_messages: ['Incoming messages', 'الرسائل الواردة'],
+  inbound_simulator: ['Message simulator', 'محاكي الرسائل'], instagram_account_proof: ['Instagram account check', 'التحقق من حساب إنستغرام'],
+  interactive_buttons: ['Reply buttons', 'أزرار الرد'], interactive_lists: ['Choice lists', 'قوائم الاختيار'],
+  invoices: ['Invoices', 'الفواتير'], journal_entries: ['Journal entries', 'القيود المحاسبية'],
+  launch_idempotency: ['Safe launch retries', 'إعادة إطلاق آمنة'], list_unsubscribe: ['One-click unsubscribe', 'إلغاء الاشتراك بنقرة'],
+  location_request: ['Location request', 'طلب الموقع'], long_lived_page_token: ['Long-lived Page access', 'وصول طويل الأمد للصفحة'],
+  long_lived_token: ['Long-lived access', 'وصول طويل الأمد'], manual_tracking: ['Manual tracking', 'تتبّع يدوي'],
+  menu_change_webhook: ['Menu change updates', 'تحديثات تغيير القائمة'], menu_extraction_vision: ['Menu reading from photos', 'قراءة القائمة من الصور'],
+  menu_import: ['Menu import', 'استيراد القائمة'], multi_drop_optimised_order: ['Optimised multi-stop order', 'ترتيب أمثل لعدة محطات'],
+  multi_drop_sequence: ['Multi-stop sequence', 'تسلسل عدة محطات'], navigation_link: ['Navigation link', 'رابط الملاحة'],
+  not_certified: ['Not certified yet', 'غير معتمد بعد'], oauth: ['Sign-in connection', 'ربط بتسجيل الدخول'],
+  oauth_connect: ['Connect with sign-in', 'الربط بتسجيل الدخول'], oauth_state_bound: ['Protected sign-in flow', 'تسجيل دخول محمي'],
+  outbox_retry: ['Automatic retries', 'إعادة محاولة تلقائية'], page_ownership_proof: ['Page ownership check', 'التحقق من ملكية الصفحة'],
+  page_picker: ['Page choice', 'اختيار الصفحة'], phase1_qr: ['Phase 1 QR code', 'رمز QR للمرحلة الأولى'],
+  phase2_qr: ['Phase 2 QR code', 'رمز QR للمرحلة الثانية'], phone_ownership_check: ['Phone ownership check', 'التحقق من ملكية الرقم'],
+  pos_token_client: ['POS access', 'وصول نقاط البيع'], provider_revoke: ['Disconnect at provider', 'إلغاء الربط لدى المزوّد'],
+  purchase_policy_prepaid_cod: ['Prepaid and cash-on-delivery purchases', 'مشتريات مدفوعة مسبقًا وعند الاستلام'], push_notification: ['Push notifications', 'الإشعارات الفورية'],
+  quick_replies: ['Quick replies', 'الردود السريعة'], receipt_builder: ['Receipt builder', 'إنشاء الإيصالات'],
+  receipt_qr_url: ['Receipt QR link', 'رابط QR للإيصال'], refund_status: ['Refund status', 'حالة الاسترداد'],
+  refunds: ['Refunds', 'الاسترداد'], reporting_client: ['Reporting', 'التقارير'],
+  route_eta: ['Route arrival times', 'أوقات الوصول للمسار'], server_purchase: ['Server-side purchase events', 'أحداث الشراء من الخادم'],
+  signed_webhooks: ['Signed notifications', 'إشعارات موقّعة'], sms_marketing: ['Marketing SMS', 'رسائل SMS تسويقية'],
+  sms_transactional: ['Transactional SMS', 'رسائل SMS للمعاملات'], standard_window_24h: ['24-hour reply window', 'نافذة رد 24 ساعة'],
+  status_callbacks: ['Status updates', 'تحديثات الحالة'], status_polling: ['Status polling', 'استعلام دوري عن الحالة'],
+  status_query: ['Status check', 'فحص الحالة'], template_submission: ['Template submission', 'إرسال القوالب للاعتماد'],
+  templates: ['Message templates', 'قوالب الرسائل'], test_event_code: ['Test events', 'أحداث تجريبية'],
+  token_refresh: ['Access renewal', 'تجديد الوصول'], transaction_listing: ['Transaction listing', 'قائمة المعاملات'],
+  ubl_xml_builder: ['E-invoice XML', 'فاتورة إلكترونية XML'], url_button: ['Link button', 'زر رابط'],
+  uuid_derivation: ['Invoice identifiers', 'معرّفات الفواتير'], validate_endpoint: ['Validation check', 'فحص التحقق'],
+  webhook_subscription: ['Notification subscription', 'الاشتراك في الإشعارات'], webhooks: ['Webhooks', 'الويب هوك'],
+  xades_stamp_unverified: ['Electronic stamp (unverified)', 'ختم إلكتروني (غير متحقق)'], zero_insights: ['Empty-day reporting', 'تقارير الأيام الخالية'],
+};
+/** Payment provider ids that are not brands (brand names stay Latin: lib/vocab.ts PROVIDER_BRANDS). */
+const payProviders: Record<string, [string, string]> = {
+  simulated: ['Simulated provider', 'مزوّد محاكاة'], manual: ['Recorded by staff', 'مسجّل من الفريق'], cash: ['Cash', 'نقدًا'],
+};
+/** Reconciliation item outcomes (payments reconciliation runs). */
+const reconStatuses: Record<string, [string, string]> = {
+  matched: ['Matched', 'مطابق'], missing_in_provider: ['Missing at provider', 'غير موجود لدى المزوّد'], missing_in_resuto: ['Missing in Resuto', 'غير موجود في ريسوتو'],
+  amount_mismatch: ['Amount mismatch', 'اختلاف المبلغ'], status_mismatch: ['Status mismatch', 'اختلاف الحالة'], cash_count: ['Cash count', 'عدّ النقد'],
+};
+const pairs = (p: string, m: Record<string, [string, string]>, i: 0 | 1) => Object.fromEntries(Object.entries(m).map(([k, v]) => [`${p}${k}`, v[i]]));
+/** Capability codes with labels (tests). */
+export const CAPABILITY_CODES = Object.keys(capabilities);
+
 export const vocab = {
   en: {
     // Inventory units as shown next to quantities (the long names for pickers are insights.unit.*).
@@ -474,6 +541,10 @@ export const vocab = {
     'vocab.subscription.cancel_scheduled': 'Cancellation scheduled', 'vocab.subscription.resumed': 'Plan resumed', 'vocab.subscription.canceled': 'Plan ended',
     'vocab.subscription.trial_ended': 'Trial ended', 'vocab.subscription.grace_expired': 'Grace period ended', 'vocab.subscription.period_rolled': 'New billing period',
     'vocab.invoice.draft': 'Draft', 'vocab.invoice.open': 'Due', 'vocab.invoice.paid': 'Paid', 'vocab.invoice.void': 'Void', 'vocab.invoice.uncollectible': 'Uncollectible',
+    ...pairs('vocab.capability.', capabilities, 0),
+    ...pairs('vocab.payProvider.', payProviders, 0),
+    ...pairs('vocab.recon.', reconStatuses, 0),
+    'vocab.recon.source.provider_api': 'Provider records', 'vocab.recon.source.statement_upload': 'Settlement file',
   },
   ar: {
     'vocab.unit.g': 'جم', 'vocab.unit.kg': 'كجم', 'vocab.unit.ml': 'مل', 'vocab.unit.l': 'لتر', 'vocab.unit.pcs': 'قطعة',
@@ -496,6 +567,10 @@ export const vocab = {
     'vocab.subscription.cancel_scheduled': 'جُدول الإلغاء', 'vocab.subscription.resumed': 'استُؤنفت الخطة', 'vocab.subscription.canceled': 'انتهت الخطة',
     'vocab.subscription.trial_ended': 'انتهت الفترة التجريبية', 'vocab.subscription.grace_expired': 'انتهت فترة السماح', 'vocab.subscription.period_rolled': 'بدأت فترة فوترة جديدة',
     'vocab.invoice.draft': 'مسودة', 'vocab.invoice.open': 'مستحقة', 'vocab.invoice.paid': 'مدفوعة', 'vocab.invoice.void': 'ملغاة', 'vocab.invoice.uncollectible': 'غير قابلة للتحصيل',
+    ...pairs('vocab.capability.', capabilities, 1),
+    ...pairs('vocab.payProvider.', payProviders, 1),
+    ...pairs('vocab.recon.', reconStatuses, 1),
+    'vocab.recon.source.provider_api': 'سجلات المزوّد', 'vocab.recon.source.statement_upload': 'ملف التسوية',
   },
 };
 
