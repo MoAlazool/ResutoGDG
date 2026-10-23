@@ -127,7 +127,10 @@ async function mount(start: Sess) {
 
 const enrol = () => { server.factors = [{ id: 'f-1', status: 'verified', factor_type: 'totp' }]; };
 
-describe('AUTH-02 signed-in password change keeps the session', () => {
+// Each case waits up to 10 s for the provider to sign in (waitUntil in mount) and then runs its own flow, so the case
+// budget must be larger than that wait: with vitest's default 5 s a slow start on a saturated machine ended the case
+// before the clear "waiting for the session provider" message could ever fire (REM-W10, second cause).
+describe('AUTH-02 signed-in password change keeps the session', { timeout: 30_000 }, () => {
   it('an account with an authenticator (aal2) changes its password; the token and the code step are untouched', async () => {
     enrol();
     const s = await mount(newSession('aal2'));
