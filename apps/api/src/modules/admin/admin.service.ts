@@ -310,6 +310,38 @@ export class AdminService {
     });
   }
 
+  /**
+   * Re-queues one failed verified provider webhook (dead-lettered or waiting for its backoff) with a fresh retry budget;
+   * the inbox worker of its module processes it on its next run. Unsigned (rejected) deliveries are never replayable,
+   * and an event currently held by a request or worker (live lease) is refused with 409 until that attempt ends.
+   * Audited with the actor and the reason (PCL-13).
+   */
+  async replayWebhook(actor: PlatformAdminActor, inboxId: string, reason: string) {
+    if (!UUID.test(inboxId)) throw notFound('Webhook event');
+    return this.db.withPlatform(async (tx) => {
+      const w = await tx.maybeOne<{ provider: string; status: string; signature_valid: boolean; attempts: number; org_id: string | null;
+        dead: boolean; held_until: Date | null }>(
+        `select provider, status, signature_valid, attempts, org_id, dead_lettered_at is not null as dead,
+                case when locked_until > now() then locked_until end as held_until
+           from webhook_inbox where id = $1 for update`, [inboxId]);
+      if (!w) throw notFound('Webhook event');
+      if (!w.signature_valid || w.status !== 'failed') {
+        throw conflict('not_replayable', 'Only failed, verified webhook events can be replayed');
+      }
+      if (w.held_until) {
+        throw conflict('run_in_progress', `This event is being processed; retry after ${new Date(w.held_until).toISOString()}`,
+          { retryAfter: new Date(w.held_until).toISOString(), retryAfterSeconds: Math.max(1, Math.ceil((new Date(w.held_until).getTime() - Date.now()) / 1000)) });
+      }
+      await tx.query(
+        `update webhook_inbox set attempts = 0, next_attempt_at = now(), dead_lettered_at = null, alerted_at = null,
+            locked_until = null, claimed_by = null, replay_count = replay_count + 1, replayed_at = now()
+          where id = $1`, [inboxId]);
+      await this.audit(tx, actor, w.org_id, 'admin.webhook_replayed', 'webhook_inbox', inboxId,
+        { provider: w.provider, previousAttempts: w.attempts, deadLettered: w.dead, reason });
+      return { id: inboxId, provider: w.provider, status: 'queued' as const };
+    });
+  }
+
   private async audit(tx: Tx, actor: PlatformAdminActor, orgId: string | null, action: string, entityType: string, entityId: string, metadata: Record<string, unknown>) {
     await tx.query(
       `insert into audit_logs(org_id, actor_type, actor_id, action, entity_type, entity_id, source, metadata)

@@ -39,15 +39,18 @@ export class MetaPagesWebhookService {
     let payload: unknown;
     try { payload = JSON.parse(rawBody.toString('utf8')); } catch { throw new DomainError('invalid_payload', 'Body is not JSON', 400); }
     const events = parseMetaPagesWebhook(payload);
-    let processed = 0, duplicates = 0, ignored = 0, failed = 0;
+    let processed = 0, duplicates = 0, ignored = 0, failed = 0, queued = 0;
     for (const event of events) {
       const target = await this.resolve(event);
       const rec = await this.inbox.store({ provider: PROVIDER, eventKey: metaPagesEventKey(event), signatureValid: true, payload: { event }, headers, orgId: target?.orgId ?? null });
       if (rec.duplicate && rec.status !== 'failed' && rec.status !== 'received') { duplicates++; continue; }
-      const outcome = await this.process(rec.id, target, event);
+      // One processor at a time (PCL-13): an event held by the worker or a concurrent delivery is recorded there.
+      const claim = await this.inbox.claim(rec.id);
+      if (!claim) { queued++; continue; }
+      const outcome = await this.process(rec.id, claim, target, event);
       if (outcome === 'processed') processed++; else if (outcome === 'ignored') ignored++; else failed++;
     }
-    return { received: events.length, processed, duplicates, ignored, failed };
+    return { received: events.length, processed, duplicates, ignored, failed, queued };
   }
 
   private resolve(event: PageInbound): Promise<{ orgId: string; channelId: string } | null> {
@@ -59,8 +62,8 @@ export class MetaPagesWebhookService {
     });
   }
 
-  async process(inboxId: string, target: { orgId: string; channelId: string } | null, event: PageInbound): Promise<'processed' | 'ignored' | 'failed'> {
-    if (!target) { await this.inbox.markProcessed(inboxId, 'ignored', 'no verified channel for this Page / Instagram account'); return 'ignored'; }
+  async process(inboxId: string, claim: string, target: { orgId: string; channelId: string } | null, event: PageInbound): Promise<'processed' | 'ignored' | 'failed'> {
+    if (!target) { await this.inbox.markProcessed(inboxId, claim, 'ignored', 'no verified channel for this Page / Instagram account'); return 'ignored'; }
     try {
       const ctx = new TenantContext(target.orgId, 'admin', null, null, 'system', event.channelKind, 'webhook');
       await this.db.withTenant(target.orgId, async (tx) => {
@@ -71,23 +74,23 @@ export class MetaPagesWebhookService {
           type: event.type, text: event.text, replyId: event.replyId, location: null,
         });
       }, `webhook:${event.channelKind}`);
-      await this.inbox.markProcessed(inboxId, 'processed', null, target.orgId);
+      await this.inbox.markProcessed(inboxId, claim, 'processed', null, target.orgId);
       return 'processed';
     } catch (e) {
       this.logger.warn(`${event.channelKind} event ${inboxId} failed: ${(e as Error).message}`);
-      await this.inbox.markProcessed(inboxId, 'failed', (e as Error).message, target.orgId);
+      await this.inbox.markProcessed(inboxId, claim, 'failed', (e as Error).message, target.orgId);
       return 'failed';
     }
   }
 
   @Scheduled('connect.meta-webhook-retry', 60)
   async retryPending() {
-    const rows = await this.inbox.pending(PROVIDER, 50);
+    const rows = await this.inbox.claimDue(PROVIDER, 50);
     let ok = 0;
     for (const r of rows) {
       const event = (r.payload as { event?: PageInbound }).event;
-      if (!event) { await this.inbox.markProcessed(r.id, 'ignored', 'no event'); continue; }
-      if ((await this.process(r.id, await this.resolve(event), event)) === 'processed') ok++;
+      if (!event) { await this.inbox.markProcessed(r.id, r.claim, 'ignored', 'no event'); continue; }
+      if ((await this.process(r.id, r.claim, await this.resolve(event), event)) === 'processed') ok++;
     }
     return { pending: rows.length, processed: ok };
   }

@@ -85,7 +85,7 @@ export class WhatsAppWebhookService {
     let payload: unknown;
     try { payload = JSON.parse(rawBody.toString('utf8')); } catch { throw new DomainError('invalid_payload', 'Body is not JSON', 400); }
     const events = parseWhatsAppWebhook(payload);
-    let processed = 0, duplicates = 0, ignored = 0, failed = 0;
+    let processed = 0, duplicates = 0, ignored = 0, failed = 0, queued = 0;
     for (const event of events) {
       const target = await this.resolve(event, scope);
       // Deduplicated per signing scope: when both the platform app and a merchant app are subscribed to one WABA, the
@@ -94,10 +94,13 @@ export class WhatsAppWebhookService {
       const rec = await this.inbox.store({ provider: PROVIDER, eventKey, signatureValid: true,
         payload: { event, scope: scope.kind === 'connection' ? { connectionId: scope.connectionId } : 'platform' }, headers, orgId: target?.orgId ?? null });
       if (rec.duplicate && rec.status !== 'failed' && rec.status !== 'received') { duplicates++; continue; }
-      const outcome = await this.process(rec.id, target, event);
+      // One processor at a time (PCL-13): an event held by the worker or a concurrent delivery is recorded there.
+      const claim = await this.inbox.claim(rec.id);
+      if (!claim) { queued++; continue; }
+      const outcome = await this.process(rec.id, claim, target, event);
       if (outcome === 'processed') processed++; else if (outcome === 'ignored') ignored++; else failed++;
     }
-    return { received: events.length, processed, duplicates, ignored, failed };
+    return { received: events.length, processed, duplicates, ignored, failed, queued };
   }
 
   /** The verified channel (and tenant) an event belongs to under this signing scope, or null. */
@@ -116,8 +119,8 @@ export class WhatsAppWebhookService {
     });
   }
 
-  async process(inboxId: string, target: { orgId: string; channelId: string | null } | null, event: WhatsAppInbound): Promise<'processed' | 'ignored' | 'failed'> {
-    if (!target) { await this.inbox.markProcessed(inboxId, 'ignored', 'no verified channel for this number and account'); return 'ignored'; }
+  async process(inboxId: string, claim: string, target: { orgId: string; channelId: string | null } | null, event: WhatsAppInbound): Promise<'processed' | 'ignored' | 'failed'> {
+    if (!target) { await this.inbox.markProcessed(inboxId, claim, 'ignored', 'no verified channel for this number and account'); return 'ignored'; }
     const { orgId } = target;
     try {
       const ctx = new TenantContext(orgId, 'admin', null, null, 'system', 'whatsapp', 'webhook');
@@ -136,11 +139,11 @@ export class WhatsAppWebhookService {
           if (status) await tx.query(`update message_templates set provider_status = $2 where org_id = $1 and provider_template_id = $3`, [orgId, status, event.templateId]);
         }
       }, 'webhook:whatsapp');
-      await this.inbox.markProcessed(inboxId, 'processed', null, orgId);
+      await this.inbox.markProcessed(inboxId, claim, 'processed', null, orgId);
       return 'processed';
     } catch (e) {
       this.logger.warn(`whatsapp event ${inboxId} failed: ${(e as Error).message}`);
-      await this.inbox.markProcessed(inboxId, 'failed', (e as Error).message, orgId);
+      await this.inbox.markProcessed(inboxId, claim, 'failed', (e as Error).message, orgId);
       return 'failed';
     }
   }
@@ -148,19 +151,19 @@ export class WhatsAppWebhookService {
   /** Re-processes stored events that failed (e.g. transient database errors), under the scope they arrived with. */
   @Scheduled('connect.webhook-retry', 60)
   async retryPending() {
-    const rows = await this.inbox.pending(PROVIDER, 50);
+    const rows = await this.inbox.claimDue(PROVIDER, 50);
     let ok = 0;
     for (const r of rows) {
       const stored = r.payload as { event?: WhatsAppInbound; scope?: 'platform' | { connectionId: string } };
       const event = stored.event;
-      if (!event) { await this.inbox.markProcessed(r.id, 'ignored', 'no event'); continue; }
+      if (!event) { await this.inbox.markProcessed(r.id, r.claim, 'ignored', 'no event'); continue; }
       let scope: WebhookScope = { kind: 'platform' };
       if (stored.scope && typeof stored.scope === 'object') {
         const own = await this.ownAppRow(stored.scope.connectionId);
-        if (!own) { await this.inbox.markProcessed(r.id, 'ignored', 'connection no longer uses its own app'); continue; }
+        if (!own) { await this.inbox.markProcessed(r.id, r.claim, 'ignored', 'connection no longer uses its own app'); continue; }
         scope = { kind: 'connection', connectionId: stored.scope.connectionId, orgId: own.org_id };
       }
-      if ((await this.process(r.id, await this.resolve(event, scope), event)) === 'processed') ok++;
+      if ((await this.process(r.id, r.claim, await this.resolve(event, scope), event)) === 'processed') ok++;
     }
     return { pending: rows.length, processed: ok };
   }

@@ -259,7 +259,9 @@ describe('Stripe webhooks through the real controller', () => {
     expect((await sql(`select status, refunded_minor from payments where id = $1`, [payment.id]))[0]).toEqual({ status: 'pending', refunded_minor: 0 });
     const paid = completed(csId, order.totalMinor);
     expect((await send(paid, stripeSignature(secret, paid))).body.outcome).toBe('applied');
-    // The inbox worker (or the provider's retry) now applies the refund exactly once.
+    // The inbox worker (or the provider's retry) now applies the refund exactly once. Failed events back off before the
+    // worker retries them (PCL-13, REM-A02); here the first backoff (about 30 s) has elapsed.
+    await sql(`update webhook_inbox set next_attempt_at = now() - interval '1 second' where provider = 'payments:stripe' and org_id = $1 and status = 'failed'`, [k.tenant.orgId]);
     await t.app.get(PaymentWebhooksService).retryPending();
     expect((await send(refunded, stripeSignature(secret, refunded))).body).toEqual({ received: true, duplicate: true });
     expect((await sql(`select status, refunded_minor from payments where id = $1`, [payment.id]))[0]).toEqual({ status: 'partially_refunded', refunded_minor: 700 });
