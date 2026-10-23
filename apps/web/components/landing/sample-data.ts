@@ -50,6 +50,36 @@ export const SAMPLE: { restaurant: string; branch: string; branchAr: string; flo
     "rotation": 0
    },
    {
+    "id": "demo-wall-west",
+    "type": "wall",
+    "label": "West wall",
+    "x": 50,
+    "y": 400,
+    "width": 10,
+    "height": 730,
+    "rotation": 0
+   },
+   {
+    "id": "demo-wall-east",
+    "type": "wall",
+    "label": "East wall",
+    "x": 1150,
+    "y": 400,
+    "width": 10,
+    "height": 730,
+    "rotation": 0
+   },
+   {
+    "id": "demo-wall-south",
+    "type": "wall",
+    "label": "South wall",
+    "x": 600,
+    "y": 760,
+    "width": 1110,
+    "height": 10,
+    "rotation": 0
+   },
+   {
     "id": "demo-window",
     "type": "window",
     "label": "Window side",

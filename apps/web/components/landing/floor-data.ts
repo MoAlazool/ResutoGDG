@@ -29,19 +29,40 @@ export function landingFloorFrom(body: unknown): LandingFloor {
 
 /** The legacy phone crop of the hero floor: a portrait window (480 x 680) so tables stay large enough to tap. */
 const PORTRAIT = 480 / 680;
+/** The room's shell: what legacy's phone crop showed above and below the tables (the north wall, its window strip). */
+const SHELL = new Set(['wall', 'window', 'door', 'divider']);
+/** The crop grows to reach the shell only while tables keep at least 80% of the legacy size (680 / 850). */
+const MAX_SHELL_CROP = 850;
+
+/** Axis-aligned extent of a (possibly rotated) floor object. */
+function extent(o: FloorObject) {
+  const r = ((o.rotation || 0) * Math.PI) / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+  const hw = (o.width * c + o.height * s) / 2, hh = (o.width * s + o.height * c) / 2;
+  return { left: o.x - hw, right: o.x + hw, top: o.y - hh, bottom: o.y + hh };
+}
 
 /**
  * The phone crop of the hero floor. The recorded sample keeps the legacy crop. A live floor gets the same portrait
  * shape and scale (at least 680 units tall), covering its tables top to bottom and starting at the first column of
- * tables, as legacy did; a narrow room is centred instead of floating in empty canvas.
+ * tables, as legacy did; a narrow room is centred instead of floating in empty canvas. The crop also reaches the
+ * room's shell above and below those tables (walls, the window strip, an entrance; POL-01), so the phone hero shows a
+ * room and not tables on an empty canvas, unless that would shrink the tables below 80% of the legacy size.
  */
 export function narrowView(f: LandingFloor, pad = 60): string {
   if (!f.live) return '140 60 480 680';
   const minX = Math.min(...f.tables.map((t) => t.cx - t.width / 2)), maxX = Math.max(...f.tables.map((t) => t.cx + t.width / 2));
   const minY = Math.min(...f.tables.map((t) => t.cy - t.height / 2)), maxY = Math.max(...f.tables.map((t) => t.cy + t.height / 2));
-  // At least the legacy crop's height, so tables are drawn at the legacy size; centred on the tables vertically.
-  const h = Math.min(f.height, Math.max(680, maxY - minY + 2 * pad));
-  const y = Math.min(Math.max(0, (minY + maxY) / 2 - h / 2), f.height - h);
+  let top = minY - pad, bottom = maxY + pad;
+  // Shell pieces over the tables' columns (the north and south walls, the window); side walls are left out of the
+  // vertical reach because they span the whole room anyway.
+  const shell = f.objects.filter((o) => SHELL.has(o.type) && !o.hidden).map(extent).filter((e) => e.right > minX && e.left < maxX);
+  if (shell.length) {
+    const sTop = Math.min(top, ...shell.map((e) => e.top - 8)), sBottom = Math.max(bottom, ...shell.map((e) => e.bottom + 8));
+    if (sBottom - sTop <= MAX_SHELL_CROP) { top = sTop; bottom = sBottom; }
+  }
+  // At least the legacy crop's height, so tables are drawn at the legacy size; centred on the tables and their room.
+  const h = Math.min(f.height, Math.max(680, bottom - top));
+  const y = Math.min(Math.max(0, (top + bottom) / 2 - h / 2), f.height - h);
   const w = Math.min(f.width, h * PORTRAIT);
   const spanW = maxX - minX + 2 * pad;
   const left = spanW <= w ? (minX + maxX) / 2 - w / 2 : minX - pad;
