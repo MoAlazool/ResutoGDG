@@ -373,8 +373,9 @@ export class MetaTrackingService {
       const ads = await tx.maybeOne<{ config: Record<string, unknown>; status: string }>(
         `select config, status from integration_connections where org_id = $1 and provider = 'meta_ads' and status <> 'revoked' order by branch_id nulls first limit 1`, [ctx.orgId]);
       const members = await tx.query<{ email: string | null; phone_e164: string | null; marketing_consent: boolean; anonymized_at: Date | null }>(
+        // A stable order (oldest customer first), so the sample shown for the same segment is the same on every run.
         `select c.email::text as email, c.phone_e164, c.marketing_consent, c.anonymized_at from segment_members m join customers c on c.id = m.customer_id
-          where m.segment_id = $1 and m.org_id = $2`, [segmentId, ctx.orgId]);
+          where m.segment_id = $1 and m.org_id = $2 order by c.created_at, c.id`, [segmentId, ctx.orgId]);
       const plan = buildCustomAudienceDryRun({
         adAccountId: typeof ads?.config.adAccountId === 'string' ? ads.config.adAccountId : '<AD_ACCOUNT_ID>',
         name: `Resuto: ${seg.name}`, description: `Resuto CRM segment ${seg.id}`,
