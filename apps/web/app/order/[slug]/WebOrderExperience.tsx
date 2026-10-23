@@ -10,6 +10,7 @@ import { useT } from '@/lib/i18n/client';
 import { AssistantCard, AssistantSheet } from '@/components/guest/assistant';
 import { CartSheet, useSuggestions } from '@/components/guest/cart';
 import { GuestDock } from '@/components/guest/dock';
+import { MenuSkeleton } from '@/components/guest/skeleton';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart, type Cart } from '@/components/guest/menu';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 import { MetaPixel, metaOrderPlaced, metaTrack } from '@/lib/tracking/MetaPixel';
@@ -85,7 +86,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
             </div>
             <MenuBrowser menu={menu} cart={cart} onOpen={setProduct} ordering={canOrder} assistant={canOrder ? <AssistantCard onOpen={() => setSheet('assistant')} /> : null} />
           </>
-        ) : !error && <p className="gx-fine" role="status">{t('core.guest.shell.loading')}</p>}
+        ) : !error && <><p className="gx-fine" role="status">{t('core.guest.shell.loading')}</p><MenuSkeleton /></>}
       </main>
       <ConsumerFooter org={org} />
       <GuestDock count={cart.count} total={money(estimate(cart, products), currency, locale)} onCart={() => setSheet('cart')} />

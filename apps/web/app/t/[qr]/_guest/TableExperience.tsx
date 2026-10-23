@@ -15,6 +15,7 @@ import { BillPanel, SplitChooser, SplitForm, type SplitMode } from '@/components
 import { billStage } from '@/components/guest/bill-state';
 import { CartSheet, Suggestions, useSuggestions } from '@/components/guest/cart';
 import { GuestDock } from '@/components/guest/dock';
+import { MenuSkeleton } from '@/components/guest/skeleton';
 import { useVisitLive } from '@/components/guest/live';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart } from '@/components/guest/menu';
 import { RatingSheet } from '@/components/guest/rating';
@@ -164,7 +165,7 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
             {menu ? (
               <MenuBrowser menu={menu} cart={cart} onOpen={setProduct} ordering={phase !== 'closed'}
                 assistant={willOrder ? <AssistantCard onOpen={() => setSheet('assistant')} /> : null} />
-            ) : <div className="gx-note">{notice ?? t('core.guest.shell.loading')}</div>}
+            ) : <><div className="gx-note">{notice ?? t('core.guest.shell.loading')}</div>{!notice && <MenuSkeleton />}</>}
           </main>
         </>
       ) : (
