@@ -308,7 +308,7 @@
 .gx-note.is-danger { background: var(--danger-bg); color: var(--danger); }
 
 /* Branded loading shell (VP-10) */
-.gx-loading .gx-sk { display: block; border-radius: 10px; background: linear-gradient(90deg, var(--line-soft), var(--paper), var(--line-soft)); background-size: 200% 100%; animation: gx-shimmer 1.4s linear infinite; }
+.gx-loading .gx-sk, .gx-menu-skeleton .gx-sk { display: block; border-radius: 10px; background: linear-gradient(90deg, var(--line-soft), var(--paper), var(--line-soft)); background-size: 200% 100%; animation: gx-shimmer 1.4s linear infinite; }
 .gx-loading-brand { display: flex; align-items: center; gap: 12px; }
 .gx-loading-brand p { margin: 0; color: var(--muted); font-size: 13px; }
 .gx-loading .gx-cover { display: flex; align-items: flex-end; padding: 35px 5%; }

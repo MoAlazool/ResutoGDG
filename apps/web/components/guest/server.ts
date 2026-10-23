@@ -91,6 +91,36 @@ export function serverRead<T>(path: string, init: { revalidate?: number; tags?: 
   return readOnce(path, init.revalidate ?? null, (init.tags ?? []).join('\n'), timeoutMs) as Promise<ServerRead<T>>;
 }
 
+/**
+ * How long a guest page's HTML may wait for its menu (PERF-01). The menu is rendered in the page itself, not behind a
+ * streamed loading boundary: content revealed after a fallback waits for React's batched reveal timer, which a repeat
+ * visit's cached JavaScript delays until hydration has finished. A warm read (the usual case: shared, cached 30 s and
+ * refreshed in the background) takes milliseconds. A cold read that is still running after this budget is not waited
+ * for: the page renders with its branded menu skeleton and loads the menu in the browser, while the server read
+ * carries on and fills the shared cache for the next guest.
+ */
+export const GUEST_MENU_BUDGET_MS = 1200;
+
+/**
+ * The budget counts from the start of the request, not from the menu read (PERF-01 review): the route layouts first
+ * await the restaurant / table read, and on a cold server cache that time used to come on top of the 1.2 s, holding
+ * the first byte for up to read + 1.2 s. The layout and the page both call requestStartedAt() first thing; React's
+ * request memoisation keeps the earliest. The menu read always gets at least GUEST_MENU_MIN_MS, which a warm (cached)
+ * read answers well within.
+ */
+export const requestStartedAt = cache((): number => Date.now());
+export const GUEST_MENU_MIN_MS = 150;
+export function menuBudget(startedAt: number, now = Date.now()): number {
+  return Math.max(GUEST_MENU_MIN_MS, GUEST_MENU_BUDGET_MS - Math.max(0, now - startedAt));
+}
+
+/** `read`, or `{ status: 'late' }` once `ms` has passed (the read itself is not cancelled). */
+export function within<T>(read: Promise<ServerRead<T>>, ms: number): Promise<ServerRead<T> | { status: 'late' }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<{ status: 'late' }>((resolve) => { timer = setTimeout(() => resolve({ status: 'late' }), ms); });
+  return Promise.race([read, late]).finally(() => clearTimeout(timer));
+}
+
 // One read per render for the same arguments (a layout and its page both ask for the table): React's request
 // memoisation, which Next applied to the plain fetch before, keyed here on primitives so it actually matches.
 const readOnce = cache(async (path: string, revalidate: number | null, tagList: string, timeoutMs: number): Promise<ServerRead<unknown>> => {

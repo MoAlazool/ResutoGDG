@@ -19,6 +19,7 @@ first healthy response, first request per route) are reported separately from st
 | `explain.mjs` + `sql/explain-suite.mjs` | `EXPLAIN (ANALYZE, BUFFERS)` of the hot queries exactly as the services send them, in the member RLS context, best of 3: execution time, rows scanned (returned + filtered, over all loops), buffers, seq scans, indexes, on-disk sorts. `--assert` fails when a query breaks its budget. |
 | `web-vitals.mjs` | Playwright/Chromium on a throttled mobile profile (390×844 @2x, 150 ms RTT, 1.6 Mbit/s down, 750 kbit/s up, CPU ×4): LCP, FCP, CLS, TTFB, requests and KB by type for a first visit, the same for a repeat visit in the same profile (what HTTP caching saves), and API GETs per minute while the page sits open. Median of 3 runs. |
 | `fonts/convert-woff2.py` | Lossless TTF → WOFF2 conversion of the self-hosted fonts with content-hashed names (fontTools + brotli), so `/fonts/*` can be immutable. |
+| `guest-shell.mjs` (+ `lib/guest-shell.mjs`) | PERF-01 guard against a running build: fetches `/order/<slug>` and `/t/<qr>` and fails unless the `<h1>` and a dish card are in the HTML itself, with no Suspense fallback, loading shell or hidden streamed segment before them (Next's empty metadata boundary does not count). The same inspector runs in the web unit tests (`components/guest/first-paint.test.ts`). |
 | `snapshot-responses.mjs` | Equivalence check for refactors: saves the JSON of the touched read endpoints and compares another build against it (clock-dependent fields normalised; customer lists compared modulo the order of ties). |
 
 ### Reproduce
@@ -244,11 +245,93 @@ copy.
   (`/o/<token>`) serves `products.image_url` only (no stored copies); the kitchen board (`serverTime`, `ageSeconds`)
   and analytics (`meta.generatedAt`) change on every request, so their polls never get a 304; a lighter placeholder
   than the 211 KB `menu-photography.webp` in `guest.css`.
-- Repeat-visit LCP on `/order/<slug>` (and already on `/t/<qr>` before ws14b): the content streams behind
-  `(menu)/loading.tsx`, and React 19.2's batched Suspense reveal (a timer about 300 ms after first paint) often loses
-  to the cached JavaScript executing on a repeat visit, so the heading paints at hydration (~1.3 s on the lab profile)
-  instead of ~0.3 s. ws14b's W01 change tipped web-order into that race (A/B: base 296 ms, HEAD ~1.35 s, 10/10 runs);
-  neither srcset nor the font preload is the cause (variants measured). Fix: render the cached menu in the shell
-  rather than behind the loading boundary, or reveal it without the batch throttle.
+- Repeat-visit LCP on `/order/<slug>` and `/t/<qr>` (the loading-boundary reveal race): fixed in ws15, see
+  "Guest first paint without a loading boundary (PERF-01)" below.
 - Cross-instance cache invalidation (`LISTEN/NOTIFY` or Redis) once the API runs more than one instance.
 - Staging measurement with this harness (attach mode) after deploy.
+
+## Guest first paint without a loading boundary (PERF-01, ws15, 2026-10-23)
+
+**Problem.** `/order/<slug>` and `/t/<qr>` read their menu on the server, but each route had a `loading.tsx`, so the
+HTML streamed in two parts: the branded loading shell first, then the page in a hidden segment (`<div hidden id="S:0">`)
+that React 19.2 swaps in with its batched reveal (`$RC`, a timer about 300 ms after the last paint). On a repeat visit
+the JavaScript comes from cache and runs at once; the hydration long task delays that timer, so the heading (the LCP
+element) painted only after hydration: ~1.4 s instead of ~0.3 s on the lab profile. Reproduced on `e711f39` before the
+change (`guest-shell.mjs`: both pages FAIL, H1 in a hidden segment after the loading fallback; web-order repeat LCP
+1,244-1,492 ms in 5/5 runs, guest-qr 1,192-1,408 ms in 4/5).
+
+**Change** (`34b4ece`). Both route `loading.tsx` files are gone, so the heading and menu are in the first HTML chunk.
+The layouts already awaited the restaurant / table read before any HTML, so the pages add only the shared menu read
+(cached 30 s, refreshed in the background). A menu read that is still running after `GUEST_MENU_BUDGET_MS` (1,200 ms,
+`within()` in `components/guest/server.ts`) is not waited for: the page renders its heading with the branded menu
+skeleton (`MenuSkeleton`, shared with `GuestLoading`) and loads the menu in the browser, while the server read carries on
+and fills the shared cache. Responsive dish photos (srcset) and the font preload are unchanged. Client-side
+navigations into these two routes now keep the previous page until the server answers instead of showing the skeleton
+(the other guest routes keep their `loading.tsx`).
+
+**Measured** with `web-vitals.mjs` (390x844, 150 ms RTT, 1.6 Mbit/s, CPU x4), 5 runs per build, builds alternated
+base/HEAD/base/HEAD on one machine against the same API and data (dish photos served, 91 KB), medians with all runs:
+
+| page | build | first LCP (= FCP) | repeat LCP [runs] | CLS | first KB (js) | requests |
+|---|---|---|---|---|---|---|
+| web-order (en) | base A / B | 944 / 956 | **1,440 / 1,380** [1444, 1400, 1320, 1544, 1440 / 304, 1412, 1468, 1348, 1380] | 0.001 | 496 / 499 (233) | 37 |
+| web-order (en) | PERF-01 A / B | 860 / 904 | **312 / 312** [304, 312, 364, 292, 348 / 352, 312, 316, 300, 304] | 0.001 | 499 / 496 (233) | 37 |
+| guest-qr (ar) | base A / B | 1,084 / 1,104 | **1,356 / 1,536** [1324, 1356, 1224, 1376, 1388 / 1588, 1596, 1448, 1536, 1432] | 0.012 | 688 / 691 (244) | 46 |
+| guest-qr (ar) | PERF-01 A / B | 1,080 / 1,088 | **300 / 296** [320, 300, 296, 772, 296 / 280, 688, 320, 296, 256] | 0.012 | 686 / 683 (241) | 45 |
+
+- Repeat-visit LCP: web-order 1.38-1.44 s → 0.31 s (10/10 runs 292-364 ms); guest-qr 1.36-1.54 s → 0.30 s (8/10 runs
+  256-320 ms; two runs at 688 and 772 ms, still with the H1 as the LCP element and well under every base run of this page, 1,224-1,596 ms; their cause was
+  not isolated).
+- First visit: web-order LCP 944/956 → 860/904 ms (the heading no longer waits for the reveal on a cold load either);
+  guest-qr unchanged (1,084/1,104 → 1,080/1,088). TTFB unchanged (22-30 ms, warm server cache). CLS unchanged.
+- Bytes: the loading-shell chunk is no longer loaded on `/t/<qr>` (45 requests instead of 46, 241 KB of JS instead of
+  244). Bundle budget green: First Load JS `/order/[slug]` 167.7 → 167.8 kB (budget 170), `/t/[qr]` 177.1 → 177.4 kB
+  (route ratchet 178): the menu skeleton is now part of the page for the slow path.
+- Raw results: `docs/perf-results/2026-10-23-perf01-{base-A,head-A,base-B,head-B}.json` (`build` names the measured
+  web build; `commit` is the checkout the harness ran from).
+
+**Guards.** `apps/web/components/guest/first-paint.test.ts` (web unit tests, CI): no `loading.tsx` or `<Suspense>` on
+either route path (fails when the boundary comes back), the real pages rendered to HTML carry the `<h1>` and dish
+cards (English web order, Arabic QR page), and a slow menu read renders the heading and skeleton after the budget.
+`scripts/perf/guest-shell.mjs --web <url> --accounts <file>` checks a running build (base: FAIL on both pages; after:
+ok).
+
+**Review follow-up (ws15 fix).**
+- *Slow path on a table without a visit.* With the menu late, `/t/<qr>` loaded it in the browser only through the table
+  visit (`/public/visits/current/menu`). A table not taking orders (cleaning, out of service, staff seating, branch
+  closed) or a refused session has no visit, so the skeleton and "Loading…" stayed up for good. `TableExperience` now
+  loads the branch's public menu (`GET /public/menu/<slug>?branch=<code>`, from the table lookup) when there is no visit
+  (`app/t/[qr]/_guest/menu-source.ts`), and a failed load shows why with *Retry* instead of an endless "Loading…".
+  Reproduced and fixed on a cold build with the menu tables locked for 3 s (`ws15-slowpath`): `cleaning` and
+  `out_of_service` tables now show the skeleton at first paint and 8 dishes after the lock (one browser request,
+  `GET /v1/public/menu/the-olive-room`, no session); the accepting table still loads through its visit.
+- *The budget counts from the start of the request* (`menuBudget(requestStartedAt())`), not from the menu read: the
+  layouts' restaurant / table read used to come on top of the 1.2 s. The menu read always gets at least
+  `GUEST_MENU_MIN_MS` (150 ms).
+- *Cold-cache first byte, measured* (web build restarted before each request, so the server cache is empty; 3 runs
+  each; curl time to first byte on the same machine, no network throttling):
+
+  | case | `/t/<qr>` TTFB | menu in HTML | `/order/<slug>` TTFB | menu in HTML |
+  |---|---|---|---|---|
+  | cold cache, API answering normally | 66-84 ms | yes | 70-76 ms | yes |
+  | cold cache, menu tables locked 3 s (slow menu read) | 1,235-1,268 ms | no (skeleton, loaded in the browser) | 2,537-2,556 ms | no |
+
+  Trade-off: on a cold cache with a slow menu read, the first byte of `/t/<qr>` now waits up to the 1.2 s budget,
+  where the base flushed its loading shell right after the table read (the API answers that read in 7-16 ms here) and
+  revealed the page when the menu arrived (about 2.7 s into this run). The base build was not re-measured for this
+  table; the reviewer observed that shape on base. FCP is therefore later on that path (about 1.2 s instead of
+  roughly 0.1 s), while the
+  first paint is the real page (H1, cover, table context) rather than a skeleton, and LCP is no later. With the menu
+  read answering normally on a cold cache (the usual post-deploy case) nothing waits. The `/order/<slug>` row is held
+  by its layout, not by the budget: the existence probe (`restaurantExists`) reads the same menu tables and waits for
+  its 2.5 s timeout on base and after alike; the page then adds only the 150 ms minimum (with the per-read budget it
+  would have added up to 1.2 s more).
+- *Warm path re-measured* on this build (`web-vitals.mjs`, same profile, 5 runs, dish photos served): web-order first
+  LCP 820 ms, repeat 284 ms [284, 284, 284, 260, 312]; guest-qr first 980 ms, repeat 288 ms [308, 288, 264, 296, 288];
+  CLS 0.001 / 0.012. Raw: `docs/perf-results/2026-10-23-perf01-fix.json`. Bundle budget green (`/t/[qr]` 177.6 kB,
+  ratchet 178).
+- *Guards.* `first-paint.test.ts` adds the no-visit menu source, the Retry state, the QR slow path with no dish card,
+  the request-start budget, and `template.tsx` to the route scan. The shape check now also runs in the browser E2E job:
+  `tests/e2e/guest-first-paint.spec.ts` (server HTML of both pages through `inspectGuestShell`, and the slow path above
+  in Chromium).
+

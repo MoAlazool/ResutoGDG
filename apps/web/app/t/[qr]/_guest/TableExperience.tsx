@@ -15,13 +15,15 @@ import { BillPanel, SplitChooser, SplitForm, type SplitMode } from '@/components
 import { billStage } from '@/components/guest/bill-state';
 import { CartSheet, Suggestions, useSuggestions } from '@/components/guest/cart';
 import { GuestDock } from '@/components/guest/dock';
+import { MenuSkeleton } from '@/components/guest/skeleton';
 import { useVisitLive } from '@/components/guest/live';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart } from '@/components/guest/menu';
 import { RatingSheet } from '@/components/guest/rating';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 import { StatusOrder, statusHeadline } from '@/components/guest/tracker';
+import { menuSource, type TablePhase } from './menu-source';
 
-type Phase = 'joining' | 'ready' | 'closed' | 'unavailable';
+type Phase = TablePhase;
 type SheetKind = 'cart' | 'bill' | 'chooser' | 'assistant' | 'rating' | 'more' | null;
 interface QuoteView { subtotalMinor: number; discountMinor: number; serviceChargeMinor: number; taxMinor: number; taxInclusive: boolean; totalMinor: number }
 
@@ -71,11 +73,24 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
   const live = useVisitLive(phase === 'ready' ? visit : null, onClosed);
   const view = live.view;
 
-  // The menu normally arrives server-rendered; only when that failed is it loaded here.
+  // The menu normally arrives server-rendered; when the server read was slow or failed it is loaded here: the visit's
+  // menu, or without a visit (table not taking orders, session refused, visit closed) the branch's public menu, so the
+  // skeleton never stays up for good (menu-source.ts). A failed load says so and offers Retry.
+  const source = useMemo(() => menuSource({ hasMenu: !!menu, visit, phase, table }), [menu, visit, phase, table]);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [menuAttempt, setMenuAttempt] = useState(0);
   useEffect(() => {
-    if (menu || !visit) return;
-    api<PublicMenu>('/public/visits/current/menu', { headers: visitHeaders(visit) }).then(setMenu).catch((e) => setNotice((e as Error).message));
-  }, [menu, visit]);
+    if (!source) return;
+    let current = true;
+    setMenuError(null);
+    api<PublicMenu>(source.path, { headers: source.headers })
+      .then((m) => { if (current) setMenu(m); })
+      .catch((e) => { if (current) setMenuError((e as Error).message); });
+    return () => { current = false; };
+  }, [source, menuAttempt]);
+  // Nothing to load the menu from (neither a visit nor the table lookup): Retry scans in again.
+  const menuStuck = !menu && !source && phase !== 'joining';
+  const retryMenu = () => { setMenuError(null); if (source) setMenuAttempt((n) => n + 1); else void join(); };
 
   const loadTheBill = useCallback(async () => {
     if (!visit) return;
@@ -164,7 +179,7 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
             {menu ? (
               <MenuBrowser menu={menu} cart={cart} onOpen={setProduct} ordering={phase !== 'closed'}
                 assistant={willOrder ? <AssistantCard onOpen={() => setSheet('assistant')} /> : null} />
-            ) : <div className="gx-note">{notice ?? t('core.guest.shell.loading')}</div>}
+            ) : <MenuPending error={menuError ?? (menuStuck ? t('core.guest.menuUnavailable') : null)} onRetry={retryMenu} />}
           </main>
         </>
       ) : (
@@ -224,6 +239,22 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
       {toast.node}
     </div>
   );
+}
+
+/**
+ * In place of the menu while it loads in the browser (the server read was slow or failed): the branded menu skeleton,
+ * or, when it could not be loaded, why and a Retry, never an endless "Loading…".
+ */
+export function MenuPending({ error, onRetry }: { error: string | null; onRetry: () => void }) {
+  const { t } = useT();
+  if (error) {
+    return (
+      <div className="gx-note is-warn" role="alert">
+        {error}{' '}<button type="button" className="gx-link" onClick={onRetry}>{t('action.retry')}</button>
+      </div>
+    );
+  }
+  return <><p className="gx-note" role="status">{t('core.guest.shell.loading')}</p><MenuSkeleton /></>;
 }
 
 /** Products of the latest order (for "Anything else?" after ordering). */

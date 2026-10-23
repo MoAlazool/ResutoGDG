@@ -1,12 +1,12 @@
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { PublicTableView } from '@resuto/contracts';
-import { plausible, serverRead } from '@/components/guest/server';
+import { plausible, requestStartedAt, serverRead } from '@/components/guest/server';
 import { qrOutcome } from './qr-outcome';
 
 /**
- * Unknown QR code → HTTP 404 with the branded not-found page (CR-03). The check runs here, outside the route's loading
- * boundary, so the status is decided before any HTML streams; the page's identical lookup is served from the same
+ * Unknown QR code → HTTP 404 with the branded not-found page (CR-03). The check runs here, before any HTML streams
+ * (the route has no loading boundary: PERF-01, see page.tsx); the page's identical lookup is served from the same
  * request cache. Only an explicit 404 counts: when the API cannot be reached the page renders and retries in the browser.
  *
  * A venue (counter) QR printed by the legacy app also lives at /t/<token>: it opens the branch's counter page /v/<token>
@@ -15,6 +15,7 @@ import { qrOutcome } from './qr-outcome';
  * down) the guest gets the area's branded "try again" error, never a 404 for a valid printed code.
  */
 export default async function TableLayout({ children, params }: { children: ReactNode; params: Promise<{ qr: string }> }) {
+  requestStartedAt();   // the guest menu budget counts from here (components/guest/server.ts)
   const { qr } = await params;
   if (!plausible(qr) || !/^[A-Za-z0-9_-]{16,128}$/.test(qr)) notFound();
   const table = await serverRead<PublicTableView>(`/public/tables/${encodeURIComponent(qr)}`, { revalidate: 15, tags: [`table:${qr}`] });

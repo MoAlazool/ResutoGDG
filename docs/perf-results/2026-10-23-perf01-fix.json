@@ -1,0 +1,111 @@
+{
+ "label": "fix",
+ "build": "ws15 review fix (working tree on 413da78)",
+ "note": "commit = the checkout the harness ran from; build = the web build measured",
+ "commit": "413da78",
+ "at": "2026-10-23T22:44:15.447Z",
+ "runs": 5,
+ "rows": [
+  {
+   "id": "guest-qr",
+   "locale": "ar",
+   "lcp": 980,
+   "fcp": 980,
+   "cls": 0.012,
+   "ttfb": 31,
+   "loadMs": 4111,
+   "lcpEl": "H1.",
+   "requests": 45,
+   "kb": 683,
+   "fontKb": 293,
+   "imageKb": 91,
+   "scriptKb": 241,
+   "apiKb": 5,
+   "repeatLcp": 288,
+   "repeatLcpEl": "H1.",
+   "repeatFcp": 288,
+   "lcpRuns": [
+    1068,
+    960,
+    980,
+    980,
+    1024
+   ],
+   "repeatLcpRuns": [
+    308,
+    288,
+    264,
+    296,
+    288
+   ],
+   "repeatLcpEls": [
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1."
+   ],
+   "repeatKb": 33,
+   "repeatRequests": 44,
+   "repeatCachedOr304": 38,
+   "repeatFromCache": 38,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": {
+    "perMinute": 12,
+    "preflightsPerMinute": 12,
+    "notModified": 0,
+    "total": 1
+   }
+  },
+  {
+   "id": "web-order",
+   "locale": "en",
+   "lcp": 820,
+   "fcp": 820,
+   "cls": 0.001,
+   "ttfb": 27,
+   "loadMs": 3173,
+   "lcpEl": "H1.",
+   "requests": 37,
+   "kb": 496,
+   "fontKb": 124,
+   "imageKb": 91,
+   "scriptKb": 233,
+   "apiKb": 2,
+   "repeatLcp": 284,
+   "repeatLcpEl": "H1.",
+   "repeatFcp": 284,
+   "lcpRuns": [
+    780,
+    792,
+    908,
+    864,
+    820
+   ],
+   "repeatLcpRuns": [
+    284,
+    284,
+    284,
+    260,
+    312
+   ],
+   "repeatLcpEls": [
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1."
+   ],
+   "repeatKb": 28,
+   "repeatRequests": 37,
+   "repeatCachedOr304": 33,
+   "repeatFromCache": 33,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  }
+ ]
+}

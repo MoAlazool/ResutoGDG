@@ -3,6 +3,7 @@
 // cover and dish-card shapes at their final sizes, so the page never flashes a bare grey skeleton and nothing jumps
 // when the content arrives (legacy guest.js showed the "r" mark with "Loading…").
 import { useT } from '@/lib/i18n/client';
+import { MenuSkeleton } from './skeleton';
 import './consumer.css';
 
 export function GuestLoading({ variant = 'menu' }: { variant?: 'menu' | 'booking' | 'card' }) {
@@ -22,22 +23,7 @@ export function GuestLoading({ variant = 'menu' }: { variant?: 'menu' | 'booking
               <span className="gx-sk" style={{ width: 'min(360px, 70%)', height: 14, opacity: .3 }} />
             </div>
           </div>
-          <main className="gx-main" aria-hidden>
-            <span className="gx-sk" style={{ height: 96, borderRadius: 16, marginBlockEnd: 32 }} />
-            <span className="gx-sk" style={{ maxWidth: 430, height: 50, marginBlockEnd: 22 }} />
-            <div className="gx-grid">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div key={i} className="gx-dish">
-                  <span className="gx-sk gx-photo" style={{ borderRadius: 0 }} />
-                  <div className="gx-dish-body">
-                    <span className="gx-sk" style={{ width: '40%', height: 10 }} />
-                    <span className="gx-sk" style={{ width: '75%', height: 18, margin: '12px 0' }} />
-                    <span className="gx-sk" style={{ width: '90%', height: 12 }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </main>
+          <main className="gx-main" aria-hidden><MenuSkeleton /></main>
         </>
       )}
       {variant === 'booking' && (
@@ -56,3 +42,4 @@ export function GuestLoading({ variant = 'menu' }: { variant?: 'menu' | 'booking
     </div>
   );
 }
+
