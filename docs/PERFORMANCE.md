@@ -238,8 +238,8 @@ copy.
 ### Not done here (follow-ups)
 
 - PCL-23 push "change ticks" (SSE): needs client changes in `apps/web/lib/use-api.ts` and the polling screens.
-- Done in ws14b (REM-W01..W03): pollers send `If-None-Match` (the API exposes `ETag` to the web origin) and an
-  unchanged poll does not re-render; guest menu, web order, storefront and the restaurant site highlights use
+- Done in ws14b (REM-W01..W03): pollers send `If-None-Match` (the API exposes `ETag` to the web origin) and a 304
+  keeps the same data object (useApi still renders when a poll starts and ends: open); guest menu, web order, storefront and the restaurant site highlights use
   `imageSrcSet`; the root layout preloads the locale's primary font. Still open: the connect ordering link
   (`/o/<token>`) serves `products.image_url` only (no stored copies); the kitchen board (`serverTime`, `ageSeconds`)
   and analytics (`meta.generatedAt`) change on every request, so their polls never get a 304; a lighter placeholder

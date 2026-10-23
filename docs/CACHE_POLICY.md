@@ -25,7 +25,8 @@ leaves already-encoded responses alone.
 for compressed responses too. The staff web client (apps/web/lib/api-conditional.ts via use-api.ts, REM-W02) keeps
 the last ETag per user + URL in memory and revalidates signed-in reads with `If-None-Match` and `Cache-Control:
 max-age=0` (fetch would otherwise add `no-cache`, which Express treats as a forced reload); a 304 resolves to the same
-answer object, so pollers do not re-render. The web app is another origin, so the API lists `ETag` in
+answer object (no body, no parse, nothing derived from it recomputes). The hook still renders its subscribers when a
+request starts and ends; skipping those renders for unchanged polls is open (an attempt broke E2E flows, reverted). The web app is another origin, so the API lists `ETag` in
 `Access-Control-Expose-Headers` (bootstrap.ts); without it the browser hides the validator and every poll stays a plain
 GET. Authenticated responses stay `private, no-store`: a 304 is a revalidation, never a stored copy.
 
