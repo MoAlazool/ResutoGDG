@@ -11,18 +11,29 @@ export interface ApiState<T> {
   error: ApiRequestError | null;
   /** True only while there is nothing to show yet (render a layout-matched skeleton). */
   loading: boolean;
-  /** True while a background refresh runs and the current data stays visible. */
+  /**
+   * True while a background refresh runs and the current data stays visible. Read at render time: a background poll
+   * that brings nothing new does not render the screen just to flip it (REM-W02); pass `watchRefresh` to be rendered
+   * when a refresh starts and ends.
+   */
   refreshing: boolean;
   /**
    * True while the PREVIOUS filter's or page's result is shown because the new one is still loading: mark the list
    * busy (DataTable `busy`) so stale rows are not mistaken for the new result. Background polls never set it.
    */
   pending: boolean;
-  /** When `data` was fetched (ms epoch), 0 when unknown. */
+  /** When `data` was fetched (ms epoch), 0 when unknown. Like `refreshing`, an unchanged poll does not render for it. */
   updatedAt: number;
   reload(): Promise<void>;
   setData(next: T): void;
 }
+
+/** The parts of a cache entry a render turns into data/error/loading/pending (refreshing and updatedAt excluded). */
+interface Visible { data: unknown; error: unknown; inflight: boolean }
+/** In-flight state matters to the screen only while there is no data (loading) or an error (hidden while retrying). Exported for tests. */
+export const visibleOf = (e: { data?: unknown; error?: unknown; inflight?: unknown } | undefined): Visible =>
+  ({ data: e?.data, error: e?.error, inflight: (e?.data === undefined || !!e?.error) && !!e?.inflight });
+export const sameVisible = (a: Visible | null, b: Visible) => !!a && a.data === b.data && a.error === b.error && a.inflight === b.inflight;
 
 const asError = (e: unknown) => (e instanceof ApiRequestError ? e : new ApiRequestError(0, 'unexpected', (e as Error)?.message ?? String(e)));
 const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
@@ -40,17 +51,25 @@ const PAUSE_RECHECK_MS = 750;
  *   exponentially while requests fail; it catches up once when the tab becomes visible or the network returns.
  * - Polls hold still while staff type in a field, work in an open dialog or drag a ticket (lib/live-pause.ts, VS-20)
  *   and catch up as soon as that ends; `pauseWhileEditing: false` opts out (a dialog's own live data).
- * - A poll that returns the same content keeps the previous object (query-cache structural sharing), so an
- *   unchanged revision does not re-render the screen.
+ * - A poll that returns the same content keeps the previous object (query-cache structural sharing; a 304 to the
+ *   If-None-Match the fetcher sends resolves to that object too), and the hook renders only when what a screen shows
+ *   changes (data, error, loading, pending), so an unchanged poll does not re-render the screen at all (REM-W02).
  * - Without polling, a stale entry is refreshed when the tab regains focus.
  * - Requests are shared between components, cancelled when nothing needs them, and mutations made through
  *   `useSession().call` invalidate the tenant's queries. A 401 is recovered (or sends the user to sign in) by the
  *   session, not here.
  */
-export function useApi<T = any>(path: string | null, opts: { pollMs?: number; staleMs?: number; pauseWhileEditing?: boolean } = {}): ApiState<T> {
+export function useApi<T = any>(path: string | null, opts: { pollMs?: number; staleMs?: number; pauseWhileEditing?: boolean; watchRefresh?: boolean } = {}): ApiState<T> {
   const { call, token, tokenReady, scope } = useSession();
   const [, force] = useReducer((x: number) => x + 1, 0);
   const key = path && tokenReady && token && scope ? `${scope}|${path}` : null;
+  // What the last render showed. The cache notifies when a request starts and ends; render only when that changes
+  // what the screen gets (or always, with watchRefresh).
+  const shown = useRef<Visible | null>(null);
+  const watchRefresh = !!opts.watchRefresh;
+  const onChange = useCallback(() => {
+    if (watchRefresh || !key || !sameVisible(shown.current, visibleOf(queryCache.get(key)))) force();
+  }, [key, watchRefresh]);
   // Polls and revisits send the last ETag; an unchanged answer (304) keeps the same object (REM-W02). The memory is
   // partitioned by the signed-in user (scope), which a token refresh does not change.
   const fetcher = useCallback((signal: AbortSignal) => revalidatingCall<T>(call, path!, scope, { signal }), [call, path, scope]);
@@ -58,12 +77,12 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
 
   useEffect(() => {
     if (!key) return;
-    const unsubscribe = queryCache.subscribe(key, force, fetcher);
+    const unsubscribe = queryCache.subscribe(key, onChange, fetcher);
     const e = queryCache.get(key);
     if (!e || e.stale || !e.updatedAt || Date.now() - e.updatedAt >= staleMs) queryCache.fetch(key, fetcher).catch(() => undefined);
     else force();
     return unsubscribe;
-  }, [key, fetcher, staleMs]);
+  }, [key, fetcher, staleMs, onChange]);
 
   // Polling with backoff (live operations) or refresh-on-focus (everything else).
   useEffect(() => {
@@ -113,6 +132,7 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
   }, [key, fetcher, opts.pollMs, opts.pauseWhileEditing, staleMs]);
 
   const entry = key ? queryCache.get<T>(key) : undefined;
+  shown.current = visibleOf(entry);
   // Previous result of the same resource and scope (filter/page change): stays visible while the new one loads.
   const last = useRef<{ key: string; data: T } | null>(null);
   if (key && entry?.data !== undefined) last.current = { key, data: entry.data };
