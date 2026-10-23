@@ -2,7 +2,7 @@
 // that the account mapping Resuto needs exists. Pushing a real journal is a separate, explicit write_test check meant
 // for a TEST organisation / staging database only (it creates one balanced 0.01 journal and reports its id).
 import { providerRequest } from '../core';
-import { wafeqAdapter, type JournalEntry } from '../accounting';
+import { odooAccountingAdapter, qoyodAdapter, wafeqAdapter, type JournalEntry } from '../accounting';
 import { expectThat, registerChecks, type AcceptanceCheck } from './index';
 import { runKey } from './payments-common';
 
@@ -16,9 +16,10 @@ export const accountingChecks: AcceptanceCheck[] = [
     id: 'wafeq.organization', provider: 'wafeq', capability: 'auth', modes: ['official_test', 'live'], requires: ['WAFEQ_API_KEY'], effect: 'read',
     docsUrl: 'https://developer.wafeq.com/reference/authentication',
     async run(ctx) {
-      const org = await providerRequest<{ name?: string; currency?: string }>('wafeq', ctx.adapter, 'https://api.wafeq.com/v1/organization/', {
-        headers: { Authorization: `Api-Key ${ctx.env.WAFEQ_API_KEY}` }, retries: 1 });
-      ctx.evidence('organization read', { name: org.name ?? null, currency: org.currency ?? null });
+      // The adapter's own health check (what the connection's Check button and the scheduled job run).
+      const health = await wafeqAdapter.healthCheck({ ...ctx.adapter, credentials: { apiKey: ctx.env.WAFEQ_API_KEY! }, config: {} });
+      ctx.evidence('organization read by the adapter health check', { ok: health.ok, account: health.account ?? null });
+      expectThat(health.ok && !!health.account?.id, 'the health check did not identify the organisation');
       const journals = await providerRequest<{ count?: number }>('wafeq', ctx.adapter, 'https://api.wafeq.com/v1/manual-journals/?page_size=1', {
         headers: { Authorization: `Api-Key ${ctx.env.WAFEQ_API_KEY}` }, retries: 1 });
       ctx.evidence('manual journals listable', { count: journals.count ?? null });
@@ -44,9 +45,9 @@ export const accountingChecks: AcceptanceCheck[] = [
     id: 'qoyod.accounts', provider: 'qoyod', capability: 'auth', modes: ['official_test', 'live'], requires: ['QOYOD_API_KEY'], effect: 'read',
     docsUrl: 'https://apidoc.qoyod.com',
     async run(ctx) {
-      const r = await providerRequest<{ accounts?: unknown[] }>('qoyod', ctx.adapter, 'https://api.qoyod.com/2.0/accounts', { headers: { 'API-KEY': ctx.env.QOYOD_API_KEY! }, retries: 1 });
-      ctx.evidence('accounts listed', { accounts: Array.isArray(r.accounts) ? r.accounts.length : null });
-      expectThat(Array.isArray(r.accounts), 'no accounts array in the response');
+      const health = await qoyodAdapter.healthCheck({ ...ctx.adapter, credentials: { apiKey: ctx.env.QOYOD_API_KEY! }, config: {} });
+      ctx.evidence('chart of accounts read by the adapter health check', { ok: health.ok, details: health.details ?? null });
+      expectThat(health.ok, 'the health check failed');
     },
   },
   {
@@ -64,6 +65,10 @@ export const accountingChecks: AcceptanceCheck[] = [
       });
       ctx.evidence('account.move/search over JSON-2', { results: Array.isArray(r) ? r.length : null });
       expectThat(Array.isArray(r) && r.length === 0, 'unexpected search result');
+      const health = await odooAccountingAdapter.healthCheck({ ...ctx.adapter, credentials: { apiKey: ctx.env.ODOO_API_KEY! },
+        config: { url: ctx.env.ODOO_URL, ...(process.env.ODOO_DATABASE ? { database: process.env.ODOO_DATABASE } : {}) } });
+      ctx.evidence('company read by the adapter health check', { ok: health.ok, account: health.account ?? null });
+      expectThat(health.ok && !!health.account?.id, 'the health check did not identify the company');
     },
   },
 ];
