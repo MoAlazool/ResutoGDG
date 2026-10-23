@@ -50,7 +50,8 @@ export function useApi<T = any>(path: string | null, opts: { pollMs?: number; st
   const { call, token, tokenReady, scope } = useSession();
   const [, force] = useReducer((x: number) => x + 1, 0);
   const key = path && tokenReady && token && scope ? `${scope}|${path}` : null;
-  const fetcher = useCallback((signal: AbortSignal) => call<T>(path!, { signal }), [call, path]);
+  // revalidate: polls and revisits send the last ETag; an unchanged answer (304) keeps the same object (REM-W02).
+  const fetcher = useCallback((signal: AbortSignal) => call<T>(path!, { signal, revalidate: true }), [call, path]);
   const staleMs = opts.staleMs ?? (path ? staleTimeFor(path) : 0);
 
   useEffect(() => {
