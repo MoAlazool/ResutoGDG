@@ -1,0 +1,31 @@
+/*
+ * The counter ticket (FT-07): legacy guest-chat.css .counter-page / .counter-ticket / .counter-amount / .counter-choice
+ * / .counter-await / .counter-orders, on the design tokens (packages/ui/src/tokens.css) instead of literal colours.
+ */
+.cx-page { max-width: 560px; }
+.cx-ticket { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 26px 22px; text-align: center;
+  margin: 18px 0 20px; box-shadow: var(--shadow-soft); }
+.cx-ticket > span { font-size: 12.5px; color: var(--muted); display: block; }
+.cx-ticket > strong { display: block; font-size: 60px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; color: var(--ink);
+  margin: 10px 0 4px; font-variant-numeric: tabular-nums; }
+.cx-ticket.is-ready { border-color: var(--state-available-stroke); box-shadow: var(--shadow-soft), 0 0 0 3px var(--state-available-fill); }
+.cx-ready { display: inline-flex; align-items: baseline; gap: 8px; margin: 6px 0 0; font-size: 13.5px; font-weight: 650; color: var(--state-available-tag); }
+.cx-amount { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-block-start: 1px dashed var(--line);
+  margin-block-start: 18px; padding-block-start: 16px; font-size: 14px; color: var(--muted); }
+.cx-amount b { font-size: 20px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cx-choice { display: flex; flex-direction: column; gap: 10px; margin-block-end: 20px; }
+.cx-await { display: flex; align-items: flex-start; gap: 10px; background: var(--leaf-bg); border: 1px solid var(--state-available-fill);
+  border-radius: 12px; padding: 15px 16px; font-size: 13.5px; color: var(--leaf-text); margin-block-end: 20px; line-height: 1.55; }
+.cx-await .cx-dot { margin-block-start: 7px; }
+.cx-await .gx-link { color: var(--leaf-text); padding: 0; }
+.cx-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--state-available-stroke); flex: none;
+  box-shadow: 0 0 0 4px var(--state-available-fill); animation: cx-pulse 1.6s ease-in-out infinite; }
+@keyframes cx-pulse { 50% { box-shadow: 0 0 0 7px var(--state-available-fill); } }
+@media (prefers-reduced-motion: reduce) { .cx-dot { animation: none; } }
+.cx-orders { margin-block-start: 26px; }
+.cx-orders h2 { margin-block-end: 12px; font-size: 20px; }
+.cx-page .gx-settled { margin-block-end: 20px; }
+@media (max-width: 430px) {
+  .cx-ticket > strong { font-size: 54px; }
+  .cx-page .gx-status-actions .gx-btn { flex: 1 1 140px; }
+}

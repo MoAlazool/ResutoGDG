@@ -3,13 +3,23 @@
 // Shared by the KDS, the orders board, the live floor and the front desk. Each Resolve is guarded against double
 // clicks, shows its pending state and reports a failure in place (PCL-21); the list then refreshes from the server.
 import { useState } from 'react';
-import { Notice } from '@resuto/ui';
+import { Notice, OrderRef } from '@resuto/ui';
 import { formatWhen } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 
-export interface ServiceRequest { id: string; kind: string; status: string; tableId: string; tableLabel: string; createdAt: string; visitId: string }
+/** A table's request, or a counter visit's (FT-07: no table; `ticket` is the number the guest quotes at the till). */
+export interface ServiceRequest {
+  id: string; kind: string; status: string; tableId: string | null; tableLabel: string | null; createdAt: string; visitId: string;
+  visitKind?: 'table' | 'counter'; ticket?: string | null;
+}
+
+/** "Table 4", or "Counter" with the ticket reference for a counter visit. */
+export function requestPlace(r: Pick<ServiceRequest, 'tableLabel' | 'visitKind' | 'ticket'>, t: (k: string, v?: Record<string, string | number>) => string) {
+  if (r.visitKind === 'counter') return <>{t('ops.kds.counter')}{r.ticket ? <> <OrderRef n={r.ticket.padStart(3, '0')} /></> : null}</>;
+  return t('core.kds.table', { label: r.tableLabel ?? '' });
+}
 
 export function useServiceRequests(orgId: string, branchId: string | null, pollMs = 3000) {
   return useApi<{ items: ServiceRequest[] }>(branchId ? `/o/${orgId}/requests?branchId=${branchId}` : null, { pollMs });
@@ -48,8 +58,8 @@ export function ServiceRequestList({ orgId, items, timezone, canResolve, onResol
         <div key={r.id} className="ops-request">
           <span>
             {onSelect
-              ? <button type="button" className="ops-link"onClick={() => onSelect(r)}><strong>{t('core.kds.table', { label: r.tableLabel })}</strong></button>
-              : <strong>{t('core.kds.table', { label: r.tableLabel })}</strong>}
+              ? <button type="button" className="ops-link"onClick={() => onSelect(r)}><strong>{requestPlace(r, t)}</strong></button>
+              : <strong>{requestPlace(r, t)}</strong>}
             <small>{t(`ops.req.kind.${r.kind}`)} · <span className="num">{formatWhen(r.createdAt, locale, timezone)}</span></small>
           </span>
           {canResolve && (

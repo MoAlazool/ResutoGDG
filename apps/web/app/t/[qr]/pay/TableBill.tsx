@@ -62,7 +62,7 @@ export function TableBill({ qr, startSplit = false }: { qr: string; startSplit?:
     <div className="gx">
       {header}
       <main className="gx-main" style={{ maxWidth: 640 }}>
-        <span className="gx-overline">{bill ? t('core.guest.tableLabel', { label: bill.table.label }) : ''}</span>
+        <span className="gx-overline">{bill?.table ? t('core.guest.tableLabel', { label: bill.table.label }) : ''}</span>
         <h1 className="gx-page-title" style={{ marginBlockEnd: 18 }}>{t('core.bill.splitPay')}</h1>
         {visit === null || error?.status === 401 || error?.status === 404 ? (
           <div className="gx-empty"><h2>{t('pay.bill.noSession')}</h2><p>{t('pay.bill.noSessionBody')}</p>

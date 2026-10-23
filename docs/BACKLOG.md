@@ -69,7 +69,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | FT-03 | P1 | Loyalty missing: no earning/redemption rules, no auditable ledger, no UI | ws8-features | partial (wave 3; remainder in follow-ups) |
 | FT-05 | P1 | Connect: Messenger and Instagram channels missing | ws7a-meta | done (wave 2, 85c176e) |
 | FT-06 | P1 | Owner/staff notifications never delivered (licence expiry reminders marked 'sent', low stock, MCP approvals, invitations) | ws8-features | partial (wave 3; remainder in follow-ups) |
-| FT-07 | P1 | Counter / single venue QR mode (takeaway, cloud kitchen) not ported | ws5-ops | partial (wave 3; remainder in follow-ups) |
+| FT-07 | P1 | Counter / single venue QR mode (takeaway, cloud kitchen) not ported | ws5-ops, ws14c-counter | done (wave 7: counter session, venue credential, tickets, staff collection; ws14c) |
 | FT-08 | P1 | AI menu extraction from PDF/photo missing although the landing advertises it | ws9-studio-mcp | done (wave 3, 93abad9) |
 | FT-09 | P1 | Pickup/delivery ordering ignores opening hours and delivery area; no delivery zones | ws8-features | done (wave 3, 93abad9) |
 | FT-10 | P1 | ai_requests_per_month plan limit displayed but never enforced | ws8-features | done (wave 3, 93abad9) |

@@ -59,12 +59,12 @@ function FloorPageInner() {
           qrHref={href('qr')} studioHref={href('studio')} />
       ) : tab === 'visits' ? (
         <ActiveVisits key={branch.id} orgId={org.id} branchId={branch.id} timezone={org.timezone} canClose={can('floor:seat')} canForce={canForceClose(org.role)}
-          ordersHref={can('orders:read') ? `/dashboard/${org.id}/orders` : null} />
+          ordersHref={can('orders:read') ? `/dashboard/${org.id}/orders` : null} canCollect={can('payments:collect')} />
       ) : tab === 'qr' ? (
         <>
           <PageHeading title={t('studio.qr.title')} subtitle={t('studio.floor.pageSubtitle')} />
           {/* Counter branches print one venue code (FT-07); table codes stay available for any tables kept on the plan. */}
-          {branch.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={branch.id} />}
+          {branch.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={branch.id} canRotate={canWrite} />}
           <QrSheet key={branch.id} orgId={org.id} branchId={branch.id} branchName={pick(locale, branch.name, branch.nameAr)} restaurantName={pick(locale, org.name, org.nameAr)} />
         </>
       ) : (

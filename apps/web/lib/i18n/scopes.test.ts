@@ -7,7 +7,7 @@ import { dictionaries, inScope, messagesFor } from './messages';
 // route and the local modules it imports, collects the dictionary keys it can use (string literals that are keys,
 // and `prefix.${…}` templates), and fails when one of them would be missing on a guest page.
 const WEB = join(__dirname, '..', '..');
-const GUEST_ROOTS = ['app/t', 'app/order', 'app/reserve', 'app/pay', 'app/s', 'app/o', 'app/l', 'app/r', 'app/pricing', 'app/page.tsx',
+const GUEST_ROOTS = ['app/t', 'app/v', 'app/order', 'app/reserve', 'app/pay', 'app/s', 'app/o', 'app/l', 'app/r', 'app/pricing', 'app/page.tsx',
   'app/not-found.tsx', 'app/error.tsx', 'app/global-error.tsx'];
 // The landing reads its own copy (platform.lp.*) from `dictionaries`, not from the scoped messages.
 const LANDING_COPY = 'platform.lp.';

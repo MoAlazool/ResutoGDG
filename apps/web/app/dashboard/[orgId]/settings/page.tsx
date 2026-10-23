@@ -91,7 +91,7 @@ export default function SettingsPage() {
               tabs={activeBranches.map((b) => ({ key: b.id, label: pick(locale, b.name, b.nameAr) }))} />
           )}
           <ServiceModeCards key={`${mb.id}:${mb.serviceMode}:${mb.acceptsReservations}`} orgId={org.id} branch={mb} canEdit={can('branches:manage')} onSaved={refreshAll} />
-          {mb.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={mb.id} />}
+          {mb.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={mb.id} canRotate={can('floor:write')} />}
         </Card>
       )}
       <div className="grid grid-2" style={{ marginBlockEnd: 16 }}>

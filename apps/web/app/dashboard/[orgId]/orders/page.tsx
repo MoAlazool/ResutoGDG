@@ -8,6 +8,7 @@ import { Tabs } from '@resuto/ui';
 import '@/components/ops/ops.css';
 import { defaultOrdersView, readOrdersView, rememberOrdersView } from '@/components/ops/orders-view';
 import { useUrlParam } from '@/components/ops/use-url-state';
+import { requestPlace } from '@/components/ops/ServiceRequests';
 import { KitchenBoard } from '../../../kitchen/[orgId]/_kds/KitchenBoard';
 import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { dateTime, formatWhen, money, num, pick, time } from '@/lib/format';
@@ -66,7 +67,7 @@ function Orders() {
     ...(channel ? { channel } : {}), ...(fulfillment ? { fulfillment } : {}), ...(date ? { date } : {}), ...(cursor ? { cursor } : {}),
   });
   const list = useApi<{ items: OrderSummary[]; nextCursor: string | null }>(view === 'list' ? `/o/${org.id}/orders?${qs}` : null, { pollMs: cursor ? undefined : 3000 });
-  const requests = useApi<{ items: Array<{ id: string; kind: string; tableLabel: string; createdAt: string }> }>(
+  const requests = useApi<{ items: Array<{ id: string; kind: string; tableLabel: string | null; visitKind?: 'table' | 'counter'; ticket?: string | null; createdAt: string }> }>(
     view === 'list' ? `/o/${org.id}/requests${branchId ? `?branchId=${branchId}` : ''}` : null, { pollMs: 3000 });
   const { call } = useSession();
   // Keep the last failure on screen while a poll retries (useApi clears `error` during the request), so the strip
@@ -118,7 +119,7 @@ function Orders() {
             : requests.data.items.length === 0 ? <span className="fine">{t('core.orders.noRequests')}</span>
               : requests.data.items.map((r) => (
                 <span key={r.id} className="badge badge-warn request-chip">
-                  {t('core.kds.table', { label: r.tableLabel })} · {t(`core.request.${r.kind}`)} · <span className="num">{formatWhen(r.createdAt, locale, org.timezone)}</span>
+                  {requestPlace(r, t)} · {t(`core.request.${r.kind}`)} · <span className="num">{formatWhen(r.createdAt, locale, org.timezone)}</span>
                   <button className="btn btn-sm" aria-label={t('core.orders.resolveRequest')} disabled={resolving !== null} aria-busy={resolving === r.id || undefined} onClick={() => void resolve(r.id)}>✓</button>
                 </span>
               ))}
@@ -153,8 +154,11 @@ function Orders() {
           columns={[
             { key: 'n', header: '#', render: (o) => <strong><OrderRef n={o.number} /></strong> },
             { key: 'time', header: t('core.orders.placed'), render: (o) => <span className="num">{formatWhen(o.placedAt, locale, org.timezone)}</span> },
-            { key: 'where', header: t('core.orders.where'), render: (o) => o.tableLabel ? t('core.kds.table', { label: o.tableLabel }) : <>{t(`core.web.${o.fulfillment}`)}{o.customerName ? <> · <UserText>{o.customerName}</UserText></> : null}</> },
-            { key: 'channel', header: t('core.orders.channel'), render: (o) => t(`core.channel.${o.channel}`) },
+            { key: 'where', header: t('core.orders.where'), render: (o) => o.tableLabel ? t('core.kds.table', { label: o.tableLabel })
+              // A counter-session order (FT-07: venue QR visit, no table): the order number is the guest's ticket.
+              : o.visitId ? t('ops.kds.counter')
+                : <>{t(`core.web.${o.fulfillment}`)}{o.customerName ? <> · <UserText>{o.customerName}</UserText></> : null}</> },
+            { key: 'channel', header: t('core.orders.channel'), render: (o) => (o.visitId && !o.tableId ? t('ops.counter.channel') : t(`core.channel.${o.channel}`)) },
             { key: 'status', header: t('core.orders.status'), render: (o) => <Badge tone={statusTone(o.status)}>{t(`core.status.${o.status}`)}</Badge> },
             { key: 'pay', header: t('core.orders.payment'), render: (o) => <Badge tone={o.paymentStatus === 'paid' ? 'ok' : o.paymentStatus === 'unpaid' ? 'neutral' : 'pay'}>{t(`core.payment.${o.paymentStatus}`)}</Badge> },
             { key: 'total', header: t('core.bill.total'), align: 'end', render: (o) => <span className="num">{money(o.totalMinor, o.currency, locale)}</span> },
@@ -233,6 +237,13 @@ function OrderDrawer({ orderId, onClose, onChanged }: { orderId: string; onClose
                 await call(`/o/${org.id}/orders/${o.id}/collect`, { body: { method: 'cash' }, idempotencyKey: collectKey.current });
                 collectKey.current = newIdempotencyKey();
               })}>{t('core.orders.collectCash', { amount: money(o.dueMinor, o.currency, locale) })}</button>
+            )}
+            {/* A counter ticket (FT-07) is paid as a whole: cash for every unpaid order of this guest's counter visit. */}
+            {can('payments:collect') && o.dueMinor > 0 && o.status !== 'cancelled' && o.visitId && !o.tableId && (
+              <button className="btn btn-leaf" disabled={pending} onClick={() => void run(async () => {
+                await call(`/o/${org.id}/visits/${o.visitId}/collect`, { body: { method: 'cash' }, idempotencyKey: collectKey.current });
+                collectKey.current = newIdempotencyKey();
+              })}>{t('ops.counter.collectTicket')}</button>
             )}
             {can('orders:cancel') && !['cancelled', 'served', 'picked_up', 'delivered'].includes(o.status) && (
               <button className="btn btn-danger" disabled={pending} onClick={async () => {
