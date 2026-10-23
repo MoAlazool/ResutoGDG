@@ -98,6 +98,11 @@
   --sandbox-bg: #fff3d6;
   --sandbox: #8a5a00;
   --sandbox-line: #d8aa4a;
+  --sandbox-soft: #fffaf0;
+  --sandbox-ink: #5c3d00;
+  --surface-code: #fbfbf8;
+  --code-bg: #13241c;
+  --code-text: #e8f1ec;
   --state-available-fill: #e6f2e2;
   --state-available-stroke: #6f9c72;
   --state-available-tag: #2f6238;

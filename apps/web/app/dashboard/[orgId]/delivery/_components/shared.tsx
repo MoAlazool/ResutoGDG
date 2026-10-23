@@ -43,7 +43,7 @@ export function AssignControl({ job, drivers, onAssign, pending, compact }: {
   const canOffer = chosen && (chosen.availability === 'available' || chosen.availability === 'busy');
   if (!eligible.length) return <span className="fine">{t('driver.dispatch.noEligible')}</span>;
   return (
-    <div className="row" style={{ gap: 6 }}>
+    <div className="row gap-6">
       <select className="select" style={{ minHeight: 36, padding: '4px 8px', width: compact ? 160 : 200 }} value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={t('driver.dispatch.chooseDriver')}>
         <option value="">{t('driver.dispatch.chooseDriver')}</option>
         {eligible.map((d) => (

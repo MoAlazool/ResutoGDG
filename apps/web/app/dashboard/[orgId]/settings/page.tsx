@@ -85,7 +85,7 @@ export default function SettingsPage() {
       {/* The service model comes first, as in legacy settings; profile and the launch checklist follow (PAR-08). */}
       {mb && (
         <Card title={t('ops.mode.title')}>
-          <p className="fine" style={{ marginTop: 0 }}>{t('ops.mode.subtitle', { branch: pick(locale, mb.name, mb.nameAr) })}</p>
+          <p className="fine mbs-0">{t('ops.mode.subtitle', { branch: pick(locale, mb.name, mb.nameAr) })}</p>
           {activeBranches.length > 1 && (
             <Tabs value={mb.id} onChange={setModeBranch} label={s.branches}
               tabs={activeBranches.map((b) => ({ key: b.id, label: pick(locale, b.name, b.nameAr) }))} />
@@ -94,7 +94,7 @@ export default function SettingsPage() {
           {mb.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={mb.id} />}
         </Card>
       )}
-      <div className="grid grid-2" style={{ marginBlockEnd: 16 }}>
+      <div className="grid grid-2 mbe-16">
         <Card title={s.profile}>
           <form onSubmit={saveProfile}>
             <div className="form-row">
@@ -115,14 +115,14 @@ export default function SettingsPage() {
               <Field label={s.crNumber} value={form.commercialRegistration ?? ''} onChange={set('commercialRegistration')} maxLength={40} dir="ltr" />
             </div>
             <p className="fine">{s.countryLocked.replace('{country}', d.country).replace('{currency}', d.currency)}</p>
-            {msg && <div style={{ marginBlockEnd: 12 }}><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+            {msg && <div className="mbe-12"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
             <button className="btn btn-primary" disabled={saving}>{saving ? s.saving : s.save}</button>
           </form>
         </Card>
 
         {/* breaks the global .card + .card margin inside grids */}<span hidden />
         <Card title={s.checklist} actions={setup.data ? <Badge tone={setup.data.launched ? 'ok' : 'info'}><span className="num">{formatNumber(doneCount, locale)}/{formatNumber(steps.length, locale)}</span></Badge> : undefined}>
-          <p className="fine" style={{ marginTop: 0 }}>{t('ops.setup.checklistSub')}</p>
+          <p className="fine mbs-0">{t('ops.setup.checklistSub')}</p>
           {setup.error && <Notice tone="danger">{setup.error.message}</Notice>}
           {!setup.data ? <Skeleton lines={5} /> : (
             <div className="setup-checklist">
@@ -146,7 +146,7 @@ export default function SettingsPage() {
           { key: 'name', header: s.name, render: (b) => <div><strong>{locale === 'ar' && b.nameAr ? b.nameAr : b.name}</strong><div className="fine" dir="ltr">{b.code}</div></div> },
           { key: 'city', header: s.city, render: (b) => b.city ?? '—' },
           { key: 'services', header: s.services, render: (b) => (
-            <div className="row" style={{ gap: 4 }}>
+            <div className="row gap-4">
               {b.acceptsDineIn && <Badge>{s.dineIn}</Badge>}{b.acceptsPickup && <Badge>{s.pickup}</Badge>}
               {b.acceptsDelivery && <Badge>{s.delivery} · {money(b.deliveryFeeMinor, d.currency, locale)}</Badge>}{b.acceptsReservations && <Badge>{s.reservations}</Badge>}
             </div>) },
@@ -224,9 +224,9 @@ function BranchModal({ branch, currency, s, onClose, onSaved }: {
           <Field label={s.deliveryFee.replace('{currency}', currency)} inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" {...text('deliveryFee')} />
           <Field label={s.minOrder.replace('{currency}', currency)} inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" {...text('minOrder')} />
         </div>
-        {branch && <div style={{ marginBlockEnd: 14 }}>{flag('isActive', s.active)}</div>}
-        {error && <div style={{ marginBlockEnd: 12 }}><Notice tone="danger">{error.limit ? s.limitHit : error.text} {error.limit && <Link href={`/dashboard/${org.id}/billing`}>{s.upgrade}</Link>}</Notice></div>}
-        <div className="row" style={{ justifyContent: 'flex-end' }}>
+        {branch && <div className="mbe-14">{flag('isActive', s.active)}</div>}
+        {error && <div className="mbe-12"><Notice tone="danger">{error.limit ? s.limitHit : error.text} {error.limit && <Link href={`/dashboard/${org.id}/billing`}>{s.upgrade}</Link>}</Notice></div>}
+        <div className="row justify-end">
           <button type="button" className="btn" onClick={onClose}>{s.cancel}</button>
           <button className="btn btn-primary" disabled={pending}>{pending ? s.saving : s.save}</button>
         </div>
@@ -265,7 +265,7 @@ function PolicyCard({ branch, currency, canEdit, onSaved }: { branch: Branch; cu
   }
   return (
     <Card title={t('ops.policy.title')}>
-      <p className="fine" style={{ marginTop: 0 }}>{t('ops.policy.subtitle')}</p>
+      <p className="fine mbs-0">{t('ops.policy.subtitle')}</p>
       <form onSubmit={submit}>
         <fieldset disabled={!canEdit || pending} style={{ border: 0, padding: 0, margin: 0 }}>
           {tables && branch.acceptsReservations ? (
@@ -284,7 +284,7 @@ function PolicyCard({ branch, currency, canEdit, onSaved }: { branch: Branch; cu
             <Field label={t('ops.policy.minOrder', { currency })} name="min" inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" defaultValue={major(branch.minOrderMinor)} />
             <Field label={t('ops.policy.radius')} name="radius" inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" defaultValue={branch.deliveryRadiusM ? String(branch.deliveryRadiusM / 1000) : ''} />
           </div>
-          {msg && <div style={{ marginBlockEnd: 12 }}><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+          {msg && <div className="mbe-12"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
           {canEdit && <button className="btn btn-primary" disabled={pending}>{pending ? t('state.loading') : t('action.save')}</button>}
         </fieldset>
       </form>

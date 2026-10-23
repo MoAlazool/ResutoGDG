@@ -32,7 +32,7 @@ function BranchPicker({ value, onChange, branches, s, locale }: {
         <label className="check"><input type="radio" checked={value !== null} onChange={() => onChange(branches[0] ? [branches[0].id] : [])} /> {s.someBranches}</label>
       </div>
       {value !== null && (
-        <div className="row" style={{ gap: 12, marginBlockStart: 8 }}>
+        <div className="row gap-12 mbs-8">
           {branches.map((b) => (
             <label key={b.id} className="check">
               <input type="checkbox" checked={value.includes(b.id)} onChange={(e) => onChange(e.target.checked ? [...value, b.id] : value.filter((x) => x !== b.id))} />
@@ -120,7 +120,7 @@ export default function TeamPage() {
   return (
     <div style={FIT}>
       <PageHeader title={s.title} subtitle={s.subtitle} />
-      {assignable.length === 0 ? <div style={{ marginBlockEnd: 16 }}><Notice tone="warn">{s.cannotAssign}</Notice></div> : (
+      {assignable.length === 0 ? <div className="mbe-16"><Notice tone="warn">{s.cannotAssign}</Notice></div> : (
         <Card title={s.invite}>
           <form onSubmit={invite}>
             <div className="form-row">
@@ -132,17 +132,17 @@ export default function TeamPage() {
             </div>
             {org.branches.length > 1 && <BranchPicker value={scope} onChange={setScope} branches={org.branches} s={s} locale={locale} />}
             {error && (
-              <div style={{ marginBlockEnd: 12 }}><Notice tone="danger">{error.limit ? s.limitHit : error.text}{' '}
+              <div className="mbe-12"><Notice tone="danger">{error.limit ? s.limitHit : error.text}{' '}
                 {error.limit && <Link href={`/dashboard/${org.id}/billing`}>{s.upgrade}</Link>}</Notice></div>
             )}
             <button className="btn btn-primary" disabled={pending}>{pending ? s.sending : s.send}</button>
           </form>
           {link && (
-            <div style={{ marginBlockStart: 16 }}>
+            <div className="mbs-16">
               <Notice tone="ok">
-                <div className="stack" style={{ gap: 8 }}>
+                <div className="stack gap-8">
                   <span>{s.linkReady.replace('{who}', link.who).replace('{date}', day(link.expiresAt, locale))}</span>
-                  <div className="row" style={{ gap: 8 }}>
+                  <div className="row gap-8">
                     <input className="input" readOnly value={link.url} dir="ltr" onFocus={(e) => e.target.select()} style={{ flex: '1 1 260px', minWidth: 0 }} aria-label="Invitation link" />
                     <button type="button" className="btn btn-sm" onClick={async () => { await navigator.clipboard?.writeText(link.url).catch(() => undefined); setCopied(true); }}>
                       {copied ? s.copied : s.copy}
@@ -159,7 +159,7 @@ export default function TeamPage() {
         : !team.data ? <Card><Skeleton lines={4} /></Card> : (
           <>
             <Card title={s.members}>
-              {rowError && <div style={{ marginBlockEnd: 12 }}><Notice tone="danger">{rowError}</Notice></div>}
+              {rowError && <div className="mbe-12"><Notice tone="danger">{rowError}</Notice></div>}
               <DataTable rows={members} rowKey={(m) => m.id} columns={[
                 { key: 'name', header: s.name, render: (m) => (
                   <div><strong>{m.fullName ? <UserText>{m.fullName}</UserText> : m.email ? <Email value={m.email} /> : <Code>{m.userId.slice(0, 8)}</Code>}</strong>
@@ -175,7 +175,7 @@ export default function TeamPage() {
                     <> <button className="btn btn-ghost btn-sm" onClick={() => { setEditing(m); setEditScope(m.branchIds); }}>✎</button></>)}</span>) },
                 { key: 'status', header: s.status, render: (m) => <Badge tone={m.status === 'active' ? 'ok' : 'warn'}>{s[`st_${m.status}` as keyof typeof s] ?? m.status}</Badge> },
                 { key: 'actions', header: s.actions, align: 'end', render: (m) => editable(m) ? (
-                  <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                  <div className="row justify-end gap-6">
                     <button className="btn btn-sm" onClick={() => void patch(m, { status: m.status === 'active' ? 'suspended' : 'active' })}>{m.status === 'active' ? s.suspend : s.reactivate}</button>
                     <button className="btn btn-sm btn-danger" onClick={() => setRemoving(m)}>{s.remove}</button>
                   </div>) : null },

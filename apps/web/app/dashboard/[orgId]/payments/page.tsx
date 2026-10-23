@@ -103,7 +103,7 @@ function LinksList() {
         { key: 'status', header: t('pay.dash.col.status'), render: (r) => <Badge tone={statusTone(r.status)}>{t(`pay.status.${r.status}`)}</Badge> },
         { key: 'expires', header: t('pay.dash.col.expires'), render: (r) => dateTime(r.expiresAt, locale) },
         { key: 'link', header: t('pay.dash.col.link'), render: (r) => r.url ? (
-          <div className="row" style={{ gap: 6 }}>
+          <div className="row gap-6">
             <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(r.url)}>{t('pay.split.copy')}</button>
             {can('payments:collect') && r.status === 'open' && <button className="btn btn-sm btn-ghost" disabled={cancel.pending} onClick={() => cancel.run(r.id)}>{t('pay.link.cancel')}</button>}
           </div>) : '—' },
@@ -159,7 +159,7 @@ function Reconciliation({ providers }: { providers: string[] }) {
   });
   const m = (v: number | null) => (v === null || v === undefined ? '—' : money(v, org.currency, locale));
   return (
-    <div className="grid grid-2" style={{ alignItems: 'start' }}>
+    <div className="grid grid-2 items-start">
       <Card title={t('pay.recon.title')}>
         <div className="form-row">
           <SelectField label={t('pay.recon.provider')} value={provider} onChange={(e) => setProvider(e.target.value)}>
@@ -181,7 +181,7 @@ function Reconciliation({ providers }: { providers: string[] }) {
           </>
         )}
         {run.error && <Notice tone="danger">{run.error}</Notice>}
-        <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={run.pending} onClick={() => run.run()}>{t('pay.recon.run')}</button>
+        <button className="btn btn-primary mbs-12" disabled={run.pending} onClick={() => run.run()}>{t('pay.recon.run')}</button>
         <div className="stack" style={{ marginTop: 18 }}>
           {(runs.data?.items ?? []).length === 0 && <p className="fine">{t('pay.dash.emptyRuns')}</p>}
           {(runs.data?.items ?? []).map((r) => (
@@ -248,11 +248,11 @@ function CashCount() {
         <Field label={t('pay.recon.to')} type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
       </div>
       <button className="btn" disabled={load.pending} onClick={() => load.run()}>{t('pay.cash.load')}</button>
-      {(load.error || save.error) && <div style={{ marginTop: 12 }}><Notice tone="danger">{load.error ?? save.error}</Notice></div>}
-      {expected && (expected.groups.length === 0 ? <p className="fine" style={{ marginTop: 12 }}>{t('pay.cash.none')}</p> : (
-        <div className="stack" style={{ marginTop: 16 }}>
+      {(load.error || save.error) && <div className="mbs-12"><Notice tone="danger">{load.error ?? save.error}</Notice></div>}
+      {expected && (expected.groups.length === 0 ? <p className="fine mbs-12">{t('pay.cash.none')}</p> : (
+        <div className="stack mbs-16">
           {expected.groups.map((g: any) => (
-            <div key={key(g)} className="form-row" style={{ alignItems: 'end' }}>
+            <div key={key(g)} className="form-row items-end">
               <div><strong>{t(`pay.method.${g.method}`)}</strong><div className="fine">{g.staffName ?? g.driverName ?? '—'} · {g.payments}</div></div>
               <div className="stat"><span>{t('pay.cash.expected')}</span><strong style={{ fontSize: 18 }} dir="ltr">{m(g.expectedMinor)}</strong></div>
               <Field label={t('pay.cash.counted')} inputMode="decimal" dir="ltr" value={counts[key(g)] ?? ''} onChange={(e) => setCounts((c) => ({ ...c, [key(g)]: e.target.value }))} />
@@ -262,7 +262,7 @@ function CashCount() {
         </div>
       ))}
       {result && (
-        <div style={{ marginTop: 16 }}>
+        <div className="mbs-16">
           <DataTable rows={result.items} rowKey={(i: any) => i.id} columns={[
             { key: 'who', header: t('pay.cash.staff'), render: (i: any) => `${t(`pay.method.${i.dimension.method}`)} · ${i.dimension.staffName ?? i.dimension.driverName ?? '—'}` },
             { key: 'e', header: t('pay.cash.expected'), align: 'end', render: (i: any) => <span dir="ltr">{m(i.expectedMinor)}</span> },
@@ -321,10 +321,10 @@ function Alerts() {
             <div>
               <strong>{t(`pay.alert.${a.kind}`)}</strong>
               <div className="fine"><bdi>{paymentProviderLabel(t, a.provider)}</bdi> · <bdi>{dateTime(a.createdAt, locale)}</bdi>{a.paymentId && <> · <Link href={`/dashboard/${org.id}/payments/${a.paymentId}`}><bdi dir="ltr">{a.paymentId.slice(0, 8)}</bdi></Link></>}</div>
-              {actionText(a) && <p className="fine" style={{ margin: 0 }}>{actionText(a)}</p>}
+              {actionText(a) && <p className="fine m-0">{actionText(a)}</p>}
               {refunded && refunded.id === a.id && (() => { const m = alertRefundMessageKey(refunded.status); return <Notice tone={m.tone}>{t(m.key)}</Notice>; })()}
             </div>
-            <div className="row" style={{ gap: 6 }}>
+            <div className="row gap-6">
               {refundable(a) && can('payments:refund') && <button className="btn btn-sm btn-danger" disabled={refundAtProvider.pending} onClick={() => refundAtProvider.run(a)}>{t('pay.alert.refundAtProvider')}</button>}
               {can('payments:reconcile') && <button className="btn btn-sm" disabled={resolve.pending} onClick={() => resolve.run(a.id)}>{t('pay.alert.resolve')}</button>}
             </div>
@@ -368,7 +368,7 @@ function CollectModal({ open, onClose }: { open: boolean; onClose: () => void })
           </div>
           <button className="btn btn-sm" disabled={!id || lookup.pending} onClick={() => lookup.run()}>{t('pay.collect.lookup')}</button>
           {due !== null && <p className="fine">{t('pay.collect.due', { amount: money(due, org.currency, locale) })}</p>}
-          <div className="form-row" style={{ marginTop: 12 }}>
+          <div className="form-row mbs-12">
             <SelectField label={t('pay.dash.col.method')} value={method} onChange={(e) => setMethod(e.target.value)}>
               {['cash', 'cod', 'instapay', 'bank_transfer', 'card'].map((m) => <option key={m} value={m}>{t(`pay.method.${m}`)}</option>)}
             </SelectField>

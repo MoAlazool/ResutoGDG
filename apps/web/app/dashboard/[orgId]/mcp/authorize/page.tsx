@@ -54,19 +54,19 @@ function Consent() {
         <PageHeader overline="ResutoMCP" title={t('mcp.oauth.title')} subtitle={t('mcp.oauth.subtitle')} />
         <LoadState loading={(req.loading && !d) || (catalog.loading && !catalog.data)} error={req.error ?? catalog.error} retry={req.reload}>
           {d && d.status !== 'pending' ? <Notice tone="warn">{t(`mcp.oauth.closed.${d.status}`)}</Notice> : d && (
-            <div className="stack" style={{ gap: 16 }}>
+            <div className="stack gap-16">
               <Card warm>
-                <div className="stack" style={{ gap: 12 }}>
+                <div className="stack gap-12">
                   <p style={{ margin: 0, fontSize: 17 }}>{t('mcp.oauth.asks', { client: d.clientName, org: org.name })}</p>
                   <KeyValueList items={[
                     { key: 'return', label: t('mcp.oauth.returnTo'), value: <strong><bdi dir="ltr">{d.redirectHost}</bdi></strong> },
                     { key: 'kind', label: t('mcp.oauth.clientKind'), value: d.clientKind === 'metadata_document'
                       ? <span>{t('mcp.oauth.kind.metadata')} <bdi dir="ltr" className="fine">{d.clientId}</bdi></span> : t('mcp.oauth.kind.dynamic') },
-                    { key: 'scopes', label: t('mcp.oauth.scopes'), value: <span className="row" style={{ gap: 6 }}>{d.scopes.map((s) => <Badge key={s} tone={s === 'mcp:act' ? 'warn' : 'ok'}>{t(`mcp.oauth.scope.${s}`)}</Badge>)}</span> },
+                    { key: 'scopes', label: t('mcp.oauth.scopes'), value: <span className="row gap-6">{d.scopes.map((s) => <Badge key={s} tone={s === 'mcp:act' ? 'warn' : 'ok'}>{t(`mcp.oauth.scope.${s}`)}</Badge>)}</span> },
                     { key: 'expires', label: t('mcp.oauth.expires'), value: dateTime(d.expiresAt, locale, org.timezone) },
                   ]} />
                   {d.loopbackRedirect && <Notice tone="warn">{t('mcp.oauth.loopback')}</Notice>}
-                  <p className="fine" style={{ margin: 0 }}>{t('mcp.oauth.howItWorks')}</p>
+                  <p className="fine m-0">{t('mcp.oauth.howItWorks')}</p>
                 </div>
               </Card>
               {leaving !== null ? <Notice tone="info">{t('mcp.oauth.leaving', { host: leaving })}</Notice> : (
@@ -76,7 +76,7 @@ function Consent() {
                     initial={{ name: d.clientName.slice(0, 80), actingRole: defaultRole, branchIds: null,
                       allowedTools: permitted.filter((x) => x.readOnly && x.entitled).map((x) => x.name), rateLimitPerMin: 60, expiresOn: '' }}
                     submitLabel={t('mcp.oauth.allow')} pending={approve.pending} error={approve.error} onSubmit={(v) => void approve.run(v)} />
-                  <div className="row" style={{ justifyContent: 'flex-end' }}>
+                  <div className="row justify-end">
                     <button type="button" className="btn btn-ghost" disabled={deny.pending} onClick={() => void deny.run()}>{t('mcp.oauth.deny')}</button>
                   </div>
                   {deny.error && <Notice tone="danger">{deny.error}</Notice>}

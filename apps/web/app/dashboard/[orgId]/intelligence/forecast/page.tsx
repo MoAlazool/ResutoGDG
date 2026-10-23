@@ -28,7 +28,7 @@ function ItemCard({ item }: { item: ItemForecast }) {
   const level = Math.round(item.interval.level * 100);
   return (
     <Card title={name} actions={<Badge tone="info">{t(`intelligence.model.${item.model}`)}</Badge>}>
-      <p className="muted" style={{ marginBlockStart: 0 }}>
+      <p className="muted mbs-0">
         {t('intelligence.forecast.total', { days: item.forecast.length, total: fmtNum(sum('yhat'), locale), lower: fmtNum(sum('lower'), locale), upper: fmtNum(sum('upper'), locale) })}
       </p>
       <ForecastChart history={filled} forecast={item.forecast} rtl={dir === 'rtl'}
@@ -42,15 +42,15 @@ function ItemCard({ item }: { item: ItemForecast }) {
       <h3 style={{ fontSize: 14, marginBlock: '14px 6px' }}>{t('intelligence.forecast.backtest', { folds: item.backtest.folds, horizon: item.backtest.horizon })}</h3>
       <div className="table-wrap">
         <table className="data">
-          <thead><tr><th>{t('intelligence.forecast.model')}</th><th style={{ textAlign: 'end' }}>MAE</th><th style={{ textAlign: 'end' }}>RMSE</th><th style={{ textAlign: 'end' }}>WAPE</th></tr></thead>
+          <thead><tr><th>{t('intelligence.forecast.model')}</th><th className="text-end">MAE</th><th className="text-end">RMSE</th><th className="text-end">WAPE</th></tr></thead>
           <tbody>
             {item.candidates.map((c) => (
               <tr key={c.model}>
                 <td>{t(`intelligence.model.${c.model}`)} {c.model === item.model && <Badge tone="ok">{t('intelligence.forecast.chosen')}</Badge>}
                   {c.excluded && <div className="fine">{forecastReason(t, c.excluded)}</div>}</td>
-                <td className="num" style={{ textAlign: 'end' }}>{fmtNum(c.metrics?.mae, locale, 2)}</td>
-                <td className="num" style={{ textAlign: 'end' }}>{fmtNum(c.metrics?.rmse, locale, 2)}</td>
-                <td className="num" style={{ textAlign: 'end' }}>{fmtPct(c.metrics?.wape, locale)}</td>
+                <td className="num text-end">{fmtNum(c.metrics?.mae, locale, 2)}</td>
+                <td className="num text-end">{fmtNum(c.metrics?.rmse, locale, 2)}</td>
+                <td className="num text-end">{fmtPct(c.metrics?.wape, locale)}</td>
               </tr>
             ))}
           </tbody>
@@ -58,13 +58,13 @@ function ItemCard({ item }: { item: ItemForecast }) {
       </div>
       <p className="fine">{t('intelligence.forecast.coverage', { days: item.coverage.days, nonZero: item.coverage.nonZeroDays, start: item.coverage.start, end: item.coverage.end })}</p>
       <details>
-        <summary className="fine" style={{ cursor: 'pointer' }}>{t('intelligence.forecast.table')}</summary>
+        <summary className="fine cursor-pointer">{t('intelligence.forecast.table')}</summary>
         <div className="table-wrap">
           <table className="data">
-            <thead><tr><th>{t('intelligence.forecast.date')}</th><th style={{ textAlign: 'end' }}>{t('intelligence.forecast.prediction')}</th><th style={{ textAlign: 'end' }}>{t('intelligence.forecast.interval', { level })}</th></tr></thead>
+            <thead><tr><th>{t('intelligence.forecast.date')}</th><th className="text-end">{t('intelligence.forecast.prediction')}</th><th className="text-end">{t('intelligence.forecast.interval', { level })}</th></tr></thead>
             <tbody>{item.forecast.map((p) => (
-              <tr key={p.date}><td>{p.date}{p.isWeekend ? ' ·W' : ''}{p.isRamadan ? ' ☾' : ''}</td><td className="num" style={{ textAlign: 'end' }}>{fmtNum(p.yhat, locale)}</td>
-                <td className="num" style={{ textAlign: 'end' }}>{fmtNum(p.lower, locale)}–{fmtNum(p.upper, locale)}</td></tr>
+              <tr key={p.date}><td>{p.date}{p.isWeekend ? ' ·W' : ''}{p.isRamadan ? ' ☾' : ''}</td><td className="num text-end">{fmtNum(p.yhat, locale)}</td>
+                <td className="num text-end">{fmtNum(p.lower, locale)}–{fmtNum(p.upper, locale)}</td></tr>
             ))}</tbody>
           </table>
         </div>
@@ -95,7 +95,7 @@ export default function ForecastPage() {
                 {data.isSyntheticData
                   ? <Notice tone="warn"><Badge tone="warn">{t('intelligence.synthetic.badge')}</Badge> {t('intelligence.synthetic.forecast')} {data.calendar.ramadan.length ? t('intelligence.forecast.ramadan') : ''}</Notice>
                   : <Notice>{t('intelligence.computedFrom')} {data.calendar.ramadan.length ? t('intelligence.forecast.ramadan') : ''}</Notice>}
-                <div className="grid grid-2">{data.items.map((it) => <div key={it.productId} style={{ minWidth: 0 }}><ItemCard item={it} /></div>)}</div>
+                <div className="grid grid-2">{data.items.map((it) => <div className="min-w-0" key={it.productId}><ItemCard item={it} /></div>)}</div>
               </div>
             )}
     </IntelShell>

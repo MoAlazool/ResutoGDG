@@ -76,8 +76,8 @@ export function MediaLibrary({ orgId, canWrite }: { orgId: string; canWrite: boo
   return (
     <section className="card">
       {dialog}
-      <div className="spread" style={{ marginBlockEnd: 14 }}>
-        <div><h2 style={{ margin: 0 }}>{t('studio.media.title')}</h2><p className="fine">{t('studio.media.hint')}</p></div>
+      <div className="spread mbe-14">
+        <div><h2 className="m-0">{t('studio.media.title')}</h2><p className="fine">{t('studio.media.hint')}</p></div>
         {canWrite && <UploadButton orgId={orgId} onUploaded={() => void media.reload()} />}
       </div>
       {media.error ? <Notice tone="danger">{media.error.message}</Notice>
@@ -92,10 +92,10 @@ export function MediaLibrary({ orgId, canWrite }: { orgId: string; canWrite: boo
                       <div className="spread"><span className="fine">{Math.round(m.byteSize / 1024)} KB</span>{m.inUse && <Badge tone="info">{t('studio.media.inUse')}</Badge>}</div>
                       {canWrite && (
                         <>
-                          <label className="field" style={{ marginBlockEnd: 6 }}><span>{t('studio.media.alt')}</span>
+                          <label className="field mbe-6"><span>{t('studio.media.alt')}</span>
                             <input className="input" defaultValue={m.alt ?? ''} maxLength={200} onBlur={(e) => { if (e.target.value !== (m.alt ?? '')) void saveAlt(m, { alt: e.target.value }); }} />
                           </label>
-                          <label className="field" style={{ marginBlockEnd: 6 }}><span>{t('studio.media.altAr')}</span>
+                          <label className="field mbe-6"><span>{t('studio.media.altAr')}</span>
                             <input className="input" dir="rtl" defaultValue={m.altAr ?? ''} maxLength={200} onBlur={(e) => { if (e.target.value !== (m.altAr ?? '')) void saveAlt(m, { altAr: e.target.value }); }} />
                           </label>
                           <button type="button" className="btn btn-sm btn-danger" disabled={m.inUse} title={m.inUse ? t('studio.media.inUseHint') : undefined} onClick={() => void remove(m)}>{t('action.delete')}</button>

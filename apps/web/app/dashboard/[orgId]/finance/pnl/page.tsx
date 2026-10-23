@@ -23,13 +23,13 @@ function Pnl() {
     ['feeExpenses', L.memo.feeExpensesMinor], ['providerReportedFees', L.memo.providerReportedFeesMinor],
   ] as const).filter(([, v]) => v > 0);
   const row = (label: string, v: number, opts: { neg?: boolean; strong?: boolean; indent?: boolean } = {}) => (
-    <tr key={label} style={opts.strong ? { fontWeight: 700, background: '#fbfbf8' } : undefined}>
+    <tr key={label} className={opts.strong ? 'row-strong' : undefined}>
       <td style={{ paddingInlineStart: opts.indent ? 32 : 14 }}>{label}</td>
-      <td style={{ textAlign: 'end' }} className="num" dir="ltr">{opts.neg && v ? `−${m(v)}` : m(v)}</td>
+      <td className="num text-end" dir="ltr">{opts.neg && v ? `−${m(v)}` : m(v)}</td>
     </tr>
   );
   return (
-    <div className="grid grid-2" style={{ alignItems: 'start' }}>
+    <div className="grid grid-2 items-start">
       {data.isSyntheticData && <div style={{ gridColumn: '1 / -1' }}><Notice tone="warn">{t('finance.demo')}</Notice></div>}
       <Card title={t('finance.pnl.title')}>
         <div className="table-wrap">
@@ -50,13 +50,13 @@ function Pnl() {
               {memo.map(([k, v]) => (
                 <tr key={k} className="fine">
                   <td style={{ paddingInlineStart: 32 }}>{t(`finance.pnl.memo.${k}`)}</td>
-                  <td style={{ textAlign: 'end' }} className="num" dir="ltr">({m(v)})</td>
+                  <td className="num text-end" dir="ltr">({m(v)})</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row mbs-12">
           <span className="badge">{t('finance.pnl.grossMargin')}: {pct(data.grossMarginBp)}</span>
           <span className="badge">{t('finance.pnl.operatingMargin')}: {pct(data.operatingMarginBp)}</span>
           {data.coverage.costedSalesBp !== null && data.policy.cogsMethod === 'item_cost' && <span className="badge">{t('finance.pnl.costed', { pct: pct(data.coverage.costedSalesBp) })}</span>}

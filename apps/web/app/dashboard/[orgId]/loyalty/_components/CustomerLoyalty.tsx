@@ -33,10 +33,10 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
   });
   if (!enabled) return null;
   return (
-    <section className="card" style={{ marginBlockEnd: 16 }}>
+    <section className="card mbe-16">
       <div className="spread" style={{ alignItems: 'center', marginBlockEnd: 12 }}>
         <h2 style={{ margin: 0, fontSize: 18 }}>{t('loyalty.customer.title')}</h2>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row gap-8">
           {can('orders:write') && <Link className="btn btn-sm btn-primary" href={`/dashboard/${org.id}/orders?newFor=${customerId}`}>{t('loyalty.customer.redeem')}</Link>}
           {can('marketing:approve') && <button type="button" className="btn btn-sm" onClick={() => setAdj({ points: '', reason: '', key: crypto.randomUUID() })}>{t('loyalty.customer.adjust')}</button>}
           <Link className="btn btn-sm btn-ghost" href={`/dashboard/${org.id}/loyalty`}>{t('loyalty.customer.manage')}</Link>
@@ -44,7 +44,7 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
       </div>
       {done !== null && <Notice tone="ok">{t('loyalty.customer.adjusted', { balance: formatNumber(done, locale) })}</Notice>}
       {!bal.data ? <SkeletonBlock height={64} /> : (
-        <div className="grid grid-3" style={{ marginBlockEnd: 12 }}>
+        <div className="grid grid-3 mbe-12">
           <Stat label={t('loyalty.customer.balance')} value={formatNumber(bal.data.balance, locale)} />
           <Stat label={t('loyalty.customer.lifetime')} value={formatNumber(bal.data.lifetimeEarned, locale)} />
           {bal.data.expiringSoon && <Stat label={t('loyalty.customer.expiringLabel')} value={t('loyalty.customer.expiring', {
@@ -59,7 +59,7 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
             <Field label={t('loyalty.customer.adjustPoints')} required inputMode="numeric" dir="ltr" value={adj.points} onChange={(e) => setAdj({ ...adj, points: e.target.value })} />
             <Field label={t('loyalty.customer.reason')} required minLength={3} maxLength={300} value={adj.reason} onChange={(e) => setAdj({ ...adj, reason: e.target.value })} />
             {save.error && <Notice tone="danger">{save.error}</Notice>}
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <div className="row justify-end">
               <button className="btn btn-primary" disabled={save.pending || !Number(adj.points) || adj.reason.trim().length < 3}>{t('action.save')}</button>
             </div>
           </form>

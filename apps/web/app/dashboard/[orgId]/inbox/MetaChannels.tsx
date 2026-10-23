@@ -29,7 +29,7 @@ export function VerifyCell({ c, onDone }: { c: MetaChannel; onDone: () => Promis
   const verify = useAction(async () => { await session.call(`/o/${org.id}/connect/channels/${c.id}/verify`, { method: 'POST' }).finally(() => onDone()); });
   if (c.sandbox) return null;
   return (
-    <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+    <div className="row gap-6 wrap">
       <Badge tone={c.verified ? 'ok' : 'danger'}>{c.verified ? t('connect.channels.verified') : t('connect.channels.unverified')}</Badge>
       {c.verified && c.webhookSubscribed === false && <Badge tone="warn">{t('connect.channels.notSubscribed')}</Badge>}
       {can('connect:manage') && <button className="btn btn-sm btn-ghost" disabled={verify.pending} onClick={() => verify.run()}>{t('connect.channels.verify')}</button>}

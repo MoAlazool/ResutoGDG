@@ -9,7 +9,7 @@ const CONFIGURED_URL = process.env.NEXT_PUBLIC_MCP_URL?.replace(/\/$/, '') ?? nu
 function Snippet({ text }: { text: string }) {
   return (
     <div style={{ position: 'relative' }}>
-      <pre dir="ltr" style={{ background: '#13241c', color: '#e8f1ec', borderRadius: 12, padding: '14px 16px', fontSize: 12.5, overflowX: 'auto', margin: 0 }}>{text}</pre>
+      <pre dir="ltr" className="code-block is-dark">{text}</pre>
       <div style={{ position: 'absolute', insetBlockStart: 8, insetInlineEnd: 8 }}><CopyButton text={text} className="btn btn-sm btn-ghost" /></div>
     </div>
   );
@@ -30,31 +30,31 @@ export default function McpConnectPage() {
 
   return (
     <McpPage tab="connect" permission="mcp:approve">
-      <div className="stack" style={{ gap: 16 }}>
+      <div className="stack gap-16">
         <Notice tone="warn">{t('mcp.connect.untested')}</Notice>
         <Card title={t('mcp.connect.url')}>
           {!CONFIGURED_URL && <Notice tone="info">{t('mcp.connect.urlMissing')}</Notice>}
-          <div className="row" style={{ marginBlockStart: 10 }}>
+          <div className="row mbs-10">
             <code dir="ltr" style={{ fontSize: 15, wordBreak: 'break-all' }}>{url}</code>
             <CopyButton text={url} />
           </div>
-          <h3 style={{ marginBlockEnd: 6 }}>{t('mcp.connect.header')}</h3>
-          <p className="fine" style={{ marginBlockStart: 0 }}>{t('mcp.connect.headerBody')}</p>
+          <h3 className="mbe-6">{t('mcp.connect.header')}</h3>
+          <p className="fine mbs-0">{t('mcp.connect.headerBody')}</p>
           <Snippet text={'Authorization: Bearer rmcp_…'} />
         </Card>
 
         <div className="grid grid-2">
           <Card title={t('mcp.connect.claudeDesktop')}>
-            <p className="fine" style={{ marginBlockStart: 0 }}>{t('mcp.connect.claudeDesktopBody')}</p>
+            <p className="fine mbs-0">{t('mcp.connect.claudeDesktopBody')}</p>
             <Snippet text={desktop} />
           </Card>
-          <div className="stack" style={{ gap: 16 }}>
+          <div className="stack gap-16">
             <Card title={t('mcp.connect.claudeAi')}>
-              <p className="fine" style={{ marginBlockStart: 0 }}>{t('mcp.connect.claudeAiBody')}</p>
+              <p className="fine mbs-0">{t('mcp.connect.claudeAiBody')}</p>
               <Snippet text={`${url}/rmcp_…`} />
             </Card>
             <Card title={t('mcp.connect.chatgpt')}>
-              <p className="fine" style={{ marginBlockStart: 0 }}>{t('mcp.connect.chatgptBody')}</p>
+              <p className="fine mbs-0">{t('mcp.connect.chatgptBody')}</p>
               <Snippet text={`${url}/rmcp_…`} />
             </Card>
           </div>

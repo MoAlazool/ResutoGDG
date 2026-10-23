@@ -44,9 +44,9 @@ export function RoiCalculator({ branchId }: { branchId: string }) {
   });
   const h = result?.hypothetical;
   return (
-    <div className="stack" style={{ gap: 16 }}>
+    <div className="stack gap-16">
       <Notice tone="warn"><Badge tone="sandbox">{t('insights.roi.hypothetical')}</Badge> {t('insights.roi.intro')}</Notice>
-      <div className="grid grid-2" style={{ alignItems: 'start' }}>
+      <div className="grid grid-2 items-start">
         <Section title={t('insights.roi.assumptions')}>
           <form onSubmit={action.run} noValidate>
             <SelectField label={t('insights.roi.baseline')} value={form.baselineMode} onChange={set('baselineMode')}>
@@ -72,10 +72,10 @@ export function RoiCalculator({ branchId }: { branchId: string }) {
               <Field label={t('insights.roi.months')} type="number" min={1} max={36} value={form.months} onChange={set('months')} />
             </div>
             {action.error && <Notice tone="danger">{action.error}</Notice>}
-            <button className="btn btn-primary" disabled={action.pending} style={{ marginBlockStart: 8 }}>{action.pending ? t('state.loading') : t('insights.roi.run')}</button>
+            <button className="btn btn-primary mbs-8" disabled={action.pending}>{action.pending ? t('state.loading') : t('insights.roi.run')}</button>
           </form>
         </Section>
-        <div className="stack" style={{ gap: 16 }}>
+        <div className="stack gap-16">
           {!result && <Section title={t('insights.roi.result')}><p className="muted">{t('insights.roi.empty')}</p></Section>}
           {result && h && (
             <>
@@ -87,8 +87,8 @@ export function RoiCalculator({ branchId }: { branchId: string }) {
                   <Stat label={t('insights.products.coverage')} value={f.pct(result.measured.costCoveragePct)} />
                 </div>
               </Section>
-              <section className="card" style={{ border: '2px dashed #d8aa4a', background: '#fffaf0' }} aria-label={t('insights.roi.hypothetical')}>
-                <div className="spread" style={{ marginBlockEnd: 12 }}>
+              <section className="card card-sandbox" aria-label={t('insights.roi.hypothetical')}>
+                <div className="spread mbe-12">
                   <h2 style={{ margin: 0, fontSize: 18 }}>{t('insights.roi.scenario')}</h2>
                   <Badge tone="sandbox">{t('insights.roi.hypothetical')}</Badge>
                 </div>
@@ -98,20 +98,20 @@ export function RoiCalculator({ branchId }: { branchId: string }) {
                   <Stat label={t('insights.roi.incRevenueMonthly')} value={f.money(h.monthly.incrementalRevenueMinor)} />
                   <Stat label={t('insights.roi.incRevenueTotal', { months: h.months })} value={f.money(h.total.incrementalRevenueMinor)} hint={t('insights.roi.revenueNotProfit')} />
                 </div>
-                <h3 style={{ marginBlockStart: 16 }}>{t('insights.roi.profitSide')}</h3>
+                <h3 className="mbs-16">{t('insights.roi.profitSide')}</h3>
                 <div className="table-wrap">
                   <table className="data">
                     <tbody>
-                      <tr><td>{t('insights.roi.incRevenueMonthly')}</td><td className="num" style={{ textAlign: 'end' }}>{f.money(h.monthly.incrementalRevenueMinor)}</td></tr>
-                      <tr><td>− {t('insights.roi.ingredientCost')}</td><td className="num" style={{ textAlign: 'end' }}>{f.money(h.monthly.ingredientCostMinor)}</td></tr>
-                      <tr><td>− {t('insights.roi.variableCost')}</td><td className="num" style={{ textAlign: 'end' }}>{f.money(h.monthly.variableCostMinor)}</td></tr>
-                      <tr><td><strong>= {t('insights.roi.grossProfit')}</strong></td><td className="num" style={{ textAlign: 'end' }}><strong>{f.money(h.monthly.incrementalGrossProfitMinor)}</strong></td></tr>
-                      <tr><td>− {t('insights.roi.fixedCost')}</td><td className="num" style={{ textAlign: 'end' }}>{f.money(h.monthly.subscriptionAndOtherCostMinor)}</td></tr>
-                      <tr><td><strong>= {t('insights.roi.netProfitMonthly')}</strong></td><td className="num" style={{ textAlign: 'end' }}><strong>{f.money(h.monthly.incrementalNetProfitMinor)}</strong></td></tr>
+                      <tr><td>{t('insights.roi.incRevenueMonthly')}</td><td className="num text-end">{f.money(h.monthly.incrementalRevenueMinor)}</td></tr>
+                      <tr><td>− {t('insights.roi.ingredientCost')}</td><td className="num text-end">{f.money(h.monthly.ingredientCostMinor)}</td></tr>
+                      <tr><td>− {t('insights.roi.variableCost')}</td><td className="num text-end">{f.money(h.monthly.variableCostMinor)}</td></tr>
+                      <tr><td><strong>= {t('insights.roi.grossProfit')}</strong></td><td className="num text-end"><strong>{f.money(h.monthly.incrementalGrossProfitMinor)}</strong></td></tr>
+                      <tr><td>− {t('insights.roi.fixedCost')}</td><td className="num text-end">{f.money(h.monthly.subscriptionAndOtherCostMinor)}</td></tr>
+                      <tr><td><strong>= {t('insights.roi.netProfitMonthly')}</strong></td><td className="num text-end"><strong>{f.money(h.monthly.incrementalNetProfitMinor)}</strong></td></tr>
                     </tbody>
                   </table>
                 </div>
-                <div className="grid grid-2" style={{ marginBlockStart: 14 }}>
+                <div className="grid grid-2 mbs-14">
                   <Stat label={t('insights.roi.netProfitTotal', { months: h.months })} value={f.money(h.total.incrementalNetProfitMinor)}
                     tone={h.total.incrementalNetProfitMinor < 0 ? 'danger' : 'ok'} hint={t('insights.roi.afterCosts', { cost: f.money(h.total.costMinor) })} />
                   <Stat label={t('insights.roi.roi')} value={f.pct(h.roiPct)} />

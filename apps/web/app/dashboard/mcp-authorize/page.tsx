@@ -47,8 +47,8 @@ function PickRestaurant() {
             ) : (
               <>
                 <h1 style={{ fontSize: 20, margin: 0 }}>{t('mcp.oauth.pickTitle')}</h1>
-                <p className="fine" style={{ margin: 0 }}>{t('mcp.oauth.pickBody')}</p>
-                <div className="stack" style={{ gap: 8 }}>
+                <p className="fine m-0">{t('mcp.oauth.pickBody')}</p>
+                <div className="stack gap-8">
                   {eligible.map((m) => (
                     <button key={m.orgId} type="button" className="btn" style={{ justifyContent: 'flex-start' }}
                       onClick={() => router.push(`/dashboard/${m.orgId}/mcp/authorize?request=${request}`)}><bdi>{m.orgName}</bdi></button>

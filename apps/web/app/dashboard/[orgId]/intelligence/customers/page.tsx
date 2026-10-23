@@ -37,7 +37,7 @@ export default function CustomersPage() {
   return (
     <IntelShell>
       <div className="grid grid-2">
-        <div style={{ minWidth: 0 }}><Card title={t('intelligence.segments.title')}>
+        <div className="min-w-0"><Card title={t('intelligence.segments.title')}>
           {segments.loading && !segments.data ? <Skeleton lines={6} />
             : segments.error ? <ApiErrorNotice error={segments.error} onRetry={segments.reload} />
               : !segments.data?.totalCustomers ? <Empty title={t('intelligence.segments.empty')} />
@@ -50,7 +50,7 @@ export default function CustomersPage() {
                   </div>
                 )}
         </Card></div>
-        <div style={{ minWidth: 0 }}><Card title={t('intelligence.churn.title')}>
+        <div className="min-w-0"><Card title={t('intelligence.churn.title')}>
           {!canList ? <Notice>{t('intelligence.segments.noAccess')}</Notice>
             : churn.loading && !churn.data ? <Skeleton lines={6} />
               : churn.error ? <ApiErrorNotice error={churn.error} onRetry={churn.reload} />
@@ -71,7 +71,7 @@ export default function CustomersPage() {
         </Card></div>
       </div>
       {selected && canList && (
-        <div style={{ marginBlockStart: 16 }}>
+        <div className="mbs-16">
           <Card title={`${t('intelligence.segments.members')}: ${t(`intelligence.segment.${selected}`)}`}><Members segment={selected} /></Card>
         </div>
       )}

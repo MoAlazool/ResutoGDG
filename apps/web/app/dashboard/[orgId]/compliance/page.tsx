@@ -48,15 +48,15 @@ function Overview({ go }: { go(tab: Tab): void }) {
       <div className="grid grid-2">
         <Card title={t('compliance.overview.expiring')} actions={<button className="btn btn-sm" onClick={() => go('licences')}>{t('compliance.overview.manage')}</button>}>
           {s.licences.attention.length ? (
-            <div className="stack" style={{ gap: 8 }}>
+            <div className="stack gap-8">
               {s.licences.attention.map((a) => (
                 <div key={a.id} className="spread"><span><strong>{a.title}</strong> <span className="fine">{t(`compliance.lic.kind.${a.kind}`)}</span></span><ExpiryBadge status={a.status} days={a.daysToExpiry} /></div>
               ))}
             </div>
-          ) : <p className="muted" style={{ margin: 0 }}>{s.licences.total ? t('compliance.overview.allValid') : t('compliance.lic.emptyHint')}</p>}
+          ) : <p className="muted m-0">{s.licences.total ? t('compliance.overview.allValid') : t('compliance.lic.emptyHint')}</p>}
         </Card>
         <Card title={t('compliance.overview.integrations')}>
-          <div className="stack" style={{ gap: 10 }}>
+          <div className="stack gap-10">
             {relevant.map((p) => (
               <div key={p.id}>
                 <div className="spread"><strong>{p.name}</strong><span className="badge badge-sandbox">{t(`compliance.readiness.${p.readiness}`)}</span></div>

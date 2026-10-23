@@ -44,7 +44,7 @@ function QuickLinks() {
   if (!links.length) return null;
   return (
     <Section title={t('insights.overview.quickLinks')}>
-      <div className="grid grid-4" style={{ gap: 10 }}>
+      <div className="grid grid-4 gap-10">
         {links.map((l) => (
           <Link key={l.href} href={`/dashboard/${org.id}${l.href}`} className="btn" style={{ justifyContent: 'flex-start' }}>
             <NavGlyph name={l.glyph} /> {t(l.label)}
@@ -96,7 +96,7 @@ export default function OverviewPage() {
   const oldestAt = data?.live.oldestOpenOrderAt ? Date.parse(data.live.oldestOpenOrderAt) : null;
   const oldestMinutes = oldestAt !== null ? Math.round((Date.now() - oldestAt) / 60000) : null;
   const oldest = oldestAt !== null ? formatElapsed(oldestAt, locale) : null;
-  const deltaNote = (pct: number | null, value: string) => <span className="row" style={{ gap: 6 }}><Delta value={pct} /> {t('insights.overview.vsLastWeek', { value })}</span>;
+  const deltaNote = (pct: number | null, value: string) => <span className="row gap-6"><Delta value={pct} /> {t('insights.overview.vsLastWeek', { value })}</span>;
   return (
     <InsightsPage>
       <PageHeader overline={t(`ops.mode.${mode}`)} title={t('nav.overview')}
@@ -108,7 +108,7 @@ export default function OverviewPage() {
       <LoadError error={error} retry={reload} />
       {loading && !data && <StatsStripSkeleton count={4} />}
       {data && (
-        <div className="stack" style={{ gap: 16 }}>
+        <div className="stack gap-16">
           {/* Legacy KPI strip: today's revenue, active tables, orders today, guest satisfaction. */}
           <StatsStrip label={t('nav.overview')} items={[
             { key: 'net', label: t('ops.overview.revenue'), value: f.money(data.today.netMinor), note: deltaNote(data.changePct.netMinor, f.money(data.lastWeekSameTime.netMinor)) },
@@ -138,18 +138,18 @@ export default function OverviewPage() {
                     { name: t('insights.overview.lastWeekCumulative', { date: f.date(data.lastWeekSameTime.date) }), values: trend!.lastWeek }]}
                   format={f.money} compactFormat={f.compactMoney} xLabel={t('insights.chart.hour')} tableCaption={t('insights.chart.showTable')} />
               ) : <p className="muted">{t('insights.overview.noSalesYet')}</p>}
-              <p className="fine" style={{ marginBlockStart: 8 }}>{t('insights.overview.fullDayLastWeek', { value: f.money(data.lastWeekFullDay.netMinor), orders: data.lastWeekFullDay.orders })}</p>
+              <p className="fine mbs-8">{t('insights.overview.fullDayLastWeek', { value: f.money(data.lastWeekFullDay.netMinor), orders: data.lastWeekFullDay.orders })}</p>
             </Section>
 
             <Section title={t('insights.overview.alerts')}>
-              <p className="fine" style={{ marginTop: 0 }}>{t('insights.overview.reservationsToday')}: <span className="num">{f.num(data.reservationsToday.total)}</span> · {t('insights.overview.guests', { count: data.reservationsToday.guests })}
+              <p className="fine mbs-0">{t('insights.overview.reservationsToday')}: <span className="num">{f.num(data.reservationsToday.total)}</span> · {t('insights.overview.guests', { count: data.reservationsToday.guests })}
                 {' · '}{t('insights.kpi.aov')}: <span className="num">{f.money(data.today.averageOrderMinor)}</span></p>
-              <div className="stack" style={{ gap: 10 }}>
+              <div className="stack gap-10">
                 {data.live.byStatus.awaitingPayment > 0 && <Notice tone="warn">{t('insights.overview.awaitingPayment', { count: data.live.byStatus.awaitingPayment })}</Notice>}
                 {oldest !== null && oldestMinutes !== null && oldestMinutes > 45 && <Notice tone="warn">{t('insights.overview.slowOrder', { elapsed: oldest })}</Notice>}
                 {data.lowStock.count > 0 ? (
                   <div>
-                    <div className="spread" style={{ marginBlockEnd: 6 }}>
+                    <div className="spread mbe-6">
                       <strong>{t('insights.overview.lowStock', { count: data.lowStock.count })}</strong>
                       {can('inventory:read') && <Link className="btn btn-sm btn-ghost" href={`/dashboard/${org.id}/inventory?tab=alerts`}>{t('insights.overview.viewAll')}</Link>}
                     </div>
@@ -160,8 +160,8 @@ export default function OverviewPage() {
                       ))}
                     </ul>
                   </div>
-                ) : <p className="muted" style={{ margin: 0 }}><Badge tone="ok">✓</Badge> {t('insights.overview.stockOk')}</p>}
-                {data.live.byStatus.ready > 0 && <p className="fine" style={{ margin: 0 }}>{t('insights.overview.readyWaiting', { count: data.live.byStatus.ready })}</p>}
+                ) : <p className="muted m-0"><Badge tone="ok">✓</Badge> {t('insights.overview.stockOk')}</p>}
+                {data.live.byStatus.ready > 0 && <p className="fine m-0">{t('insights.overview.readyWaiting', { count: data.live.byStatus.ready })}</p>}
               </div>
             </Section>
           </div>

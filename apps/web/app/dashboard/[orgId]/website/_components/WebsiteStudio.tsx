@@ -93,7 +93,7 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
     return () => { live = false; };
   }, [previewLocale, locale, otherTranslate]);
 
-  if (site.error) return <div className="card"><Notice tone="danger">{site.error.message}</Notice><button className="btn" style={{ marginBlockStart: 12 }} onClick={() => void site.reload()}>{t('action.retry')}</button></div>;
+  if (site.error) return <div className="card"><Notice tone="danger">{site.error.message}</Notice><button className="btn mbs-12" onClick={() => void site.reload()}>{t('action.retry')}</button></div>;
   if (!site.data) return <div className="card"><Skeleton lines={6} /></div>;
   const w = site.data.website;
   const tabs: Array<{ key: Tab; label: string }> = [
@@ -109,7 +109,7 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
     <>
       {dialog}
       <PageHeader overline={t('nav.website')} title={t('studio.website.title')}
-        subtitle={<span className="row" style={{ gap: 8 }}>
+        subtitle={<span className="row gap-8">
           {w.publishedRevision > 0
             ? <Badge tone="ok">{t('studio.website.published', { n: w.publishedRevision })}</Badge>
             : <Badge tone="warn">{t('studio.website.notPublished')}</Badge>}
@@ -135,11 +135,11 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
           <aside className="ws-preview" aria-label={t('studio.preview.label')}>
             <div className="spread ws-preview-bar">
               <strong>{t('studio.preview.label')}</strong>
-              <span className="row" style={{ gap: 6 }}>
-                <span role="group" aria-label={t('studio.preview.language')} className="row" style={{ gap: 4 }}>
+              <span className="row gap-6">
+                <span role="group" aria-label={t('studio.preview.language')} className="row gap-4">
                   {(['en', 'ar'] as const).map((l) => <button key={l} type="button" className={`btn btn-sm ${previewLocale === l ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={previewLocale === l} onClick={() => setPreviewLocale(l)}>{l === 'en' ? 'EN' : 'ع'}</button>)}
                 </span>
-                <span role="group" aria-label={t('studio.preview.device')} className="row" style={{ gap: 4 }}>
+                <span role="group" aria-label={t('studio.preview.device')} className="row gap-4">
                   {(['desktop', 'mobile'] as const).map((d) => <button key={d} type="button" className={`btn btn-sm ${device === d ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={device === d} onClick={() => setDevice(d)}>{t(`studio.preview.${d}`)}</button>)}
                 </span>
               </span>
@@ -183,7 +183,7 @@ function HistoryPanel({ orgId, canWrite, current, onRestored }: { orgId: string;
                   <td>{dateTime(r.publishedAt, locale)}</td>
                   <td>{r.publishedBy ?? '—'}</td>
                   <td className="num">{r.sectionCount}</td>
-                  <td style={{ textAlign: 'end' }}>
+                  <td className="text-end">
                     {canWrite && (
                       <button type="button" className="btn btn-sm" onClick={async () => {
                         if (!(await confirm({ title: t('studio.history.restoreTitle', { n: r.revision }), body: t('studio.history.restoreBody'), confirmLabel: t('studio.history.restore') }))) return;

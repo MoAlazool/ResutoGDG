@@ -53,7 +53,7 @@ export function Drivers() {
     <div className="stack">
       {can('members:manage') && (
         <Card title={t('driver.dispatch.invite')}>
-          <form className="form-row" onSubmit={sendInvite} style={{ alignItems: 'end' }}>
+          <form className="form-row items-end" onSubmit={sendInvite}>
             <Field label={t('auth.email')} name="email" type="email" required />
             {org.branches.length > 1 && (
               <SelectField label={t('driver.dispatch.branch')} name="branchId" defaultValue="">
@@ -63,8 +63,8 @@ export function Drivers() {
             )}
             <div className="field"><button className="btn btn-primary" disabled={act.pending}>{t('driver.dispatch.sendInvite')}</button></div>
           </form>
-          {invite && <Notice tone="ok">{t('driver.dispatch.inviteLink')} <code dir="ltr" style={{ wordBreak: 'break-all' }}>{invite}</code></Notice>}
-          <p className="fine" style={{ margin: 0 }}>{t('driver.dispatch.inviteHint')}</p>
+          {invite && <Notice tone="ok">{t('driver.dispatch.inviteLink')} <code className="break-all" dir="ltr">{invite}</code></Notice>}
+          <p className="fine m-0">{t('driver.dispatch.inviteHint')}</p>
         </Card>
       )}
       {act.error && <Notice tone="danger">{act.error}</Notice>}
@@ -72,7 +72,7 @@ export function Drivers() {
         <DataTable rows={drivers.data!.items} rowKey={(d) => d.id}
           empty={<EmptyState title={t('driver.dispatch.noDrivers')}>{t('driver.dispatch.noDriversHint')}</EmptyState>}
           columns={[
-            { key: 'name', header: t('driver.dispatch.name'), render: (d) => <><strong>{d.displayName}</strong>{d.phone && <div className="fine" dir="ltr" style={{ textAlign: 'start' }}>{d.phone}</div>}</> },
+            { key: 'name', header: t('driver.dispatch.name'), render: (d) => <><strong>{d.displayName}</strong>{d.phone && <div className="fine text-start" dir="ltr">{d.phone}</div>}</> },
             { key: 'status', header: t('driver.availability.label'), render: (d) => <Availability driver={d} /> },
             { key: 'vehicle', header: t('driver.dispatch.vehicle'), render: (d) => <>{t(`driver.vehicle.${d.vehicleType}`)}{d.vehiclePlate ? ` · ${d.vehiclePlate}` : ''}</> },
             { key: 'branches', header: t('driver.dispatch.branch'), render: (d) => (d.branchIds?.length ? d.branchIds.map(branchName).join(', ') : t('driver.dispatch.allBranches')) },
@@ -80,7 +80,7 @@ export function Drivers() {
             { key: 'cash', header: t('driver.cash.onHand'), align: 'end', render: (d) => money(d.cashOnHandMinor, org.currency, locale) },
             { key: 'seen', header: t('driver.dispatch.location'), render: (d) => (d.lastLocation ? time(d.lastLocation.at, locale) : '—') },
             { key: 'actions', header: '', render: (d) => (
-              <div className="row" style={{ gap: 6 }}>
+              <div className="row gap-6">
                 <button className="btn btn-sm" onClick={() => setEditing(d)}>{t('action.edit')}</button>
                 {d.status === 'suspended'
                   ? <button className="btn btn-sm btn-leaf" disabled={act.pending} onClick={() => void act.run(() => call(`/o/${org.id}/delivery/drivers/${d.id}`, { method: 'PATCH', body: { status: 'active' } }))}>{t('driver.dispatch.activate')}</button>
@@ -107,7 +107,7 @@ export function Drivers() {
               </SelectField>
             )}
             {act.error && <Notice tone="danger">{act.error}</Notice>}
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <div className="row justify-end">
               <button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>{t('action.cancel')}</button>
               <button className="btn btn-primary" disabled={act.pending}>{t('action.save')}</button>
             </div>

@@ -39,13 +39,13 @@ export default function McpApprovalsPage() {
       <Tabs tabs={FILTERS.map((k) => ({ key: k, label: t(`mcp.approvals.filter.${k}`) }))} value={filter} onChange={setFilter} />
       {recent.map((d) => (
         <Notice key={d.id} tone={d.tone}>
-          <div className="stack" style={{ gap: 6 }}>
+          <div className="stack gap-6">
             <div className="spread"><strong dir="auto">{d.title}</strong>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setRecent((r) => r.filter((x) => x.id !== d.id))}>{t('action.close')}</button></div>
             <span>{d.text}</span>
             {d.url && (
               <div className="row"><span className="fine">{t('mcp.approvals.payUrl')}</span>
-                <code dir="ltr" style={{ wordBreak: 'break-all' }}>{d.url}</code><CopyButton text={d.url} /></div>
+                <code className="break-all" dir="ltr">{d.url}</code><CopyButton text={d.url} /></div>
             )}
           </div>
         </Notice>
@@ -102,7 +102,7 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
   return (
     <section className="card" aria-labelledby={`appr-${a.id}`}>
       <div className="spread">
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row gap-8">
           <Badge tone="warn">{t('mcp.badge.sensitive')}</Badge>
           <strong id={`appr-${a.id}`}>{locale === 'ar' ? a.toolTitleAr : a.toolTitle}</strong>
           <ApprovalStatusBadge status={a.status} />
@@ -122,7 +122,7 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
       {a.error && <Notice tone="danger">{a.error}</Notice>}
 
       {open && (
-        <div className="stack" style={{ marginBlockStart: 14 }}>
+        <div className="stack mbs-14">
           {detail.loading && <Skeleton lines={3} />}
           {detail.error && <Notice tone="danger">{t('mcp.error.load', { message: detail.error.message })}</Notice>}
           {pending && detail.data?.changedSinceRequest && <Notice tone="warn">{t('mcp.approvals.changedSinceRequest')}</Notice>}
@@ -151,7 +151,7 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
                   <h4 style={{ margin: '0 0 8px' }}>{t('mcp.approvals.details')}</h4>
                   <dl style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '6px 16px', margin: 0 }}>
                     {detail.data.preview.facts.map((f) => (
-                      <div key={f.label} style={{ display: 'contents' }}><dt className="muted" dir="auto">{f.label}</dt><dd style={{ margin: 0 }} dir="auto">{f.value}</dd></div>
+                      <div key={f.label} style={{ display: 'contents' }}><dt className="muted" dir="auto">{f.label}</dt><dd className="m-0" dir="auto">{f.value}</dd></div>
                     ))}
                   </dl>
                 </div>
@@ -159,15 +159,15 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
             </>
           )}
           <details>
-            <summary className="fine" style={{ cursor: 'pointer' }}>{t('mcp.approvals.input')}</summary>
-            <pre dir="ltr" style={{ background: '#fbfbf8', border: '1px solid var(--line-soft)', borderRadius: 10, padding: 12, fontSize: 12, overflow: 'auto' }}>
+            <summary className="fine cursor-pointer">{t('mcp.approvals.input')}</summary>
+            <pre dir="ltr" className="code-block">
               {JSON.stringify(a.input, null, 2)}
             </pre>
           </details>
           {a.result && (
             <details>
-              <summary className="fine" style={{ cursor: 'pointer' }}>{t('mcp.approvals.result')}</summary>
-              <pre dir="ltr" style={{ background: '#fbfbf8', border: '1px solid var(--line-soft)', borderRadius: 10, padding: 12, fontSize: 12, overflow: 'auto' }}>
+              <summary className="fine cursor-pointer">{t('mcp.approvals.result')}</summary>
+              <pre dir="ltr" className="code-block">
                 {JSON.stringify(a.result, null, 2)}
               </pre>
             </details>
@@ -175,9 +175,9 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
           {pending && (
             <>
               <TextareaField label={t('mcp.approvals.note')} value={note} maxLength={500} rows={2} onChange={(e) => setNote(e.target.value)} />
-              <p className="fine" style={{ margin: 0 }}>{t('mcp.approvals.approveHint')}</p>
+              <p className="fine m-0">{t('mcp.approvals.approveHint')}</p>
               {decide.error && <Notice tone="danger">{decide.error}</Notice>}
-              <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <div className="row justify-end">
                 <button type="button" className="btn btn-ghost" disabled={decide.pending} onClick={() => void decide.run('reject')}>{t('mcp.approvals.reject')}</button>
                 <button type="button" className="btn btn-primary" disabled={decide.pending || !detail.data} onClick={() => void decide.run('approve')}>{t('mcp.approvals.approve')}</button>
               </div>

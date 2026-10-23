@@ -67,29 +67,29 @@ export default function CustomerProfilePage() {
       {c && (
         <>
           <PageHeader overline={t('nav.customers')} title={c.displayName ? <UserText>{c.displayName}</UserText> : t('insights.customers.unnamed')}
-            subtitle={<span className="row" style={{ gap: 6 }}>
+            subtitle={<span className="row gap-6">
               {c.anonymisedAt && <Badge tone="danger">{t('insights.profile.anonymised')}</Badge>}
               {c.marketingConsent ? <Badge tone="ok">✓ {t('insights.customers.consentGranted')}</Badge> : <Badge>{t('insights.customers.consentNot')}</Badge>}
               {c.tags.map((tg) => <Badge key={tg} tone="info">{tg}</Badge>)}
             </span>}
             actions={writable && !c.anonymisedAt ? <button className="btn" onClick={() => setEdit({ displayName: c.displayName ?? '', tags: c.tags.join(', '), notes: c.notes ?? '' })}>{t('action.edit')}</button> : undefined} />
           {mergeResult && <Notice tone={mergeResult.consentConflict ? 'warn' : 'ok'}>{t('insights.profile.mergeDone', { orders: mergeResult.moved.orders ?? 0 })} {mergeResult.consentConflict && t('insights.profile.consentConflict')}</Notice>}
-          <div className="grid grid-4" style={{ marginBlockEnd: 16 }}>
+          <div className="grid grid-4 mbe-16">
             <Stat label={t('insights.kpi.orders')} value={f.num(c.totals.orderCount)} hint={c.totals.cancelledCount ? t('insights.kpi.cancelled', { count: c.totals.cancelledCount }) : undefined} />
             <Stat label={t('insights.customers.spend')} value={f.money(c.totals.netMinor)} hint={c.totals.refundedMinor ? t('insights.profile.refunded', { value: f.money(c.totals.refundedMinor) }) : undefined} />
             <Stat label={t('insights.kpi.aov')} value={f.money(c.totals.averageOrderMinor)} />
             <Stat label={t('insights.customers.lastOrder')} value={c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'} />
           </div>
           {!c.anonymisedAt && <CustomerLoyalty customerId={c.id} />}
-          <div className="grid grid-2" style={{ alignItems: 'start' }}>
+          <div className="grid grid-2 items-start">
             <Section title={t('insights.profile.details')}>
-              <dl className="stack" style={{ gap: 8, margin: 0 }}>
-                <div><dt className="fine">{t('insights.customers.phone')}</dt><dd style={{ margin: 0 }}>{c.phone ? <Phone value={c.phone} link /> : '—'}</dd></div>
-                <div><dt className="fine">{t('insights.customers.email')}</dt><dd style={{ margin: 0 }}>{c.email ? <Email value={c.email} link /> : '—'}</dd></div>
-                <div><dt className="fine">{t('insights.profile.identities')}</dt><dd style={{ margin: 0 }}>{c.identities.length ? c.identities.map((i) => <Badge key={i.id}>{i.kind}: <Ltr>{i.value}</Ltr></Badge>) : '—'}</dd></div>
-                <div><dt className="fine">{t('insights.profile.addresses')}</dt><dd style={{ margin: 0 }}>{c.addresses.length ? c.addresses.map((a) => <div key={a.id}>{[a.label, a.line1, a.area, a.city].filter(Boolean).map((part, n) => <span key={n}>{n > 0 && ' · '}<UserText>{part}</UserText></span>)}</div>) : '—'}</dd></div>
+              <dl className="stack gap-8 m-0">
+                <div><dt className="fine">{t('insights.customers.phone')}</dt><dd className="m-0">{c.phone ? <Phone value={c.phone} link /> : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.customers.email')}</dt><dd className="m-0">{c.email ? <Email value={c.email} link /> : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.profile.identities')}</dt><dd className="m-0">{c.identities.length ? c.identities.map((i) => <Badge key={i.id}>{i.kind}: <Ltr>{i.value}</Ltr></Badge>) : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.profile.addresses')}</dt><dd className="m-0">{c.addresses.length ? c.addresses.map((a) => <div key={a.id}>{[a.label, a.line1, a.area, a.city].filter(Boolean).map((part, n) => <span key={n}>{n > 0 && ' · '}<UserText>{part}</UserText></span>)}</div>) : '—'}</dd></div>
                 <div><dt className="fine">{t('insights.profile.notes')}</dt><dd style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{c.notes ? <UserText>{c.notes}</UserText> : '—'}</dd></div>
-                <div><dt className="fine">{t('insights.profile.firstSeen')}</dt><dd style={{ margin: 0 }}>{c.firstOrderAt ? dateTime(c.firstOrderAt, locale, org.timezone) : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.profile.firstSeen')}</dt><dd className="m-0">{c.firstOrderAt ? dateTime(c.firstOrderAt, locale, org.timezone) : '—'}</dd></div>
               </dl>
             </Section>
             <Section title={t('insights.profile.consent')} actions={writable && !c.anonymisedAt ? (
@@ -150,7 +150,7 @@ export default function CustomerProfilePage() {
                 <Field label={t('insights.customers.tags')} value={edit.tags} hint={t('insights.profile.tagsHint')} onChange={(e) => setEdit({ ...edit, tags: e.target.value })} />
                 <TextareaField label={t('insights.profile.notes')} value={edit.notes} maxLength={2000} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
                 {saveEdit.error && <Notice tone="danger">{saveEdit.error}</Notice>}
-                <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={saveEdit.pending}>{t('action.save')}</button></div>
+                <div className="row justify-end"><button className="btn btn-primary" disabled={saveEdit.pending}>{t('action.save')}</button></div>
               </form>
             )}
           </Modal>
@@ -163,7 +163,7 @@ export default function CustomerProfilePage() {
                 </SelectField>
                 <Field label={t('insights.movement.note')} maxLength={300} value={consent.note} onChange={(e) => setConsent({ ...consent, note: e.target.value })} />
                 {saveConsent.error && <Notice tone="danger">{saveConsent.error}</Notice>}
-                <div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn btn-primary" disabled={saveConsent.pending}>{t('action.confirm')}</button></div>
+                <div className="row justify-end"><button className="btn btn-primary" disabled={saveConsent.pending}>{t('action.confirm')}</button></div>
               </form>
             )}
           </Modal>
@@ -174,7 +174,7 @@ export default function CustomerProfilePage() {
                 <Field label={t('insights.profile.reason')} required minLength={3} value={anon.reason} onChange={(e) => setAnon({ ...anon, reason: e.target.value })} />
                 <Field label={t('insights.profile.typeConfirm', { word: 'ANONYMISE' })} value={anon.typed} onChange={(e) => setAnon({ ...anon, typed: e.target.value })} />
                 {doAnon.error && <Notice tone="danger">{doAnon.error}</Notice>}
-                <div className="row" style={{ justifyContent: 'flex-end' }}>
+                <div className="row justify-end">
                   <button className="btn btn-danger" disabled={doAnon.pending || anon.typed !== 'ANONYMISE' || anon.reason.trim().length < 3}>{t('insights.profile.anonymise')}</button>
                 </div>
               </form>
@@ -185,7 +185,7 @@ export default function CustomerProfilePage() {
               <div>
                 <p className="fine">{t('insights.profile.mergeKeep', { name: c.displayName ?? t('insights.customers.unnamed') })}</p>
                 <Field label={t('insights.profile.findDuplicate')} type="search" value={merge.q} onChange={(e) => setMerge({ q: e.target.value, picked: null })} />
-                <div className="stack" style={{ gap: 6 }}>
+                <div className="stack gap-6">
                   {(candidates.data?.items ?? []).filter((x) => x.id !== c.id).map((x) => (
                     <label key={x.id} className="check">
                       <input type="radio" name="dup" checked={merge.picked?.id === x.id} onChange={() => setMerge({ ...merge, picked: x })} />
@@ -196,7 +196,7 @@ export default function CustomerProfilePage() {
                 </div>
                 {merge.picked && <Notice tone="warn">{t('insights.profile.mergeWarn', { name: merge.picked.displayName ?? t('insights.customers.unnamed') })}</Notice>}
                 {doMerge.error && <Notice tone="danger">{doMerge.error}</Notice>}
-                <div className="row" style={{ justifyContent: 'flex-end', marginBlockStart: 12 }}>
+                <div className="row justify-end mbs-12">
                   <button className="btn btn-primary" disabled={!merge.picked || doMerge.pending} onClick={() => doMerge.run()}>{t('insights.profile.mergeConfirm')}</button>
                 </div>
               </div>

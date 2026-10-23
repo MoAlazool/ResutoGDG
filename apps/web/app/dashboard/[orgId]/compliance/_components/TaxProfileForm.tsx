@@ -62,7 +62,7 @@ export function TaxProfileForm({ onSaved }: { onSaved?: () => void }) {
           {p.validatedAt && <span className="fine">{dateTime(p.validatedAt, locale)}</span>}
         </>
       }>
-        <p className="fine" style={{ marginTop: 0 }}>{t(saudi ? 'compliance.profile.introSa' : 'compliance.profile.introEg')}</p>
+        <p className="fine mbs-0">{t(saudi ? 'compliance.profile.introSa' : 'compliance.profile.introEg')}</p>
         <div className="form-row">
           <SelectField label={t('compliance.profile.regime')} value={form.regime} disabled={!editable}
             onChange={(e) => set('regime', e.target.value as TaxProfileFields['regime'])} error={errorFor('regime')}>
@@ -74,7 +74,7 @@ export function TaxProfileForm({ onSaved }: { onSaved?: () => void }) {
           <Field label={t('compliance.profile.serviceCharge')} type="number" step="0.01" min={0} max={30} value={pct(form.serviceChargeBp)} disabled={!editable}
             onChange={(e) => set('serviceChargeBp', bp(e.target.value))} />
         </div>
-        <label className="check" style={{ marginBlockEnd: 14 }}>
+        <label className="check mbe-14">
           <input type="checkbox" checked={form.pricesIncludeTax} disabled={!editable} onChange={(e) => set('pricesIncludeTax', e.target.checked)} /> {t('compliance.profile.inclusive')}
         </label>
         {form.regime !== 'none' && (
@@ -136,7 +136,7 @@ export function TaxProfileForm({ onSaved }: { onSaved?: () => void }) {
         {save.error && <Notice tone="danger">{save.error}</Notice>}
         {saved && !save.error && <Notice tone="ok">{t('state.saved')}</Notice>}
         {editable && (
-          <div className="row" style={{ marginBlockStart: 14 }}>
+          <div className="row mbs-14">
             <button className="btn btn-primary" disabled={save.pending}>{save.pending ? t('state.loading') : t('action.save')}</button>
             <span className="fine">{blocking ? t('compliance.profile.saveIncomplete') : t('compliance.profile.saveReady')}</span>
           </div>

@@ -78,7 +78,7 @@ export default function AuditPage() {
           </SelectField>
         </div>
       } />
-      {error && <div style={{ marginBlockEnd: 12 }}><Notice tone="danger">{s.error} <button className="btn btn-sm" onClick={() => void load(null)}>{s.retry}</button></Notice></div>}
+      {error && <div className="mbe-12"><Notice tone="danger">{s.error} <button className="btn btn-sm" onClick={() => void load(null)}>{s.retry}</button></Notice></div>}
       {!items ? <Card><Skeleton lines={6} /></Card> : !items.length ? <Card><EmptyState title={s.empty} /></Card> : (
         <div className="table-wrap">
           <table className="data">
@@ -86,7 +86,7 @@ export default function AuditPage() {
             <tbody>
               {items.map((e) => (
                 <tr key={e.id}>
-                  <td style={{ whiteSpace: 'nowrap' }} className="num">{dateTime(e.created_at, locale, undefined)}</td>
+                  <td className="num nowrap">{dateTime(e.created_at, locale, undefined)}</td>
                   <td><Badge tone={TONE[e.actor_type] ?? 'neutral'}>{actor(e.actor_type)}</Badge>{e.source !== 'api' && <span className="fine"> · {sourceLabel(t, e.source)}</span>}</td>
                   <td title={e.action}>{actionLabel(t, e.action) ?? <Code>{e.action}</Code>}
                     {e.entity_type && <div className="fine">{entityLabel(t, e.entity_type)}{e.entity_id && <> · <Code>{e.entity_id.slice(0, 8)}</Code></>}</div>}</td>

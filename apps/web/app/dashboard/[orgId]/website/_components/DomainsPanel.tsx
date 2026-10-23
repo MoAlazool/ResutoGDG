@@ -79,7 +79,7 @@ export function DomainsPanel({ orgId, canManage }: { orgId: string; canManage: b
             <article key={d.id} className="ws-domain">
               <div className="spread">
                 <strong dir="ltr">{d.hostname}</strong>
-                <span className="row" style={{ gap: 6 }}>
+                <span className="row gap-6">
                   <Badge tone={STATUS_TONE[d.status] ?? 'neutral'}>{t(`studio.domains.status.${d.status}`)}</Badge>
                   {d.status !== 'pending_verification' && <Badge tone={d.sslStatus === 'issued' ? 'ok' : 'neutral'}>HTTPS: {t(`studio.domains.ssl.${d.sslStatus}`)}</Badge>}
                 </span>

@@ -69,7 +69,7 @@ function Conversations() {
       <section className="card" style={{ padding: 14, minWidth: 0 }} aria-label={t('connect.inbox.conversations')}>
         <div className="stack" style={{ gap: 8, marginBlockEnd: 10 }}>
           <input className="input" placeholder={t('connect.inbox.search')} value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} aria-label={t('connect.inbox.search')} />
-          <div className="row" style={{ gap: 6 }}>
+          <div className="row gap-6">
             <select className="select" style={{ width: 'auto', minHeight: 34 }} value={filter.status} onChange={(e) => setFilter({ ...filter, status: e.target.value })} aria-label={t('connect.inbox.status')}>
               <option value="">{t('connect.inbox.allStatuses')}</option>
               {['bot', 'open', 'handoff', 'closed'].map((s) => <option key={s} value={s}>{t(`connect.status.${s}`)}</option>)}
@@ -88,13 +88,13 @@ function Conversations() {
               <button type="button" onClick={() => setSelected(c.id)} className="btn btn-ghost" aria-current={selected === c.id}
                 style={{ width: '100%', justifyContent: 'space-between', textAlign: 'start', minHeight: 60, padding: '8px 10px', background: selected === c.id ? 'var(--leaf-bg)' : undefined, whiteSpace: 'normal' }}>
                 <span style={{ minWidth: 0, display: 'grid', gap: 2 }}>
-                  <span className="row" style={{ gap: 6 }}><strong><bdi>{c.name ?? c.contact ?? guestLabel(t, c.channelKind)}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
+                  <span className="row gap-6"><strong><bdi>{c.name ?? c.contact ?? guestLabel(t, c.channelKind)}</bdi></strong>{c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
                     <Badge tone={statusTone(c.status)}>{t(`connect.status.${c.status}`)}</Badge></span>
                   <span className="fine" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                     {c.lastMessage ? <>{c.lastMessage.direction === 'outbound' ? '↩ ' : ''}<bdi>{c.lastMessage.body ?? ''}</bdi></> : ''}</span>
                 </span>
                 <span style={{ display: 'grid', justifyItems: 'end', gap: 4 }}>
-                  <span className="fine num" style={{ whiteSpace: 'nowrap' }}>{formatWhen(c.lastMessageAt, locale, org.timezone)}</span>
+                  <span className="fine num nowrap">{formatWhen(c.lastMessageAt, locale, org.timezone)}</span>
                   {c.unreadCount > 0 && <Badge tone="ok">{c.unreadCount}</Badge>}
                 </span>
               </button>
@@ -163,7 +163,7 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
     <section className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 520, minWidth: 0 }} aria-label={d.contactName ?? d.contact ?? guestLabel(t, d.channel.kind)}>
       <header style={{ padding: 14, borderBlockEnd: '1px solid var(--line-soft)' }} className="spread">
         <div>
-          <div className="row" style={{ gap: 6 }}><strong><bdi>{d.customer?.name ?? d.contactName ?? d.contact ?? guestLabel(t, d.channel.kind)}</bdi></strong>
+          <div className="row gap-6"><strong><bdi>{d.customer?.name ?? d.contactName ?? d.contact ?? guestLabel(t, d.channel.kind)}</bdi></strong>
             {d.contact && <span className="fine" dir="ltr">{d.contact}</span>}
             {d.channel.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             <Badge tone={statusTone(d.status)}>{t(`connect.status.${d.status}`)}</Badge>
@@ -171,7 +171,7 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
           </div>
           <div className="fine">{d.botActive ? t('connect.inbox.botActive') : t('connect.inbox.botPaused')} · {d.channel.name}{d.channel.kind ? ` · ${t(`connect.channels.kind.${d.channel.kind}`)}` : ''}</div>
         </div>
-        <div className="row" style={{ gap: 6 }}>
+        <div className="row gap-6">
           {can('connect:reply') && !d.handoff && d.status !== 'closed' && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run('handoff', {})}>{t('connect.inbox.takeOver')}</button>}
           {can('connect:reply') && d.handoff && <button className="btn btn-sm btn-leaf" disabled={act.pending} onClick={() => act.run('handoff/resolve')}>{t('connect.inbox.resumeBot')}</button>}
           {can('connect:reply') && d.status !== 'closed' && <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run('close')}>{t('connect.inbox.close')}</button>}
@@ -204,10 +204,10 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
         {d.messages.map((msg) => (
           <div key={msg.id} style={{ justifySelf: msg.direction === 'outbound' ? 'end' : 'start', maxWidth: '82%' }}>
             <div dir="auto" style={{ padding: '8px 12px', borderRadius: 14, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-              background: msg.direction === 'outbound' ? (msg.automated ? 'var(--info-bg)' : 'var(--leaf-bg)') : '#fff', border: '1px solid var(--line-soft)' }}>
+              background: msg.direction === 'outbound' ? (msg.automated ? 'var(--info-bg)' : 'var(--leaf-bg)') : 'var(--card)', border: '1px solid var(--line-soft)' }}>
               {msg.body ?? <em className="muted">{t('connect.inbox.unsupported')}</em>}
               {msg.interactive?.buttons && <div className="row" style={{ gap: 4, marginBlockStart: 6 }}>{msg.interactive.buttons.map((b: any) => <Badge key={b.id}>{b.title}</Badge>)}</div>}
-              {msg.interactive?.url && <div className="fine" style={{ marginBlockStart: 4 }}>↗ <bdi>{msg.interactive.displayText}</bdi></div>}
+              {msg.interactive?.url && <div className="fine mbs-4">↗ <bdi>{msg.interactive.displayText}</bdi></div>}
             </div>
             <div className="fine" style={{ textAlign: msg.direction === 'outbound' ? 'end' : 'start' }}>
               {time(msg.createdAt, locale)}{msg.automated ? ` · ${t('connect.inbox.bot')}` : ''}{msg.direction === 'outbound' ? ` · ${t(`connect.msg.${msg.status}`)}` : ''}
@@ -222,7 +222,7 @@ function ConversationPane({ id, onClose, onChanged }: { id: string; onClose: () 
       </div>
       {can('connect:reply') && (
         <form onSubmit={send.run} style={{ padding: 14, borderBlockStart: '1px solid var(--line-soft)' }} className="stack">
-          <div className="row" style={{ gap: 6 }}>
+          <div className="row gap-6">
             <Badge tone={d.window.open ? 'ok' : 'warn'}>{d.window.open ? t('connect.window.open', { until: dateTime(d.window.closesAt, locale) }) : t('connect.window.closed')}</Badge>
           </div>
           {pageChannel ? (!d.window.open && <Notice tone="warn">{humanOpen ? t('connect.window.humanAgent', { until: dateTime(d.humanReplyUntil!, locale) }) : t('connect.window.pageClosed')}</Notice>)
@@ -261,8 +261,8 @@ function SandboxSimulator() {
   if (!can('connect:manage')) return null;
   const lastInteractive = [...(last?.messages ?? [])].reverse().find((m) => m.direction === 'outbound' && (m.interactive?.buttons || m.interactive?.sections || m.interactive?.url));
   return (
-    <section className="card" style={{ border: '1px dashed #d8aa4a', background: '#fffaf0', gridColumn: '1 / -1' }} aria-label={t('connect.sim.title')}>
-      <div className="spread"><h2 style={{ margin: 0 }}>{t('connect.sim.title')}</h2><Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge></div>
+    <section className="card card-sandbox is-thin" style={{ gridColumn: '1 / -1' }} aria-label={t('connect.sim.title')}>
+      <div className="spread"><h2 className="m-0">{t('connect.sim.title')}</h2><Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge></div>
       <p className="fine">{t('connect.sim.body')}</p>
       {channels.data && sandbox.length === 0 && <Notice tone="warn">{t('connect.sim.noChannel')}</Notice>}
       {sandbox.length > 0 && <>
@@ -277,9 +277,9 @@ function SandboxSimulator() {
           <button className="btn btn-ember" disabled={sim.pending}>{t('connect.sim.send')}</button>
         </form>
         {lastInteractive && (
-          <div className="stack" style={{ marginBlockStart: 10 }}>
+          <div className="stack mbs-10">
             <span className="fine">{t('connect.sim.tapReply')}</span>
-            <div className="row" style={{ gap: 6 }}>
+            <div className="row gap-6">
               {(lastInteractive.interactive.buttons ?? lastInteractive.interactive.sections?.flatMap((s: any) => s.rows) ?? []).map((b: any) => (
                 <button key={b.id} type="button" className="btn btn-sm" disabled={sim.pending} onClick={() => sim.run({ reply: { id: b.id, title: b.title } })}>{b.title}</button>
               ))}
@@ -339,7 +339,7 @@ function Channels() {
           </Card>
           <Card title={t('connect.channels.addWhatsApp')}>
             <Notice tone="warn">{t('connect.channels.whatsAppUnverified')}</Notice>
-            {wa.length === 0 ? <p className="fine" style={{ marginBlockStart: 10 }}>{t('connect.channels.needConnection')} <a href={`/dashboard/${org.id}/integrations`}>{t('nav.integrations')}</a></p> : (
+            {wa.length === 0 ? <p className="fine mbs-10">{t('connect.channels.needConnection')} <a href={`/dashboard/${org.id}/integrations`}>{t('nav.integrations')}</a></p> : (
               <form onSubmit={(e) => { e.preventDefault(); void create.run({ transport: 'meta_cloud', ...form, connectionId: form.connectionId || wa[0]!.id, displayPhone: form.displayPhone || null }); }} style={{ marginBlockStart: 10 }}>
                 <Field label={t('connect.channels.name')} value={form.displayName} required onChange={(e) => setForm({ ...form, displayName: e.target.value })} />
                 <div className="form-row">
@@ -392,7 +392,7 @@ function Templates() {
           { key: 'name', header: t('connect.templates.name'), render: (x) => <><strong>{x.name}</strong> <span className="fine">{x.language} · {t(`connect.templates.cat_${x.category}`)}</span></> },
           { key: 'body', header: t('connect.templates.body'), render: (x) => <span className="fine">{x.body}</span> },
           { key: 'status', header: t('connect.channels.status'), render: (x) => <Badge tone={tone(x.providerStatus)}>{t(`connect.templates.status_${x.providerStatus}`)}</Badge> },
-          { key: 'a', header: '', align: 'end', render: (x) => can('connect:manage') && <div className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+          { key: 'a', header: '', align: 'end', render: (x) => can('connect:manage') && <div className="row gap-4 justify-end">
             {['draft', 'rejected'].includes(x.providerStatus) && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(x, 'submit')}>{t('connect.templates.submit')}</button>}
             <button className="btn btn-sm btn-ghost btn-danger" disabled={act.pending} onClick={() => act.run(x, 'delete')}>{t('action.delete')}</button></div> },
         ]} />

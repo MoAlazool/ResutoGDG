@@ -47,7 +47,7 @@ export function AvailabilityTab() {
 
   return (
     <Section title={t('ops.avail.title')}>
-      <p className="fine" style={{ marginTop: 0 }}>{t('ops.avail.subtitle')}</p>
+      <p className="fine mbs-0">{t('ops.avail.subtitle')}</p>
       {error && <Notice tone="danger">{error}</Notice>}
       {menu.error ? <Notice tone="danger">{menu.error.message}</Notice> : !m ? <Skeleton lines={6} /> : !rows.length ? <EmptyState title={t('core.menu.empty')}>{t('core.menu.emptyHint')}</EmptyState> : (
         <AvailabilityTable rows={rows} branchId={branchId} timezone={org.timezone} pending={pending} onToggle={can('menu:availability') ? (p) => void toggle(p) : undefined}
@@ -73,7 +73,7 @@ export function AvailabilityTable({ rows, branchId, timezone, pending, onToggle,
       { key: 'options', header: t('ops.avail.col.options'), align: 'end', render: (p) => {
         const s = branchState(p, branchId);
         return (
-          <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+          <div className="row gap-6 justify-end">
             {onToggle && (
               <button type="button" className="btn btn-sm" disabled={pending === p.id} onClick={() => onToggle(p)}>
                 {s.soldOut ? t('ops.soldOut.restore') : t('ops.menu.soldOutToday')}

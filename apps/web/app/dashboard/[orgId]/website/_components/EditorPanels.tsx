@@ -64,7 +64,7 @@ export function DesignPanel({ orgId, state, canWrite, onSave }: { orgId: string;
   ] as const;
   const color = (k: 'primaryColor' | 'accentColor' | 'backgroundColor', label: string) => (
     <label className="field"><span>{label}</span>
-      <span className="row" style={{ gap: 8 }}>
+      <span className="row gap-8">
         <input type="color" className="ws-color" value={theme[k] ?? '#173f36'} disabled={!canWrite} onChange={(e) => setTheme({ ...theme, [k]: e.target.value })} aria-label={label} />
         <code className="fine">{theme[k] ?? t('studio.design.templateDefault')}</code>
         {theme[k] && canWrite && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTheme({ ...theme, [k]: undefined })}>{t('studio.design.reset')}</button>}
@@ -151,7 +151,7 @@ export function SectionsPanel({ orgId, state, canWrite, call }: {
   return (
     <section className="card">
       {dialog}
-      <div className="spread"><h2 style={{ margin: 0 }}>{t('studio.sections.title')}</h2></div>
+      <div className="spread"><h2 className="m-0">{t('studio.sections.title')}</h2></div>
       <p className="fine">{t('studio.sections.hint')}</p>
       {!sections.length ? <EmptyState title={t('studio.sections.emptyTitle')}>{t('studio.sections.emptyBody')}</EmptyState> : (
         <ol className="ws-sections">
@@ -178,7 +178,7 @@ export function SectionsPanel({ orgId, state, canWrite, call }: {
         </ol>
       )}
       {canWrite && (
-        <div className="row" style={{ marginBlockStart: 14 }}>
+        <div className="row mbs-14">
           <label className="sr-only" htmlFor="ws-add-kind">{t('studio.sections.kind')}</label>
           <select id="ws-add-kind" className="select" style={{ width: 'auto' }} value={adding} onChange={(e) => setAdding(e.target.value)}>
             {SECTION_KINDS.map((k) => <option key={k} value={k}>{t(`studio.kind.${k}`)}</option>)}

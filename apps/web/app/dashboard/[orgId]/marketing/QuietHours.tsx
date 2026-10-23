@@ -33,15 +33,15 @@ export function QuietHours() {
       <div className="stack" data-testid="quiet-hours">
         <p className="fine">{t('marketing.quiet.body', { tz: policy.data.timezone })}</p>
         {policy.data.isDefault && <p className="fine">{t('marketing.quiet.default')}</p>}
-        <label className="row" style={{ gap: 8 }}>
+        <label className="row gap-8">
           <input type="checkbox" checked={!form.on} disabled={!editable} onChange={(e) => { setSaved(false); setForm({ ...form, on: !e.target.checked }); }} />
           {t('marketing.quiet.off')}
         </label>
         {form.on && (
-          <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-            <label className="stack" style={{ gap: 4 }}>{t('marketing.quiet.start')}
+          <div className="row gap-12 wrap">
+            <label className="stack gap-4">{t('marketing.quiet.start')}
               <input type="time" dir="ltr" className="input" value={form.start} disabled={!editable} onChange={(e) => { setSaved(false); setForm({ ...form, start: e.target.value }); }} /></label>
-            <label className="stack" style={{ gap: 4 }}>{t('marketing.quiet.end')}
+            <label className="stack gap-4">{t('marketing.quiet.end')}
               <input type="time" dir="ltr" className="input" value={form.end} disabled={!editable} onChange={(e) => { setSaved(false); setForm({ ...form, end: e.target.value }); }} /></label>
           </div>
         )}

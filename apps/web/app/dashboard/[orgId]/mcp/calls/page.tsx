@@ -43,7 +43,7 @@ export default function McpCallsPage() {
         </SelectField>
       </div>
       <LoadState loading={first.loading} error={first.error} retry={first.reload}>
-        <DataTable rows={rows} rowKey={(r) => r.id} empty={<p className="muted" style={{ margin: 0 }}>{t('mcp.calls.empty')}</p>} columns={[
+        <DataTable rows={rows} rowKey={(r) => r.id} empty={<p className="muted m-0">{t('mcp.calls.empty')}</p>} columns={[
           { key: 'time', header: t('mcp.col.time'), render: (r) => <span className="num">{dateTime(r.createdAt, locale, org.timezone)}</span> },
           { key: 'client', header: t('mcp.col.client'), render: (r) => <span>{r.clientName} <code className="fine" dir="ltr">{r.keyPrefix}…</code></span> },
           { key: 'tool', header: t('mcp.col.tool'), render: (r) => <code dir="ltr">{r.tool}</code> },

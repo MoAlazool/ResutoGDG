@@ -49,7 +49,7 @@ function FoodPhotos() {
         actions={<Link className="btn" href={`/dashboard/${org.id}/website`}>{t('studio.ai.photo.toWebsite')}</Link>} />
       <div className="sm-modes">
         <Notice tone="ok"><strong>{t('studio.ai.photo.modeDeterministic')}</strong> {t('studio.ai.photo.modeDeterministicBody')}</Notice>
-        <Notice tone="info"><span className="row" style={{ gap: 8 }}><Badge tone="neutral">{t('studio.ai.photo.notConfigured')}</Badge><strong>{t('studio.ai.photo.modeGenerative')}</strong></span>
+        <Notice tone="info"><span className="row gap-8"><Badge tone="neutral">{t('studio.ai.photo.notConfigured')}</Badge><strong>{t('studio.ai.photo.modeGenerative')}</strong></span>
           <span>{t('studio.ai.photo.modeGenerativeBody')}</span></Notice>
       </div>
       {caps.data && !caps.data.photoEnhancement.deterministic && <Notice tone="danger">{t('studio.ai.photo.unavailable')}</Notice>}
@@ -64,7 +64,7 @@ function FoodPhotos() {
                   <li key={j.id}>
                     <button type="button" className="sm-tile" aria-current={j.id === selected ? 'true' : undefined} onClick={() => setSelected(j.id)}>
                       {(j.output?.url || j.original.url) ? <img src={j.output?.url || j.original.url} alt="" loading="lazy" /> : <span className="sm-ph" />}
-                      <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      <span className="row gap-6 wrap">
                         <Badge tone={TONE[j.status]}>{t(`studio.ai.photo.status.${j.status}`)}</Badge>
                         <span className="fine">{dateTime(j.createdAt, locale, org.timezone)}</span>
                       </span>
@@ -128,13 +128,13 @@ function UploadCard({ onCreated }: { onCreated: (j: PhotoJobView) => Promise<voi
           {PHOTO_ASPECTS.map((a) => <option key={a} value={a}>{a === 'original' ? t('studio.ai.photo.aspectOriginal') : a}</option>)}
         </select></label>
       <details>
-        <summary className="fine" style={{ cursor: 'pointer' }}>{t('studio.ai.photo.adjust')}</summary>
+        <summary className="fine cursor-pointer">{t('studio.ai.photo.adjust')}</summary>
         <div className="stack" style={{ marginTop: 8 }}>
           <Slider label={t('studio.ai.photo.exposure')} min={-1} max={1} value={p.exposure} onChange={(v) => setP({ ...p, exposure: v })} />
           <Slider label={t('studio.ai.photo.contrast')} min={0} max={1} value={p.contrast} onChange={(v) => setP({ ...p, contrast: v })} />
           <Slider label={t('studio.ai.photo.sharpen')} min={0} max={1} value={p.sharpen} onChange={(v) => setP({ ...p, sharpen: v })} />
-          <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={p.whiteBalance} onChange={(e) => setP({ ...p, whiteBalance: e.target.checked })} />{t('studio.ai.photo.whiteBalance')}</label>
-          <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={p.trimBorder} onChange={(e) => setP({ ...p, trimBorder: e.target.checked })} />{t('studio.ai.photo.trim')}</label>
+          <label className="row gap-8"><input type="checkbox" checked={p.whiteBalance} onChange={(e) => setP({ ...p, whiteBalance: e.target.checked })} />{t('studio.ai.photo.whiteBalance')}</label>
+          <label className="row gap-8"><input type="checkbox" checked={p.trimBorder} onChange={(e) => setP({ ...p, trimBorder: e.target.checked })} />{t('studio.ai.photo.trim')}</label>
         </div>
       </details>
       <div><button type="button" className="btn btn-primary" disabled={!file || busy} aria-busy={busy} onClick={() => void send()}>{busy ? t('state.loading') : t('studio.ai.photo.enhance')}</button></div>
@@ -174,7 +174,7 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
     <section className="card stack" aria-busy={busy}>
       <div className="spread">
         <h2 className="sm-h2">{t('studio.ai.photo.review')}</h2>
-        <span className="row" style={{ gap: 6 }}>
+        <span className="row gap-6">
           <Badge tone={TONE[job.status]}>{t(`studio.ai.photo.status.${job.status}`)}</Badge>
           <Badge tone="neutral">{job.mode === 'deterministic' ? t('studio.ai.photo.labelDeterministic') : t('studio.ai.photo.labelGenerative', { model: job.model ?? job.provider })}</Badge>
         </span>
@@ -183,7 +183,7 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
       {job.status === 'failed' && <Notice tone="danger"><span>{job.error}</span>{' '}
         {canWrite && <button type="button" className="btn btn-sm" onClick={() => void act(() => call(`/o/${org.id}/studio/photos/${job.id}/retry`, { body: {} }), t('studio.ai.photo.retried'))}>{t('action.retry')}</button>}</Notice>}
       {job.output ? (
-        <div className="stack" style={{ gap: 6 }}>
+        <div className="stack gap-6">
           <div className="sm-compare" style={{ ['--split' as string]: `${split}%` }}>
             <img src={job.original.url} alt={t('studio.ai.photo.before')} className="sm-before" />
             <img src={job.output.url} alt={t('studio.ai.photo.after')} className="sm-after" />
@@ -192,7 +192,7 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
           </div>
           <label className="field"><span>{t('studio.ai.photo.compare')}</span>
             <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(Number(e.target.value))} /></label>
-          <p className="fine" style={{ margin: 0 }}>
+          <p className="fine m-0">
             {t('studio.ai.photo.sizes', { before: `${num(job.original.width ?? 0, locale)}×${num(job.original.height ?? 0, locale)}`, after: `${num(job.output.width ?? 0, locale)}×${num(job.output.height ?? 0, locale)}` })}
             {' · '}<bdi dir="ltr">{job.output.formats.map((f) => `${f.format.toUpperCase()} ${f.width}w`).join(' · ')}</bdi>
           </p>
@@ -200,15 +200,15 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
       ) : job.original.url ? <img src={job.original.url} alt={t('studio.ai.photo.before')} className="sm-single" /> : null}
       {job.provenance && (
         <details>
-          <summary className="fine" style={{ cursor: 'pointer' }}>{t('studio.ai.photo.provenance')}</summary>
+          <summary className="fine cursor-pointer">{t('studio.ai.photo.provenance')}</summary>
           <p className="fine">{t(job.mode === 'deterministic' ? 'studio.ai.photo.guarantee' : 'studio.ai.photo.generativeWarning')}</p>
           <ul className="fine sm-ops">{ops.map((o, i) => <li key={i}><code dir="ltr">{String(o.op)}</code> <bdi dir="ltr">{JSON.stringify({ ...o, op: undefined })}</bdi></li>)}</ul>
         </details>
       )}
       {canWrite && job.status === 'review' && (
-        <div className="stack" style={{ gap: 8 }}>
+        <div className="stack gap-8">
           <label className="field"><span>{t('studio.ai.photo.note')}</span><input className="input" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} /></label>
-          <div className="row" style={{ gap: 8 }}>
+          <div className="row gap-8">
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void act(() => call(`/o/${org.id}/studio/photos/${job.id}/review`, { body: { decision: 'approve', note: note || undefined } }), t('studio.ai.photo.approved'))}>{t('studio.ai.photo.approve')}</button>
             <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void act(() => call(`/o/${org.id}/studio/photos/${job.id}/review`, { body: { decision: 'reject', note: note || undefined } }), t('studio.ai.photo.rejectedOk'))}>{t('studio.ai.photo.reject')}</button>
           </div>
@@ -216,11 +216,11 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
       )}
       {job.published && <Notice tone="ok">{t(job.published.target === 'product' ? 'studio.ai.photo.publishedProduct' : 'studio.ai.photo.publishedSection')}</Notice>}
       {canWrite && publishable && (
-        <div className="stack" style={{ gap: 8 }}>
+        <div className="stack gap-8">
           <h3 className="sm-h3">{t('studio.ai.photo.publish')}</h3>
-          <div className="row" style={{ gap: 12 }}>
-            <label className="row" style={{ gap: 6 }}><input type="radio" checked={target === 'product'} disabled={!can('menu:write')} onChange={() => { setTarget('product'); setTargetId(job.productId ?? ''); }} />{t('studio.ai.photo.toProduct')}</label>
-            <label className="row" style={{ gap: 6 }}><input type="radio" checked={target === 'website_section'} onChange={() => { setTarget('website_section'); setTargetId(''); }} />{t('studio.ai.photo.toSection')}</label>
+          <div className="row gap-12">
+            <label className="row gap-6"><input type="radio" checked={target === 'product'} disabled={!can('menu:write')} onChange={() => { setTarget('product'); setTargetId(job.productId ?? ''); }} />{t('studio.ai.photo.toProduct')}</label>
+            <label className="row gap-6"><input type="radio" checked={target === 'website_section'} onChange={() => { setTarget('website_section'); setTargetId(''); }} />{t('studio.ai.photo.toSection')}</label>
           </div>
           <select className="select" value={targetId} onChange={(e) => setTargetId(e.target.value)} aria-label={t('studio.ai.photo.publish')}>
             <option value="">—</option>
@@ -228,7 +228,7 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
               ? (products.data?.items ?? []).map((x) => <option key={x.id} value={x.id}>{locale === 'ar' && x.nameAr ? x.nameAr : x.name}</option>)
               : (site.data?.sections ?? []).map((s) => <option key={s.id} value={s.id}>{t(`studio.kind.${s.kind}`)}</option>)}
           </select>
-          <p className="fine" style={{ margin: 0 }}>{t(target === 'product' ? 'studio.ai.photo.productHint' : 'studio.ai.photo.sectionHint')}</p>
+          <p className="fine m-0">{t(target === 'product' ? 'studio.ai.photo.productHint' : 'studio.ai.photo.sectionHint')}</p>
           <div><button type="button" className="btn btn-primary" disabled={!targetId || busy}
             onClick={() => void act(() => call(`/o/${org.id}/studio/photos/${job.id}/publish`, {
               body: target === 'product' ? { target, productId: targetId, key: newIdempotencyKey() } : { target, sectionId: targetId, key: newIdempotencyKey() },

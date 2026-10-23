@@ -54,7 +54,7 @@ function OAuthReturn() {
           </>
         ) : (
           <>
-            <p style={{ margin: 0 }}>{t('intg.oauth.finishing')}</p>
+            <p className="m-0">{t('intg.oauth.finishing')}</p>
             <NavSkeleton count={2} />
           </>
         )}
