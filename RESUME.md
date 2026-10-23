@@ -23,12 +23,13 @@ measurements, redeploy staging and re-verify.
 | Wave 4: other integrations (TikTok/Snap, Foodics, accounting, ZATCA/ETA, domains, notifications, maps, Gemini, push), demo data integrity, observability, QA gates | done, on staging (API) at `d207114` |
 | Wave 5: auth hardening (Free plan, no SMTP) + API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB roles, shared rate limits) | done |
 | Wave 6: visual parity with the original Resuto (gallery-driven PAR-01..09) + demo loader fixes | done, on staging: web/AI/MCP `145156d`, API `aaec04e` |
-| P2: remaining integrations, Studio AI, MCP interop, advanced performance, research | pending |
-| Staging redeploy + full regression on the final commit | pending |
+| Wave 7 (in progress 2026-10-23): ws13 polish (POL-01..03, last gallery gaps); ws14a API remainders (REM-A01..A11), ws14b web remainders (REM-W01..W11), ws14c legacy counter / venue QR session (FT-07). Item files: programme scratchpad `ws/ws13-polish.json`, `ws/ws14*.json` | in progress |
+| Staging redeploy + full regression on the final commit, handoff report (`docs/HANDOFF.md`) | pending (after wave 7) |
 
 ## Next executable task
-Final regression on the head commit, the legacy-vs-new comparison gallery (captures in progress in the programme
-scratchpad), the handoff report. Staging soak: watch the API log for `platform role lacks a grant`; when clean, set
+Merge wave 7 branches (`ws/ws13-polish`, `ws/ws14a-api`, `ws/ws14b-web`, `ws/ws14c-counter`) after their independent
+review, run every suite, deploy (web via Vercel CLI production deployment, API/AI/MCP via Render), staging checks, then
+the handoff report. Gallery (2 match / 18 close / 0 differ at `d137414`): https://claude.ai/artifact/PybNvTkVh4jW45QcJ93hZL. Staging soak: watch the API log for `platform role lacks a grant`; when clean, set
 `DATABASE_PLATFORM_FALLBACK=off` (or remove it) and, with the owner, switch `DATABASE_URL` to the `resuto_api` login
 (steps in `docs/STAGING_DEPLOYMENT.md`).
 
@@ -43,7 +44,10 @@ scratchpad), the handoff report. Staging soak: watch the API log for `platform r
 - **Deployment Protection**: verified ON (project `ssoProtection.deploymentType = all`, no password protection, no trusted IPs, 0 protection bypasses; every web URL answers 302 to `vercel.com/sso-api`). The temporary QA
   automation bypass was revoked by the owner; do NOT recreate a bypass without the owner's approval. Browser QA of the
   deployed web needs authorized Vercel access; local builds against local APIs are used otherwise.
-- **Supabase**: turn on leaked-password protection; configure SMTP + Site URL (B-14).
+- **Supabase** (Free plan, owner decision): Site URL and redirect URL set to the staging origin (no extra callback URLs
+  are needed by the code: every redirect is same-origin `/auth/callback?next=…`). Leaked-password protection is a paid
+  feature and stays off (compensated client-side, AUTH-01). No SMTP: real email delivery is unverified (B-14). Owner
+  dashboard settings still to confirm: minimum password length 10 + required characters, secure email/password change.
 See `docs/OPEN_BLOCKERS.md` → "Owner actions". Provider credentials (Paymob, Stripe, Moyasar, Meta, TikTok, Snapchat,
 Foodics, Odoo, Wafeq, Qoyod, ZATCA/ETA, Gemini) are not available; their acceptance scripts are written to run once
 configured and are reported as not yet run.
