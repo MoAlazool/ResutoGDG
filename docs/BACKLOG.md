@@ -25,8 +25,8 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | VP-17 | P1 | Guest pages all titled 'Resuto — Restaurant operating system' | ws4a-public | partial (wave 2; remainder in follow-ups) |
 | VP-18 | P1 | Table bill/split/share UX differs from legacy; empty bill says 'fully paid' | ws4b-guest | done (wave 2, 85c176e) |
 | VP-19 | P1 | Order status and cart sheet differ from legacy (tracker, thumbnails, upsell sheet) | ws4b-guest | done (wave 2, 85c176e) |
-| VP-20 | P1 | Menu assistant ('Help me choose') and cart upsell missing on guest menus | ws4b-guest | planned |
-| VP-21 | P1 | No guest rating after payment; receipt actions differ | ws4b-guest | planned |
+| VP-20 | P1 | Menu assistant ('Help me choose') and cart upsell missing on guest menus | ws4b-guest | done (wave 2, 85c176e) |
+| VP-21 | P1 | No guest rating after payment; receipt actions differ | ws4b-guest | done (wave 2, 85c176e) |
 | VP-22 | P1 | Pricing copy: English plan descriptions on AR, '1 branch(es)' | ws4a-public | done (wave 2, 85c176e) |
 | VP-23 | P2 | Emoji used as icons on guest/payment UI | ws4a-public | deferred (see results) |
 | VP-24 | P2 | Landing service-demo QR points to the site, not a table | ws4a-public | partial (wave 2; remainder in follow-ups) |
@@ -57,7 +57,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | VS-21 | P1 | Untranslated operator-facing strings in Arabic (server-generated text, technical keys, vocabulary) | ws3-staff-shell | partial (wave 1; remainder in follow-ups) |
 | VS-22 | P1 | Plural-aware i18n (Arabic six forms) | ws3-staff-shell | done (wave 1, 5274252) |
 | VS-23 | P1 | Floor Studio as a full-bleed editor (not squeezed inside the dashboard shell) | ws5-ops | done (wave 3, 93abad9) |
-| VS-27 | P1 | Guest satisfaction ratings missing end-to-end | ws4b-guest | planned |
+| VS-27 | P1 | Guest satisfaction ratings missing end-to-end | ws4b-guest | done (wave 2, 85c176e) |
 | VS-25 | P2 | Mobile overflow and clipping fixes (badges, data tables, KDS timers, chart labels) | ws5-ops | done (wave 3, 93abad9) |
 | VS-26 | P2 | Studio AI: AI menu extraction review flow and AI floor import | ws9-studio-mcp | partial (wave 3; remainder in follow-ups) |
 | VS-28 | P2 | Consolidated Import & export hub | ws5-ops | done (wave 3, 93abad9) |
@@ -83,8 +83,8 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | FT-16 | P2 | Approved creative has no publish/apply path; copy-generation API has no UI | ws9-studio-mcp | done (wave 3, 93abad9) |
 | FT-17 | P2 | MCP interop: tool coverage gaps (menu, finance, payments, delivery) and no OAuth 2.1 | ws9-studio-mcp | done (wave 3, 93abad9) |
 | FT-19 | P2 | Platform fees not separated from pass-through costs (messaging, ads, payment fees, AI) in data/UI | ws8-features | done (wave 3, 93abad9) |
-| FT-20 | P2 | Guest-facing menu assistant and upsell suggestions not ported | ws4b-guest | planned |
-| FT-21 | P2 | Guest ratings/feedback after payment not ported | ws4b-guest | planned |
+| FT-20 | P2 | Guest-facing menu assistant and upsell suggestions not ported | ws4b-guest | done (wave 2, 85c176e) |
+| FT-21 | P2 | Guest ratings/feedback after payment not ported | ws4b-guest | done (wave 2, 85c176e) |
 | FT-22 | P2 | Driver devices registered but no push notifications | ws7b-integrations | done (wave 4, a0dfda0) |
 | FT-23 | P2 | Finance journals cover sales only; account mapping not editable; invoices push unused | ws8-features | done (wave 3, 93abad9) |
 | FT-24 | P2 | Regulator adapters are stubs: ZATCA Phase-2 signing/clearance and ETA submission | ws7b-integrations | partial (wave 4; remainder in follow-ups) |
