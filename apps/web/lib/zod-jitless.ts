@@ -5,6 +5,6 @@
 //
 // This module must run before any schema is built: lib/contracts-entry.ts imports it ahead of the contracts package,
 // and next.config.ts points '@resuto/contracts' at that entry, so only bundles that already carry zod pay for it.
-import { config } from 'zod/v4/core';
+import { config } from 'zod';
 
 config({ jitless: true });

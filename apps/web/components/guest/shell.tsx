@@ -4,7 +4,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
-import { fixedSizes } from '@/lib/dish-image';
 import { pick } from '@/lib/format';
 import './consumer.css';
 
@@ -74,7 +73,7 @@ export function Photo({ src, name, size, eager, className = '', srcSet, sizes }:
   if (!src) return <span className={`gx-photo is-empty ${className}`} aria-hidden>{name.trim().charAt(0).toUpperCase() || '·'}</span>;
   // eslint-disable-next-line @next/next/no-img-element -- tenant media from the API (signed URL); width/height keep CLS at 0
   return <img className={`gx-photo ${className}`} loading={eager ? 'eager' : 'lazy'} decoding="async"
-    srcSet={srcSet} sizes={srcSet ? sizes ?? fixedSizes(size) : undefined} src={src} alt="" width={size} height={size} />;
+    srcSet={srcSet} sizes={srcSet ? sizes ?? `${size}px` : undefined} src={src} alt="" width={size} height={size} />;
 }
 
 /** Legacy guest-sheet: a modal sheet (bottom sheet on phones) with a title and Close. Escape closes it. */

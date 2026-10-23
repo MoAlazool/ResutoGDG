@@ -49,19 +49,18 @@ const COPY = {
     aborted: 'تم إلغاء الطلب.',
   },
 } as const;
-const docLocale = (): 'en' | 'ar' => (typeof document !== 'undefined' && document?.documentElement?.lang === 'ar' ? 'ar' : 'en');
+const docLocale = (): 'en' | 'ar' => (typeof document !== 'undefined' && document.documentElement.lang === 'ar' ? 'ar' : 'en');
 const copy = (k: keyof (typeof COPY)['en'], status = 0) => COPY[docLocale()][k].replace('{status}', String(status));
 
 /**
  * The message for an API error in the page language (REM-W05): Arabic pages get the localised text for the error
- * code (lib/api-errors, a chunk loaded only when an error needs it); English pages keep the API's sentence, which can
- * be more specific, and use the dictionary only when the API sent no sentence.
+ * code (lib/api-errors, a chunk loaded only when an error needs it); English pages keep the API's sentence (one with
+ * a space), which can be more specific. Never throws: any failure keeps the API's text.
  */
 async function errorText(code: string, details: unknown, message: string): Promise<string> {
-  const locale = docLocale();
-  if (locale === 'en' && message && /\s/.test(message.trim())) return message;
   try {
-    return await (await import('./api-errors')).localizedErrorMessage(code, details, locale, message);
+    const locale = docLocale();
+    return locale === 'en' && / /.test(message) ? message : await (await import('./api-errors')).localizedErrorMessage(code, details, locale, message);
   } catch {
     return message;
   }
@@ -75,44 +74,13 @@ export interface ApiOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
   /**
-   * Conditional GET (REM-W02, PCL-24): send the ETag of this caller's last answer for the same URL as If-None-Match;
-   * a 304 then resolves to that same answer object (no body, no JSON parse, unchanged identity so nothing that
-   * depends on it recomputes). Signed-in reads only (useApi): their requests are preflighted anyway, so the extra
-   * header costs no OPTIONS round trip. See conditionalKey for what an answer is remembered under.
+   * Called with the raw response before its body is read (status and headers only). lib/api-conditional.ts uses it
+   * to learn ETags for conditional GETs (REM-W02) without adding that machinery to every page.
    */
-  revalidate?: boolean;
+  onResponse?: (res: Response) => void;
 }
 
 const isJson = (contentType: string | null) => !!contentType && /\bjson\b/i.test(contentType);
-
-/**
- * Validators of the last 200 answers to revalidating GETs (memory only, never storage; bounded LRU). An entry holds
- * the ETag and the parsed answer, keyed by the bearer token, the URL and the request headers, so one user's answer
- * is never returned to another user or to another tenant/filter. The session drops them all on sign-out or a user
- * switch (forgetValidators). Answers that were assembled from several pages (X-Resuto-List: full) are not
- * remembered: the ETag covers the first page only.
- *
- * The browser HTTP cache is not involved: staff responses stay `no-store` (PCL-03/04), and a request that carries
- * If-None-Match bypasses the HTTP cache by definition (Fetch), so the 304 reaches this code instead of a stored copy.
- */
-const MAX_VALIDATORS = 100;
-const validators = new Map<string, { etag: string; data: unknown }>();
-
-/** What a revalidating answer is remembered under (exported for tests). */
-export const conditionalKey = (path: string, token: string | null | undefined, headers: Record<string, string> | undefined) =>
-  `${token ?? ''}\n${path}\n${JSON.stringify(Object.entries(headers ?? {}).sort(([a], [b]) => a.localeCompare(b)))}`;
-
-/** Drops every remembered validator (sign-out, user switch; tests). */
-export function forgetValidators() { validators.clear(); }
-
-/** Number of remembered validators (tests, probes). */
-export const validatorCount = () => validators.size;
-
-function remember(key: string, etag: string, data: unknown) {
-  validators.delete(key);
-  validators.set(key, { etag, data });
-  while (validators.size > MAX_VALIDATORS) validators.delete(validators.keys().next().value!);
-}
 
 /**
  * HTTP cache policy (PCL-03, depends on the API's PCL-04 header). `cache: 'no-store'` keeps API responses out of the
@@ -159,17 +127,6 @@ export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boo
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
   if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
   const method = opts.method ?? (opts.body !== undefined ? 'POST' : 'GET');
-  const conditional = !!opts.revalidate && method === 'GET' && !!opts.token;
-  const ckey = conditional ? conditionalKey(path, opts.token, opts.headers) : '';
-  const known = conditional ? validators.get(ckey) : undefined;
-  if (known) {
-    headers['If-None-Match'] = known.etag;
-    // A request with If-None-Match runs in fetch's "no-store" mode, and fetch then adds `Cache-Control: no-cache`
-    // unless the request already has a Cache-Control header. Express (the `fresh` check) treats no-cache as a forced
-    // reload and never answers 304, so the validator would be sent for nothing. `max-age=0` asks for the same end-to-end
-    // revalidation without that effect. The response policy is unchanged (staff responses stay no-store).
-    headers['Cache-Control'] = 'max-age=0';
-  }
   let res: Response;
   try {
     res = await fetch(`${API_URL}/v1${path}`, {
@@ -186,13 +143,7 @@ export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boo
   }
   // Topbar connection status: a gateway/server outage means "reconnecting"; any other answer means the API is reachable.
   reportConnection(!(res.status === 502 || res.status === 503 || res.status === 504));
-  if (res.status === 304) {
-    // Unchanged since the remembered answer: hand back that same object (no body to read or parse).
-    if (known && res.headers.get('x-resuto-list') !== 'full') { remember(ckey, known.etag, known.data); return [known.data, false]; }
-    // A 304 this caller cannot answer from memory (not expected): forget the validator and ask once more without it.
-    validators.delete(ckey);
-    return apiPage(path, { ...opts, revalidate: false });
-  }
+  opts.onResponse?.(res);
   noteServerCachePolicy(res.headers.get('cache-control'));
   const requestId = res.headers.get('x-request-id') ?? undefined;
   const text = await res.text().catch(() => '');
@@ -210,13 +161,6 @@ export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boo
   }
   if (data === undefined) throw new ApiRequestError(res.status, 'bad_response', copy('bad_response', res.status), undefined, requestId);
   const full = method === 'GET' && !/[?&](cursor|limit)=/.test(path) && res.headers.get('x-resuto-list') === 'full';
-  if (conditional) {
-    // The API must list ETag in Access-Control-Expose-Headers for a cross-origin page to read it; without it this
-    // stays a plain GET.
-    const etag = res.headers.get('etag');
-    if (etag && !full) remember(ckey, etag, data);
-    else validators.delete(ckey);
-  }
   return [data, full];
 }
 

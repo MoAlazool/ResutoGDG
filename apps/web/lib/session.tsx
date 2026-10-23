@@ -3,7 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { MeResponse } from '@resuto/contracts';
-import { api, apiAll, ApiRequestError, forgetValidators, type ApiOptions } from './api';
+import { api, apiAll, ApiRequestError, type ApiOptions } from './api';
+import { forgetValidators } from './api-conditional';
 import { AuthFlowError } from './auth-errors';
 import { checkNewPassword } from './auth/password-policy';
 import {
