@@ -258,6 +258,8 @@ export interface PublicSite {
   menuHighlights: Array<{
     id: string; name: string; nameAr: string | null; description: string | null; descriptionAr: string | null;
     priceMinor: number; currency: string; imageUrl: string | null; dietary: string[];
+    /** "url 320w, url 640w, ..." over the stored WebP copies (null without copies); the original's pixel size. */
+    imageSrcSet?: string | null; imageWidth?: number | null; imageHeight?: number | null;
   }>;
   canonicalHost: string | null;
   links: { reserve: string; order: string; site: string };

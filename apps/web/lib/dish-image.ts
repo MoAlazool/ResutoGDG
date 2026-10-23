@@ -55,6 +55,10 @@ export const DISH_SIZES = {
   storefrontCard: '(max-width: 700px) 142px, (max-width: 1020px) 50vw, 310px',
   /** Storefront product sheet (.sf-sheet: min(590px, 100vw - 22px)). */
   storefrontSheet: '(max-width: 612px) 100vw, 590px',
+  /** Restaurant site dish card (r/[slug] site.css .dish-grid: 3 columns in a 1260 px page, 2 under 768 px). */
+  siteCard: '(max-width: 768px) 50vw, (max-width: 1260px) 33vw, 400px',
+  /** Restaurant site story photo (.restaurant-introduction: half the page, one 330 px column under 430 px). */
+  siteStory: '(max-width: 430px) 330px, (max-width: 1260px) 50vw, 580px',
   /** Storefront promo pictures (.sf-combo-pics: 34-42% of the promo block). */
   storefrontCombo: '(max-width: 700px) 42vw, 260px',
 } as const;
