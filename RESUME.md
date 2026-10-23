@@ -21,7 +21,8 @@ measurements, redeploy staging and re-verify.
 | Wave 2: public pages + Smash storefront, guest ordering/reservations, performance, Meta growth | done, on staging (API) at `85c176e` |
 | Wave 3: operations UI (KDS, floor, host, setup), module features (loyalty, notifications, hours/zones…), Studio AI + MCP | done, on staging (API) at `93abad9` |
 | Wave 4: other integrations (TikTok/Snap, Foodics, accounting, ZATCA/ETA, domains, notifications, maps, Gemini, push), demo data integrity, observability, QA gates | done, on staging (API) at `d207114` |
-| Wave 5: auth hardening (Free plan, no SMTP) + API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB roles, shared rate limits) | done, on staging: web/AI/MCP `23f0a99`, API `688bb4b` |
+| Wave 5: auth hardening (Free plan, no SMTP) + API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB roles, shared rate limits) | done |
+| Wave 6: visual parity with the original Resuto (gallery-driven PAR-01..09) + demo loader fixes | done, on staging: web/AI/MCP `145156d`, API `aaec04e` |
 | P2: remaining integrations, Studio AI, MCP interop, advanced performance, research | pending |
 | Staging redeploy + full regression on the final commit | pending |
 

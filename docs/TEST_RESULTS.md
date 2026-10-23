@@ -216,3 +216,41 @@ Staging deployment:
   aliased to https://resuto-2-staging-web.vercel.app; Deployment Protection on (`ssoProtection: all`, 0 bypasses);
   every URL answers 302 to Vercel login.
 - `smoke.mjs` **40 / 40**, `mcp-check.mjs` **7 / 7** at `688bb4b` (API) / `23f0a99` (web, AI, MCP).
+
+## Continuation wave 6 (visual parity with the original Resuto) — integrated (2026-10-22/23, `867e124` … `aaec04e`)
+
+A legacy-vs-new gallery (160 captures: 20 screens x desktop/phone x EN/AR, both apps run locally from the same demo)
+found the remaining visual gaps; ws12 closed them: floor room architecture (walls, window strip, service bar,
+entrance), Smash & Co open status / today's hours / pickup ETA / district, menu Portions from ingredient stock,
+`/orders` opens on the board, managers' KDS inside the staff shell, Arabic details (isolated order references, Arabic
+wordmark, Arabic ingredient names, money never wraps), cart total + Confirm in view on phones with `.00` guest prices,
+inventory opens on dish availability, settings on the service model. Independent review: 1 major + 7 minor findings,
+fixed before merging. A test that compared a Cairo-local date with a UTC date (failing nightly 21:00–24:00 UTC) was
+fixed in `145156d` and proven at 23:50 UTC.
+
+| Suite (`145156d`) | Result |
+|---|---|
+| API integration (101 files) | **867 passed, 4 skipped / 871** (run at 00:00 UTC) |
+| Database security / roles | **76 / 76** |
+| Contracts | **59 / 59** |
+| Integrations | **314 / 314** |
+| MCP server | **25 / 25** |
+| Web unit | **348 / 348** |
+| Demo loader / UI scripts | **57 / 57** |
+| API + web typecheck, web production build, bundle budget gate | pass |
+
+Staging:
+- All services at `145156d` (web `dpl_FBE425ZhnVig6QF26XETi1L6LUfq`); migration `20261022050001_branch_district`
+  applied; `smoke.mjs` 40/40, `mcp-check.mjs` 7/7; no `platform role lacks a grant`, permission-denied or fatal lines
+  in the API log 2026-10-22 00:09 → 2026-10-23 11:05.
+- The boot-time demo refresh then failed twice (00:10 UTC 10-22, 11:04 UTC 10-23):
+  `duplicate key ... orders_branch_id_business_date_number_key` while back-dating history orders onto a day whose
+  numbers were taken. Fixed in `d137414` (a back-dated order takes the next free number on its new day; the old
+  statement reproduced the exact key violation on a local copy, the new one moved the order as the next number). The
+  next boot completed the history (17 orders for 10-21..22) and stopped at the live QR visit: T2 was held for a
+  booking starting soon (`409 table_unavailable`, correct API behaviour). Fixed in `aaec04e` (T2 or the next free
+  table).
+- API at `aaec04e`: boot log "a QR visit on T1 …", "floor: legacy room architecture added …", "storefront: Smash & Co
+  district, districtAr, timezone, openingHours …", "inventory: Arabic names for 10 ingredient(s)", **"all assertions
+  hold."**; `smoke.mjs` **40 / 40**, `mcp-check.mjs` **7 / 7**. Web/AI/MCP stay at `145156d` (the later commits only
+  change the demo loader, which runs in the API container).
