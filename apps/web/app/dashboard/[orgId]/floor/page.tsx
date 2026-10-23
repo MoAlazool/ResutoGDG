@@ -48,9 +48,13 @@ function FloorPageInner() {
 
   return (
     <>
-      <div className="spread floor-tabs">
-        <Tabs tabs={tabs} value={tab} onChange={(k) => router.replace(href(k), { scroll: false })} label={t('nav.floor')} />
-      </div>
+      {/* The Studio is a full-screen editor with its own "Back to service" link: the tab bar it covers is not rendered, so
+          keyboard and screen-reader users cannot land on controls hidden behind it. */}
+      {tab !== 'studio' && (
+        <div className="spread floor-tabs">
+          <Tabs tabs={tabs} value={tab} onChange={(k) => router.replace(href(k), { scroll: false })} label={t('nav.floor')} />
+        </div>
+      )}
       {!branch ? (
         <div className="panel"><EmptyState title={t('studio.noBranchTitle')}>{t('studio.noBranchBody')}</EmptyState></div>
       ) : tab === 'live' ? (

@@ -216,8 +216,8 @@ export function TableDetail({ table, orgId, branchId, currency, timezone, canSea
   const shown = new Set(tableActionKeys(table, canSeat));
   const run = (p: Promise<void>) => void p;
   return (
-    <section className="panel table-detail" aria-live="polite">
-      <div className="table-title"><h2>{table.label}</h2><span className={`badge state-badge state-${s.state}`}>{t(`ops.floor.state.${s.key}`)}</span></div>
+    <section className="panel table-detail" aria-live="polite" aria-labelledby={`table-detail-${table.id}`}>
+      <div className="table-title"><h2 id={`table-detail-${table.id}`}>{table.label}</h2><span className={`badge state-badge state-${s.state}`}>{t(`ops.floor.state.${s.key}`)}</span></div>
       <p className="fine">{L.seatsLabel(table.capacity)}{table.zone ? <> · {L.labelOf(table.zone)}</> : null}</p>
       {v ? (
         <>
