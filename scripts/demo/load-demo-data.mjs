@@ -604,7 +604,16 @@ async function createLive() {
   }
   const qrSheet = await must('GET', O(`/floor/${C.MAIN.id}/qr`), { token: C.OWNER.token });
   const qrFor = (label) => qrSheet.items.find((x) => x.label === label).url.split('/t/')[1];
-  const sess = await must('POST', `/public/tables/${qrFor('T2')}/session`);
+  // A guest scans T2 (the legacy demo's table) unless the API keeps it free for a booking starting soon or a party
+  // already sits there; then the next free table is used, as a real guest would be seated elsewhere.
+  let sess = null;
+  let qrTable = null;
+  for (const label of ['T2', ...qrSheet.items.map((x) => x.label).filter((l) => l !== 'T2')]) {
+    const r = await call('POST', `/public/tables/${qrFor(label)}/session`);
+    if (r.status < 300) { sess = r.body; qrTable = label; break; }
+    if (r.status !== 409) throw new Error(`POST /public/tables/<${label}>/session → ${r.status} ${JSON.stringify(r.body).slice(0, 300)}`);
+  }
+  if (!sess) throw new Error('no table is free for the demo QR visit');
   const V = { 'X-Visit-Token': sess.token };
   await must('POST', '/public/visits/current/orders', { headers: { ...V, 'Idempotency-Key': key('qr') }, body: { lines: [line(chicken, 2), line(hibiscus, 2)], notes: 'Birthday table (demo)' } });
   await must('POST', '/public/visits/current/requests', { headers: V, body: { kind: 'waiter' } });
@@ -623,7 +632,7 @@ async function createLive() {
     if (r.status >= 300) console.warn(`  reservation ${date} ${time} not created: ${r.body?.error?.code ?? r.status} (e.g. the time has passed today)`);
     else booked++;
   }
-  log(`today: kitchen tickets (new / preparing / ready), a QR visit on T2 with an order and a waiter call, ${booked} new reservation(s)`);
+  log(`today: kitchen tickets (new / preparing / ready), a QR visit on ${qrTable} with an order and a waiter call, ${booked} new reservation(s)`);
 
   // WhatsApp (sandbox transport: nothing reaches Meta)
   const [existing] = await q(`select id from messaging_channels where org_id = $1 and transport = 'sandbox' order by created_at limit 1`, [C.ORG]).catch(() => []);
