@@ -24,13 +24,16 @@ measurements, redeploy staging and re-verify.
 | Wave 5: auth hardening (Free plan, no SMTP) + API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB roles, shared rate limits) | done |
 | Wave 6: visual parity with the original Resuto (gallery-driven PAR-01..09) + demo loader fixes | done, on staging: web/AI/MCP `145156d`, API `aaec04e` |
 | Wave 7: ws13 polish (POL-01..03), ws14a API remainders, ws14b web remainders, ws14c legacy counter / venue QR session (FT-07); demo-loader stale-visit fix, graceful in-process worker shutdown | done, on staging: web/AI/MCP `e711f39`, API `435f602` (smoke 43/43, MCP 7/7, demo integrity holds) |
-| Wave 8 (in progress): ws15 guest repeat-visit LCP race (PERF-01). Then final deploy, handoff report (`docs/HANDOFF.md`) | in progress |
+| Wave 8: ws15 guest repeat-visit LCP race (PERF-01): repeat LCP 1.4 s → 0.3 s | done |
+| Final deploy + regression + handoff (`docs/HANDOFF.md`) | done: all four services at `424687d` (smoke 43/43, MCP 7/7, demo integrity holds) |
 
 ## Next executable task
-When ws15 (`ws/ws15-guest-lcp`, item file `ws/ws15-guest-lcp.json` in the programme scratchpad) returns: merge, run
-the suites, deploy web (Vercel CLI production deployment) and API (Render), re-run the staging checks, then finish
-`docs/HANDOFF.md` and publish it. Gallery v3 (landing, order status, reservations recaptured after ws13):
-https://claude.ai/artifact/PybNvTkVh4jW45QcJ93hZL. Staging soak continues; then, with the owner, `resuto_api` login.
+Nothing internal is blocked. Owner-dependent next steps, in order (details in `docs/HANDOFF.md` §7): provider TEST
+credentials → run `scripts/providers/acceptance.mjs` per provider and record; switch staging `DATABASE_URL` to the
+`resuto_api` login and drop `DATABASE_PLATFORM_FALLBACK`; SMTP to verify email flows; Supabase password settings.
+Internal follow-ups if time allows: partial items in `docs/BACKLOG.md` marked "deliberately scoped" (PS-19 response
+schemas, PCL-24 render on 304, CR-12 WhatsApp ordering link srcset, VP-17 guest titles, VS-26 AI floor import).
+Gallery (v3): https://claude.ai/artifact/PybNvTkVh4jW45QcJ93hZL.
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
 - **Vercel**: the claude.ai Vercel connector still has no grant for team "ta-nk", so deploys use the Vercel CLI,
