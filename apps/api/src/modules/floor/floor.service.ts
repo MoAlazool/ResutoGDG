@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { VISIT_RULES, type FloorLayout, type FloorSaveInput, type FloorTable, type LiveFloor, type PublicFloor, type QrSheetItem, type VenueQr } from '@resuto/contracts';
+import { VISIT_RULES, type FloorLayout, type FloorSaveInput, type FloorTable, type LiveFloor, type PublicFloor, type QrSheetItem } from '@resuto/contracts';
 import QRCode from 'qrcode';
 import type { TenantContext } from '../../common/auth/context';
 import { newToken } from '../../common/crypto/hash';
@@ -193,19 +193,6 @@ export class FloorService {
     });
     const url = `${this.env.APP_ORIGIN.replace(/\/$/, '')}/t/${t.qr_token}`;
     return { tableId: t.id, label: t.label, url, svg: await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) };
-  }
-
-  /**
-   * The single venue QR of a counter branch (FT-07, legacy /qr/venue): the branch's public ordering page, where every
-   * scan starts that guest's own pickup order. It carries no secret (the page is public), so floor:read may print it.
-   */
-  async venueQr(ctx: TenantContext, branchId: string): Promise<VenueQr> {
-    ctx.assertBranch(branchId);
-    const b = await this.db.scoped(ctx, (tx) => tx.maybeOne<{ code: string; slug: string }>(
-      `select b.code, o.slug from branches b join organizations o on o.id = b.org_id where b.id = $1 and b.org_id = $2`, [branchId, ctx.orgId]));
-    if (!b) throw notFound('Branch');
-    const url = `${this.env.APP_ORIGIN.replace(/\/$/, '')}/order/${b.slug}?branch=${encodeURIComponent(b.code)}`;
-    return { branchId, url, svg: await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) };
   }
 
   /** Sanitized geometry for reservation maps: no QR tokens, internal notes or live status. */

@@ -116,7 +116,7 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
   const cartSuggestions = useSuggestions(sheet === 'cart' && ordering ? '/public/visits/current/suggestions' : null, cartIds, visitHeaders(visit));
   const afterSuggestions = useSuggestions(sheet === 'more' && ordering ? '/public/visits/current/suggestions' : null, lastOrderedIds(view, menu), visitHeaders(visit));
   const branch = table?.branch ?? (menu ? { name: menu.branch.name, nameAr: menu.branch.nameAr } : null);
-  const tableLabel = view?.table.label ?? visit?.tableLabel ?? table?.table.label ?? '';
+  const tableLabel = view?.table?.label ?? visit?.tableLabel ?? table?.table.label ?? '';
   const header = (
     <ConsumerHeader org={org} branch={branch} menuHref={org ? `/order/${org.slug}` : null} reserveHref={org ? `/reserve/${org.slug}` : null} />
   );

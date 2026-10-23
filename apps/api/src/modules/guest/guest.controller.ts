@@ -11,6 +11,7 @@ import { Public } from '../../common/auth/decorators';
 import { notFound } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
+import { CounterService, VENUE_TOKEN } from '../orders/counter.service';
 import { VisitsService } from '../orders/visits.service';
 import { GuestAssistantService } from './assistant.service';
 import { PUBLIC_MENU_CACHE_CONTROL, PUBLIC_MENU_NO_STORE } from '../menu/menu.service';
@@ -43,7 +44,7 @@ const BAD_TOKEN_PER_IP = 60;
 export class GuestController {
   constructor(private readonly guest: GuestService, private readonly visits: VisitsService, private readonly limiter: RateLimiter,
     private readonly assistant: GuestAssistantService, private readonly ratings: GuestRatingsService,
-    private readonly guessing: TokenGuessGuard) {}
+    private readonly guessing: TokenGuessGuard, private readonly counter: CounterService) {}
 
   private limit(req: ResutoRequest, scope: string, token: string | undefined, perIp: number, perToken: number) {
     this.limiter.hit(`guest:${scope}:ip:${req.ip}`, perIp);
@@ -87,6 +88,30 @@ export class GuestController {
     if (!/^[A-Za-z0-9_-]{16,128}$/.test(qrToken)) throw notFound('Table');
     // A phone that just scanned in polls at once; its fresh token is known good even if someone here was guessing.
     return this.visits.tableSession(qrToken).then((s) => { this.guessing.worked(tokenKey(s.token)); return s; });
+  }
+
+  /** Read-only venue lookup for the counter page (FT-07): restaurant, branch and whether it takes counter orders. */
+  @Public()
+  @Get('venue/:token/counter')
+  counterView(@Param('token') token: string, @Req() req: ResutoRequest) {
+    // Read while the web server renders the counter page (one shared address for every guest), like the table GET.
+    this.limiter.hit(`guest:venue:ip:${req.ip}`, 600);
+    if (!VENUE_TOKEN.test(token ?? '')) throw notFound('Venue');
+    return this.counter.publicView(token);
+  }
+
+  /**
+   * Scan in at the counter (FT-07): opens this guest's own counter visit, or rejoins the open one this phone holds
+   * (X-Visit-Token). Every scan can open a visit, so a guest address gets 30 a minute and a venue code 300.
+   */
+  @Public()
+  @Post('venue/:token/session')
+  @HttpCode(200)
+  counterSession(@Param('token') token: string, @Headers('x-visit-token') visitToken: string | undefined, @Req() req: ResutoRequest) {
+    this.limiter.hit(`guest:venue-session:ip:${req.ip}`, 30);
+    if (!VENUE_TOKEN.test(token ?? '')) throw notFound('Venue');
+    this.limiter.hit(`guest:venue-session:code:${tokenKey(token)}`, 300);
+    return this.counter.session(token, visitToken).then((s) => { this.guessing.worked(tokenKey(s.token)); return s; });
   }
 
   @Public()

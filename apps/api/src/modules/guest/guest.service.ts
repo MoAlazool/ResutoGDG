@@ -36,6 +36,9 @@ export const toQuoteView = (q: Quote) => ({
   })),
 });
 
+/** A counter visit (FT-07) orders takeaway: priced and fulfilled as pickup, no table; a table visit dines in. */
+const visitFulfillment = (visit: { kind?: string }) => (visit.kind === 'counter' ? 'pickup' as const : 'dine_in' as const);
+
 const cartLines = (lines: CartLine[]) => lines.map((l) => ({ productId: l.productId, quantity: l.quantity, modifiers: l.modifiers, notes: l.notes ?? null }));
 
 /**
@@ -83,7 +86,7 @@ export class GuestService {
 
   quote(token: string | undefined, body: { lines: CartLine[]; promotionCode?: string | null; loyaltyRewardId?: string | null }) {
     return this.visits.withGuest(token, async (tx, g) => toQuoteView(await this.pricing.quote(tx, g.ctx.orgId, {
-      branchId: g.visit.branch_id, fulfillment: 'dine_in', lines: cartLines(body.lines), promotionCode: body.promotionCode ?? null, channel: 'qr',
+      branchId: g.visit.branch_id, fulfillment: visitFulfillment(g.visit), lines: cartLines(body.lines), promotionCode: body.promotionCode ?? null, channel: 'qr',
       // Only a customer a member of staff identified (seated by the host) may be shown a balance or redeem; a QR
       // self-opened visit inherits an unverified reservation phone and is anonymous for loyalty (FT-03).
       customerId: g.visit.customer_id, customerIdentified: visitCustomerVerified(g.visit), loyaltyRewardId: body.loyaltyRewardId ?? null,
@@ -113,7 +116,7 @@ export class GuestService {
         throw conflict('bill_settling', 'A payment is being processed. New orders resume as soon as it finishes.');
       }
       const placed = await this.kernel.place(tx, g.ctx, {
-        branchId: g.visit.branch_id, channel: 'qr', fulfillment: 'dine_in', tableId: g.visit.table_id, visitId: g.visit.id,
+        branchId: g.visit.branch_id, channel: 'qr', fulfillment: visitFulfillment(g.visit), tableId: g.visit.table_id, visitId: g.visit.id,
         customerId: g.visit.customer_id, lines: cartLines(body.lines), notes: body.notes ?? null, promotionCode: body.promotionCode ?? null,
         customerIdentified: visitCustomerVerified(g.visit), loyaltyRewardId: body.loyaltyRewardId ?? null,
         expectedTotalMinor: body.expectedTotalMinor,
@@ -132,6 +135,8 @@ export class GuestService {
 
   request(token: string | undefined, kind: 'waiter' | 'bill') {
     return this.visits.withGuest(token, async (tx, g) => {
+      // A counter guest has no waiter; "Pay at the counter" is the bill request the cashier sees (legacy counter page).
+      if (kind === 'waiter' && g.visit.kind === 'counter') throw conflict('request_unavailable', 'Counter orders are collected at the counter.');
       // One open request per kind (legacy dedupe); repeats return the existing one.
       const inserted = await tx.maybeOne<any>(
         `insert into service_requests(org_id, branch_id, visit_id, kind) values ($1, $2, $3, $4)

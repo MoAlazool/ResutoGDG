@@ -252,10 +252,15 @@ export class OrdersService implements OrdersQueryPort {
     if (branchId) ctx.assertBranch(branchId);
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select s.*, t.label as table_label, t.id as table_id from service_requests s join visits v on v.id = s.visit_id join dining_tables t on t.id = v.table_id
+        `select s.*, t.label as table_label, t.id as table_id, v.kind as visit_kind,
+                (select o.number from orders o where o.visit_id = v.id and o.status <> 'cancelled' and v.kind = 'counter'
+                  order by o.placed_at desc, o.id desc limit 1) as ticket
+           from service_requests s join visits v on v.id = s.visit_id left join dining_tables t on t.id = v.table_id
           where s.org_id = $1 and s.status <> 'resolved' and ($2::uuid is null or s.branch_id = $2) and ($3::uuid[] is null or s.branch_id = any($3::uuid[]))
           order by s.created_at`, [ctx.orgId, branchId ?? null, ctx.branchFilter]);
-      return { items: rows.map((r) => ({ id: r.id, kind: r.kind, status: r.status, visitId: r.visit_id, tableId: r.table_id, tableLabel: r.table_label, branchId: r.branch_id, createdAt: iso(r.created_at) })) };
+      // A counter visit (FT-07) has no table: its request carries the ticket number the guest quotes at the till.
+      return { items: rows.map((r) => ({ id: r.id, kind: r.kind, status: r.status, visitId: r.visit_id, tableId: r.table_id, tableLabel: r.table_label,
+        visitKind: r.visit_kind === 'counter' ? 'counter' : 'table', ticket: r.ticket ?? null, branchId: r.branch_id, createdAt: iso(r.created_at) })) };
     });
   }
 

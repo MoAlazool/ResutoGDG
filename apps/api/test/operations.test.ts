@@ -73,7 +73,9 @@ describe('service model and venue QR (VS-16, FT-07)', () => {
     const org = await t.http.get(S('')).set(auth(shop.owner));
     expect(org.body.branches[0]).toMatchObject({ serviceMode: 'counter', acceptsDineIn: false });
     const venue = await t.http.get(S(`/floor/${shop.branchId}/venue-qr`)).set(auth(shop.owner));
-    expect(venue.body.url).toBe(`http://app.test/order/${shop.slug}?branch=${org.body.branches[0].code}`);
+    // FT-07: a counter branch's venue QR opens the counter session (/v/<venue token>), no longer the ordering page.
+    expect(venue.body).toMatchObject({ kind: 'counter' });
+    expect(venue.body.url).toMatch(/^http:\/\/app\.test\/v\/[A-Za-z0-9_-]{43}$/);
     expect(venue.body.svg).toContain('<svg');
     const k = await t.http.get(S(`/kitchen/${shop.branchId}`)).set(auth(shop.owner));
     expect(k.body.serviceMode).toBe('counter');

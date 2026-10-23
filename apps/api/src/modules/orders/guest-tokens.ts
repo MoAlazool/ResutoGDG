@@ -74,6 +74,18 @@ export class GuestTokens {
     return this.matching('reservation', reservationId, storedHash);
   }
 
+  /**
+   * The venue (counter) QR token of a branch (FT-07): HMAC over the branch id and its current nonce. Only sha256 of it
+   * is stored (branches.venue_qr_hash), so it is re-derived to print the code again: with the stored hash, the ring
+   * token that produced it (null when that key was retired); without it, the active-key token for a new nonce.
+   */
+  venueToken(branchId: string, nonce: string): string;
+  venueToken(branchId: string, nonce: string, storedHash: string | null | undefined): string | null;
+  venueToken(branchId: string, nonce: string, storedHash?: string | null): string | null {
+    if (storedHash === undefined) return this.derive(this.active, 'venue', `${branchId}:${nonce}`);
+    return this.matching('venue', `${branchId}:${nonce}`, storedHash);
+  }
+
   private matching(kind: string, id: string, storedHash: string | null | undefined): string | null {
     if (!storedHash) return null;
     for (const key of this.ring) {

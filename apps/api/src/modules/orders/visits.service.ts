@@ -276,7 +276,8 @@ export class VisitsService {
    * that sends it back can be answered with `{ unchanged: true }` (PCL-18).
    */
   async guestView(tx: Tx, visit: any): Promise<GuestVisitLive> {
-    const table = await tx.one<{ id: string; label: string }>('select id, label from dining_tables where id = $1', [visit.table_id]);
+    // A counter visit (FT-07) has no table; its ticket is the number of its latest order that is not cancelled.
+    const table = visit.table_id ? await tx.one<{ id: string; label: string }>('select id, label from dining_tables where id = $1', [visit.table_id]) : null;
     const org = await tx.one<{ currency: string }>('select currency from organizations where id = $1', [visit.org_id]);
     const orders = await tx.query<any>('select id, number, status, fulfillment, total_minor, placed_at from orders where visit_id = $1 order by placed_at', [visit.id]);
     const ids = orders.map((o) => o.id);
@@ -289,8 +290,11 @@ export class VisitsService {
     const requests = await tx.query<any>(`select kind, status, created_at from service_requests where visit_id = $1 and status <> 'resolved' order by created_at`, [visit.id]);
     const totals = await this.totals(tx, visit.id);
     const rated = !!(await tx.maybeOne(`select 1 from guest_ratings where visit_id = $1 and source = 'table'`, [visit.id]));
+    const live = orders.filter((o) => o.status !== 'cancelled');
     const view: Omit<GuestVisitLive, 'version'> = {
+      kind: visit.kind === 'counter' ? 'counter' : 'table',
       visitId: visit.id, status: visit.status, table, branchId: visit.branch_id, currency: org.currency,
+      ticket: visit.kind === 'counter' && live.length ? String(live[live.length - 1]!.number) : null,
       orders: orders.map((o) => ({
         id: o.id, number: o.number, status: o.status, fulfillment: o.fulfillment, totalMinor: o.total_minor, placedAt: o.placed_at.toISOString(),
         lines: lines.filter((l) => l.order_id === o.id).map((l) => ({
@@ -389,7 +393,7 @@ export class VisitsService {
     await tx.query(
       `update visits set status = 'closed', closed_at = now(), closed_by = $2, close_reason = $3, unused_credit_minor = $4 where id = $1`,
       [v.id, ctx.userId, reason, unused]);
-    await tx.query(`update dining_tables set status = $2::table_status where id = $1 and status <> 'out_of_service'`, [v.table_id, needsCleaning ? 'cleaning' : 'available']);
+    if (v.table_id) await tx.query(`update dining_tables set status = $2::table_status where id = $1 and status <> 'out_of_service'`, [v.table_id, needsCleaning ? 'cleaning' : 'available']);
     await tx.query(`update service_requests set status = 'resolved', resolved_at = now() where visit_id = $1 and status <> 'resolved'`, [v.id]);
     if (v.reservation_id) {
       await tx.query(
@@ -417,7 +421,7 @@ export class VisitsService {
       const activity = await tx.maybeOne(`select 1 from orders where visit_id = $1 union all select 1 from payments where visit_id = $1 limit 1`, [visitId]);
       if (activity) throw conflict('visit_has_activity', 'This table already has activity. Close the visit instead.');
       await tx.query(`update visits set status = 'closed', closed_at = now(), closed_by = $2, close_reason = 'undo', undone_at = now() where id = $1`, [visitId, ctx.userId]);
-      await tx.query(`update dining_tables set status = 'available' where id = $1 and status = 'occupied'`, [v.table_id]);
+      if (v.table_id) await tx.query(`update dining_tables set status = 'available' where id = $1 and status = 'occupied'`, [v.table_id]);
       if (v.reservation_id) {
         await tx.query(
           `update reservations set status = 'confirmed', seated_visit_id = null, checked_in_at = null,
@@ -453,8 +457,10 @@ export class VisitsService {
     if (branchId) ctx.assertBranch(branchId);
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query<any>(
-        `select v.id, v.branch_id, v.table_id, t.label as table_label, v.party_size, v.opened_at, v.opened_via, v.reservation_id,
+        `select v.id, v.branch_id, v.table_id, v.kind, t.label as table_label, v.party_size, v.opened_at, v.opened_via, v.reservation_id,
                 r.guest_name, o2.currency,
+                (select o3.number from orders o3 where o3.visit_id = v.id and o3.status <> 'cancelled' and v.kind = 'counter'
+                  order by o3.placed_at desc, o3.id desc limit 1) as ticket,
                 count(o.id) filter (where o.status <> 'cancelled')::int as order_count,
                 count(o.id) filter (where o.status not in ${FULFILLED})::int as open_orders,
                 coalesce(sum(o.total_minor) filter (where o.status <> 'cancelled'), 0)::bigint as total,
@@ -474,6 +480,7 @@ export class VisitsService {
       return {
         items: rows.map((v) => ({
           id: v.id, branchId: v.branch_id, tableId: v.table_id, tableLabel: v.table_label, partySize: v.party_size,
+          kind: v.kind === 'counter' ? 'counter' as const : 'table' as const, ticket: v.ticket ?? null,
           openedAt: new Date(v.opened_at).toISOString(), openedVia: v.opened_via, reservationId: v.reservation_id, guestName: v.guest_name,
           orderCount: v.order_count, openOrders: v.open_orders, totalMinor: Number(v.total), paidMinor: Number(v.paid),
           creditMinor: Number(v.credit), dueMinor: Math.max(0, Number(v.total) - Number(v.paid) - Number(v.credit)),
@@ -540,6 +547,39 @@ export class VisitsService {
         this.logger.warn(`auto-close ${c.id} failed: ${(error as Error).message}`);
       }
     }
-    return { candidates: candidates.length, closed };
+    const abandoned = await this.closeAbandonedCounters(asOf);
+    return { candidates: candidates.length, closed, abandoned };
+  }
+
+  /**
+   * Counter visits (FT-07) that ordered nothing and took no payment are closed COUNTER_ABANDON after the scan, so
+   * scans that never became orders do not pile up on the visits board (and count against the branch's open cap).
+   */
+  private async closeAbandonedCounters(asOf: Date) {
+    const before = new Date(asOf.getTime() - VISIT_RULES.counterAbandonMs);
+    const rows = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string }>(
+      `select v.id, v.org_id from visits v
+        where v.status = 'open' and v.kind = 'counter' and v.opened_at <= $1
+          and not exists (select 1 from orders o where o.visit_id = v.id)
+          and not exists (select 1 from payments p where p.visit_id = v.id)
+        limit 500`, [before]));
+    let closed = 0;
+    for (const c of rows) {
+      const ctx = TenantContext.system(c.org_id, 'visit-auto-close');
+      try {
+        const done = await this.db.withTenant(c.org_id, async (tx) => {
+          const v = await tx.maybeOne<any>(`select * from visits where id = $1 and status = 'open' and kind = 'counter' for update`, [c.id]);
+          if (!v) return false;
+          if (await tx.maybeOne(`select 1 from orders where visit_id = $1 union all select 1 from payments where visit_id = $1 limit 1`, [v.id])) return false;
+          await this.settle(tx, ctx, v, 'auto', false);
+          await this.audit.record(tx, ctx, { action: 'visit.abandoned_closed', entityType: 'visit', entityId: v.id, branchId: v.branch_id });
+          return true;
+        }, 'system:visit-auto-close');
+        if (done) closed++;
+      } catch (error) {
+        this.logger.warn(`abandoned counter ${c.id} failed: ${(error as Error).message}`);
+      }
+    }
+    return closed;
   }
 }

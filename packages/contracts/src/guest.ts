@@ -20,6 +20,29 @@ export interface PublicTableView {
 }
 
 // ---------------------------------------------------------------------------
+// Counter / venue QR (FT-07): GET /v1/public/venue/:token/counter and POST /v1/public/venue/:token/session
+// ---------------------------------------------------------------------------
+/** Read-only venue lookup for the counter page: no session side effects, no token or visit id. */
+export interface PublicCounterView {
+  org: { name: string; nameAr: string | null; slug: string; currency: 'EGP' | 'SAR' };
+  branch: { id: string; code: string; name: string; nameAr: string | null };
+  /** Whether scanning in can start a counter order right now (the session call decides for sure). */
+  accepting: boolean;
+  /** Why not: branch_closed | not_counter. */
+  reason: string | null;
+  cover: string | null;
+}
+/** A counter visit: the guest's own table-less visit (same X-Visit-Token as a table visit). */
+export interface CounterSession {
+  kind: 'counter';
+  token: string; visitId: string; orgId: string; branchId: string; currency: 'EGP' | 'SAR';
+  org: { name: string; nameAr: string | null; slug: string };
+  branch: { code: string; name: string; nameAr: string | null };
+  /** true when this scan opened a new counter visit; false when the phone's open visit was rejoined. */
+  opened: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Visit polling (GET /v1/public/visits/current?v=<version>)
 // ---------------------------------------------------------------------------
 export type GuestVisitOrder = GuestVisitView['orders'][number] & {

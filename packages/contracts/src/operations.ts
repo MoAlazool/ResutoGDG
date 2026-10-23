@@ -22,8 +22,17 @@ export const serviceModeRequest = z.object({
 });
 export type ServiceModeRequest = z.infer<typeof serviceModeRequest>;
 
-/** The single venue QR of a counter branch: the branch's public ordering page (no secret in it). */
-export interface VenueQr { branchId: string; url: string; svg: string }
+/**
+ * The single venue QR of a branch. Counter branches (FT-07): `/v/<token>`, where every scan opens that guest's own
+ * counter visit; the token is the branch's venue credential (stored hashed, rotatable). Other branches: the public
+ * ordering page, which carries no secret.
+ */
+export interface VenueQr {
+  branchId: string; url: string; svg: string;
+  kind: 'counter' | 'order';
+  /** When the counter code was last issued or rotated (null for the ordering page). */
+  rotatedAt: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Guided setup (legacy /manager/setup, 8 steps). Completion is derived from data on the server, never self-asserted.
@@ -56,6 +65,9 @@ export interface SetupChecklist {
 export const visitListQuery = z.object({ branchId: uuid.optional(), status: z.enum(['open']).default('open') });
 export interface VisitSummary {
   id: string; branchId: string; tableId: string | null; tableLabel: string | null; partySize: number | null;
+  /** `counter`: a venue-QR counter visit (FT-07, no table); `ticket` is the number the guest quotes at the till. */
+  kind: 'table' | 'counter';
+  ticket: string | null;
   openedAt: string; openedVia: string; reservationId: string | null; guestName: string | null;
   orderCount: number; openOrders: number; totalMinor: number; paidMinor: number; creditMinor: number; dueMinor: number;
   /** A payment is in flight or a split is open: guests cannot add orders ("Billing locked"). */

@@ -11978,6 +11978,50 @@
         ]
       }
     },
+    "/v1/o/{orgId}/floor/{branchId}/venue-qr/rotate": {
+      "post": {
+        "operationId": "Floor_rotateVenueQr",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "branchId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "floor"
+        ],
+        "x-resuto-permissions": [
+          "floor:write"
+        ]
+      }
+    },
     "/v1/o/{orgId}/integrations/catalog": {
       "get": {
         "operationId": "Integrations_catalog",
@@ -35034,6 +35078,78 @@
             "in": "path",
             "name": "token",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/v1/public/venue/{token}/counter": {
+      "get": {
+        "operationId": "Guest_counterView",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/v1/public/venue/{token}/session": {
+      "post": {
+        "operationId": "Guest_counterSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-visit-token",
+            "required": false,
             "schema": {
               "type": "string"
             }

@@ -21,6 +21,7 @@ export const KDS_MARKER_SQL = `select coalesce((extract(epoch from greatest(
 /** Ticket columns shared by the open board and the Completed lane. */
 const TICKET_COLUMNS = `o.id, o.number, o.status, o.fulfillment, o.channel, o.customer_name, o.placed_at, o.accepted_at, o.fulfilled_at, o.notes, o.version,
               greatest(o.total_minor - (o.paid_minor - o.refunded_minor), 0)::bigint as due_minor, t.label as table_label,
+              (o.visit_id is not null and o.table_id is null) as counter,
               (o.status = 'ready' and o.fulfillment = 'delivery'
                 and exists (select 1 from order_lines l where l.order_id = o.id and l.kitchen_status <> 'cancelled')
                 and not exists (select 1 from order_lines l where l.order_id = o.id and l.kitchen_status not in ('served', 'cancelled'))) as handed_off,
@@ -88,7 +89,7 @@ export class KitchenService {
         where l.order_id = any($1::uuid[]) and ($2::text is null or l.station = $2) order by l.line_seq`,
       [orders.map((o) => o.id), station ?? null]);
     return orders.map((o) => ({
-      id: o.id, number: o.number, status: o.status, fulfillment: o.fulfillment, channel: o.channel, tableLabel: o.table_label,
+      id: o.id, number: o.number, status: o.status, fulfillment: o.fulfillment, channel: o.channel, tableLabel: o.table_label, counter: !!o.counter,
       customerName: o.customer_name, placedAt: o.placed_at.toISOString(), acceptedAt: o.accepted_at?.toISOString() ?? null,
       ageSeconds: Math.max(0, Math.round((now.getTime() - o.placed_at.getTime()) / 1000)), notes: o.notes, version: o.version,
       isNew: o.status === 'placed' && now.getTime() - o.placed_at.getTime() < NEW_TICKET_SECONDS * 1000,
