@@ -293,3 +293,25 @@ Staging:
   three local SIGTERM runs: no errors, 200-300 ms.
 - Open: repeat-visit LCP on `/order/<slug>` regressed from ~0.3 s to ~1.35 s (a pre-existing Suspense reveal race
   that the responsive-photo change tipped; `/t/<qr>` already had it). Being fixed in ws15 (PERF-01).
+
+## Continuation wave 8 (guest first paint) — integrated (2026-10-23, `424687d`)
+
+ws15 fixed PERF-01: `/order/<slug>` and `/t/<qr>` no longer stream their content behind a `loading.tsx` boundary,
+so the heading and menu are in the first HTML; a cold menu read past 1.2 s renders the heading and the branded
+skeleton and the browser loads the menu (independent review: 1 major — a table not taking orders stayed on the
+skeleton when the menu read was slow — fixed and browser-verified; 2 minor, fixed). Measured A/B, 5 runs per build:
+repeat-visit LCP web-order 1,440 / 1,380 → 312 / 312 ms, guest QR 1,356 / 1,536 → 300 / 296 ms; first-visit LCP and
+CLS not worse (details and raw JSON in `docs/PERFORMANCE.md`, `docs/perf-results/2026-10-23-perf01-*`).
+
+| Suite (`424687d`) | Result |
+|---|---|
+| Web unit | **463 / 463** (21 first-paint guards; they fail when a loading boundary is restored) |
+| Web typecheck, production build, bundle budget | pass (`/order/[slug]` 167.8/170 kB, `/t/[qr]` 177.6/178 kB ratchet) |
+| Demo loader / staging / UI scripts | **60 / 60** |
+| E2E Chromium `guest-first-paint.spec.ts` (ws15 stack) | **2 / 2** |
+| API, DB, contracts, integrations, MCP | unchanged since wave 7 (914+4 skipped, 82, 59, 320, 27) |
+
+Staging: web (`dpl_8j4jkXKJfwCkFs8K22nEbfdAQQAB`, aliased to the staging URL, Deployment Protection 302 → Vercel
+SSO), API, AI and MCP all at `424687d`; `smoke.mjs` **43 / 43** with the commit pinned on API/AI/MCP,
+`mcp-check.mjs` **7 / 7**; boot demo refresh **"all assertions hold."**; no pool, grant or permission errors in the
+API log, including the previous instance's shutdown (`435f602`, graceful worker drain).

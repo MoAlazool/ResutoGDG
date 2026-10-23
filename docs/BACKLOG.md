@@ -232,6 +232,7 @@ Status is updated as workstreams land. "NR" rows are checks that did not reprodu
 | CR-13 | P2 | Legacy data migration tool unaudited: drops all legacy media and maps the venue QR to a mode 2.0 does not have | ws10-data-quality | done (wave 4, a0dfda0) |
 | CR-14 | P2 | No observability for staging QA: no error tracking, structured access log, uptime or queue-lag alerting | ws10-data-quality | done (wave 4, a0dfda0) |
 | CR-15 | P2 | Status docs and code comments instruct unsafe or incorrect configuration (beyond PAY-22 and INT-16) | ws10-data-quality | done (wave 4, a0dfda0) |
+| PERF-01 | P1 | Guest repeat-visit LCP race: /order/<slug> ~1.35 s and /t/<qr> ~1.4 s on a repeat visit (content revealed after hydration behind loading.tsx) | ws15-guest-lcp | done (wave 8, 424687d: repeat LCP 312 / 300 ms; heading and menu in the first HTML) |
 | AUTH-01 | P1 | Leaked-password protection unavailable on Supabase Free: compensating breached/common password check | ws11-auth | done (wave 5, 7400bb6) |
 | AUTH-02 | P1 | TOTP MFA with aal2 step-up for enrolled staff on sensitive routes | ws11-auth | done (wave 5, 7400bb6) |
 | AUTH-03 | P1 | Email-dependent auth flows complete without SMTP, honestly labelled | ws11-auth | partial (wave 5; real email unverified until SMTP) |
