@@ -33,7 +33,9 @@ vi.mock('@/components/guest/server', async (importOriginal) => ({
 
 const { default: OrderPage } = await import('@/app/order/[slug]/(menu)/page');
 const { default: TablePage } = await import('@/app/t/[qr]/page');
-const { GUEST_MENU_BUDGET_MS, within } = await import('./server');
+const { MenuPending } = await import('@/app/t/[qr]/_guest/TableExperience');
+const { menuSource } = await import('@/app/t/[qr]/_guest/menu-source');
+const { GUEST_MENU_BUDGET_MS, GUEST_MENU_MIN_MS, menuBudget, within } = await import('./server');
 
 const APP = fileURLToPath(new URL('../../app/', import.meta.url));
 const dish = (id: string, name: string): PublicMenuProduct => ({
@@ -71,7 +73,7 @@ describe('guest routes have no loading boundary above the page (PERF-01)', () =>
     it(name, () => {
       for (const dir of dirs) {
         for (const f of ['loading.tsx', 'loading.ts', 'loading.jsx', 'loading.js']) expect(existsSync(join(APP, dir, f)), `${dir}/${f}`).toBe(false);
-        for (const f of ['layout.tsx', 'page.tsx']) {
+        for (const f of ['layout.tsx', 'page.tsx', 'template.tsx']) {
           const file = join(APP, dir, f);
           if (existsSync(file)) expect(readFileSync(file, 'utf8'), `${dir}/${f}`).not.toMatch(/<Suspense\b/);
         }
@@ -125,6 +127,44 @@ describe('a slow menu read does not hold the page (GUEST_MENU_BUDGET_MS)', () =>
     const out = html('ar', await page);
     expect(out).toMatch(/<h1[\s>]/);
     expect(out).toContain('gx-menu-skeleton');
+    expect(out).not.toContain('gx-dish-name');
+  });
+
+  it('QR table not taking orders: the same skeleton, and the browser then loads the public menu (no visit to wait for)', async () => {
+    vi.useFakeTimers();
+    const closed = { ...table, accepting: false, reason: 'cleaning' } as unknown as PublicTableView;
+    reads.fn.mockImplementation((path: string) => (path.startsWith('/public/tables/') ? Promise.resolve({ status: 'ok', data: closed }) : never()));
+    const page = qrPage();
+    await vi.advanceTimersByTimeAsync(GUEST_MENU_BUDGET_MS);
+    const out = html('en', await page);
+    expect(out).toContain('gx-menu-skeleton');
+    expect(out).not.toContain('gx-dish-name');
+    // TableExperience marks such a table 'unavailable' without opening a session: the menu comes from the table lookup.
+    expect(menuSource({ hasMenu: false, visit: null, phase: 'unavailable', table: closed })).toEqual({ path: '/public/menu/the-olive-room?branch=main' });
+  });
+
+  it('the budget counts from the start of the request: a slow table read leaves the menu read less time', async () => {
+    vi.useFakeTimers();
+    let menuAsked = false;
+    reads.fn.mockImplementation((path: string) => {
+      if (path.startsWith('/public/tables/')) return new Promise((r) => setTimeout(() => r({ status: 'ok', data: table }), 1000));
+      menuAsked = true;
+      return never();
+    });
+    let done = false;
+    const page = qrPage().then((p) => { done = true; return p; });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(menuAsked).toBe(true);
+    await vi.advanceTimersByTimeAsync(GUEST_MENU_BUDGET_MS - 1000 + 1);
+    expect(done).toBe(true);   // ~1.2 s after the request started, not 1 s + 1.2 s
+    expect(html('en', await page)).toContain('gx-menu-skeleton');
+  });
+
+  it('menuBudget(): what is left of the budget since the request started, never less than the minimum', () => {
+    expect(menuBudget(1000, 1000)).toBe(GUEST_MENU_BUDGET_MS);
+    expect(menuBudget(1000, 1400)).toBe(GUEST_MENU_BUDGET_MS - 400);
+    expect(menuBudget(1000, 1000 + GUEST_MENU_BUDGET_MS + 500)).toBe(GUEST_MENU_MIN_MS);
+    expect(menuBudget(1000, 900)).toBe(GUEST_MENU_BUDGET_MS);
   });
 
   it('within(): the read when it is in time, "late" after the budget (the read is not cancelled), timers cleared', async () => {
@@ -139,6 +179,37 @@ describe('a slow menu read does not hold the page (GUEST_MENU_BUDGET_MS)', () =>
     finish({ status: 'ok', data: 2 });
     expect(await slow).toEqual({ status: 'ok', data: 2 });
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('QR table: a menu that is not in the HTML is loaded in the browser (menu-source.ts)', () => {
+  const visit = { token: 'tok', visitId: 'v1', orgId: 'o1', branchId: 'b1', tableLabel: 'T4', currency: 'EGP' as const, savedAt: 0 };
+  it('the menu is there: nothing to load', () => {
+    expect(menuSource({ hasMenu: true, visit, phase: 'ready', table })).toBeNull();
+  });
+  it("with a visit: the visit's menu", () => {
+    expect(menuSource({ hasMenu: false, visit, phase: 'ready', table })).toEqual({ path: '/public/visits/current/menu', headers: { 'X-Visit-Token': 'tok' } });
+  });
+  it('while the session opens: wait for it', () => {
+    expect(menuSource({ hasMenu: false, visit: null, phase: 'joining', table })).toBeNull();
+  });
+  it('without a visit (not taking orders, session refused, visit closed): the public menu of the branch', () => {
+    for (const phase of ['unavailable', 'closed'] as const) {
+      expect(menuSource({ hasMenu: false, visit: null, phase, table })).toEqual({ path: '/public/menu/the-olive-room?branch=main' });
+    }
+  });
+  it('neither a visit nor the table: nothing to load from (the page offers Retry, which scans in again)', () => {
+    expect(menuSource({ hasMenu: false, visit: null, phase: 'unavailable', table: null })).toBeNull();
+  });
+  it('MenuPending: the skeleton while loading; a failure shows why and Retry, never an endless "Loading…"', () => {
+    const loading = html('en', h(MenuPending, { error: null, onRetry: () => {} }));
+    expect(loading).toContain('gx-menu-skeleton');
+    expect(loading).toContain('role="status"');
+    const failed = html('ar', h(MenuPending, { error: 'تعذّر تحميل القائمة.', onRetry: () => {} }));
+    expect(failed).toContain('role="alert"');
+    expect(failed).toContain('إعادة المحاولة');
+    expect(failed).not.toContain('gx-menu-skeleton');
+    expect(failed).not.toContain('جارٍ التحميل');
   });
 });
 

@@ -101,6 +101,19 @@ export function serverRead<T>(path: string, init: { revalidate?: number; tags?: 
  */
 export const GUEST_MENU_BUDGET_MS = 1200;
 
+/**
+ * The budget counts from the start of the request, not from the menu read (PERF-01 review): the route layouts first
+ * await the restaurant / table read, and on a cold server cache that time used to come on top of the 1.2 s, holding
+ * the first byte for up to read + 1.2 s. The layout and the page both call requestStartedAt() first thing; React's
+ * request memoisation keeps the earliest. The menu read always gets at least GUEST_MENU_MIN_MS, which a warm (cached)
+ * read answers well within.
+ */
+export const requestStartedAt = cache((): number => Date.now());
+export const GUEST_MENU_MIN_MS = 150;
+export function menuBudget(startedAt: number, now = Date.now()): number {
+  return Math.max(GUEST_MENU_MIN_MS, GUEST_MENU_BUDGET_MS - Math.max(0, now - startedAt));
+}
+
 /** `read`, or `{ status: 'late' }` once `ms` has passed (the read itself is not cancelled). */
 export function within<T>(read: Promise<ServerRead<T>>, ms: number): Promise<ServerRead<T> | { status: 'late' }> {
   let timer: ReturnType<typeof setTimeout> | undefined;

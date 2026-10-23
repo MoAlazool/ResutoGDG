@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { PublicTableView } from '@resuto/contracts';
-import { plausible, serverRead } from '@/components/guest/server';
+import { plausible, requestStartedAt, serverRead } from '@/components/guest/server';
 import { qrOutcome } from './qr-outcome';
 
 /**
@@ -15,6 +15,7 @@ import { qrOutcome } from './qr-outcome';
  * down) the guest gets the area's branded "try again" error, never a 404 for a valid printed code.
  */
 export default async function TableLayout({ children, params }: { children: ReactNode; params: Promise<{ qr: string }> }) {
+  requestStartedAt();   // the guest menu budget counts from here (components/guest/server.ts)
   const { qr } = await params;
   if (!plausible(qr) || !/^[A-Za-z0-9_-]{16,128}$/.test(qr)) notFound();
   const table = await serverRead<PublicTableView>(`/public/tables/${encodeURIComponent(qr)}`, { revalidate: 15, tags: [`table:${qr}`] });
