@@ -1,8 +1,23 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, type CallToolResult, type Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
+import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, type CallToolResult, type RequestId, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ApiError, type ResutoApi, type ToolCallResponse, type ToolDescriptor, type WhoAmI } from './api.js';
 
 export const SERVER_INFO = { name: 'resuto', title: 'Resuto', version: '0.1.0' } as const;
+
+/**
+ * A tool call the HTTP layer already made for one HTTP request (scope check, http.ts), with the JSON-RPC id and tool
+ * it answers. It travels with that request only (as the transport's authInfo, which the SDK hands to the handler of
+ * the messages in that HTTP request), never in state shared across requests, so another request reusing the id
+ * cannot be answered with it, and a request the transport rejects leaves nothing behind.
+ */
+export interface PrefetchedCall { id: RequestId; name: string; outcome: ToolCallResponse | ApiError }
+export const PREFETCHED_KEY = 'resutoPrefetchedCall';
+
+/** The request-scoped carrier the transport passes through (`req.auth` → `extra.authInfo`). */
+export function prefetchedAuthInfo(clientId: string, call: PrefetchedCall): AuthInfo {
+  return { token: '', clientId, scopes: [], extra: { [PREFETCHED_KEY]: call } };
+}
 
 const ERROR_HINTS: Record<string, string> = {
   forbidden: 'The Resuto connection is not permitted to do this (role, branch or tool restrictions). A restaurant admin can change the connection in Resuto → MCP.',
@@ -71,7 +86,9 @@ export function createMcpServer(api: ResutoApi, who: WhoAmI): Server {
     }
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
+    const done = extra.authInfo?.extra?.[PREFETCHED_KEY] as PrefetchedCall | undefined;
+    if (done && done.id === extra.requestId && done.name === req.params.name) return toCallToolResult(done.outcome);
     try {
       return toCallToolResult(await api.callTool(who.orgId, req.params.name, req.params.arguments ?? {}));
     } catch (e) {

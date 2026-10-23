@@ -100,4 +100,12 @@ export class AdminController {
     @Body(zod(adminStatusChange)) body: { reason: string }) {
     return this.admin.replayHandling(await this.admin.actor(p), eventId, handler, body.reason);
   }
+
+  /** Dead-letter replay of one verified provider webhook (PCL-13): a fresh retry budget for the inbox worker (superadmins; audited). */
+  @Post('operations/webhooks/:inboxId/replay')
+  @HttpCode(200)
+  @PlatformAdmin('superadmin')
+  async replayWebhook(@Principal() p: AuthPrincipal, @Param('inboxId') inboxId: string, @Body(zod(adminStatusChange)) body: { reason: string }) {
+    return this.admin.replayWebhook(await this.admin.actor(p), inboxId, body.reason);
+  }
 }

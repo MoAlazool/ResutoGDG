@@ -29,12 +29,48 @@ const tenantRow = (r: any): AdminTenantRow => ({
   counts: { branches: Number(r.branches), members: Number(r.members), orders30d: Number(r.orders30d) },
 });
 
+/**
+ * Orders placed in the last 30 days (every status, `placed_at > now() − 30 days`), computed the way the analytics
+ * reports are (PCL-28 remainder): whole local days inside the window that have a fresh rollup and are older than the
+ * live window (local today − 3) are summed from analytics_order_rollups (orders + cancelled + awaiting_payment = every
+ * order of that day); every other (branch, local day) slice of the window — the partial first day, the live days and
+ * stale days — is counted from orders through orders_branch_time_idx, one bounded slice at a time. The result equals
+ * the raw count (test/admin-orders30d.test.ts) without scanning a tenant's month of orders per row.
+ */
+export const ORDERS_30D = `(
+  with since as (select now() - interval '30 days' as t),
+  days as materialized (
+    select b.id as branch_id, coalesce(b.timezone, o.timezone) as tz, g.d::date as local_date
+      from branches b
+     cross join lateral generate_series(((select t from since) at time zone coalesce(b.timezone, o.timezone))::date,
+                                        (now() at time zone coalesce(b.timezone, o.timezone))::date, interval '1 day') g(d)
+     where b.org_id = o.id),
+  covered as materialized (
+    select d.branch_id, d.local_date from days d
+      join analytics_days a on a.branch_id = d.branch_id and a.local_date = d.local_date and not a.stale
+     where d.local_date < (now() at time zone d.tz)::date - 3
+       and (d.local_date::timestamp at time zone d.tz) > (select t from since)),
+  live as materialized (
+    select d.branch_id, d.tz, d.local_date, greatest((select t from since), d.local_date::timestamp at time zone d.tz) as from_ts,
+           case when d.local_date = (now() at time zone d.tz)::date then 'infinity'::timestamptz
+                else (d.local_date + 1)::timestamp at time zone d.tz end as to_ts
+      from days d
+     where not exists (select 1 from covered c where c.branch_id = d.branch_id and c.local_date = d.local_date))
+  select coalesce((select sum(r.orders + r.cancelled + r.awaiting_payment) from covered c
+                     join analytics_order_rollups r on r.branch_id = c.branch_id and r.local_date = c.local_date), 0)
+       + coalesce((select count(*) from live d
+                     cross join lateral (
+                       select 1 from orders x
+                        where x.org_id = o.id and x.branch_id = d.branch_id
+                          and x.placed_at > (select t from since) and x.placed_at >= d.from_ts and x.placed_at < d.to_ts
+                       offset 0) x), 0))`;
+
 const TENANT_SELECT = `
   select o.id, o.name, o.name_ar, o.slug, o.country, o.status, o.timezone, o.created_at, s.plan_id, s.status as sub_status,
          (select max(placed_at) from orders where org_id = o.id) as last_order_at,
          (select count(*) from branches b where b.org_id = o.id and b.is_active) as branches,
          (select count(*) from memberships m where m.org_id = o.id and m.status = 'active') as members,
-         (select count(*) from orders x where x.org_id = o.id and x.placed_at > now() - interval '30 days') as orders30d
+         ${ORDERS_30D} as orders30d
     from organizations o
     left join lateral (select plan_id, status from subscriptions where org_id = o.id
                         order by (status <> 'canceled') desc, created_at desc limit 1) s on true`;
@@ -307,6 +343,38 @@ export class AdminService {
       await this.audit(tx, actor, h.org_id, 'admin.event_handler_replayed', 'event_handling', `${eventId}:${handler}`,
         { eventType: h.event_type, handler, previousStatus: h.stuck ? 'stuck' : h.status, previousAttempts: h.attempts, reason });
       return { eventId, handler, status: 'queued' as const };
+    });
+  }
+
+  /**
+   * Re-queues one failed verified provider webhook (dead-lettered or waiting for its backoff) with a fresh retry budget;
+   * the inbox worker of its module processes it on its next run. Unsigned (rejected) deliveries are never replayable,
+   * and an event currently held by a request or worker (live lease) is refused with 409 until that attempt ends.
+   * Audited with the actor and the reason (PCL-13).
+   */
+  async replayWebhook(actor: PlatformAdminActor, inboxId: string, reason: string) {
+    if (!UUID.test(inboxId)) throw notFound('Webhook event');
+    return this.db.withPlatform(async (tx) => {
+      const w = await tx.maybeOne<{ provider: string; status: string; signature_valid: boolean; attempts: number; org_id: string | null;
+        dead: boolean; held_until: Date | null }>(
+        `select provider, status, signature_valid, attempts, org_id, dead_lettered_at is not null as dead,
+                case when locked_until > now() then locked_until end as held_until
+           from webhook_inbox where id = $1 for update`, [inboxId]);
+      if (!w) throw notFound('Webhook event');
+      if (!w.signature_valid || w.status !== 'failed') {
+        throw conflict('not_replayable', 'Only failed, verified webhook events can be replayed');
+      }
+      if (w.held_until) {
+        throw conflict('run_in_progress', `This event is being processed; retry after ${new Date(w.held_until).toISOString()}`,
+          { retryAfter: new Date(w.held_until).toISOString(), retryAfterSeconds: Math.max(1, Math.ceil((new Date(w.held_until).getTime() - Date.now()) / 1000)) });
+      }
+      await tx.query(
+        `update webhook_inbox set attempts = 0, next_attempt_at = now(), dead_lettered_at = null, alerted_at = null,
+            locked_until = null, claimed_by = null, replay_count = replay_count + 1, replayed_at = now()
+          where id = $1`, [inboxId]);
+      await this.audit(tx, actor, w.org_id, 'admin.webhook_replayed', 'webhook_inbox', inboxId,
+        { provider: w.provider, previousAttempts: w.attempts, deadLettered: w.dead, reason });
+      return { id: inboxId, provider: w.provider, status: 'queued' as const };
     });
   }
 

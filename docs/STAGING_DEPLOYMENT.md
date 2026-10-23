@@ -120,7 +120,9 @@ Start command: `node scripts/deploy/start-api.mjs` (migrations, then the API, th
 **Web (`resuto-2-staging-web`)**: `NEXT_PUBLIC_API_URL`, `API_INTERNAL_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable key), `NEXT_PUBLIC_APP_ORIGIN`, `NEXT_PUBLIC_DEMO_SLUG`,
 `NEXT_PUBLIC_MCP_URL`, `NEXT_PUBLIC_AUTH_EMAIL_DELIVERY=limited` (no SMTP sender yet; see Supabase Auth below),
-`APP_HOSTS=resuto-2-staging-web.vercel.app,.vercel.app`. Only `NEXT_PUBLIC_*`
+`APP_HOSTS=resuto-2-staging-web.vercel.app,.vercel.app`. Optional guest-address forwarding (REM-A11): the same
+`CLIENT_IP_FORWARD_SECRET` as the API plus `WEB_TRUST_PROXY=x-real-ip` (Vercel overwrites X-Real-IP); with either
+unset nothing is forwarded and guest pages share the web server's rate-limit bucket at the API. Only `NEXT_PUBLIC_*`
 values reach the browser, and none of them is a secret. Build: `apps/web/vercel.json`.
 
 **AI**: `AI_SERVICE_TOKEN`. **MCP**: `RESUTO_API_URL`, `MCP_PUBLIC_URL`, `MCP_PORT=10000`, `MCP_ALLOW_URL_KEY=false`.

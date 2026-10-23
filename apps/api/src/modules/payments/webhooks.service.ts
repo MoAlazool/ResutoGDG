@@ -98,12 +98,16 @@ export class PaymentWebhooksService {
     });
     await this.providers.touch(t.orgId, t.connectionId, 'webhook', { accountName: verified.event.accountName });
     if (rec.duplicate && (rec.status === 'processed' || rec.status === 'ignored')) return { received: true, duplicate: true };
-    const outcome = await this.processInbox(rec.id, provider, adapter, t, verified.event);
+    // One processor at a time (PCL-13): when the inbox worker or a concurrent redelivery holds the event, it records
+    // the outcome; this delivery is acknowledged as stored (the event is retried with backoff if that attempt fails).
+    const lease = await this.inbox.claim(rec.id);
+    if (!lease) return { received: true, queued: true };
+    const outcome = await this.processInbox(rec.id, lease, provider, adapter, t, verified.event);
     return { received: true, outcome };
   }
 
   /** Confirms (when needed) and applies one verified event; records the inbox outcome. Throws (→ provider retry) on transient failures. */
-  private async processInbox(inboxId: string, provider: string, adapter: PaymentAdapter, target: Target, event: PaymentEvent): Promise<ApplyOutcome> {
+  private async processInbox(inboxId: string, claim: string, provider: string, adapter: PaymentAdapter, target: Target, event: PaymentEvent): Promise<ApplyOutcome> {
     try {
       let ev = event;
       if (ev.needsConfirmation) {
@@ -111,7 +115,7 @@ export class PaymentWebhooksService {
         ev = await adapter.confirmEvent(await this.providers.adapterContext(target.orgId, { provider, connectionId: target.connectionId }), ev);
       }
       const { outcome } = await this.applyEvent(target.orgId, provider, ev, 'webhook', target);
-      await this.inbox.markProcessed(inboxId, NOT_APPLIED.has(outcome) ? 'ignored' : 'processed', NOT_APPLIED.has(outcome) && outcome !== 'ignored' ? outcome : null, target.orgId);
+      await this.inbox.markProcessed(inboxId, claim, NOT_APPLIED.has(outcome) ? 'ignored' : 'processed', NOT_APPLIED.has(outcome) && outcome !== 'ignored' ? outcome : null, target.orgId);
       return outcome;
     } catch (error) {
       if (error instanceof ProviderError && !error.retryable) {
@@ -120,10 +124,10 @@ export class PaymentWebhooksService {
           kind: /environment|live|test/i.test(error.message) ? 'environment_mismatch' : 'unmatched_event', provider,
           details: { stage: 'confirmation', reason: error.message.slice(0, 300), providerPaymentId: event.providerPaymentId ?? null, providerSessionId: event.providerSessionId ?? null },
         }), `webhook:${provider}`);
-        await this.inbox.markProcessed(inboxId, 'ignored', `confirmation_refused: ${error.message}`.slice(0, 300), target.orgId);
+        await this.inbox.markProcessed(inboxId, claim, 'ignored', `confirmation_refused: ${error.message}`.slice(0, 300), target.orgId);
         return 'ignored';
       }
-      await this.inbox.markProcessed(inboxId, 'failed', (error as Error).message, target.orgId);
+      await this.inbox.markProcessed(inboxId, claim, 'failed', (error as Error).message, target.orgId);
       this.logger.warn(`payment webhook ${inboxId} failed: ${(error as Error).message}`);
       throw new DomainError('webhook_processing_failed', 'Temporarily unable to process this event', 503);
     }
@@ -135,16 +139,17 @@ export class PaymentWebhooksService {
     let retried = 0, failed = 0, exhausted = 0;
     for (const provider of ['simulated', 'paymob', 'stripe', 'moyasar']) {
       const adapter = paymentAdapter(provider)!;
-      for (const row of await this.inbox.pending(inboxProvider(provider), 50)) {
-        if (!row.org_id) continue;
+      for (const row of await this.inbox.claimDue(inboxProvider(provider), 50)) {
+        if (!row.org_id) { await this.inbox.markProcessed(row.id, row.claim, 'ignored', 'no merchant resolved'); continue; }
         retried++;
         try {
           const target = await this.targetFor(provider, row.org_id, row.payload?.connectionId ?? null);
           if (!target) throw new Error('connection no longer usable');
-          await this.processInbox(row.id, provider, adapter, target, adapter.parseEvent(row.payload?.body, target.config));
+          await this.processInbox(row.id, row.claim, provider, adapter, target, adapter.parseEvent(row.payload?.body, target.config));
         } catch (e) {
           failed++;
-          if (!(e instanceof DomainError)) await this.inbox.markProcessed(row.id, 'failed', (e as Error).message, row.org_id);
+          // processInbox records its own failures (then throws a DomainError); anything before it is recorded here.
+          if (!(e instanceof DomainError)) await this.inbox.markProcessed(row.id, row.claim, 'failed', (e as Error).message, row.org_id);
         }
       }
       for (const row of await this.inbox.exhausted(inboxProvider(provider), 50)) {

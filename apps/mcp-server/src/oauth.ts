@@ -55,6 +55,20 @@ export function bearerChallenge(config: Config, error?: 'invalid_token', descrip
   return parts.join(', ');
 }
 
+/**
+ * `WWW-Authenticate` for 403s when the access token lacks a scope a tool needs (RFC 6750 §3.1, MCP "Scope Challenge
+ * Handling"). The challenge lists every scope of this server with the missing one first: this server cannot see which
+ * scopes the current token holds, and clients (the official SDK included) authorize again with exactly the scopes in
+ * the challenge, so naming only the missing scope could cost the client the one it already had.
+ */
+export function insufficientScopeChallenge(config: Config, needed: string) {
+  const scopes = [needed, ...OAUTH_SCOPES.filter((s) => s !== needed)].join(' ');
+  const parts = ['Bearer realm="resuto-mcp"', 'error="insufficient_scope"', `scope="${scopes.replace(/"/g, '')}"`];
+  if (config.oauth) parts.push(`resource_metadata="${config.oauth.resourceMetadataUrl}"`);
+  parts.push(`error_description="This tool needs the ${needed.replace(/"/g, '')} scope; authorize again with it"`);
+  return parts.join(', ');
+}
+
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 function json(res: ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}) {

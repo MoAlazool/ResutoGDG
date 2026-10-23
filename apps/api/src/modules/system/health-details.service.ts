@@ -20,7 +20,7 @@ export interface HealthDetails {
   outbox: { pending: number; oldestPendingSeconds: number | null; failedAttempts: number };
   handlers: { running: number; failed: number; dead: number };
   jobs: Array<{ job: string; lastStatus: string | null; lastStartedAt: string | null; lastFinishedAt: string | null; failedLast24h: number }>;
-  webhooks: { last24h: Array<{ provider: string; received: number; failed: number; rejected: number }>; pendingRetry: number; oldestPendingSeconds: number | null };
+  webhooks: { last24h: Array<{ provider: string; received: number; failed: number; rejected: number }>; pendingRetry: number; oldestPendingSeconds: number | null; deadLettered: number };
 }
 
 /**
@@ -49,8 +49,12 @@ export class HealthDetailsService {
         `select provider, count(*)::int as received, count(*) filter (where status = 'failed')::int as failed,
                 count(*) filter (where status = 'rejected')::int as rejected
            from webhook_inbox where received_at > now() - interval '24 hours' group by provider order by provider`);
-      const pendingHooks = await tx.maybeOne<{ n: number; oldest: number | null }>(
-        `select count(*)::int as n, extract(epoch from now() - min(received_at))::int as oldest from webhook_inbox where status in ('received', 'failed')`);
+      // Verified events still being retried (with backoff) vs dead letters waiting for an operator replay (PCL-13).
+      const pendingHooks = await tx.maybeOne<{ n: number; oldest: number | null; dead: number }>(
+        `select count(*) filter (where dead_lettered_at is null)::int as n,
+                extract(epoch from now() - min(received_at) filter (where dead_lettered_at is null))::int as oldest,
+                count(*) filter (where dead_lettered_at is not null)::int as dead
+           from webhook_inbox where status in ('received', 'failed')`);
       const iso = (d: Date | null) => (d ? new Date(d).toISOString() : null);
       const out = {
         checkedAt: new Date().toISOString(),
@@ -58,7 +62,7 @@ export class HealthDetailsService {
         outbox: { pending: outbox?.pending ?? 0, oldestPendingSeconds: outbox?.oldest ?? null, failedAttempts: outbox?.failed ?? 0 },
         handlers: { running: handlers?.running ?? 0, failed: handlers?.failed ?? 0, dead: handlers?.dead ?? 0 },
         jobs: jobs.map((j) => ({ job: j.job, lastStatus: j.last_status, lastStartedAt: iso(j.last_started_at), lastFinishedAt: iso(j.last_finished_at), failedLast24h: j.failed })),
-        webhooks: { last24h: hooks, pendingRetry: pendingHooks?.n ?? 0, oldestPendingSeconds: pendingHooks?.oldest ?? null },
+        webhooks: { last24h: hooks, pendingRetry: pendingHooks?.n ?? 0, oldestPendingSeconds: pendingHooks?.oldest ?? null, deadLettered: pendingHooks?.dead ?? 0 },
       };
       const reasons: string[] = [];
       if ((out.outbox.oldestPendingSeconds ?? 0) > HEALTH_THRESHOLDS.outboxOldestPendingSeconds) {

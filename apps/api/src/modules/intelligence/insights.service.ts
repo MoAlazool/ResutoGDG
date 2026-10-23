@@ -155,7 +155,7 @@ export class InsightsService {
              values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              on conflict (org_id, episode_key) where episode_key is not null and episode_ended_at is null
              do update set severity = excluded.severity, title = excluded.title, body = excluded.body, evidence = excluded.evidence,
-                           template_params = excluded.template_params, refreshed_at = now()
+                           template_key = excluded.template_key, template_params = excluded.template_params, refreshed_at = now()
              returning (xmax = 0) as inserted`, [...values, c.episodeKey]);
           if (row.inserted) n++;
         } else {

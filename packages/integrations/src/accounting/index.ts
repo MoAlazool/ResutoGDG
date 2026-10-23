@@ -4,7 +4,7 @@
 // and sales invoices to the restaurant's own accounting system. Account ids are
 // mapped per connection in config.accounts (role → provider account id/code).
 import { createHash } from 'node:crypto';
-import { providerRequest, ProviderError, type AdapterContext, type HttpOptions, type ProviderDescriptor } from '../core';
+import { providerRequest, ProviderError, type AdapterContext, type HealthCheckResult, type HttpOptions, type ProviderDescriptor } from '../core';
 import { guardedProviderCall } from '../net';
 
 export const ACCOUNT_ROLES = ['cash', 'card_clearing', 'wallet_clearing', 'bank', 'receivables', 'sales', 'delivery_income', 'discounts', 'vat_output', 'payment_fees', 'refunds',
@@ -47,7 +47,21 @@ export interface AccountingAdapter {
   pushJournalEntry(ctx: AdapterContext, entry: JournalEntry): Promise<PushResult>;
   /** Creates the invoice unless one with the same Resuto reference already exists at the provider. */
   pushInvoice(ctx: AdapterContext, invoice: SalesInvoice): Promise<PushResult>;
+  /**
+   * One cheap authenticated read proving the credentials work, with the provider account they belong to (shown so the
+   * owner can confirm it is their organisation). Same failure semantics as the payment adapters: a ProviderError with
+   * retryable=true (429, 5xx, network) is "provider unreachable" and changes nothing; anything else (401/403, a missing
+   * setting) is a definite failure. Accounting systems have no test/live split, so no environment is reported.
+   */
+  healthCheck(ctx: AdapterContext): Promise<HealthCheckResult>;
 }
+
+/** How many Resuto account roles the connection has mapped (Finance → Accounting); reported, never required here. */
+const mappedRoles = (ctx: AdapterContext) => {
+  const a = ctx.config.accounts as Record<string, unknown> | undefined;
+  return a ? ACCOUNT_ROLES.filter((r) => a[r] !== undefined && a[r] !== null && a[r] !== '').length : 0;
+};
+const text = (v: unknown, max = 120): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : typeof v === 'number' ? String(v) : null);
 
 /**
  * A stable UUID (version-4 layout) derived from a Resuto reference, for providers whose idempotency header must be a
@@ -100,6 +114,9 @@ const account = (ctx: AdapterContext, provider: string, role: AccountRole): stri
 //   GET lists filter by external_id (manual journals, invoices) — used to find a document already pushed.
 //   X-Wafeq-Idempotency-Key: a UUID v4, replayed for 1 hour: https://developer.wafeq.com/reference/idempotency ·
 //     https://developer.wafeq.com/docs/design-a-reliable-integration
+//   GET /v1/organization/ (the authentication guide's example call) → { id, name{en,ar}, financial_settings{ base_currency,
+//     country, tax_registration_number … } } — the health check and account identity (docs checked 2026-10-23):
+//     https://developer.wafeq.com/reference/organization_retrieve
 // ---------------------------------------------------------------------------
 export const wafeqDescriptor: ProviderDescriptor = {
   id: 'wafeq', name: 'Wafeq', category: 'accounting', countries: ['SA', 'EG'], authType: 'api_key', readiness: 'implemented_unverified',
@@ -129,6 +146,17 @@ async function wafeqFind(ctx: AdapterContext, path: 'manual-journals' | 'invoice
 export const wafeqAdapter: AccountingAdapter = {
   descriptor: wafeqDescriptor,
   requiredCredentials: ['apiKey'],
+  async healthCheck(ctx) {
+    const o = await providerRequest<any>('wafeq', ctx, `${WAFEQ_API}/organization/`, { headers: wafeqHeaders(ctx), retries: 1 });
+    if (!o || typeof o !== 'object' || !o.id) throw new ProviderError('wafeq', 'unexpected response (no organisation)', false);
+    const fs = (o.financial_settings ?? {}) as Record<string, unknown>;
+    const currency = text(fs.base_currency, 3)?.toUpperCase() ?? null;
+    return {
+      ok: true,
+      account: { id: String(o.id), name: text(o.name?.en) ?? text(o.name?.ar) ?? text(o.name), country: text(fs.country, 2)?.toUpperCase() ?? null, currency },
+      details: { baseCurrency: currency, accountsMapped: mappedRoles(ctx) },
+    };
+  },
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
     const lines = entry.lines.map((l) => {
@@ -176,6 +204,8 @@ export const wafeqAdapter: AccountingAdapter = {
 //   POST /invoices { invoice: { contact_id, reference (unique), issue_date, due_date, status Draft|Approved,
 //     inventory_id, line_items[{ product_id, description, quantity, unit_price, tax_percent }] } };
 //   index endpoints search with ransack (q[<field>_<predicate>]) — used to find a document already pushed.
+//   GET /accounts (chart of accounts, the ids the journal lines reference) — the health check: the published collection
+//   has no organisation/profile endpoint, so a Qoyod connection reports no account identity (only the chart size).
 // ---------------------------------------------------------------------------
 export const qoyodDescriptor: ProviderDescriptor = {
   id: 'qoyod', name: 'Qoyod', category: 'accounting', countries: ['SA'], authType: 'api_key', readiness: 'implemented_unverified',
@@ -197,6 +227,11 @@ const qoyodId = (v: string) => (/^\d+$/.test(v) ? Number(v) : v);
 export const qoyodAdapter: AccountingAdapter = {
   descriptor: qoyodDescriptor,
   requiredCredentials: ['apiKey'],
+  async healthCheck(ctx) {
+    const r = await providerRequest<{ accounts?: unknown[] }>('qoyod', ctx, `${QOYOD_API}/accounts`, { headers: qoyodAuth(ctx), retries: 1 });
+    if (!r || typeof r !== 'object' || !Array.isArray(r.accounts)) throw new ProviderError('qoyod', 'unexpected response (no chart of accounts)', false);
+    return { ok: true, account: null, details: { chartAccounts: r.accounts.length, accountsMapped: mappedRoles(ctx) } };
+  },
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
     const side = (pick: (l: JournalLine) => number) => entry.lines.filter((l) => pick(l) > 0)
@@ -253,6 +288,8 @@ export const qoyodAdapter: AccountingAdapter = {
 //   API keys last at most three months (rotate them). External API access needs a Custom Odoo plan.
 //   https://www.odoo.com/documentation/19.0/developer/reference/external_api.html
 // Moves are created as drafts (state "draft"); an accountant posts them in Odoo.
+// Health check: res.company search_read (name, currency, country code) as the API key's user, plus the configured
+// journal (account.journal by id) — a key that cannot read them, or a journal id that does not exist, fails the check.
 // ---------------------------------------------------------------------------
 export const odooAccountingDescriptor: ProviderDescriptor = {
   id: 'odoo_accounting', name: 'Odoo Accounting', category: 'accounting', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
@@ -281,7 +318,7 @@ export function odooSettings(ctx: AdapterContext, provider: string) {
  * status or the Odoo exception name, never the server's text. A 404 (no JSON-2: Odoo 17 / 18) falls back to the legacy
  * /jsonrpc external API when the connection has the login it needs.
  */
-async function odooJson2<T>(ctx: AdapterContext, model: string, method: 'search' | 'create', body: Record<string, unknown>): Promise<T> {
+async function odooJson2<T>(ctx: AdapterContext, model: string, method: 'search' | 'search_read' | 'create', body: Record<string, unknown>): Promise<T> {
   const { url, key, database } = odooSettings(ctx, 'odoo_accounting');
   const target = `${url}/json/2/${model}/${method}`;
   const headers: Record<string, string> = { Authorization: `bearer ${key}`, 'Content-Type': 'application/json; charset=utf-8', 'User-Agent': 'Resuto' };
@@ -297,8 +334,8 @@ async function odooJson2<T>(ctx: AdapterContext, model: string, method: 'search'
       throw new ProviderError('odoo_accounting', 'This Odoo server has no JSON-2 API (Odoo 19+). For Odoo 17 / 18, add the login of the API key\'s user', false, 404);
     }
     if (!database) throw new ProviderError('odoo_accounting', 'Set the Odoo database (needed for Odoo 17 / 18)', false);
-    const args = method === 'search' ? [body.domain] : [body.vals_list];
-    const kwargs = method === 'search' && body.limit ? { limit: body.limit } : {};
+    const args = method === 'create' ? [body.vals_list] : [body.domain];
+    const kwargs = method === 'create' ? {} : { ...(body.limit ? { limit: body.limit } : {}), ...(method === 'search_read' && body.fields ? { fields: body.fields } : {}) };
     const uid = ctx.config.uid ? Number(ctx.config.uid) : await odooLegacyCall(ctx, url, 'common', 'authenticate', [database, login, key, {}]);
     if (!uid) throw new ProviderError('odoo_accounting', 'Odoo authentication failed', false);
     return odooLegacyCall(ctx, url, 'object', 'execute_kw', [database, Number(uid), key, model, method, args, kwargs]) as Promise<T>;
@@ -328,9 +365,26 @@ async function odooFindMove(ctx: AdapterContext, reference: string, moveType: st
   const ids = await odooJson2<unknown[]>(ctx, 'account.move', 'search', { domain: [['ref', '=', reference], ['move_type', '=', moveType]], limit: 1 });
   return Array.isArray(ids) && ids.length ? firstId(ids) : null;
 }
+const many2oneName = (v: unknown): string | null => (Array.isArray(v) && v.length >= 2 ? text(v[1]) : null);
 export const odooAccountingAdapter: AccountingAdapter = {
   descriptor: odooAccountingDescriptor,
   requiredCredentials: ['apiKey'],
+  async healthCheck(ctx) {
+    const companies = await odooJson2<unknown>(ctx, 'res.company', 'search_read', { domain: [], fields: ['name', 'currency_id', 'country_code'], limit: 1 });
+    const c = Array.isArray(companies) ? (companies[0] as Record<string, unknown> | undefined) : undefined;
+    if (!c || (typeof c.id !== 'number' && typeof c.id !== 'string')) throw new ProviderError('odoo_accounting', 'unexpected response (no company)', false);
+    const currency = many2oneName(c.currency_id)?.toUpperCase().slice(0, 3) ?? null;
+    let journalFound: boolean | null = null;
+    if (ctx.config.journalId) {
+      const ids = await odooJson2<unknown[]>(ctx, 'account.journal', 'search', { domain: [['id', '=', Number(ctx.config.journalId)]], limit: 1 });
+      journalFound = Array.isArray(ids) && ids.length > 0;
+    }
+    return {
+      ok: journalFound !== false,
+      account: { id: String(c.id), name: text(c.name), country: text(c.country_code, 2)?.toUpperCase() ?? null, currency },
+      details: { journalFound, accountsMapped: mappedRoles(ctx) },
+    };
+  },
   async pushJournalEntry(ctx, entry) {
     assertBalanced(entry);
     const lines = entry.lines.map((l) => [0, 0, { account_id: Number(account(ctx, 'odoo', l.role)), name: l.description, debit: odooAmount(l.debitMinor), credit: odooAmount(l.creditMinor) }]);

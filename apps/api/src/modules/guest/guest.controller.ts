@@ -211,7 +211,8 @@ export class WebOrderController {
   async order(@Param('slug') slug: string, @Headers('idempotency-key') key: string | undefined, @Body(zod(webOrderRequest)) body: WebOrderRequest, @Req() req: ResutoRequest) {
     await this.limiter.guard(`web-order:place:${req.ip}`, 20);
     // Per number, not per spelling: 010…, 10…, 20…, +20… and 0020… of one phone share a budget (CR-06).
-    return this.guest.webOrder(this.slug(slug), body, key, (e164) => this.limiter.hit(`web-order:phone:${sha256(e164).slice(0, 24)}`, 10));
+    // Shared (database-backed) budget across instances, checked before the tenant transaction (REM-A10).
+    return this.guest.webOrder(this.slug(slug), body, key, (e164) => this.limiter.guard(`web-order:phone:${sha256(e164).slice(0, 24)}`, 10));
   }
 
   @Public()

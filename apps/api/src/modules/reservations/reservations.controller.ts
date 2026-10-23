@@ -128,6 +128,7 @@ export class PublicReservationsController {
     await this.limiter.guard(`reservations:hold:${req.ip}`, 20);
     if (!slugish.safeParse(slug).success) throw notFound('Restaurant');
     // Per number, not per spelling: 010…, 10…, 20…, +20… and 0020… of one phone share a budget (CR-06).
-    return this.reservations.hold(slug, body, (e164) => this.limiter.hit(`reservations:hold:phone:${sha256(e164).slice(0, 24)}`, 10));
+    // Shared (database-backed) budget across instances, checked before the tenant transaction (REM-A10).
+    return this.reservations.hold(slug, body, (e164) => this.limiter.guard(`reservations:hold:phone:${sha256(e164).slice(0, 24)}`, 10));
   }
 }

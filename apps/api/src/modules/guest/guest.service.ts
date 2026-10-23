@@ -12,7 +12,7 @@ import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
 import { PricingService, type Quote } from '../kernel/pricing.service';
 import { MenuService } from '../menu/menu.service';
 import { guestCoverPath, signGuestCover } from '../orders/guest-cover';
-import { orgCountry } from '../orders/org-country';
+import { phoneCountry } from '../orders/org-country';
 import { VisitsService, visitCustomerVerified } from '../orders/visits.service';
 import { PublicTrackingService } from '../delivery/tracking.service';
 
@@ -210,20 +210,28 @@ export class GuestService {
     if (!b) throw notFound('Branch');
   }
 
-  /** `onPhone` sees the customer's number once normalised to E.164 (the controller's per-number abuse limit). */
-  webOrder(slug: string, body: WebOrderRequest, key: string | undefined, onPhone?: (e164: string) => void) {
+  /**
+   * `onPhone` sees the customer's number once normalised to E.164 (the controller's per-number abuse limit). It runs
+   * before the tenant transaction (REM-A10), so the budget can be the shared, database-backed limiter: a round trip
+   * there does not hold a tenant transaction open, and the budget holds across API instances.
+   */
+  async webOrder(slug: string, body: WebOrderRequest, key: string | undefined, onPhone?: (e164: string) => void | Promise<void>) {
     if (!key || key.length < 8 || key.length > 200) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     if (body.payment === 'pay_at_pickup' && body.fulfillment !== 'pickup') throw invalid('payment_unavailable', 'Pay at pickup is only for pickup orders');
     if (body.payment === 'cod' && body.fulfillment !== 'delivery') throw invalid('payment_unavailable', 'Cash on delivery is only for delivery orders');
     if (body.fulfillment === 'delivery' && !body.deliveryAddress) throw invalid('address_required', 'Delivery orders need an address');
     const checkout = body.payment === 'online' ? requirePort(this.checkout, 'Online payment (ResutoPay)') : null;
-    return this.webTenant(slug, async (tx, ctx) => {
+    const org = await this.db.withPlatform((tx) => tx.maybeOne<{ id: string; country: string | null }>(
+      `select id, country from organizations where slug = $1 and status <> 'closed'`, [slug.toLowerCase()]));
+    if (!org) throw notFound('Restaurant');
+    // CR-06: the phone as typed (01x…, Arabic-Indic digits) becomes E.164 for the restaurant's country.
+    const phone = normalizePhone(body.customer.phone, phoneCountry(org.country));
+    if (!phone) throw invalid('phone_invalid', 'Enter a phone number the restaurant can call, e.g. 010 0123 4567.');
+    await onPhone?.(phone);
+    body = { ...body, customer: { ...body.customer, phone } };
+    return this.db.withTenant(org.id, async (tx) => {
+      const ctx = new TenantContext(org.id, 'waiter', null, null, 'guest', 'web', 'web');
       await this.assertBranch(tx, ctx.orgId, body.branchId);
-      // CR-06: the phone as typed (01x…, Arabic-Indic digits) becomes E.164 for the restaurant's country.
-      const phone = normalizePhone(body.customer.phone, await orgCountry(tx, ctx.orgId));
-      if (!phone) throw invalid('phone_invalid', 'Enter a phone number the restaurant can call, e.g. 010 0123 4567.');
-      onPhone?.(phone);
-      body = { ...body, customer: { ...body.customer, phone } };
       const { returnUrl: _r, ...payload } = body;
       const order = await this.idempotency.run(tx, ctx.orgId, 'web-order', key, payload, async () => {
         // Tracking links (Marketing) append rcid=<campaignId>; only this restaurant's campaigns count.
@@ -256,7 +264,7 @@ export class GuestService {
       }
       const { customerId: _c, ...publicOrder } = order;
       return { order: publicOrder, payment: body.payment, checkout: session };
-    });
+    }, 'guest:web-order');
   }
 
   webOrderStatus(slug: string, publicRef: string) {

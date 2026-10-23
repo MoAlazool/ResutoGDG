@@ -24,6 +24,12 @@ export const envSchema = z.object({
    * Unset: 1 in staging/production (Render's load balancer), loopback locally. See common/http/http-hardening.ts.
    */
   TRUST_PROXY: z.string().max(500).optional(),
+  /**
+   * REM-A11: secret shared with the web server (same value as its CLIENT_IP_FORWARD_SECRET). With it, a guest address
+   * the web server forwards with a valid signature becomes req.ip (rate limits, access log); without it the headers
+   * are ignored. Generate with `openssl rand -hex 32`; never the same value as any other secret.
+   */
+  CLIENT_IP_FORWARD_SECRET: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(32).max(200).optional()),
 
   // Supabase Auth. HS256 projects use SUPABASE_JWT_SECRET; asymmetric (JWKS)
   // projects use SUPABASE_URL/auth/v1/.well-known/jwks.json.

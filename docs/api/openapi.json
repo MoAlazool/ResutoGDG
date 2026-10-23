@@ -203,6 +203,60 @@
         ]
       }
     },
+    "/v1/admin/operations/webhooks/{inboxId}/replay": {
+      "post": {
+        "operationId": "Admin_replayWebhook",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "inboxId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "reason": {
+                    "maxLength": 500,
+                    "minLength": 3,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-resuto-platform-admin": [
+          "superadmin"
+        ]
+      }
+    },
     "/v1/admin/prices": {
       "get": {
         "operationId": "Admin_prices",

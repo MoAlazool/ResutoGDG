@@ -63,6 +63,8 @@ class TestOAuthClient implements OAuthClientProvider {
   code: string | null = null;
   iss: string | null = null;
   consentUrl: string | null = null;
+  /** The last authorization request URL (its `scope` shows what the client asked for). */
+  authorizationUrl: URL | null = null;
   constructor(private readonly tools: string[]) {}
   get redirectUrl() { return 'http://127.0.0.1:33419/callback'; }
   get clientMetadata(): OAuthClientMetadata {
@@ -78,6 +80,7 @@ class TestOAuthClient implements OAuthClientProvider {
   codeVerifier() { return this.verifier; }
   async redirectToAuthorization(url: URL) {
     // The browser opens the authorization endpoint; the MCP server sends it to the Resuto consent screen.
+    this.authorizationUrl = url;
     const res = await fetch(url, { redirect: 'manual' });
     expect(res.status).toBe(302);
     this.consentUrl = res.headers.get('location');
@@ -193,6 +196,112 @@ describe('OAuth 2.1 for MCP clients (official SDK client)', () => {
       body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: provider.saved!.refresh_token!, client_id: String(provider.info!.client_id), resource: 'https://elsewhere.example/mcp' }) });
     expect(foreign.status).toBe(400);
     expect((await foreign.json()).error).toBe('invalid_target');
+  });
+
+  // REM-A08: a tool outside the access token's scopes used to come back as a tool error (isError), which a client
+  // cannot act on. The MCP server now answers that tools/call with HTTP 403 and an insufficient_scope challenge, the
+  // official SDK client authorizes again with the scopes it names, and the tool runs once the new token has them.
+  it('answers a tool outside the token scopes with an HTTP 403 insufficient_scope challenge; the client steps up and retries', async () => {
+    const provider = new TestOAuthClient(['get_restaurant_profile', 'update_product_availability']);
+    (await connectWithOAuth(provider)).client.close();
+    // Down-scope to mcp:read (a refresh may narrow scopes) and keep only that access token, as a client authorized for
+    // reading would hold it.
+    const narrowed = await (await fetch(`${ORIGIN}/oauth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: provider.saved!.refresh_token!, client_id: String(provider.info!.client_id), scope: 'mcp:read' }) })).json();
+    expect(narrowed.scope).toBe('mcp:read');
+    const callsOf = async (tool: string) => (await pool.query(`select error_code from mcp_tool_calls where org_id = $1 and tool = $2 order by created_at`, [orgId, tool])).rows;
+    const before = (await callsOf('update_product_availability')).length;
+
+    // Raw Streamable HTTP: initialize, then a tools/call for an action tool.
+    const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: `Bearer ${narrowed.access_token}` };
+    const init = await fetch(MCP_URL, { method: 'POST', headers, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize',
+      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'raw', version: '1' } } }) });
+    expect(init.status).toBe(200);
+    const sid = init.headers.get('mcp-session-id')!;
+    await init.text();
+    const session = { ...headers, 'Mcp-Session-Id': sid, 'Mcp-Protocol-Version': '2025-06-18' };
+    await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+    const input = { productId: '00000000-0000-4000-8000-000000000001', branchId: '00000000-0000-4000-8000-000000000002', available: false };
+    const denied = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call',
+      params: { name: 'update_product_availability', arguments: input } }) });
+    expect(denied.status).toBe(403);
+    const www = denied.headers.get('www-authenticate')!;
+    expect(www).toContain('error="insufficient_scope"');
+    expect(www).toContain('scope="mcp:act mcp:read"');
+    expect(www).toContain(`resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp"`);
+    // A tool the token covers still answers normally on the same session, and runs once.
+    const ok = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call',
+      params: { name: 'get_restaurant_profile', arguments: {} } }) });
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toContain('Fattah Kitchen');
+    expect((await callsOf('update_product_availability')).slice(before).map((r) => r.error_code)).toEqual(['insufficient_scope']);
+
+    // The official SDK client reacts to the challenge by authorizing again with the scopes it names.
+    provider.saved = { access_token: narrowed.access_token, token_type: 'Bearer' };
+    provider.code = null;
+    const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), { authProvider: provider });
+    const client = new Client({ name: 'resuto-oauth-e2e', version: '1.0.0' });
+    await client.connect(transport);
+    await expect(client.callTool({ name: 'update_product_availability', arguments: input })).rejects.toThrow(/Unauthorized/i);
+    expect(provider.authorizationUrl!.searchParams.get('scope')).toBe('mcp:act mcp:read');
+    expect(provider.code).toBeTruthy();
+    await transport.finishAuth(provider.code!);
+    await client.close();
+    const stepped = await connectWithOAuth(provider);
+    const result = await stepped.client.callTool({ name: 'update_product_availability', arguments: input });
+    // The new token reaches the tool: the API now answers with the business outcome (an unknown product), not a scope refusal.
+    expect(JSON.stringify(result.content)).not.toContain('insufficient_scope');
+    // Each tools/call reached the API exactly once: the raw refusal, the SDK's first (refused) attempt, the stepped-up call.
+    const after = (await callsOf('update_product_availability')).slice(before).map((r) => r.error_code);
+    expect(after).toHaveLength(3);
+    expect(after.slice(0, 2)).toEqual(['insufficient_scope', 'insufficient_scope']);
+    expect(after[2]).not.toBe('insufficient_scope');
+    await stepped.client.close();
+  });
+
+  // Review of REM-A08: the scope pre-check ran the tool before the transport validated the JSON-RPC message, so a
+  // tools/call the transport then rejected as a parse error had already run (and could write), and its result stayed
+  // keyed by the request id, where a later batch with the same id was answered from it. Now a message the transport
+  // would reject never reaches the API, and a pre-checked result belongs only to the HTTP request that made it.
+  it('a malformed tools/call never reaches the API, and a later request with the same id gets its own result', async () => {
+    const provider = new TestOAuthClient(['get_restaurant_profile', 'list_branches']);
+    (await connectWithOAuth(provider)).client.close();
+    const callsOf = async (tool: string) => Number((await pool.query(`select count(*)::int as n from mcp_tool_calls where org_id = $1 and tool = $2`, [orgId, tool])).rows[0].n);
+    const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: `Bearer ${provider.saved!.access_token}` };
+    const init = await fetch(MCP_URL, { method: 'POST', headers, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize',
+      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'raw', version: '1' } } }) });
+    expect(init.status).toBe(200);
+    const session = { ...headers, 'Mcp-Session-Id': init.headers.get('mcp-session-id')!, 'Mcp-Protocol-Version': '2025-06-18' };
+    await init.text();
+    await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+    const profileCalls = await callsOf('get_restaurant_profile');
+
+    // Not JSON-RPC 2.0 (jsonrpc missing, then wrong): the transport answers 400 and the tool never runs.
+    for (const bad of [{ id: 5, method: 'tools/call', params: { name: 'get_restaurant_profile', arguments: {} } },
+      { jsonrpc: '1.0', id: 5, method: 'tools/call', params: { name: 'get_restaurant_profile', arguments: {} } }]) {
+      const res = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify(bad) });
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain('Invalid JSON-RPC message');
+    }
+    expect(await callsOf('get_restaurant_profile')).toBe(profileCalls);
+
+    // The same id again, in a batch (which the pre-check does not handle): answered by the tool it names.
+    const branchCalls = await callsOf('list_branches');
+    const batch = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify([{ jsonrpc: '2.0', id: 5, method: 'tools/call',
+      params: { name: 'list_branches', arguments: {} } }]) });
+    expect(batch.status).toBe(200);
+    const text = await batch.text();
+    expect(text).toContain('Dokki');
+    expect(text).not.toContain('Fattah Kitchen');
+    expect(await callsOf('list_branches')).toBe(branchCalls + 1);
+    expect(await callsOf('get_restaurant_profile')).toBe(profileCalls);
+
+    // A well-formed single tools/call still runs exactly once.
+    const ok = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify({ jsonrpc: '2.0', id: 6, method: 'tools/call',
+      params: { name: 'get_restaurant_profile', arguments: {} } }) });
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toContain('Fattah Kitchen');
+    expect(await callsOf('get_restaurant_profile')).toBe(profileCalls + 1);
   });
 
   it('shows a plain error (never a redirect) for an unknown client', async () => {
