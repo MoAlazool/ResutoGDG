@@ -9,6 +9,7 @@ import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useApi } from '@/lib/use-api';
 import { useAdmin } from '../AdminShell';
+import { opsStatusLabel, replayFailure } from './replay';
 
 /** Lets wide tables scroll inside the page instead of widening it on phones. */
 const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
@@ -21,7 +22,7 @@ export default function AdminOperationsPage() {
   const ops = useApi<AdminOperations>('/admin/operations', { pollMs: 30_000 });
   const [prompt, promptDialog] = usePrompt(locale);
   const [replaying, setReplaying] = useState<string | null>(null);
-  const [flash, setFlash] = useState<{ tone: 'ok' | 'danger'; text: string } | null>(null);
+  const [flash, setFlash] = useState<{ tone: 'ok' | 'warn' | 'danger'; text: string } | null>(null);
   const canReplay = role === 'superadmin';
   /** Replays one dead, failed or stuck handler run (superadmin; the server audits it with the reason). */
   const replay = async (eventId: string, handler: string) => {
@@ -33,7 +34,7 @@ export default function AdminOperationsPage() {
       await call(`/admin/operations/handlings/${eventId}/${encodeURIComponent(handler)}/replay`, { body: { reason } });
       setFlash({ tone: 'ok', text: t('ops.admin.replayed', { handler }) });
       await ops.reload();
-    } catch (e) { setFlash({ tone: 'danger', text: (e as Error).message }); } finally { setReplaying(null); }
+    } catch (e) { setFlash(replayFailure(e, t, locale)); } finally { setReplaying(null); }
   };
   if (ops.error) return <Notice tone="danger">{s.loadError} <button className="btn btn-sm" onClick={() => void ops.reload()}>{s.retry}</button></Notice>;
   if (!ops.data) return <Card><Skeleton lines={8} /></Card>;
@@ -58,7 +59,7 @@ export default function AdminOperationsPage() {
         {d.eventHandlings.recent.length ? <DataTable rows={d.eventHandlings.recent} rowKey={(r) => `${r.eventId}:${r.handler}`} columns={[
           { key: 'h', header: s.handlers, render: (r) => <code>{r.handler}</code> },
           { key: 'e', header: '', render: (r) => r.eventType },
-          { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'dead' || r.status === 'running' ? 'danger' : 'warn'}>{r.status === 'running' ? t('ops.admin.stuck') : r.status} · <span className="num">{r.attempts}</span></Badge> },
+          { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'dead' || r.status === 'running' ? 'danger' : 'warn'}>{opsStatusLabel(r.status, s, t, 'handler')} · <bdi className="num">{r.attempts}</bdi></Badge> },
           { key: 't', header: s.tenants, render: (r) => tenant(r.orgId) },
           { key: 'x', header: '', render: (r) => <span className="fine">{r.lastError}</span> },
           { key: 'u', header: '', render: (r) => <span className="num">{dateTime(r.updatedAt, locale)}</span> },
@@ -71,7 +72,7 @@ export default function AdminOperationsPage() {
       <Card title={`${s.webhooks} — ${s.failed} / ${s.rejected}`}>
         {d.webhooks.recent.length ? <DataTable rows={d.webhooks.recent} rowKey={(r) => r.id} columns={[
           { key: 'p', header: s.webhooks, render: (r) => r.provider },
-          { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'rejected' ? 'danger' : 'warn'}>{r.status} · {r.attempts}</Badge> },
+          { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'rejected' ? 'danger' : 'warn'}>{opsStatusLabel(r.status, s, t, 'webhook')} · <bdi className="num">{r.attempts}</bdi></Badge> },
           { key: 't', header: s.tenants, render: (r) => tenant(r.orgId) },
           { key: 'x', header: '', render: (r) => <span className="fine">{r.error}</span> },
           { key: 'u', header: '', render: (r) => <span className="num">{dateTime(r.receivedAt, locale)}</span> },
@@ -81,7 +82,7 @@ export default function AdminOperationsPage() {
         <Card title={s.jobs}>
           {d.jobs.length ? <DataTable rows={d.jobs} rowKey={(j) => String(j.id)} columns={[
             { key: 'j', header: s.jobs, render: (j) => <code>{j.job}</code> },
-            { key: 's', header: s.status, render: (j) => <Badge tone={j.status === 'succeeded' ? 'ok' : j.status === 'failed' ? 'danger' : 'info'}>{j.status}</Badge> },
+            { key: 's', header: s.status, render: (j) => <Badge tone={j.status === 'succeeded' ? 'ok' : j.status === 'failed' ? 'danger' : 'info'}>{opsStatusLabel(j.status, s, t, 'job')}</Badge> },
             { key: 't', header: '', render: (j) => <span className="num">{dateTime(j.startedAt, locale)}</span> },
             { key: 'e', header: '', render: (j) => <span className="fine">{j.error ?? JSON.stringify(j.stats)}</span> },
           ]} /> : <EmptyState title={s.none} />}
