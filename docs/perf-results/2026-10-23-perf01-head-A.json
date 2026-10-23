@@ -1,0 +1,111 @@
+{
+ "label": "head-A",
+ "build": "34b4ece (PERF-01)",
+ "note": "commit = the checkout the harness ran from; build = the web build measured",
+ "commit": "34b4ece",
+ "at": "2026-10-23T22:07:25.706Z",
+ "runs": 5,
+ "rows": [
+  {
+   "id": "guest-qr",
+   "locale": "ar",
+   "lcp": 1080,
+   "fcp": 1080,
+   "cls": 0.012,
+   "ttfb": 29,
+   "loadMs": 4182,
+   "lcpEl": "H1.",
+   "requests": 45,
+   "kb": 686,
+   "fontKb": 293,
+   "imageKb": 91,
+   "scriptKb": 241,
+   "apiKb": 8,
+   "repeatLcp": 300,
+   "repeatLcpEl": "H1.",
+   "repeatFcp": 300,
+   "lcpRuns": [
+    1052,
+    988,
+    1084,
+    1080,
+    1112
+   ],
+   "repeatLcpRuns": [
+    320,
+    300,
+    296,
+    772,
+    296
+   ],
+   "repeatLcpEls": [
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1."
+   ],
+   "repeatKb": 36,
+   "repeatRequests": 44,
+   "repeatCachedOr304": 38,
+   "repeatFromCache": 38,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": {
+    "perMinute": 12,
+    "preflightsPerMinute": 3,
+    "notModified": 0,
+    "total": 4
+   }
+  },
+  {
+   "id": "web-order",
+   "locale": "en",
+   "lcp": 860,
+   "fcp": 860,
+   "cls": 0.001,
+   "ttfb": 25,
+   "loadMs": 3266,
+   "lcpEl": "H1.",
+   "requests": 37,
+   "kb": 499,
+   "fontKb": 124,
+   "imageKb": 91,
+   "scriptKb": 233,
+   "apiKb": 5,
+   "repeatLcp": 312,
+   "repeatLcpEl": "H1.",
+   "repeatFcp": 312,
+   "lcpRuns": [
+    860,
+    836,
+    904,
+    860,
+    892
+   ],
+   "repeatLcpRuns": [
+    304,
+    312,
+    364,
+    292,
+    348
+   ],
+   "repeatLcpEls": [
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1.",
+    "H1."
+   ],
+   "repeatKb": 28,
+   "repeatRequests": 37,
+   "repeatCachedOr304": 33,
+   "repeatFromCache": 33,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  }
+ ]
+}
