@@ -347,6 +347,12 @@ async function advance(orderId, to, token = C.STAFF.manager.token) {
 async function backdate(orderId, date, hour, minute) {
   await q(`with t as (select (($2::date + make_interval(hours => $3, mins => $4)) at time zone 'Africa/Cairo') as at)
     update orders o set business_date = $2::date, placed_at = t.at, created_at = t.at,
+      -- Order numbers restart per branch and business day; the API numbered this order on the day the loader ran, which
+      -- can collide with an order already on the target day (live fixtures of that day, earlier history), so it takes
+      -- the next free number there.
+      number = case when o.business_date = $2::date then o.number
+                    else (coalesce((select max(x.number::bigint) from orders x where x.branch_id = o.branch_id and x.business_date = $2::date
+                                    and x.id <> o.id and x.number ~ '^[0-9]+$'), 0) + 1)::text end,
       accepted_at = case when o.accepted_at is null then null else t.at + interval '2 min' end,
       ready_at = case when o.ready_at is null then null else t.at + interval '16 min' end,
       fulfilled_at = case when o.fulfilled_at is null then null else t.at + interval '22 min' end,
