@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ALLERGENS, INVENTORY_UNITS } from '@resuto/contracts';
 import { formatMessage } from './i18n/format-message';
+import { integrations } from './i18n/dict/integrations';
 import { allergens, vocab } from './i18n/dict/vocab';
 import type { Locale } from './i18n/locale';
 import { actionLabel, allergenLabel, capabilityLabel, entityLabel, forecastReason, invoiceStatusLabel, paymentProviderLabel, reconSourceLabel, reconStatusLabel, sourceLabel, stationLabel, subscriptionEventLabel, unitLabel, type Translate } from './vocab';
@@ -139,5 +140,18 @@ describe('integration capabilities and payment providers (REM-W06)', () => {
       expect(reconStatusLabel(ar, s), s).toMatch(/[؀-ۿ]/);
     }
     expect(reconSourceLabel(ar, 'statement_upload')).toMatch(/[؀-ۿ]/);
+  });
+
+  it('words every provider country restriction in both languages (the API sends English only)', () => {
+    const countries = new Set<string>();
+    for (const file of sources(join(repo, 'packages', 'integrations', 'src'))) {
+      for (const m of readFileSync(file, 'utf8').matchAll(/\{\s*country:\s*'([A-Z]{2})',\s*reason:/g)) countries.add(m[1]!);
+    }
+    expect(countries.size).toBeGreaterThan(0);
+    const dict = integrations as unknown as Record<Locale, Record<string, string>>;
+    for (const c of countries) {
+      expect(formatMessage(dict.en[`intg.restricted.${c}`]!, 'en', { provider: 'Stripe' }), c).toMatch(/^Stripe does not list /);
+      expect(formatMessage(dict.ar[`intg.restricted.${c}`]!, 'ar', { provider: 'Stripe' }), c).toMatch(/[؀-ۿ].*Stripe/);
+    }
   });
 });

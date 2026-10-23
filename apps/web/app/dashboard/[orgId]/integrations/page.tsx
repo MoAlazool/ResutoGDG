@@ -102,12 +102,13 @@ function ProviderReadiness({ item }: { item: CatalogItem }) {
   return <StateBadge state={item.readinessDetail.summary} />;
 }
 
-function CapabilityTable({ detail }: { detail: ReadinessDetail }) {
+function CapabilityTable({ detail, provider }: { detail: ReadinessDetail; provider: string }) {
   const { t, tx, locale } = useTx();
+  const r = detail.restriction;
   return (
     <div className="stack gap-6">
       <strong className="fine">{t('intg.readiness.title')}</strong>
-      {detail.restriction && <Notice tone="danger">{detail.restriction.reason} <a href={detail.restriction.source} target="_blank" rel="noreferrer" dir="ltr">{new URL(detail.restriction.source).host}</a></Notice>}
+      {r && <Notice tone="danger">{tx(`intg.restricted.${r.country}`, r.reason, { provider })} <a href={r.source} target="_blank" rel="noreferrer" dir="ltr">{new URL(r.source).host}</a></Notice>}
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>{t('intg.readiness.col.capability')}</th><th>{t('intg.readiness.col.test')}</th><th>{t('intg.readiness.col.live')}</th></tr></thead>
@@ -155,7 +156,7 @@ function Catalog({ onConnected }: { onConnected: () => void }) {
                 <span className="fine text-start">{p.countries.length > 0 && <><bdi dir="ltr">{p.countries.join(' · ')}</bdi> · </>}{p.capabilities.slice(0, 4).map((c) => capabilityLabel(t, c)).join(locale === 'ar' ? '، ' : ', ')}</span>
                 <details><summary className="fine">{t('connect.int.activation')}</summary>
                   <ol className="fine" style={{ paddingInlineStart: 18 }}>{p.activation.map((s, i) => <li key={i}>{tx(p.activationKeys?.[i], s)}</li>)}</ol>
-                  {p.readinessDetail && <CapabilityTable detail={p.readinessDetail} />}
+                  {p.readinessDetail && <CapabilityTable detail={p.readinessDetail} provider={p.name} />}
                   {p.docsUrl && <a className="fine" href={p.docsUrl} target="_blank" rel="noreferrer">{t('connect.int.docs')}</a>}
                 </details>
                 <button className="btn btn-sm" onClick={() => setConnecting(p)}>{p.sandboxOnly ? t('connect.int.enableSandbox') : t('connect.int.connect')}</button>
@@ -510,7 +511,7 @@ function ConnectionDetail({ connection, spec, onClose }: { connection: Connectio
             return { key: k, label: f?.labelKey ? t(f.labelKey) : k, value: <bdi dir="ltr">{String(v)}</bdi> };
           })} />
         </>}
-        {spec?.readinessDetail && <CapabilityTable detail={spec.readinessDetail} />}
+        {spec?.readinessDetail && <CapabilityTable detail={spec.readinessDetail} provider={spec.name} />}
         {connection.category === 'pos' && <><h3>{t('connect.int.syncRuns')}</h3>
           {(runs.data?.items ?? []).length === 0 ? <p className="fine">{t('state.empty')}</p> : <ul className="fine">{runs.data!.items.map((r) => (
             <li key={r.id}>{dateTime(r.startedAt, locale)} · <Badge tone={r.status === 'succeeded' ? 'ok' : r.status === 'failed' ? 'danger' : 'warn'}>{r.status}</Badge> · <OrderRef n={r.attempt} /> · {r.stats?.fetched ?? 0} / {r.stats?.conflicts ?? 0} {r.error ? `· ${r.error}` : ''}</li>))}</ul>}</>}
