@@ -127,7 +127,14 @@
 .gx-dock.has-items { box-shadow: var(--shadow-float), 0 0 0 2px var(--chip-line); }
 .gx-dock strong { font-size: 14px; margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 .gx-count { border-radius: 50%; background: var(--leaf-bg); display: grid; place-items: center; min-width: 26px; height: 26px; font-size: 12px; font-weight: 700; padding: 0 4px; }
-.gx-dock .gx-live { font-size: 11px; color: var(--ember); font-weight: 650; display: inline-flex; align-items: center; gap: 5px; }
+.gx-dock .gx-live { font-size: 11px; color: var(--ember); font-weight: 650; }
+/* POL-02: nothing in the row is ever pushed past the screen edge or shortened. Every item keeps its size; only the
+ * reconnecting status may give way, down to its dot (role=status still announces the whole text). */
+.gx-dock > * { flex-shrink: 0; }
+.gx-dock > .gx-live { flex-shrink: 1; min-width: 1.1em; overflow: hidden; text-overflow: clip; }
+.gx-dock-bill { gap: 6px; }
+.gx-dock-cart { position: relative; }
+.gx-count.is-badge { display: none; }
 
 /* Sheets (guest-sheet) */
 .gx-backdrop { position: fixed; inset: 0; z-index: 50; background: var(--overlay); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 12px; animation: gx-fade .18s var(--ease); }
@@ -355,6 +362,11 @@
 .bk-day[aria-pressed='true'] { background: var(--brand-ink); border-color: var(--brand-ink); color: var(--bk-on); }
 .bk-day[aria-pressed='true'] small, .bk-day[aria-pressed='true'] i { color: var(--bk-on-muted); }
 .bk-party { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* POL-03: party size and (with several bookable branches) the branch on one row; the branch wraps under it on phones. */
+.bk-row { display: flex; flex-wrap: wrap; align-items: end; gap: 18px 28px; }
+.bk-row > .bk-field { min-width: 0; }
+.bk-branch { flex: 0 1 300px; min-width: min(100%, 220px); margin-inline-start: auto; }
+.bk-branch .bk-select { padding-block: 10px; }
 .bk-stepper { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--brand-line); border-radius: 99px; padding: 4px; background: var(--bk-soft); }
 .bk-stepper button { width: 38px; height: 38px; border-radius: 50%; font-size: 19px; display: grid; place-items: center; border: 0; background: none; color: var(--brand-ink); }
 .bk-stepper button:disabled { opacity: .3; }
@@ -466,8 +478,18 @@
   .gx-dish-body { padding: 16px; }
   .gx-dish-body h3 { font-size: 16px; }
   .gx-status-page h1, .gx-page-title { font-size: 38px; }
+  /* POL-02: up to tablet width the full legacy row (View bill · amount, View cart, total, count) does not fit once a
+   * long amount due and the reconnecting status show, so View bill stacks its words over the amount (both whole) and
+   * the count rides on View cart as a corner badge. */
+  .gx-dock-bill.has-due { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; line-height: 1.2; text-align: start; }
+  .gx-dock-bill.has-due .gx-dock-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .gx-dock-bill.has-due .gx-dock-sep { display: none; }
+  .gx-count.is-trailing { display: none; }
+  .gx-count.is-badge { display: grid; position: absolute; inset-block-start: -7px; inset-inline-end: -7px; min-width: 20px; height: 20px; padding: 0 5px;
+    border-radius: var(--radius-pill); font-size: 11px; color: var(--ink); box-shadow: 0 0 0 2px var(--card); }
 }
 @media (max-width: 600px) {
+  .bk-branch { flex-basis: 100%; margin-inline-start: 0; }
   .gx-grid { grid-template-columns: 1fr; gap: 14px; }
   .gx-dish { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: stretch; }
   .gx-dish .gx-photo-btn { align-self: center; padding: 12px; padding-inline-end: 0; }
@@ -477,9 +499,11 @@
   .gx-dish-body p { font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 0; margin-block: 2px; }
   .gx-dish-foot { padding-block-start: 12px; }
   .gx-add { min-width: 0; padding: 0 14px; }
-  .gx-dock { inset-inline: 12px; inset-block-end: calc(12px + env(safe-area-inset-bottom)); min-width: 0; width: auto; transform: none; gap: 10px; padding: 10px; max-width: none; }
+  .gx-dock { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); inset-block-end: calc(12px + env(safe-area-inset-bottom));
+    min-width: 0; width: auto; transform: none; gap: 8px; padding: 10px; max-width: none; }
   [dir='rtl'] .gx-dock { transform: none; }
-  .gx-dock .gx-btn { min-height: 42px; padding: 0 14px; font-size: 13px; }
+  .gx-dock .gx-btn { min-height: 42px; padding: 0 13px; font-size: 13px; }
+  .gx-dock > .gx-dock-bill { padding-inline: 11px; }
   .gx-dock strong { font-size: 13px; }
   .gx-main { padding-block-end: calc(120px + env(safe-area-inset-bottom)); }
   .gx-backdrop { place-items: end stretch; padding: 0; }

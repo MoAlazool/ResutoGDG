@@ -201,12 +201,6 @@ export function BookingExperience({ slug, info, branchCode, initialSlots, initia
             </button></header>
             {step === 1 && (
               <div className="bk-step-body">
-                {bookable.length > 1 && (
-                  <div className="bk-field"><span className="bk-label">{t('core.res.bk.branch')}</span>
-                    <select className="bk-select" value={branch ?? ''} onChange={(e) => { setBranch(e.target.value); setSelected(null); }}>
-                      {bookable.map((b) => <option key={b.id} value={b.code}>{pick(locale, b.name, b.nameAr)}</option>)}
-                    </select></div>
-                )}
                 <div className="bk-field">
                   <span className="bk-label">{t('core.res.bk.date')}<b>{date === today ? t('core.res.bk.today') : ''}</b></span>
                   <div className="bk-days" role="group" aria-label={t('core.res.bk.date')}>
@@ -220,6 +214,9 @@ export function BookingExperience({ slug, info, branchCode, initialSlots, initia
                     })}
                   </div>
                 </div>
+                {/* POL-03: the branch choice sits beside the party size (only when more than one branch takes bookings), so the
+                    time grid and the hold note stay in the first viewport at 1440 x 900 like legacy. */}
+                <div className="bk-row">
                 <div className="bk-field">
                   <span className="bk-label">{t('core.res.bk.guests')}</span>
                   <div className="bk-party">
@@ -232,6 +229,13 @@ export function BookingExperience({ slug, info, branchCode, initialSlots, initia
                       {[2, 4, 6, 8].map((n) => <button key={n} type="button" aria-pressed={party === n} onClick={() => { setParty(n); setSelected(null); void loadSlots({ date, service, party: n }); }}>{n}</button>)}
                     </div>
                   </div>
+                </div>
+                {bookable.length > 1 && (
+                  <label className="bk-field bk-branch"><span className="bk-label">{t('core.res.bk.branch')}</span>
+                    <select className="bk-select" value={branch ?? ''} onChange={(e) => { setBranch(e.target.value); setSelected(null); }}>
+                      {bookable.map((b) => <option key={b.id} value={b.code}>{pick(locale, b.name, b.nameAr)}</option>)}
+                    </select></label>
+                )}
                 </div>
                 <div className="bk-field">
                   <span className="bk-label">{t('core.res.bk.time', { zone: zoneName })}

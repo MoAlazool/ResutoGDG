@@ -9,6 +9,7 @@ import { guestMoney as money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { AssistantCard, AssistantSheet } from '@/components/guest/assistant';
 import { CartSheet, useSuggestions } from '@/components/guest/cart';
+import { GuestDock } from '@/components/guest/dock';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart, type Cart } from '@/components/guest/menu';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 import { MetaPixel, metaOrderPlaced, metaTrack } from '@/lib/tracking/MetaPixel';
@@ -87,11 +88,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
         ) : !error && <p className="gx-fine" role="status">{t('core.guest.shell.loading')}</p>}
       </main>
       <ConsumerFooter org={org} />
-      <div className={`gx-dock${cart.count ? ' has-items' : ''}`}>
-        <button type="button" className="gx-btn is-primary" onClick={() => setSheet('cart')} aria-label={`${t('core.guest.viewCart')} (${t('core.guest.itemsInCart', { n: cart.count })})`}>{t('core.guest.viewCart')}</button>
-        <strong><bdi>{money(estimate(cart, products), currency, locale)}</bdi></strong>
-        <span className="gx-count" aria-hidden>{cart.count}</span>
-      </div>
+      <GuestDock count={cart.count} total={money(estimate(cart, products), currency, locale)} onCart={() => setSheet('cart')} />
       {product && menu && (
         <ProductSheet product={product} currency={currency} ordering={canOrder} onClose={() => setProduct(null)}
           onAdd={(qty, mods, notes) => { cart.add(product.id, qty, mods, notes); setProduct(null); toast.show(t('core.guest.addedConfirm')); }} />
