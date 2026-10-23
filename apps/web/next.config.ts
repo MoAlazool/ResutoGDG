@@ -19,9 +19,10 @@ const config: NextConfig = {
   outputFileTracingRoot: repoRoot,
   // The contracts package ships CommonJS for Node consumers (API, worker, MCP).
   // The web app compiles its TypeScript source instead, so dev-mode React Refresh
-  // works and pages never depend on a stale dist/ build.
+  // works and pages never depend on a stale dist/ build. lib/contracts-entry.ts switches zod's JIT off before
+  // re-exporting that source (no CSP 'eval' probe on documents; REM-W08).
   webpack(config) {
-    config.resolve.alias = { ...config.resolve.alias, '@resuto/contracts$': path.join(repoRoot, 'packages/contracts/src/index.ts') };
+    config.resolve.alias = { ...config.resolve.alias, '@resuto/contracts$': path.join(repoRoot, 'apps/web/lib/contracts-entry.ts') };
     return config;
   },
   async headers() {
