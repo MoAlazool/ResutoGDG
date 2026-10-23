@@ -14,6 +14,7 @@ import { AssistantCard, AssistantSheet } from '@/components/guest/assistant';
 import { BillPanel, SplitChooser, SplitForm, type SplitMode } from '@/components/guest/bill';
 import { billStage } from '@/components/guest/bill-state';
 import { CartSheet, Suggestions, useSuggestions } from '@/components/guest/cart';
+import { GuestDock } from '@/components/guest/dock';
 import { useVisitLive } from '@/components/guest/live';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart } from '@/components/guest/menu';
 import { RatingSheet } from '@/components/guest/rating';
@@ -180,13 +181,9 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
       )}
       <ConsumerFooter org={org} />
 
-      <div className={`gx-dock${cart.count ? ' has-items' : ''}`}>
-        {ordering && <button type="button" className="gx-btn" onClick={openBill}>{t('core.guest.viewBill')}{due > 0 ? <> · <bdi>{money(due, currency, locale)}</bdi></> : null}</button>}
-        <button type="button" className="gx-btn is-primary" onClick={() => setSheet('cart')} aria-label={`${t('core.guest.viewCart')} (${t('core.guest.itemsInCart', { n: cart.count })})`}>{t('core.guest.viewCart')}</button>
-        {live.reconnecting && <span className="gx-live" role="status">● {t('core.guest.reconnecting')}</span>}
-        <strong><bdi>{money(estimate(cart, products), currency, locale)}</bdi></strong>
-        <span className="gx-count" aria-hidden>{cart.count}</span>
-      </div>
+      <GuestDock count={cart.count} total={money(estimate(cart, products), currency, locale)} onCart={() => setSheet('cart')}
+        bill={ordering ? { due: due > 0 ? money(due, currency, locale) : null, onOpen: openBill } : null}
+        status={live.reconnecting ? <span className="gx-live" role="status">● {t('core.guest.reconnecting')}</span> : null} />
 
       {product && (
         <ProductSheet product={product} currency={currency} ordering={phase !== 'closed'} onClose={() => setProduct(null)}
