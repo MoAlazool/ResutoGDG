@@ -822,20 +822,6 @@ async function reconcileUpToNow() {
 
 // --- 14. Studio website and the Smash & Co storefront (VP-05, VP-14); idempotent ---------------------------------
 /**
- * Bookings made days ahead by an earlier run (live fixtures book today, tomorrow and the day after) become past while
- * the rest of the live set is still fresh, so every refresh marks confirmed bookings whose time passed more than
- * LIVE_STALE_HOURS ago as no-shows through the API (held ones expire through the worker).
- */
-async function retirePastBookings() {
-  let n = 0;
-  for (const r of await q(`select id from reservations where org_id = $1 and status = 'confirmed' and starts_at < now() - make_interval(hours => ${LIVE_STALE_HOURS})`, [C.ORG])) {
-    await must('POST', O(`/reservations/${r.id}/no-show`), { token: C.STAFF.host.token, body: {} });
-    n++;
-  }
-  if (n) log(`reservations: ${n} earlier booking(s) whose time passed marked no-show`);
-}
-
-/**
  * Tenants loaded by an older loader keep two gaps the integrity check reports: dishes created without a photo, and
  * online checkout sessions of back-dated orders still stamped at load time (the old loader re-dated the order but not
  * its session). Both are repaired in place on the demo tenant only; nothing is deleted.
@@ -1063,8 +1049,10 @@ try {
     const partialLive = prior.live_started_at && new Date(prior.live_started_at) > liveAt ? prior.live_started_at : null;
     if (partialLive) log(`live fixtures: an earlier run was interrupted while creating them (${partialLive}); that partial set is completed first`);
     const stale = Boolean(partialLive) || Date.now() - liveAt.getTime() > LIVE_STALE_HOURS * 3600_000;
-    if (stale) await retireStaleLive(partialLive);
-    else await retirePastBookings();
+    // A fresh live set is never older than the cutoff, so completing everything older than it is safe on every run:
+    // items an earlier set left behind (bookings made days ahead, a visit from a set that was 5 h old when the next
+    // set was created) are retired even while the current set is still fresh.
+    await retireStaleLive(stale ? partialLive : null);
     const yesterday = addDays(today, -1);
     if (historyThrough < yesterday) {
       const gapFrom = addDays(historyThrough, 1);
