@@ -23,15 +23,14 @@ measurements, redeploy staging and re-verify.
 | Wave 4: other integrations (TikTok/Snap, Foodics, accounting, ZATCA/ETA, domains, notifications, maps, Gemini, push), demo data integrity, observability, QA gates | done, on staging (API) at `d207114` |
 | Wave 5: auth hardening (Free plan, no SMTP) + API quality (OpenAPI, errors, validation, pagination, HTTP semantics, least-privilege DB roles, shared rate limits) | done |
 | Wave 6: visual parity with the original Resuto (gallery-driven PAR-01..09) + demo loader fixes | done, on staging: web/AI/MCP `145156d`, API `aaec04e` |
-| Wave 7 (in progress 2026-10-23): ws13 polish (POL-01..03, last gallery gaps); ws14a API remainders (REM-A01..A11), ws14b web remainders (REM-W01..W11), ws14c legacy counter / venue QR session (FT-07). Item files: programme scratchpad `ws/ws13-polish.json`, `ws/ws14*.json` | in progress |
-| Staging redeploy + full regression on the final commit, handoff report (`docs/HANDOFF.md`) | pending (after wave 7) |
+| Wave 7: ws13 polish (POL-01..03), ws14a API remainders, ws14b web remainders, ws14c legacy counter / venue QR session (FT-07); demo-loader stale-visit fix, graceful in-process worker shutdown | done, on staging: web/AI/MCP `e711f39`, API `435f602` (smoke 43/43, MCP 7/7, demo integrity holds) |
+| Wave 8 (in progress): ws15 guest repeat-visit LCP race (PERF-01). Then final deploy, handoff report (`docs/HANDOFF.md`) | in progress |
 
 ## Next executable task
-Merge wave 7 branches (`ws/ws13-polish`, `ws/ws14a-api`, `ws/ws14b-web`, `ws/ws14c-counter`) after their independent
-review, run every suite, deploy (web via Vercel CLI production deployment, API/AI/MCP via Render), staging checks, then
-the handoff report. Gallery (2 match / 18 close / 0 differ at `d137414`): https://claude.ai/artifact/PybNvTkVh4jW45QcJ93hZL. Staging soak: watch the API log for `platform role lacks a grant`; when clean, set
-`DATABASE_PLATFORM_FALLBACK=off` (or remove it) and, with the owner, switch `DATABASE_URL` to the `resuto_api` login
-(steps in `docs/STAGING_DEPLOYMENT.md`).
+When ws15 (`ws/ws15-guest-lcp`, item file `ws/ws15-guest-lcp.json` in the programme scratchpad) returns: merge, run
+the suites, deploy web (Vercel CLI production deployment) and API (Render), re-run the staging checks, then finish
+`docs/HANDOFF.md` and publish it. Gallery v3 (landing, order status, reservations recaptured after ws13):
+https://claude.ai/artifact/PybNvTkVh4jW45QcJ93hZL. Staging soak continues; then, with the owner, `resuto_api` login.
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
 - **Vercel**: the claude.ai Vercel connector still has no grant for team "ta-nk", so deploys use the Vercel CLI,
