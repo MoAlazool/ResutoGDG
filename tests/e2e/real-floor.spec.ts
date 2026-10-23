@@ -155,7 +155,7 @@ test.describe('Floor Studio against the real floor API', () => {
     await apiSaveFloor(request, tenant, [{ label: 'T1', cx: 250, cy: 220 }, { label: 'T2', cx: 520, cy: 220 }, { label: 'T3', cx: 790, cy: 220 }]);
     const errors = collectErrors(page);
     await signIn(page, tenant.owner);
-    await page.goto(floorUrl(tenant, 'studio'));
+    await page.goto(floorUrl(tenant, 'live'));
     await page.getByRole('tab', { name: 'Table QR codes' }).click();
     const cards = page.locator('.qr-card');
     await expect(cards).toHaveCount(3);
@@ -181,24 +181,27 @@ test.describe('Live floor against the real visits API', () => {
     const errors = collectErrors(page, [/Failed to load resource.*409/]);
     await signIn(page, tenant.owner);
     await page.goto(floorUrl(tenant, 'live'));
-    await expect(page.locator('.live-kpis')).toContainText('Tables free');
+    await expect(page.getByRole('region', { name: 'Floor overview', exact: true })).toContainText('Tables available');
     await page.getByRole('button', { name: /^T1,/ }).click();
-    await page.getByLabel('Party size').fill('3');
-    await page.getByRole('button', { name: '+ Seat a walk-in' }).click();
+    const detail = page.getByRole('region', { name: 'T1', exact: true });
+    await detail.getByLabel('Party size').fill('3');
+    await detail.getByRole('button', { name: /Seat guests/ }).click();
     await expect(page.getByText('T1 seated.')).toBeVisible();
-    await expect(page.locator('.live-panel .badge').first()).toHaveText('Seated');
+    await expect(detail.getByText('Seated', { exact: true })).toBeVisible();
+    await expect(detail).toContainText('3 guests');
 
     // A guest at T1 orders through the table QR (joins the staff-opened visit).
     const qr = (await apiQrSheet(request, tenant)).find((x) => x.label === 'T1')!;
     const order = await guestOrder(request, qr.url, [{ productId: menu.fries, quantity: 2, modifiers: [] }]);
     expect(order.totalMinor).toBeGreaterThan(0);
-    await expect(page.locator('.live-panel')).toContainText('EGP', { timeout: 15_000 });
-    await expect(page.locator('.live-panel .badge').first()).toHaveText('Ordered', { timeout: 15_000 });
+    await expect(detail).toContainText('EGP', { timeout: 15_000 });
+    await expect(detail.getByText('In the kitchen', { exact: true })).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole('button', { name: 'Close table' }).click();
+    await detail.getByRole('button', { name: 'Close visit' }).click();
     const dialog = page.locator('dialog.rui-confirm[open]');
     await expect(dialog).toContainText('Close with an open balance?');
-    await expect(dialog).toContainText('Settle the bill');
+    await expect(dialog).toContainText('Settle the bill'); // the API's refusal, in the page language (REM-W05)
+    await expect(dialog).toContainText('Force-closing writes off what is unpaid');
     await dialog.getByRole('button', { name: 'Close anyway' }).click();
     await expect(page.getByText('T1 closed.')).toBeVisible();
     const visit = await apiAs(request, tenant.owner).get(`/o/${tenant.orgId}/visits/${(await apiAs(request, tenant.owner).get(`/o/${tenant.orgId}/orders/${order.id}`)).visitId}`);
@@ -213,13 +216,14 @@ test.describe('Live floor against the real visits API', () => {
     await signIn(page, tenant.owner);
     await page.goto(floorUrl(tenant, 'live'));
     await page.getByRole('button', { name: /^T1,/ }).click();
-    await page.getByRole('button', { name: '+ Seat a walk-in' }).click();
+    const detail = page.getByRole('region', { name: 'T1', exact: true });
+    await detail.getByRole('button', { name: /Seat guests/ }).click();
     await expect(page.getByText('T1 seated.')).toBeVisible();
-    await page.getByRole('button', { name: 'Close table' }).click();
+    await detail.getByRole('button', { name: 'Close visit' }).click();
     await expect(page.getByText('T1 closed.')).toBeVisible();
-    await expect(page.locator('.live-panel .badge').first()).toHaveText('Needs cleaning', { timeout: 5_000 });
-    await page.getByRole('button', { name: 'Mark clean' }).click();
+    await expect(detail.getByText('Needs cleaning', { exact: true })).toBeVisible({ timeout: 5_000 });
+    await detail.getByRole('button', { name: /Mark as clean/ }).click();
     await expect(page.getByText('T1 is ready for guests.')).toBeVisible();
-    await expect(page.locator('.live-panel .badge').first()).toHaveText('Available');
+    await expect(detail.getByText('Available', { exact: true })).toBeVisible();
   });
 });

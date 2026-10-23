@@ -117,20 +117,24 @@ test.describe('Floor Studio (against the §8 floor contract double — B1 API ab
     await expect(preview).toHaveAttribute('data-view', '2d');
     await page.keyboard.press('Escape');
 
+    // The Studio is full screen (VS-23): staff leave it with "Back to service", then use the floor tabs.
+    await expect(page.getByRole('tab', { name: 'Table QR codes' }), 'no tab bar hidden behind the full-screen Studio').toHaveCount(0);
+    await page.getByRole('link', { name: /Back to service/ }).click();
     await page.getByRole('tab', { name: 'Table QR codes' }).click();
     await expect(page.locator('.qr-card')).toHaveCount(3);
     await expect(page.locator('.qr-card svg').first()).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Live floor' }).click();
-    await expect(page.locator('.live-kpis')).toContainText('Tables free');
-    await page.locator('.saved-floor .svg-table').first().click();
-    await page.getByRole('button', { name: '+ Seat a walk-in' }).click();
+    await page.getByRole('tab', { name: 'Floor overview' }).click();
+    await expect(page.getByRole('region', { name: 'Floor overview', exact: true })).toContainText('Tables available');
+    await page.getByRole('button', { name: /^T1,/ }).click();
+    const detail = page.getByRole('region', { name: 'T1', exact: true });
+    await detail.getByRole('button', { name: /Seat guests/ }).click();
     await expect(page.getByText('T1 seated.')).toBeVisible();
-    await expect(page.locator('.live-panel .badge').first()).toHaveText('Seated');
-    await page.getByRole('button', { name: 'Close table' }).click();
-    await expect(page.getByRole('button', { name: 'Mark clean' })).toBeVisible();
-    await page.getByRole('button', { name: 'Mark clean' }).click();
-    await expect(page.locator('.live-panel .badge').first()).toHaveText('Available');
+    await expect(detail.getByText('Seated', { exact: true })).toBeVisible();
+    await detail.getByRole('button', { name: 'Close visit' }).click();
+    await expect(detail.getByRole('button', { name: /Mark as clean/ })).toBeVisible();
+    await detail.getByRole('button', { name: /Mark as clean/ }).click();
+    await expect(detail.getByText('Available', { exact: true })).toBeVisible();
   });
 
   test('Floor Studio works in Arabic (RTL) at 390 px and has no serious a11y violations', async ({ page, request }) => {

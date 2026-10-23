@@ -64,11 +64,11 @@ for (const locale of ['en', 'ar'] as const) {
       // Build a cart: a Large burger (modifier sheet) and fries.
       await g.locator('article').filter({ hasText: s.burger }).getByRole('button', { name: s.add }).click();
       const sheet = g.getByRole('dialog');
-      await expect(sheet.locator('input[type="radio"]:checked')).toHaveCount(1); // required Size preselected
-      await sheet.locator('label').filter({ hasText: s.large }).click();
+      await expect(sheet.getByRole('radio', { checked: true })).toHaveCount(1); // required Size preselected
+      await sheet.getByRole('radio', { name: new RegExp(`^${s.large}`) }).check();
       await sheet.getByRole('button', { name: s.add }).click();
       await g.locator('article').filter({ hasText: s.fries }).getByRole('button', { name: s.add }).click();
-      await expect(g.getByText(locale === 'ar' ? /^2 صنف$/ : /^2 item\(s\)$/)).toBeVisible();
+      await expect(g.getByText(locale === 'ar' ? /^صنفان$/ : /^2 items$/)).toBeVisible();
       await g.getByRole('button', { name: s.review }).click();
       await expect(g.getByRole('heading', { name: s.reviewTitle })).toBeVisible();
       await expectNoHorizontalOverflow(g);
@@ -82,13 +82,10 @@ for (const locale of ['en', 'ar'] as const) {
       await g.getByRole('link', { name: s.payNow }).click();
       if (locale === 'ar') {
         // The payment pages are bilingual too; drive them by role/structure.
-        await expect(g.locator('.pay-methods')).toBeVisible();
+        await expect(g.getByRole('radiogroup', { name: 'اختر طريقة الدفع' })).toBeVisible();
         await expectNoHorizontalOverflow(g);
-        await g.locator('.pay-methods [role="radio"]').first().click();
-        await g.locator('.pay-card .btn-primary').last().click();
-        await expect(g).toHaveURL(/\/sandbox/);
-        await g.locator('.pay-card .btn-primary').first().click();
-        await expect(g).toHaveURL(/\?return=1/);
+        await paySandboxInBrowser(g, /بطاقة/);
+        await expect(g.getByText('تم الدفع بنجاح')).toBeVisible({ timeout: 20_000 });
       } else {
         await paySandboxInBrowser(g);
         await expect(g.getByText('Payment successful')).toBeVisible({ timeout: 20_000 });
@@ -109,7 +106,7 @@ for (const locale of ['en', 'ar'] as const) {
       const staff = await newContext(browser, { user: tenant.owner });
       try {
         await staff.page.goto(`/kitchen/${tenant.orgId}`);
-        await expect(staff.page.locator('.kds-col').first().locator('article').filter({ hasText: 'Smash burger' })).toBeVisible({ timeout: 15_000 });
+        await expect(staff.page.getByRole('region', { name: 'New orders' }).locator('article').filter({ hasText: 'Smash burger' })).toBeVisible({ timeout: 15_000 });
       } finally {
         await staff.context.close();
       }

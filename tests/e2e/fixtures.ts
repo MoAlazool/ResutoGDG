@@ -280,12 +280,26 @@ export async function eventually<T>(fn: () => Promise<T | null | undefined | fal
   throw new Error(`${opts.message ?? 'condition not met'} (last: ${last instanceof Error ? last.message : JSON.stringify(last)})`);
 }
 
-/** On a hosted checkout (`/pay/<token>`): choose an online method, pay with the sandbox provider, land back on the receipt. */
+/**
+ * On a hosted checkout (`/pay/<token>`): choose an online method, pay with the sandbox provider, land back on the receipt.
+ * Works in either language: `method` matches the method's label (EN "Card", AR "بطاقة").
+ */
 export async function paySandboxInBrowser(page: Page, method: RegExp = /Card/) {
   await expect(page).toHaveURL(/\/pay\/[^/?]+/);
-  await page.locator('.pay-methods [role="radio"]').filter({ hasText: method }).first().click();
-  await page.getByRole('button', { name: /^Pay / }).click();
+  await page.getByRole('radio').filter({ hasText: method }).first().click();
+  await page.getByRole('button', { name: /^(Pay|ادفع) / }).click();
   await expect(page).toHaveURL(/\/pay\/[^/]+\/sandbox/);
-  await page.getByRole('button', { name: 'Simulate successful payment' }).click();
+  await page.getByRole('button', { name: /^(Simulate successful payment|محاكاة دفع ناجح)$/ }).click();
   await expect(page).toHaveURL(/\/pay\/[^/]+\?return=1/);
 }
+
+// ---------------------------------------------------------------------------
+// REM-W09: the dashboard shell by role and accessible name (not CSS classes), in either language.
+// ---------------------------------------------------------------------------
+
+/** The dashboard's workspace navigation: the `<aside>` landmark labelled "Workspace navigation" (AR "تنقل مساحة العمل"). */
+export const workspaceNav = (page: Page) => page.getByRole('complementary', { name: /^(Workspace navigation|تنقل مساحة العمل)$/ });
+
+/** The "not in your plan" marker on a locked module link in the workspace navigation. */
+export const navLockFor = (page: Page, module: string) =>
+  workspaceNav(page).locator(`a[href$="/${module}"]`).getByLabel(/^(Not in your plan|غير متاح في خطتك)$/);

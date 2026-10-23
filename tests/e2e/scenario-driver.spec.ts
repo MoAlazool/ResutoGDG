@@ -151,13 +151,15 @@ test('the KDS hand-over of a driver-dispatched delivery ticket does not mark the
   try {
     const k = staff.page;
     await k.goto(`/kitchen/${tenant.orgId}`);
-    const ticket = () => k.locator('article').filter({ hasText: 'Fries' });
-    await ticket().getByRole('button', { name: 'Start preparing' }).click();
-    await ticket().getByRole('button', { name: 'Ready' }).click();
+    const ticket = (lane: string) => k.getByRole('region', { name: lane }).locator('article').filter({ hasText: 'Fries' });
+    await ticket('New orders').getByRole('button', { name: 'Start preparing' }).click();
+    await ticket('Preparing').getByRole('button', { name: 'Mark ready' }).click();
     await expect.poll(async () => (await sql(`select status from orders where id = $1`, [orderId]))[0].status).toBe('ready');
-    // The pass hands the bag to the driver.
-    await ticket().getByRole('button', { name: 'Out for delivery' }).click();
-    await expect(ticket()).toHaveCount(0);
+    // The pass hands the bag to the driver: the ticket moves to "On the way" and only the driver can complete it there.
+    await ticket('Ready to serve').getByRole('button', { name: 'Send for delivery' }).click();
+    await expect(ticket('Ready to serve')).toHaveCount(0);
+    await expect(ticket('On the way')).toContainText('With the driver');
+    await expect(ticket('On the way').getByRole('button', { name: 'Mark delivered' })).toHaveCount(0);
     const [o] = await sql(`select status, payment_status from orders where id = $1`, [orderId]);
     expect(o.status, 'the order is only delivered when the driver delivers it').not.toBe('delivered');
     const pickup = await driverApi.raw('post', `/o/${tenant.orgId}/driver/jobs/${job.id}/pickup`, {});
