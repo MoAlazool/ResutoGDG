@@ -101,17 +101,43 @@ export class GuestController {
   }
 
   /**
-   * Scan in at the counter (FT-07): opens this guest's own counter visit, or rejoins the open one this phone holds
-   * (X-Visit-Token). Every scan can open a visit, so a guest address gets 30 a minute and a venue code 300.
+   * Scan in at the counter (FT-07). Read-only: rejoins the open counter visit this phone holds (X-Visit-Token), else
+   * says whether the counter takes orders, with no visit (the visit opens with the first order below). Nothing is
+   * written, so it is limited like the other per-guest reads.
    */
   @Public()
   @Post('venue/:token/session')
   @HttpCode(200)
   counterSession(@Param('token') token: string, @Headers('x-visit-token') visitToken: string | undefined, @Req() req: ResutoRequest) {
-    this.limiter.hit(`guest:venue-session:ip:${req.ip}`, 30);
+    this.limiter.hit(`guest:venue-session:ip:${req.ip}`, 120);
     if (!VENUE_TOKEN.test(token ?? '')) throw notFound('Venue');
-    this.limiter.hit(`guest:venue-session:code:${tokenKey(token)}`, 300);
-    return this.counter.session(token, visitToken).then((s) => { this.guessing.worked(tokenKey(s.token)); return s; });
+    return this.counter.session(token, visitToken).then((s) => { if (s.token) this.guessing.worked(tokenKey(s.token)); return s; });
+  }
+
+  /** Counter prices before the guest's first order (no visit yet; afterwards the visit's own quote is used). */
+  @Public()
+  @Post('venue/:token/quote')
+  @HttpCode(200)
+  counterQuote(@Param('token') token: string, @Body(zod(guestQuoteRequest)) body: z.infer<typeof guestQuoteRequest>, @Req() req: ResutoRequest) {
+    this.limiter.hit(`guest:venue-quote:ip:${req.ip}`, 120);
+    if (!VENUE_TOKEN.test(token ?? '')) throw notFound('Venue');
+    return this.guest.counterQuote(token, body);
+  }
+
+  /**
+   * The guest's first counter order: opens their counter visit with it and returns the visit token (FT-07). A write
+   * that creates rows, so the per-address limit is the authoritative guard() (like web order placement); there is no
+   * shared per-code budget a stranger could use up.
+   */
+  @Public()
+  @Post('venue/:token/orders')
+  async counterOrder(@Param('token') token: string, @Headers('idempotency-key') key: string | undefined,
+    @Body(zod(guestOrderRequest)) body: GuestOrderRequest, @Req() req: ResutoRequest) {
+    await this.limiter.guard(`guest:venue-order:ip:${req.ip}`, 20);
+    if (!VENUE_TOKEN.test(token ?? '')) throw notFound('Venue');
+    const r = await this.guest.counterOrder(token, body, key);
+    if (r.session?.token) this.guessing.worked(tokenKey(r.session.token));
+    return r;
   }
 
   @Public()

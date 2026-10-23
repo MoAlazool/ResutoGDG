@@ -48,8 +48,8 @@ export class FloorController {
   }
 
   /**
-   * The branch's single venue QR (FT-07): a counter branch's `/v/<token>` (every scan opens that guest's own counter
-   * order), else the public ordering page. Printed at the till, so floor:read may show it.
+   * The branch's single venue QR (FT-07): a counter branch's `/v/<token>` (each guest's own counter order; the visit
+   * opens with the first order), else the public ordering page. Printed at the till, so floor:read may show it.
    */
   @Get(':branchId/venue-qr')
   @RequirePermission('floor:read')

@@ -23,8 +23,8 @@ export const serviceModeRequest = z.object({
 export type ServiceModeRequest = z.infer<typeof serviceModeRequest>;
 
 /**
- * The single venue QR of a branch. Counter branches (FT-07): `/v/<token>`, where every scan opens that guest's own
- * counter visit; the token is the branch's venue credential (stored hashed, rotatable). Other branches: the public
+ * The single venue QR of a branch. Counter branches (FT-07): `/v/<token>`, where each guest orders on their own (the
+ * counter visit opens with their first order); the token is the branch's venue credential (stored hashed, rotatable). Other branches: the public
  * ordering page, which carries no secret.
  */
 export interface VenueQr {

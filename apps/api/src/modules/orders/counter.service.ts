@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import type { TenantContext } from '../../common/auth/context';
 import { sha256 } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { DomainError, conflict, notFound } from '../../common/errors/domain-error';
+import { conflict, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { StorageService } from '../../common/storage/storage.service';
@@ -16,19 +16,17 @@ import { VisitsService } from './visits.service';
 /** Same shape as table QR tokens (the legacy app printed both as <origin>/t/<token>). */
 export const VENUE_TOKEN = /^[A-Za-z0-9_-]{16,128}$/;
 
-/**
- * A branch never has more empty counter visits open than this (a scan that orders nothing is swept after
- * COUNTER_ABANDON_MS). It caps what scripted scanning from many addresses can pile up; real counters stay far below.
- */
-export const COUNTER_EMPTY_OPEN_CAP = 500;
-
 export interface ResolvedVenue { orgId: string; branchId: string; source: 'venue' | 'legacy' }
 
 /**
  * The legacy counter session (FT-07, legacy server.js /api/table-session with the venue QR): one QR per branch at the
- * till; every scan opens that guest's own table-less visit ("Counter order"). The visit is an ordinary visit of kind
+ * till; every guest gets their own table-less visit ("Counter order"). The visit is an ordinary visit of kind
  * `counter`, so ordering, the bill, payments, ratings and the KDS use the table paths unchanged; it carries the same
  * per-visit X-Visit-Token (only its hash is stored, and it stops working when the visit closes).
+ *
+ * The visit opens with the guest's first order, never on a scan (GuestService.counterOrder: visit and order commit in
+ * one transaction). A scan only reads, so anonymous scanning creates no rows and uses up no shared budget of the branch:
+ * scripted scans cannot shut the counter for real guests, and the visits board shows only guests who ordered.
  *
  * The venue credential: token = HMAC(guest-token key, branch id + nonce); only sha256(token) and the nonce are stored
  * (branches.venue_qr_*), so staff can print the same code again and rotating draws a new nonce. Codes printed by the
@@ -176,42 +174,68 @@ export class CounterService {
   }
 
   /**
-   * Scan in at the counter (public). A phone that still holds an open counter visit of this branch (X-Visit-Token)
-   * rejoins it; otherwise a new counter visit is opened for this guest alone (legacy: every scan starts that guest's
-   * own order). Nothing is charged or marked paid here.
+   * Scan in at the counter (public, read-only). A phone that still holds an open counter visit of this branch
+   * (X-Visit-Token) rejoins it and gets its token back; any other scan learns whether the counter takes orders and gets
+   * no visit (token null): the visit opens with the first order (GuestService.counterOrder). Nothing is written here.
    */
   async session(token: string, visitToken: string | undefined): Promise<CounterSession> {
     const venue = await this.resolve(token);
     return this.db.withTenant(venue.orgId, async (tx) => {
-      const b = await tx.one<any>(
-        `select b.id, b.code, b.name, b.name_ar, b.is_active, b.accepts_pickup, b.service_mode,
-                o.name as org_name, o.name_ar as org_name_ar, o.slug, o.currency
-           from branches b join organizations o on o.id = b.org_id where b.id = $1 for no key update of b`, [venue.branchId]);
-      const out = (visitId: string, token: string, opened: boolean): CounterSession => ({
-        kind: 'counter', token, visitId, orgId: venue.orgId, branchId: b.id, currency: b.currency,
-        org: { name: b.org_name, nameAr: b.org_name_ar, slug: b.slug }, branch: { code: b.code, name: b.name, nameAr: b.name_ar }, opened,
-      });
+      const b = await this.branchRow(tx, venue.branchId, false);
       if (visitToken && visitToken.length >= 20 && visitToken.length <= 200) {
-        const mine = await tx.maybeOne<{ id: string; guest_token_hash: string }>(
-          `select id, guest_token_hash from visits where guest_token_hash = $1 and status = 'open' and kind = 'counter' and branch_id = $2`,
+        const mine = await tx.maybeOne<{ id: string }>(
+          `select id from visits where guest_token_hash = $1 and status = 'open' and kind = 'counter' and branch_id = $2`,
           [sha256(visitToken), b.id]);
-        if (mine) return out(mine.id, visitToken, false);
+        if (mine) return this.sessionOf(venue.orgId, b, { visitId: mine.id, token: visitToken }, false);
       }
-      const { reason } = this.availability(b);
-      if (reason === 'not_counter') throw conflict('venue_unavailable', 'This restaurant takes orders on its website.', { reason });
-      if (reason) throw conflict('venue_unavailable', 'This counter is not taking orders right now.', { reason });
-      const empty = await tx.one<{ n: number }>(
-        `select count(*)::int as n from visits v where v.branch_id = $1 and v.kind = 'counter' and v.status = 'open'
-            and not exists (select 1 from orders o where o.visit_id = v.id)`, [b.id]);
-      if (empty.n >= COUNTER_EMPTY_OPEN_CAP) {
-        throw new DomainError('rate_limited', 'The counter is very busy. Please try again in a minute.', 429, { retryAfterMs: 60_000 });
-      }
-      const id = randomUUID();
-      await tx.query(
-        `insert into visits(id, org_id, branch_id, table_id, kind, guest_token_hash, opened_via) values ($1, $2, $3, null, 'counter', $4, 'qr')`,
-        [id, venue.orgId, b.id, this.visits.tokens.hashFor(id)]);
-      await this.outbox.publish(tx, venue.orgId, { type: 'visit.opened', aggregateType: 'visit', aggregateId: id, payload: { tableId: null, kind: 'counter', branchId: b.id, via: 'qr' } });
-      return out(id, this.visits.tokens.tokenFor(id), true);
+      this.assertAccepting(b);
+      return this.sessionOf(venue.orgId, b, null, false);
     }, `guest:venue:${venue.branchId}`);
   }
+
+  /** The branch with what the counter session needs; `lock` holds it against concurrent mode changes while ordering. */
+  async branchRow(tx: Tx, branchId: string, lock: boolean): Promise<CounterBranch> {
+    return tx.one<CounterBranch>(
+      `select b.id, b.code, b.name, b.name_ar, b.is_active, b.accepts_pickup, b.service_mode,
+              o.name as org_name, o.name_ar as org_name_ar, o.slug, o.currency
+         from branches b join organizations o on o.id = b.org_id where b.id = $1${lock ? ' for no key update of b' : ''}`, [branchId]);
+  }
+
+  /** 409 venue_unavailable unless the branch serves at a counter and takes orders now. */
+  assertAccepting(b: CounterBranch) {
+    const { reason } = this.availability(b);
+    if (reason === 'not_counter') throw conflict('venue_unavailable', 'This restaurant takes orders on its website.', { reason });
+    if (reason) throw conflict('venue_unavailable', 'This counter is not taking orders right now.', { reason });
+  }
+
+  /** Opens this guest's counter visit inside the first order's transaction (the caller places the order with it). */
+  async openVisit(tx: Tx, orgId: string, branchId: string): Promise<string> {
+    const id = randomUUID();
+    await tx.query(
+      `insert into visits(id, org_id, branch_id, table_id, kind, guest_token_hash, opened_via) values ($1, $2, $3, null, 'counter', $4, 'qr')`,
+      [id, orgId, branchId, this.visits.tokens.hashFor(id)]);
+    await this.outbox.publish(tx, orgId, { type: 'visit.opened', aggregateType: 'visit', aggregateId: id, payload: { tableId: null, kind: 'counter', branchId, via: 'qr' } });
+    return id;
+  }
+
+  /**
+   * The open counter visit's token, derived again from its stored hash (tokens are never stored, not even in
+   * idempotency records); null once the visit closed.
+   */
+  async visitToken(tx: Tx, visitId: string): Promise<string | null> {
+    const v = await tx.maybeOne<{ guest_token_hash: string }>(`select guest_token_hash from visits where id = $1 and status = 'open' and kind = 'counter'`, [visitId]);
+    return v ? this.visits.tokens.visitTokenMatching(visitId, v.guest_token_hash) : null;
+  }
+
+  sessionOf(orgId: string, b: CounterBranch, visit: { visitId: string; token: string } | null, opened: boolean): CounterSession {
+    return {
+      kind: 'counter', token: visit?.token ?? null, visitId: visit?.visitId ?? null, orgId, branchId: b.id, currency: b.currency as CounterSession['currency'],
+      org: { name: b.org_name, nameAr: b.org_name_ar, slug: b.slug }, branch: { code: b.code, name: b.name, nameAr: b.name_ar }, opened,
+    };
+  }
+}
+
+export interface CounterBranch {
+  id: string; code: string; name: string; name_ar: string | null; is_active: boolean; accepts_pickup: boolean; service_mode: string;
+  org_name: string; org_name_ar: string | null; slug: string; currency: string;
 }

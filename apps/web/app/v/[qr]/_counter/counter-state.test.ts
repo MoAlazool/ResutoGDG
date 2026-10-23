@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { clearCounterVisit, counterStage, loadCounterVisit, readyForPickup, saveCounterVisit, ticketLabel } from './counter-state';
+import { clearCounterVisit, counterEndpoints, counterStage, loadCounterVisit, readyForPickup, saveCounterVisit, ticketLabel } from './counter-state';
 
 // A minimal Storage for node (the web unit tests run without a DOM).
 beforeAll(() => {
@@ -59,5 +59,18 @@ describe('counter ticket (FT-07, legacy guest.js counterTicket)', () => {
     expect(loadCounterVisit('code-c')).toBeNull();
     clearCounterVisit('code-a');
     expect(loadCounterVisit('code-a')).toBeNull();
+  });
+});
+
+describe('counter endpoints (review: a scan opens no visit; the first order does)', () => {
+  it('prices and places the first order through the venue code, with read-only public helpers', () => {
+    const e = counterEndpoints('VenueCode_1234567890', false, 'smash-co', 'main');
+    expect(e).toMatchObject({ quote: '/public/venue/VenueCode_1234567890/quote', order: '/public/venue/VenueCode_1234567890/orders', firstOrder: true,
+      suggestions: '/public/order/smash-co/suggestions', assistant: '/public/order/smash-co/assistant', extra: { branch: 'main' } });
+    expect(counterEndpoints('VenueCode_1234567890', false, null, null)).toMatchObject({ suggestions: null, assistant: null, extra: undefined });
+  });
+  it('uses the visit endpoints once the guest has a visit', () => {
+    expect(counterEndpoints('VenueCode_1234567890', true, 'smash-co', 'main')).toEqual({ quote: '/public/visits/current/quote', order: '/public/visits/current/orders',
+      firstOrder: false, suggestions: '/public/visits/current/suggestions', assistant: '/public/visits/current/assistant', extra: undefined });
   });
 });

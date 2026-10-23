@@ -3,7 +3,8 @@
 // number at the till and paid on the phone or at the counter. Here: the venue credential (hashed, rotatable), the
 // session, ordering through the kernel as pickup, ticket numbers (per branch and business day, unique under
 // concurrency), the KDS and staff boards, payment safety (paid only by a verified provider event or staff collection),
-// closing and the abandoned-scan sweep, tenant isolation and rate limits.
+// closing and the abandoned-visit sweep, tenant isolation and rate limits. A scan writes nothing: the guest's counter
+// visit opens with their first order (review finding: anonymous scans must not use up a shared branch budget).
 import { createHash } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { VisitsService } from '../src/modules/orders/visits.service';
@@ -36,6 +37,17 @@ async function counterBranch(tenant: TestTenant) {
   return qr.body as { url: string; kind: string; rotatedAt: string | null; svg: string };
 }
 const codeOf = (url: string) => url.split('/v/')[1]!;
+
+/** The guest's first counter order: venue quote, then the order that opens their counter visit. */
+async function firstOrder(code: string, lines = [fries()], addr = ip()) {
+  const quote = await t.http.post(`/v1/public/venue/${code}/quote`).set('X-Forwarded-For', addr).send({ lines });
+  expect(quote.status, JSON.stringify(quote.body)).toBe(200);
+  const o = await t.http.post(`/v1/public/venue/${code}/orders`).set('X-Forwarded-For', addr).set('Idempotency-Key', key('counter-first'))
+    .send({ lines, expectedTotalMinor: quote.body.totalMinor });
+  expect(o.status, JSON.stringify(o.body)).toBe(201);
+  return o.body as { order: { id: string; number: string; totalMinor: number }; session: { token: string; visitId: string; opened: boolean; branchId: string } };
+}
+const visitsOf = async (branchId: string) => (await sql(`select count(*)::int as n from visits where branch_id = $1`, [branchId]))[0].n as number;
 
 async function order(token: string, lines = [fries()]) {
   const quote = await t.http.post('/v1/public/visits/current/quote').set(visitHeader(token)).send({ lines });
@@ -75,9 +87,9 @@ describe('venue QR credential (FT-07)', () => {
 
     const other = await createTenant(t, { country: 'EG' });
     await counterBranch(other);
+    const otherMenu = await seedMenu(other);
     const old = codeOf((await t.http.get(S(other, `/floor/${other.branchId}/venue-qr`)).set(auth(other.owner))).body.url);
-    const open = await scan(old);
-    expect(open.status).toBe(200);
+    const open = (await firstOrder(old, [{ productId: otherMenu.products.fries, quantity: 1 }])).session;
     const rotated = await t.http.post(S(other, `/floor/${other.branchId}/venue-qr/rotate`)).set(auth(other.owner));
     expect(rotated.status).toBe(200);
     const fresh = codeOf(rotated.body.url);
@@ -85,8 +97,10 @@ describe('venue QR credential (FT-07)', () => {
     // The printed code stops opening orders at once; the guest already inside keeps their visit.
     expect((await scan(old)).status).toBe(404);
     expect((await t.http.get(`/v1/public/venue/${old}/counter`)).status).toBe(404);
+    expect((await t.http.post(`/v1/public/venue/${old}/quote`).send({ lines: [fries()] })).status).toBe(404);
+    expect((await t.http.post(`/v1/public/venue/${old}/orders`).set('Idempotency-Key', key('old-code')).send({ lines: [fries()], expectedTotalMinor: 4500 })).status).toBe(404);
     expect((await scan(fresh)).status).toBe(200);
-    expect((await t.http.get('/v1/public/visits/current').set(visitHeader(open.body.token))).status).toBe(200);
+    expect((await t.http.get('/v1/public/visits/current').set(visitHeader(open.token))).status).toBe(200);
     const [audit] = await sql(`select action from audit_logs where org_id = $1 and action = 'floor.venue_qr_rotated'`, [other.orgId]);
     expect(audit).toBeTruthy();
   });
@@ -121,32 +135,33 @@ describe('counter session: scan → order → ticket → KDS → pay → pick up
     // Printed codes route to the counter page.
     expect((await t.http.get(`/v1/public/venue/${venue}`)).body.path).toBe(`/v/${venue}`);
 
-    // 1. Scan: a table-less counter visit for this guest alone.
-    const s = await scan(venue);
-    expect(s.status).toBe(200);
-    expect(s.body).toMatchObject({ kind: 'counter', orgId: shop.orgId, branchId: shop.branchId, currency: 'EGP', opened: true, org: { slug: shop.slug } });
-    const token = s.body.token as string;
-    const [v] = await sql('select kind, table_id, guest_token_hash, opened_via from visits where id = $1', [s.body.visitId]);
-    expect(v).toEqual({ kind: 'counter', table_id: null, guest_token_hash: sha256(token), opened_via: 'qr' });
-    // The same phone rejoins its own visit; another phone (no token) gets its own.
-    const again = await scan(venue, visitHeader(token));
-    expect(again.body).toMatchObject({ visitId: s.body.visitId, token, opened: false });
-    const neighbour = await scan(venue);
-    expect(neighbour.body.visitId).not.toBe(s.body.visitId);
-    expect(neighbour.body.token).not.toBe(token);
+    // 1. Scan: read-only. The counter takes orders; no visit and no token yet.
+    const s0 = await scan(venue);
+    expect(s0.status).toBe(200);
+    expect(s0.body).toMatchObject({ kind: 'counter', orgId: shop.orgId, branchId: shop.branchId, currency: 'EGP', opened: false, token: null, visitId: null, org: { slug: shop.slug } });
+    expect(await visitsOf(shop.branchId)).toBe(before);
     // The venue code is never a visit credential.
     expect((await t.http.get('/v1/public/visits/current').set(visitHeader(venue))).status).toBe(401);
 
-    const live0 = await t.http.get('/v1/public/visits/current').set(visitHeader(token));
-    expect(live0.body).toMatchObject({ kind: 'counter', table: null, ticket: null, orders: [], totals: { dueMinor: 0 } });
-    expect((await t.http.get('/v1/public/visits/current/menu').set(visitHeader(token))).status).toBe(200);
-
-    // 2. Order: priced and placed by the kernel as takeaway (pickup), no table.
-    const o = await order(token, [fries(2)]);
+    // 2. First order: the venue quote (takeaway pricing), then the order opens this guest's table-less counter visit.
+    const first = await firstOrder(venue, [fries(2)]);
+    const o = first.order;
+    const s = { body: first.session };
+    expect(s.body).toMatchObject({ kind: 'counter', orgId: shop.orgId, branchId: shop.branchId, opened: true });
+    const token = s.body.token;
+    expect(await visitsOf(shop.branchId)).toBe(before + 1);
+    const [v] = await sql('select kind, table_id, guest_token_hash, opened_via from visits where id = $1', [s.body.visitId]);
+    expect(v).toEqual({ kind: 'counter', table_id: null, guest_token_hash: sha256(token), opened_via: 'qr' });
     const [row] = await sql('select channel, fulfillment, table_id, visit_id, business_date::text as day, number from orders where id = $1', [o.id]);
     expect(row).toMatchObject({ channel: 'qr', fulfillment: 'pickup', table_id: null, visit_id: s.body.visitId, number: o.number });
+    // The same phone rejoins its own visit; another phone (no token) still has none.
+    const again = await scan(venue, visitHeader(token));
+    expect(again.body).toMatchObject({ visitId: s.body.visitId, token, opened: false });
+    const neighbour = await scan(venue);
+    expect(neighbour.body).toMatchObject({ token: null, visitId: null });
+    expect((await t.http.get('/v1/public/visits/current/menu').set(visitHeader(token))).status).toBe(200);
     const live1 = await t.http.get('/v1/public/visits/current').set(visitHeader(token));
-    expect(live1.body.ticket).toBe(o.number);
+    expect(live1.body).toMatchObject({ kind: 'counter', table: null, ticket: o.number });
     expect(live1.body.totals).toMatchObject({ totalMinor: 9000, dueMinor: 9000, paidMinor: 0 });
 
     // 3. Kitchen: the ticket is the order number, marked as a counter order.
@@ -189,15 +204,17 @@ describe('counter session: scan → order → ticket → KDS → pay → pick up
     const closed = await t.http.post(S(shop, `/visits/${s.body.visitId}/close`)).set(auth(waiter)).send({});
     expect(closed.status, JSON.stringify(closed.body)).toBe(200);
     expect((await t.http.get('/v1/public/visits/current').set(visitHeader(token))).status).toBe(401);
-    // The next scan from that phone starts a fresh visit.
+    // The next scan from that phone has no visit; its next order opens a fresh one.
     const next = await scan(venue, visitHeader(token));
-    expect(next.body.opened).toBe(true);
-    expect(next.body.visitId).not.toBe(s.body.visitId);
+    expect(next.body).toMatchObject({ token: null, visitId: null });
+    const nextOrder = await firstOrder(venue);
+    expect(nextOrder.session.visitId).not.toBe(s.body.visitId);
   });
 
   it('pays on the phone only through the verified provider event, never when the checkout is merely started', async () => {
-    const s = await scan(venue);
-    const o = await order(s.body.token, [fries(1)]);
+    const first = await firstOrder(venue, [fries(1)]);
+    const s = { body: first.session };
+    const o = first.order;
     const link = await t.http.post('/v1/public/payments/visit/checkout').set(visitHeader(s.body.token)).send({ key: key('pay') });
     expect(link.status, JSON.stringify(link.body)).toBe(200);
     expect(link.body.amountMinor).toBe(4500);
@@ -217,8 +234,11 @@ describe('counter session: scan → order → ticket → KDS → pay → pick up
   });
 
   it('gives every order a unique ticket number per branch and business day, also under concurrent orders', async () => {
-    const phones = await Promise.all(Array.from({ length: 6 }, () => scan(venue)));
-    const placed = await Promise.all(phones.flatMap((p) => [order(p.body.token), order(p.body.token)]));
+    // Six phones place their first orders at once (each opens its own visit), then each orders again at once.
+    const firsts = await Promise.all(Array.from({ length: 6 }, () => firstOrder(venue)));
+    expect(new Set(firsts.map((f) => f.session.visitId)).size).toBe(6);
+    const again = await Promise.all(firsts.map((f) => order(f.session.token)));
+    const placed = [...firsts.map((f) => f.order), ...again];
     const numbers = placed.map((p) => Number(p.number));
     expect(new Set(numbers).size).toBe(12);
     const rows = await sql<{ number: string; n: number }>(
@@ -229,9 +249,30 @@ describe('counter session: scan → order → ticket → KDS → pay → pick up
     const sorted = [...numbers].sort((a, b) => a - b);
     expect(sorted[sorted.length - 1]! - sorted[0]!).toBe(11);
     // Each phone's ticket is its latest order.
-    const live = await t.http.get('/v1/public/visits/current').set(visitHeader(phones[0]!.body.token));
-    const mine = placed.slice(0, 2).map((p) => p.number);
-    expect(mine).toContain(live.body.ticket);
+    const live = await t.http.get('/v1/public/visits/current').set(visitHeader(firsts[0]!.session.token));
+    expect(live.body.ticket).toBe(again[0]!.number);
+  });
+
+  it('replays a retried first order (same key: same order, same visit, token derived again, never stored)', async () => {
+    const lines = [fries(1)];
+    const quote = await t.http.post(`/v1/public/venue/${venue}/quote`).send({ lines });
+    const k = key('counter-retry');
+    const send = () => t.http.post(`/v1/public/venue/${venue}/orders`).set('X-Forwarded-For', ip()).set('Idempotency-Key', k).send({ lines, expectedTotalMinor: quote.body.totalMinor });
+    const [a, b] = await Promise.all([send(), send()]);
+    expect([a.status, b.status]).toEqual([201, 201]);
+    expect(b.body.order.id).toBe(a.body.order.id);
+    expect(b.body.session).toMatchObject({ visitId: a.body.session.visitId, token: a.body.session.token });
+    expect((await sql('select count(*)::int as n from orders where visit_id = $1', [a.body.session.visitId]))[0].n).toBe(1);
+    const [rec] = await sql(`select response::text as r from idempotency_keys where scope = $1 and key = $2`, [`counter-order:${shop.branchId}`, k]);
+    expect(rec.r).not.toContain(a.body.session.token);
+    // A short key is refused (it stands for the visit on a replay); a price that moved opens nothing.
+    const before = await visitsOf(shop.branchId);
+    const short = await t.http.post(`/v1/public/venue/${venue}/orders`).set('Idempotency-Key', 'short-key').send({ lines, expectedTotalMinor: quote.body.totalMinor });
+    expect(short.status).toBe(400);
+    const moved = await t.http.post(`/v1/public/venue/${venue}/orders`).set('Idempotency-Key', key('counter-moved')).send({ lines, expectedTotalMinor: 1 });
+    expect(moved.status).toBe(409);
+    expect(moved.body.error.code).toBe('price_changed');
+    expect(await visitsOf(shop.branchId)).toBe(before);
   });
 });
 
@@ -246,6 +287,10 @@ describe('when a counter scan is refused (FT-07)', () => {
     const notCounter = await scan(code);
     expect(notCounter.status).toBe(409);
     expect(notCounter.body.error).toMatchObject({ code: 'venue_unavailable', details: { reason: 'not_counter' } });
+    expect((await t.http.post(`/v1/public/venue/${code}/quote`).send({ lines: [{ productId: menu.products.fries, quantity: 1 }] })).body.error.code).toBe('venue_unavailable');
+    const refusedOrder = await t.http.post(`/v1/public/venue/${code}/orders`).set('Idempotency-Key', key('not-counter')).send({ lines: [{ productId: menu.products.fries, quantity: 1 }], expectedTotalMinor: 4500 });
+    expect(refusedOrder.status).toBe(409);
+    expect(await visitsOf(r.branchId)).toBe(0);
     await t.http.put(S(r, `/branches/${r.branchId}/service-mode`)).set(auth(r.owner)).send({ mode: 'counter' });
     await sql('update branches set is_active = false where id = $1', [r.branchId]);
     const closed = await scan(code);
@@ -260,47 +305,105 @@ describe('when a counter scan is refused (FT-07)', () => {
 
   it('a legacy-printed venue code of a counter branch opens the counter session', async () => {
     const r = await createTenant(t, { country: 'EG' });
+    const rMenu = await seedMenu(r);
     await counterBranch(r);
     const legacy = `legacy${Date.now().toString(16)}venue0000000000`.slice(0, 32);
     await sql(`insert into legacy_id_map(org_id, entity_type, legacy_id, new_id) values ($1, 'venue_qr', $2, $3)`, [r.orgId, legacy, r.branchId]);
     expect((await t.http.get(`/v1/public/venue/${legacy}`)).body.path).toBe(`/v/${legacy}`);
     const s = await scan(legacy);
     expect(s.status).toBe(200);
-    expect(s.body).toMatchObject({ kind: 'counter', branchId: r.branchId, opened: true });
+    expect(s.body).toMatchObject({ kind: 'counter', branchId: r.branchId, token: null });
+    const lines = [{ productId: rMenu.products.fries, quantity: 1 }];
+    const q = await t.http.post(`/v1/public/venue/${legacy}/quote`).send({ lines });
+    const o = await t.http.post(`/v1/public/venue/${legacy}/orders`).set('Idempotency-Key', key('legacy-first')).send({ lines, expectedTotalMinor: q.body.totalMinor });
+    expect(o.status, JSON.stringify(o.body)).toBe(201);
+    expect(o.body.session).toMatchObject({ kind: 'counter', branchId: r.branchId, opened: true });
   });
 
-  it('limits scans per address and caps empty open counter visits per branch', async () => {
+  it('scripted scans from many addresses open nothing, so a real guest can always order', async () => {
+    // Review probe: 17 addresses x 30 scans used to open 500 empty visits and lock the branch for hours (429).
     const r = await createTenant(t, { country: 'EG' });
+    const rMenu = await seedMenu(r);
     const code = codeOf((await counterBranch(r)).url);
+    for (let a = 0; a < 17; a++) {
+      const res = await Promise.all(Array.from({ length: 30 }, () => t.http.post(`/v1/public/venue/${code}/session`).set('X-Forwarded-For', `10.200.${a}.1`)));
+      expect(res.every((x) => x.status === 200)).toBe(true);
+    }
+    expect(await visitsOf(r.branchId)).toBe(0);
+    const lines = [{ productId: rMenu.products.fries, quantity: 1 }];
+    const q = await t.http.post(`/v1/public/venue/${code}/quote`).set('X-Forwarded-For', '10.201.0.1').send({ lines });
+    expect(q.status).toBe(200);
+    const guest = await t.http.post(`/v1/public/venue/${code}/orders`).set('X-Forwarded-For', '10.201.0.1').set('Idempotency-Key', key('real-guest'))
+      .send({ lines, expectedTotalMinor: q.body.totalMinor });
+    expect(guest.status, JSON.stringify(guest.body)).toBe(201);
+    expect(await visitsOf(r.branchId)).toBe(1);
+    // Scans are limited per address only (a read: 120 a minute), never by a budget the whole counter shares.
     const addr = '10.99.1.1';
     const codes: number[] = [];
-    for (let i = 0; i < 31; i++) codes.push((await t.http.post(`/v1/public/venue/${code}/session`).set('X-Forwarded-For', addr)).status);
-    expect(codes.slice(0, 30).every((c) => c === 200)).toBe(true);
-    expect(codes[30]).toBe(429);
-    // A branch with 500 open counter visits that never ordered refuses new scans until the sweep clears them.
-    await sql(`insert into visits(org_id, branch_id, table_id, kind, guest_token_hash, opened_via)
-               select $1, $2, null, 'counter', md5(random()::text || g::text) || md5(g::text), 'qr' from generate_series(1, 470) g`, [r.orgId, r.branchId]);
-    const busy = await scan(code);
-    expect(busy.status).toBe(429);
-    await sql(`update visits set opened_at = now() - interval '4 hours' where branch_id = $1 and kind = 'counter'`, [r.branchId]);
+    for (let i = 0; i < 121; i++) codes.push((await t.http.post(`/v1/public/venue/${code}/session`).set('X-Forwarded-For', addr)).status);
+    expect(codes.slice(0, 120).every((c) => c === 200)).toBe(true);
+    expect(codes[120]).toBe(429);
+    expect((await t.http.post(`/v1/public/venue/${code}/session`).set('X-Forwarded-For', '10.99.1.2')).status).toBe(200);
+    // Placing orders (the only write that opens a visit) is guard()ed per address: 20 a minute.
+    const place = () => t.http.post(`/v1/public/venue/${code}/orders`).set('X-Forwarded-For', '10.99.2.1').set('Idempotency-Key', key('flood'))
+      .send({ lines, expectedTotalMinor: 1 });
+    const placed: number[] = [];
+    for (let i = 0; i < 21; i++) placed.push((await place()).status);
+    expect(placed.slice(0, 20).every((c) => c === 409)).toBe(true);
+    expect(placed[20]).toBe(429);
+    expect(await visitsOf(r.branchId)).toBe(1);
+  });
+
+  it('sweeps counter visits left with nothing to collect: every order cancelled, or (older rows) no order at all', async () => {
+    const r = await createTenant(t, { country: 'EG' });
+    const rMenu = await seedMenu(r);
+    const code = codeOf((await counterBranch(r)).url);
+    const lines = [{ productId: rMenu.products.fries, quantity: 1 }];
+    const place = async () => {
+      const q = await t.http.post(`/v1/public/venue/${code}/quote`).send({ lines });
+      const o = await t.http.post(`/v1/public/venue/${code}/orders`).set('X-Forwarded-For', ip()).set('Idempotency-Key', key('sweep')).send({ lines, expectedTotalMinor: q.body.totalMinor });
+      expect(o.status, JSON.stringify(o.body)).toBe(201);
+      return o.body as { order: { id: string }; session: { visitId: string; token: string } };
+    };
+    const cancelled = await place();
+    const recent = await place();
+    const live = await place();
+    for (const v of [cancelled, recent]) {
+      const c = await t.http.post(S(r, `/orders/${v.order.id}/cancel`)).set(auth(r.owner)).send({ reason: 'guest left' });
+      expect(c.status, JSON.stringify(c.body)).toBe(200);
+    }
+    // Visits opened before counter visits opened with the first order: empty rows.
+    await sql(`insert into visits(org_id, branch_id, table_id, kind, guest_token_hash, opened_via, opened_at)
+               select $1, $2, null, 'counter', md5(random()::text || g::text) || md5(g::text), 'qr', now() - interval '4 hours' from generate_series(1, 3) g`, [r.orgId, r.branchId]);
+    await sql(`update visits set opened_at = now() - interval '30 hours' where id = any($1)`, [[cancelled.session.visitId, recent.session.visitId, live.session.visitId]]);
+    await sql(`update orders set placed_at = now() - interval '30 hours', cancelled_at = now() - interval '30 hours' where id = $1`, [cancelled.order.id]);
+    await sql(`update orders set placed_at = now() - interval '30 hours' where id = $1`, [live.order.id]);
     const res = await t.app.get(VisitsService).runAutoClose();
-    expect(res.abandoned).toBeGreaterThanOrEqual(500);
-    expect((await sql(`select count(*)::int as n from visits where branch_id = $1 and status = 'open'`, [r.branchId]))[0].n).toBe(0);
-    expect((await sql(`select close_reason from visits where branch_id = $1 limit 1`, [r.branchId]))[0].close_reason).toBe('auto');
-    expect((await scan(code)).status).toBe(200);
+    expect(res.abandoned).toBeGreaterThanOrEqual(4);
+    const status = async (id: string) => (await sql('select status, close_reason from visits where id = $1', [id]))[0];
+    expect(await status(cancelled.session.visitId)).toEqual({ status: 'closed', close_reason: 'auto' });
+    // Cancelled a moment ago: kept until it has been quiet COUNTER_ABANDON. A live order is never swept.
+    expect((await status(recent.session.visitId)).status).toBe('open');
+    expect((await status(live.session.visitId)).status).toBe('open');
+    expect((await sql(`select count(*)::int as n from visits where branch_id = $1 and status = 'open' and not exists (select 1 from orders o where o.visit_id = visits.id)`, [r.branchId]))[0].n).toBe(0);
+    expect((await t.http.get('/v1/public/visits/current').set(visitHeader(cancelled.session.token))).status).toBe(401);
   });
 
   it('does not sweep a counter visit that ordered, and keeps tenants apart', async () => {
-    const s = await scan(venue);
-    await order(s.body.token);
-    await sql(`update visits set opened_at = now() - interval '4 hours' where id = $1`, [s.body.visitId]);
+    const s = (await firstOrder(venue)).session;
+    await sql(`update visits set opened_at = now() - interval '4 hours' where id = $1`, [s.visitId]);
     await t.app.get(VisitsService).runAutoClose();
-    expect((await sql('select status from visits where id = $1', [s.body.visitId]))[0].status).toBe('open');
+    expect((await sql('select status from visits where id = $1', [s.visitId]))[0].status).toBe('open');
     // Another restaurant's staff cannot see or close it.
     const stranger = await createTenant(t, { country: 'EG' });
     const list = await t.http.get(S(stranger, '/visits')).set(auth(stranger.owner));
-    expect(list.body.items.map((x: any) => x.id)).not.toContain(s.body.visitId);
-    expect([403, 404]).toContain((await t.http.post(S(stranger, `/visits/${s.body.visitId}/close`)).set(auth(stranger.owner)).send({ force: true })).status);
-    expect([403, 404]).toContain((await t.http.post(S(stranger, `/visits/${s.body.visitId}/collect`)).set(auth(stranger.owner)).set('Idempotency-Key', key()).send({ method: 'cash' })).status);
+    expect(list.body.items.map((x: any) => x.id)).not.toContain(s.visitId);
+    expect([403, 404]).toContain((await t.http.post(S(stranger, `/visits/${s.visitId}/close`)).set(auth(stranger.owner)).send({ force: true })).status);
+    expect([403, 404]).toContain((await t.http.post(S(stranger, `/visits/${s.visitId}/collect`)).set(auth(stranger.owner)).set('Idempotency-Key', key()).send({ method: 'cash' })).status);
+    // Nor can a guest order into another restaurant's counter with this restaurant's visit token.
+    const other = await createTenant(t, { country: 'EG' });
+    const otherCode = codeOf((await counterBranch(other)).url);
+    const rejoin = await scan(otherCode, visitHeader(s.token));
+    expect(rejoin.body).toMatchObject({ token: null, visitId: null, branchId: other.branchId });
   });
 });

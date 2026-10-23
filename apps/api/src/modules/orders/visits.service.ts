@@ -552,16 +552,18 @@ export class VisitsService {
   }
 
   /**
-   * Counter visits (FT-07) that ordered nothing and took no payment are closed COUNTER_ABANDON after the scan, so
-   * scans that never became orders do not pile up on the visits board (and count against the branch's open cap).
+   * Counter visits (FT-07) with nothing left to collect or hand over: every order cancelled (or, for visits opened
+   * before counter visits opened with the first order, no order at all) and no payment beyond failed, cancelled or
+   * expired attempts. They are closed COUNTER_ABANDON after their last activity, so they do not stay on the visits
+   * board (and in its open-visit counts) forever; the ordinary auto-close needs a live order, so it never takes them.
    */
   private async closeAbandonedCounters(asOf: Date) {
     const before = new Date(asOf.getTime() - VISIT_RULES.counterAbandonMs);
     const rows = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string }>(
       `select v.id, v.org_id from visits v
         where v.status = 'open' and v.kind = 'counter' and v.opened_at <= $1
-          and not exists (select 1 from orders o where o.visit_id = v.id)
-          and not exists (select 1 from payments p where p.visit_id = v.id)
+          and ${ABANDONED_COUNTER('v')}
+          and coalesce((select max(coalesce(o.cancelled_at, o.placed_at)) from orders o where o.visit_id = v.id), v.opened_at) <= $1
         limit 500`, [before]));
     let closed = 0;
     for (const c of rows) {
@@ -570,7 +572,7 @@ export class VisitsService {
         const done = await this.db.withTenant(c.org_id, async (tx) => {
           const v = await tx.maybeOne<any>(`select * from visits where id = $1 and status = 'open' and kind = 'counter' for update`, [c.id]);
           if (!v) return false;
-          if (await tx.maybeOne(`select 1 from orders where visit_id = $1 union all select 1 from payments where visit_id = $1 limit 1`, [v.id])) return false;
+          if (!(await tx.maybeOne(`select 1 from visits v where v.id = $1 and ${ABANDONED_COUNTER('v')}`, [v.id]))) return false;
           await this.settle(tx, ctx, v, 'auto', false);
           await this.audit.record(tx, ctx, { action: 'visit.abandoned_closed', entityType: 'visit', entityId: v.id, branchId: v.branch_id });
           return true;
@@ -583,3 +585,9 @@ export class VisitsService {
     return closed;
   }
 }
+
+/** A counter visit with no live order and no payment that took (or may still take) money. */
+const ABANDONED_COUNTER = (v: string) => `not exists (select 1 from orders o where o.visit_id = ${v}.id and o.status <> 'cancelled')
+          and not exists (select 1 from payments p where (p.visit_id = ${v}.id or p.order_id in (select o.id from orders o where o.visit_id = ${v}.id))
+                            and p.status not in ('failed', 'cancelled', 'expired'))
+          and not exists (select 1 from bill_splits b where b.visit_id = ${v}.id and b.status = 'open')`;

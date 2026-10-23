@@ -1,11 +1,12 @@
 'use client';
 // The counter session (FT-07) in the original Resuto consumer shell — legacy guest.js with the venue QR: one code at the
-// till, every scan opens this guest's own order. Menu → cart → Confirm order → the counter ticket ("Your order is in."
+// till, every guest their own order. The guest's counter visit opens with their first order (POST venue/:code/orders),
+// not on the scan: until then the cart is priced with the venue quote and nothing is written on the server. Menu → cart → Confirm order → the counter ticket ("Your order is in."
 // with the number to quote, the amount due, and "Pay now on my phone" / "Pay at the counter"), live order status with
 // "Ready for pickup", the bill (hosted checkout only; the ticket shows paid only once the server recorded it), receipts
 // and the rating.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CounterSession, PublicCounterView, PublicMenu, PublicMenuProduct, ReceiptView } from '@resuto/contracts';
+import type { CounterOrderResult, CounterSession, PublicCounterView, PublicMenu, PublicMenuProduct, ReceiptView } from '@resuto/contracts';
 import { api, newIdempotencyKey, type ApiRequestError } from '@/lib/api';
 import { guestMoney as money, pick } from '@/lib/format';
 import { visitHeaders, type GuestVisit } from '@/lib/guest-visit';
@@ -21,7 +22,7 @@ import { estimate, MenuBrowser, productIndex, ProductSheet, useCart } from '@/co
 import { RatingSheet } from '@/components/guest/rating';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 import { StatusOrder } from '@/components/guest/tracker';
-import { clearCounterVisit, counterStage, loadCounterVisit, readyForPickup, saveCounterVisit, ticketLabel } from './counter-state';
+import { clearCounterVisit, counterEndpoints, counterStage, loadCounterVisit, readyForPickup, saveCounterVisit, ticketLabel } from './counter-state';
 import './counter.css';
 
 type Phase = 'joining' | 'ready' | 'closed' | 'unavailable';
@@ -48,27 +49,33 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
   const org = menu?.org ?? venue?.org ?? null;
   const branch = venue?.branch ?? (menu ? { name: menu.branch.name, nameAr: menu.branch.nameAr } : null);
 
-  /** Scan in: rejoin this phone's open counter visit (its token), or open a new one for this guest. */
+  /** Keeps the session's visit (after a rejoin or the first order); a session without one clears what the phone held. */
+  const adopt = useCallback((s: CounterSession) => {
+    if (!s.token || !s.visitId) { clearCounterVisit(code); setVisit(null); return; }
+    const v = { token: s.token, visitId: s.visitId, orgId: s.orgId, branchId: s.branchId, tableLabel: '', currency: s.currency };
+    saveCounterVisit(code, v);
+    setVisit({ ...v, savedAt: Date.now() });
+  }, [code]);
+
+  /**
+   * Scan in: a phone holding a counter visit rejoins it (its token). Any other phone just orders: its visit opens with
+   * the first order, so a scan writes nothing (the venue lookup the page rendered with already says whether the
+   * counter takes orders; without it the read-only session call says).
+   */
   const join = useCallback(async (saved: GuestVisit | null) => {
+    if (!saved && venue) { setVisit(null); setPhase(venue.accepting ? 'ready' : 'unavailable'); return; }
     setPhase('joining');
     try {
-      const s = await api<CounterSession>(`/public/venue/${encodeURIComponent(code)}/session`, { method: 'POST', headers: visitHeaders(saved) });
-      const v = { token: s.token, visitId: s.visitId, orgId: s.orgId, branchId: s.branchId, tableLabel: '', currency: s.currency };
-      saveCounterVisit(code, v);
-      setVisit({ ...v, savedAt: Date.now() });
+      adopt(await api<CounterSession>(`/public/venue/${encodeURIComponent(code)}/session`, { method: 'POST', headers: visitHeaders(saved) }));
       setPhase('ready');
     } catch (e) {
       const err = e as ApiRequestError;
       setPhase('unavailable');
       setNotice(err.status === 404 ? t('core.guest.counter.unknown') : err.message);
     }
-  }, [code, t]);
+  }, [code, venue, adopt, t]);
 
-  useEffect(() => {
-    const saved = loadCounterVisit(code);
-    if (!saved && venue && !venue.accepting) { setPhase('unavailable'); return; }
-    void join(saved);
-  }, [code, venue, join]);
+  useEffect(() => { void join(loadCounterVisit(code)); }, [code, join]);
 
   const onClosed = useCallback(() => { clearCounterVisit(code); setPhase('closed'); setVisit(null); setScreen('menu'); }, [code]);
   const live = useVisitLive(phase === 'ready' ? visit : null, onClosed);
@@ -86,9 +93,11 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
   }, [view]);
 
   useEffect(() => {
-    if (menu || !visit) return;
-    api<PublicMenu>('/public/visits/current/menu', { headers: visitHeaders(visit) }).then(setMenu).catch((e) => setNotice((e as Error).message));
-  }, [menu, visit]);
+    if (menu) return;
+    const path = visit ? '/public/visits/current/menu'
+      : venue ? `/public/menu/${encodeURIComponent(venue.org.slug)}?branch=${encodeURIComponent(venue.branch.code)}` : null;
+    if (path) api<PublicMenu>(path, { headers: visitHeaders(visit) }).then(setMenu).catch((e) => setNotice((e as Error).message));
+  }, [menu, visit, venue]);
 
   const loadTheBill = useCallback(async () => {
     if (!visit) return;
@@ -116,10 +125,13 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
     } catch (e) { toast.show((e as Error).message, true); }
   };
 
-  const ordering = phase === 'ready' && !!visit;
+  // Ordering needs no visit: the first order opens it. Before that, suggestions and "Help me choose" use the branch's
+  // public ordering endpoints (read-only).
+  const ordering = phase === 'ready';
   const willOrder = ordering || (phase === 'joining' && venue?.accepting !== false);
   const cartIds = cart.items.map((i) => i.productId);
-  const cartSuggestions = useSuggestions(sheet === 'cart' && ordering ? '/public/visits/current/suggestions' : null, cartIds, visitHeaders(visit));
+  const ends = counterEndpoints(code, !!visit, org?.slug ?? null, venue?.branch.code ?? menu?.branch.code ?? null);
+  const cartSuggestions = useSuggestions(sheet === 'cart' && ordering ? ends.suggestions : null, cartIds, visitHeaders(visit), ends.extra);
   const orgName = org ? pick(locale, org.name, org.nameAr) : '';
   const header = <ConsumerHeader org={org} branch={branch} />;
 
@@ -226,7 +238,7 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
           onAdd={(qty, mods, notes) => { cart.add(product.id, qty, mods, notes); setProduct(null); toast.show(t('core.guest.addedConfirm')); }} />
       )}
       {sheet === 'cart' && (
-        <CounterCart visit={visit} ordering={ordering} settling={!!view?.settling} cart={cart} products={products} currency={currency} suggestions={cartSuggestions}
+        <CounterCart code={code} visit={visit} ordering={ordering} onSession={adopt} settling={!!view?.settling} cart={cart} products={products} currency={currency} suggestions={cartSuggestions}
           onClose={() => setSheet(null)}
           onSuggest={(id) => { cart.add(id, 1); toast.show(t('core.guest.addedConfirm')); }}
           onPlaced={() => { setSheet(null); setScreen('ticket'); void live.refresh(); }} />
@@ -243,8 +255,8 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
         <SplitForm mode={splitMode} bill={bill} visit={visit} onClose={() => { setSplitMode(null); setSheet('bill'); }}
           onCreated={() => { setSplitMode(null); openBill(); }} />
       )}
-      {sheet === 'assistant' && visit && (
-        <AssistantSheet endpoint="/public/visits/current/assistant" headers={visitHeaders(visit)} currency={currency} onClose={() => setSheet(null)}
+      {sheet === 'assistant' && ends.assistant && (
+        <AssistantSheet endpoint={ends.assistant} headers={visitHeaders(visit)} extra={ends.extra} currency={currency} onClose={() => setSheet(null)}
           onAccept={(items) => { cart.addMany(items.map((i) => ({ productId: i.productId, quantity: i.quantity, modifiers: i.modifiers }))); setSheet('cart'); toast.show(t('core.guest.assistant.reviewCart')); }} />
       )}
       {sheet === 'rating' && visit && (
@@ -256,9 +268,12 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
   );
 }
 
-/** The counter cart: the server quote (takeaway pricing), a note for the kitchen, Confirm order (one key per intent). */
-function CounterCart({ visit, ordering, settling, cart, products, currency, suggestions, onClose, onSuggest, onPlaced }: {
-  visit: GuestVisit | null; ordering: boolean; settling: boolean; cart: ReturnType<typeof useCart>; products: Map<string, PublicMenuProduct>; currency: string;
+/**
+ * The counter cart: the server quote (takeaway pricing), a note for the kitchen, Confirm order (one key per intent).
+ * Without a visit yet, the venue quote prices the cart and Confirm order opens the guest's counter visit with the order.
+ */
+function CounterCart({ code, visit, ordering, onSession, settling, cart, products, currency, suggestions, onClose, onSuggest, onPlaced }: {
+  code: string; visit: GuestVisit | null; ordering: boolean; onSession: (s: CounterSession) => void; settling: boolean; cart: ReturnType<typeof useCart>; products: Map<string, PublicMenuProduct>; currency: string;
   suggestions: ReturnType<typeof useSuggestions>; onClose: () => void; onSuggest: (id: string) => void; onPlaced: () => void;
 }) {
   const { t, locale } = useT();
@@ -268,33 +283,39 @@ function CounterCart({ visit, ordering, settling, cart, products, currency, sugg
   const [pending, setPending] = useState(false);
   const intent = useRef(newIdempotencyKey());
   const linesKey = JSON.stringify(cart.items);
+  const ends = counterEndpoints(code, !!visit, null, null);
+  const quoteOnce = () => api<QuoteView>(ends.quote, { headers: visitHeaders(visit), body: { lines: cart.lines() } });
 
   useEffect(() => {
-    if (!visit || !cart.items.length) { setQuote(null); return; }
+    if (!ordering || !cart.items.length) { setQuote(null); return; }
     let live = true;
-    api<QuoteView>('/public/visits/current/quote', { headers: visitHeaders(visit), body: { lines: cart.lines() } })
+    quoteOnce()
       .then((q) => { if (live) { setQuote(q); setError(null); } })
       .catch((e) => { if (live) setError((e as Error).message); });
     intent.current = newIdempotencyKey();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linesKey, visit]);
+  }, [linesKey, visit, ordering]);
 
   async function place() {
-    if (!quote || !visit || pending) return;
+    if (!quote || !ordering || pending) return;
     setPending(true);
     setError(null);
     try {
-      await api<{ id: string }>('/public/visits/current/orders', {
-        headers: visitHeaders(visit), idempotencyKey: intent.current,
-        body: { lines: cart.lines(), notes: notes.trim() || null, expectedTotalMinor: quote.totalMinor },
-      });
+      const body = { lines: cart.lines(), notes: notes.trim() || null, expectedTotalMinor: quote.totalMinor };
+      if (!ends.firstOrder) {
+        await api<{ id: string }>(ends.order, { headers: visitHeaders(visit), idempotencyKey: intent.current, body });
+      } else {
+        // The first order opens this guest's counter visit; its token comes back with it.
+        const r = await api<CounterOrderResult>(ends.order, { idempotencyKey: intent.current, body });
+        if (r.session) onSession(r.session);
+      }
       cart.clear();
       onPlaced();
     } catch (e) {
       const err = e as ApiRequestError;
       if (err.code === 'price_changed') {
-        setQuote(await api<QuoteView>('/public/visits/current/quote', { headers: visitHeaders(visit), body: { lines: cart.lines() } }).catch(() => quote));
+        setQuote(await quoteOnce().catch(() => quote));
         intent.current = newIdempotencyKey();
       }
       setError(err.message);

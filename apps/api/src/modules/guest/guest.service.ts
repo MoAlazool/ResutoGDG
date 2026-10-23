@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
-import { normalizePhone, type CartLine, type GuestOrderRequest, type GuestVisitPoll, type PublicMenu, type WebOrderRequest } from '@resuto/contracts';
+import { normalizePhone, type CartLine, type CounterSession, type GuestOrderRequest, type GuestVisitPoll, type PublicMenu, type WebOrderRequest } from '@resuto/contracts';
 import { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
@@ -13,7 +13,8 @@ import { PricingService, type Quote } from '../kernel/pricing.service';
 import { MenuService } from '../menu/menu.service';
 import { guestCoverPath, signGuestCover } from '../orders/guest-cover';
 import { orgCountry } from '../orders/org-country';
-import { VisitsService, visitCustomerVerified } from '../orders/visits.service';
+import { CounterService } from '../orders/counter.service';
+import { VisitsService, guestContext, visitCustomerVerified } from '../orders/visits.service';
 import { PublicTrackingService } from '../delivery/tracking.service';
 
 const iso = (d: Date | null | undefined) => (d ? new Date(d).toISOString() : null);
@@ -39,6 +40,8 @@ export const toQuoteView = (q: Quote) => ({
 /** A counter visit (FT-07) orders takeaway: priced and fulfilled as pickup, no table; a table visit dines in. */
 const visitFulfillment = (visit: { kind?: string }) => (visit.kind === 'counter' ? 'pickup' as const : 'dine_in' as const);
 
+interface PlacedGuestOrder { id: string; number: string; publicRef: string; status: string; totalMinor: number; currency: string }
+
 const cartLines = (lines: CartLine[]) => lines.map((l) => ({ productId: l.productId, quantity: l.quantity, modifiers: l.modifiers, notes: l.notes ?? null }));
 
 /**
@@ -57,6 +60,7 @@ export class GuestService {
     private readonly idempotency: IdempotencyService,
     private readonly entitlements: EntitlementsService,
     private readonly storage: StorageService,
+    private readonly counter: CounterService,
     @Optional() @Inject(CHECKOUT_PORT) private readonly checkout?: CheckoutPort,
     /** FT-14: delivery status, ETA and (en route only) a coarse driver position for the tracking page. */
     @Optional() private readonly tracking?: PublicTrackingService,
@@ -123,6 +127,51 @@ export class GuestService {
       });
       return { id: placed.id, number: placed.number, publicRef: placed.publicRef, status: placed.status, totalMinor: placed.totalMinor, currency: placed.currency };
     }));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Counter (venue QR, FT-07) before the guest's first order: no visit exists yet
+  // ---------------------------------------------------------------------------
+  /** Takeaway (pickup) prices at a counter branch for a guest who has not ordered yet (no visit is opened). */
+  counterQuote(venueToken: string, body: { lines: CartLine[]; promotionCode?: string | null }) {
+    return this.counterTenant(venueToken, async (tx, orgId, branchId) => {
+      this.counter.assertAccepting(await this.counter.branchRow(tx, branchId, false));
+      return toQuoteView(await this.pricing.quote(tx, orgId, {
+        branchId, fulfillment: 'pickup', lines: cartLines(body.lines), promotionCode: body.promotionCode ?? null, channel: 'qr',
+        customerId: null, customerIdentified: false, loyaltyRewardId: null,
+      }));
+    });
+  }
+
+  /**
+   * The guest's first counter order: opens their counter visit and places the order in one transaction, so a visit
+   * only ever exists with an order (a failed or refused order leaves nothing behind). Returns the order and the
+   * session (the visit token for every later call). A retry with the same Idempotency-Key replays the same order and
+   * visit; the token is derived again from the visit, never stored in the idempotency record.
+   */
+  counterOrder(venueToken: string, body: GuestOrderRequest, key: string | undefined): Promise<{ order: PlacedGuestOrder; session: CounterSession | null }> {
+    // The key also stands for the visit on a replay, so it must be a real secret (the web sends a random UUID).
+    if (!key || key.length < 16 || key.length > 200) throw badRequest('idempotency_key_required', 'An Idempotency-Key header (16 to 200 characters) is required');
+    return this.counterTenant(venueToken, async (tx, orgId, branchId) => {
+      const placed = await this.idempotency.run(tx, orgId, `counter-order:${branchId}`, key, body, async () => {
+        this.counter.assertAccepting(await this.counter.branchRow(tx, branchId, true));
+        const visitId = await this.counter.openVisit(tx, orgId, branchId);
+        const o = await this.kernel.place(tx, guestContext(orgId, visitId), {
+          branchId, channel: 'qr', fulfillment: 'pickup', tableId: null, visitId, customerId: null, lines: cartLines(body.lines),
+          notes: body.notes ?? null, promotionCode: body.promotionCode ?? null, customerIdentified: false, loyaltyRewardId: null,
+          expectedTotalMinor: body.expectedTotalMinor,
+        });
+        return { visitId, order: { id: o.id, number: o.number, publicRef: o.publicRef, status: o.status, totalMinor: o.totalMinor, currency: o.currency } };
+      }, 201);
+      const token = await this.counter.visitToken(tx, placed.visitId);
+      const b = await this.counter.branchRow(tx, branchId, false);
+      return { order: placed.order, session: token ? this.counter.sessionOf(orgId, b, { visitId: placed.visitId, token }, true) : null };
+    });
+  }
+
+  private async counterTenant<T>(venueToken: string, fn: (tx: Tx, orgId: string, branchId: string) => Promise<T>): Promise<T> {
+    const venue = await this.counter.resolve(venueToken);
+    return this.db.withTenant(venue.orgId, (tx) => fn(tx, venue.orgId, venue.branchId), `guest:venue:${venue.branchId}`);
   }
 
   orderStatus(token: string | undefined, orderId: string) {

@@ -32,14 +32,24 @@ export interface PublicCounterView {
   reason: string | null;
   cover: string | null;
 }
-/** A counter visit: the guest's own table-less visit (same X-Visit-Token as a table visit). */
+/**
+ * The counter session (POST /v1/public/venue/:token/session). The guest's own table-less counter visit opens with
+ * their first order (POST /v1/public/venue/:token/orders), never on a scan: until then `token` and `visitId` are null
+ * and the guest quotes with POST /v1/public/venue/:token/quote. A phone that sends the X-Visit-Token of its open
+ * counter visit gets it back.
+ */
 export interface CounterSession {
   kind: 'counter';
-  token: string; visitId: string; orgId: string; branchId: string; currency: 'EGP' | 'SAR';
+  token: string | null; visitId: string | null; orgId: string; branchId: string; currency: 'EGP' | 'SAR';
   org: { name: string; nameAr: string | null; slug: string };
   branch: { code: string; name: string; nameAr: string | null };
-  /** true when this scan opened a new counter visit; false when the phone's open visit was rejoined. */
+  /** true only on the first order's response, whose visit was opened with it. */
   opened: boolean;
+}
+/** POST /v1/public/venue/:token/orders: the first counter order and the visit it opened (null once that visit closed). */
+export interface CounterOrderResult {
+  order: { id: string; number: string; publicRef: string; status: string; totalMinor: number; currency: string };
+  session: CounterSession | null;
 }
 
 // ---------------------------------------------------------------------------

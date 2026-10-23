@@ -33,6 +33,22 @@ export function counterStage(v: CounterViewInput | null): CounterStage {
 export const ticketLabel = (n: string | number | null | undefined) =>
   `#${toWesternDigits(String(n ?? 0)).replace(/\D/g, '').padStart(3, '0') || '000'}`;
 
+/**
+ * Where the counter page sends each call. With a visit (after the first order, or a rejoin) the visit's own endpoints
+ * and token; before it, the venue code prices the cart and the first order opens the visit (nothing is written on a
+ * scan), and suggestions and "Help me choose" use the branch's read-only public ordering endpoints.
+ */
+export function counterEndpoints(code: string, hasVisit: boolean, slug: string | null, branchCode: string | null) {
+  const venue = `/public/venue/${encodeURIComponent(code)}`;
+  const web = slug ? `/public/order/${encodeURIComponent(slug)}` : null;
+  const branch = branchCode ? { branch: branchCode } : undefined;
+  return hasVisit
+    ? { quote: '/public/visits/current/quote', order: '/public/visits/current/orders', firstOrder: false,
+      suggestions: '/public/visits/current/suggestions', assistant: '/public/visits/current/assistant', extra: undefined }
+    : { quote: `${venue}/quote`, order: `${venue}/orders`, firstOrder: true,
+      suggestions: web && `${web}/suggestions`, assistant: web && `${web}/assistant`, extra: branch };
+}
+
 /** At least one order is waiting at the pass: the guest should come to the counter. */
 export const readyForPickup = (orders: Array<{ status: string }>) => orders.some((o) => o.status === 'ready');
 

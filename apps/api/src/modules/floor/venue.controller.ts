@@ -9,8 +9,8 @@ import { CounterService, VENUE_TOKEN } from '../orders/counter.service';
  * Printed venue (counter) QR codes. The legacy app printed `<origin>/t/<venueQr>` for a counter restaurant; the
  * migration tool records that token in legacy_id_map (entity venue_qr → branch, CR-13), and Resuto prints
  * `<origin>/v/<token>` (the branch's venue credential, FT-07). This resolves either to where the guest belongs: the
- * counter page `/v/<token>` when the branch serves at a counter (every scan opens that guest's own counter order),
- * else the branch's public ordering page `/order/<slug>?branch=<code>`. The web app's /t/<token> page redirects
+ * counter page `/v/<token>` when the branch serves at a counter (each guest's own counter order; the visit opens with
+ * the first order), else the branch's public ordering page `/order/<slug>?branch=<code>`. The web app's /t/<token> page redirects
  * there, so codes printed before the cutover keep working. Unknown, ambiguous or closed: 404.
  */
 @Controller('public/venue')

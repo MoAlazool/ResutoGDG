@@ -2,7 +2,8 @@ import type { ServerRead } from '@/components/guest/server';
 
 /**
  * The printed-code paths the venue lookup may send a guest to (FT-07): the counter page of a branch that serves at a
- * counter (every scan opens that guest's own counter order), else the branch's public ordering page.
+ * counter (each guest orders on their own; the counter visit opens with the first order), else the branch's public
+ * ordering page.
  */
 const VENUE_PATH = /^(\/order\/[a-z0-9-]+\?branch=[a-z0-9-]+|\/v\/[A-Za-z0-9_-]{16,128})$/;
 
