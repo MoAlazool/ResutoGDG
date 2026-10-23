@@ -153,7 +153,7 @@ function Catalog({ onConnected }: { onConnected: () => void }) {
                 <ProviderReadiness item={p} />
                 <span className="fine" dir="ltr" style={{ textAlign: 'start' }}>{p.countries.join(' · ')}{p.countries.length ? ' · ' : ''}{p.capabilities.slice(0, 4).join(', ')}</span>
                 <details><summary className="fine">{t('connect.int.activation')}</summary>
-                  <ol className="fine" style={{ paddingInlineStart: 18 }}>{p.activation.map((s, i) => <li key={i}>{tx(p.activationKeys?.[i], s)}</li>)}</ol>
+                  <ol className="fine" style={{ paddingInlineStart: 18, overflowWrap: 'anywhere' }}>{p.activation.map((s, i) => <li key={i}>{tx(p.activationKeys?.[i], s)}</li>)}</ol>
                   {p.readinessDetail && <CapabilityTable detail={p.readinessDetail} />}
                   {p.docsUrl && <a className="fine" href={p.docsUrl} target="_blank" rel="noreferrer">{t('connect.int.docs')}</a>}
                 </details>
