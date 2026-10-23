@@ -126,6 +126,17 @@ The conversation is driven through the staff sandbox simulator
   finance, in English and Arabic. ✓
 - Gated pages make no module API calls and log no errors — **expected fail, H-7**.
 
+### `guest-first-paint.spec.ts` — guest first paint (PERF-01, ws15)
+- For a fresh restaurant, the HTML of `/order/<slug>` and `/t/<qr>` (second request, warm server cache) carries the
+  `<h1>` and the dish cards outside any streamed Suspense segment, with no loading fallback first
+  (`inspectGuestShell` from `scripts/perf/lib/guest-shell.mjs`, the same check as `scripts/perf/guest-shell.mjs`).
+- Slow menu read on a table that is not taking orders (status `cleaning`; the menu tables are locked for 2.5 s, longer
+  than the 1.2 s menu budget, on a menu not yet in the server cache): the page shows its `<h1>`, the "ask our team"
+  note and the menu skeleton, then, once the lock is gone, the browser's `GET /v1/public/menu/<slug>` replaces the
+  skeleton with the dishes, without opening a table session. Before the review fix the skeleton stayed up for good.
+  Run alone against running servers (ws15: 2 passed, 4.8 s):
+  `E2E_REUSE_SERVERS=1 E2E_API_PORT=4997 E2E_WEB_PORT=3997 E2E_DATABASE_URL=… pnpm e2e guest-first-paint`.
+
 ## Notes and limits
 - One worker, sequential (`workers: 1`), as in F's config; each test creates its own tenant.
 - Payments use the sandbox provider only (`PAYMENT_MODE=sandbox`); no real provider is contacted.

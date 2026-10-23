@@ -296,3 +296,42 @@ cards (English web order, Arabic QR page), and a slow menu read renders the head
 `scripts/perf/guest-shell.mjs --web <url> --accounts <file>` checks a running build (base: FAIL on both pages; after:
 ok).
 
+**Review follow-up (ws15 fix).**
+- *Slow path on a table without a visit.* With the menu late, `/t/<qr>` loaded it in the browser only through the table
+  visit (`/public/visits/current/menu`). A table not taking orders (cleaning, out of service, staff seating, branch
+  closed) or a refused session has no visit, so the skeleton and "Loading…" stayed up for good. `TableExperience` now
+  loads the branch's public menu (`GET /public/menu/<slug>?branch=<code>`, from the table lookup) when there is no visit
+  (`app/t/[qr]/_guest/menu-source.ts`), and a failed load shows why with *Retry* instead of an endless "Loading…".
+  Reproduced and fixed on a cold build with the menu tables locked for 3 s (`ws15-slowpath`): `cleaning` and
+  `out_of_service` tables now show the skeleton at first paint and 8 dishes after the lock (one browser request,
+  `GET /v1/public/menu/the-olive-room`, no session); the accepting table still loads through its visit.
+- *The budget counts from the start of the request* (`menuBudget(requestStartedAt())`), not from the menu read: the
+  layouts' restaurant / table read used to come on top of the 1.2 s. The menu read always gets at least
+  `GUEST_MENU_MIN_MS` (150 ms).
+- *Cold-cache first byte, measured* (web build restarted before each request, so the server cache is empty; 3 runs
+  each; curl time to first byte on the same machine, no network throttling):
+
+  | case | `/t/<qr>` TTFB | menu in HTML | `/order/<slug>` TTFB | menu in HTML |
+  |---|---|---|---|---|
+  | cold cache, API answering normally | 66-84 ms | yes | 70-76 ms | yes |
+  | cold cache, menu tables locked 3 s (slow menu read) | 1,235-1,268 ms | no (skeleton, loaded in the browser) | 2,537-2,556 ms | no |
+
+  Trade-off: on a cold cache with a slow menu read, the first byte of `/t/<qr>` now waits up to the 1.2 s budget,
+  where the base flushed its loading shell right after the table read (the API answers that read in 7-16 ms here) and
+  revealed the page when the menu arrived (about 2.7 s into this run). The base build was not re-measured for this
+  table; the reviewer observed that shape on base. FCP is therefore later on that path (about 1.2 s instead of
+  roughly 0.1 s), while the
+  first paint is the real page (H1, cover, table context) rather than a skeleton, and LCP is no later. With the menu
+  read answering normally on a cold cache (the usual post-deploy case) nothing waits. The `/order/<slug>` row is held
+  by its layout, not by the budget: the existence probe (`restaurantExists`) reads the same menu tables and waits for
+  its 2.5 s timeout on base and after alike; the page then adds only the 150 ms minimum (with the per-read budget it
+  would have added up to 1.2 s more).
+- *Warm path re-measured* on this build (`web-vitals.mjs`, same profile, 5 runs, dish photos served): web-order first
+  LCP 820 ms, repeat 284 ms [284, 284, 284, 260, 312]; guest-qr first 980 ms, repeat 288 ms [308, 288, 264, 296, 288];
+  CLS 0.001 / 0.012. Raw: `docs/perf-results/2026-10-23-perf01-fix.json`. Bundle budget green (`/t/[qr]` 177.6 kB,
+  ratchet 178).
+- *Guards.* `first-paint.test.ts` adds the no-visit menu source, the Retry state, the QR slow path with no dish card,
+  the request-start budget, and `template.tsx` to the route scan. The shape check now also runs in the browser E2E job:
+  `tests/e2e/guest-first-paint.spec.ts` (server HTML of both pages through `inspectGuestShell`, and the slow path above
+  in Chromium).
+
