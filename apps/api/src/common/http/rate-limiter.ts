@@ -13,8 +13,8 @@ import { DomainError } from '../errors/domain-error';
  *   abuse: sign-in/sign-up/password, delivery OTP, organisation creation, sales inquiries, reservation holds, web
  *   order placement and rating, webhook/OAuth verification handshakes, MCP client registration, tracking context.
  * - `hit(key, limit, windowMs)`: synchronous, for high-volume public reads (menus, sites, polling; limits of 60 and
- *   more) and for checks made inside a tenant transaction (per-phone budgets), where a database round trip per call
- *   is not wanted. Each instance counts locally and flushes its increments in one upsert; the first hit on a window
+ *   more), where a database round trip per call is not wanted. (The per-phone budgets of web orders and reservation
+ *   holds use guard(): the phone is normalised before the tenant transaction, REM-A10.) Each instance counts locally and flushes its increments in one upsert; the first hit on a window
  *   flushes at once, later ones about every FLUSH_MS, and each flush reads back the shared total. A hit is refused
  *   when (shared total as last read + this instance's unflushed hits) exceeds the limit. Overshoot is bounded by
  *   what the other instances admitted since their last read, at most one flush interval of traffic (a burst that

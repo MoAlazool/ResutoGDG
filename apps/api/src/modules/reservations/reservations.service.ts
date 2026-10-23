@@ -13,7 +13,7 @@ import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { CHECKOUT_PORT, requirePort, type CheckoutPort } from '../kernel/ports';
-import { orgCountry } from '../orders/org-country';
+import { phoneCountry } from '../orders/org-country';
 import { VisitsService } from '../orders/visits.service';
 import { evaluateTables, pickTable, withinOpeningHours, type BookingRow, type TableRow } from './availability';
 
@@ -251,16 +251,24 @@ export class ReservationsService {
   }
 
   /** `onPhone` sees the guest's number once normalised to E.164 (the controller's per-number abuse limit). */
-  async hold(slug: string, body: ReservationHoldRequest, onPhone?: (e164: string) => void) {
-    return this.publicTenant(slug, async (tx, orgId) => {
+  /**
+   * `onPhone` (the controller's per-number budget) runs before the tenant transaction (REM-A10), so it can use the
+   * shared, database-backed limiter without holding a tenant transaction open, and the budget holds across instances.
+   */
+  async hold(slug: string, body: ReservationHoldRequest, onPhone?: (e164: string) => void | Promise<void>) {
+    const org = await this.db.withPlatform((tx) => tx.maybeOne<{ id: string; country: string | null }>(
+      `select id, country from organizations where slug = $1 and status <> 'closed'`, [slug]));
+    if (!org) throw notFound('Restaurant');
+    // CR-06: the phone as typed (01x…, 05x…, Arabic-Indic digits) becomes E.164 for the restaurant's country.
+    const phone = normalizePhone(body.guestPhone, phoneCountry(org.country));
+    if (!phone) throw invalid('phone_invalid', 'Enter a phone number the restaurant can call, e.g. 010 0123 4567.');
+    await onPhone?.(phone);
+    body = { ...body, guestPhone: phone };
+    return this.db.withTenant(org.id, async (tx) => {
+      const orgId = org.id;
       const ctx = new TenantContext(orgId, 'waiter', null, null, 'guest', 'web:reservation', 'web');
       const branch = await tx.maybeOne<{ id: string }>('select id from branches where id = $1 and org_id = $2 and is_active', [body.branchId, orgId]);
       if (!branch) throw notFound('Branch');
-      // CR-06: the phone as typed (01x…, 05x…, Arabic-Indic digits) becomes E.164 for the restaurant's country.
-      const phone = normalizePhone(body.guestPhone, await orgCountry(tx, orgId));
-      if (!phone) throw invalid('phone_invalid', 'Enter a phone number the restaurant can call, e.g. 010 0123 4567.');
-      onPhone?.(phone);
-      body = { ...body, guestPhone: phone };
       const { key, ...payload } = body;
       const result = await this.idempotency.run(tx, orgId, 'reservation-hold', key, payload, async () => {
         const r = await this.insert(tx, ctx, {
@@ -272,7 +280,7 @@ export class ReservationsService {
       });
       const r = await this.load(tx, result.id);
       return { reservation: toReservation(r, await this.currency(tx, orgId)), manageToken: await this.issueManageToken(tx, r) };
-    });
+    }, 'guest:reservations');
   }
 
   private async insert(tx: Tx, ctx: TenantContext, input: {
