@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import type { Env } from '../../config/env';
 import type { ResutoRequest } from '../auth/context';
 import { writeAccessLog } from '../observability/log';
-import { forwardedClientIp } from './client-forwarding';
+import { forwardableRoute, forwardedClientIp } from './client-forwarding';
 import { acceptRequestId, requestContext } from './request-context';
 
 /** Request headers that change who the caller is; every response varies on them (PCL-04). */
@@ -45,9 +45,12 @@ export function hardeningMiddleware(env: Pick<Env, 'NODE_ENV'> & Partial<Pick<En
   return (req: Request & { id?: string }, res: Response, next: NextFunction) => {
     const started = process.hrtime.bigint();
     // REM-A11: a guest address forwarded by the web server with a valid signature replaces the web server's own
-    // address for everything keyed on req.ip (rate limits, access log). Unsigned or foreign headers are ignored.
-    const forwarded = forwardedClientIp(req.headers, env.CLIENT_IP_FORWARD_SECRET);
-    if (forwarded) Object.defineProperty(req, 'ip', { value: forwarded, configurable: true, enumerable: true });
+    // address for the public guest reads it makes on a guest's behalf (GET/HEAD under /v1/public/: rate limits,
+    // access log). Every other route keeps the connecting address; unsigned or foreign headers are ignored.
+    if (forwardableRoute(req.method, req.path)) {
+      const forwarded = forwardedClientIp(req.headers, env.CLIENT_IP_FORWARD_SECRET);
+      if (forwarded) Object.defineProperty(req, 'ip', { value: forwarded, configurable: true, enumerable: true });
+    }
     req.id = acceptRequestId(req.headers['x-request-id']);
     res.setHeader('X-Request-Id', req.id);
     res.setHeader('X-Content-Type-Options', 'nosniff');

@@ -13,8 +13,10 @@ import { isIP } from 'node:net';
  * The API uses the address as req.ip (rate limits, access log) only when CLIENT_IP_FORWARD_SECRET is set, the
  * signature matches for the current or previous window, the address is a valid IP, and the request carries no Origin
  * header (browsers always send one on cross-origin calls; the server-to-server fetch does not). Anything else is
- * ignored, so a client cannot choose its own bucket by sending these headers. The window (not a per-request
- * timestamp) keeps the headers stable for ten minutes, so the web server's fetch cache still works per guest.
+ * ignored, so a client cannot choose its own bucket by sending these headers. It applies only to the routes the web
+ * server reads for guests (GET/HEAD under /v1/public/, see forwardableRoute); writes and staff routes always use the
+ * connecting address. The window (not a per-request timestamp) lets a signature be checked without clock agreement
+ * to the second; the web server keeps these headers out of its shared cache keys (apps/web/components/guest/server.ts).
  */
 export const FORWARD_IP_HEADER = 'x-resuto-client-ip';
 export const FORWARD_SIG_HEADER = 'x-resuto-forward-sig';
@@ -27,6 +29,11 @@ const sign = (secret: string, window: number, ip: string) =>
 export function forwardSignature(secret: string, ip: string, now = Date.now()): string {
   const w = Math.floor(now / 1000 / FORWARD_WINDOW_SECONDS);
   return `w=${w},v1=${sign(secret, w, ip)}`;
+}
+
+/** The public guest reads the web server makes on a guest's behalf: the only routes a forwarded address applies to. */
+export function forwardableRoute(method: string, path: string): boolean {
+  return (method === 'GET' || method === 'HEAD') && path.startsWith('/v1/public/');
 }
 
 type HeaderBag = Record<string, string | string[] | undefined>;

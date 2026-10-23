@@ -1,9 +1,9 @@
 // REM-A11: guest pages read the API from the web server, so every guest shared the web server's rate-limit bucket.
 // The web server now forwards the guest address with an HMAC (CLIENT_IP_FORWARD_SECRET); the API uses it as req.ip
-// only when the signature is valid, current, and the request is server-to-server (no Origin). Spoofed or unsigned
-// headers are ignored, so a client cannot pick its own bucket.
+// only when the signature is valid, current, the request is server-to-server (no Origin), and the route is a public
+// guest read (GET/HEAD /v1/public/*). Spoofed or unsigned headers are ignored, so a client cannot pick its own bucket.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { FORWARD_WINDOW_SECONDS, forwardedClientIp, forwardSignature } from '../src/common/http/client-forwarding';
+import { FORWARD_WINDOW_SECONDS, forwardableRoute, forwardedClientIp, forwardSignature } from '../src/common/http/client-forwarding';
 import { bootTestApp, createTenant, type TestApp, type TestTenant } from './helpers';
 
 const SECRET = 'forward-secret-for-tests-0123456789abcdef0123';
@@ -32,6 +32,16 @@ describe('forwardedClientIp (verification)', () => {
   });
 });
 
+describe('forwardableRoute', () => {
+  it('covers the public guest reads only', () => {
+    expect(forwardableRoute('GET', '/v1/public/tables/abc')).toBe(true);
+    expect(forwardableRoute('HEAD', '/v1/public/menu/x')).toBe(true);
+    expect(forwardableRoute('POST', '/v1/public/reservations/x/holds')).toBe(false);
+    expect(forwardableRoute('GET', '/v1/orgs')).toBe(false);
+    expect(forwardableRoute('GET', '/v1/publicity')).toBe(false);
+  });
+});
+
 describe('forwarded guest addresses get their own rate-limit buckets', () => {
   let t: TestApp;
   let tenant: TestTenant;
@@ -46,32 +56,47 @@ describe('forwarded guest addresses get their own rate-limit buckets', () => {
   });
   afterAll(async () => { await t?.close(); });
 
-  // reservations:hold:<ip> is a guard of 20 per minute; an unknown branch answers 404 after the budgets are spent.
-  let n = 0;
-  const hold = (headers: Record<string, string>) => t.http.post(`/v1/public/reservations/${tenant.slug}/holds`).set(headers).send({
-    branchId: '00000000-0000-4000-8000-000000000000', partySize: 2, guestName: 'Guest', guestPhone: `+2010${String(55500000 + ++n).padStart(8, '0')}`,
-    date: '2030-01-10', time: '19:00', key: `fwd-${Date.now()}-${n}`,
-  });
   const as = (ip: string) => ({ 'X-Resuto-Client-IP': ip, 'X-Resuto-Forward-Sig': forwardSignature(SECRET, ip) });
+  // web-order:read:<ip> allows 120 reads a minute; an unknown restaurant answers 404 while the budget lasts.
+  const read = (headers: Record<string, string>) => t.http.get('/v1/public/order/no-such-restaurant-rem-a11').set(headers);
+  const reads = async (headers: Record<string, string>, n: number) => {
+    const out: number[] = [];
+    for (let i = 0; i < n; i++) out.push((await read(headers)).status);
+    return out;
+  };
 
   it('one guest exhausting its budget does not refuse another guest behind the same web server', async () => {
-    const first: number[] = [];
-    for (let i = 0; i < 21; i++) first.push((await hold(as('203.0.113.10'))).status);
-    expect(first.slice(0, 20).every((s) => s === 404)).toBe(true);
-    expect(first[20]).toBe(429);
+    const first = await reads(as('203.0.113.10'), 121);
+    expect(first.slice(0, 120).every((s) => s === 404)).toBe(true);
+    expect(first[120]).toBe(429);
     // Same web server (same socket address), another guest: its own bucket.
-    expect((await hold(as('203.0.113.11'))).status).toBe(404);
+    expect((await read(as('203.0.113.11'))).status).toBe(404);
   });
 
   it('a spoofed address without a valid signature counts against the caller\'s real address', async () => {
-    // The real (socket) address has not been used yet in this window: 20 unsigned "spoofed" attempts spend it.
+    // The real (socket) address has not been used yet in this window: 120 unsigned "spoofed" reads spend it.
     const spoofed: number[] = [];
-    for (let i = 0; i < 21; i++) spoofed.push((await hold({ 'X-Resuto-Client-IP': `198.51.100.${i + 1}`, 'X-Resuto-Forward-Sig': 'w=1,v1=00' })).status);
-    expect(spoofed.slice(0, 20).every((s) => s === 404)).toBe(true);
-    expect(spoofed[20]).toBe(429);
+    for (let i = 0; i < 121; i++) spoofed.push((await read({ 'X-Resuto-Client-IP': `198.51.100.${(i % 250) + 1}`, 'X-Resuto-Forward-Sig': 'w=1,v1=00' })).status);
+    expect(spoofed.slice(0, 120).every((s) => s === 404)).toBe(true);
+    expect(spoofed[120]).toBe(429);
     // A signed address from a browser (Origin present) is not trusted either.
-    expect((await hold({ ...as('203.0.113.12'), Origin: 'http://app.test' })).status).toBe(429);
+    expect((await read({ ...as('203.0.113.12'), Origin: 'http://app.test' })).status).toBe(429);
     // A properly forwarded guest is still served.
-    expect((await hold(as('203.0.113.12'))).status).toBe(404);
+    expect((await read(as('203.0.113.12'))).status).toBe(404);
+  });
+
+  it('a signed address is ignored outside the public guest reads (writes keep the connecting address)', async () => {
+    // reservations:hold:<ip> is a guard of 20 per minute. Signed holds "from" 21 different guests all count against
+    // the one connecting address, so the 21st is refused.
+    let n = 0;
+    const statuses: number[] = [];
+    for (let i = 0; i < 21; i++) {
+      statuses.push((await t.http.post(`/v1/public/reservations/${tenant.slug}/holds`).set(as(`203.0.113.${100 + i}`)).send({
+        branchId: '00000000-0000-4000-8000-000000000000', partySize: 2, guestName: 'Guest', guestPhone: `+2010${String(55500000 + ++n).padStart(8, '0')}`,
+        date: '2030-01-10', time: '19:00', key: `fwd-${Date.now()}-${n}`,
+      })).status);
+    }
+    expect(statuses.slice(0, 20).every((s) => s === 404)).toBe(true);
+    expect(statuses[20]).toBe(429);
   });
 });

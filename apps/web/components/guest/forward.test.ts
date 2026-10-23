@@ -26,10 +26,20 @@ describe('guest address forwarding', () => {
     expect(forwardHeaders('203.0.113.7\r\nX-Evil: 1', SECRET, NOW)).toEqual({});
   });
 
-  it('reads the address the edge reported: x-real-ip, else the first x-forwarded-for entry', () => {
+  it('takes the guest address only from the edge WEB_TRUST_PROXY names, else forwards nothing', () => {
     const h = (o: Record<string, string>) => ({ get: (n: string) => o[n] ?? null });
-    expect(clientAddress(h({ 'x-real-ip': '198.51.100.4', 'x-forwarded-for': '10.0.0.1' }))).toBe('198.51.100.4');
-    expect(clientAddress(h({ 'x-forwarded-for': '198.51.100.9, 10.0.0.1' }))).toBe('198.51.100.9');
-    expect(clientAddress(h({}))).toBeNull();
+    const both = h({ 'x-real-ip': '198.51.100.4', 'x-forwarded-for': '6.6.6.6, 198.51.100.9, 10.0.0.1' });
+    // Not configured (self-hosted `next start`, local): whatever the client sent is not trusted.
+    expect(clientAddress(both, undefined)).toBeNull();
+    expect(clientAddress(both, '')).toBeNull();
+    expect(clientAddress(both, 'true')).toBeNull();
+    // An edge that sets X-Real-IP (Vercel).
+    expect(clientAddress(both, 'x-real-ip')).toBe('198.51.100.4');
+    expect(clientAddress(h({ 'x-forwarded-for': '198.51.100.9' }), 'x-real-ip')).toBeNull();
+    // N appending proxies: the Nth entry from the right; the client-chosen entries on the left are ignored.
+    expect(clientAddress(both, '1')).toBe('10.0.0.1');
+    expect(clientAddress(both, '2')).toBe('198.51.100.9');
+    expect(clientAddress(h({ 'x-forwarded-for': '198.51.100.9' }), '2')).toBeNull();
+    expect(clientAddress(h({}), '1')).toBeNull();
   });
 });
