@@ -169,3 +169,32 @@ describe('rate limits (PS-13)', () => {
     expect(res.body.ip).toBe('203.0.113.7');
   });
 });
+
+describe('cross-origin conditional GET from the web app (PCL-24 / REM-W02)', () => {
+  // vitest env leaves CORS_ORIGINS at its default, the local web origin.
+  const origin = 'http://localhost:3000';
+
+  it('lets the web origin send If-None-Match and Cache-Control in a preflight', async () => {
+    const pre = await t.http.options('/v1/me').set('Origin', origin)
+      .set('Access-Control-Request-Method', 'GET').set('Access-Control-Request-Headers', 'authorization,if-none-match,cache-control');
+    expect(pre.status).toBe(204);
+    expect(pre.headers['access-control-allow-origin']).toBe(origin);
+    const allowed = String(pre.headers['access-control-allow-headers'] ?? '').toLowerCase().split(/\s*,\s*/);
+    expect(allowed).toEqual(expect.arrayContaining(['authorization', 'if-none-match', 'cache-control']));
+  });
+
+  it('exposes ETag to the web origin, and the revalidation the web sends gets a 304', async () => {
+    const first = await t.http.get('/v1/me').set(auth(a.owner)).set('Origin', origin);
+    expect(first.status).toBe(200);
+    const exposed = String(first.headers['access-control-expose-headers'] ?? '').toLowerCase().split(/\s*,\s*/);
+    expect(exposed).toContain('etag');
+    expect(first.headers.etag).toBeTruthy();
+    // What lib/api-conditional.ts sends: the remembered validator plus Cache-Control: max-age=0.
+    const again = await t.http.get('/v1/me').set(auth(a.owner)).set('Origin', origin)
+      .set('If-None-Match', first.headers.etag).set('Cache-Control', 'max-age=0');
+    expect(again.status).toBe(304);
+    expect(again.headers['access-control-expose-headers']).toBe(first.headers['access-control-expose-headers']);
+    // Authenticated answers stay no-store (PCL-04): a 304 is a revalidation, not a stored copy.
+    expect(again.headers['cache-control']).toBe('private, no-store');
+  });
+});

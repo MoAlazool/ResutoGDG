@@ -22,9 +22,12 @@ already carry an encoding and `Cache-Control: no-transform` pass through. If the
 leaves already-encoded responses alone.
 
 **Conditional GET.** Every JSON GET carries a weak ETag computed on the uncompressed body, so `If-None-Match` works
-for compressed responses too. The staff web client still sends staff polls with `cache: 'no-store'` until the API has
-shown its no-store policy (apps/web/lib/api.ts, PCL-03) and does not send `If-None-Match` itself; teaching pollers to
-revalidate (skip re-render on 304) is web-client work tracked as a follow-up, not done in this workstream.
+for compressed responses too. The staff web client (apps/web/lib/api-conditional.ts via use-api.ts, REM-W02) keeps
+the last ETag per user + URL in memory and revalidates signed-in reads with `If-None-Match` and `Cache-Control:
+max-age=0` (fetch would otherwise add `no-cache`, which Express treats as a forced reload); a 304 resolves to the same
+answer object, so pollers do not re-render. The web app is another origin, so the API lists `ETag` in
+`Access-Control-Expose-Headers` (bootstrap.ts); without it the browser hides the validator and every poll stays a plain
+GET. Authenticated responses stay `private, no-store`: a 304 is a revalidation, never a stored copy.
 
 ### When the public menu ETag changes
 
