@@ -19,6 +19,8 @@ export const KITCHEN_ACTIVE_STATUSES = ['placed', 'accepted', 'preparing', 'read
 export const VISIT_RULES = {
   autoOpenUndoMs: 60_000,
   autoCloseQuietMs: 10 * 60_000,
+  /** A counter visit (FT-07) that ordered nothing and took no payment is closed this long after the scan. */
+  counterAbandonMs: 3 * 3600_000,
 } as const;
 
 export const cartLine = z.object({
@@ -193,7 +195,14 @@ export interface GuestSession {
   opened: boolean;
 }
 export interface GuestVisitView {
-  visitId: string; status: 'open' | 'closed'; table: { id: string; label: string }; branchId: string; currency: string;
+  /** `table` for a dining-table visit; `counter` for a venue-QR counter visit (FT-07), which has no table. */
+  kind: 'table' | 'counter';
+  visitId: string; status: 'open' | 'closed'; table: { id: string; label: string } | null; branchId: string; currency: string;
+  /**
+   * Counter visits: the ticket number the guest quotes at the till, the number of the latest order that is not
+   * cancelled (order numbers run per branch and business day, like the KDS). Null for tables or before any order.
+   */
+  ticket: string | null;
   orders: Array<{ id: string; number: string; status: string; totalMinor: number; placedAt: string; lines: Array<{ name: string; nameAr: string | null; quantity: number; lineTotalMinor: number; kitchenStatus: string; modifiers: string[] }> }>;
   totals: { totalMinor: number; paidMinor: number; creditMinor: number; dueMinor: number };
   requests: Array<{ kind: string; status: string; createdAt: string }>;
@@ -202,6 +211,8 @@ export interface GuestVisitView {
 
 export interface KitchenTicket {
   id: string; number: string; status: string; fulfillment: string; channel: string; tableLabel: string | null; customerName: string | null;
+  /** A counter-session order (FT-07: venue QR visit, no table); `number` is the ticket the guest quotes. */
+  counter?: boolean;
   placedAt: string; acceptedAt: string | null; ageSeconds: number; notes: string | null; version: number; isNew: boolean;
   /** Delivery bag left the kitchen (driver or courier): the "On the way" lane. The order stays `ready` until delivered. */
   handedOff?: boolean;

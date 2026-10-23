@@ -20,6 +20,39 @@ export interface PublicTableView {
 }
 
 // ---------------------------------------------------------------------------
+// Counter / venue QR (FT-07): GET /v1/public/venue/:token/counter and POST /v1/public/venue/:token/session
+// ---------------------------------------------------------------------------
+/** Read-only venue lookup for the counter page: no session side effects, no token or visit id. */
+export interface PublicCounterView {
+  org: { name: string; nameAr: string | null; slug: string; currency: 'EGP' | 'SAR' };
+  branch: { id: string; code: string; name: string; nameAr: string | null };
+  /** Whether scanning in can start a counter order right now (the session call decides for sure). */
+  accepting: boolean;
+  /** Why not: branch_closed | not_counter. */
+  reason: string | null;
+  cover: string | null;
+}
+/**
+ * The counter session (POST /v1/public/venue/:token/session). The guest's own table-less counter visit opens with
+ * their first order (POST /v1/public/venue/:token/orders), never on a scan: until then `token` and `visitId` are null
+ * and the guest quotes with POST /v1/public/venue/:token/quote. A phone that sends the X-Visit-Token of its open
+ * counter visit gets it back.
+ */
+export interface CounterSession {
+  kind: 'counter';
+  token: string | null; visitId: string | null; orgId: string; branchId: string; currency: 'EGP' | 'SAR';
+  org: { name: string; nameAr: string | null; slug: string };
+  branch: { code: string; name: string; nameAr: string | null };
+  /** true only on the first order's response, whose visit was opened with it. */
+  opened: boolean;
+}
+/** POST /v1/public/venue/:token/orders: the first counter order and the visit it opened (null once that visit closed). */
+export interface CounterOrderResult {
+  order: { id: string; number: string; publicRef: string; status: string; totalMinor: number; currency: string };
+  session: CounterSession | null;
+}
+
+// ---------------------------------------------------------------------------
 // Visit polling (GET /v1/public/visits/current?v=<version>)
 // ---------------------------------------------------------------------------
 export type GuestVisitOrder = GuestVisitView['orders'][number] & {

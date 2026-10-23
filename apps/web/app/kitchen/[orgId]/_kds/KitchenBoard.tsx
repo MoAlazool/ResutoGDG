@@ -144,7 +144,8 @@ export function KitchenBoard({ orgId, branchId, station, onStations, timezone, c
   const serverNow = now + skew.current;
   const where = (tk: KitchenTicket) => {
     if (tk.tableLabel) return t('core.kds.table', { label: tk.tableLabel });
-    if (tk.fulfillment === 'pickup' && feed?.serviceMode === 'counter') return t('ops.kds.counter');
+    // A counter-session order (FT-07) is always the counter's, even if the branch changed its service model since.
+    if (tk.counter || (tk.fulfillment === 'pickup' && feed?.serviceMode === 'counter')) return t('ops.kds.counter');
     return t(`core.web.${tk.fulfillment}`);
   };
 
@@ -164,7 +165,7 @@ export function KitchenBoard({ orgId, branchId, station, onStations, timezone, c
             {live ? <>{time(tk.placedAt, locale, timezone)} · <span aria-label={t('core.kds.age')}>{ticketAge(age, ageUnits)}</span></> : time(tk.fulfilledAt ?? tk.placedAt, locale, timezone)}
           </span>
         </div>
-        <div className="ticket-source">{where(tk)}{tk.customerName ? <span> · <bdi>{tk.customerName}</bdi></span> : null}<span> · {t(`core.channel.${tk.channel}`)}</span></div>
+        <div className="ticket-source">{where(tk)}{tk.customerName ? <span> · <bdi>{tk.customerName}</bdi></span> : null}<span> · {tk.counter ? t('ops.counter.channel') : t(`core.channel.${tk.channel}`)}</span></div>
         {tk.lines.map((l) => {
           const next = l.kitchenStatus === 'queued' ? 'preparing' : l.kitchenStatus === 'preparing' ? 'ready' : 'preparing';
           const body = (<><b className="num">{l.quantity}</b><span><span className="ticket-name">{pick(locale, l.name, l.nameAr)}</span>

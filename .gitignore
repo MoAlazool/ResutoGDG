@@ -4,6 +4,8 @@ node_modules/
 !.env.example
 dist/
 .next/
+# a .next symlinked to tmpfs in a worktree (a trailing-slash pattern does not match a symlink)
+.next
 .turbo/
 coverage/
 .local/

@@ -9,7 +9,8 @@ import { qrOutcome } from './qr-outcome';
  * boundary, so the status is decided before any HTML streams; the page's identical lookup is served from the same
  * request cache. Only an explicit 404 counts: when the API cannot be reached the page renders and retries in the browser.
  *
- * A venue (counter) QR printed by the legacy app also lives at /t/<token>: it opens the branch's ordering page (FT-07),
+ * A venue (counter) QR printed by the legacy app also lives at /t/<token>: it opens the branch's counter page /v/<token>
+ * (FT-07: that guest's own counter order) or, for a branch that no longer serves at a counter, its ordering page,
  * resolved by the API from the migration's token map (CR-13). When that lookup fails temporarily (rate limited, API
  * down) the guest gets the area's branded "try again" error, never a 404 for a valid printed code.
  */

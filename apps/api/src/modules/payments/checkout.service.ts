@@ -108,11 +108,17 @@ export class CheckoutService implements CheckoutPort {
       return { branchId: o.branch_id, currency: o.currency, dueMinor: due, fulfillment: o.fulfillment, description: `Order #${o.number}`, orderId, visitId: null, shareId: null, reservationId: null };
     };
     const visitTarget = async (visitId: string) => {
-      const v = await tx.maybeOne<any>(`select v.id, v.branch_id, v.status, t.label from visits v join dining_tables t on t.id = v.table_id where v.id = $1`, [visitId]);
+      const v = await tx.maybeOne<any>(
+        `select v.id, v.branch_id, v.status, v.kind, t.label,
+                (select o.number from orders o where o.visit_id = v.id and o.status <> 'cancelled' order by o.placed_at desc, o.id desc limit 1) as ticket
+           from visits v left join dining_tables t on t.id = v.table_id where v.id = $1`, [visitId]);
       if (!v) throw notFound('Table bill');
       if (v.status !== 'open') throw conflict('visit_closed', 'This table session has ended');
       const due = (await this.ledger.outstanding(tx, { visitId })).dueMinor;
-      return { branchId: v.branch_id, currency: await orgCurrency(), dueMinor: due, fulfillment: 'dine_in', description: `Table ${v.label} bill`, orderId: null, visitId, shareId: null, reservationId: null };
+      // A counter visit (FT-07) is takeaway with no table: it is described by its ticket number.
+      const counter = v.kind === 'counter';
+      return { branchId: v.branch_id, currency: await orgCurrency(), dueMinor: due, fulfillment: counter ? 'pickup' : 'dine_in',
+        description: counter ? `Counter order #${v.ticket ?? ''}`.trim() : `Table ${v.label} bill`, orderId: null, visitId, shareId: null, reservationId: null };
     };
     switch (input.purpose) {
       case 'order':

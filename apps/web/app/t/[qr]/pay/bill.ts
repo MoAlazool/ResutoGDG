@@ -7,7 +7,10 @@ export interface BillView {
   visitId: string;
   currency: string;
   org: { name: string; nameAr: string | null };
-  table: { label: string };
+  /** Null for a counter visit (FT-07), which has no table; `ticket` is then the number the guest quotes. */
+  table: { label: string } | null;
+  kind?: 'table' | 'counter';
+  ticket?: string | null;
   orders: Array<{ id: string; number: string; status: string; paymentStatus: string; totalMinor: number; dueMinor: number;
     lines: Array<{ id: string; name: string; nameAr: string | null; quantity: number; unitPriceMinor: number; lineTotalMinor: number }> }>;
   totals: { totalMinor: number; paidMinor: number; creditMinor: number; dueMinor: number };

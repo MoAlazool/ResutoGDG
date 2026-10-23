@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [{
       userAgent: '*',
       allow: ['/', '/pricing', '/r/'],
-      disallow: ['/dashboard', '/onboarding', '/login', '/signup', '/admin', '/kitchen', '/driver', '/t/', '/pay/', '/s/', '/o/', '/invite/'],
+      disallow: ['/dashboard', '/onboarding', '/login', '/signup', '/admin', '/kitchen', '/driver', '/t/', '/v/', '/pay/', '/s/', '/o/', '/invite/'],
     }],
     sitemap: `${APP_ORIGIN}/sitemap.xml`,
     host: APP_ORIGIN,

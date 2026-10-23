@@ -13,7 +13,8 @@ import { CheckoutService } from './checkout.service';
 import { ReceiptsService } from './receipts.service';
 import { guestCtx, iso } from './util';
 
-interface GuestVisit { visitId: string; orgId: string; branchId: string; tableId: string }
+/** A table visit, or a counter visit (FT-07: no table, takeaway). */
+interface GuestVisit { visitId: string; orgId: string; branchId: string; tableId: string | null; kind: 'table' | 'counter' }
 
 /**
  * QR table bill payment (MODULE_CONTRACTS §8 guest table session): view the
@@ -37,10 +38,10 @@ export class BillsService {
   async resolveVisit(token: string | undefined): Promise<GuestVisit> {
     if (!token || token.length < 16 || token.length > 200) throw new DomainError('visit_token_required', 'Scan the table QR code to open your bill', 401);
     const v = await this.db.withPlatform((tx) => tx.maybeOne<any>(
-      `select id, org_id, branch_id, table_id from visits where guest_token_hash = $1 and status = 'open'`, [sha256(token)]));
+      `select id, org_id, branch_id, table_id, kind from visits where guest_token_hash = $1 and status = 'open'`, [sha256(token)]));
     if (!v) throw notFound('Table session');
     await this.entitlements.assert(v.org_id, 'pay');
-    return { visitId: v.id, orgId: v.org_id, branchId: v.branch_id, tableId: v.table_id };
+    return { visitId: v.id, orgId: v.org_id, branchId: v.branch_id, tableId: v.table_id, kind: v.kind === 'counter' ? 'counter' : 'table' };
   }
 
   private shareUrl(token: string) {
@@ -76,7 +77,7 @@ export class BillsService {
 
   private async billView(tx: Tx, g: GuestVisit) {
     const org = await tx.one<any>('select name, name_ar, currency from organizations where id = $1', [g.orgId]);
-    const table = await tx.one<any>('select label from dining_tables where id = $1', [g.tableId]);
+    const table = g.tableId ? await tx.one<any>('select label from dining_tables where id = $1', [g.tableId]) : null;
     const visit = await tx.one<any>('select credit_minor from visits where id = $1', [g.visitId]);
     const orders = await tx.query<any>(
       `select id, number, status, total_minor, paid_minor, refunded_minor, payment_status, placed_at from orders
@@ -98,9 +99,11 @@ export class BillsService {
           and method <> 'deposit_credit' order by captured_at desc`, [g.visitId]);
     const byOrder = new Map<string, any[]>();
     for (const l of lines) byOrder.set(l.order_id, [...(byOrder.get(l.order_id) ?? []), l]);
-    const methods = await this.checkout.methods(tx, g.orgId, g.branchId, 'visit_bill', 'dine_in');
+    const methods = await this.checkout.methods(tx, g.orgId, g.branchId, 'visit_bill', g.kind === 'counter' ? 'pickup' : 'dine_in');
+    const live = orders.filter((o) => o.status !== 'cancelled');
     return {
-      visitId: g.visitId, currency: org.currency, org: { name: org.name, nameAr: org.name_ar }, table: { label: table.label },
+      visitId: g.visitId, currency: org.currency, org: { name: org.name, nameAr: org.name_ar }, table: table ? { label: table.label } : null,
+      kind: g.kind, ticket: g.kind === 'counter' && live.length ? String(live[live.length - 1].number) : null,
       orders: orders.map((o) => ({
         id: o.id, number: o.number, status: o.status, paymentStatus: o.payment_status, totalMinor: Number(o.total_minor),
         dueMinor: out.orders.find((x) => x.id === o.id)?.dueMinor ?? 0,

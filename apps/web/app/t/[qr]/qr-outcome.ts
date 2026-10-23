@@ -1,11 +1,15 @@
 import type { ServerRead } from '@/components/guest/server';
 
-/** The printed-code paths the venue lookup may send a guest to (FT-07): the branch's public ordering page. */
-const VENUE_PATH = /^\/order\/[a-z0-9-]+\?branch=[a-z0-9-]+$/;
+/**
+ * The printed-code paths the venue lookup may send a guest to (FT-07): the counter page of a branch that serves at a
+ * counter (each guest orders on their own; the counter visit opens with the first order), else the branch's public
+ * ordering page.
+ */
+const VENUE_PATH = /^(\/order\/[a-z0-9-]+\?branch=[a-z0-9-]+|\/v\/[A-Za-z0-9_-]{16,128})$/;
 
 export type QrOutcome =
   | { kind: 'table' }                       // a table code, or the table lookup could not run: render the page
-  | { kind: 'venue'; path: string }         // a migrated legacy venue (counter) code: redirect to its ordering page
+  | { kind: 'venue'; path: string }         // a migrated legacy venue (counter) code: redirect to its counter or ordering page
   | { kind: 'missing' }                     // neither a table nor a venue: 404
   | { kind: 'unavailable' };                // the venue lookup failed (rate limited, API down): temporary, never a 404
 
