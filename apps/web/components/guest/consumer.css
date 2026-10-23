@@ -127,11 +127,12 @@
 .gx-dock.has-items { box-shadow: var(--shadow-float), 0 0 0 2px var(--chip-line); }
 .gx-dock strong { font-size: 14px; margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 .gx-count { border-radius: 50%; background: var(--leaf-bg); display: grid; place-items: center; min-width: 26px; height: 26px; font-size: 12px; font-weight: 700; padding: 0 4px; }
-.gx-dock .gx-live { font-size: 11px; color: var(--ember); font-weight: 650; display: inline-flex; align-items: center; gap: 5px; }
-/* POL-02: View bill keeps its amount whole; only the "View bill" words may shorten. The count rides on View cart on phones. */
+.gx-dock .gx-live { font-size: 11px; color: var(--ember); font-weight: 650; }
+/* POL-02: nothing in the row is ever pushed past the screen edge or shortened. Every item keeps its size; only the
+ * reconnecting status may give way, down to its dot (role=status still announces the whole text). */
+.gx-dock > * { flex-shrink: 0; }
+.gx-dock > .gx-live { flex-shrink: 1; min-width: 1.1em; overflow: hidden; text-overflow: clip; }
 .gx-dock-bill { gap: 6px; }
-.gx-dock-bill bdi { flex-shrink: 0; }
-.gx-dock-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gx-dock-cart { position: relative; }
 .gx-count.is-badge { display: none; }
 
@@ -477,6 +478,15 @@
   .gx-dish-body { padding: 16px; }
   .gx-dish-body h3 { font-size: 16px; }
   .gx-status-page h1, .gx-page-title { font-size: 38px; }
+  /* POL-02: up to tablet width the full legacy row (View bill · amount, View cart, total, count) does not fit once a
+   * long amount due and the reconnecting status show, so View bill stacks its words over the amount (both whole) and
+   * the count rides on View cart as a corner badge. */
+  .gx-dock-bill.has-due { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; line-height: 1.2; text-align: start; }
+  .gx-dock-bill.has-due .gx-dock-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .gx-dock-bill.has-due .gx-dock-sep { display: none; }
+  .gx-count.is-trailing { display: none; }
+  .gx-count.is-badge { display: grid; position: absolute; inset-block-start: -7px; inset-inline-end: -7px; min-width: 20px; height: 20px; padding: 0 5px;
+    border-radius: var(--radius-pill); font-size: 11px; color: var(--ink); box-shadow: 0 0 0 2px var(--card); }
 }
 @media (max-width: 600px) {
   .bk-branch { flex-basis: 100%; margin-inline-start: 0; }
@@ -490,17 +500,11 @@
   .gx-dish-foot { padding-block-start: 12px; }
   .gx-add { min-width: 0; padding: 0 14px; }
   .gx-dock { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); inset-block-end: calc(12px + env(safe-area-inset-bottom));
-    min-width: 0; width: auto; transform: none; gap: 10px; padding: 10px; max-width: none; }
+    min-width: 0; width: auto; transform: none; gap: 8px; padding: 10px; max-width: none; }
   [dir='rtl'] .gx-dock { transform: none; }
-  .gx-dock .gx-btn { min-height: 42px; padding: 0 14px; font-size: 13px; }
+  .gx-dock .gx-btn { min-height: 42px; padding: 0 13px; font-size: 13px; }
+  .gx-dock > .gx-dock-bill { padding-inline: 11px; }
   .gx-dock strong { font-size: 13px; }
-  /* POL-02: nothing in the row may be pushed past the screen edge. Everything keeps its size except View bill's words. */
-  .gx-dock > * { flex-shrink: 0; }
-  .gx-dock > .gx-dock-bill { flex-shrink: 1; min-width: 0; padding-inline: 12px; }
-  .gx-dock > .gx-live { flex-shrink: 1; min-width: 0; overflow: hidden; }
-  .gx-count.is-trailing { display: none; }
-  .gx-count.is-badge { display: grid; position: absolute; inset-block-start: -7px; inset-inline-end: -7px; min-width: 20px; height: 20px; padding: 0 5px;
-    border-radius: var(--radius-pill); font-size: 11px; color: var(--ink); box-shadow: 0 0 0 2px var(--card); }
   .gx-main { padding-block-end: calc(120px + env(safe-area-inset-bottom)); }
   .gx-backdrop { place-items: end stretch; padding: 0; }
   .gx-sheet { width: 100%; max-width: none; border-radius: 22px 22px 0 0; padding: 22px 22px max(22px, env(safe-area-inset-bottom)); max-height: 93dvh; }
