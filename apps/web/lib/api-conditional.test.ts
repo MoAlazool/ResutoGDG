@@ -22,6 +22,9 @@ describe('conditional GET for signed-in reads', () => {
     const second = await apiAll('/o/1/orders?status=open', { token: 'tok-A', revalidate: true });
     expect(sentINM(f, 0)).toBeNull();
     expect(sentINM(f, 1)).toBe('W/"a1"');
+    // Without its own Cache-Control, fetch would add "no-cache" and Express would never answer 304.
+    expect(new Headers((f.mock.calls[1]![1] as RequestInit).headers).get('cache-control')).toBe('max-age=0');
+    expect(new Headers((f.mock.calls[0]![1] as RequestInit).headers).get('cache-control')).toBeNull();
     expect(second).toBe(first); // identity: an unchanged poll changes nothing downstream
   });
 

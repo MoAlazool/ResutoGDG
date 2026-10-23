@@ -162,7 +162,14 @@ export async function apiPage(path: string, opts: ApiOptions): Promise<[any, boo
   const conditional = !!opts.revalidate && method === 'GET' && !!opts.token;
   const ckey = conditional ? conditionalKey(path, opts.token, opts.headers) : '';
   const known = conditional ? validators.get(ckey) : undefined;
-  if (known) headers['If-None-Match'] = known.etag;
+  if (known) {
+    headers['If-None-Match'] = known.etag;
+    // A request with If-None-Match runs in fetch's "no-store" mode, and fetch then adds `Cache-Control: no-cache`
+    // unless the request already has a Cache-Control header. Express (the `fresh` check) treats no-cache as a forced
+    // reload and never answers 304, so the validator would be sent for nothing. `max-age=0` asks for the same end-to-end
+    // revalidation without that effect. The response policy is unchanged (staff responses stay no-store).
+    headers['Cache-Control'] = 'max-age=0';
+  }
   let res: Response;
   try {
     res = await fetch(`${API_URL}/v1${path}`, {
