@@ -33,7 +33,7 @@ credentials → run `scripts/providers/acceptance.mjs` per provider and record; 
 `resuto_api` login and drop `DATABASE_PLATFORM_FALLBACK`; SMTP to verify email flows; Supabase password settings.
 Internal follow-ups if time allows: partial items in `docs/BACKLOG.md` marked "deliberately scoped" (PS-19 response
 schemas, PCL-24 render on 304, CR-12 WhatsApp ordering link srcset, VP-17 guest titles, VS-26 AI floor import).
-Gallery (v3): https://claude.ai/artifact/PybNvTkVh4jW45QcJ93hZL.
+Gallery (v3): https://claude.ai/artifact/PybNvTkVh4jW45QcJ93hZL. Handoff report (Claude Doc, private): https://claude.ai/artifact/9pbcgAUuj4pmYUkwTf1WQJ (repository copy: `docs/HANDOFF.md`).
 
 ## Owner prerequisites (batched; nothing here blocks internal work)
 - **Vercel**: the claude.ai Vercel connector still has no grant for team "ta-nk", so deploys use the Vercel CLI,
