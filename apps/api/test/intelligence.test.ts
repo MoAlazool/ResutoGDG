@@ -452,6 +452,9 @@ describe('owner assistant (rules mode, no GEMINI_API_KEY)', () => {
     const a = await t.http.post(`${base()}/assistant`).set({ ...auth(A.owner), 'Idempotency-Key': key }).send({ message: 'sales this month' });
     const b = await t.http.post(`${base()}/assistant`).set({ ...auth(A.owner), 'Idempotency-Key': key }).send({ message: 'sales this month' });
     expect(b.body.messageId).toBe(a.body.messageId);
+    // REM-A03: the replay answers with the first call's status, which is the status stored with the key.
+    expect(b.status).toBe(a.status);
+    expect((await sql(`select status_code from idempotency_keys where org_id = $1 and key = $2`, [A.orgId, key]))[0].status_code).toBe(a.status);
     const [n] = await sql(`select count(*)::int as n from assistant_messages where thread_id = $1`, [a.body.threadId]);
     expect(n.n).toBe(3);
     const c = await t.http.post(`${base()}/assistant`).set({ ...auth(A.owner), 'Idempotency-Key': key }).send({ message: 'different' });

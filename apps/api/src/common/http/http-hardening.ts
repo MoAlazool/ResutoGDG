@@ -64,6 +64,6 @@ export function hardeningMiddleware(env: Pick<Env, 'NODE_ENV'>) {
         ip: req.ip ?? null,
       });
     });
-    requestContext.run({ requestId: req.id, source: 'api' }, next);
+    requestContext.run({ requestId: req.id, source: 'api', response: res }, next);
   };
 }

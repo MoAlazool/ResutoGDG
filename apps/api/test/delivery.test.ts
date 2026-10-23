@@ -254,6 +254,9 @@ describe('pickup, delivery, COD and settlement', () => {
     const replay = await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d1)).set('Idempotency-Key', key)
       .send({ proofMediaId: photo.body.mediaId, recipientName: 'Salma', cashCollectedMinor: order.totalMinor, latitude: 30.045, longitude: 31.24 });
     expect(replay.status).toBe(200);
+    expect(replay.body).toEqual(done.body);
+    // REM-A03: the stored status is the one the first call answered with.
+    expect((await sql(`select status_code from idempotency_keys where key = $1`, [key]))[0].status_code).toBe(done.status);
     expect((await t.http.post(D(`/jobs/${job.id}/deliver`)).set(auth(d1)).send({ recipientName: 'x', cashCollectedMinor: 0 })).status).toBe(409);
 
     const [o] = await sql(`select status, payment_status, paid_minor from orders where id = $1`, [order.id]);

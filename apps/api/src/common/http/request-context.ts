@@ -17,6 +17,18 @@ export interface RequestContextStore {
   requestId: string;
   source: 'api' | 'worker' | 'job';
   handling?: HandlingContext;
+  /**
+   * The HTTP response of the request (API only). Nest sets the route's success status (@HttpCode, or 201 for POST)
+   * before the handler runs, so services can read the status the caller will receive; IdempotencyService records it
+   * with the stored result and sets it again on a replay (PS-24 remainder).
+   */
+  response?: ResponseStatusRef;
+}
+
+/** The part of the HTTP response the request context exposes. */
+export interface ResponseStatusRef {
+  readonly statusCode: number;
+  status(code: number): unknown;
 }
 
 const storage = new AsyncLocalStorage<RequestContextStore>();
