@@ -259,6 +259,51 @@ describe('OAuth 2.1 for MCP clients (official SDK client)', () => {
     await stepped.client.close();
   });
 
+  // Review of REM-A08: the scope pre-check ran the tool before the transport validated the JSON-RPC message, so a
+  // tools/call the transport then rejected as a parse error had already run (and could write), and its result stayed
+  // keyed by the request id, where a later batch with the same id was answered from it. Now a message the transport
+  // would reject never reaches the API, and a pre-checked result belongs only to the HTTP request that made it.
+  it('a malformed tools/call never reaches the API, and a later request with the same id gets its own result', async () => {
+    const provider = new TestOAuthClient(['get_restaurant_profile', 'list_branches']);
+    (await connectWithOAuth(provider)).client.close();
+    const callsOf = async (tool: string) => Number((await pool.query(`select count(*)::int as n from mcp_tool_calls where org_id = $1 and tool = $2`, [orgId, tool])).rows[0].n);
+    const headers = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: `Bearer ${provider.saved!.access_token}` };
+    const init = await fetch(MCP_URL, { method: 'POST', headers, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize',
+      params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'raw', version: '1' } } }) });
+    expect(init.status).toBe(200);
+    const session = { ...headers, 'Mcp-Session-Id': init.headers.get('mcp-session-id')!, 'Mcp-Protocol-Version': '2025-06-18' };
+    await init.text();
+    await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+    const profileCalls = await callsOf('get_restaurant_profile');
+
+    // Not JSON-RPC 2.0 (jsonrpc missing, then wrong): the transport answers 400 and the tool never runs.
+    for (const bad of [{ id: 5, method: 'tools/call', params: { name: 'get_restaurant_profile', arguments: {} } },
+      { jsonrpc: '1.0', id: 5, method: 'tools/call', params: { name: 'get_restaurant_profile', arguments: {} } }]) {
+      const res = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify(bad) });
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain('Invalid JSON-RPC message');
+    }
+    expect(await callsOf('get_restaurant_profile')).toBe(profileCalls);
+
+    // The same id again, in a batch (which the pre-check does not handle): answered by the tool it names.
+    const branchCalls = await callsOf('list_branches');
+    const batch = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify([{ jsonrpc: '2.0', id: 5, method: 'tools/call',
+      params: { name: 'list_branches', arguments: {} } }]) });
+    expect(batch.status).toBe(200);
+    const text = await batch.text();
+    expect(text).toContain('Dokki');
+    expect(text).not.toContain('Fattah Kitchen');
+    expect(await callsOf('list_branches')).toBe(branchCalls + 1);
+    expect(await callsOf('get_restaurant_profile')).toBe(profileCalls);
+
+    // A well-formed single tools/call still runs exactly once.
+    const ok = await fetch(MCP_URL, { method: 'POST', headers: session, body: JSON.stringify({ jsonrpc: '2.0', id: 6, method: 'tools/call',
+      params: { name: 'get_restaurant_profile', arguments: {} } }) });
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toContain('Fattah Kitchen');
+    expect(await callsOf('get_restaurant_profile')).toBe(profileCalls + 1);
+  });
+
   it('shows a plain error (never a redirect) for an unknown client', async () => {
     const res = await fetch(`${ORIGIN}/oauth/authorize?client_id=rmoc_does_not_exist_at_all&redirect_uri=${encodeURIComponent('https://evil.example/cb')}&response_type=code`, { redirect: 'manual' });
     expect(res.status).toBe(400);

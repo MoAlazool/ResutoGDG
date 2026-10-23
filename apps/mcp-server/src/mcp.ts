@@ -1,11 +1,23 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, type CallToolResult, type RequestId, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ApiError, type ResutoApi, type ToolCallResponse, type ToolDescriptor, type WhoAmI } from './api.js';
 
 export const SERVER_INFO = { name: 'resuto', title: 'Resuto', version: '0.1.0' } as const;
 
-/** Tool calls the HTTP layer already made for a request id (scope check, http.ts); the handler answers with them. */
-export type PrefetchedCalls = Map<RequestId, ToolCallResponse | ApiError>;
+/**
+ * A tool call the HTTP layer already made for one HTTP request (scope check, http.ts), with the JSON-RPC id and tool
+ * it answers. It travels with that request only (as the transport's authInfo, which the SDK hands to the handler of
+ * the messages in that HTTP request), never in state shared across requests, so another request reusing the id
+ * cannot be answered with it, and a request the transport rejects leaves nothing behind.
+ */
+export interface PrefetchedCall { id: RequestId; name: string; outcome: ToolCallResponse | ApiError }
+export const PREFETCHED_KEY = 'resutoPrefetchedCall';
+
+/** The request-scoped carrier the transport passes through (`req.auth` → `extra.authInfo`). */
+export function prefetchedAuthInfo(clientId: string, call: PrefetchedCall): AuthInfo {
+  return { token: '', clientId, scopes: [], extra: { [PREFETCHED_KEY]: call } };
+}
 
 const ERROR_HINTS: Record<string, string> = {
   forbidden: 'The Resuto connection is not permitted to do this (role, branch or tool restrictions). A restaurant admin can change the connection in Resuto → MCP.',
@@ -52,7 +64,7 @@ export function toMcpTool(t: ToolDescriptor): Tool {
  * purpose: tool schemas come from the Resuto API as JSON Schema at runtime, so
  * the high-level McpServer (which wants zod schemas compiled in) does not fit.
  */
-export function createMcpServer(api: ResutoApi, who: WhoAmI, prefetched?: PrefetchedCalls): Server {
+export function createMcpServer(api: ResutoApi, who: WhoAmI): Server {
   const server = new Server(SERVER_INFO, {
     capabilities: { tools: { listChanged: false } },
     instructions: [
@@ -75,11 +87,8 @@ export function createMcpServer(api: ResutoApi, who: WhoAmI, prefetched?: Prefet
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
-    const done = prefetched?.get(extra.requestId);
-    if (done !== undefined) {
-      prefetched!.delete(extra.requestId);
-      return toCallToolResult(done);
-    }
+    const done = extra.authInfo?.extra?.[PREFETCHED_KEY] as PrefetchedCall | undefined;
+    if (done && done.id === extra.requestId && done.name === req.params.name) return toCallToolResult(done.outcome);
     try {
       return toCallToolResult(await api.callTool(who.orgId, req.params.name, req.params.arguments ?? {}));
     } catch (e) {
