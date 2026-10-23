@@ -111,7 +111,8 @@ export function Hero({ L, floor }: { L: Landing; floor: LandingFloor }) {
             <span className="lp-dots" aria-hidden><i /><i /><i /></span>
             <strong>{l('Service view')}</strong>
             <span className="lp-stage-clock" id="hero-clock">{clock(time.h, time.m)}</span>
-            <span className="lp-stage-live"><i />{l('Live')}</span>
+            {/* The badge says Live only over the demo restaurant's saved floor; the built-in fallback room is sample data. */}
+            {floor.live ? <span className="lp-stage-live"><i />{l('Live')}</span> : <span className="lp-stage-live is-sample">{l('Sample data')}</span>}
           </header>
           <div className="lp-stage-body">
             <div className="lp-stage-floor">
