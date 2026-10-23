@@ -15,7 +15,7 @@ import { LanguageToggle, useT } from '@/lib/i18n/client';
 import { FloorPreview } from '@/components/floor/FloorPreview';
 import { normalizeLayout } from '@/components/floor/model';
 import type { SceneLayout, SceneTable } from '@/components/floor/FloorScene';
-import { useToast } from '@/components/guest/shell';
+import { useToast } from '@/components/guest/toast';
 import '@/components/floor/floor.css';
 import '@/components/guest/consumer.css';
 

@@ -1,18 +1,22 @@
 'use client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { EmptyState, PageHeading, Tabs, ToastProvider } from '@resuto/ui';
 import { ActiveVisits } from '@/components/ops/ActiveVisits';
 import { VenueQrCard } from '@/components/ops/ServiceMode';
-import { FloorStudio } from '@/components/floor/FloorStudio';
+import { StudioPending } from '@/components/floor/StudioPending';
 import { LiveFloor } from '@/components/floor/LiveFloor';
 import { canForceClose } from '@/components/floor/visit-actions';
-import { QrSheet } from '@/components/floor/QrSheet';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { pick } from '@/lib/format';
+
+// The editor and the printable QR sheet only render on their own tabs; loading them on demand keeps the live floor's
+// first load inside the staff bundle budget.
+const FloorStudio = lazy(() => import('@/components/floor/FloorStudio').then((m) => ({ default: m.FloorStudio })));
+const QrSheet = lazy(() => import('@/components/floor/QrSheet').then((m) => ({ default: m.QrSheet })));
 
 type Tab = 'live' | 'visits' | 'studio' | 'qr';
 
@@ -69,12 +73,14 @@ function FloorPageInner() {
           <PageHeading title={t('studio.qr.title')} subtitle={t('studio.floor.pageSubtitle')} />
           {/* Counter branches print one venue code (FT-07); table codes stay available for any tables kept on the plan. */}
           {branch.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={branch.id} canRotate={canWrite} />}
-          <QrSheet key={branch.id} orgId={org.id} branchId={branch.id} branchName={pick(locale, branch.name, branch.nameAr)} restaurantName={pick(locale, org.name, org.nameAr)} />
+          <Suspense fallback={<div className="card" aria-busy="true" />}><QrSheet key={branch.id} orgId={org.id} branchId={branch.id} branchName={pick(locale, branch.name, branch.nameAr)} restaurantName={pick(locale, org.name, org.nameAr)} /></Suspense>
         </>
       ) : (
         <div className="studio-fullbleed">
+          <Suspense fallback={<StudioPending backHref={href('live')} backLabel={t('ops.studio.back')} />}>
           <FloorStudio key={branch.id} orgId={org.id} branchId={branch.id} branchName={pick(locale, branch.name, branch.nameAr)} currency={org.currency}
             canWrite={canWrite} backHref={href('live')} choices />
+          </Suspense>
         </div>
       )}
     </>

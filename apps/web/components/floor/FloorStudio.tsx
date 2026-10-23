@@ -17,6 +17,9 @@ import {
 } from './model';
 import { useFloorLabels } from './use-floor-labels';
 import './floor.css';
+import { StudioPending } from './StudioPending';
+
+export { StudioPending };
 
 type Gesture =
   | { type: 'pan'; start: { x: number; y: number }; client: { x: number; y: number }; view: Viewport }
@@ -27,19 +30,6 @@ interface Viewport { x: number; y: number; w: number; h: number }
 const FULL_VIEW: Viewport = { x: 0, y: 0, w: LAYOUT_WIDTH, h: LAYOUT_HEIGHT };
 const PRIMARY_KINDS: Array<[AddKind, string]> = [['round', '◯'], ['square', '□'], ['rect', '▭'], ['wall', '━'], ['door', '⌜'], ['zone', '▧']];
 const MORE_KINDS: Array<[AddKind, string]> = [['booth', '▬'], ['window', '═'], ['counter', '▰'], ['text', 'T'], ['chair', '▱'], ['plant', '♧'], ['divider', '━'], ['entrance', '⌜'], ['kitchen', '▧'], ['bar', '▰'], ['terrace', '☀'], ['outdoor', '♧']];
-
-/**
- * The Studio while its layout loads or after loading failed. In the full-bleed editor (backHref set) this card is the
- * only thing on screen (the floor tab bar is not rendered), so it keeps the "Back to service" link too.
- */
-export function StudioPending({ backHref, backLabel, children }: { backHref?: string; backLabel: string; children?: ReactNode }) {
-  return (
-    <div className="card studio-pending">
-      {backHref && <p className="studio-pending-back"><a className="studio-back" href={backHref}>← {backLabel}</a></p>}
-      {children}
-    </div>
-  );
-}
 
 const localStore = () => { try { return typeof window === 'undefined' ? null : window.sessionStorage; } catch { return null; } };
 
