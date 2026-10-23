@@ -30,9 +30,13 @@ export async function createApp(): Promise<INestApplication> {
   app.use(buildHeaderMiddleware());
   // Brotli/gzip for JSON/CSV bodies >= 1 kB (PCL-24); conditional GET (ETag / If-None-Match) is Express's default.
   app.use(compressionMiddleware());
-  app.enableShutdownHooks();
+  // With the in-process worker, main() owns SIGTERM/SIGINT so the loop stops before the pool closes.
+  if (!env.RUN_WORKER_IN_PROCESS) app.enableShutdownHooks();
   return app;
 }
+
+/** How long a signal waits for the in-process worker's current tick before the app closes anyway. */
+const WORKER_DRAIN_MS = 15_000;
 
 export async function main() {
   const env = loadEnv();
@@ -45,9 +49,17 @@ export async function main() {
   installCrashReporting();
   if (env.RUN_WORKER_IN_PROCESS) {
     // Single-service hosting (e.g. a free web service): the outbox/job loop shares this process.
+    // On a signal the loop finishes its current tick (bounded) before Nest closes the app and ends the database pool;
+    // closing first made the tick fail with "Cannot use a pool after calling end on the pool" on every deploy.
     let stopping = false;
-    process.once('SIGTERM', () => { stopping = true; });
-    process.once('SIGINT', () => { stopping = true; });
-    void runWorkerLoop(app, () => stopping, 'InProcessWorker');
+    const loop = runWorkerLoop(app, () => stopping, 'InProcessWorker');
+    const shutdown = async (signal: NodeJS.Signals) => {
+      stopping = true;
+      await Promise.race([loop, new Promise((r) => setTimeout(r, WORKER_DRAIN_MS))]);
+      await app.close();
+      process.kill(process.pid, signal);
+    };
+    process.once('SIGTERM', (s) => void shutdown(s));
+    process.once('SIGINT', (s) => void shutdown(s));
   }
 }
