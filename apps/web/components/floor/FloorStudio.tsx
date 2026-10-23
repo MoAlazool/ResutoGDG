@@ -2,7 +2,7 @@
 // React + SVG port of legacy/public/floor-editor.js (Floor Studio). Geometry and
 // behaviour follow the legacy editor; persistence uses the floor API contract
 // (MODULE_CONTRACTS.md §8): GET/PUT /o/:orgId/floor/:branchId with baseRevision.
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as RPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
 import { Notice, Skeleton, useConfirm, useToast } from '@resuto/ui';
 import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { useSession } from '@/lib/session';
@@ -27,6 +27,19 @@ interface Viewport { x: number; y: number; w: number; h: number }
 const FULL_VIEW: Viewport = { x: 0, y: 0, w: LAYOUT_WIDTH, h: LAYOUT_HEIGHT };
 const PRIMARY_KINDS: Array<[AddKind, string]> = [['round', '◯'], ['square', '□'], ['rect', '▭'], ['wall', '━'], ['door', '⌜'], ['zone', '▧']];
 const MORE_KINDS: Array<[AddKind, string]> = [['booth', '▬'], ['window', '═'], ['counter', '▰'], ['text', 'T'], ['chair', '▱'], ['plant', '♧'], ['divider', '━'], ['entrance', '⌜'], ['kitchen', '▧'], ['bar', '▰'], ['terrace', '☀'], ['outdoor', '♧']];
+
+/**
+ * The Studio while its layout loads or after loading failed. In the full-bleed editor (backHref set) this card is the
+ * only thing on screen (the floor tab bar is not rendered), so it keeps the "Back to service" link too.
+ */
+export function StudioPending({ backHref, backLabel, children }: { backHref?: string; backLabel: string; children: ReactNode }) {
+  return (
+    <div className="card studio-pending">
+      {backHref && <p className="studio-pending-back"><a className="studio-back" href={backHref}>← {backLabel}</a></p>}
+      {children}
+    </div>
+  );
+}
 
 const localStore = () => { try { return typeof window === 'undefined' ? null : window.sessionStorage; } catch { return null; } };
 
@@ -482,13 +495,13 @@ export function FloorStudio({ orgId, branchId, branchName, currency, canWrite, b
   // ---- Render ---------------------------------------------------------------------------------
   if (loadError) {
     return (
-      <div className="card">
+      <StudioPending backHref={backHref} backLabel={t('ops.studio.back')}>
         <Notice tone="danger">{loadError.status === 404 ? t('studio.floor.notFound') : `${t('state.error')}: ${loadError.message}`}</Notice>
         <button className="btn" style={{ marginBlockStart: 12 }} onClick={() => void load()}>{t('action.retry')}</button>
-      </div>
+      </StudioPending>
     );
   }
-  if (!draft || !base) return <div className="card"><Skeleton lines={6} /></div>;
+  if (!draft || !base) return <StudioPending backHref={backHref} backLabel={t('ops.studio.back')}><Skeleton lines={6} /></StudioPending>;
 
   const seats = draft.tables.reduce((n, x) => n + x.capacity, 0);
   const zoomPct = Math.round((LAYOUT_WIDTH / view.w) * 100);
