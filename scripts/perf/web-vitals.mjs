@@ -132,7 +132,10 @@ for (const [id, p, isPublic, locale, observe] of ALL.filter(([id]) => !pages || 
     loadMs: pick('loadMs', (r) => r.first), lcpEl: runs[0].first.lcpEl, requests: pick('requests', (r) => r.first), kb: pick('kb', (r) => r.first),
     fontKb: median(runs.map((r) => r.first.by.font?.kb ?? 0)), imageKb: median(runs.map((r) => r.first.by.image?.kb ?? 0)),
     scriptKb: median(runs.map((r) => r.first.by.script?.kb ?? 0)), apiKb: median(runs.map((r) => r.first.by.api?.kb ?? 0)),
-    repeatLcp: pick('lcp', (r) => r.repeat), repeatKb: pick('kb', (r) => r.repeat), repeatRequests: pick('requests', (r) => r.repeat),
+    repeatLcp: pick('lcp', (r) => r.repeat), repeatLcpEl: runs[0].repeat.lcpEl, repeatFcp: pick('fcp', (r) => r.repeat),
+    // Per-run values, so a median can be checked against its spread.
+    lcpRuns: runs.map((r) => r.first.lcp), repeatLcpRuns: runs.map((r) => r.repeat.lcp), repeatLcpEls: runs.map((r) => r.repeat.lcpEl),
+    repeatKb: pick('kb', (r) => r.repeat), repeatRequests: pick('requests', (r) => r.repeat),
     repeatCachedOr304: pick('cachedOr304', (r) => r.repeat), repeatFromCache: pick('fromCache', (r) => r.repeat), repeatRevalidated: pick('revalidated', (r) => r.repeat),
     repeatImageKb: median(runs.map((r) => r.repeat.by.image?.kb ?? 0)),
     repeatFontKb: median(runs.map((r) => r.repeat.by.font?.kb ?? 0)),

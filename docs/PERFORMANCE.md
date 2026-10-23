@@ -238,8 +238,11 @@ copy.
 ### Not done here (follow-ups)
 
 - PCL-23 push "change ticks" (SSE): needs client changes in `apps/web/lib/use-api.ts` and the polling screens.
-- Pollers sending `If-None-Match` and skipping re-render on 304; guest pages using `imageSrcSet` and
-  `imageWidth`/`imageHeight`; preloading the locale's primary font in the root layout; a lighter placeholder than
-  the 211 KB `menu-photography.webp` in `guest.css` (all web components owned elsewhere).
+- Done in ws14b (REM-W01..W03): pollers send `If-None-Match` (the API exposes `ETag` to the web origin) and an
+  unchanged poll does not re-render; guest menu, web order, storefront and the restaurant site highlights use
+  `imageSrcSet`; the root layout preloads the locale's primary font. Still open: the connect ordering link
+  (`/o/<token>`) serves `products.image_url` only (no stored copies); the kitchen board (`serverTime`, `ageSeconds`)
+  and analytics (`meta.generatedAt`) change on every request, so their polls never get a 304; a lighter placeholder
+  than the 211 KB `menu-photography.webp` in `guest.css`.
 - Cross-instance cache invalidation (`LISTEN/NOTIFY` or Redis) once the API runs more than one instance.
 - Staging measurement with this harness (attach mode) after deploy.
