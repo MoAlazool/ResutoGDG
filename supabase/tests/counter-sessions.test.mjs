@@ -86,7 +86,8 @@ test('counter visits stay inside their restaurant: staff and the guest path see 
 test('client roles get nothing on the new columns', async () => {
   const roles = await q(`select rolname from pg_roles where rolname in ('anon', 'authenticated')`);
   for (const { rolname } of roles) {
-    const [r] = await q(`select has_column_privilege($1, 'public.branches', 'venue_qr_hash', 'select') as hash, has_column_privilege($1, 'public.visits', 'kind', 'select') as kind`, [rolname]);
-    assert.deepEqual(r, { hash: false, kind: false });
+    const [r] = await q(`select has_column_privilege($1, 'public.branches', 'venue_qr_hash', 'select') as hash, has_column_privilege($1, 'public.visits', 'kind', 'select') as kind,
+                                has_column_privilege($1, 'public.branches', 'venue_qr_legacy_revoked_at', 'update') as revoke`, [rolname]);
+    assert.deepEqual(r, { hash: false, kind: false, revoke: false });
   }
 });

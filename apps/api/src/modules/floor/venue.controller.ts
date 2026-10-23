@@ -11,7 +11,8 @@ import { CounterService, VENUE_TOKEN } from '../orders/counter.service';
  * `<origin>/v/<token>` (the branch's venue credential, FT-07). This resolves either to where the guest belongs: the
  * counter page `/v/<token>` when the branch serves at a counter (each guest's own counter order; the visit opens with
  * the first order), else the branch's public ordering page `/order/<slug>?branch=<code>`. The web app's /t/<token> page redirects
- * there, so codes printed before the cutover keep working. Unknown, ambiguous or closed: 404.
+ * there, so codes printed before the cutover keep working until staff rotate the branch's code. Unknown, ambiguous,
+ * retired or closed: 404.
  */
 @Controller('public/venue')
 export class PublicVenueController {

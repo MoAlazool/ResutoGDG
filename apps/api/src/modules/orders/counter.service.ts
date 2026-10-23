@@ -30,7 +30,8 @@ export interface ResolvedVenue { orgId: string; branchId: string; source: 'venue
  *
  * The venue credential: token = HMAC(guest-token key, branch id + nonce); only sha256(token) and the nonce are stored
  * (branches.venue_qr_*), so staff can print the same code again and rotating draws a new nonce. Codes printed by the
- * legacy app (legacy_id_map, entity venue_qr) open the same counter session when their branch serves at a counter.
+ * legacy app (legacy_id_map, entity venue_qr) open the same counter session when their branch serves at a counter,
+ * until the branch's code is first rotated (branches.venue_qr_legacy_revoked_at): rotating retires them too.
  */
 @Injectable()
 export class CounterService {
@@ -68,7 +69,11 @@ export class CounterService {
     return { branchId, ...r, svg: await QRCode.toString(r.url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) };
   }
 
-  /** A new venue code for the branch: the printed one stops opening counter orders at once (open visits continue). */
+  /**
+   * A new venue code for the branch: the printed one stops opening counter orders at once (open visits continue), and
+   * so do codes the legacy app printed for this branch (their legacy_id_map rows stay for the migration tool, which
+   * owns that table, but resolve() ignores them once the branch has rotated).
+   */
   async rotateVenueQr(ctx: TenantContext, branchId: string): Promise<VenueQr> {
     ctx.assertBranch(branchId);
     await this.db.scoped(ctx, async (tx) => {
@@ -76,6 +81,7 @@ export class CounterService {
       if (!b) throw notFound('Branch');
       if (b.service_mode !== 'counter') throw conflict('not_counter', 'Only a counter branch has a venue code to rotate.');
       await this.issue(tx, branchId);
+      await tx.query('update branches set venue_qr_legacy_revoked_at = coalesce(venue_qr_legacy_revoked_at, now()) where id = $1', [branchId]);
       await this.audit.record(tx, ctx, { action: 'floor.venue_qr_rotated', entityType: 'branch', entityId: branchId, branchId });
     });
     return this.venueQr(ctx, branchId);
@@ -112,7 +118,8 @@ export class CounterService {
   // ---------------------------------------------------------------------------
   /**
    * The branch behind a venue code: the branch's current code (by hash), or a code the legacy app printed (the
-   * migration's token map). Unknown, ambiguous, or of a closed or suspended restaurant: 404.
+   * migration's token map) while the branch has never rotated its code. Unknown, ambiguous, retired, or of a closed or
+   * suspended restaurant: 404.
    */
   async resolve(token: string): Promise<ResolvedVenue> {
     if (!VENUE_TOKEN.test(token ?? '')) throw notFound('Venue');
@@ -125,7 +132,7 @@ export class CounterService {
        -- organization's main branch (the branch the tool maps it to now) until a re-run moves the row.
        select m.org_id, b.id, 'legacy' from legacy_id_map m
           join organizations o on o.id = m.org_id and o.status not in ('closed', 'suspended')
-          join branches b on b.org_id = m.org_id and b.is_active
+          join branches b on b.org_id = m.org_id and b.is_active and b.venue_qr_legacy_revoked_at is null
            and b.id = case when m.new_id = m.org_id
                            then (select x.id from branches x where x.org_id = m.org_id and x.is_active order by (x.code = 'main') desc, x.created_at, x.id limit 1)
                            else m.new_id end

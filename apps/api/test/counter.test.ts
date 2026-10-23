@@ -303,7 +303,7 @@ describe('when a counter scan is refused (FT-07)', () => {
     expect((await scan('short')).status).toBe(404);
   });
 
-  it('a legacy-printed venue code of a counter branch opens the counter session', async () => {
+  it('a legacy-printed venue code of a counter branch opens the counter session until the branch rotates its code', async () => {
     const r = await createTenant(t, { country: 'EG' });
     const rMenu = await seedMenu(r);
     await counterBranch(r);
@@ -318,6 +318,18 @@ describe('when a counter scan is refused (FT-07)', () => {
     const o = await t.http.post(`/v1/public/venue/${legacy}/orders`).set('Idempotency-Key', key('legacy-first')).send({ lines, expectedTotalMinor: q.body.totalMinor });
     expect(o.status, JSON.stringify(o.body)).toBe(201);
     expect(o.body.session).toMatchObject({ kind: 'counter', branchId: r.branchId, opened: true });
+    // Rotating the branch's code retires the legacy-printed one too ("the printed code stops opening orders at once");
+    // the guest already ordering keeps their visit.
+    expect((await t.http.post(S(r, `/floor/${r.branchId}/venue-qr/rotate`)).set(auth(r.owner))).status).toBe(200);
+    expect((await scan(legacy)).status).toBe(404);
+    expect((await t.http.get(`/v1/public/venue/${legacy}`)).status).toBe(404);
+    expect((await t.http.get(`/v1/public/venue/${legacy}/counter`)).status).toBe(404);
+    expect((await t.http.post(`/v1/public/venue/${legacy}/orders`).set('Idempotency-Key', key('legacy-after')).send({ lines, expectedTotalMinor: q.body.totalMinor })).status).toBe(404);
+    expect((await t.http.get('/v1/public/visits/current').set(visitHeader(o.body.session.token))).status).toBe(200);
+    // A legacy row the old tool mapped to the organization (resolves to the main branch) is retired as well.
+    const orgMapped = `legacyorg${Date.now().toString(16)}venue000000000`.slice(0, 32);
+    await sql(`insert into legacy_id_map(org_id, entity_type, legacy_id, new_id) values ($1, 'venue_qr', $2, $1)`, [r.orgId, orgMapped]);
+    expect((await scan(orgMapped)).status).toBe(404);
   });
 
   it('scripted scans from many addresses open nothing, so a real guest can always order', async () => {
