@@ -20,16 +20,54 @@ describe('landing floor (VP-12)', () => {
     }
   });
 
-  it('gives a live floor the legacy portrait phone crop over its tables and its room shell, and keeps the legacy crop for the sample', () => {
-    expect(narrowView(SAMPLE_FLOOR)).toBe('140 60 480 680');
+  it('gives a live floor the legacy portrait phone crop over its tables and its room shell', () => {
     const [x, y, w, h] = narrowView(landingFloorFrom(DEMO_FLOOR_MAIN)).split(' ').map(Number);
     // POL-01: the crop reaches the north wall + window strip (y 34-46) and the south wall (y 755-765), as legacy's phone
     // hero showed them; before, it stopped at y 55-735 and the phone hero had no room architecture at all.
     expect(y).toBeLessThanOrEqual(34);
     expect(y! + h!).toBeGreaterThanOrEqual(765);
+    // ...and stops above the entrance's label (door y 760, label 766-795), which it used to cut into (stray glyphs).
+    expect(y! + h!).toBeLessThanOrEqual(766);
     expect(w! / h!).toBeCloseTo(480 / 680, 2); // the legacy portrait shape
     expect(h).toBeLessThanOrEqual(850); // tables keep at least 80% of the legacy scale (680 tall)
     expect(x).toBe(130); // starts at the first column of tables (T4, round 120, spans 190-310)
+  });
+
+  it('the recorded sample keeps the legacy crop’s x and reaches its north wall, window strip and south wall', () => {
+    // Before: the fixed legacy crop 140 60 480 680 (y 60-740) left out every wall and the window (POL-01 review).
+    const [x, y, w, h] = narrowView(SAMPLE_FLOOR).split(' ').map(Number);
+    expect(x).toBe(140);
+    const shell = SAMPLE_FLOOR.objects.filter((o) => (o.type === 'wall' && o.width > o.height) || o.type === 'window');
+    expect(shell.map((o) => o.id).sort()).toEqual(['demo-wall', 'demo-wall-south', 'demo-window']);
+    for (const o of shell) {
+      expect(y, o.id).toBeLessThanOrEqual(o.y - o.height / 2);
+      expect(y! + h!, o.id).toBeGreaterThanOrEqual(o.y + o.height / 2);
+    }
+    // The entrance (y 740) draws its label from y 746: the crop ends above it rather than through it.
+    const door = SAMPLE_FLOOR.objects.find((o) => o.type === 'door')!;
+    expect(y! + h!).toBeLessThanOrEqual(door.y + 6);
+    expect(w! / h!).toBeCloseTo(480 / 680, 2);
+    expect(h).toBeGreaterThanOrEqual(680);
+    expect(h).toBeLessThanOrEqual(850);
+  });
+
+  it('doors do not stretch the crop, and the bottom edge never cuts through a door label', () => {
+    const bare = { ...DEMO_FLOOR_MAIN, objects: [] as unknown[] };
+    const base = narrowView(landingFloorFrom(bare));
+    // A door well below the tables, over their columns: not part of the shell, so the crop stays as it was.
+    const low = { id: 'd', type: 'door', label: 'Entrance', x: 300, y: 790, width: 90, height: 20, rotation: 0 };
+    expect(narrowView(landingFloorFrom({ ...bare, objects: [low] }))).toBe(base);
+    // A door whose label band (y+6 .. y+35) straddles the bottom edge: the crop ends just above the label.
+    const [, y0, , h0] = base.split(' ').map(Number);
+    const end = y0! + h0!;
+    const door = { ...low, y: end - 16 };
+    const [, y1, w1, h1] = narrowView(landingFloorFrom({ ...bare, objects: [door] })).split(' ').map(Number);
+    expect(y1! + h1!).toBeLessThanOrEqual(door.y + 6);
+    expect(w1! / h1!).toBeCloseTo(480 / 680, 2);
+    // ...unless that would cut a wall the crop reached: then the edge stays below the wall.
+    const wall = { id: 'w', type: 'wall', label: 'South wall', x: 600, y: door.y + 2, width: 1100, height: 10, rotation: 0 };
+    const [, y2, , h2] = narrowView(landingFloorFrom({ ...bare, objects: [wall, door] })).split(' ').map(Number);
+    expect(y2! + h2!).toBeGreaterThanOrEqual(wall.y + wall.height / 2);
   });
 
   it('a phone crop without a reachable shell keeps the legacy size centred on the tables', () => {
