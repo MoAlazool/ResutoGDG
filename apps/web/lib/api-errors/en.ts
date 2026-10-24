@@ -439,4 +439,9 @@ export const en: Record<string, string> = {
   print_job_completed: 'This job was already printed.',
   print_job_not_claimed: 'Claim the print job before completing it.',
   resync_required: 'The device must resynchronise its data.',
+  reply_body_required: 'Keep the reply in English, Arabic or both.',
+  saved_reply_limit_reached: 'This restaurant has the maximum number of saved replies. Delete one to add another.',
+  shortcut_taken: 'Another saved reply already uses this shortcut. Choose a different one.',
+  tag_limit_reached: 'The tag limit is reached. Remove a tag first.',
+  tag_name_taken: 'A tag with this name already exists.',
 };
