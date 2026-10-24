@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, expect, publishSite, qrPath, seedMenu, setLocale, signIn, test } from './fixtures';
+import { apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, expect, matchScreenshot, publishSite, qrPath, seedMenu, setLocale, signIn, test } from './fixtures';
 
 // CR-11: visual-fidelity gate for the restored surfaces. Captures are deterministic: a fixed clock, motion reduced,
 // CSS animations and the caret off, web fonts awaited, and every per-run value (slugs, ids, order numbers, relative
@@ -27,7 +27,7 @@ const dynamic = (page: Page) => [page.locator('time'), page.locator('[data-dynam
 
 async function shot(page: Page, name: string, opts: { fullPage?: boolean } = {}) {
   await settle(page);
-  await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: opts.fullPage ?? false, mask: dynamic(page), maxDiffPixelRatio: 0.01 });
+  await matchScreenshot(page, `${name}.png`, { fullPage: opts.fullPage ?? false, mask: dynamic(page), maxDiffPixelRatio: 0.01 });
 }
 
 test.beforeEach(async ({ page }) => {

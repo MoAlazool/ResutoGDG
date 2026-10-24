@@ -172,12 +172,15 @@ jobs:
       - name: Build shared packages
         run: pnpm --filter @resuto/contracts build && pnpm --filter @resuto/integrations build
       # Committed baselines are enforced (1 % tolerance, animations off, fixed clock, dynamic text masked). A surface
-      # without a docker baseline yet is recorded and uploaded below for approval instead of failing the run; record
-      # the approval in docs/ui/visual-baselines.json and commit the image. NOTE: no docker baseline is committed yet,
-      # so this job only records today (CR-11 partial); once approved baselines are committed, remove
-      # --update-snapshots=missing so a missing or changed surface fails the job.
+      # without a docker baseline yet is recorded (tests/e2e/fixtures.ts matchScreenshot) and uploaded below for
+      # approval instead of failing the run; record the approval in docs/ui/visual-baselines.json and commit the image.
+      # NOTE: no docker baseline is committed yet, so this job only records today (CR-11 partial); once approved
+      # baselines are committed, drop E2E_RECORD_MISSING_BASELINES so a missing surface fails the job too.
+      # (Playwright 1.56's --update-snapshots=missing writes the file but fails the test, so it is not used.)
       - name: Visual snapshots (restored surfaces + landing/studio snapshots)
-        run: pnpm e2e --project=visual --project=chromium --grep "visual|public surfaces|restaurant and guest surfaces|staff surfaces" --update-snapshots=missing
+        env:
+          E2E_RECORD_MISSING_BASELINES: '1'
+        run: pnpm e2e --project=visual --project=chromium --grep "visual|public surfaces|restaurant and guest surfaces|staff surfaces"
       - uses: actions/upload-artifact@v6
         if: always()
         with:

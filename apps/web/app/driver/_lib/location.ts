@@ -9,6 +9,16 @@ const FLUSH_MS = 15_000;
 const MAX_BUFFER = 50;
 
 /**
+ * When a fix was taken. GeolocationPosition.timestamp is not always epoch milliseconds (WebKit's emulated positions
+ * in Playwright map to the year 58783, and some devices report clock-skewed fixes), so a value outside the window the
+ * API keeps (driver-app.service.ts: the last hour, up to 2 minutes ahead) is replaced by the time the fix arrived.
+ */
+export function fixTime(timestamp: number, now = Date.now()): string {
+  const plausible = Number.isFinite(timestamp) && timestamp >= now - 3_600_000 && timestamp <= now + 120_000;
+  return new Date(plausible ? timestamp : now).toISOString();
+}
+
+/**
  * Shares the driver's position while `active` (a job is picked up / en route):
  * navigator.geolocation.watchPosition → in-memory buffer → batched upload every
  * 15 s (the API rate-limits batches). Stops watching as soon as `active` is false.
@@ -26,7 +36,7 @@ export function useLocationSharing(active: boolean, upload: (points: Fix[]) => P
     setState('starting');
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        const fix = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracyM: pos.coords.accuracy ?? null, recordedAt: new Date(pos.timestamp).toISOString() };
+        const fix = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracyM: pos.coords.accuracy ?? null, recordedAt: fixTime(pos.timestamp) };
         buffer.current.push(fix);
         if (buffer.current.length > MAX_BUFFER) buffer.current.splice(0, buffer.current.length - MAX_BUFFER);
         setLastFix(fix);

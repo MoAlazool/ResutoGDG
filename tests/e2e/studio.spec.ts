@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { request as pwRequest } from '@playwright/test';
-import { apiCreateTenant, collectErrors, expect, expectNoHorizontalOverflow, publishSite, seedMenu, setLocale, signIn, sql, test, WEB_URL } from './fixtures';
+import { apiCreateTenant, collectErrors, expect, expectNoHorizontalOverflow, matchScreenshot, publishSite, seedMenu, setLocale, signIn, sql, test, WEB_URL } from './fixtures';
 
 const SHELL_404 = [/Failed to load resource.*404/];
 
@@ -81,7 +81,7 @@ test('restaurant website visual snapshot', async ({ page, request }) => {
   await page.evaluate(() => document.fonts.ready);
   await page.waitForLoadState('networkidle');
   // Dynamic values (footer year) are masked; everything else must match the committed baseline.
-  await expect(page).toHaveScreenshot('restaurant-olive-en.png', { fullPage: true, mask: [page.locator('footer span').first()] });
+  await matchScreenshot(page, 'restaurant-olive-en.png', { fullPage: true, mask: [page.locator('footer span').first()] });
 });
 
 test('custom domains resolve to the same tenant; unknown hosts get a 404 page', async ({ request }) => {

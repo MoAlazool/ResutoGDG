@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { collectErrors, expect, expectNoHorizontalOverflow, setLocale, test, WEB_URL } from './fixtures';
+import { collectErrors, expect, expectNoHorizontalOverflow, matchScreenshot, setLocale, test, WEB_URL } from './fixtures';
 
 // The pricing teaser asks the billing module for public prices; that endpoint is
 // owned by another agent, so a 404 from it is expected in this worktree.
@@ -85,10 +85,10 @@ test('landing interactions: hero table detail, studio panel, reservation ticket,
 test('landing visual snapshot (English, desktop)', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);
-  await expect(page).toHaveScreenshot('landing-en-hero.png', { fullPage: false });
+  await matchScreenshot(page, 'landing-en-hero.png', { fullPage: false });
   await page.locator('#pricing').scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
-  await expect(page.locator('#connect')).toHaveScreenshot('landing-en-connect.png');
+  await matchScreenshot(page.locator('#connect'), 'landing-en-connect.png');
 });
 
 test('landing visual snapshot (Arabic, mobile)', async ({ page }) => {
@@ -96,7 +96,7 @@ test('landing visual snapshot (Arabic, mobile)', async ({ page }) => {
   await setLocale(page, 'ar');
   await page.goto('/');
   await page.evaluate(() => document.fonts.ready);
-  await expect(page).toHaveScreenshot('landing-ar-mobile-hero.png', { fullPage: false });
+  await matchScreenshot(page, 'landing-ar-mobile-hero.png', { fullPage: false });
 });
 
 test('landing has no serious accessibility violations', async ({ page }) => {

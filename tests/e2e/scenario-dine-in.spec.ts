@@ -104,9 +104,13 @@ test('QR order with a modifier → KDS ready → served → equal split paid by 
 
     await test.step('each guest pays one share with the sandbox provider', async () => {
       // Guest B joins the same table session from the QR, then opens the bill.
+      // "Table T1" is server-rendered, so wait for the join itself before leaving the page (a slower browser would
+      // otherwise abort it and open the bill without a session).
       const b = guestB.page;
+      const joined = b.waitForResponse((r) => r.request().method() === 'POST' && r.url().endsWith('/session'));
       await b.goto(qr);
       await expect(b.getByRole('main')).toContainText('Table T1');
+      expect((await joined).ok()).toBe(true);
       await b.goto(`${qr}/pay`);
       await expect(b.getByRole('link', { name: 'Pay this share' })).toHaveCount(2);
 

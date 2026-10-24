@@ -10,7 +10,7 @@
     },
     "docker": {
       "status": "not yet recorded",
-      "note": "Recorded by the CI job \"visual\" in mcr.microsoft.com/playwright:v1.56.1-noble: missing baselines are written and uploaded as the visual-baselines artifact; commit them after approval. Existing ones are enforced."
+      "note": "Recorded by the CI job \"visual\" in mcr.microsoft.com/playwright:v1.56.1-noble (E2E_RECORD_MISSING_BASELINES=1, tests/e2e/fixtures.ts matchScreenshot): missing baselines are written and uploaded as the visual-baselines artifact; commit them after approval. Existing ones are enforced."
     }
   },
   "surfaces": [

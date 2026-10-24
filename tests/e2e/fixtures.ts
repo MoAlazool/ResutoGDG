@@ -1,9 +1,9 @@
 // Reusable end-to-end fixtures: API helpers (sign up, create tenant, publish a
 // site, upload media), SQL seed helpers against the e2e database, signing a
 // browser in, and console-error collection.
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { expect, test as base, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test as base, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Locator, type Page, type PageAssertionsToHaveScreenshotOptions } from '@playwright/test';
 import pg from 'pg';
 
 export const API_URL = `http://localhost:${process.env.E2E_API_PORT ?? '4109'}`;
@@ -315,3 +315,22 @@ export const workspaceNav = (page: Page) => page.getByRole('complementary', { na
 /** The "not in your plan" marker on a locked module link in the workspace navigation. */
 export const navLockFor = (page: Page, module: string) =>
   workspaceNav(page).locator(`a[href$="/${module}"]`).getByLabel(/^(Not in your plan|غير متاح في خطتك)$/);
+
+/**
+ * expect(target).toHaveScreenshot(name), except that the CI visual job (E2E_RECORD_MISSING_BASELINES=1) records a
+ * baseline that is not committed yet instead of failing: it is written where toHaveScreenshot looks for it and
+ * uploaded with the job's artifact for the owner to approve (docs/ui/visual-baselines.json, CR-11). A committed
+ * baseline is always compared. Playwright 1.56's --update-snapshots=missing writes the file but fails the test.
+ */
+export async function matchScreenshot(target: Page | Locator, name: string, options: Pick<PageAssertionsToHaveScreenshotOptions, 'fullPage' | 'mask' | 'maxDiffPixelRatio'> = {}) {
+  const expected = test.info().snapshotPath(name, { kind: 'screenshot' });
+  if (process.env.E2E_RECORD_MISSING_BASELINES === '1' && !existsSync(expected)) {
+    mkdirSync(path.dirname(expected), { recursive: true });
+    const { maxDiffPixelRatio: _, ...shot } = options;
+    await target.screenshot({ ...shot, path: expected, animations: 'disabled', caret: 'hide', scale: 'css' });
+    test.info().annotations.push({ type: 'baseline recorded (not compared)', description: path.relative(ROOT, expected) });
+    return;
+  }
+  if ('goto' in target) await expect(target).toHaveScreenshot(name, options);
+  else await expect(target).toHaveScreenshot(name, options);
+}
