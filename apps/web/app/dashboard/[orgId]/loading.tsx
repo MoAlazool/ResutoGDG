@@ -1,6 +1,6 @@
-import { BodySkeleton } from '@/components/shell/Skeletons';
+import { AreaSkeleton } from '@/components/shell/AreaSkeleton';
 
-/** Shown inside the staff shell while the next screen loads (the sidebar and topbar stay). */
+/** Home area (overview): shown inside the staff shell while the next screen loads (the sidebar and topbar stay). */
 export default function DashboardLoading() {
-  return <BodySkeleton />;
+  return <AreaSkeleton template="dashboard" />;
 }

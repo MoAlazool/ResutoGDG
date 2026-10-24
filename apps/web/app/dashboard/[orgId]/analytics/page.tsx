@@ -2,9 +2,9 @@
 import { useState } from 'react';
 import { PageHeader, Tabs } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
-import { BranchSelect, PeriodPicker, presetPeriod, type Period, InsightsPage } from '@/components/charts/insights';
+import { PeriodPicker, presetPeriod, type Period, InsightsPage } from '@/components/charts/insights';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchScope, useOrg } from '@/lib/org-context';
 import { CustomersPanel, MarketingPanel, OperationsPanel, ProductsPanel, SalesPanel, SustainabilityPanel } from './_parts/panels';
 import { RatingsPanel } from './_parts/ratings';
 import { RoiCalculator } from './_parts/roi';
@@ -17,12 +17,13 @@ export default function AnalyticsPage() {
   const { org } = useOrg();
   const [tab, setTab] = useState<Tab>('sales');
   const [period, setPeriod] = useState<Period>(() => presetPeriod('30d', org.timezone));
-  const [branchId, setBranchId] = useState('');
+  // The branch comes from the shell's branch switcher ("All branches" supported).
+  const { branchId } = useBranchScope({ allowAll: true });
   const props = { period, branchId };
   return (
     <ModuleGate module="core" permission="analytics:read"><InsightsPage>
       <PageHeader overline={t('nav.analytics')} title={t('insights.analytics.title')} subtitle={t('insights.analytics.subtitle')}
-        actions={tab !== 'roi' ? <><PeriodPicker value={period} onChange={setPeriod} /><BranchSelect value={branchId} onChange={setBranchId} /></> : <BranchSelect value={branchId} onChange={setBranchId} />} />
+        actions={tab !== 'roi' ? <PeriodPicker value={period} onChange={setPeriod} /> : undefined} />
       <div style={{ overflowX: 'auto' }}>
         <Tabs tabs={TABS.map((k) => ({ key: k, label: t(`insights.analytics.tab.${k}`) }))} value={tab} onChange={setTab} />
       </div>

@@ -1,6 +1,6 @@
 'use client';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { LoyaltyReward, MenuEditorView, OrderDetail, OrderSummary, FloorLayout } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, Field, UserText, usePrompt, OrderRef } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -13,7 +13,7 @@ import { KitchenBoard } from '../../../kitchen/[orgId]/_kds/KitchenBoard';
 import { ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { dateTime, formatWhen, money, num, pick, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchParam, useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { statusTone } from '../../../t/[qr]/_guest/menu-ui';
@@ -46,8 +46,8 @@ function Orders() {
   const [storedView] = useState(() => readOrdersView());
   const [view, setViewParam] = useUrlParam<View>('view', defaultOrdersView(storedView, canBoard), canBoard ? VIEWS : ['list']);
   const setView = (v: View) => { rememberOrdersView(v); setViewParam(v); };
-  const [branchParam, setBranchId] = useUrlParam<string>('branch', '');
-  const branchId = org.branches.some((b) => b.id === branchParam) ? branchParam : (shellBranch ?? org.branches[0]?.id ?? '');
+  // The branch is the shell's branch switcher (21-SHELL single branch context); a ?branch= link selects it there.
+  const branchId = useBranchParam(shellBranch ?? org.branches[0]?.id ?? '');
   const [status, setStatus] = useUrlParam<string>('status', 'active');
   const [channel, setChannel] = useUrlParam<string>('channel', '');
   const [fulfillment, setFulfillment] = useUrlParam<string>('fulfillment', '');
@@ -55,11 +55,16 @@ function Orders() {
   const [resolving, setResolving] = useState<string | null>(null);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | undefined>();
-  const [selected, setSelected] = useState<string | null>(null);
   // FT-03: the customer card opens a new order for that customer (`?newFor=<customerId>`), so staff can redeem points.
+  // The command palette opens a new order (`?new=1`) or one order (`?order=<id>`, a record search result).
   const params = useSearchParams();
   const newFor = params.get('newFor');
-  const [creating, setCreating] = useState(!!newFor && can('orders:write'));
+  const [selected, setSelected] = useState<string | null>(() => params.get('order'));
+  const [creating, setCreating] = useState((!!newFor || params.get('new') === '1') && can('orders:write'));
+  const orderParam = params.get('order');
+  const newParam = params.get('new');
+  useEffect(() => { if (orderParam) setSelected(orderParam); }, [orderParam]);
+  useEffect(() => { if (newParam === '1' && can('orders:write')) setCreating(true); }, [newParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const qs = new URLSearchParams({
     limit: '50', ...(branchId ? { branchId } : {}),
@@ -93,11 +98,6 @@ function Orders() {
       {canBoard && (
         <div className="orders-views">
           <Tabs<View> value={view} onChange={setView} label={t('nav.orders')} tabs={[{ key: 'board', label: t('ops.orders.board') }, { key: 'list', label: t('ops.orders.list') }]} />
-          {org.branches.length > 1 && view === 'board' && (
-            <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-              {org.branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
-            </SelectField>
-          )}
         </div>
       )}
       {view === 'board' ? (
@@ -127,11 +127,6 @@ function Orders() {
         {resolveError && <Notice tone="danger">{resolveError}</Notice>}
       </section>
       <div className="form-row" data-align="end">
-        {org.branches.length > 1 && (
-          <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => { setBranchId(e.target.value); setCursor(undefined); }}>
-            {org.branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
-          </SelectField>
-        )}
         <SelectField label={t('core.orders.status')} value={status} onChange={(e) => { setStatus(e.target.value); setCursor(undefined); }}>
           <option value="active">{t('core.orders.active')}</option>
           <option value="">{t('core.orders.all')}</option>

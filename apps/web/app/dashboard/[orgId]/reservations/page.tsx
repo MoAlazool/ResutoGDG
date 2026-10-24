@@ -1,5 +1,6 @@
 'use client';
-import { Suspense, useRef, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AvailabilityResult, ReservationView } from '@resuto/contracts';
 import { Badge, Code, EmptyState, Field, Modal, Notice, PageHeader, Phone, SelectField, Skeleton, UserText, useConfirm, type Tone } from '@resuto/ui';
 import '@/components/ops/ops.css';
@@ -8,7 +9,7 @@ import { useUrlParam } from '@/components/ops/use-url-state';
 import { newIdempotencyKey } from '@/lib/api';
 import { money, pick, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchParam, useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 
@@ -23,11 +24,14 @@ function Reservations() {
   const { t, locale } = useT();
   const { org, can, branchId: shellBranch } = useOrg();
   const { call } = useSession();
-  // Branch and day live in the URL (PCL-20): a reload or a shared link keeps them; the shell's branch is the default.
-  const [branchParam, setBranchId] = useUrlParam<string>('branch', '');
-  const branchId = org.branches.some((b) => b.id === branchParam) ? branchParam : (shellBranch ?? org.branches[0]?.id ?? '');
+  // The day lives in the URL (PCL-20); the branch is the shell's branch switcher (21-SHELL), which a ?branch= link selects.
+  const branchId = useBranchParam(shellBranch ?? org.branches[0]?.id ?? '');
   const [date, setDate] = useUrlParam<string>('date', today(org.timezone));
-  const [creating, setCreating] = useState(false);
+  // The command palette's "New reservation" opens the form (`?new=1`).
+  const params = useSearchParams();
+  const [creating, setCreating] = useState(() => params.get('new') === '1' && can('reservations:write'));
+  const newParam = params.get('new');
+  useEffect(() => { if (newParam === '1' && can('reservations:write')) setCreating(true); }, [newParam]); // eslint-disable-line react-hooks/exhaustive-deps
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirm, confirmDialog] = useConfirm(locale);
@@ -48,11 +52,6 @@ function Reservations() {
         actions={can('reservations:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.resdash.new')}</button>} />
       <div className="form-row" data-align="end">
         <Field label={t('core.orders.date')} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        {org.branches.length > 1 && (
-          <SelectField label={t('core.web.branch')} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-            {org.branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
-          </SelectField>
-        )}
       </div>
       {error && <Notice tone="danger">{error}</Notice>}
       {notice && <Notice tone="ok">{notice}</Notice>}

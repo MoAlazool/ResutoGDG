@@ -4,6 +4,8 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { assignableRoles, can, MCP_ACTING_ROLES, type Permission, type Role } from '@resuto/contracts';
 import { Badge, Card, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, type Tone } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
+import { SectionNav } from '@/components/shell/SectionNav';
+import { MCP_SECTIONS } from '@/lib/sections';
 import type { ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -26,29 +28,17 @@ export interface McpCall {
 }
 
 type Tab = 'clients' | 'approvals' | 'calls' | 'connect';
+const MCP_TAB_HREF: Record<Tab, string> = { clients: '/mcp', approvals: '/mcp/approvals', calls: '/mcp/calls', connect: '/mcp/connect' };
 
 /** Page frame for every MCP screen: entitlement/permission gate, header and section tabs. */
 export function McpPage({ tab, permission = 'mcp:manage', actions, children }: { tab: Tab; permission?: Permission; actions?: ReactNode; children: ReactNode }) {
   const { t } = useT();
-  const { org, can: orgCan } = useOrg();
-  const base = `/dashboard/${org.id}/mcp`;
-  const tabs: Array<{ key: Tab; href: string; show: boolean }> = [
-    { key: 'clients', href: base, show: orgCan('mcp:manage') },
-    { key: 'approvals', href: `${base}/approvals`, show: orgCan('mcp:approve') },
-    { key: 'calls', href: `${base}/calls`, show: orgCan('mcp:manage') },
-    { key: 'connect', href: `${base}/connect`, show: orgCan('mcp:manage') || orgCan('mcp:approve') },
-  ];
   return (
     <ModuleGate module="mcp" permission={permission}>
       {/* inline-size containment: wide tables scroll inside .table-wrap instead of widening the shell column at 390px */}
       <div style={{ containerType: 'inline-size' }}>
       <PageHeader overline="ResutoMCP" title={t('mcp.title')} subtitle={t('mcp.subtitle')} actions={actions} />
-      <nav className="row" style={{ gap: 6, marginBlockEnd: 18 }} aria-label={t('mcp.title')}>
-        {tabs.filter((x) => x.show).map((x) => (
-          <Link key={x.key} href={x.href} aria-current={x.key === tab ? 'page' : undefined}
-            className={`btn btn-sm btn-pill ${x.key === tab ? 'btn-primary' : 'btn-ghost'}`}>{t(`mcp.tab.${x.key}`)}</Link>
-        ))}
-      </nav>
+      <SectionNav sections={MCP_SECTIONS} label={t('mcp.title')} active={MCP_TAB_HREF[tab]} />
       {children}
       </div>
     </ModuleGate>

@@ -6,10 +6,10 @@ import '@/components/ops/ops.css';
 import type { AnalyticsMeta, Permission } from '@resuto/contracts';
 import { Badge, NavGlyph, Notice, PageHeader, StatsStrip, StatsStripSkeleton, type NavGlyphName } from '@resuto/ui';
 import { LineChart } from '@/components/charts';
-import { BranchSelect, Delta, InsightsPage, LoadError, MetaPanel, qs, Section, useBranchName, useFormat } from '@/components/charts/insights';
+import { Delta, InsightsPage, LoadError, MetaPanel, qs, Section, useBranchName, useFormat } from '@/components/charts/insights';
 import { formatElapsed } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchScope, useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
 import { unitLabel } from '@/lib/vocab';
 
@@ -60,7 +60,8 @@ export default function OverviewPage() {
   const { org, can, hasModule, branchId: shellBranch } = useOrg();
   const f = useFormat();
   const branchName = useBranchName();
-  const [branchId, setBranchId] = useState('');
+  // The overview follows the shell's branch switcher ("All branches" supported, 21-SHELL).
+  const { branchId } = useBranchScope({ allowAll: true });
   const allowed = can('analytics:read');
   const { data, error, loading, reload } = useApi<Overview>(allowed ? `/o/${org.id}/analytics/overview${qs({ branchId })}` : null, { pollMs: 60_000 });
   // Guest satisfaction today (VS-27 ratings); "—" until a guest has rated, never a made-up score.
@@ -102,7 +103,6 @@ export default function OverviewPage() {
       <PageHeader overline={t(`ops.mode.${mode}`)} title={t('nav.overview')}
         subtitle={data ? <>{t('ops.overview.measured')} · {t('insights.overview.asOf', { date: f.date(data.date), time: data.localTime, tz: data.meta.timezone })}</> : t('state.loading')}
         actions={<>
-          <BranchSelect value={branchId} onChange={setBranchId} />
           {mode === 'tables' && can('floor:write') && floorBranch && <Link className="btn btn-primary" href={`/dashboard/${org.id}/floor?tab=studio&branch=${floorBranch.id}`}>{t('ops.overview.plan')} ↗</Link>}
         </>} />
       <LoadError error={error} retry={reload} />

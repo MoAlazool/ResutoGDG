@@ -29,7 +29,7 @@ export const pct = (fraction: number | null | undefined, locale: Locale = 'en', 
 
 export const compact = (n: number | null | undefined, locale: Locale = 'en') => formatCompact(n, locale);
 
-export const pick = (locale: Locale, en: string | null | undefined, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en ?? ar ?? '');
+export { pick } from './pick';
 
 /** Wraps user-entered text in first-strong isolates (FSI…PDI) so it keeps its own direction inside an interpolated sentence. */
 export const isolate = (text: string) => `⁨${text}⁩`;

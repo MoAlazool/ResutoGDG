@@ -1,0 +1,37 @@
+/* Command palette and keyboard-shortcut cheat sheet (21-SHELL). Loaded with the palette's own chunk. Logical
+   properties and semantic tokens only. */
+.cp {
+  inline-size: min(640px, calc(100vw - 32px)); max-inline-size: none; max-block-size: min(70dvh, 560px); margin-block: 12vh auto;
+  margin-inline: auto; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-3); background: var(--surface-1);
+  color: var(--text); box-shadow: var(--elevation-3); overflow: hidden;
+}
+.cp::backdrop { background: var(--overlay); }
+.cp[open] { animation: rui-fade var(--dur) var(--ease-out) both; }
+.cp-panel { display: flex; flex-direction: column; max-block-size: min(70dvh, 560px); }
+.cp-search { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-block-end: 1px solid var(--border-subtle); }
+.cp-input { flex: 1; min-inline-size: 0; border: 0; outline: none; background: none; color: var(--text); font: inherit; font-size: var(--fs-lg); padding-block: var(--space-2); }
+.cp-input::placeholder { color: var(--text-subtle); }
+.cp-list { list-style: none; margin: 0; padding: var(--space-2); overflow-y: auto; overscroll-behavior: contain; flex: 1; }
+.cp-group { padding: var(--space-3) var(--space-3) var(--space-1); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-muted); letter-spacing: .4px; text-transform: uppercase; }
+[lang='ar'] .cp-group { letter-spacing: 0; }
+.cp-option { display: flex; align-items: center; gap: var(--space-3); min-block-size: 40px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-1); cursor: pointer; }
+.cp-option[aria-selected='true'] { background: var(--surface-selected); box-shadow: inset 0 0 0 1px var(--border); }
+.cp-label { flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-sub { color: var(--text-muted); font-size: var(--fs-sm); margin-inline-start: var(--space-2); }
+.cp-hint { flex-shrink: 0; color: var(--text-muted); font-size: var(--fs-sm); }
+.cp-status { padding: 0 var(--space-4); color: var(--text-muted); font-size: var(--fs-sm); }
+.cp-status:not(:empty) { padding-block: var(--space-3); }
+.cp-foot { display: flex; gap: var(--space-4); flex-wrap: wrap; padding: var(--space-2) var(--space-4); border-block-start: 1px solid var(--border-subtle); color: var(--text-muted); font-size: var(--fs-xs); }
+.cp-foot > span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.cp-sheet-h { margin: var(--space-4) 0 var(--space-2); font-size: var(--fs-sm); color: var(--text-secondary); }
+.cp-sheet-h:first-child { margin-block-start: 0; }
+.cp-keys { display: grid; gap: var(--space-2); margin: 0; }
+.cp-keys > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-1); }
+.cp-keys dt { display: inline-flex; align-items: center; gap: var(--space-1); flex-shrink: 0; }
+.cp-keys dd { margin: 0; text-align: end; color: var(--text); }
+.cp-or { color: var(--text-muted); font-size: var(--fs-xs); }
+@media (max-width: 700px) {
+  .cp { margin-block-start: var(--space-4); max-block-size: calc(100dvh - 32px); }
+  .cp-panel { max-block-size: calc(100dvh - 32px); }
+  .cp-foot { display: none; }
+}

@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { assignableRoles, type Role, INTL_LOCALE } from '@resuto/contracts';
 import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Code, Email, Phone, UserText } from '@resuto/ui';
 import '@/components/ops/ops.css';
@@ -56,7 +56,11 @@ export default function TeamPage() {
   const branchName = (id: string) => { const b = org.branches.find((x) => x.id === id); return b ? (locale === 'ar' && b.nameAr ? b.nameAr : b.name) : id.slice(0, 8); };
   const scopeLabel = (ids: string[] | null) => (ids === null ? s.allBranches : ids.map(branchName).join(', '));
 
-  // invite form
+  // invite form (the command palette's "Invite a team member" opens the page with ?invite=1: focus the first field)
+  const inviteForm = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('invite') === '1') inviteForm.current?.querySelector<HTMLInputElement>('input')?.focus();
+  }, []);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<Role>(assignable.includes('waiter') ? 'waiter' : assignable[0] ?? 'waiter');
@@ -122,7 +126,7 @@ export default function TeamPage() {
       <PageHeader title={s.title} subtitle={s.subtitle} />
       {assignable.length === 0 ? <div className="mbe-16"><Notice tone="warn">{s.cannotAssign}</Notice></div> : (
         <Card title={s.invite}>
-          <form onSubmit={invite}>
+          <form onSubmit={invite} ref={inviteForm}>
             <div className="form-row">
               <Field label={s.email} type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
               <Field label={s.phone} type="tel" value={phone} placeholder="+201001234567" pattern="\+[1-9][0-9]{6,14}" onChange={(e) => setPhone(e.target.value.trim())} dir="ltr" />

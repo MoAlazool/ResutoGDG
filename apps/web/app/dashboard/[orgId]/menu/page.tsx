@@ -1,6 +1,7 @@
 'use client';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Suspense, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { parseMajor, type Category, type MenuEditorView, type MenuImportPreview, type ModifierGroup, type Product } from '@resuto/contracts';
 import { Badge, EmptyState, Field, Modal, Notice, PageHeading, SelectField, Skeleton, Tabs, TextareaField, initialOf, useConfirm, usePrompt } from '@resuto/ui';
 import { DishStatus, PortionsCell } from '@/components/ops/DishStatus';
@@ -46,6 +47,13 @@ function MenuPageInner() {
   const [prompt, promptDialog] = usePrompt(locale);
   const imageInput = useRef<HTMLInputElement>(null);
   const imageFor = useRef<string | null>(null);
+  // A dish found in the command palette opens in the editor (`?product=<id>`), once the menu has loaded.
+  const productParam = useSearchParams().get('product');
+  const openedProduct = useRef<string | null>(null);
+  useEffect(() => {
+    const found = productParam && write && openedProduct.current !== productParam ? m?.products.find((p) => p.id === productParam) : undefined;
+    if (found) { openedProduct.current = productParam; setEditing(found); }
+  }, [m, write, productParam]);
 
   /** Runs one mutation at a time per row; failures stay on screen (PCL-21). */
   const run = async (fn: () => Promise<unknown>, rowId?: string) => {
@@ -73,6 +81,8 @@ function MenuPageInner() {
       <PageHeading title={t('ops.menu.title')} subtitle={t('ops.menu.subtitle')}
         actions={write && tab === 'items' && <>
           <Link className="btn" href={`/dashboard/${org.id}/menu?tab=import`}>{t('ops.menu.importAi')}</Link>
+          {/* Menu import (photos, PDFs, text) is reached from here, not from a separate navigation entry (21-SHELL). */}
+          <Link className="btn" href={`/dashboard/${org.id}/menu-import`}>{t('nav.menuImport')}</Link>
           {can('integrations:manage') && <Link className="btn" href={`/dashboard/${org.id}/integrations`}>{t('ops.menu.sync')}</Link>}
           <button className="btn btn-primary" disabled={!m?.categories.some((c) => c.isActive)} onClick={() => setEditing('new')}>＋ {t('ops.menu.add')}</button>
         </>} />
