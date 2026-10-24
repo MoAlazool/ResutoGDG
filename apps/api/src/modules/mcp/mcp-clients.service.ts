@@ -8,6 +8,7 @@ import { sha256 } from '../../common/crypto/hash';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { forbidden, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
+import { ChangesService } from '../changes/changes.service';
 import { iso } from './mcp.util';
 
 // Never select key_hash: member sessions cannot read it (column grant) and it never leaves the database.
@@ -31,7 +32,7 @@ export function newMcpKey() {
 
 @Injectable()
 export class McpClientsService {
-  constructor(private readonly db: DbService, private readonly audit: AuditService) {}
+  constructor(private readonly db: DbService, private readonly audit: AuditService, private readonly changes: ChangesService) {}
 
   private assertRole(ctx: TenantContext, role: string) {
     if (!assignableRoles(ctx.role).includes(role as any)) throw forbidden(`You cannot create a connection that acts as ${role}`);
@@ -133,9 +134,13 @@ export class McpClientsService {
       if (current.status === 'revoked') return toClient(current);
       const row = await tx.one<any>(
         `update mcp_clients set status = 'revoked', revoked_at = now() where org_id = $1 and id = $2 returning ${CLIENT_COLUMNS}`, [ctx.orgId, id]);
-      const closed = await tx.query<{ id: string }>(
+      const closed = await tx.query<{ id: string; change_set_id: string | null }>(
         `update mcp_approvals set status = 'rejected', decided_by = $3, decided_at = now(), decision_note = 'Connection revoked'
-          where org_id = $1 and client_id = $2 and status = 'pending' returning id`, [ctx.orgId, id, ctx.userId]);
+          where org_id = $1 and client_id = $2 and status = 'pending' returning id, change_set_id`, [ctx.orgId, id, ctx.userId]);
+      // Their change sets close with them (21-CS); requests already approved fail when their effect runs (no active connection).
+      for (const a of closed) {
+        if (a.change_set_id) await this.changes.closeTx(tx, ctx.orgId, a.change_set_id, 'rejected', ctx, { decidedBy: ctx.userId, note: 'Connection revoked', reason: 'Connection revoked' });
+      }
       await this.audit.record(tx, ctx, { action: 'mcp.client.revoked', entityType: 'mcp_client', entityId: id,
         metadata: { keyPrefix: row.key_prefix, closedApprovals: closed.length } });
       return toClient(row);

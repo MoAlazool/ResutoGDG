@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ChangesModule } from '../changes/changes.module';
 import { FinanceModule } from '../finance/finance.module';
 import { McpCallFilter } from './mcp-call.filter';
 import { McpClientsService } from './mcp-clients.service';
@@ -15,8 +16,8 @@ import { McpOAuthService, OAUTH_FETCH } from './oauth/mcp-oauth.service';
  * through apps/mcp-server, which holds no database access.
  */
 @Module({
-  // FinanceModule: get_finance_summary reuses FinanceService.pnlTx (FT-17).
-  imports: [FinanceModule],
+  // FinanceModule: get_finance_summary reuses FinanceService.pnlTx (FT-17). ChangesModule: sensitive tools run as change sets (21-CS).
+  imports: [FinanceModule, ChangesModule],
   controllers: [McpController, McpRuntimeController, McpOAuthController, McpOAuthConsentController],
   providers: [McpClientsService, McpExecutionService, McpJobs, McpCallFilter, McpOAuthService,
     // null = the egress-guarded platform fetch (tests replace it to serve client metadata documents).
