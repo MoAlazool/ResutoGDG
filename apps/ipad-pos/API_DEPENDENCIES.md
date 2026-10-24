@@ -1,12 +1,12 @@
 # Native backend dependency report — for Claude
 
-Read-only compatibility check on 2026-10-24: Claude branch `fe93c1d29caa0f8d1f9844fda6976b9f1c993d74` has no differences in `apps/api`, `packages/contracts` or `docs/api/openapi.json` from the baseline. No merge was performed.
+Read-only compatibility check on 2026-10-24: Claude branch `7f5c414 (fetched 2026-10-24)` has no differences in `apps/api`, `packages/contracts` or `docs/api/openapi.json` from the baseline. No merge was performed.
 
 Contract baseline: `1746b4f6ee5e03bd0d9c8943b37e680eca057dce`; orders/payments contracts v2. This report proposes changes; none of the proposed routes below are called by the app. Backend ownership remains with Claude. No shared backend, migration, deployment, or infrastructure changes are included.
 
 ## Existing integration, verified from implementation
 
-The client calls `/v1/me`, `/v1/o/{orgId}`, `menu`, `floor/{branchId}`, `floor/{branchId}/live`, `orders`, `orders/{id}`, `orders/{id}/transition`, `orders/{id}/cancel`, `orders/{id}/collect`, `payments/{paymentId}/refunds`, `visits`, `visits/{visitId}/close`, `tables/{tableId}/clean`, and `kitchen/{branchId}`. Exact methods are asserted in `scripts/check_contracts.py` against `docs/api/openapi.json`.
+The client calls `/v1/me`, `/v1/o/{orgId}`, `menu`, `menu/products/{productId}/availability`, `floor/{branchId}`, `floor/{branchId}/live`, `orders`, `orders/{id}`, `orders/{id}/transition`, `orders/{id}/cancel`, `orders/{id}/collect`, `payments/{paymentId}/refunds`, `visits`, `visits/{visitId}/close`, `tables/{tableId}/clean`, and `kitchen/{branchId}`. Exact methods are asserted in `scripts/check_contracts.py` against `docs/api/openapi.json`.
 
 Auth uses Supabase `/auth/v1/token?grant_type=password`, `grant_type=refresh_token`, and `/auth/v1/logout`, not the development issuer and not MCP credentials. Tokens are bearer credentials to the same NestJS access guard used by web. `/me` memberships define restaurant, role, and allowed branches. `/o/{orgId}` returns filtered branches. The server checks membership, permissions, entitlements and branch scope again on every operation.
 
@@ -61,3 +61,11 @@ Current manual cash is confirmed through the server ledger; refunds may return p
 ## P2: generated response schemas and permission/entitlement capability discovery
 
 OpenAPI includes routes/requests but not every response shape. Add complete versioned response schemas and a native capability endpoint exposing permissions, entitlements and supported operations without replacing server guards. This enables generated DTO drift checks, meaningful feature availability and contract tests across all roles. Current Swift DTOs are reviewed hand-written subsets; generated permissions are UI hints only.
+
+## Coordination with 21-POSAPI
+
+Read-only review of Claude's `docs/plans/RESUTO_2_1_PLAN.md` at `7f5c414` confirms 21-POSAPI is planned for device/branch auth, menu/floor/order delta cursors, client UUID idempotency, ordered per-branch events with gap recovery, kitchen/printer events and authoritative conflict responses. This matches the requirements above. Stable API implementation/OpenAPI changes and `docs/api/CHANGELOG.md` / `IPAD_COMPATIBILITY.md` have not landed in the fetched branch; the native app keeps using reviewed v2 routes with polling.
+
+Please publish additive contracts with exact enum/error/response schemas, branch/role guards, replay retention and compatibility version, then provide the planned `apps/api/test/pos-flow.test.ts` and web acceptance evidence. Resolve the P0 quote, durable reconciliation and device policy before claiming safe offline committed ordering or managed device authorization. A single client UUID must correlate native capture, order ID, outbox/KDS and payment audit records; native transport retries must not emit new business effects.
+
+Native availability controls now use the existing `POST /o/{orgId}/menu/products/{productId}/availability` with `{branchId,available}` and server refresh. This controls temporary sold-out state; it is not stock receipt/replenishment or independent inventory mutation. Native logout uses Supabase `scope=local` to preserve web and other-device sessions. The dedicated staging identity/probe prerequisites are in `docs/STAGING.md`; authenticated cross-platform lifecycle remains pending, with no shared backend or infrastructure mutation performed.

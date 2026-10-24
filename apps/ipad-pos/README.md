@@ -11,12 +11,12 @@ python3 apps/ipad-pos/scripts/generate_permissions.py
 python3 apps/ipad-pos/scripts/generate_project.py
 python3 apps/ipad-pos/scripts/check_contracts.py
 swift test --package-path apps/ipad-pos
-xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination 'platform=iOS Simulator,id=<installed-UDID>' CODE_SIGNING_ALLOWED=NO test
+xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination 'platform=iOS Simulator,id=<installed-UDID>' CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual AppIdentifierPrefix=RESUTOTEST. test
 ```
 
-Project generation is deterministic Python with no third-party module requirements. `Sources/ResutoCore` is compiled into the application target and also exposed as a standalone testable Swift package. UI tests exercise unauthenticated launch/rotation and startup metrics; they do not claim authenticated POS coverage.
+Project generation is deterministic Python with no third-party module requirements. `Sources/ResutoCore` is compiled into the application target and also exposed as a standalone testable Swift package. UI tests include launch/rotation/startup metrics and explicit simulator-only contract scenarios for sign-in, POS/KDS/checkout, encrypted draft relaunch, role restrictions, availability, dine-in and bilingual accessibility. Their transport is synthetic and visibly labelled; real Keychain and encrypted persistence remain in use. This is not authenticated staging evidence. Simulator tests use ad hoc signing and Keychain entitlements; release signing requires the owner's Apple team.
 
-At launch choose **Configure connection**, supply your authorized API URL ending `/v1`, Supabase project origin and public publishable/anon key. The staging API default is `https://resuto-2-staging-api.onrender.com/v1`; Supabase origin/public key must come from the authorized staging owner. Never use service-role keys. Then sign in with a real staff account and select an authorized restaurant/branch. The app does not create users, bypass web deployment protection, or use demo tokens.
+At launch choose **Configure connection**, supply your authorized API URL ending `/v1`, Supabase project origin and public publishable/anon key. The staging API default is `https://resuto-2-staging-api.onrender.com/v1`; Supabase staging origin/public key have been verified through read-only connector access; obtain the public configuration through the approved project settings. See [staging setup](docs/STAGING.md) for dedicated test staff prerequisites. Never use service-role keys. Then sign in with a real staff account and select an authorized restaurant/branch. The app does not create users, bypass web deployment protection, or use demo tokens.
 
 ## Implemented paths
 

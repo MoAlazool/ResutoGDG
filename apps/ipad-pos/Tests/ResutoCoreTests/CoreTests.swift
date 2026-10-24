@@ -303,3 +303,24 @@ final class SessionScopeTests: XCTestCase {
         do { _ = try await auth.token(); XCTFail("Signed-out token must be inaccessible") } catch {}
     }
 }
+
+final class ReplayClockTests: XCTestCase {
+    func testReplayWindowRejectsRollbackAndRetentionBoundary() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertFalse(ReplayWindow.permits(createdAt: now.addingTimeInterval(1), now: now))
+        XCTAssertFalse(ReplayWindow.permits(createdAt: now.addingTimeInterval(-6 * 86400), now: now))
+        XCTAssertTrue(ReplayWindow.permits(createdAt: now.addingTimeInterval(-6 * 86400 + 1), now: now))
+    }
+    func testClockRollbackRequiresAttentionWithoutNetworkReplay() async throws {
+        let sender = Submitter(), queue = try OrderQueue(storage: MemoryStore(), submitter: sender)
+        let captured = Date(timeIntervalSince1970: 1_000_000)
+        let id = try await queue.save(scope: scope(), payload: payload(), now: captured)
+        try await queue.approve(id, scope: scope(), menu: decode("menu"), now: captured)
+        try await queue.drain(scope: scope(), authorized: true, now: captured.addingTimeInterval(-1))
+        // Force a retry scheduled before the rolled-back clock so the safety gate is reached.
+        try await queue.retry(id, scope: scope(), now: captured.addingTimeInterval(-1))
+        try await queue.drain(scope: scope(), authorized: true, now: captured.addingTimeInterval(-1))
+        let pending = await queue.list(scope: scope()), calls = await sender.calls
+        XCTAssertEqual(pending.first?.state, .attention); XCTAssertTrue(calls.isEmpty)
+    }
+}

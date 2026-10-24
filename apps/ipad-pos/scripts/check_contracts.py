@@ -5,6 +5,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[3]
 paths=json.loads((root/'docs/api/openapi.json').read_text())['paths']
 required={
+'/v1/o/{orgId}/analytics/summary':['get'], '/v1/o/{orgId}/kitchen/orders/{orderId}/bump':['post'],
 '/v1/o/{orgId}/customers':['get'], '/v1/o/{orgId}/reservations':['get'], '/v1/o/{orgId}/reservations/{id}/check-in':['post'], '/v1/o/{orgId}/kitchen/lines/{lineId}':['post'], '/v1/o/{orgId}/menu/products/{id}/availability':['post'], '/v1/me':['get'], '/v1/o/{orgId}':['get'], '/v1/o/{orgId}/menu':['get'],
 '/v1/o/{orgId}/floor/{branchId}':['get'], '/v1/o/{orgId}/floor/{branchId}/live':['get'],
 '/v1/o/{orgId}/orders':['get','post'], '/v1/o/{orgId}/orders/{id}':['get'],
@@ -19,7 +20,7 @@ for path, methods in required.items():
 swift='\n'.join(p.read_text() for p in (root/'apps/ipad-pos/Sources').rglob('*.swift'))
 assert 'self.channel = "staff"' in swift
 assert '6 * 24 * 3600' in swift, 'Retry horizon must remain below 7-day server retention'
-for name in ['Info.plist','PrivacyInfo.xcprivacy']:
+for name in ['Info.plist','PrivacyInfo.xcprivacy','ResutoPOS.entitlements']:
     plistlib.loads((root/'apps/ipad-pos/Resources'/name).read_bytes())
 print(f'PASS: {sum(map(len,required.values()))} route/method contracts, request channel, retention, resource plists')
 

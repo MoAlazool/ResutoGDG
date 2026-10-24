@@ -14,17 +14,20 @@ struct UITestBootstrap {
               let data = raw.data(using: .utf8),
               let fixtures = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               fixtures["menu"] != nil else { return nil }
-        return UITestBootstrap(transport: ScenarioTransport(fixtures: fixtures, role: process.environment["RESUTO_UI_ROLE"] ?? "manager"), reset: process.arguments.contains("--resuto-ui-reset"), configuration: Configuration(apiURL: URL(string: "https://api.uitest.invalid/v1")!, supabaseURL: URL(string: "https://auth.uitest.invalid")!, publicKey: "sb_publishable_ui_test_only"))
+        return UITestBootstrap(transport: ScenarioTransport(fixtures: fixtures, role: process.environment["RESUTO_UI_ROLE"] ?? "manager", scenario: process.environment["RESUTO_UI_SCENARIO"] ?? "normal"), reset: process.arguments.contains("--resuto-ui-reset"), configuration: Configuration(apiURL: URL(string: "https://api.uitest.invalid/v1")!, supabaseURL: URL(string: "https://auth.uitest.invalid")!, publicKey: "sb_publishable_ui_test_only"))
     }
 }
 actor ScenarioTransport: HTTPTransport {
     private let fixtures: [String: Any]
     private let role: String
+    private let scenario: String
+    private var droppedOrderResponse = false
+    private var droppedCashResponse = false
     private var soldOut = false
     private var order: [String: Any]?
     private var acceptedByKey: [String: [String: Any]] = [:]
     private let branchID = "22222222-2222-4222-8222-222222222222"
-    init(fixtures: [String: Any], role: String) { self.fixtures = fixtures; self.role = role }
+    init(fixtures: [String: Any], role: String, scenario: String) { self.fixtures = fixtures; self.role = role; self.scenario = scenario }
     func send(_ request: URLRequest) async throws -> HTTPResult {
         let path = request.url!.path
         let body = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
@@ -56,11 +59,13 @@ actor ScenarioTransport: HTTPTransport {
             guard Permissions.can(role, "orders:write"), let key = request.value(forHTTPHeaderField: "Idempotency-Key") else { return try failure(403, "forbidden") }
             if let existing = acceptedByKey[key] { return try response(existing, status: 201) }
             guard body["branchId"] as? String == branchID, body["channel"] as? String == "staff" else { return try failure(400, "validation_failed") }
+            guard order == nil else { return try failure(409,"duplicate_order_with_new_key") }
             order = fixtures["detail"] as? [String: Any]
             order!["id"] = "33333333-3333-4333-8333-333333333333"
             order!["fulfillment"] = body["fulfillment"]
             order!["tableLabel"] = body["tableId"] == nil ? NSNull() : "T1" as Any
             let result = fixtures["accepted"] as! [String: Any]; acceptedByKey[key] = result
+            if scenario == "lost-order-response", !droppedOrderResponse { droppedOrderResponse = true; throw URLError(.networkConnectionLost) }
             return try response(result, status: 201)
         }
         if path == "/v1/o/org/orders" {
@@ -96,7 +101,9 @@ actor ScenarioTransport: HTTPTransport {
             current["dueMinor"] = due - amount; current["paymentStatus"] = due == amount ? "paid" : "partially_paid"
             current["payments"] = [["id":"payment", "method":"cash", "status":"succeeded", "amountMinor":amount,"refundedMinor":0,"isTest":true]]; order = current
             let result: [String: Any] = ["paymentId":"payment","amountMinor":amount,"paymentStatus":current["paymentStatus"]!,"dueMinor":due-amount]
-            acceptedByKey[key] = result; return try response(result)
+            acceptedByKey[key] = result
+            if scenario == "lost-cash-response", !droppedCashResponse { droppedCashResponse = true; throw URLError(.networkConnectionLost) }
+            return try response(result)
         }
         if path.hasPrefix("/v1/o/org/orders/"), let order { return try response(order) }
         if path == "/v1/o/org/reservations" { return try response(["date":"2026-10-24","items":[]]) }

@@ -297,7 +297,7 @@ import CryptoKit
             try financialStore!.write(JSONEncoder().encode(intent)); financial = intent
         }
         let intent = financial!
-        guard Date().timeIntervalSince(intent.createdAt) < 6 * 86400 else { throw RuleError.invalid("payment_reconciliation_required") }
+        guard ReplayWindow.permits(createdAt: intent.createdAt) else { throw RuleError.invalid("payment_reconciliation_required") }
         // Manual cash only. No offline capture and no automatic financial replay.
         let _: CollectResult = try await api.post("o/\(scope.orgId)/orders/\(order.id)/collect", body: CashCollection(amountMinor: amount, method: "cash"), key: intent.key)
         try financialStore!.write(JSONEncoder().encode(Optional<FinancialIntent>.none)); financial = nil
@@ -306,7 +306,7 @@ import CryptoKit
         try await refresh()
     }
     func recoverFinancial() async throws {
-        guard reachable, let intent = financial, let scope, let api, Date().timeIntervalSince(intent.createdAt) < 6 * 86400 else { throw RuleError.invalid("payment_reconciliation_required") }
+        guard reachable, let intent = financial, let scope, let api, ReplayWindow.permits(createdAt: intent.createdAt) else { throw RuleError.invalid("payment_reconciliation_required") }
         if intent.kind == "cash" {
             guard can("payments:collect") else { throw RuleError.invalid("permission_denied") }
             let _: CollectResult = try await api.post("o/\(scope.orgId)/orders/\(intent.orderId)/collect", body: CashCollection(amountMinor: intent.amountMinor, method: "cash"), key: intent.key)
@@ -320,14 +320,14 @@ import CryptoKit
     }
     func refund(payment: OrderDetail.Payment, amount: Int64, reason: String, orderId: String) async throws {
         guard reachable, can("payments:refund"), let scope, let api, amount > 0, amount <= payment.amountMinor - payment.refundedMinor,
-              reason.trimmingCharacters(in: .whitespaces).count >= 1, reason.count <= 300 else { throw RuleError.invalid("permission_denied") }
+              reason.trimmingCharacters(in: .whitespaces).count >= 1, reason.utf16.count <= 300 else { throw RuleError.invalid("permission_denied") }
         if let intent = financial {
             guard intent.kind == "refund", intent.orderId == payment.id, intent.amountMinor == amount, intent.reason == reason else { throw RuleError.invalid("payment_reconciliation_required") }
         } else {
             let intent = FinancialIntent(orderId: payment.id, amountMinor: amount, key: UUID().uuidString, createdAt: Date(), kind: "refund", reason: reason)
             try financialStore!.write(JSONEncoder().encode(intent)); financial = intent
         }
-        guard let intent = financial, Date().timeIntervalSince(intent.createdAt) < 6 * 86400 else { throw RuleError.invalid("payment_reconciliation_required") }
+        guard let intent = financial, ReplayWindow.permits(createdAt: intent.createdAt) else { throw RuleError.invalid("payment_reconciliation_required") }
         let result: RefundResult = try await api.post("o/\(scope.orgId)/payments/\(payment.id)/refunds", body: RefundRequest(amountMinor: amount, reason: reason, key: intent.key))
         try financialStore!.write(JSONEncoder().encode(Optional<FinancialIntent>.none)); financial = nil
         refundStatus = result.status // pending/manual_required/unknown are never presented as succeeded.

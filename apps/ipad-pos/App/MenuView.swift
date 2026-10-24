@@ -61,7 +61,7 @@ struct ProductView: View {
     @State private var notes = ""
     private var groups: [ModifierGroup] { m.menu?.modifierGroups.filter { product.modifierGroupIds.contains($0.id) && $0.isActive } ?? [] }
     private var valid: Bool {
-        groups.allSatisfy { group in let count = selections.filter { $0.groupId == group.id }.count; return count >= group.minSelect && count <= group.maxSelect } && notes.count <= 200
+        groups.allSatisfy { group in let count = selections.filter { $0.groupId == group.id }.count; return count >= group.minSelect && count <= group.maxSelect } && notes.utf16.count <= 200
     }
     var body: some View {
         NavigationStack {

@@ -155,7 +155,13 @@ struct WorkspaceView: View {
                     Text(l.name(m.branch?.name ?? "", m.branch?.nameAr)).foregroundStyle(.secondary)
                 }
                 ForEach(Destination.allCases.filter { $0.permission == nil || m.can($0.permission!) }) { destination in
-                    Label(l.text(destination.rawValue), systemImage: destination.symbol).frame(minHeight: 44).tag(destination).accessibilityIdentifier("nav." + destination.rawValue)
+                    Button { selected = destination } label: {
+                        Label(l.text(destination.rawValue), systemImage: destination.symbol)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    }.buttonStyle(.plain).accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("nav." + destination.rawValue)
+                        .accessibilityAddTraits(selected == destination ? .isSelected : [])
+                        .listRowBackground(selected == destination ? Design.accent.opacity(0.08) : Color.clear)
                 }
                 Section {
                     Label(l.text(m.reachable ? "online" : "offline"), systemImage: m.reachable ? "wifi" : "wifi.slash").foregroundStyle(m.reachable ? Color.secondary : Color.orange)

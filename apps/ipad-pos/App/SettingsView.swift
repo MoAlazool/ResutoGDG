@@ -28,7 +28,7 @@ struct SettingsView: View {
                     Text(Money.text(intent.amountMinor, currency: m.restaurant?.currency ?? ""))
                     Text(intent.orderId).font(.caption.monospaced()).textSelection(.enabled)
                     Text(intent.createdAt, style: .date)
-                    Button(l.text("retry_same_financial")) { financialRecovery = true }.disabled(!m.reachable)
+                    Button(l.text("retry_same_financial")) { financialRecovery = true }.accessibilityIdentifier("financial.retry").disabled(!m.reachable)
                 }
             }
             Section(l.text("printer")) {
@@ -52,7 +52,7 @@ struct SettingsView: View {
                 }
             }
         }.confirmationDialog(l.text("financial_retry_notice"), isPresented: $financialRecovery, titleVisibility: .visible) {
-            Button(l.text("retry_same_financial")) { Task { await m.perform { try await m.recoverFinancial() } } }
+            Button(l.text("retry_same_financial")) { Task { await m.perform { try await m.recoverFinancial() } } }.accessibilityIdentifier("financial.confirmRetry")
         }.confirmationDialog(l.text("print_confirmation"), isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }), titleVisibility: .visible) {
             if let job = confirm { Button(l.text("reprint")) { printNow(job, reprint: true); confirm = nil } }
         }

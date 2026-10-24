@@ -9,10 +9,11 @@ final class WorkflowTests: XCTestCase {
     private func tap(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) {
         let target = element(app, id); XCTAssertTrue(target.waitForExistence(timeout: 20), "Missing \(id)\n\(app.debugDescription)", file: file, line: line); target.tap()
     }
-    private func launch(reset: Bool = true, arabic: Bool = false, role: String = "manager") throws -> XCUIApplication {
+    private func launch(reset: Bool = true, arabic: Bool = false, role: String = "manager", scenario: String = "normal") throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--resuto-ui-testing"] + (reset ? ["--resuto-ui-reset"] : []) + ["-AppleLanguages", arabic ? "(ar)" : "(en)"]
         app.launchEnvironment["RESUTO_UI_ROLE"] = role
+        app.launchEnvironment["RESUTO_UI_SCENARIO"] = scenario
         let fixtureURL = Bundle(for: WorkflowTests.self).url(forResource: "menu", withExtension: "json", subdirectory: "Fixtures")!
         var fixtures: [String: Any] = [:]
         for name in ["menu","me","detail","orders","accepted","floor"] {
@@ -87,6 +88,30 @@ final class WorkflowTests: XCTestCase {
             attach(app,arabic ? "simulated-arabic-accessibility" : "simulated-english-accessibility")
             app.terminate()
         }
+    }
+    func testLostOrderResponseReplaysOriginalKeyWithoutDuplicate() throws {
+        let app = try launch(scenario:"lost-order-response")
+        tap(app,"product." + product); tap(app,"product.add"); tap(app,"cart.review"); tap(app,"cart.confirm")
+        tap(app,"nav.sync")
+        XCTAssertTrue(element(app,"sync.state.accepted").waitForExistence(timeout:30))
+        tap(app,"nav.orders")
+        XCTAssertTrue(element(app,"order." + order).waitForExistence(timeout:15))
+        XCTAssertEqual(app.descendants(matching:.any).matching(identifier:"order." + order).count,1)
+        attach(app,"simulated-lost-response-original-key-reconciled")
+    }
+    func testLostCashResponseRequiresExplicitSameKeyRecovery() throws {
+        let app = try launch(scenario:"lost-cash-response")
+        tap(app,"product." + product); tap(app,"product.add"); tap(app,"cart.review"); tap(app,"cart.confirm")
+        tap(app,"nav.orders"); tap(app,"order." + order)
+        tap(app,"checkout.reviewCash"); tap(app,"checkout.confirmCash"); tap(app,"order.done")
+        tap(app,"nav.settings")
+        XCTAssertTrue(element(app,"financial.retry").waitForExistence(timeout:15),"Ambiguous cash must retain its original intent")
+        tap(app,"financial.retry"); tap(app,"financial.confirmRetry")
+        let cleared = NSPredicate(format:"exists == false")
+        expectation(for:cleared,evaluatedWith:element(app,"financial.retry")); waitForExpectations(timeout:15)
+        tap(app,"nav.orders"); tap(app,"order." + order)
+        XCTAssertTrue(app.staticTexts["Paid"].waitForExistence(timeout:15))
+        attach(app,"simulated-cash-same-key-reconciled")
     }
     func testHostCannotEnterOrdersOrPayments() throws {
         let app = try launch(role: "host")

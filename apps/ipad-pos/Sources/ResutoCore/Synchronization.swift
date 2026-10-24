@@ -8,6 +8,13 @@ public struct Scope: Codable, Equatable, Sendable {
     }
     public init(environment: String, userId: String, orgId: String, branchId: String) { self.environment = environment; self.userId = userId; self.orgId = orgId; self.branchId = branchId }
 }
+/// Stay inside the backend's seven-day HTTP idempotency retention, including clock rollback.
+public enum ReplayWindow {
+    public static func permits(createdAt: Date, now: Date = Date()) -> Bool {
+        let elapsed = now.timeIntervalSince(createdAt)
+        return elapsed >= 0 && elapsed < 6 * 24 * 3600
+    }
+}
 public enum SyncState: String, Codable, Sendable {
     case local, queued, submitting, accepted, attention
 }
@@ -73,7 +80,7 @@ public actor OrderQueue {
             try Task.checkCancellation()
             guard let index = operations.firstIndex(where: { $0.id == id }) else { continue }
             var operation = operations[index]
-            if now.timeIntervalSince(operation.firstAttemptAt ?? operation.createdAt) > 6 * 24 * 3600 {
+            if !ReplayWindow.permits(createdAt: operation.firstAttemptAt ?? operation.createdAt, now: now) {
                 operation.state = .attention; operation.issue = "retry_window_expired"; try replace(operation); continue
             }
             operation.firstAttemptAt = operation.firstAttemptAt ?? now

@@ -10,7 +10,10 @@ private final class TransientSecrets: SecretStore, @unchecked Sendable {
     func write(_ value: Data, key: String) throws { lock.lock(); defer { lock.unlock() }; data = value }
     func remove(_ key: String) throws { lock.lock(); defer { lock.unlock() }; data = nil }
 }
-private struct Health: Decodable { let environment: String; let paymentMode: String; let status: String }
+private final class RefuseRedirects: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
+}
+private struct Health: Decodable { struct Build: Decodable { let commit: String }; let environment: String; let paymentMode: String; let status: String; let build: Build }
 private struct Cash: Encodable, Sendable { let amountMinor: Int64; let method = "cash"; let reference = "Native QA synthetic staging transaction" }
 private struct Transition: Encodable, Sendable { let to: String; let version: Int }
 private struct Analytics: Decodable, Sendable {
@@ -19,24 +22,31 @@ private struct Analytics: Decodable, Sendable {
 }
 private struct Evidence: Codable {
     var scope = "Native Swift API client; browser and physical-device verification are separate"
-    var checks: [String] = []; var blocked: [String] = []; var orderId: String?; var operationId: String?
+    var observedAt = ISO8601DateFormatter().string(from:Date()); var apiCommit: String?
+    var checks: [String] = []; var blocked: [String] = []; var orderId: String?; var operationId: String?; var collectionKey: String?
 }
 @main enum StagingProbe {
     static func main() async {
         var evidence = Evidence()
+        // Never overwrite a prior run: its operation/payment keys may be needed to reconcile ambiguity.
+        if let path = ProcessInfo.processInfo.environment["RESUTO_EVIDENCE_PATH"], FileManager.default.fileExists(atPath: path) {
+            print("{\"blocked\":[\"evidence_path_already_exists_reconcile_prior_run_first\"]}"); exit(78)
+        }
         do {
             let env = ProcessInfo.processInfo.environment
-            let base = URL(string: env["RESUTO_API_URL"] ?? "https://resuto-2-staging-api.onrender.com/v1")!
-            guard base.scheme == "https", base.host == "resuto-2-staging-api.onrender.com", base.path == "/v1" else { throw RuleError.invalid("staging_api_required") }
-            let transport = URLSessionTransport(session: URLSession(configuration: .ephemeral))
+            guard let base = URL(string: env["RESUTO_API_URL"] ?? "https://resuto-2-staging-api.onrender.com/v1") else { throw RuleError.invalid("staging_api_required") }
+            guard base.scheme == "https", base.host == "resuto-2-staging-api.onrender.com", base.path == "/v1", base.user == nil, base.password == nil, base.query == nil, base.fragment == nil else { throw RuleError.invalid("staging_api_required") }
+            let configuration = URLSessionConfiguration.ephemeral; configuration.urlCache = nil; configuration.httpCookieStorage = nil
+            let transport = URLSessionTransport(session: URLSession(configuration: configuration, delegate: RefuseRedirects(), delegateQueue: nil))
             let healthResponse = try await transport.send(URLRequest(url: base.appendingPathComponent("health")))
             let health = try JSONDecoder().decode(Health.self, from: healthResponse.data)
             guard healthResponse.status == 200, health.environment == "staging", health.status == "ok", health.paymentMode == "sandbox" else { throw RuleError.invalid("healthy_sandbox_staging_required") }
+            evidence.apiCommit = health.build.commit
             evidence.checks.append("native_URLSession_staging_health")
             let denied = try await transport.send(URLRequest(url: base.appendingPathComponent("me")))
             guard denied.status == 401 else { throw RuleError.invalid("unauthenticated_identity_not_rejected") }
             evidence.checks.append("unauthenticated_identity_401")
-            if ProcessInfo.processInfo.arguments.contains("--public-only") { try report(evidence, path: env["RESUTO_EVIDENCE_PATH"]); return }
+            if ProcessInfo.processInfo.arguments.contains("--public-only") { evidence.blocked = ["authenticated_lifecycle_not_requested","browser_dashboard_not_verified","physical_device_not_verified"]; try report(evidence, path: env["RESUTO_EVIDENCE_PATH"]); return }
             let required = ["RESUTO_SUPABASE_URL","RESUTO_PUBLISHABLE_KEY","RESUTO_STAFF_EMAIL","RESUTO_STAFF_PASSWORD","RESUTO_TEST_ORG_ID","RESUTO_TEST_BRANCH_ID"]
             let missing = required.filter { env[$0]?.isEmpty != false }
             guard missing.isEmpty else { evidence.blocked = missing.map { "missing_" + $0 }; try report(evidence, path: env["RESUTO_EVIDENCE_PATH"]); exit(78) }
@@ -56,6 +66,7 @@ private struct Evidence: Codable {
             let _: Page<OrderSummary> = try await api.get("o/\(org)/orders", query: ["branchId":branch,"limit":"50"])
             evidence.checks.append("typed_native_catalogue_floor_and_web_orders_read_models")
             guard env["RESUTO_STAGING_WRITE"] == "1" else { evidence.blocked = ["write_lifecycle_not_enabled","browser_dashboard_not_verified","physical_device_not_verified"]; try report(evidence, path: env["RESUTO_EVIDENCE_PATH"]); return }
+            guard let evidencePath = env["RESUTO_EVIDENCE_PATH"], !evidencePath.isEmpty else { throw RuleError.invalid("write_lifecycle_requires_durable_evidence_path") }
             guard membership.can("orders:write"), membership.can("kitchen:operate"), membership.can("payments:collect"), membership.can("analytics:read"), let productID = env["RESUTO_TEST_PRODUCT_ID"], let product = menu.products(branch: branch).first(where: { $0.id == productID }) else { throw RuleError.invalid("dedicated_manager_and_test_product_required") }
             let selections = menu.modifierGroups.filter { product.modifierGroupIds.contains($0.id) && $0.isActive }.flatMap { group in group.options.filter(\.isAvailable).prefix(group.minSelect).map { ModifierSelection(groupId: group.id, optionId: $0.id) } }
             let payload = StaffOrder(branchId: branch, fulfillment: "pickup", lines: [CartLine(productId: product.id, quantity: 1, modifiers: selections)], notes: "Native QA synthetic staging lifecycle")
@@ -65,9 +76,10 @@ private struct Evidence: Codable {
             let before: Analytics = try await api.get("o/\(org)/analytics/summary", query: period)
             let operation = UUID().uuidString
             evidence.operationId = operation
-            if let path = env["RESUTO_EVIDENCE_PATH"] { try checkpoint(evidence,path:path) }
+            try checkpoint(evidence,path:evidencePath)
             let accepted: OrderAccepted = try await api.post("o/\(org)/orders", body: payload, key: operation)
             evidence.operationId = operation; evidence.orderId = accepted.id
+            try checkpoint(evidence,path:evidencePath)
             let replay: OrderAccepted = try await api.post("o/\(org)/orders", body: payload, key: operation)
             guard replay.id == accepted.id else { throw RuleError.invalid("duplicate_order_detected") }
             evidence.checks.append("native_staff_order_idempotent_replay_same_order")
@@ -83,13 +95,14 @@ private struct Evidence: Codable {
             }
             evidence.checks.append("KDS_status_changes_visible_to_native_order_client")
             let collectionKey = UUID().uuidString, cash = Cash(amountMinor: detail.dueMinor)
+            evidence.collectionKey = collectionKey; try checkpoint(evidence,path:evidencePath)
             let collected: CollectResult = try await api.post("o/\(org)/orders/\(accepted.id)/collect", body: cash, key: collectionKey)
             let repeated: CollectResult = try await api.post("o/\(org)/orders/\(accepted.id)/collect", body: cash, key: collectionKey)
             detail = try await api.get("o/\(org)/orders/\(accepted.id)")
             guard collected.paymentId == repeated.paymentId, detail.paymentStatus == "paid", detail.dueMinor == 0 else { throw RuleError.invalid("payment_not_reconciled") }
             let _: EmptyResponse = try await api.post("o/\(org)/orders/\(accepted.id)/transition", body: Transition(to:"picked_up",version:detail.version))
             let after: Analytics = try await api.get("o/\(org)/analytics/summary", query: period)
-            guard after.totals.orders == before.totals.orders + 1, after.totals.netMinor == before.totals.netMinor + detail.totalMinor else { throw RuleError.invalid("analytics_order_totals_not_reconciled") }
+            guard after.totals.orders == before.totals.orders + 1, after.totals.netMinor == before.totals.netMinor + detail.totalMinor, after.totals.paidMinor == before.totals.paidMinor + cash.amountMinor else { throw RuleError.invalid("analytics_order_totals_not_reconciled") }
             evidence.checks += ["server_confirmed_cash_idempotency_and_paid_order","analytics_order_count_and_net_totals_reconciled"]
             evidence.blocked = ["browser_dashboard_UI_requires_authorized_Vercel_session","inventory_effects_require_dedicated_recipe_fixture","physical_iPad_and_printer_not_verified"]
             try report(evidence, path:env["RESUTO_EVIDENCE_PATH"])

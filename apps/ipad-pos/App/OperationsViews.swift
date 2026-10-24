@@ -136,7 +136,7 @@ struct SyncView: View {
             ForEach(m.pending) { operation in
                 VStack(alignment: .leading, spacing: 12) {
                     Label(l.text("sync_" + operation.state.rawValue), systemImage: operation.state == .accepted ? "checkmark.circle" : "arrow.triangle.2.circlepath")
-                        .font(.headline).foregroundStyle(operation.state == .attention ? .orange : Design.accent)
+                        .font(.headline).foregroundStyle(operation.state == .attention ? .orange : Design.accent).accessibilityIdentifier("sync.state." + operation.state.rawValue)
                     Text(operation.serverNumber.map { "#\($0)" } ?? String(operation.id.uuidString.prefix(8))).font(.subheadline.monospaced())
                     Text(operation.createdAt, style: .date).font(.caption)
                     if let issue = operation.issue { Text(l.text(issue)).foregroundStyle(.secondary) }
@@ -227,7 +227,7 @@ struct OrderView: View {
                 if m.can("orders:cancel"), current.status != "cancelled" {
                     Section(l.text("cancel_order")) {
                         TextField(l.text("reason"), text: $reason)
-                        Button(l.text("cancel_order"), role: .destructive) { confirmCancel = true }.disabled(!m.reachable || reason.count < 2 || reason.count > 300)
+                        Button(l.text("cancel_order"), role: .destructive) { confirmCancel = true }.disabled(!m.reachable || reason.count < 2 || reason.utf16.count > 300)
                     }
                 }
             }.navigationTitle(l.text("orders")).toolbar { Button(l.text("done")) { m.detail = nil; dismiss() }.accessibilityIdentifier("order.done") }
@@ -259,7 +259,7 @@ struct RefundView: View {
                 TextField(l.text("amount"), text: $amount).keyboardType(.decimalPad)
                 TextField(l.text("reason"), text: $reason)
                 Button(l.text("request_refund"), role: .destructive) { confirm = true }
-                    .disabled(!m.reachable || reason.trimmingCharacters(in: .whitespaces).isEmpty || reason.count > 300 || (Money.parse(amount) ?? 0) <= 0 || (Money.parse(amount) ?? Int64.max) > payment.amountMinor - payment.refundedMinor)
+                    .disabled(!m.reachable || reason.trimmingCharacters(in: .whitespaces).isEmpty || reason.utf16.count > 300 || (Money.parse(amount) ?? 0) <= 0 || (Money.parse(amount) ?? Int64.max) > payment.amountMinor - payment.refundedMinor)
             }.navigationTitle(l.text("refund")).toolbar { Button(l.text("cancel")) { dismiss() } }
                 .confirmationDialog(l.text("request_refund"), isPresented: $confirm) {
                     Button(l.text("request_refund"), role: .destructive) { Task { await m.perform { guard let value = Money.parse(amount) else { return }; try await m.refund(payment: payment, amount: value, reason: reason, orderId: order.id); dismiss() } } }
