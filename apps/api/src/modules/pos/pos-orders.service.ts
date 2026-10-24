@@ -11,7 +11,7 @@ import { PricingService } from '../kernel/pricing.service';
 import { KitchenService } from '../kitchen/kitchen.service';
 import { IN_STOCK_SQL, OFFERED_SQL, SOLD_OUT_SQL } from '../menu/availability';
 import { OrdersService } from '../orders/orders.service';
-import { deviceBranch } from './pos-feed.service';
+import { deviceBranch, deviceId } from './pos-feed.service';
 import { PosSyncService } from './pos-sync.service';
 
 /**
@@ -43,7 +43,7 @@ export class PosOrdersService {
       const claimed = await tx.maybeOne(
         `insert into pos_order_submissions(org_id, client_order_id, branch_id, device_id, request_hash, taken_at)
          values ($1, $2, $3, $4, $5, $6) on conflict (org_id, client_order_id) do nothing returning client_order_id`,
-        [ctx.orgId, body.clientOrderId, branchId, ctx.actorId, hash, body.takenAt ?? null]);
+        [ctx.orgId, body.clientOrderId, branchId, deviceId(ctx), hash, body.takenAt ?? null]);
       if (!claimed) {
         // A concurrent first submit holds the row until it commits; this waits for it, then replays its answer.
         const prior = await tx.one<{ branch_id: string; request_hash: string; response: PosOrderSubmitted | null }>(

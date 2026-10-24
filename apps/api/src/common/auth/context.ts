@@ -29,6 +29,10 @@ export interface AuthPosDevice {
   orgId: string;
   branchId: string;
   role: Role;
+  /** Paired with requireStaff (contract 0.2.0): every device route except the session needs a staff session. */
+  requireStaff: boolean;
+  /** Set when the request also carried a staff session (X-Resuto-Staff-Authorization) that the guard accepted. */
+  staff?: { userId: string; email: string | null; role: Role };
 }
 
 export type AuthPrincipal = AuthUser | AuthMcpClient | AuthPosDevice;

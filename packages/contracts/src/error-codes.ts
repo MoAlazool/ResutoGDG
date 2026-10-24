@@ -285,6 +285,8 @@ export const DOMAIN_ERROR_CODES = [
   'pos_device_required',
   'pos_items_unavailable',
   'pos_price_changed',
+  'pos_staff_not_allowed',
+  'pos_staff_required',
   'price_change_out_of_bounds',
   'price_changed',
   'price_exists',

@@ -7,10 +7,17 @@ import { isoDateTime, optionalText, phoneE164, uuid } from './common';
 import { COLLECT_METHODS, FULFILLMENTS, cartLine, kitchenBumpRequest, kitchenLineRequest, orderTransitionRequest } from './orders';
 
 /** Version of the POS contract described in docs/api/IPAD_COMPATIBILITY.md (bumped on every additive change). */
-export const POS_CONTRACT_VERSION = '0.1.0' as const;
+export const POS_CONTRACT_VERSION = '0.2.0' as const;
 
 /** Device credentials are `rpos_<43 url-safe chars>` (256 bits); only their sha256 is stored. */
 export const POS_DEVICE_TOKEN_PREFIX = 'rpos_' as const;
+
+/**
+ * Staff session on a paired device (contract 0.2.0): next to `Authorization: Bearer rpos_...`, a device request may send
+ * `X-Resuto-Staff-Authorization: Bearer <staff access token>` (the employee's Supabase session). The request then acts
+ * as that employee, with the employee's role bounded by the device's acting role, inside the device's branch.
+ */
+export const POS_STAFF_HEADER = 'X-Resuto-Staff-Authorization' as const;
 
 /** Roles a device can act as. A device never acts as a manager, owner or any role that manages the restaurant. */
 export const POS_ACTING_ROLES = ['waiter', 'cashier', 'kitchen'] as const;
@@ -55,6 +62,11 @@ export const createPosPairingRequest = z.object({
   expiresInMinutes: z.number().int().min(1).max(60).default(10),
   /** The paired device's credential expires after this many days. */
   deviceTtlDays: z.number().int().min(1).max(730).default(365),
+  /**
+   * Contract 0.2.0: the device needs a staff session (X-Resuto-Staff-Authorization) on every device route except
+   * GET /v1/pos/session, which answers 401 pos_staff_required without one. Default false (0.1.0 behaviour).
+   */
+  requireStaff: z.boolean().default(false),
 });
 export type CreatePosPairingRequest = z.infer<typeof createPosPairingRequest>;
 
@@ -158,9 +170,13 @@ export interface PosDeviceSummary {
   id: string; branchId: string; name: string; actingRole: PosActingRole; tokenPrefix: string; status: 'active' | 'revoked';
   expired: boolean; platform: string | null; appVersion: string | null; model: string | null;
   pairedAt: string; expiresAt: string | null; lastSeenAt: string | null; revokedAt: string | null; revokeReason: string | null;
+  /** Contract 0.2.0: device routes other than the session need a staff session. */
+  requireStaff: boolean;
 }
 export interface PosPairingCreated {
   id: string; branchId: string; actingRole: PosActingRole; name: string;
+  /** Contract 0.2.0. */
+  requireStaff: boolean;
   /** Shown once: the device types or scans it. */
   code: string; expiresAt: string;
 }
@@ -177,11 +193,17 @@ export interface PosSession {
   org: { id: string; name: string; nameAr: string | null; currency: string; country: string; timezone: string };
   branch: { id: string; code: string; name: string; nameAr: string | null; timezone: string; serviceMode: string;
     acceptsDineIn: boolean; acceptsPickup: boolean; acceptsDelivery: boolean };
+  /** What this request may do: the acting role's permissions, or (with a staff session) the staff role's within them. */
   permissions: string[];
   feed: PosFeedPosition;
   serverTime: string;
   contractVersion: string;
+  /** Contract 0.2.0: the device was paired with requireStaff. */
+  requireStaff: boolean;
+  /** Contract 0.2.0: the staff member of this request's X-Resuto-Staff-Authorization session; null without one. */
+  staff: PosSessionStaff | null;
 }
+export interface PosSessionStaff { id: string; email: string | null; role: string }
 
 export interface PosEvent {
   /** Monotonic per branch, without gaps: dedupe and resume by it. */
