@@ -3389,6 +3389,1459 @@
         ]
       }
     },
+    "/v1/o/{orgId}/change-policies": {
+      "get": {
+        "operationId": "ChangePolicies_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-policies"
+        ],
+        "x-resuto-permissions": [
+          "changes:read"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-policies/{group}": {
+      "put": {
+        "operationId": "ChangePolicies_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "group",
+            "required": true,
+            "schema": {
+              "enum": [
+                "menu",
+                "prices",
+                "promotions",
+                "website_drafts",
+                "website_publish",
+                "messages",
+                "payments"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "approvers": {
+                    "anyOf": [
+                      {
+                        "const": 1,
+                        "type": "number"
+                      },
+                      {
+                        "const": 2,
+                        "type": "number"
+                      }
+                    ],
+                    "default": 1
+                  },
+                  "mode": {
+                    "enum": [
+                      "auto",
+                      "approval",
+                      "blocked"
+                    ],
+                    "type": "string"
+                  },
+                  "ownerAboveBps": {
+                    "anyOf": [
+                      {
+                        "maximum": 10000,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-policies"
+        ],
+        "x-resuto-permissions": [
+          "changes:manage"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-sets": {
+      "get": {
+        "operationId": "Changes_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 9000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "enum": [
+                "mcp",
+                "studio_ai",
+                "copilot",
+                "staff"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "enum": [
+                "draft",
+                "validated",
+                "pending_approval",
+                "approved",
+                "applying",
+                "applied",
+                "partially_applied",
+                "failed",
+                "rejected",
+                "expired",
+                "invalidated",
+                "open",
+                "all"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ],
+        "x-resuto-permissions": [
+          "changes:read"
+        ]
+      },
+      "post": {
+        "operationId": "Changes_propose",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "ops": {
+                    "items": {
+                      "oneOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "description": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 1000,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "descriptionAr": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 1000,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "isActive": {
+                                  "type": "boolean"
+                                },
+                                "name": {
+                                  "maxLength": 120,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "nameAr": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 120,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "productId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "productId"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "menu.item.update",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "priceMinor": {
+                                  "maximum": 100000000,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "productId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "productId",
+                                "priceMinor"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "menu.item.price.set",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "available": {
+                                  "type": "boolean"
+                                },
+                                "branchId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "productId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "maxLength": 200,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "productId",
+                                "branchId",
+                                "available"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "menu.item.availability.set",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "branchIds": {
+                                  "anyOf": [
+                                    {
+                                      "items": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "channels": {
+                                  "anyOf": [
+                                    {
+                                      "items": {
+                                        "enum": [
+                                          "qr",
+                                          "web",
+                                          "whatsapp",
+                                          "staff",
+                                          "pos",
+                                          "mcp",
+                                          "phone",
+                                          "messenger",
+                                          "instagram"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "maxItems": 9,
+                                      "type": "array"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "code": {
+                                  "anyOf": [
+                                    {
+                                      "pattern": "^[A-Za-z0-9_-]{3,32}$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "endsAt": {
+                                  "anyOf": [
+                                    {
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "isActive": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "kind": {
+                                  "enum": [
+                                    "percent",
+                                    "fixed",
+                                    "free_delivery"
+                                  ],
+                                  "type": "string"
+                                },
+                                "maxDiscountMinor": {
+                                  "anyOf": [
+                                    {
+                                      "maximum": 10000000000000,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "maxRedemptions": {
+                                  "anyOf": [
+                                    {
+                                      "maximum": 10000000,
+                                      "minimum": 1,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "minOrderMinor": {
+                                  "default": 0,
+                                  "maximum": 10000000000000,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "name": {
+                                  "maxLength": 80,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "nameAr": {
+                                  "anyOf": [
+                                    {
+                                      "maxLength": 80,
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "perCustomerLimit": {
+                                  "anyOf": [
+                                    {
+                                      "maximum": 1000,
+                                      "minimum": 1,
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "startsAt": {
+                                  "anyOf": [
+                                    {
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "value": {
+                                  "maximum": 1000000000,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "kind",
+                                "value"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "promotion.create",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "content": {
+                                  "additionalProperties": false,
+                                  "default": {},
+                                  "properties": {
+                                    "body": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 2000,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 2000,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "ctaLabel": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 40,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 40,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "eyebrow": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 60,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 60,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "headline": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 140,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 140,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "items": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "body": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "ar": {
+                                                "maxLength": 600,
+                                                "type": "string"
+                                              },
+                                              "en": {
+                                                "maxLength": 600,
+                                                "type": "string"
+                                              }
+                                            },
+                                            "type": "object"
+                                          },
+                                          "title": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "ar": {
+                                                "maxLength": 120,
+                                                "type": "string"
+                                              },
+                                              "en": {
+                                                "maxLength": 120,
+                                                "type": "string"
+                                              }
+                                            },
+                                            "type": "object"
+                                          }
+                                        },
+                                        "required": [
+                                          "title"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 12,
+                                      "type": "array"
+                                    },
+                                    "mediaId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "mediaIds": {
+                                      "items": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "maxItems": 24,
+                                      "type": "array"
+                                    },
+                                    "productIds": {
+                                      "items": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "maxItems": 12,
+                                      "type": "array"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "isVisible": {
+                                  "default": true,
+                                  "type": "boolean"
+                                },
+                                "kind": {
+                                  "enum": [
+                                    "hero",
+                                    "about",
+                                    "menu_highlights",
+                                    "gallery",
+                                    "reservations",
+                                    "ordering",
+                                    "location",
+                                    "hours",
+                                    "testimonials",
+                                    "contact",
+                                    "custom"
+                                  ],
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "website.section.add",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "content": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "body": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 2000,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 2000,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "ctaLabel": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 40,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 40,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "eyebrow": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 60,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 60,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "headline": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 140,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 140,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
+                                    "items": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "body": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "ar": {
+                                                "maxLength": 600,
+                                                "type": "string"
+                                              },
+                                              "en": {
+                                                "maxLength": 600,
+                                                "type": "string"
+                                              }
+                                            },
+                                            "type": "object"
+                                          },
+                                          "title": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "ar": {
+                                                "maxLength": 120,
+                                                "type": "string"
+                                              },
+                                              "en": {
+                                                "maxLength": 120,
+                                                "type": "string"
+                                              }
+                                            },
+                                            "type": "object"
+                                          }
+                                        },
+                                        "required": [
+                                          "title"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 12,
+                                      "type": "array"
+                                    },
+                                    "mediaId": {
+                                      "anyOf": [
+                                        {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "mediaIds": {
+                                      "items": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "maxItems": 24,
+                                      "type": "array"
+                                    },
+                                    "productIds": {
+                                      "items": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "maxItems": 12,
+                                      "type": "array"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
+                                "isVisible": {
+                                  "type": "boolean"
+                                },
+                                "sectionId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "sectionId"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "website.section.update",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "note": {
+                                  "maxLength": 200,
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "website.publish",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "campaignId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "scheduledAt": {
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "campaignId"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "campaign.send",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "amountMinor": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 100000000,
+                                  "type": "integer"
+                                },
+                                "customerId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "maxLength": 200,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "expiresInMinutes": {
+                                  "default": 1440,
+                                  "maximum": 10080,
+                                  "minimum": 5,
+                                  "type": "integer"
+                                },
+                                "orderId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "description"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "payment_link.create",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        }
+                      ]
+                    },
+                    "maxItems": 20,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "maxLength": 1000,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "title": {
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title",
+                  "ops"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-sets/{changeSetId}": {
+      "get": {
+        "operationId": "Changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "changeSetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ],
+        "x-resuto-permissions": [
+          "changes:read"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-sets/{changeSetId}/apply": {
+      "post": {
+        "operationId": "Changes_apply",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "changeSetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ],
+        "x-resuto-permissions": [
+          "changes:approve"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-sets/{changeSetId}/approve": {
+      "post": {
+        "operationId": "Changes_approve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "changeSetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "note": {
+                    "anyOf": [
+                      {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "previewDigest": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ],
+        "x-resuto-permissions": [
+          "changes:approve"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-sets/{changeSetId}/audit": {
+      "get": {
+        "operationId": "Changes_audit",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "changeSetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 9000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ],
+        "x-resuto-permissions": [
+          "changes:read"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-sets/{changeSetId}/ops/{opId}/reverse": {
+      "post": {
+        "operationId": "Changes_reverse",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "changeSetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "opId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "note": {
+                    "anyOf": [
+                      {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "previewDigest": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ],
+        "x-resuto-permissions": [
+          "changes:approve"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/change-sets/{changeSetId}/reject": {
+      "post": {
+        "operationId": "Changes_reject",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "changeSetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "note": {
+                    "anyOf": [
+                      {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "previewDigest": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "change-sets"
+        ],
+        "x-resuto-permissions": [
+          "changes:approve"
+        ]
+      }
+    },
     "/v1/o/{orgId}/compliance/documents": {
       "get": {
         "operationId": "Compliance_licenceList",
@@ -19855,6 +21308,7 @@
               "default": "pending",
               "enum": [
                 "pending",
+                "approved",
                 "executed",
                 "rejected",
                 "expired",

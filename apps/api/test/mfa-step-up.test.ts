@@ -86,6 +86,13 @@ describe('users with a verified factor need aal2 on sensitive routes', () => {
       ['post', `/v1/o/${b.orgId}/compliance/zatca/egs`],
       ['post', `/v1/o/${b.orgId}/compliance/zatca/egs/${fake}/compliance-csid`],
       ['post', `/v1/o/${b.orgId}/compliance/zatca/egs/${fake}/production-csid`],
+      // 21-CS: approving or rejecting an AI or staff change, undoing an effect and editing the approval policy.
+      ['post', `/v1/o/${b.orgId}/mcp/approvals/${fake}/approve`],
+      ['post', `/v1/o/${b.orgId}/mcp/approvals/${fake}/reject`],
+      ['post', `/v1/o/${b.orgId}/change-sets/${fake}/approve`],
+      ['post', `/v1/o/${b.orgId}/change-sets/${fake}/reject`],
+      ['post', `/v1/o/${b.orgId}/change-sets/${fake}/ops/${fake}/reverse`],
+      ['put', `/v1/o/${b.orgId}/change-policies/prices`],
     ];
     for (const [verb, path] of routes) {
       const weak = await (t.http as any)[verb](path).set(auth(b.owner)).send({});
