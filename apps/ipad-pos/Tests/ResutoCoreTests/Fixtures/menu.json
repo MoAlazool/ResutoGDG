@@ -1,8 +1,16 @@
 {
   "currency": "EGP",
+  "menus": [
+    {
+      "id": "menu",
+      "branchId": null,
+      "isActive": true
+    }
+  ],
   "categories": [
     {
       "id": "category",
+      "menuId": "menu",
       "name": "Kitchen",
       "nameAr": "المطبخ",
       "isActive": true

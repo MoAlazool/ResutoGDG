@@ -18,6 +18,13 @@ struct FloorView: View {
                             let scale = min(geometry.size.width / max(layout.width, 1), geometry.size.height / max(layout.height, 1))
                             ZStack(alignment: .topLeading) {
                                 RoundedRectangle(cornerRadius: 24).fill(Design.surface)
+                                ForEach((layout.zones + layout.objects).filter { $0.hidden != true }) { element in
+                                    RoundedRectangle(cornerRadius: element.type == "plant" ? 40 : 5)
+                                        .fill(Color(floorHex: element.color).opacity(element.type == "zone" ? 0.12 : 0.25))
+                                        .overlay { Text(element.label).font(.caption).lineLimit(1).padding(4) }
+                                        .frame(width: max(1, element.width * scale), height: max(1, element.height * scale))
+                                        .rotationEffect(.degrees(element.rotation)).position(x: element.x * scale, y: element.y * scale).allowsHitTesting(false)
+                                }
                                 ForEach(tables) { table in
                                     Button { selected = table } label: {
                                         VStack(spacing: 3) { Text(table.label).font(.headline); Text("\(table.capacity)").font(.caption.monospacedDigit()); if table.visit != nil { Image(systemName: "person.2.fill") } }
@@ -97,7 +104,12 @@ struct KitchenView: View {
                             Text(l.text(ticket.status)).font(.headline).foregroundStyle(Design.accent)
                             Divider()
                             ForEach(ticket.lines) { line in
-                                VStack(alignment: .leading, spacing: 4) { Text("\(line.quantity) × \(l.name(line.name, line.nameAr))").font(.headline); Text(line.modifiers.joined(separator: ", ")).font(.subheadline); if let note = line.notes { Text(note).foregroundStyle(.orange) }; Text(l.text(line.kitchenStatus)).font(.caption).foregroundStyle(.secondary) }
+                                VStack(alignment: .leading, spacing: 4) { Text("\(line.quantity) × \(l.name(line.name, line.nameAr))").font(.headline); Text(line.modifiers.joined(separator: ", ")).font(.subheadline); if let note = line.notes { Text(note).foregroundStyle(.orange) }; Text(l.text(line.kitchenStatus)).font(.caption).foregroundStyle(.secondary)
+                                    if m.can("kitchen:operate"), ["queued", "preparing"].contains(line.kitchenStatus) {
+                                        let next = line.kitchenStatus == "queued" ? "preparing" : "ready"
+                                        Button(l.text(next)) { Task { await m.perform { try await m.kitchenLine(line.id, status: next) } } }.buttonStyle(.bordered).disabled(!m.reachable)
+                                    }
+                                }
                             }
                             if let note = ticket.notes { Text(note).padding(10).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8)) }
                             Button(l.text("orders")) { Task { await m.perform { try await m.openOrder(ticket.id) } } }.buttonStyle(.bordered).disabled(!m.reachable)
@@ -247,5 +259,12 @@ struct RefundView: View {
                     Button(l.text("request_refund"), role: .destructive) { Task { await m.perform { guard let value = Money.parse(amount) else { return }; try await m.refund(payment: payment, amount: value, reason: reason, orderId: order.id); dismiss() } } }
                 }
         }
+    }
+}
+
+private extension Color {
+    init(floorHex: String?) {
+        let number = floorHex.flatMap { UInt64($0.replacingOccurrences(of: "#", with: ""), radix: 16) } ?? 0x6b8178
+        self.init(red: Double((number >> 16) & 255) / 255, green: Double((number >> 8) & 255) / 255, blue: Double(number & 255) / 255)
     }
 }

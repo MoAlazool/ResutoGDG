@@ -18,8 +18,15 @@ import CryptoKit
     @Published var fulfillment = "pickup"
     @Published var selectedTable: FloorTable?
     @Published var notes = ""
+    @Published var customerId: String?
+    @Published var customerName: String?
+    @Published var deliveryLine = ""
+    @Published var deliveryArea = ""
+    @Published var deliveryCity = ""
+    @Published var reservations: [ReservationRecord] = []
     @Published var promotion = ""
     @Published var error: String?
+    @Published var notice: String?
     @Published var busy = false
     @Published var reachable = true
     @Published var lastRefresh: Date?
@@ -46,7 +53,7 @@ import CryptoKit
     }
     var draftOrder: StaffOrder? {
         guard let branch else { return nil }
-        return StaffOrder(branchId: branch.id, fulfillment: fulfillment, tableId: selectedTable?.id, visitId: selectedTable?.visit?.id, lines: cart, notes: notes, promotionCode: promotion.isEmpty ? nil : promotion)
+        return StaffOrder(branchId: branch.id, fulfillment: fulfillment, tableId: selectedTable?.id, visitId: selectedTable?.visit?.id, lines: cart, notes: notes, promotionCode: promotion.isEmpty ? nil : promotion, customerId: customerId, deliveryAddress: fulfillment == "delivery" ? DeliveryAddress(line1: deliveryLine, area: deliveryArea, city: deliveryCity) : nil)
     }
     var estimate: Int64? { guard let menu, let order = draftOrder else { return nil }; return try? CartRules.estimate(order, menu: menu) }
     func can(_ permission: String) -> Bool {
@@ -63,7 +70,7 @@ import CryptoKit
     }
     func handle(_ failure: Error) {
         error = (failure as? LocalizedError)?.errorDescription ?? failure.localizedDescription
-        if let api = failure as? APIError, [401, 403, 404].contains(api.status) {
+        if let api = failure as? APIError, [401, 403].contains(api.status) {
             // No continuing access to stale tenant data after revocation or membership removal.
             locked = true; menu = nil; layout = nil; live = nil; orders = []; tickets = []; detail = nil
         }
@@ -89,7 +96,7 @@ import CryptoKit
     }
     func choose(_ branch: Branch) async throws {
         guard let membership, membership.allows(branch: branch.id), restaurant?.branches.contains(where: { $0.id == branch.id && $0.isActive }) == true else { throw RuleError.invalid("forbidden") }
-        generation = UUID(); self.branch = branch; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
+        generation = UUID(); self.branch = branch; fulfillment = branch.acceptsPickup ? "pickup" : (branch.acceptsDineIn ? "dine_in" : "delivery"); customerId = nil; customerName = nil; reservations = []; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
         menu = nil; layout = nil; live = nil; orders = []; tickets = []; pending = []; financial = nil; lastRefresh = nil
         guard let scope, let configuration, let api else { return }
         let hash = SHA256.hash(data: try JSONEncoder().encode(scope)).map { String(format: "%02x", $0) }.joined()
@@ -105,6 +112,7 @@ import CryptoKit
             if cached.scope == scope, Date().timeIntervalSince(cached.savedAt) < 24 * 3600 { menu = cached.menu; layout = cached.floor; cacheDate = cached.savedAt }
         }
         if let data = try draft?.read(), let saved = try JSONDecoder().decode(DraftSnapshot?.self, from: data), saved.scope == scope {
+            customerId = saved.order.customerId; deliveryLine = saved.order.deliveryAddress?.line1 ?? ""; deliveryArea = saved.order.deliveryAddress?.area ?? ""; deliveryCity = saved.order.deliveryAddress?.city ?? ""
             cart = saved.order.lines; fulfillment = saved.order.fulfillment; notes = saved.order.notes ?? ""; promotion = saved.order.promotionCode ?? ""
             selectedTable = layout?.tables.first { $0.id == saved.order.tableId }
         }
@@ -146,16 +154,50 @@ import CryptoKit
         try await queue?.drain(scope: scope, authorized: can("orders:write"))
         guard snapshot == generation else { return }; pending = await queue?.list(scope: scope) ?? []
     }
+    func kitchenLine(_ id: String, status: String) async throws {
+        guard reachable, can("kitchen:operate"), let scope, let api, ["queued", "preparing", "ready"].contains(status) else { throw RuleError.invalid("permission_denied") }
+        let _: EmptyResponse = try await api.post("o/\(scope.orgId)/kitchen/lines/\(id)", body: ["status": status])
+        try await refresh()
+    }
+    func customers(query: String) async throws -> [Customer] {
+        guard reachable, can("customers:read"), let scope, let api else { throw RuleError.invalid("permission_denied") }
+        let page: Page<Customer> = try await api.get("o/\(scope.orgId)/customers", query: ["q": String(query.prefix(120)), "branchId": scope.branchId, "limit": "50"])
+        return page.items
+    }
+    func loadReservations(date: Date) async throws {
+        guard reachable, can("reservations:read"), let scope, let api else { throw RuleError.invalid("online_required") }
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(identifier: restaurant?.timezone ?? "UTC"); formatter.dateFormat = "yyyy-MM-dd"
+        let day: ReservationDay = try await api.get("o/\(scope.orgId)/reservations", query: ["branchId": scope.branchId, "date": formatter.string(from: date)])
+        reservations = day.items.filter { $0.branchId == scope.branchId }
+    }
+    func reservationCheckIn(_ reservation: ReservationRecord, tableId: String) async throws {
+        guard reachable, can("reservations:write"), let scope, let api else { throw RuleError.invalid("permission_denied") }
+        let _: EmptyResponse = try await api.post("o/\(scope.orgId)/reservations/\(reservation.id)/check-in", body: ["tableId": tableId])
+        try await refresh()
+    }
     func moreOrders() async throws {
         guard let scope, let api, let nextCursor else { return }
         let page: Page<OrderSummary> = try await api.get("o/\(scope.orgId)/orders", query: ["branchId": scope.branchId, "limit": "50", "cursor": nextCursor])
         orders += page.items.filter { item in !orders.contains { $0.id == item.id } }; self.nextCursor = page.nextCursor
     }
-    func saveOrder() async throws {
+    @discardableResult func saveOrder() async throws -> UUID {
         guard can("orders:write"), let order = draftOrder, let menu, let scope, let queue else { throw RuleError.invalid("permission_denied") }
         _ = try CartRules.estimate(order, menu: menu)
-        _ = try await queue.save(scope: scope, payload: order)
-        cart = []; notes = ""; promotion = ""; persistDraft(); pending = await queue.list(scope: scope)
+        let id = try await queue.save(scope: scope, payload: order)
+        cart = []; notes = ""; promotion = ""; customerId = nil; customerName = nil; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; persistDraft(); pending = await queue.list(scope: scope); return id
+    }
+    func prepareCurrentDraft() async throws {
+        guard reachable, can("orders:write"), let scope, let api, let order = draftOrder else { throw RuleError.invalid("online_required") }
+        let fresh: Menu = try await api.get("o/\(scope.orgId)/menu"); menu = fresh
+        _ = try CartRules.estimate(order, menu: fresh)
+    }
+    func sendCurrentDraft() async throws {
+        let id = try await saveOrder()
+        guard let operation = pending.first(where: { $0.id == id }) else { throw RuleError.invalid("missing_operation") }
+        try await approve(operation)
+        if let accepted = pending.first(where: { $0.id == id }), accepted.state == .accepted {
+            notice = "#\(accepted.serverNumber ?? "") · accepted"
+        }
     }
     func prepareReview(_ operation: PendingOrder) async throws {
         guard reachable, let scope, let api, operation.scope == scope else { throw RuleError.invalid("online_required") }
@@ -170,6 +212,7 @@ import CryptoKit
         }
         menu = fresh
         try await queue.approve(operation.id, scope: scope, menu: fresh)
+        pending = await queue.list(scope: scope)
         try await refresh()
     }
     func retry(_ operation: PendingOrder) async throws {
@@ -261,6 +304,7 @@ import CryptoKit
         generation = UUID(); try? await auth?.signOut(); await api?.clearCache(); me = nil; membership = nil; restaurant = nil; clearWorkspace()
     }
     private func clearWorkspace() {
+        customerId = nil; customerName = nil; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; reservations = []
         branch = nil; menu = nil; layout = nil; live = nil; orders = []; tickets = []; pending = []; cart = []; printJobs = []; detail = nil
         selectedTable = nil; notes = ""; promotion = ""; queue = nil; prints = nil; cache = nil; draft = nil; financialStore = nil; financial = nil; lastRefresh = nil; cacheDate = nil
     }

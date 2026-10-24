@@ -2,7 +2,7 @@
 
 ## Executed in this environment
 
-Swift 6.0.3 on Linux compiles `ResutoCore` and runs the XCTest suite. `scripts/check_contracts.py` validates the 16 route/method combinations used by the native client against repository OpenAPI, supported staff channel, retry horizon and resource plists. `swiftc -frontend -parse App/*.swift` checks syntax only; it is not an Apple SDK typecheck.
+Swift 6.0.3 on Linux compiles `ResutoCore` and runs the XCTest suite. `scripts/check_contracts.py` validates the 20 route/method combinations used by the native client against repository OpenAPI, supported staff channel, retry horizon and resource plists. `swiftc -frontend -parse App/*.swift` checks syntax only; it is not an Apple SDK typecheck.
 
 Read-only staging probes on 2026-10-24: `/v1/health` 200 with `environment=staging`, `paymentMode=sandbox`, database latency and API build `5c359d5c73e861634c3e289488579df9ef0d02f9`; `/v1/me` and protected orders without credentials both 401. Raw non-sensitive evidence is in `evidence/staging-read-only.json`. No authenticated order was created or financial action performed by these probes.
 

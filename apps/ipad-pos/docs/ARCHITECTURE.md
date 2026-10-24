@@ -49,4 +49,4 @@ No exactly-once claim extends beyond server idempotency retention or physical pr
 
 ## Known implementation gaps
 
-Native delivery order entry, customer lookup/selection, reservations workspace (next reservations are visible on floor), line amendments, table move/merge, item/customer split UI, provider terminal payments, cash drawer actions, vendor SDK adapters, remote device enrollment, biometric/offline unlock policy, and certified fiscal receipts remain incomplete. These are explicit product/backend/hardware dependencies. Core screens should not be represented as complete end-to-end acceptance until staging and device verification pass.
+Reservation creation/editing UI, line amendments, table move/merge, item/customer split UI, provider terminal payments, cash drawer actions, vendor SDK adapters, remote device enrollment, biometric/offline unlock policy, and certified fiscal receipts remain incomplete. These are explicit product/backend/hardware dependencies. Core screens should not be represented as complete end-to-end acceptance until staging and device verification pass.

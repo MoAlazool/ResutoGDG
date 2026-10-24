@@ -175,3 +175,23 @@ final class PerformanceTests: XCTestCase {
         measure { for _ in 0..<1000 { _ = try? CartRules.estimate(order, menu: menu) } }
     }
 }
+final class ExtendedCatalogueTests: XCTestCase {
+    func testInactiveCategoryIsNotOrderable() throws {
+        var object = try JSONSerialization.jsonObject(with: fixture("menu")) as! [String: Any]
+        var categories = object["categories"] as! [[String: Any]]; categories[0]["isActive"] = false; object["categories"] = categories
+        let menu = try JSONDecoder().decode(Menu.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertTrue(menu.products(branch: branchID).isEmpty); XCTAssertThrowsError(try CartRules.estimate(payload(), menu: menu))
+    }
+    func testOtherBranchMenuIsNotOrderable() throws {
+        var object = try JSONSerialization.jsonObject(with: fixture("menu")) as! [String: Any]
+        var menus = object["menus"] as! [[String: Any]]; menus[0]["branchId"] = "other-branch"; object["menus"] = menus
+        let menu = try JSONDecoder().decode(Menu.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertThrowsError(try CartRules.estimate(payload(), menu: menu))
+    }
+    func testDeliveryWithAddressUsesSupportedStaffContract() throws {
+        let order = StaffOrder(branchId: branchID, fulfillment: "delivery", lines: payload().lines, customerId: "customer", deliveryAddress: DeliveryAddress(line1: "Street 123", area: "Area", city: "Cairo"))
+        XCTAssertEqual(try CartRules.estimate(order, menu: decode("menu")), 9150)
+        let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(order)) as! [String: Any]
+        XCTAssertEqual(encoded["customerId"] as? String, "customer"); XCTAssertNotNil(encoded["deliveryAddress"])
+    }
+}

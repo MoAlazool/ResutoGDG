@@ -7,14 +7,17 @@ public enum RuleError: Error, LocalizedError, Equatable {
 public enum CartRules {
     // Presentation estimate only: server computes tax, promotions, stock, service and authoritative total.
     public static func estimate(_ order: StaffOrder, menu: Menu) throws -> Int64 {
-        guard (1...60).contains(order.lines.count), ["pickup", "dine_in"].contains(order.fulfillment),
+        guard (1...60).contains(order.lines.count), ["pickup", "dine_in", "delivery"].contains(order.fulfillment),
               order.fulfillment != "dine_in" || order.tableId != nil || order.visitId != nil,
               (order.notes?.count ?? 0) <= 500, (order.promotionCode?.count ?? 0) <= 40 else { throw RuleError.invalid("invalid_order") }
+        if order.fulfillment == "delivery" {
+            guard let address = order.deliveryAddress, (3...300).contains(address.line1.trimmingCharacters(in: .whitespaces).count), (address.area?.count ?? 0) <= 120, (address.city?.count ?? 0) <= 80 else { throw RuleError.invalid("delivery_address_required") }
+        }
         var total: Int64 = 0
         for line in order.lines {
             guard (1...99).contains(line.quantity), line.modifiers.count <= 40, Set(line.modifiers).count == line.modifiers.count,
                   (line.notes?.count ?? 0) <= 200,
-                  let product = menu.products.first(where: { $0.id == line.productId }), product.available(branch: order.branchId) else { throw RuleError.invalid("item_unavailable") }
+                  let product = menu.products(branch: order.branchId).first(where: { $0.id == line.productId }), product.available(branch: order.branchId) else { throw RuleError.invalid("item_unavailable") }
             var price = product.price(branch: order.branchId)
             let groups = menu.modifierGroups.filter { product.modifierGroupIds.contains($0.id) && $0.isActive }
             for selection in line.modifiers {

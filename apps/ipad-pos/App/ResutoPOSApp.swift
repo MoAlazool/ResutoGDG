@@ -28,7 +28,9 @@ import SwiftUI
     }
 }
 enum Design {
-    static let accent = Color(red: 0.08, green: 0.40, blue: 0.32)
+    static let accent = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark ? UIColor(red: 0.65, green: 0.84, blue: 0.73, alpha: 1) : UIColor(red: 0.086, green: 0.239, blue: 0.204, alpha: 1)
+    })
     static let surface = Color(uiColor: .secondarySystemGroupedBackground)
     static let canvas = Color(uiColor: .systemGroupedBackground)
 }
@@ -45,6 +47,9 @@ struct RootView: View {
             if let error = m.error {
                 HStack { Image(systemName: "exclamationmark.triangle.fill"); Text(l.text(error)).textSelection(.enabled); Spacer(); Button { m.error = nil } label: { Image(systemName: "xmark") }.accessibilityLabel(l.text("close")) }
                     .padding().foregroundStyle(.primary).background(.orange.opacity(0.18)).accessibilityIdentifier("errorBanner")
+            }
+            if let notice = m.notice {
+                HStack { Image(systemName: "checkmark.circle.fill"); Text(notice.replacingOccurrences(of: "accepted", with: l.text("accepted"))); Spacer(); Button { m.notice = nil } label: { Image(systemName: "xmark") }.accessibilityLabel(l.text("close")) }.padding().foregroundStyle(Design.accent).background(Design.accent.opacity(0.1))
             }
             if m.me == nil { SignInView() }
             else if m.locked {
@@ -132,10 +137,10 @@ struct WorkspaceSelection: View {
     }
 }
 enum Destination: String, CaseIterable, Identifiable {
-    case pos, floor, orders, kitchen, history, sync, settings
+    case pos, floor, orders, kitchen, reservations, history, sync, settings
     var id: String { rawValue }
-    var symbol: String { switch self { case .pos: "square.grid.2x2"; case .floor: "square.split.2x2"; case .orders: "list.bullet.rectangle"; case .kitchen: "flame"; case .history: "clock"; case .sync: "arrow.triangle.2.circlepath"; case .settings: "gearshape" } }
-    var permission: String? { switch self { case .pos: "menu:read"; case .floor: "floor:read"; case .orders, .history: "orders:read"; case .kitchen: "kitchen:operate"; default: nil } }
+    var symbol: String { switch self { case .pos: "square.grid.2x2"; case .floor: "square.split.2x2"; case .orders: "list.bullet.rectangle"; case .kitchen: "flame"; case .reservations: "calendar"; case .history: "clock"; case .sync: "arrow.triangle.2.circlepath"; case .settings: "gearshape" } }
+    var permission: String? { switch self { case .pos: "menu:read"; case .floor: "floor:read"; case .orders, .history: "orders:read"; case .kitchen: "kitchen:operate"; case .reservations: "reservations:read"; default: nil } }
 }
 struct WorkspaceView: View {
     @EnvironmentObject var m: POSModel
@@ -152,7 +157,7 @@ struct WorkspaceView: View {
                     Label(l.text(destination.rawValue), systemImage: destination.symbol).frame(minHeight: 44).tag(destination)
                 }
                 Section {
-                    Label(l.text(m.reachable ? "online" : "offline"), systemImage: m.reachable ? "wifi" : "wifi.slash").foregroundStyle(m.reachable ? .secondary : .orange)
+                    Label(l.text(m.reachable ? "online" : "offline"), systemImage: m.reachable ? "wifi" : "wifi.slash").foregroundStyle(m.reachable ? Color.secondary : Color.orange)
                     Text("\(m.pending.filter { $0.state != .accepted }.count) · \(l.text("sync"))").monospacedDigit()
                     if let date = m.lastRefresh { Text(date, style: .time).font(.caption).foregroundStyle(.secondary) }
                 }
@@ -166,6 +171,7 @@ struct WorkspaceView: View {
                     case .orders: OrdersView(history: false)
                     case .history: OrdersView(history: true)
                     case .kitchen: KitchenView()
+                    case .reservations: ReservationsView()
                     case .sync: SyncView()
                     case .settings: SettingsView()
                     }

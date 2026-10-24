@@ -5,7 +5,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parents[3]
 paths=json.loads((root/'docs/api/openapi.json').read_text())['paths']
 required={
-'/v1/me':['get'], '/v1/o/{orgId}':['get'], '/v1/o/{orgId}/menu':['get'],
+'/v1/o/{orgId}/customers':['get'], '/v1/o/{orgId}/reservations':['get'], '/v1/o/{orgId}/reservations/{id}/check-in':['post'], '/v1/o/{orgId}/kitchen/lines/{lineId}':['post'], '/v1/me':['get'], '/v1/o/{orgId}':['get'], '/v1/o/{orgId}/menu':['get'],
 '/v1/o/{orgId}/floor/{branchId}':['get'], '/v1/o/{orgId}/floor/{branchId}/live':['get'],
 '/v1/o/{orgId}/orders':['get','post'], '/v1/o/{orgId}/orders/{id}':['get'],
 '/v1/o/{orgId}/orders/{id}/transition':['post'], '/v1/o/{orgId}/orders/{id}/cancel':['post'],

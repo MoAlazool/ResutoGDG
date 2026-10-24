@@ -44,7 +44,7 @@ No staff order-line amendment, order-table transfer, or check merge endpoint was
 
 **Proposed** commands under `/o/{orgId}/orders/{id}`: `amend` `{expectedVersion, lines/changes, reason, clientOperationId}`, `move-table` `{expectedVersion,targetTableId,reason,clientOperationId}`, and staff bill split `/visits/{id}/splits` `{mode,people?,amounts?,allocations?,expectedVersion,key}` returning authoritative shares. Require appropriate `orders:write`, `floor:seat`, `payments:collect` checks and branch locks; paid/settling visits must reject unsafe changes. Amendments must route kitchen deltas without duplicating already prepared lines, adjust stock atomically and preserve an audit trail.
 
-Current client edits unsubmitted drafts, adds subsequent table orders using existing visits, and supports partial cash amounts with an equal-split calculator. It does not claim item/customer allocation or merged checks. Existing delivery orders can be read/advanced subject to server driver rules; native delivery entry/customer selection remains unimplemented.
+Current client edits unsubmitted drafts, adds subsequent table orders using existing visits, and supports partial cash amounts with an equal-split calculator. It does not claim item/customer allocation or merged checks. Existing delivery orders can be read/advanced subject to server driver rules; native delivery address entry and existing customer selection use the supported staff contract; full dispatch/provider acceptance remains unverified.
 
 ## P1: authenticated operational event stream
 

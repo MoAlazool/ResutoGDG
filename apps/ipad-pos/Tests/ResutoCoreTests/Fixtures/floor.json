@@ -3,6 +3,16 @@
   "revision": 1,
   "width": 1000,
   "height": 800,
+  "zones": [],
+  "objects": [],
+  "background": {
+    "image": null,
+    "opacity": 0.45,
+    "x": 0,
+    "y": 0,
+    "width": 1000,
+    "height": 800
+  },
   "tables": [
     {
       "id": "table",

@@ -18,14 +18,28 @@ public struct Me: Codable, Sendable {
 }
 public struct Branch: Codable, Identifiable, Sendable {
     public let id: String; public let name: String; public let nameAr: String?; public let isActive: Bool
+    public let acceptsDineIn: Bool; public let acceptsPickup: Bool; public let acceptsDelivery: Bool
 }
 public struct Restaurant: Codable, Sendable {
     public let id: String; public let name: String; public let currency: String; public let timezone: String; public let branches: [Branch]
 }
+public struct CatalogueMenu: Codable, Identifiable, Sendable {
+    public let id: String; public let branchId: String?; public let isActive: Bool
+}
 public struct Menu: Codable, Sendable {
+    public let menus: [CatalogueMenu]
+    public func categories(branch: String) -> [Category] {
+        let ids = Set(menus.filter { $0.isActive && ($0.branchId == nil || $0.branchId == branch) }.map(\.id))
+        return categories.filter { $0.isActive && ids.contains($0.menuId) }
+    }
+    public func products(branch: String) -> [Product] {
+        let ids = Set(categories(branch: branch).map(\.id))
+        return products.filter { $0.isActive && ids.contains($0.categoryId) }
+    }
     public let categories: [Category]; public let products: [Product]; public let modifierGroups: [ModifierGroup]; public let currency: String
 }
 public struct Category: Codable, Identifiable, Sendable {
+    public let menuId: String
     public let id: String; public let name: String; public let nameAr: String?; public let isActive: Bool
 }
 public struct Product: Codable, Identifiable, Sendable {
@@ -64,9 +78,11 @@ public struct CartLine: Codable, Equatable, Sendable {
 public struct StaffOrder: Codable, Equatable, Sendable {
     public let branchId: String; public let fulfillment: String; public let tableId: String?; public let visitId: String?
     public let lines: [CartLine]; public let notes: String?; public let promotionCode: String?; public let channel: String
-    public init(branchId: String, fulfillment: String, tableId: String? = nil, visitId: String? = nil, lines: [CartLine], notes: String? = nil, promotionCode: String? = nil) {
+    public let customerId: String?; public let deliveryAddress: DeliveryAddress?
+    public init(branchId: String, fulfillment: String, tableId: String? = nil, visitId: String? = nil, lines: [CartLine], notes: String? = nil, promotionCode: String? = nil, customerId: String? = nil, deliveryAddress: DeliveryAddress? = nil) {
         self.branchId = branchId; self.fulfillment = fulfillment; self.tableId = tableId; self.visitId = visitId
         self.lines = lines; self.notes = notes; self.promotionCode = promotionCode; self.channel = "staff"
+        self.customerId = customerId; self.deliveryAddress = deliveryAddress
     }
 }
 public struct OrderAccepted: Codable, Sendable {
@@ -93,6 +109,7 @@ public struct OrderLine: Codable, Identifiable, Sendable {
 }
 public struct FloorLayout: Codable, Sendable {
     public let branchId: String; public let revision: Int; public let width: Double; public let height: Double; public let tables: [FloorTable]
+    public let zones: [FloorElement]; public let objects: [FloorElement]; public let background: FloorBackground
 }
 public struct LiveFloor: Codable, Sendable { public let revision: Int; public let tables: [FloorTable] }
 public struct FloorTable: Codable, Identifiable, Sendable {
@@ -120,4 +137,26 @@ public struct APIError: Error, LocalizedError, Sendable {
         self.status = status; self.code = code; self.message = message; self.requestId = requestId; self.retryAfter = retryAfter
     }
     public var errorDescription: String? { message + (requestId.map { " [\($0)]" } ?? "") }
+}
+
+public struct DeliveryAddress: Codable, Equatable, Sendable {
+    public let line1: String; public let area: String?; public let city: String?
+    public init(line1: String, area: String? = nil, city: String? = nil) { self.line1 = line1; self.area = area; self.city = city }
+}
+public struct Customer: Codable, Identifiable, Sendable {
+    public let id: String; public let displayName: String?; public let phone: String?; public let email: String?
+}
+public struct ReservationDay: Codable, Sendable { public let date: String; public let items: [ReservationRecord] }
+public struct ReservationRecord: Codable, Identifiable, Sendable {
+    public let id: String; public let code: String; public let branchId: String; public let tableId: String?; public let tableLabel: String?
+    public let status: String; public let guestName: String; public let partySize: Int; public let startsAt: String; public let endsAt: String
+    public let depositMinor: Int64; public let depositStatus: String; public let currency: String
+}
+
+public struct FloorElement: Codable, Identifiable, Sendable {
+    public let id: String; public let type: String; public let label: String; public let x: Double; public let y: Double
+    public let width: Double; public let height: Double; public let rotation: Double; public let color: String?; public let hidden: Bool?
+}
+public struct FloorBackground: Codable, Sendable {
+    public let image: String?; public let opacity: Double; public let x: Double; public let y: Double; public let width: Double; public let height: Double
 }
