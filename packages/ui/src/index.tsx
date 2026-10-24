@@ -36,3 +36,5 @@ export * from './provider-logo';
 export * from './sheet';
 export * from './popover';
 export * from './controls';
+export * from './stat';
+export * from './charts';
