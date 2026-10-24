@@ -8,7 +8,9 @@ import { UsageService } from './usage.service';
  * `app.module_enabled()` (the same function the API guard uses); `source`
  * mirrors that function's precedence: unexpired override → plan module →
  * subscription add-on, and only while the subscription is live
- * (trialing/active, or past_due within its grace period).
+ * (trialing/active, or past_due within its grace period). Without a live
+ * subscription the restaurant keeps the free plan's modules (21-ONB: a lapsed
+ * plan falls back to Free); those report source 'plan'.
  */
 @Injectable()
 export class EntitlementsViewService {
@@ -25,6 +27,7 @@ export class EntitlementsViewService {
          from subscriptions where org_id = $1 and status <> 'canceled'`, [orgId, at]);
     const planMods = sub ? (await tx.query<{ module: ModuleKey }>(`select module from plan_modules where plan_id = $1`, [sub.plan_id])).map((r) => r.module) : [];
     const subMods = sub ? await tx.query<{ module: ModuleKey; source: string }>(`select module, source from subscription_modules where subscription_id = $1`, [sub.id]) : [];
+    const freeMods = sub?.live ? [] : (await tx.query<{ module: ModuleKey }>(`select module from plan_modules where plan_id = 'free'`)).map((r) => r.module);
 
     const out: EntitlementsView['modules'] = {};
     for (const key of MODULE_KEYS) {
@@ -36,7 +39,7 @@ export class EntitlementsViewService {
         const sm = subMods.find((m) => m.module === key);
         // Modules chosen for "Build Your Resuto" are part of that plan.
         if (sm) source = sm.source === 'custom_plan' ? 'plan' : 'addon';
-      }
+      } else if (freeMods.includes(key)) source = 'plan';   // the Free floor
       out[key] = { enabled: enabled.find((e) => e.module === key)?.enabled ?? false, source, ...(ov ? { overrideExpiresAt: ov.expires_at ? new Date(ov.expires_at).toISOString() : null } : {}) };
     }
     return out;

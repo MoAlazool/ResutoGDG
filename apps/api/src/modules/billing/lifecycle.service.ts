@@ -19,7 +19,8 @@ export interface LifecycleStats { trialsEnded: number; periodsRolled: number; ch
  * 2. Period end (active / past_due) → apply a scheduled cancellation or
  *    downgrade, then roll the period. Free configurations become `active`;
  *    paid ones become `past_due` (again: no provider) with a draft invoice.
- * 3. Grace expiry (past_due, grace_until passed) → `unpaid` (modules off).
+ * 3. Grace expiry (past_due, grace_until passed) → `unpaid`: the paid plan's
+ *    modules turn off and the restaurant keeps the free plan's (app.module_enabled).
  *
  * `run(now)` takes the clock as a parameter so tests control time.
  */
