@@ -48,12 +48,17 @@ export function Notice({ tone = 'info', children }: { tone?: 'info' | 'warn' | '
   return <div role={tone === 'danger' ? 'alert' : 'status'} className={cx('notice', tone !== 'info' && `notice-${tone}`)}>{children}</div>;
 }
 
-export function EmptyState({ title, children, action }: { title: ReactNode; children?: ReactNode; action?: ReactNode }) {
+/**
+ * Empty state: what is missing, why it matters and the next step. `icon` is an <Icon> (or a small illustration) shown
+ * above the title; `action` is the primary next step and `secondary` an optional second one.
+ */
+export function EmptyState({ title, children, action, icon, secondary }: { title: ReactNode; children?: ReactNode; action?: ReactNode; icon?: ReactNode; secondary?: ReactNode }) {
   return (
-    <div className="empty">
+    <div className="empty" data-has-icon={icon ? '' : undefined}>
+      {icon && <span className="empty-icon" aria-hidden="true">{icon}</span>}
       <strong>{title}</strong>
       {children && <p>{children}</p>}
-      {action}
+      {(action || secondary) && (secondary ? <div className="empty-actions">{action}{secondary}</div> : action)}
     </div>
   );
 }

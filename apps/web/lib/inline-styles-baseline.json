@@ -28,7 +28,7 @@
   "apps/web/app/dashboard/[orgId]/finance/pnl/page.tsx": 6,
   "apps/web/app/dashboard/[orgId]/inbox/page.tsx": 25,
   "apps/web/app/dashboard/[orgId]/integrations/page.tsx": 14,
-  "apps/web/app/dashboard/[orgId]/intelligence/_components/charts.tsx": 9,
+  "apps/web/app/dashboard/[orgId]/intelligence/_components/charts.tsx": 1,
   "apps/web/app/dashboard/[orgId]/intelligence/_components/IntelShell.tsx": 2,
   "apps/web/app/dashboard/[orgId]/intelligence/assistant/page.tsx": 11,
   "apps/web/app/dashboard/[orgId]/intelligence/forecast/page.tsx": 2,
