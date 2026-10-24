@@ -248,3 +248,18 @@ final class CaptureAtomicityTests: XCTestCase {
         do { _ = try await queue.save(scope: scope(org: "other"), payload: payload(), id: id); XCTFail("Scope must be preserved") } catch {}
     }
 }
+final class StorageIdentityTests: XCTestCase {
+    func testScopeIdentityIsCanonicalAcrossRelaunches() throws {
+        let original = Scope(environment: "a", userId: "bc", orgId: "d", branchId: "e")
+        XCTAssertEqual(original.storageIdentity, "1:a2:bc1:d1:e")
+        let restored = try JSONDecoder().decode(Scope.self, from: JSONEncoder().encode(original))
+        XCTAssertEqual(restored.storageIdentity, original.storageIdentity)
+    }
+    func testFieldBoundariesAndTenantsCannotCollide() {
+        let a = Scope(environment: "a", userId: "bc", orgId: "d", branchId: "e")
+        let b = Scope(environment: "ab", userId: "c", orgId: "d", branchId: "e")
+        XCTAssertNotEqual(a.storageIdentity, b.storageIdentity)
+        XCTAssertNotEqual(scope().storageIdentity, scope(user: "other").storageIdentity)
+        XCTAssertNotEqual(scope().storageIdentity, scope(org: "other").storageIdentity)
+    }
+}

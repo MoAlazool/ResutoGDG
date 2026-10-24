@@ -4,7 +4,7 @@
 
 Read before integration: `RESUME.md`, `docs/HANDOFF.md`, `docs/TEST_RESULTS.md`, `docs/api/openapi.json`, `docs/STAGING_DEPLOYMENT.md`, `packages/contracts/src/{platform,permissions,catalog,orders,payments,floor,state-machines,common}.ts`, NestJS access guard, auth/orders/visits/floor/kitchen/menu/payment controllers, shared order kernel and idempotency service. Existing web design tokens are in `docs/ui/design-tokens.json`. The native accent follows the Resuto green family; native system surfaces adapt to appearance and text size.
 
-The backend is a NestJS modular monolith with tenant-scoped PostgreSQL transactions, Supabase JWT authentication, membership/branch restrictions, optimistic order versions, a shared order kernel/payment ledger and transactional outbox. Web and iPad read the same records. No native schema or server fork is introduced. Local encrypted files hold disposable caches and durable unsubmitted/recovery operations only.
+The backend is a NestJS modular monolith with tenant-scoped PostgreSQL transactions, Supabase JWT authentication, membership/branch restrictions, optimistic order versions, a shared order kernel/payment ledger and transactional outbox. Web and iPad read the same records. No native schema or server fork is introduced. Storage namespaces use a deterministic length-prefix encoding of environment, user, restaurant and branch before hashing, independent of JSON key order. Local encrypted files hold disposable caches and durable unsubmitted/recovery operations only.
 
 ## Execution sequence and next work
 

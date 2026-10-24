@@ -101,7 +101,7 @@ import CryptoKit
         generation = UUID(); draftID = UUID(); self.branch = branch; fulfillment = branch.acceptsPickup ? "pickup" : (branch.acceptsDineIn ? "dine_in" : "delivery"); customerId = nil; customerName = nil; reservations = []; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
         menu = nil; layout = nil; live = nil; orders = []; historyOrders = []; nextCursor = nil; tickets = []; pending = []; financial = nil; lastRefresh = nil
         guard let scope, let configuration, let api else { return }
-        let hash = SHA256.hash(data: try JSONEncoder().encode(scope)).map { String(format: "%02x", $0) }.joined()
+        let hash = SHA256.hash(data: Data(scope.storageIdentity.utf8)).map { String(format: "%02x", $0) }.joined()
         let namespace = configuration.namespace + "." + hash
         cache = try EncryptedStore(name: "workspace", namespace: namespace)
         draft = try EncryptedStore(name: "draft", namespace: namespace)

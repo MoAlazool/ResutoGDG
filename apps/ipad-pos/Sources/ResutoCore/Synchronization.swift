@@ -2,6 +2,10 @@ import Foundation
 
 public struct Scope: Codable, Equatable, Sendable {
     public let environment: String; public let userId: String; public let orgId: String; public let branchId: String
+    /// Length-prefix UTF-8 fields: independent of JSON/dictionary ordering and delimiter contents.
+    public var storageIdentity: String {
+        [environment, userId, orgId, branchId].map { "\($0.utf8.count):\($0)" }.joined()
+    }
     public init(environment: String, userId: String, orgId: String, branchId: String) { self.environment = environment; self.userId = userId; self.orgId = orgId; self.branchId = branchId }
 }
 public enum SyncState: String, Codable, Sendable {
