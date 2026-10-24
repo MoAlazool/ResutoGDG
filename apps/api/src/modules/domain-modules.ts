@@ -24,6 +24,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { SearchModule } from './search/search.module';
 import { StudioModule } from './studio/studio.module';
 
 export const DOMAIN_MODULES: Type[] = [
@@ -50,5 +51,6 @@ export const DOMAIN_MODULES: Type[] = [
   OrdersModule,
   PaymentsModule,
   ReservationsModule,
+  SearchModule,
   StudioModule,
 ];
