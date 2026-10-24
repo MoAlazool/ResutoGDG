@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-24",
+  "scope": "Unauthenticated read-only health and access rejection; not an authenticated POS lifecycle",
+  "results": [
+    {
+      "route": "/health",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "db": {
+          "latencyMs": 10
+        },
+        "version": "0.1.0",
+        "environment": "staging",
+        "paymentMode": "sandbox",
+        "build": {
+          "commit": "5c359d5c73e861634c3e289488579df9ef0d02f9",
+          "branch": "claude/relaxed-mayer-omkl3f",
+          "builtAt": "2026-10-24T14:26:24.000Z",
+          "startedAt": "2026-10-24T19:00:04.135Z"
+        }
+      }
+    },
+    {
+      "route": "/me",
+      "status": 401,
+      "body": {
+        "error": {
+          "code": "unauthorized",
+          "message": "Sign in to continue",
+          "requestId": "53cb8ee5-01c7-44cd-b03e-9b1478df9482"
+        }
+      }
+    },
+    {
+      "route": "/o/00000000-0000-4000-8000-000000000000/orders",
+      "status": 401,
+      "body": {
+        "error": {
+          "code": "unauthorized",
+          "message": "Sign in to continue",
+          "requestId": "d106dc8c-6060-4a69-9170-33343da1581e"
+        }
+      }
+    }
+  ]
+}

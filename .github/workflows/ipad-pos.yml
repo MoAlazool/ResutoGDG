@@ -1,0 +1,55 @@
+name: Native iPad POS
+on:
+  push:
+    branches: [feature/ipad-pos, 'codex/ipad-pos-*']
+    paths: ['apps/ipad-pos/**', '.github/workflows/ipad-pos.yml', 'packages/contracts/src/**', 'docs/api/openapi.json']
+  pull_request:
+    branches: [feature/ipad-pos]
+    paths: ['apps/ipad-pos/**', '.github/workflows/ipad-pos.yml', 'packages/contracts/src/**', 'docs/api/openapi.json']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ipad-pos-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Report selected Apple toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcrun simctl list devices available
+      - name: Verify generated sources and API contracts
+        run: |
+          python3 apps/ipad-pos/scripts/generate_permissions.py
+          python3 apps/ipad-pos/scripts/generate_project.py
+          python3 apps/ipad-pos/scripts/check_contracts.py
+          git diff --exit-code -- apps/ipad-pos
+      - name: Test portable core
+        working-directory: apps/ipad-pos
+        run: swift test --parallel
+      - name: Select an installed iPad simulator
+        run: |
+          python3 - <<'PY'
+          import json, subprocess, os
+          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devices','available','-j']))['devices']
+          ipads=[d for runtime,group in devices.items() if 'iOS' in runtime for d in group if 'iPad' in d['name'] and d.get('isAvailable')]
+          if not ipads: raise SystemExit('No available iPad simulator; inspect toolchain inventory above')
+          with open(os.environ['GITHUB_ENV'],'a') as f: f.write('IPAD_UDID='+ipads[0]['udid']+'\n')
+          PY
+      - name: Build and run native UI tests
+        run: |
+          set -o pipefail
+          xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination "platform=iOS Simulator,id=$IPAD_UDID" -derivedDataPath apps/ipad-pos/DerivedData -resultBundlePath apps/ipad-pos/NativeResults.xcresult CODE_SIGNING_ALLOWED=NO test | tee apps/ipad-pos/xcodebuild.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: native-ipad-results
+          path: |
+            apps/ipad-pos/*.xcresult
+            apps/ipad-pos/xcodebuild.log
+          if-no-files-found: warn

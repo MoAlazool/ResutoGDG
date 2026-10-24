@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "version_conflict",
+    "message": "Order changed",
+    "requestId": "request-42"
+  }
+}

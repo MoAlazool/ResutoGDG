@@ -1,0 +1,22 @@
+{
+  "branchId": "22222222-2222-4222-8222-222222222222",
+  "revision": 1,
+  "width": 1000,
+  "height": 800,
+  "tables": [
+    {
+      "id": "table",
+      "label": "T1",
+      "capacity": 4,
+      "zone": null,
+      "shape": "round",
+      "cx": 200,
+      "cy": 200,
+      "width": 90,
+      "height": 90,
+      "rotation": 0,
+      "status": "available",
+      "version": 0
+    }
+  ]
+}
