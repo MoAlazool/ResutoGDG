@@ -475,6 +475,43 @@ export class ReservationsService {
     });
   }
 
+  /**
+   * Change-set op `reservation.create` (21-MCP): whether a confirmed staff booking can be made, without writing. The
+   * same rules as the day book (opening hours, 180 days ahead, a free table for the party); the insert re-checks them
+   * and the exclusion constraint stays the final arbiter.
+   */
+  async checkStaffBooking(tx: Tx, ctx: TenantContext, b: { branchId: string; tableId?: string; date: string; time: string; partySize: number; durationMinutes?: number }) {
+    ctx.assertBranch(b.branchId);
+    const exists = await tx.maybeOne<{ name: string }>('select name from branches where org_id = $1 and id = $2', [ctx.orgId, b.branchId]);
+    if (!exists) throw notFound('Branch');
+    const slot = await this.slot(tx, b.branchId, b.date, b.time, b.durationMinutes);
+    this.assertBookable(slot);
+    const { tables } = await this.evaluate(tx, slot, b.partySize, []);
+    const table = b.tableId ? tables.find((t) => t.id === b.tableId) : pickTable(tables);
+    if (b.tableId && !table) throw notFound('Table');
+    if (!table || !table.available) {
+      throw conflict('table_unavailable', b.tableId ? 'This table is not available at that time.' : 'No table is available for this party at this time.',
+        { reason: table?.reason ?? 'no_table' });
+    }
+    return { branchName: exists.name, startsAt: slot.startsAt.toISOString(), tz: slot.tz, tableLabel: table.label };
+  }
+
+  /** Change-set op `reservation.create`: a confirmed booking (no deposit) in the change set's transaction. */
+  async createConfirmedTx(tx: Tx, ctx: TenantContext, b: {
+    branchId: string; tableId?: string; date: string; time: string; partySize: number; guestName: string; guestPhone?: string; notes?: string;
+    durationMinutes?: number;
+  }, source: 'mcp' | 'staff') {
+    ctx.assertBranch(b.branchId);
+    const r = await this.insert(tx, ctx, {
+      branchId: b.branchId, tableId: b.tableId ?? null, date: b.date, time: b.time, partySize: b.partySize, guestName: b.guestName,
+      guestPhone: b.guestPhone ?? null, guestEmail: null, notes: b.notes ?? null, features: [], source, status: 'confirmed',
+      durationMinutes: b.durationMinutes, depositOverride: 0,
+    });
+    await this.audit.record(tx, ctx, { action: 'reservation.created', entityType: 'reservation', entityId: r.id, branchId: b.branchId, metadata: { source, deposit: 0 } });
+    const row = await this.load(tx, r.id);
+    return { reservationId: r.id, code: row.code as string, status: row.status as string, startsAt: iso(row.starts_at)!, tableLabel: row.table_label ?? null };
+  }
+
   async update(ctx: TenantContext, id: string, patch: {
     tableId?: string | null; date?: string; time?: string; partySize?: number; guestName?: string; guestPhone?: string | null; notes?: string | null; durationMinutes?: number;
   }) {

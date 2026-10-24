@@ -1,7 +1,7 @@
 // FT-17 read tools: menu (ids for update_product_availability), finance P&L (the finance module's own computation),
 // payments (read-only, masked), delivery status, and query_data: a bounded, schema-based query compiled from fixed SQL
 // fragments. No input string ever becomes SQL text; values are bound parameters.
-import { ORDER_STATUSES, QUERY_DATASETS, type QueryDataset } from '@resuto/contracts';
+import { ORDER_STATUSES, QUERY_DATASETS, untrusted, type QueryDataset } from '@resuto/contracts';
 import { DomainError } from '../../../common/errors/domain-error';
 import type { Tx } from '../../../common/db/db.service';
 import type { TenantContext } from '../../../common/auth/context';
@@ -203,7 +203,7 @@ export const dataTools: McpTool[] = [
       return {
         items: page.map((j) => ({
           id: j.id, orderId: j.order_id, orderNumber: j.number, branchId: j.branch_id, status: j.status,
-          driverName: pii ? j.driver ?? null : maskName(j.driver), area: j.area ?? null, city: j.city ?? null, distanceM: j.distance_m ?? null,
+          driverName: pii ? j.driver ?? null : maskName(j.driver), area: untrusted(j.area), city: untrusted(j.city), distanceM: j.distance_m ?? null,
           etaAt: iso(j.eta_at), codAmountMinor: Number(j.cod_amount_minor), cashStatus: j.cash_status, createdAt: iso(j.created_at)!,
           assignedAt: iso(j.assigned_at), pickedUpAt: iso(j.picked_up_at), deliveredAt: iso(j.delivered_at), failureReason: j.failure_reason ?? null,
         })),

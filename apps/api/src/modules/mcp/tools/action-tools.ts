@@ -37,6 +37,26 @@ async function productAtBranch(tx: Tx, ctx: TenantContext, productId: string, br
   return row as { name: string; branch_name: string; available: boolean };
 }
 
+/** update_product_availability and its alias toggle_availability share one definition. */
+const availability = (description: string): Parameters<typeof defineTool<'update_product_availability'>>[1] => ({
+  description,
+  available: (ports) => !!ports.menuAvailability,
+  async preview(tx, ctx, input) {
+    const p = await productAtBranch(tx, ctx, input.productId, input.branchId);
+    const word = (v: boolean) => (v ? 'available' : 'unavailable');
+    return {
+      summary: `Mark "${p.name}" as ${word(input.available)} at ${p.branch_name}`,
+      changes: [{ label: `Availability at ${p.branch_name}`, before: word(p.available), after: word(input.available) }],
+      facts: [{ label: 'Product', value: p.name }, ...(input.reason ? [{ label: 'Reason', value: input.reason }] : [])],
+    };
+  },
+  async handler(tx, ctx, input, ports) {
+    const port = requirePort(ports.menuAvailability, 'Menu availability');
+    await productAtBranch(tx, ctx, input.productId, input.branchId);
+    return port.setAvailability(tx, ctx, { productId: input.productId, branchId: input.branchId, available: input.available, reason: input.reason ?? null, source: 'mcp' });
+  },
+});
+
 export const actionTools: McpTool[] = [
   defineTool('create_customer_segment', {
     description: 'Create a customer segment as a draft in Resuto Marketing (source "mcp"). Creating a segment never contacts anyone.',
@@ -111,22 +131,7 @@ export const actionTools: McpTool[] = [
     },
   }),
 
-  defineTool('update_product_availability', {
-    description: 'SENSITIVE — asks a human to approve marking a menu product available or unavailable at one branch. Returns an approval id; nothing changes until approved.',
-    available: (ports) => !!ports.menuAvailability,
-    async preview(tx, ctx, input) {
-      const p = await productAtBranch(tx, ctx, input.productId, input.branchId);
-      const word = (v: boolean) => (v ? 'available' : 'unavailable');
-      return {
-        summary: `Mark "${p.name}" as ${word(input.available)} at ${p.branch_name}`,
-        changes: [{ label: `Availability at ${p.branch_name}`, before: word(p.available), after: word(input.available) }],
-        facts: [{ label: 'Product', value: p.name }, ...(input.reason ? [{ label: 'Reason', value: input.reason }] : [])],
-      };
-    },
-    async handler(tx, ctx, input, ports) {
-      const port = requirePort(ports.menuAvailability, 'Menu availability');
-      await productAtBranch(tx, ctx, input.productId, input.branchId);
-      return port.setAvailability(tx, ctx, { productId: input.productId, branchId: input.branchId, available: input.available, reason: input.reason ?? null, source: 'mcp' });
-    },
-  }),
+  defineTool('update_product_availability', availability('SENSITIVE — asks a human to approve marking a menu product available or unavailable at one branch. Returns an approval id; nothing changes until approved.')),
+  // 21-MCP: the plan's name for the same action (same input, approval and change set).
+  defineTool('toggle_availability', availability('SENSITIVE — same as update_product_availability (alias): asks a human to approve marking a menu product available or unavailable at one branch.')),
 ];

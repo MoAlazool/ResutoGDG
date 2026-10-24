@@ -1,12 +1,16 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { CHANGE_OP_TYPES, type ChangeOpType } from '@resuto/contracts';
 import { CAMPAIGN_SEND_PORT, CHECKOUT_PORT, MENU_AVAILABILITY_PORT, type CampaignSendPort, type CheckoutPort, type MenuAvailabilityPort } from '../kernel/ports';
+import { AuditService } from '../../common/platform/audit.service';
+import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { PromotionsService } from '../marketing/promotions.service';
 import { MenuService } from '../menu/menu.service';
+import { ReservationsService } from '../reservations/reservations.service';
 import { StudioService } from '../studio/studio.service';
 import type { OpHandler } from './op-handler';
 import { effectOps } from './ops/effect.ops';
 import { menuOps } from './ops/menu.ops';
+import { operationsOps } from './ops/operations.ops';
 import { promotionOps } from './ops/promotion.ops';
 import { websiteOps } from './ops/website.ops';
 
@@ -23,6 +27,9 @@ export class ChangeOpRegistry {
     menu: MenuService,
     promotions: PromotionsService,
     studio: StudioService,
+    reservations: ReservationsService,
+    kernel: OrdersKernelService,
+    audit: AuditService,
     @Optional() @Inject(MENU_AVAILABILITY_PORT) availability?: MenuAvailabilityPort | null,
     @Optional() @Inject(CAMPAIGN_SEND_PORT) campaignSend?: CampaignSendPort | null,
     @Optional() @Inject(CHECKOUT_PORT) checkout?: CheckoutPort | null,
@@ -32,6 +39,7 @@ export class ChangeOpRegistry {
       ...promotionOps({ promotions }),
       ...websiteOps({ studio }),
       ...effectOps({ campaignSend: () => campaignSend ?? null, checkout: () => checkout ?? null }),
+      ...operationsOps({ reservations, kernel, audit }),
     ];
     this.handlers = new Map(all.map((h) => [h.type, h]));
     const missing = CHANGE_OP_TYPES.filter((t) => !this.handlers.has(t));

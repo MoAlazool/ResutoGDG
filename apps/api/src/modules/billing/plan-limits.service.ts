@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { DowngradeViolation } from '@resuto/contracts';
+import { USAGE_LIMIT_FOR, type DowngradeViolation } from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { DomainError } from '../../common/errors/domain-error';
 import { startOfMonth, UsageService } from './usage.service';
@@ -59,6 +59,27 @@ export class PlanLimitsService {
           ? 'Resuto Intelligence is not included in this plan. Upgrade to use AI features.'
           : `This restaurant's plan allows ${cap} AI requests per month and they have been used. Upgrade or wait for the next billing period.`,
         402, { limit: 'ai_requests_per_month', current: used, allowed: cap });
+    }
+  }
+
+  /**
+   * Monthly MCP tool-call quota (`plans.limits.mcp_calls_per_month`, USAGE_LIMIT_FOR.mcp_calls) for the current billing
+   * period, counted from metered `mcp_calls` usage rows (successful calls and approval requests). Throws 402
+   * `plan_limit_reached` with `limit: 'mcp_calls_per_month'` once the cap is used. No plan seeds this limit today, so
+   * it is unlimited until a limit is configured (plan §7: limits are set by the owner, never invented here).
+   */
+  async assertMcpQuota(tx: Tx, orgId: string): Promise<void> {
+    const { limits, periodStart } = await this.current(tx, orgId);
+    const cap = limits[USAGE_LIMIT_FOR.mcp_calls!];
+    if (cap === undefined || cap === null) return;
+    const from = periodStart ?? startOfMonth(new Date());
+    const used = await this.usage.total(tx, orgId, 'mcp_calls', from);
+    if (used + 1 > cap) {
+      throw new DomainError('plan_limit_reached',
+        cap === 0
+          ? 'AI assistant connections (MCP) are not included in this plan. Upgrade to use them.'
+          : `This restaurant's plan allows ${cap} AI assistant (MCP) calls per month and they have been used. Upgrade or wait for the next billing period.`,
+        402, { limit: 'mcp_calls_per_month', current: used, allowed: cap });
     }
   }
 

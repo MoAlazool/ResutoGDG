@@ -114,7 +114,7 @@ describe('menu, finance, payments and delivery tools', () => {
     const c = await client();
     const res = await call(c.key, 'list_delivery_jobs');
     expect(res.status).toBe(200);
-    expect(res.body.output.items).toEqual([expect.objectContaining({ orderId: orders[2], status: 'unassigned', area: 'Zamalek', city: 'Cairo', distanceM: 2300, codAmountMinor: 4500 })]);
+    expect(res.body.output.items).toEqual([expect.objectContaining({ orderId: orders[2], status: 'unassigned', area: { untrusted: true, text: 'Zamalek' }, city: { untrusted: true, text: 'Cairo' }, distanceM: 2300, codAmountMinor: 4500 })]);
     expect(JSON.stringify(res.body)).not.toMatch(/Nile Street|\+2010/);
     expect((await call(c.key, 'list_delivery_jobs', { status: ['delivered'] })).body.output.items).toEqual([]);
   });

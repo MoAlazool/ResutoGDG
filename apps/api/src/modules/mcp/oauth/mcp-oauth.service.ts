@@ -285,12 +285,14 @@ export class McpOAuthService {
     const result = await this.db.scoped(ctx, async (tx) => {
       const r = r0;
       if (r.status !== 'pending') throw new DomainError('oauth_request_closed', `This authorization request is ${r.status}. Start again from your AI client.`, 409);
-      const permitted = new Set(scopesToTools(r.scopes));
-      const tools = [...new Set(input.allowedTools)];
-      if (!tools.length || tools.some((tl) => !permitted.has(tl))) {
+      const permitted = new Set<string>(scopesToTools(r.scopes));
+      const tools = [...new Set(input.allowedTools ?? [])];
+      if ((!tools.length && !input.groups?.length) || tools.some((tl) => !permitted.has(tl))) {
         throw new DomainError('invalid_input', `Only tools covered by the requested scopes (${r.scopes.join(' ')}) can be allowed`, 400);
       }
-      const created = await this.clients.createInTx(tx, ctx, { ...input, name: (input.name ?? r.client_name).slice(0, 80), allowedTools: tools } as CreateMcpClient, r.client_id);
+      // Permission groups (21-MCP) contribute only the tools the requested scopes cover.
+      const created = await this.clients.createInTx(tx, ctx, { ...input, name: (input.name ?? r.client_name).slice(0, 80), allowedTools: tools } as CreateMcpClient,
+        r.client_id, permitted);
       await this.audit.record(tx, ctx, { action: 'mcp.oauth.consented', entityType: 'mcp_client', entityId: created.id,
         metadata: { oauthClientId: r.client_id, clientName: r.client_name, scopes: r.scopes, resource: r.resource, redirectHost: new URL(r.redirect_uri).host } });
       return { r, mcpClientId: created.id };

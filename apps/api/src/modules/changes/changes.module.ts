@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ReservationsModule } from '../reservations/reservations.module';
 import { StudioModule } from '../studio/studio.module';
 import { ChangePoliciesController, ChangesController } from './changes.controller';
 import { ChangesJobs } from './changes.jobs';
@@ -11,7 +12,7 @@ import { ChangeOpRegistry } from './op-registry';
  * CHECKOUT / CAMPAIGN_SEND / MENU_AVAILABILITY ports come from global modules; StudioService from StudioModule.
  */
 @Module({
-  imports: [StudioModule],
+  imports: [StudioModule, ReservationsModule],
   controllers: [ChangesController, ChangePoliciesController],
   providers: [ChangeOpRegistry, ChangesService, ChangesJobs],
   exports: [ChangesService],

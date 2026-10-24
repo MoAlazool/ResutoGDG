@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  CHANGE_OP_GROUPS, CHANGE_OPS, CHANGE_SET_OPEN, CHANGE_SET_TTL_HOURS, DEFAULT_CHANGE_POLICIES,
+  CHANGE_OP_GROUPS, CHANGE_OPS, CHANGE_SET_OPEN, CHANGE_SET_TTL_HOURS, CHANGE_SET_TTL_MAX_HOURS, CHANGE_SET_TTL_MIN_HOURS, DEFAULT_CHANGE_POLICIES,
+  stricterMode,
   type ChangeAuditEntry, type ChangeOpGroup, type ChangeOpType, type ChangeOrigin, type ChangePolicy, type ChangePolicyMode,
   type ChangePolicyUpdate, type ChangePolicyView, type ChangeSetDecision, type ChangeSetStatus, type ChangeSetSummary, type ChangeSetView,
   type ChangeSetsQuery, type Page, type Role,
@@ -32,10 +33,21 @@ export interface ProposeRequest {
 export interface ProposeOptions {
   /** The least strict mode the caller accepts (MCP sensitive tools: 'approval'). */
   floor?: ChangePolicyMode;
+  /** Per policy group, the least strict mode the caller accepts (an MCP connection's stricter overrides, 21-MCP). */
+  groupFloors?: Partial<Record<ChangeOpGroup, ChangePolicyMode>>;
+  /** Approval window; by default the shortest `ttlHours` of the policy groups that need approval (24 hours). */
   ttlHours?: number;
   mcpClientId?: string | null;
+  /** The MCP tool that proposed the set (call log entry when it is applied after an approval). */
+  sourceTool?: string | null;
   /** Raise the change_set.approval_requested event (MCP notifies through its own event). Default true. */
   notify?: boolean;
+}
+
+/** What a proposal would do, without storing anything (MCP `previewOnly`). */
+export interface ProposalPreview {
+  policy: { mode: ChangePolicyMode; approvalsRequired: number; requiresOwner: boolean; groups: Partial<Record<ChangeOpGroup, ChangePolicyMode>>; ttlHours: number | null };
+  ops: Array<{ type: ChangeOpType; title: string; titleAr: string; group: ChangeOpGroup; summary: string; changes: OpPreview['changes']; before: unknown; after: unknown }>;
 }
 
 export interface StatusInfo {
@@ -53,6 +65,11 @@ export interface StatusInfo {
  */
 export interface ChangeSetOriginAdapter {
   onStatus(tx: Tx, cs: ChangeSetRow, info: StatusInfo): Promise<void>;
+  /**
+   * Whether approve/reject of this set belong to the adapter. Without it they always do; MCP change-set tools (21-MCP)
+   * create sets without an mcp_approvals projection, which the engine decides itself.
+   */
+  ownsDecision?(ctx: TenantContext, cs: ChangeSetRow): Promise<boolean>;
   approve?(userCtx: TenantContext, cs: ChangeSetRow, body: ChangeSetDecision): Promise<unknown>;
   reject?(userCtx: TenantContext, cs: ChangeSetRow, note: string | null): Promise<unknown>;
   /** Expires the origin's overdue requests (and their change sets) for one tenant. */
@@ -133,34 +150,19 @@ export class ChangesService {
         return { id: existing.id, status: existing.status, replayed: true };
       }
     }
-    for (const p of parsed) {
-      const m = p.handler.meta;
-      if (p.handler.available && !p.handler.available()) throw new DomainError('module_unavailable', `${m.title} is not available in this deployment`, 503);
-      if (!ctx.can(m.permission)) throw forbidden(`Your role (${ctx.role}) cannot propose "${m.title}" (needs ${m.permission})`);
-      await this.entitlements.assert(ctx.orgId, m.module);
-    }
-    const policies = await this.policyMap(tx, ctx.orgId);
-    const groups = [...new Set(parsed.map((p) => p.handler.meta.group))];
-    const blocked = groups.filter((g) => policies[g].mode === 'blocked');
-    if (blocked.length) {
-      throw new DomainError('change_blocked', `This restaurant's approval policy blocks ${blocked.join(', ')} changes`, 403, { groups: blocked });
-    }
-    const ownerAbove = policies.promotions.ownerAboveBps;
-    const requiresOwner = ownerAbove !== null && parsed.some((p) => { const bps = p.handler.discountBps?.(p.input); return bps != null && bps > ownerAbove; });
-    let mode = [...groups.map((g) => policies[g].mode), opts.floor ?? 'auto'].reduce<ChangePolicyMode>((a, b) => (STRICTNESS[b] > STRICTNESS[a] ? b : a), 'auto');
-    if (requiresOwner && mode === 'auto') mode = 'approval';
-    const approvalGroups = groups.filter((g) => policies[g].mode === 'approval');
-    const approvers = mode === 'approval' ? Math.max(1, ...approvalGroups.map((g) => policies[g].approvers)) : 0;
-    const policy = { mode, approvalsRequired: approvers, requiresOwner, groups: Object.fromEntries(groups.map((g) => [g, policies[g].mode])),
-      ownerAboveBps: ownerAbove, floor: opts.floor ?? null };
+    const route = await this.routeFor(tx, ctx, parsed, opts);
+    const { mode, approvers, requiresOwner } = route;
+    const policy = { mode, approvalsRequired: approvers, requiresOwner, groups: route.groups, ownerAboveBps: route.ownerAboveBps,
+      floor: opts.floor ?? null, ...(opts.groupFloors && Object.keys(opts.groupFloors).length ? { groupFloors: opts.groupFloors } : {}),
+      ttlHours: route.ttlHours };
 
     const cs = await tx.one<ChangeSetRow>(
       `insert into change_sets(org_id, origin, actor_type, actor_id, proposed_by, mcp_client_id, actor_scope, title, summary, status, policy,
-          approvals_required, requires_owner, idempotency_key, request_hash)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', $10, $11, $12, $13, $14) returning *`,
+          approvals_required, requires_owner, idempotency_key, request_hash, source_tool)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft', $10, $11, $12, $13, $14, $15) returning *`,
       [ctx.orgId, req.origin, this.actorType(ctx), ctx.actorId, ctx.actorType === 'user' ? ctx.userId : null, opts.mcpClientId ?? null,
         this.scopeOf(ctx), req.title.slice(0, 200), req.summary?.slice(0, 1000) ?? null, policy, approvers, requiresOwner,
-        req.idempotencyKey ?? null, requestHash]);
+        req.idempotencyKey ?? null, requestHash, opts.sourceTool?.slice(0, 80) ?? null]);
     await this.audit.record(tx, ctx, { action: 'change_set.draft', entityType: 'change_set', entityId: cs.id,
       metadata: { origin: req.origin, title: cs.title, opTypes: parsed.map((p) => p.handler.type) } });
 
@@ -184,7 +186,7 @@ export class ChangesService {
     if (mode === 'auto') {
       await this.setStatus(tx, cs, 'approved', { decided_at: 'now()' }, ctx, { reason: 'policy: auto' });
     } else {
-      const ttl = Math.max(1, Math.min(opts.ttlHours ?? CHANGE_SET_TTL_HOURS, 24 * 14));
+      const ttl = route.ttlHours ?? CHANGE_SET_TTL_HOURS;
       await this.setStatus(tx, cs, 'pending_approval', { expires_at: `now() + make_interval(hours => ${ttl})` }, ctx,
         { reason: requiresOwner ? 'policy: approval (owner required)' : 'policy: approval' });
       if (opts.notify !== false) {
@@ -193,6 +195,64 @@ export class ChangesService {
       }
     }
     return { id: cs.id, status: cs.status, replayed: false };
+  }
+
+  /**
+   * The route a proposal takes: every op available, permitted for the proposer and entitled; then the strictest of the
+   * restaurant's policy, the caller's per-group floors (stricter only) and its overall floor. A blocked group refuses the
+   * whole set (403 change_blocked). An offer above the owner threshold needs approval with the owner among the approvers.
+   */
+  private async routeFor(tx: Tx, ctx: TenantContext, parsed: Array<{ handler: OpHandler; input: any }>, opts: ProposeOptions) {
+    for (const p of parsed) {
+      const m = p.handler.meta;
+      if (p.handler.available && !p.handler.available()) throw new DomainError('module_unavailable', `${m.title} is not available in this deployment`, 503);
+      if (!ctx.can(m.permission)) throw forbidden(`Your role (${ctx.role}) cannot propose "${m.title}" (needs ${m.permission})`);
+      await this.entitlements.assert(ctx.orgId, m.module);
+    }
+    const policies = await this.policyMap(tx, ctx.orgId);
+    const groups = [...new Set(parsed.map((p) => p.handler.meta.group))];
+    const effective = Object.fromEntries(groups.map((g) => [g, stricterMode(policies[g].mode, opts.groupFloors?.[g] ?? 'auto')])) as Record<ChangeOpGroup, ChangePolicyMode>;
+    const blocked = groups.filter((g) => effective[g] === 'blocked');
+    if (blocked.length) {
+      const byConnection = blocked.filter((g) => policies[g].mode !== 'blocked');
+      throw new DomainError('change_blocked', byConnection.length === blocked.length
+        ? `This connection's approval settings block ${blocked.join(', ')} changes`
+        : `This restaurant's approval policy blocks ${blocked.join(', ')} changes`, 403, { groups: blocked, ...(byConnection.length ? { byConnection } : {}) });
+    }
+    const ownerAbove = policies.promotions.ownerAboveBps;
+    const requiresOwner = ownerAbove !== null && parsed.some((p) => { const bps = p.handler.discountBps?.(p.input); return bps != null && bps > ownerAbove; });
+    let mode = [...groups.map((g) => effective[g]), opts.floor ?? 'auto'].reduce<ChangePolicyMode>((a, b) => (STRICTNESS[b] > STRICTNESS[a] ? b : a), 'auto');
+    if (requiresOwner && mode === 'auto') mode = 'approval';
+    const approvalGroups = groups.filter((g) => effective[g] === 'approval');
+    const approvers = mode === 'approval' ? Math.max(1, ...approvalGroups.map((g) => policies[g].approvers)) : 0;
+    // The approval window is the shortest one among the groups that asked for the approval (the policy's ttlHours).
+    const windowGroups: ChangeOpGroup[] = approvalGroups.length ? approvalGroups : requiresOwner ? ['promotions'] : groups;
+    const ttlHours = mode === 'approval'
+      ? Math.max(CHANGE_SET_TTL_MIN_HOURS, Math.min(opts.ttlHours ?? Math.min(...windowGroups.map((g) => policies[g].ttlHours)), CHANGE_SET_TTL_MAX_HOURS))
+      : null;
+    return { mode, approvers, requiresOwner, groups: effective, ownerAboveBps: ownerAbove, ttlHours };
+  }
+
+  /** Validates and previews a proposal and reports the route it would take, storing nothing (MCP `previewOnly`). */
+  async dryRun(ctx: TenantContext, req: Pick<ProposeRequest, 'ops'>, opts: ProposeOptions = {}): Promise<ProposalPreview> {
+    const parsed = req.ops.map((op, i) => this.parseOp(op, i));
+    return this.db.scoped(ctx, async (tx) => {
+      const route = await this.routeFor(tx, ctx, parsed, opts);
+      const ops: ProposalPreview['ops'] = [];
+      for (const p of parsed) {
+        await p.handler.validate(tx, ctx, p.input);
+        const snap = await p.handler.snapshot(tx, ctx, p.input, false);
+        const pv = await p.handler.preview(tx, ctx, p.input, snap);
+        ops.push({ type: p.handler.type, title: p.handler.meta.title, titleAr: p.handler.meta.titleAr, group: p.handler.meta.group,
+          summary: pv.summary, changes: pv.changes, before: snap.before, after: pv.after });
+      }
+      return { policy: { mode: route.mode, approvalsRequired: route.approvers, requiresOwner: route.requiresOwner, groups: route.groups, ttlHours: route.ttlHours }, ops };
+    });
+  }
+
+  /** The handler of an op request after schema validation (400 validation_failed with the op path otherwise). */
+  parseRequestOp(op: { type: string; input: unknown }, i = 0) {
+    return this.parseOp(op, i);
   }
 
   private parseOp(op: { type: string; input: unknown }, i: number) {
@@ -328,9 +388,15 @@ export class ChangesService {
   // Decisions
   // -------------------------------------------------------------------------
 
+  private async adapterFor(ctx: TenantContext, cs: ChangeSetRow) {
+    const adapter = this.adapters.get(cs.origin);
+    if (!adapter) return null;
+    return !adapter.ownsDecision || await adapter.ownsDecision(ctx, cs) ? adapter : null;
+  }
+
   async approve(userCtx: TenantContext, id: string, body: ChangeSetDecision, aal: 'aal1' | 'aal2' | null = null) {
     const cs = await this.peek(userCtx, id);
-    const adapter = this.adapters.get(cs.origin);
+    const adapter = await this.adapterFor(userCtx, cs);
     if (adapter?.approve) {
       await adapter.approve(userCtx, cs, body);
       return this.get(userCtx, id);
@@ -403,7 +469,7 @@ export class ChangesService {
 
   async reject(userCtx: TenantContext, id: string, note: string | null) {
     const cs = await this.peek(userCtx, id);
-    const adapter = this.adapters.get(cs.origin);
+    const adapter = await this.adapterFor(userCtx, cs);
     if (adapter?.reject) {
       await adapter.reject(userCtx, cs, note);
       return this.get(userCtx, id);
@@ -706,7 +772,9 @@ export class ChangesService {
     const own = [...this.adapters.entries()].filter(([, a]) => a.expireDue).map(([o]) => o);
     n += await this.db.withTenant(orgId, async (tx) => {
       const due = await tx.query<{ id: string }>(
-        `select id from change_sets where org_id = $1 and status = 'pending_approval' and expires_at <= now() and origin <> all($2::text[]) limit 200`, [orgId, own]);
+        // An origin's own requests (MCP approvals) expire through its adapter; its sets without one (21-MCP change-set tools) expire here.
+        `select cs.id from change_sets cs where cs.org_id = $1 and cs.status = 'pending_approval' and cs.expires_at <= now()
+            and (cs.origin <> all($2::text[]) or not exists (select 1 from mcp_approvals a where a.change_set_id = cs.id)) limit 200`, [orgId, own]);
       let k = 0;
       for (const { id } of due) if (await this.closeTx(tx, orgId, id, 'expired', this.systemCtx(orgId), { reason: 'not decided in time' })) k++;
       return k;
@@ -774,7 +842,9 @@ export class ChangesService {
     return {
       id: cs.id, origin: cs.origin, status: cs.status, title: cs.title, summary: cs.summary ?? null,
       actor: { type: cs.actor_type, id: cs.actor_id, mcpClientId: cs.mcp_client_id ?? null }, proposedBy: cs.proposed_by ?? null,
-      policy: { mode: cs.policy?.mode ?? 'approval', approvalsRequired: cs.approvals_required, requiresOwner: cs.requires_owner, groups: cs.policy?.groups ?? {} },
+      policy: { mode: cs.policy?.mode ?? 'approval', approvalsRequired: cs.approvals_required, requiresOwner: cs.requires_owner, groups: cs.policy?.groups ?? {},
+        ttlHours: cs.policy?.ttlHours ?? null },
+      sourceTool: cs.source_tool ?? null,
       previewDigest: cs.preview_digest ?? null, expiresAt: iso(cs.expires_at), createdAt: iso(cs.created_at)!, updatedAt: iso(cs.updated_at)!,
       decidedBy: cs.decided_by ?? null, decidedAt: iso(cs.decided_at), decisionNote: cs.decision_note ?? null, appliedAt: iso(cs.applied_at),
       error: cs.error ?? null, invalidatedReason: cs.invalidated_reason ?? null,
@@ -831,9 +901,15 @@ export class ChangesService {
       const r = byGroup.get(g);
       const d = DEFAULT_CHANGE_POLICIES[g];
       return [g, r
-        ? { mode: r.mode, approvers: r.approvers, ownerAboveBps: g === 'promotions' ? (r.owner_above_bps ?? d.ownerAboveBps) : null, isDefault: false, updatedAt: iso(r.updated_at) }
+        ? { mode: r.mode, approvers: r.approvers, ownerAboveBps: g === 'promotions' ? (r.owner_above_bps ?? d.ownerAboveBps) : null,
+          ttlHours: r.ttl_hours ?? d.ttlHours, isDefault: false, updatedAt: iso(r.updated_at) }
         : { ...d, isDefault: true, updatedAt: null }];
     })) as Record<ChangeOpGroup, ChangePolicy & { isDefault: boolean; updatedAt: string | null }>;
+  }
+
+  /** The approval window (hours) of one policy group, in the caller's transaction (MCP approval requests, 21-MCP). */
+  async approvalWindowHours(tx: Tx, orgId: string, group: ChangeOpGroup): Promise<number> {
+    return (await this.policyMap(tx, orgId))[group].ttlHours;
   }
 
   async policies(ctx: TenantContext): Promise<{ items: ChangePolicyView[] }> {
@@ -845,11 +921,11 @@ export class ChangesService {
     await this.db.scoped(ctx, async (tx) => {
       const before = (await this.policyMap(tx, ctx.orgId))[group];
       await tx.query(
-        `insert into change_policies(org_id, op_group, mode, approvers, owner_above_bps, updated_by, updated_at) values ($1, $2, $3, $4, $5, $6, now())
-         on conflict (org_id, op_group) do update set mode = $3, approvers = $4, owner_above_bps = $5, updated_by = $6, updated_at = now()`,
-        [ctx.orgId, group, body.mode, body.approvers, group === 'promotions' ? (body.ownerAboveBps ?? null) : null, ctx.userId]);
+        `insert into change_policies(org_id, op_group, mode, approvers, owner_above_bps, ttl_hours, updated_by, updated_at) values ($1, $2, $3, $4, $5, $6, $7, now())
+         on conflict (org_id, op_group) do update set mode = $3, approvers = $4, owner_above_bps = $5, ttl_hours = $6, updated_by = $7, updated_at = now()`,
+        [ctx.orgId, group, body.mode, body.approvers, group === 'promotions' ? (body.ownerAboveBps ?? null) : null, body.ttlHours ?? null, ctx.userId]);
       await this.audit.record(tx, ctx, { action: 'change_policy.updated', entityType: 'change_policy', entityId: group,
-        metadata: { before: { mode: before.mode, approvers: before.approvers, ownerAboveBps: before.ownerAboveBps }, after: body } });
+        metadata: { before: { mode: before.mode, approvers: before.approvers, ownerAboveBps: before.ownerAboveBps, ttlHours: before.ttlHours }, after: body } });
     });
     return (await this.policies(ctx)).items.find((p) => p.group === group)!;
   }

@@ -18,4 +18,12 @@ export class McpJobs {
     if (n) this.logger.log(`expired ${n} MCP approval request(s)`);
     return n;
   }
+
+  /** 21-MCP: removes MCP sessions that expired or were closed more than an hour ago (sessions are database-backed). */
+  @Scheduled('mcp.sessions_cleanup', 600)
+  async cleanupSessions(): Promise<number> {
+    const rows = await this.db.withPlatform((tx) => tx.query<{ id: string }>(
+      `delete from mcp_sessions where expires_at < now() - interval '1 hour' or closed_at < now() - interval '1 hour' returning id`));
+    return rows.length;
+  }
 }
