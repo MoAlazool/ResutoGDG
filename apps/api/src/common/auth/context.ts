@@ -37,7 +37,24 @@ export type AuthPrincipal = AuthUser | AuthMcpClient | AuthPosDevice;
  * Who is acting, inside which tenant, with which role. Every tenant-scoped
  * service method receives one of these; it is the only way to reach tenant data.
  */
+export interface TenantContextOptions {
+  /**
+   * A second role whose permissions bound this context's (contract 0.2.0): a staff member signed in on a paired POS
+   * device may do only what both their own role and the device's acting role allow. Absent = no ceiling.
+   */
+  ceilingRole?: Role;
+  /**
+   * The POS device the request came through (21-POSAPI). Set for device contexts and for staff sessions on a device,
+   * where actorId is the staff user: device-owned records (pos_order_submissions.device_id, print-job claims, the
+   * device's session) use this, never actorId.
+   */
+  deviceId?: string;
+}
+
 export class TenantContext {
+  readonly ceilingRole?: Role;
+  readonly deviceId?: string;
+
   constructor(
     readonly orgId: string,
     readonly role: Role,
@@ -47,14 +64,29 @@ export class TenantContext {
     readonly actorType: 'user' | 'mcp_client' | 'system' | 'guest' | 'driver' | 'device',
     readonly actorId: string,
     readonly source: 'api' | 'mcp' | 'worker' | 'webhook' | 'web' = 'api',
-  ) {}
+    options: TenantContextOptions = {},
+  ) {
+    if (options.ceilingRole) this.ceilingRole = options.ceilingRole;
+    if (options.deviceId) this.deviceId = options.deviceId;
+  }
 
+  /** The role grants the permission and, when there is a ceiling, so does the ceiling role. */
   can(permission: Permission): boolean {
-    return ROLE_PERMISSIONS[this.role].includes(permission);
+    return ROLE_PERMISSIONS[this.role].includes(permission)
+      && (this.ceilingRole === undefined || ROLE_PERMISSIONS[this.ceilingRole].includes(permission));
+  }
+
+  /** Every permission this context has (the role's, bounded by the ceiling), in the matrix's order. */
+  get permissions(): Permission[] {
+    return ROLE_PERMISSIONS[this.role].filter((p) => this.can(p));
   }
 
   require(permission: Permission): void {
-    if (!this.can(permission)) throw forbidden(`Your role (${this.role}) cannot perform ${permission}`);
+    if (this.can(permission)) return;
+    if (this.ceilingRole && ROLE_PERMISSIONS[this.role].includes(permission)) {
+      throw forbidden(`This device (acting as ${this.ceilingRole}) cannot perform ${permission}`);
+    }
+    throw forbidden(`Your role (${this.role}) cannot perform ${permission}`);
   }
 
   canAccessBranch(branchId: string | null | undefined): boolean {
