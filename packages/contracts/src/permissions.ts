@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   'analytics:read', 'ai:use',
   'integrations:manage',
   'mcp:manage', 'mcp:approve',
+  // 21-POSAPI: pair, list and revoke native POS devices (owner, admin, manager).
+  'devices:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

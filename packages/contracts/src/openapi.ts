@@ -81,6 +81,8 @@ export function baseComponents() {
     },
     securitySchemes: {
       bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Supabase Auth access token (staff), or an MCP key on /mcp routes.' },
+      posDeviceAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'rpos_ device credential',
+        description: 'Paired POS device credential (POST /v1/pos/pair). Accepted only on the POS device routes (/v1/pos/...).' },
     },
   };
 }
