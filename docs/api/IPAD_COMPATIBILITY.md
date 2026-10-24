@@ -5,8 +5,9 @@ every route and event the app needs, its status, the contract version that intro
 it. **Keep this file current on every API change that touches these routes**: `apps/api/test/pos-flow.test.ts` fails
 when a POS route is served but not listed here, or listed here but not served.
 
-- Contract version: **0.1.0** (`POS_CONTRACT_VERSION` in `packages/contracts/src/pos.ts`; also returned by
-  `GET /v1/pos/session` and `POST /v1/pos/pair`).
+- Contract version: **0.2.0** (`POS_CONTRACT_VERSION` in `packages/contracts/src/pos.ts`; also returned by
+  `GET /v1/pos/session` and `POST /v1/pos/pair`). 0.2.0 is additive over 0.1.0: staff sessions on a device, the
+  `requireStaff` pairing option and order reconciliation by client order id. A 0.1.0 client keeps working unchanged.
 - Schemas: request bodies and queries are zod schemas in `packages/contracts/src/pos.ts` and are published in
   `docs/api/openapi.json` (OpenAPI 3.1). Response shapes are the TypeScript interfaces in the same file (`PosSession`,
   `PosEventPage`, `PosMenuSync`, `PosOrder`, …); OpenAPI does not describe response bodies yet.
@@ -18,8 +19,9 @@ when a POS route is served but not listed here, or listed here but not served.
 ## Auth model
 
 1. A manager (permission `devices:manage`: owner, admin and manager; a branch-scoped manager only for their
-   branches) creates a pairing code for **one branch and one acting role** (`waiter`, `cashier` or `kitchen`):
-   `POST /v1/o/:orgId/pos/pairings` → `{ code: "XXXXX-XXXXX", expiresAt }`. The code is 10 characters of Crockford
+   branches) creates a pairing code for **one branch and one acting role** (`waiter`, `cashier` or `kitchen`),
+   optionally with `requireStaff: true` (0.2.0, below): `POST /v1/o/:orgId/pos/pairings` →
+   `{ code: "XXXXX-XXXXX", expiresAt, requireStaff }`. The code is 10 characters of Crockford
    base32 (50 bits), single use, valid 1–60 minutes (default 10). Only its SHA-256 is stored.
 2. The device sends the code to `POST /v1/pos/pair` (public; case and dashes do not matter; 30 attempts per IP per 10
    minutes) and receives its credential once: `rpos_<43 url-safe characters>` (256 bits). Store it in the Keychain.
@@ -30,14 +32,58 @@ when a POS route is served but not listed here, or listed here but not served.
    permissions (the same matrix as staff, `ROLE_PERMISSIONS`) decide what the device may do; `GET /v1/pos/session`
    lists them.
 4. A device credential works **only** on the device routes below (`403 pos_device_only` elsewhere), and the device
-   routes accept **only** device credentials (`403 pos_device_required` for a staff token).
+   routes accept **only** device credentials as `Authorization` (`403 pos_device_required` for a staff token there).
+   A staff session may be sent **in addition** (0.2.0, "Staff session on a device" below).
 5. Refusals: `401 device_revoked` (a manager unpaired it), `401 device_expired`, `401 unauthorized` (unknown token,
    restaurant suspended or closed, branch deactivated). On `device_revoked` / `device_expired` delete the credential
    and show the pairing screen.
 6. `last_seen_at` is updated at most once a minute. Pairing, pairing codes, revocation and every device action are in
-   the audit log (actor type `device`, actor id = device id). Rate limit: 600 requests per minute per device.
+   the audit log (actor type `device`, actor id = device id; with a staff session the staff member is the actor, see
+   below). Rate limit: 600 requests per minute per device, with or without a staff session.
+
+### Staff session on a device (0.2.0)
+
+The device credential identifies the **device**; it never replaces an employee's permissions. When the app has signed
+an employee in (Supabase password or refresh grant, the same access token the app sends to the staff routes
+`/v1/o/:orgId/...`), every device request may carry it next to the device credential:
+
+```
+Authorization: Bearer rpos_...
+X-Resuto-Staff-Authorization: Bearer <staff access token>
+```
+
+- Accepted on every `/v1/pos/...` route except `POST /v1/pos/pair` (public; the header is ignored there). The token is
+  verified exactly like a staff token on the staff routes (signature, issuer, audience, expiry; anonymous sessions
+  refused).
+- The employee must have an **active membership** of the device's restaurant whose branch scope includes the
+  device's branch. A bad, expired or malformed token (or anything other than `Bearer <access token>`, such as a device
+  credential) is `401 unauthorized`: refresh the session and retry. A valid employee without such a membership
+  (another restaurant, another branch, suspended or removed) is `403 pos_staff_not_allowed`, which never says
+  whether the employee belongs to another restaurant.
+- **Effective permissions = the employee's role ∩ the device's acting role.** The acting role is a ceiling: a manager
+  signed in on a kitchen device cannot submit orders; kitchen staff signed in on a cashier device cannot either. A
+  refused permission is `403 forbidden`. `GET /v1/pos/session` lists the effective permissions and the employee
+  (`staff: { id, email, role }`; `null` without a staff session).
+- The request **acts as the employee** inside the device's branch: the audit log (actor type `user`, actor id = the
+  employee, `metadata.deviceId` = the device), the order timeline and order attribution name the employee. Records
+  that belong to the device keep the device: `pos_order_submissions.device_id`, print-job claims (`claimedBy`), and the
+  device's own session.
+- Order of checks: the device credential first (`device_revoked`, `device_expired`, `unauthorized` win over anything
+  about the staff session), then the rate limit, then the staff session, then the route's permission.
+- Without the header nothing changed from 0.1.0: the device acts as its acting role — unless it was paired with
+  `requireStaff`.
+
+**`requireStaff` devices.** A device paired with `requireStaff: true` answers `401 pos_staff_required` on every device
+route except `GET /v1/pos/session` when the request has no staff session. The session still answers (with
+`requireStaff: true` and `staff: null`) so the app can show its sign-in screen. `requireStaff` is part of the pairing
+response, the device list and detail (`GET /v1/o/:orgId/pos/devices`, `GET /v1/o/:orgId/pos/devices/:id`) and the session; it cannot be changed after
+pairing (pair the device again).
 
 ## Routes
+
+Every `/v1/pos/...` route except `POST /v1/pos/pair` also takes the optional `X-Resuto-Staff-Authorization` header
+(0.2.0); with it the permission column applies to the employee's role within the acting role. Staff-session tests are
+in `apps/api/test/pos-staff.test.ts`.
 
 | Route | Purpose | Permission (acting role) | Status | Since | Tests (`apps/api/test/pos-flow.test.ts`) |
 |---|---|---|---|---|---|
@@ -53,6 +99,7 @@ when a POS route is served but not listed here, or listed here but not served.
 | `GET /v1/pos/sync/orders` | Open orders (full) or orders changed since a cursor (delta) | `orders:read` | draft | 0.1.0 | the kitchen changes the ticket…; answers resync_required… |
 | `POST /v1/pos/orders/quote` | Server pricing of a cart (creates nothing) | `orders:write` | draft | 0.1.0 | the device syncs menu… |
 | `POST /v1/pos/orders` | Submit an order (idempotent by `clientOrderId`) | `orders:write` | draft | 0.1.0 | the device syncs menu…; offline replay and conflicts |
+| `GET /v1/pos/orders/by-client-id/:clientOrderId` | What became of a submit: `accepted` (with the original response), `processing`, or 404 | `orders:read` | draft | 0.2.0 | `pos-staff.test.ts`: durable reconciliation by client order id |
 | `GET /v1/pos/orders/:id` | One order of the branch | `orders:read` | draft | 0.1.0 | payments are captured…; isolation |
 | `POST /v1/pos/orders/:id/transition` | Status change with `version` (required) | `orders:status` | draft | 0.1.0 | concurrent status changes…; payments are captured… |
 | `POST /v1/pos/orders/:id/payments` | Record cash / card terminal / InstaPay (idempotent by `clientPaymentId`) | `payments:collect` | draft | 0.1.0 | payments are captured… |
@@ -124,6 +171,14 @@ other devices) appear, not only the device's own.
 
 ## Order submission and conflict rules
 
+- **Reconciliation (0.2.0).** When a submit's answer was lost (timeout, app killed), ask
+  `GET /v1/pos/orders/by-client-id/:clientOrderId`: `{ state: "accepted", orderId, number, response }` (`response` is
+  the original submit answer as stored when the order was placed) when the order was placed; `{ state: "processing" }` while
+  a submit with that id is still running (ask again in a second); `404 not_found` when it was never accepted — resubmit
+  with the **same** `clientOrderId`, which stays idempotent forever. Any device of the branch (and staff signed in on
+  one) may ask; an id submitted at another branch or restaurant is `404`. Submissions are never deleted by maintenance
+  (no retention job touches `pos_order_submissions`; rows go only with their order, branch or restaurant), so
+  reconciliation works after any offline window.
 - **Client UUIDs.** `clientOrderId` is generated when the order is taken and reused for every retry (offline queue).
   The first successful submit stores its response; a retry with the same id and the same body returns that response
   again with the same status (201) and the header `Idempotent-Replayed: true` — no second order. The same id with a
@@ -195,5 +250,5 @@ other devices) appear, not only the device's own.
 7. **Credential rotation.** Credentials last up to 365 days (configurable at pairing). Do you want a rotate endpoint
    (new credential while the old one is still valid), or is re-pairing enough?
 8. **Push.** The feed is long-poll. Do you need a push channel (APNs silent push or WebSocket) for background wake-up?
-9. **Staff identity on a shared device.** Actions are attributed to the device. Do you need per-waiter PINs on the
-   device so actions are attributed to a staff member?
+9. **Staff identity on a shared device.** Answered in 0.2.0 by the staff session (`X-Resuto-Staff-Authorization`) and
+   `requireStaff`. Open: do you also need a short PIN switch between employees already signed in on the device?
