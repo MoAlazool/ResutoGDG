@@ -6,7 +6,7 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 
 | Area | Implemented | Tested | Verified on Staging | Verified on Real Device | Blocked / remaining |
 |---|---|---|---|---|---|
-| Swift portable core | Yes | 52 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
+| Swift portable core | Yes | 80 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
 | Native SwiftUI app/project | Yes | Xcode 16.4 + 46 core/4 UI passed at `481c191`; expanded workflow CI pending | No | No | Authenticated screens and physical-device acceptance remain |
 | Supabase auth/refresh/Keychain | Yes | Core transport/refresh/session-local logout tests | No | No | Dedicated QA staff account; real-device Keychain checks |
 | Restaurant/branch/role scoping | Yes | Core permission and queue isolation tests | Unauthenticated access rejects 401 | No | Authenticated cross-tenant/branch negative cases |
@@ -23,7 +23,7 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 | AirPrint and LAN raster adapter | Yes, experimental LAN path | Core print-queue tests | N/A | No | Model certification, paper/status/reconnect/Arabic tests |
 | Arabic/English, RTL, Western digits | Yes, central catalogue | Money tests, key-parity check; Arabic launch assertions in UI suite | No | No | Full bilingual visual/accessibility audit and server-error translations |
 | Xcode/macOS Actions workflow | Prepared | Run 40128063055 passed at `481c191`; expanded scenarios/signing fix pending | N/A | N/A | See `docs/evidence/native-ci-be5a528.json` and latest PR checks |
-| Device enrollment/remote revoke | No | No | No | No | Backend contract missing |
+| Paired device / staff permission intersection | Core compatibility adapters; app activation pending | Synthetic dual-credential/revocation/intersection tests pass | No | No | 0.2.0 merge/deployment, pairing UI + shadow acceptance |
 | Native delivery entry/customer lookup/reservations workspace | Yes: delivery addresses, customer lookup/selection, daily reservations/check-in | No | No | No | Customer/reservation workflow acceptance and reservation creation/editing UI remain |
 | Existing order line amendments/table move/merge | No | No | No | No | Shared backend contracts missing |
 | Item/customer bill split | No | No | No | No | Staff split API missing; public guest authority not reused |
@@ -37,3 +37,7 @@ Read-only staging health and unauthenticated security probes passed on 2026-10-2
 New simulator-only contract scenarios cover sign-in/branch selection, ordering/KDS/status/cash/receipt queue, Arabic rotation, encrypted cart relaunch, sold-out controls, dine-in, role denial, EN/AR accessibility descriptions, and lost order/cash responses. They exercise real Keychain/AES adapters with synthetic transport and visible NOT-STAGING labels. Expanded macOS workflow results are pending; no authenticated staging or physical-device claim follows from fixtures.
 
 See `API_DEPENDENCIES.md`, `docs/VERIFICATION.md`, `docs/SECURITY.md`, `docs/HARDWARE.md`, `docs/RELEASE.md`. Do not describe the complete product mission as finished based on these source files or a simulator build alone.
+
+## POS API 0.2.0 preparation
+
+Claude source `1a05443` has draft 0.1.0 and a proposed/in-progress 0.2.0 integration path. New native compatibility code covers separate device/staff credentials, context/permission intersection, typed POS DTOs, permanent-ID quote approval/reconciliation, a durable ordered event journal and read-only shadow snapshots. **Not activated in live SwiftUI routing.** Existing staff flows and encrypted queues remain intact; no automatic migration of previously attempted orders. 80 core tests pass locally; current Xcode CI must pass at the new adapter revision. See `docs/POS_API_MIGRATION.md` for implemented versus pending wiring and final backend gates.

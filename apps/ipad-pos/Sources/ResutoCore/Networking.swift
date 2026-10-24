@@ -127,7 +127,7 @@ public actor APIClient {
             if result.status == 304, let data = cached[cacheKey] { return try JSONDecoder().decode(T.self, from: data) }
             guard (200..<300).contains(result.status) else {
                 let error = try? JSONDecoder().decode(APIErrorEnvelope.self, from: result.data).error
-                throw APIError(status: result.status, code: error?.code ?? "http_error", message: error?.message ?? "request_failed", requestId: error?.requestId, retryAfter: result.headers["retry-after"].flatMap(Double.init))
+                throw APIError(status: result.status, code: error?.code ?? "http_error", message: error?.message ?? "request_failed", requestId: error?.requestId, retryAfter: result.headers["retry-after"].flatMap(Double.init), details: error?.details)
             }
             let decoded = try JSONDecoder().decode(T.self, from: result.data)
             if method == "GET", let tag = result.headers["etag"], result.data.count < 5_000_000 {

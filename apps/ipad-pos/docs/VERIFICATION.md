@@ -2,7 +2,7 @@
 
 ## Executed in this environment
 
-Swift 6.0.3 on Linux compiles `ResutoCore` and `ResutoStagingProbe`; 52 XCTest tests pass locally. `scripts/check_contracts.py` validates the 23 route/method combinations used by the native client/probe against repository OpenAPI, supported staff channel, retry horizon and resource plists. `swiftc -frontend -parse App/*.swift` checks syntax only; it is not an Apple SDK typecheck.
+Swift 6.0.3 on Linux compiles `ResutoCore` and `ResutoStagingProbe`; 80 XCTest tests pass locally. `scripts/check_contracts.py` validates the 23 route/method combinations used by the native client/probe against repository OpenAPI, supported staff channel, retry horizon and resource plists. `swiftc -frontend -parse App/*.swift` checks syntax only; it is not an Apple SDK typecheck.
 
 Read-only staging probes on 2026-10-24: `/v1/health` 200 with `environment=staging`, `paymentMode=sandbox`, database latency and API build `5c359d5c73e861634c3e289488579df9ef0d02f9`; `/v1/me` and protected orders without credentials both 401. Raw non-sensitive evidence is in `evidence/staging-read-only.json`. No authenticated order was created or financial action performed by these probes.
 
@@ -50,5 +50,9 @@ Cold authenticated-ready UI <=2 s excluding network; local catalogue taps/cart u
 
 - Native Swift public-only probe executed against staging: health staging/sandbox and unauthenticated `/me` 401 passed. Evidence: `evidence/native-staging-public.json`. No order/payment mutation was performed.
 - Read-only credential discovery and dedicated QA setup are documented in `STAGING.md`. Authenticated probe compiles but its auth/write lifecycle remains unexecuted. It cannot replace actual browser/UI, inventory, physical-device or provider checks.
-- 52 Linux core tests pass. Large-catalogue estimate was about 0.9 ms per 60-line estimate (1000 products) in the recorded Linux run; this is a core CPU benchmark, not iPad tap/scroll/memory acceptance. Unicode note limits use UTF-16 to match the server's JS validation; checked arithmetic rejects overflow.
+- 80 Linux core tests pass. Large-catalogue estimate was about 0.9 ms per 60-line estimate (1000 products) in the recorded Linux run; this is a core CPU benchmark, not iPad tap/scroll/memory acceptance. Unicode note limits use UTF-16 to match the server's JS validation; checked arithmetic rejects overflow.
 - CI run 40129289426 built but new sign-in workflows exposed Keychain access failure in the unsigned simulator. The subsequent change adds real simulator Keychain entitlements and ad hoc signing; fixture persistence is not substituted to hide the failure. Latest expanded CI run must be checked for the fix and downstream workflow issues.
+
+## Draft POS adapters
+
+The local suite now includes synthetic dual-credential headers, staff refresh, pairing-format/context rejection, device revocation preserving staff auth, staff switching preserving device auth, intersection permissions, feed sequence/epoch/gap/dedupe/unknown-kind handling, checkpoint/projection failures, scope isolation, read-only shadow snapshots, projection-loss recovery, server quote consent, lost-response reconciliation, processing/price-conflict handling and legacy endpoint preservation. These tests do not prove the proposed 0.2.0 backend exists or that real staging guard checks pass. Live activation follows `POS_API_MIGRATION.md` and Claude's integration document.

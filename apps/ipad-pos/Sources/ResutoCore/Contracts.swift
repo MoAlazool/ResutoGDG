@@ -130,11 +130,11 @@ public struct KitchenTicket: Codable, Identifiable, Sendable {
 public struct EmptyResponse: Codable, Sendable {}
 public struct CollectResult: Codable, Sendable { public let paymentId: String; public let amountMinor: Int64; public let paymentStatus: String; public let dueMinor: Int64 }
 public struct APIErrorEnvelope: Decodable, Sendable { public let error: APIErrorBody }
-public struct APIErrorBody: Decodable, Sendable { public let code: String; public let message: String; public let requestId: String? }
+public struct APIErrorBody: Decodable, Sendable { public let code: String; public let message: String; public let requestId: String?; public let details: JSONValue? }
 public struct APIError: Error, LocalizedError, Sendable {
-    public let status: Int; public let code: String; public let message: String; public let requestId: String?; public let retryAfter: TimeInterval?
-    public init(status: Int, code: String, message: String, requestId: String? = nil, retryAfter: TimeInterval? = nil) {
-        self.status = status; self.code = code; self.message = message; self.requestId = requestId; self.retryAfter = retryAfter
+    public let status: Int; public let code: String; public let message: String; public let requestId: String?; public let retryAfter: TimeInterval?; public let details: JSONValue?
+    public init(status: Int, code: String, message: String, requestId: String? = nil, retryAfter: TimeInterval? = nil, details: JSONValue? = nil) {
+        self.status = status; self.code = code; self.message = message; self.requestId = requestId; self.retryAfter = retryAfter; self.details = details
     }
     public var errorDescription: String? { message + (requestId.map { " [\($0)]" } ?? "") }
 }

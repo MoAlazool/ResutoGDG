@@ -5,9 +5,26 @@ final class WorkflowTests: XCTestCase {
     private let product = "11111111-1111-4111-8111-111111111111"
     private let branch = "22222222-2222-4222-8222-222222222222"
     private let order = "33333333-3333-4333-8333-333333333333"
-    private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
+    override func setUp() { super.setUp(); continueAfterFailure = false }
+    private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        let button = app.buttons.matching(identifier:id).firstMatch
+        if button.exists { return button }
+        let toggle = app.switches.matching(identifier:id).firstMatch
+        if toggle.exists { return toggle }
+        return app.descendants(matching:.any).matching(identifier:id).firstMatch
+    }
     private func tap(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) {
-        let target = element(app, id); XCTAssertTrue(target.waitForExistence(timeout: 20), "Missing \(id)\n\(app.debugDescription)", file: file, line: line); target.tap()
+        var target = element(app,id)
+        if !target.waitForExistence(timeout:2) {
+            // SwiftUI Form lazily exposes rows. Scroll the frontmost form rather than assuming all rows exist.
+            for _ in 0..<8 {
+                guard let form = app.collectionViews.allElementsBoundByIndex.last else { break }
+                form.swipeUp(); target = element(app,id)
+                if target.waitForExistence(timeout:1) { break }
+            }
+        }
+        guard target.waitForExistence(timeout:10) else { XCTFail("Missing \(id)\n\(app.debugDescription)",file:file,line:line); return }
+        target.tap()
     }
     private func launch(reset: Bool = true, arabic: Bool = false, role: String = "manager", scenario: String = "normal") throws -> XCUIApplication {
         let app = XCUIApplication()

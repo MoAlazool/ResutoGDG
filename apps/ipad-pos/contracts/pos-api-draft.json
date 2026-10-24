@@ -1,0 +1,86 @@
+{
+  "sourceRevision": "1a0544314d7596dd6b08bb2071755f2e1815195e",
+  "sourceContractVersion": "0.1.0",
+  "status": "draft_not_staging_verified",
+  "staffOnDeviceVersion": "0.2.0_proposed_not_merged",
+  "operations": {
+    "/v1/o/{orgId}/pos/devices": [
+      "get"
+    ],
+    "/v1/o/{orgId}/pos/devices/{id}": [
+      "get"
+    ],
+    "/v1/o/{orgId}/pos/devices/{id}/revoke": [
+      "post"
+    ],
+    "/v1/o/{orgId}/pos/pairings": [
+      "post"
+    ],
+    "/v1/pos/events": [
+      "get"
+    ],
+    "/v1/pos/kitchen/lines/{lineId}": [
+      "post"
+    ],
+    "/v1/pos/kitchen/orders/{id}/bump": [
+      "post"
+    ],
+    "/v1/pos/kitchen/routing": [
+      "get"
+    ],
+    "/v1/pos/kitchen/tickets": [
+      "get"
+    ],
+    "/v1/pos/orders": [
+      "post"
+    ],
+    "/v1/pos/orders/quote": [
+      "post"
+    ],
+    "/v1/pos/orders/{id}": [
+      "get"
+    ],
+    "/v1/pos/orders/{id}/payments": [
+      "post"
+    ],
+    "/v1/pos/orders/{id}/receipt": [
+      "post"
+    ],
+    "/v1/pos/orders/{id}/transition": [
+      "post"
+    ],
+    "/v1/pos/pair": [
+      "post"
+    ],
+    "/v1/pos/print-jobs": [
+      "get"
+    ],
+    "/v1/pos/print-jobs/{id}": [
+      "get"
+    ],
+    "/v1/pos/print-jobs/{id}/claim": [
+      "post"
+    ],
+    "/v1/pos/print-jobs/{id}/complete": [
+      "post"
+    ],
+    "/v1/pos/session": [
+      "get"
+    ],
+    "/v1/pos/sync/floor": [
+      "get"
+    ],
+    "/v1/pos/sync/menu": [
+      "get"
+    ],
+    "/v1/pos/sync/orders": [
+      "get"
+    ]
+  },
+  "proposedOperations": {
+    "/v1/pos/orders/by-client-id/{clientOrderId}": [
+      "get"
+    ]
+  },
+  "sourceOpenAPISHA256": "12de33b068dccfff0704573ef608fde13e19d1e92cb68fccfdbf0bf84f2ea675"
+}

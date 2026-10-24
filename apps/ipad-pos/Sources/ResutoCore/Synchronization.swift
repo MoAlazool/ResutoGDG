@@ -21,9 +21,10 @@ public enum SyncState: String, Codable, Sendable {
 public struct PendingOrder: Codable, Identifiable, Sendable {
     public let id: UUID; public let scope: Scope; public let payload: StaffOrder; public let createdAt: Date
     public var state: SyncState; public var firstAttemptAt: Date?; public var attempts: Int; public var nextAttemptAt: Date
+    public var posQuote: POSQuote?
     public var serverOrderId: String?; public var serverNumber: String?; public var issue: String?
     public init(scope: Scope, payload: StaffOrder, now: Date = Date(), id: UUID = UUID()) {
-        self.id = id; self.scope = scope; self.payload = payload; createdAt = now; state = .local; attempts = 0; nextAttemptAt = now
+        self.id = id; self.scope = scope; self.payload = payload; createdAt = now; posQuote = nil; state = .local; attempts = 0; nextAttemptAt = now
     }
 }
 public protocol DataStore: Sendable {
@@ -37,7 +38,8 @@ public struct RemoteOrderSubmitter: OrderSubmitting {
     public let api: APIClient
     public init(api: APIClient) { self.api = api }
     public func submit(_ operation: PendingOrder) async throws -> OrderAccepted {
-        try await api.post("o/\(operation.scope.orgId)/orders", body: operation.payload, key: operation.id.uuidString)
+        guard operation.posQuote == nil else { throw APIError(status:422,code:"pos_route_required",message:"reconciliation_required") }
+        return try await api.post("o/\(operation.scope.orgId)/orders", body: operation.payload, key: operation.id.uuidString)
     }
 }
 public actor OrderQueue {
@@ -65,6 +67,14 @@ public actor OrderQueue {
         _ = try CartRules.estimate(operations[index].payload, menu: menu)
         var copy = operations; copy[index].state = .queued; copy[index].nextAttemptAt = now; try persist(copy)
     }
+    public func approvePOS(_ id: UUID, scope: Scope, quote: POSQuote, now: Date = Date()) throws {
+        guard let index = operations.firstIndex(where: { $0.id == id && $0.scope == scope }),
+              (operations[index].state == .local && operations[index].firstAttemptAt == nil) ||
+              (operations[index].state == .attention && operations[index].posQuote != nil &&
+               ["pos_price_changed","pos_items_unavailable","invalid_modifiers"].contains(operations[index].issue ?? "")) else { throw RuleError.invalid("invalid_operation") }
+        _ = try POSSubmitBody(id:id,order:operations[index].payload,quote:quote)
+        var copy = operations; copy[index].posQuote = quote; copy[index].issue = nil; copy[index].state = .queued; copy[index].nextAttemptAt = now; try persist(copy)
+    }
     public func retry(_ id: UUID, scope: Scope, now: Date = Date()) throws {
         guard let index = operations.firstIndex(where: { $0.id == id && $0.scope == scope }), operations[index].state == .queued else { throw RuleError.invalid("review_required") }
         var copy = operations; copy[index].nextAttemptAt = now; try persist(copy)
@@ -80,7 +90,7 @@ public actor OrderQueue {
             try Task.checkCancellation()
             guard let index = operations.firstIndex(where: { $0.id == id }) else { continue }
             var operation = operations[index]
-            if !ReplayWindow.permits(createdAt: operation.firstAttemptAt ?? operation.createdAt, now: now) {
+            if now < (operation.firstAttemptAt ?? operation.createdAt) || (operation.posQuote == nil && !ReplayWindow.permits(createdAt: operation.firstAttemptAt ?? operation.createdAt, now: now)) {
                 operation.state = .attention; operation.issue = "retry_window_expired"; try replace(operation); continue
             }
             operation.firstAttemptAt = operation.firstAttemptAt ?? now
