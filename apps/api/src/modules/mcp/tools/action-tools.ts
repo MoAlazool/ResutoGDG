@@ -1,7 +1,10 @@
 // MCP tools that change state. Writes never touch another module's tables
 // directly: they go through that module's port (MODULE_CONTRACTS.md §4/§5).
 // Sensitive tools only *request* an action; a human with mcp:approve approves
-// it in the dashboard and the stored input is then executed exactly once.
+// it in the dashboard and the stored input is then executed exactly once as a
+// change set (modules/changes, 21-CS: MCP_TOOL_OPS in mcp-execution.service.ts).
+// Their preview() is what the approver reviews; their handler() is the same
+// action through the same port and is no longer called after approval.
 import type { TenantContext } from '../../../common/auth/context';
 import type { Tx } from '../../../common/db/db.service';
 import { notFound } from '../../../common/errors/domain-error';
