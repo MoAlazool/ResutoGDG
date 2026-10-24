@@ -1,7 +1,7 @@
 name: Native iPad POS
 on:
   push:
-    branches: [feature/ipad-pos, 'codex/ipad-pos-*']
+    branches: [feature/ipad-pos]
     paths: ['apps/ipad-pos/**', '.github/workflows/ipad-pos.yml', 'packages/contracts/src/**', 'docs/api/openapi.json']
   pull_request:
     branches: [feature/ipad-pos]
@@ -42,6 +42,10 @@ jobs:
           if not ipads: raise SystemExit('No available iPad simulator; inspect toolchain inventory above')
           with open(os.environ['GITHUB_ENV'],'a') as f: f.write('IPAD_UDID='+ipads[0]['udid']+'\n')
           PY
+      - name: Build Release without simulator test fixtures
+        run: |
+          set -o pipefail
+          xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -configuration Release -destination "platform=iOS Simulator,id=$IPAD_UDID" -derivedDataPath apps/ipad-pos/DerivedData CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual AppIdentifierPrefix=RESUTOTEST. build | tee apps/ipad-pos/release-build.log
       - name: Build and run native UI tests
         run: |
           set -o pipefail
@@ -59,5 +63,6 @@ jobs:
           path: |
             apps/ipad-pos/*.xcresult
             apps/ipad-pos/xcodebuild.log
+            apps/ipad-pos/release-build.log
             apps/ipad-pos/ui-artifacts/
           if-no-files-found: warn
