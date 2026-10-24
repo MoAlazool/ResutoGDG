@@ -19,6 +19,7 @@ public protocol ReceiptPrinter: Sendable { func printReceipt(_ receipt: Receipt)
 public actor PrintQueue {
     private let storage: any DataStore
     private var jobs: [PrintJob]
+    private var sending = false
     public init(storage: any DataStore) throws {
         self.storage = storage; jobs = try storage.read().map { try JSONDecoder().decode([PrintJob].self, from: $0) } ?? []
         for index in jobs.indices where jobs[index].state == .sending { jobs[index].state = .uncertain }
@@ -29,6 +30,8 @@ public actor PrintQueue {
     }
     // Physical exactly-once printing cannot be guaranteed. Uncertain jobs require staff confirmation to reprint.
     public func send(_ id: UUID, printer: any ReceiptPrinter, confirmReprint: Bool = false) async throws {
+        guard !sending else { throw RuleError.invalid("printer_busy") }
+        sending = true; defer { sending = false }
         guard let index = jobs.firstIndex(where: { $0.id == id }), jobs[index].state != .sending else { return }
         guard jobs[index].state == .waiting || confirmReprint else { throw RuleError.invalid("confirm_reprint") }
         var copy = jobs; copy[index].state = .sending; try persist(copy)

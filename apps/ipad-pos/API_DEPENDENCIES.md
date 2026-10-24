@@ -1,5 +1,7 @@
 # Native backend dependency report — for Claude
 
+Read-only compatibility check on 2026-10-24: Claude branch `fe93c1d29caa0f8d1f9844fda6976b9f1c993d74` has no differences in `apps/api`, `packages/contracts` or `docs/api/openapi.json` from the baseline. No merge was performed.
+
 Contract baseline: `1746b4f6ee5e03bd0d9c8943b37e680eca057dce`; orders/payments contracts v2. This report proposes changes; none of the proposed routes below are called by the app. Backend ownership remains with Claude. No shared backend, migration, deployment, or infrastructure changes are included.
 
 ## Existing integration, verified from implementation

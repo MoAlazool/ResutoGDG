@@ -49,7 +49,7 @@ struct ReservationsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack { Text(reservation.guestName).font(.headline); Spacer(); Text(l.text(reservation.status)).foregroundStyle(Design.accent) }
                     HStack { Text(reservation.code).monospaced(); Text("\(reservation.partySize) · \(l.text("people"))"); Text(reservation.tableLabel ?? l.text("table")) }.font(.subheadline).foregroundStyle(.secondary)
-                    if let start = ISO8601DateFormatter().date(from: reservation.startsAt) { Text(start, style: .time) }
+                    if let start = ServerDate.parse(reservation.startsAt) { Text(start, style: .time) }
                     if m.can("reservations:write"), ["confirmed", "held"].contains(reservation.status) {
                         Button(l.text("check_in")) { table = reservation.tableId ?? ""; selected = reservation }.disabled(!m.reachable)
                     }

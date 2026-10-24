@@ -220,3 +220,9 @@ final class AuthenticationRaceTests: XCTestCase {
         do { _ = try await auth.token(); XCTFail("Must remain signed out") } catch {}
     }
 }
+final class TimestampTests: XCTestCase {
+    func testBackendFractionalISOTimeAndOffsets() {
+        XCTAssertEqual(ServerDate.parse("2026-10-24T12:00:00.000Z"), ServerDate.parse("2026-10-24T15:00:00+03:00"))
+        XCTAssertNotNil(ServerDate.parse("2026-10-24T12:00:00.123Z")); XCTAssertNil(ServerDate.parse("invalid"))
+    }
+}

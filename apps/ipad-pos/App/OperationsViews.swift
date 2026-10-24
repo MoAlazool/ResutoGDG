@@ -71,7 +71,7 @@ struct OrdersView: View {
     @State private var query = ""
     var body: some View {
         let final: Set<String> = ["served", "picked_up", "delivered", "cancelled"]
-        let orders = m.orders.filter { (history || !final.contains($0.status)) && (query.isEmpty || $0.number.localizedCaseInsensitiveContains(query)) }
+        let orders = (history ? m.historyOrders : m.orders).filter { (history || !final.contains($0.status)) && (query.isEmpty || $0.number.localizedCaseInsensitiveContains(query)) }
         Group {
             if !m.can("orders:read") { EmptyState(key: "permission_denied", symbol: "lock") }
             else {
@@ -87,8 +87,9 @@ struct OrdersView: View {
                             }.padding(.vertical, 12)
                         }.foregroundStyle(.primary).disabled(!m.reachable)
                     }
-                    if m.nextCursor != nil { Button(l.text("more")) { Task { await m.perform { try await m.moreOrders() } } } }
+                    if history && m.nextCursor != nil { Button(l.text("more")) { Task { await m.perform { try await m.moreOrders() } } } }
                 }.searchable(text: $query, prompt: l.text("search_menu"))
+                    .task { if history { await m.perform { try await m.loadHistory(reset: true) } } }
             }
         }
     }

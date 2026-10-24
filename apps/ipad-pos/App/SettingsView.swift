@@ -14,6 +14,7 @@ struct SettingsView: View {
                 Text(m.me?.user.fullName ?? m.me?.user.email ?? "")
                 Text(m.membership?.role ?? "").foregroundStyle(.secondary)
                 Toggle("العربية / English", isOn: $l.arabic)
+                Button(l.text("change_workspace")) { Task { await m.perform { try await m.changeWorkspace() } } }.disabled(!m.reachable)
                 Button(l.text("sign_out"), role: .destructive) { Task { await m.signOut() } }
             }
             Section(l.text("environment")) {

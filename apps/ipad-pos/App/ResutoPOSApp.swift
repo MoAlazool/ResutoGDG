@@ -178,6 +178,12 @@ struct WorkspaceView: View {
                 }.navigationTitle(l.text((selected ?? .pos).rawValue)).navigationBarTitleDisplayMode(.inline)
                     .toolbar { Button { Task { await m.perform { try await m.refresh() } } } label: { Label(l.text("refresh"), systemImage: "arrow.clockwise") }.disabled(!m.reachable).keyboardShortcut("r", modifiers: .command) }
             }
+        }.onAppear {
+            if m.membership?.role == "kitchen" { selected = .kitchen }
+            else if m.can("orders:write") { selected = .pos }
+            else if m.can("floor:read") { selected = .floor }
+            else if m.can("orders:read") { selected = .orders }
+            else { selected = .settings }
         }.sheet(item: $m.detail) { order in OrderView(order: order) }
     }
 }

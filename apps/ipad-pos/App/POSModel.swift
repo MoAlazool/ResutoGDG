@@ -11,6 +11,7 @@ import CryptoKit
     @Published var layout: FloorLayout?
     @Published var live: LiveFloor?
     @Published var orders: [OrderSummary] = []
+    @Published var historyOrders: [OrderSummary] = []
     @Published var tickets: [KitchenTicket] = []
     @Published var pending: [PendingOrder] = []
     @Published var printJobs: [PrintJob] = []
@@ -97,7 +98,7 @@ import CryptoKit
     func choose(_ branch: Branch) async throws {
         guard let membership, membership.allows(branch: branch.id), restaurant?.branches.contains(where: { $0.id == branch.id && $0.isActive }) == true else { throw RuleError.invalid("forbidden") }
         generation = UUID(); self.branch = branch; fulfillment = branch.acceptsPickup ? "pickup" : (branch.acceptsDineIn ? "dine_in" : "delivery"); customerId = nil; customerName = nil; reservations = []; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
-        menu = nil; layout = nil; live = nil; orders = []; tickets = []; pending = []; financial = nil; lastRefresh = nil
+        menu = nil; layout = nil; live = nil; orders = []; historyOrders = []; nextCursor = nil; tickets = []; pending = []; financial = nil; lastRefresh = nil
         guard let scope, let configuration, let api else { return }
         let hash = SHA256.hash(data: try JSONEncoder().encode(scope)).map { String(format: "%02x", $0) }.joined()
         let namespace = configuration.namespace + "." + hash
@@ -132,6 +133,9 @@ import CryptoKit
         let identity: Me = try await api.get("me")
         guard snapshot == generation else { return }
         guard let current = identity.memberships.first(where: { $0.orgId == scope.orgId }), current.allows(branch: scope.branchId) else { throw APIError(status: 403, code: "forbidden", message: "permission_denied") }
+        if let previous = membership, previous.role != current.role || previous.branchIds != current.branchIds {
+            throw APIError(status: 403, code: "permissions_changed", message: "session_expired")
+        }
         membership = current; me = identity
         if can("menu:read") {
             let value: Menu = try await api.get("o/\(scope.orgId)/menu"); guard snapshot == generation else { return }; menu = value
@@ -142,8 +146,12 @@ import CryptoKit
             guard snapshot == generation else { return }; layout = floor; live = status
         }
         if can("orders:read") {
-            let page: Page<OrderSummary> = try await api.get("o/\(scope.orgId)/orders", query: ["branchId": scope.branchId, "limit": "50"])
-            guard snapshot == generation else { return }; orders = page.items; nextCursor = page.nextCursor
+            let page: Page<OrderSummary> = try await api.get("o/\(scope.orgId)/orders", query: ["branchId": scope.branchId, "status": "awaiting_payment,placed,accepted,preparing,ready", "limit": "200"])
+            guard snapshot == generation else { return }; orders = page.items
+            if let visible = detail {
+                let fresh: OrderDetail = try await api.get("o/\(scope.orgId)/orders/\(visible.id)")
+                guard snapshot == generation, fresh.branchId == scope.branchId else { return }; detail = fresh
+            }
         }
         if can("kitchen:operate") {
             let feed: KitchenFeed = try await api.get("o/\(scope.orgId)/kitchen/\(scope.branchId)")
@@ -175,11 +183,18 @@ import CryptoKit
         let _: EmptyResponse = try await api.post("o/\(scope.orgId)/reservations/\(reservation.id)/check-in", body: ["tableId": tableId])
         try await refresh()
     }
-    func moreOrders() async throws {
-        guard let scope, let api, let nextCursor else { return }
-        let page: Page<OrderSummary> = try await api.get("o/\(scope.orgId)/orders", query: ["branchId": scope.branchId, "limit": "50", "cursor": nextCursor])
-        orders += page.items.filter { item in !orders.contains { $0.id == item.id } }; self.nextCursor = page.nextCursor
+    func loadHistory(reset: Bool) async throws {
+        guard let scope, let api, can("orders:read"), reachable else { throw RuleError.invalid("online_required") }
+        let snapshot = generation
+        var query = ["branchId": scope.branchId, "limit": "50"]
+        if !reset { guard let nextCursor else { return }; query["cursor"] = nextCursor }
+        let page: Page<OrderSummary> = try await api.get("o/\(scope.orgId)/orders", query: query)
+        guard snapshot == generation else { return }
+        if reset { historyOrders = page.items }
+        else { historyOrders += page.items.filter { item in !historyOrders.contains { $0.id == item.id } } }
+        nextCursor = page.nextCursor
     }
+    func moreOrders() async throws { try await loadHistory(reset: false) }
     @discardableResult func saveOrder() async throws -> UUID {
         guard can("orders:write"), let order = draftOrder, let menu, let scope, let queue else { throw RuleError.invalid("permission_denied") }
         _ = try CartRules.estimate(order, menu: menu)
@@ -261,6 +276,7 @@ import CryptoKit
         // Manual cash only. No offline capture and no automatic financial replay.
         let _: CollectResult = try await api.post("o/\(scope.orgId)/orders/\(order.id)/collect", body: CashCollection(amountMinor: amount, method: "cash"), key: intent.key)
         try financialStore!.write(JSONEncoder().encode(Optional<FinancialIntent>.none)); financial = nil
+        detail = nil // Never keep an actionable checkout with stale due after an acknowledged collection.
         try await openOrder(order.id); try await refresh()
     }
     func recoverFinancial() async throws {
@@ -300,12 +316,17 @@ import CryptoKit
         do { try await prints.send(job.id, printer: printer, confirmReprint: reprint); printJobs = await prints.list() }
         catch { printJobs = await prints.list(); throw error }
     }
+    func changeWorkspace() async throws {
+        guard reachable else { throw RuleError.invalid("online_required") }
+        persistDraft(); generation = UUID(); clearWorkspace(); membership = nil; restaurant = nil
+        await api?.clearCache(); try await loadIdentity()
+    }
     func signOut() async {
         generation = UUID(); try? await auth?.signOut(); await api?.clearCache(); me = nil; membership = nil; restaurant = nil; clearWorkspace()
     }
     private func clearWorkspace() {
         customerId = nil; customerName = nil; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; reservations = []
-        branch = nil; menu = nil; layout = nil; live = nil; orders = []; tickets = []; pending = []; cart = []; printJobs = []; detail = nil
+        branch = nil; menu = nil; layout = nil; live = nil; orders = []; historyOrders = []; nextCursor = nil; tickets = []; pending = []; cart = []; printJobs = []; detail = nil
         selectedTable = nil; notes = ""; promotion = ""; queue = nil; prints = nil; cache = nil; draft = nil; financialStore = nil; financial = nil; lastRefresh = nil; cacheDate = nil
     }
 }

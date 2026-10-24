@@ -6,7 +6,7 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 
 | Area | Implemented | Tested | Verified on Staging | Verified on Real Device | Blocked / remaining |
 |---|---|---|---|---|---|
-| Swift portable core | Yes | 41 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
+| Swift portable core | Yes | 42 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
 | Native SwiftUI app/project | Yes | Syntax parsed; macOS CI pending | No | No | Xcode/simulator evidence required |
 | Supabase auth/refresh/Keychain | Yes | Core transport/refresh tests | No | No | Authorized staff account/project config; Keychain device checks |
 | Restaurant/branch/role scoping | Yes | Core permission and queue isolation tests | Unauthenticated access rejects 401 | No | Authenticated cross-tenant/branch negative cases |

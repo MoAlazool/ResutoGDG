@@ -5,3 +5,5 @@ DerivedData/
 xcuserdata/
 Config.local.xcconfig
 *.xcresult
+ui-artifacts/
+xcodebuild.log

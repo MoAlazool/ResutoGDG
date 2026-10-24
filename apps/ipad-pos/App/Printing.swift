@@ -90,7 +90,7 @@ private final class PrinterCompletion: @unchecked Sendable {
     init(continuation: CheckedContinuation<Void, Error>, connection: NWConnection) { self.continuation = continuation; self.connection = connection }
     func finish(_ error: Error?) {
         lock.lock(); let pending = continuation; continuation = nil; lock.unlock()
-        guard let pending else { return }; connection.cancel()
+        guard let pending else { return }; connection.stateUpdateHandler = nil; connection.cancel()
         if let error { pending.resume(throwing: error) } else { pending.resume() }
     }
 }

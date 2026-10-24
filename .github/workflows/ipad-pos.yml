@@ -45,6 +45,12 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination "platform=iOS Simulator,id=$IPAD_UDID" -derivedDataPath apps/ipad-pos/DerivedData -resultBundlePath apps/ipad-pos/NativeResults.xcresult CODE_SIGNING_ALLOWED=NO test | tee apps/ipad-pos/xcodebuild.log
+      - name: Export native screenshots
+        if: always()
+        run: |
+          if [ -d apps/ipad-pos/NativeResults.xcresult ]; then
+            xcrun xcresulttool export attachments --path apps/ipad-pos/NativeResults.xcresult --output-path apps/ipad-pos/ui-artifacts || true
+          fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -52,4 +58,5 @@ jobs:
           path: |
             apps/ipad-pos/*.xcresult
             apps/ipad-pos/xcodebuild.log
+            apps/ipad-pos/ui-artifacts/
           if-no-files-found: warn
