@@ -15,7 +15,7 @@ const COUNTED = `o.status not in ('cancelled', 'awaiting_payment')`;
 const EXPORT_LIMIT = 50_000;
 
 type Sort = CustomerListQuery['sort'];
-type Mode = 'org' | 'branch';
+export type Mode = 'org' | 'branch';
 
 /**
  * Keyset sorts (PCL-17). Each sort is a tuple compared as a row value, so a page seeks straight into the matching
@@ -146,9 +146,14 @@ export class CustomersService {
     return { csv: lines.join('\r\n') + '\r\n', rows: items.length, truncated };
   }
 
-  async get(tx: Tx, ctx: TenantContext, id: string): Promise<CustomerProfile> {
-    const scope = branchScope(ctx);
-    const { sql, params } = this.filterSql(ctx, { includeAnonymised: 'true' });
+  /**
+   * The customer row with its order aggregates (`order_count`, `spend_minor`, `last_order_at`, `first_order_at`) as the
+   * caller may see them: organization-wide from customer_stats, branch-scoped staff from customer_branch_stats of
+   * their branches (and only customers who ordered or booked there). 404 when invisible; 409 customer_merged for a
+   * merged duplicate.
+   */
+  async findVisible(tx: Tx, ctx: TenantContext, id: string): Promise<{ row: any; mode: Mode }> {
+    const { sql, params, mode } = this.filterSql(ctx, { includeAnonymised: 'true' });
     const c = await tx.maybeOne(`select c.*, a.order_count, a.spend_minor, a.last_order_at, a.first_order_at ${sql} and c.id = $${params.length + 1}`, [...params, id]);
     if (!c) {
       // A merged duplicate points to its survivor.
@@ -156,6 +161,12 @@ export class CustomersService {
       if (merged) throw conflict('customer_merged', 'This customer was merged into another profile', { mergedIntoId: merged.merged_into_id });
       throw notFound('Customer');
     }
+    return { row: c, mode };
+  }
+
+  async get(tx: Tx, ctx: TenantContext, id: string): Promise<CustomerProfile> {
+    const scope = branchScope(ctx);
+    const { row: c } = await this.findVisible(tx, ctx, id);
     const [identities, addresses, orders, totals, reservations, consent, currency] = await Promise.all([
       tx.query(`select id, kind, value, verified_at from customer_identities where customer_id = $1 order by created_at`, [id]),
       tx.query(`select id, label, line1, area, city, notes from customer_addresses where customer_id = $1 order by created_at desc`, [id]),
