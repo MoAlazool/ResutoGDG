@@ -26,6 +26,15 @@ final class WorkflowTests: XCTestCase {
         guard target.waitForExistence(timeout:10) else { XCTFail("Missing \(id)\n\(app.debugDescription)",file:file,line:line); return }
         target.tap()
     }
+    private func assertOrderState(_ app: XCUIApplication,id: String,label: String,file: StaticString = #filePath,line: UInt = #line) {
+        let state = app.staticTexts.matching(identifier:id).firstMatch
+        for _ in 0..<6 {
+            if state.exists && state.isHittable { break }
+            app.collectionViews.allElementsBoundByIndex.last?.swipeDown()
+        }
+        XCTAssertTrue(state.waitForExistence(timeout:15),file:file,line:line)
+        XCTAssertEqual(state.label,label,file:file,line:line)
+    }
     private func launch(reset: Bool = true, arabic: Bool = false, role: String = "manager", scenario: String = "normal") throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--resuto-ui-testing"] + (reset ? ["--resuto-ui-reset"] : []) + ["-AppleLanguages", arabic ? "(ar)" : "(en)"]
@@ -54,9 +63,9 @@ final class WorkflowTests: XCTestCase {
         tap(app,"cart.review"); tap(app,"cart.confirm")
         tap(app,"nav.kitchen"); tap(app,"kitchen.open." + order)
         tap(app,"order.advance")
-        XCTAssertTrue(app.staticTexts["Accepted"].waitForExistence(timeout: 15))
+        assertOrderState(app,id:"order.status",label:"Accepted")
         tap(app,"checkout.reviewCash"); tap(app,"checkout.confirmCash")
-        XCTAssertTrue(app.staticTexts["Paid"].waitForExistence(timeout: 15))
+        assertOrderState(app,id:"order.paymentState",label:"Paid")
         tap(app,"receipt.enqueue"); tap(app,"order.done"); tap(app,"nav.settings")
         XCTAssertTrue(app.staticTexts["Waiting to print"].waitForExistence(timeout: 15))
         attach(app,"simulated-order-payment-receipt")
@@ -85,7 +94,7 @@ final class WorkflowTests: XCTestCase {
         tap(app,"nav.availability")
         tap(app,"availability." + product)
         tap(app,"nav.pos")
-        XCTAssertFalse(element(app,"product." + product).isEnabled)
+        expectation(for:NSPredicate(format:"enabled == false"),evaluatedWith:app.buttons["product." + product]); waitForExpectations(timeout:15)
         tap(app,"nav.availability"); tap(app,"availability." + product); tap(app,"nav.pos")
         XCTAssertTrue(element(app,"product." + product).isEnabled)
     }
@@ -127,7 +136,7 @@ final class WorkflowTests: XCTestCase {
         let cleared = NSPredicate(format:"exists == false")
         expectation(for:cleared,evaluatedWith:element(app,"financial.retry")); waitForExpectations(timeout:15)
         tap(app,"nav.orders"); tap(app,"order." + order)
-        XCTAssertTrue(app.staticTexts["Paid"].waitForExistence(timeout:15))
+        assertOrderState(app,id:"order.paymentState",label:"Paid")
         attach(app,"simulated-cash-same-key-reconciled")
     }
     func testHostCannotEnterOrdersOrPayments() throws {

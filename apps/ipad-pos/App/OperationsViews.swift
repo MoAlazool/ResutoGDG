@@ -187,8 +187,8 @@ struct OrderView: View {
         NavigationStack {
             Form {
                 Section {
-                    HStack { Text("#\(current.number)").font(.largeTitle.bold()); Spacer(); Text(l.text(current.status)).foregroundStyle(Design.accent) }
-                    Text(l.text(current.paymentStatus)).font(.headline)
+                    HStack { Text("#\(current.number)").font(.largeTitle.bold()); Spacer(); Text(l.text(current.status)).foregroundStyle(Design.accent).accessibilityIdentifier("order.status") }
+                    Text(l.text(current.paymentStatus)).font(.headline).accessibilityIdentifier("order.paymentState")
                     ForEach(current.lines) { line in HStack { Text("\(line.quantity) × \(l.name(line.name, line.nameAr))"); Spacer(); Text(Money.text(line.lineTotalMinor, currency: current.currency)).monospacedDigit() } }
                 }
                 Section(l.text("total")) {
