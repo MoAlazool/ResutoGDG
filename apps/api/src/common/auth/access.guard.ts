@@ -1,19 +1,24 @@
 import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env';
 import { Reflector } from '@nestjs/core';
-import { MCP_TOOLS, type McpToolName, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
+import { MCP_TOOLS, POS_DEVICE_TOKEN_PREFIX, type McpToolName, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
 import { sha256 } from '../crypto/hash';
 import { DbService } from '../db/db.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { DomainError, forbidden } from '../errors/domain-error';
 import { RateLimiter } from '../http/rate-limiter';
 import { TenantContext, type AuthPrincipal, type ResutoRequest } from './context';
-import { IS_PUBLIC, MCP_RUNTIME, MODULE, PERMISSION, PLATFORM_ROLE } from './decorators';
+import { IS_PUBLIC, MCP_RUNTIME, MODULE, PERMISSION, PLATFORM_ROLE, POS_DEVICE } from './decorators';
 import { JwtService } from './jwt.service';
 
 const unauthorized = () => new DomainError('unauthorized', 'Sign in to continue', 401);
 /** MCP credentials: connection keys (rmcp_) and OAuth access tokens issued for the MCP resource (rmat_, FT-17). */
 const isMcpToken = (t: string) => t.startsWith('rmcp_') || t.startsWith('rmat_');
+/** POS device credentials (21-POSAPI). */
+const isDeviceToken = (t: string) => t.startsWith(POS_DEVICE_TOKEN_PREFIX);
+const DEVICE_TOKEN = /^rpos_[A-Za-z0-9_-]{43}$/;
+/** Requests per minute one device may make (KDS polling every 2 s, the feed, sync and submits stay far below). */
+export const POS_DEVICE_RATE_PER_MIN = 600;
 /** Canonical resource URI for audience comparison (lowercase scheme/host, no trailing slash). */
 function canonicalResource(v: string): string | null {
   try {
@@ -49,13 +54,25 @@ export class AccessGuard implements CanActivate {
 
     const token = this.bearer(req);
     if (meta<boolean>(IS_PUBLIC)) {
-      if (token && !isMcpToken(token)) req.principal = await this.verifyUser(token).catch(() => undefined);
+      if (token && !isMcpToken(token) && !isDeviceToken(token)) req.principal = await this.verifyUser(token).catch(() => undefined);
       return true;
     }
     if (!token) throw unauthorized();
     const principal = token.startsWith('rmcp_') ? await this.resolveMcp(token)
-      : token.startsWith('rmat_') ? await this.resolveMcpOAuth(token, req) : await this.verifyUser(token);
+      : token.startsWith('rmat_') ? await this.resolveMcpOAuth(token, req)
+        : isDeviceToken(token) ? await this.resolveDevice(token) : await this.verifyUser(token);
     req.principal = principal;
+
+    // POS devices reach only the POS device API, and only devices reach it (see PosDevice in decorators.ts).
+    const posRoute = this.reflector.get<boolean>(POS_DEVICE, context.getClass()) === true;
+    if (principal.kind === 'device') {
+      if (!posRoute) throw new DomainError('pos_device_only', 'POS device credentials can only call the POS device API', 403);
+      this.limiter.hit(`pos:${principal.deviceId}`, POS_DEVICE_RATE_PER_MIN);
+      req.tenant = new TenantContext(principal.orgId, principal.role, [principal.branchId], null, 'device', principal.deviceId, 'api');
+      for (const p of meta<Permission[]>(PERMISSION) ?? []) req.tenant.require(p);
+      return true;
+    }
+    if (posRoute && principal.kind === 'user') throw new DomainError('pos_device_required', 'This route is for paired POS devices', 403);
 
     if (principal.kind === 'mcp') {
       // Keys reach only the MCP runtime, never REST routes (see McpRuntime in decorators.ts).
@@ -118,6 +135,31 @@ export class AccessGuard implements CanActivate {
   }
 
   /**
+   * POS device credential (21-POSAPI): active, unexpired, of an open restaurant and an active branch. A revoked or
+   * expired device gets its own code so the app can tell the user to pair again. last_seen_at is written at most once
+   * a minute per device.
+   */
+  private async resolveDevice(token: string): Promise<AuthPrincipal> {
+    if (!DEVICE_TOKEN.test(token)) throw unauthorized();
+    const d = await this.db.withPlatform(async (tx) => {
+      const row = await tx.maybeOne<any>(
+        `select d.id, d.org_id, d.branch_id, d.acting_role, d.status, (d.expires_at is not null and d.expires_at <= now()) as expired,
+                (d.last_seen_at is null or d.last_seen_at < now() - interval '60 seconds') as stale,
+                (o.status in ('closed', 'suspended') or not b.is_active) as unavailable
+           from pos_devices d join organizations o on o.id = d.org_id join branches b on b.id = d.branch_id
+          where d.token_hash = $1`, [sha256(token)]);
+      if (row && row.status === 'active' && !row.expired && !row.unavailable && row.stale) {
+        await tx.query('update pos_devices set last_seen_at = now() where id = $1', [row.id]);
+      }
+      return row;
+    }, 'pos:device-auth');
+    if (!d || d.unavailable) throw unauthorized();
+    if (d.status !== 'active') throw new DomainError('device_revoked', 'This device was unpaired. Pair it again to continue.', 401);
+    if (d.expired) throw new DomainError('device_expired', 'This device credential has expired. Pair the device again.', 401);
+    return { kind: 'device', deviceId: d.id, orgId: d.org_id, branchId: d.branch_id, role: d.acting_role as Role };
+  }
+
+  /**
    * OAuth access token (FT-17): valid, unexpired, not revoked, issued for one of this deployment's MCP resources
    * (MCP_OAUTH_RESOURCES) and, when the MCP server names the resource it serves (X-Mcp-Resource), for that one.
    * Tokens issued for another audience are refused (no passthrough). The connection itself must still be active.
@@ -146,6 +188,7 @@ export class AccessGuard implements CanActivate {
   }
 
   private async tenantFor(principal: AuthPrincipal, orgId: string): Promise<TenantContext> {
+    if (principal.kind === 'device') throw new DomainError('pos_device_only', 'POS device credentials can only call the POS device API', 403);
     if (principal.kind === 'mcp') {
       // Not-found rather than forbidden: never confirm another tenant exists.
       if (principal.orgId !== orgId) throw new DomainError('not_found', 'Restaurant not found', 404);

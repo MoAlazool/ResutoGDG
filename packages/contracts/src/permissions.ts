@@ -24,6 +24,8 @@ export const PERMISSIONS = [
   'mcp:manage', 'mcp:approve',
   // 21-CS change sets: see the approvals inbox, approve or reject, and set the approval policy.
   'changes:read', 'changes:approve', 'changes:manage',
+  // 21-POSAPI: pair, list and revoke native POS devices (owner, admin, manager).
+  'devices:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

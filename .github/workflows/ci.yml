@@ -62,6 +62,16 @@ jobs:
       # or when a route breaks docs/API_STYLE.md (action POSTs answer 200, bounded list limits with a cursor, no examples).
       - name: API contract (OpenAPI 3.1 drift and style lint, error envelope)
         run: cd apps/api && npx vitest run test/openapi.test.ts test/error-contract.test.ts
+      # 21-POSAPI: /v1 changes are additive only (docs/api/IPAD_COMPATIBILITY.md); compared with the base branch's document.
+      - name: API contract is additive (pull requests)
+        if: github.event_name == 'pull_request'
+        run: |
+          node --test scripts/openapi/test/*.test.mjs
+          git fetch --depth=1 origin "${{ github.base_ref }}"
+          if git cat-file -e FETCH_HEAD:docs/api/openapi.json 2>/dev/null; then
+            git show FETCH_HEAD:docs/api/openapi.json > "$RUNNER_TEMP/openapi.base.json"
+            node scripts/openapi/additive.mjs "$RUNNER_TEMP/openapi.base.json" docs/api/openapi.json
+          fi
       - name: API integration tests
         run: pnpm --filter @resuto/api test
       # PS-16: the same suite with the API connected as the NOINHERIT, NOBYPASSRLS resuto_api login (per-run password on

@@ -170,6 +170,10 @@ const enActions: Record<string, string> = {
   'mcp.cross_tenant_denied': 'AI connection blocked from another restaurant',
   'mcp.tool_call': 'AI tool used',
   'media.deleted': 'Image deleted',
+  'pos.device.paired': 'POS device paired',
+  'pos.device.revoked': 'POS device unpaired',
+  'pos.order.submitted': 'Order sent from a POS device',
+  'pos.pairing.created': 'POS pairing code created',
   'media.uploaded': 'Image uploaded',
   'member.invitation_revoked': 'Invitation withdrawn',
   'member.invited': 'Team member invited',
@@ -398,6 +402,10 @@ const arActions: Record<string, string> = {
   'mcp.cross_tenant_denied': 'مُنع اتصال ذكاء اصطناعي من مطعم آخر',
   'mcp.tool_call': 'استُخدمت أداة ذكاء اصطناعي',
   'media.deleted': 'حُذفت صورة',
+  'pos.device.paired': 'رُبط جهاز نقاط بيع',
+  'pos.device.revoked': 'أُلغي ربط جهاز نقاط بيع',
+  'pos.order.submitted': 'أُرسل طلب من جهاز نقاط بيع',
+  'pos.pairing.created': 'أُنشئ رمز ربط جهاز نقاط بيع',
   'media.uploaded': 'رُفعت صورة',
   'member.invitation_revoked': 'سُحبت دعوة',
   'member.invited': 'دُعي عضو فريق',
@@ -474,7 +482,7 @@ const enEntities: Record<string, string> = {
   promotion: 'Promotion', reconciliation_item: 'Reconciliation difference', reconciliation_run: 'Reconciliation', refund: 'Refund',
   reservation: 'Reservation', segment: 'Customer segment', service_request: 'Guest request', subscription: 'Plan', supplier: 'Supplier',
   tax_profile: 'Tax settings', tracking_link: 'Tracking link', visit: 'Visit', website: 'Website', website_section: 'Website section',
-  entitlement_override: 'Module access', change_set: 'Change', change_policy: 'Approval policy',
+  entitlement_override: 'Module access', change_set: 'Change', change_policy: 'Approval policy', pos_device: 'POS device', pos_device_pairing: 'POS pairing code',
   'integration_oauth_state': 'Authorisation',
 };
 
@@ -491,7 +499,7 @@ const arEntities: Record<string, string> = {
   promotion: 'عرض', reconciliation_item: 'فرق مطابقة', reconciliation_run: 'مطابقة', refund: 'استرداد',
   reservation: 'حجز', segment: 'شريحة عملاء', service_request: 'طلب ضيف', subscription: 'الخطة', supplier: 'مورّد',
   tax_profile: 'إعدادات الضريبة', tracking_link: 'رابط تتبّع', visit: 'زيارة', website: 'الموقع', website_section: 'قسم الموقع',
-  entitlement_override: 'صلاحية وحدة', change_set: 'تغيير', change_policy: 'سياسة الموافقات',
+  entitlement_override: 'صلاحية وحدة', change_set: 'تغيير', change_policy: 'سياسة الموافقات', pos_device: 'جهاز نقاط بيع', pos_device_pairing: 'رمز ربط جهاز نقاط بيع',
   'integration_oauth_state': 'تفويض',
 };
 

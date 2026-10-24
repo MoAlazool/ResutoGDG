@@ -303,6 +303,12 @@
         "description": "Supabase Auth access token (staff), or an MCP key on /mcp routes.",
         "scheme": "bearer",
         "type": "http"
+      },
+      "posDeviceAuth": {
+        "bearerFormat": "rpos_ device credential",
+        "description": "Paired POS device credential (POST /v1/pos/pair). Accepted only on the POS device routes (/v1/pos/...).",
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -27721,6 +27727,279 @@
         ]
       }
     },
+    "/v1/o/{orgId}/pos/devices": {
+      "get": {
+        "operationId": "PosAdmin_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branchId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 9000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "revoked"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "devices:manage"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/pos/devices/{id}": {
+      "get": {
+        "operationId": "PosAdmin_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "devices:manage"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/pos/devices/{id}/revoke": {
+      "post": {
+        "operationId": "PosAdmin_revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "reason": {
+                    "anyOf": [
+                      {
+                        "maxLength": 200,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "devices:manage"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/pos/pairings": {
+      "post": {
+        "operationId": "PosAdmin_createPairing",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "actingRole": {
+                    "enum": [
+                      "waiter",
+                      "cashier",
+                      "kitchen"
+                    ],
+                    "type": "string"
+                  },
+                  "branchId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "deviceTtlDays": {
+                    "default": 365,
+                    "maximum": 730,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "expiresInMinutes": {
+                    "default": 10,
+                    "maximum": 60,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "name": {
+                    "maxLength": 60,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "branchId",
+                  "actingRole",
+                  "name"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "devices:manage"
+        ]
+      }
+    },
     "/v1/o/{orgId}/requests": {
       "get": {
         "operationId": "Orders_requests",
@@ -31894,6 +32173,1335 @@
         },
         "tags": [
           "orgs"
+        ]
+      }
+    },
+    "/v1/pos/events": {
+      "get": {
+        "operationId": "PosDevice_events",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "epoch",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 25,
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
+    "/v1/pos/kitchen/lines/{lineId}": {
+      "post": {
+        "operationId": "PosDevice_line",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lineId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "queued",
+                      "preparing",
+                      "ready"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "kitchen:operate"
+        ]
+      }
+    },
+    "/v1/pos/kitchen/orders/{id}/bump": {
+      "post": {
+        "operationId": "PosDevice_bump",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "to": {
+                    "enum": [
+                      "accepted",
+                      "preparing",
+                      "ready",
+                      "served",
+                      "picked_up",
+                      "delivered"
+                    ],
+                    "type": "string"
+                  },
+                  "version": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "to",
+                  "version"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "kitchen:operate",
+          "orders:status"
+        ]
+      }
+    },
+    "/v1/pos/kitchen/routing": {
+      "get": {
+        "operationId": "PosDevice_routing",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "menu:read"
+        ]
+      }
+    },
+    "/v1/pos/kitchen/tickets": {
+      "get": {
+        "operationId": "PosDevice_tickets",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "maxLength": 24,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station",
+            "required": false,
+            "schema": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "kitchen:operate"
+        ]
+      }
+    },
+    "/v1/pos/orders": {
+      "post": {
+        "operationId": "PosDevice_submit",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "clientOrderId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "customer": {
+                    "anyOf": [
+                      {
+                        "properties": {
+                          "name": {
+                            "anyOf": [
+                              {
+                                "maxLength": 100,
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "phone": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "type": "object"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "expectedTotalMinor": {
+                    "maximum": 10000000000000,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "fulfillment": {
+                    "enum": [
+                      "dine_in",
+                      "pickup",
+                      "delivery"
+                    ],
+                    "type": "string"
+                  },
+                  "guests": {
+                    "maximum": 100,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "lines": {
+                    "items": {
+                      "properties": {
+                        "expectedLineTotalMinor": {
+                          "maximum": 10000000000000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "modifiers": {
+                          "default": [],
+                          "items": {
+                            "properties": {
+                              "groupId": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              },
+                              "optionId": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "groupId",
+                              "optionId"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 40,
+                          "type": "array"
+                        },
+                        "notes": {
+                          "anyOf": [
+                            {
+                              "maxLength": 200,
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "maximum": 99,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "quantity"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 60,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "notes": {
+                    "anyOf": [
+                      {
+                        "maxLength": 500,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "repricing": {
+                    "default": "reject",
+                    "enum": [
+                      "reject",
+                      "accept"
+                    ],
+                    "type": "string"
+                  },
+                  "tableId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "takenAt": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  "visitId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "clientOrderId",
+                  "fulfillment",
+                  "lines"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Response written by the handler (see the route's documentation)."
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:write"
+        ]
+      }
+    },
+    "/v1/pos/orders/quote": {
+      "post": {
+        "operationId": "PosDevice_quote",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "fulfillment": {
+                    "enum": [
+                      "dine_in",
+                      "pickup",
+                      "delivery"
+                    ],
+                    "type": "string"
+                  },
+                  "lines": {
+                    "items": {
+                      "properties": {
+                        "modifiers": {
+                          "default": [],
+                          "items": {
+                            "properties": {
+                              "groupId": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              },
+                              "optionId": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "groupId",
+                              "optionId"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 40,
+                          "type": "array"
+                        },
+                        "notes": {
+                          "anyOf": [
+                            {
+                              "maxLength": 200,
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "maximum": 99,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "quantity"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 60,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "fulfillment",
+                  "lines"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:write"
+        ]
+      }
+    },
+    "/v1/pos/orders/{id}": {
+      "get": {
+        "operationId": "PosDevice_order",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
+    "/v1/pos/orders/{id}/payments": {
+      "post": {
+        "operationId": "PosDevice_payment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "amountMinor": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 10000000000000,
+                    "type": "integer"
+                  },
+                  "clientPaymentId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "method": {
+                    "default": "cash",
+                    "enum": [
+                      "cash",
+                      "card",
+                      "instapay",
+                      "cod"
+                    ],
+                    "type": "string"
+                  },
+                  "reference": {
+                    "anyOf": [
+                      {
+                        "maxLength": 120,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "clientPaymentId"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "payments:collect"
+        ]
+      }
+    },
+    "/v1/pos/orders/{id}/receipt": {
+      "post": {
+        "operationId": "PosDevice_receipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "clientRequestId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "clientRequestId"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
+    "/v1/pos/orders/{id}/transition": {
+      "post": {
+        "operationId": "PosDevice_transition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "to": {
+                    "enum": [
+                      "placed",
+                      "accepted",
+                      "preparing",
+                      "ready",
+                      "served",
+                      "picked_up",
+                      "delivered"
+                    ],
+                    "type": "string"
+                  },
+                  "version": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "to",
+                  "version"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:status"
+        ]
+      }
+    },
+    "/v1/pos/pair": {
+      "post": {
+        "operationId": "PosPairing_pair",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "appVersion": {
+                    "anyOf": [
+                      {
+                        "maxLength": 40,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "code": {
+                    "maxLength": 20,
+                    "minLength": 10,
+                    "type": "string"
+                  },
+                  "model": {
+                    "anyOf": [
+                      {
+                        "maxLength": 60,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "platform": {
+                    "default": "ipados",
+                    "enum": [
+                      "ipados",
+                      "ios",
+                      "other"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [],
+        "tags": [
+          "pos"
+        ]
+      }
+    },
+    "/v1/pos/print-jobs": {
+      "get": {
+        "operationId": "PosDevice_printJobs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 9000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "enum": [
+                "kitchen_ticket",
+                "receipt"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station",
+            "required": false,
+            "schema": {
+              "maxLength": 40,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "pending",
+                "claimed",
+                "printed",
+                "failed"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
+    "/v1/pos/print-jobs/{id}": {
+      "get": {
+        "operationId": "PosDevice_printJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
+    "/v1/pos/print-jobs/{id}/claim": {
+      "post": {
+        "operationId": "PosDevice_claim",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
+    "/v1/pos/print-jobs/{id}/complete": {
+      "post": {
+        "operationId": "PosDevice_complete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "error": {
+                    "anyOf": [
+                      {
+                        "maxLength": 300,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "printed",
+                      "failed"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
+    "/v1/pos/session": {
+      "get": {
+        "operationId": "PosDevice_session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ]
+      }
+    },
+    "/v1/pos/sync/floor": {
+      "get": {
+        "operationId": "PosDevice_floor",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "floor:read"
+        ]
+      }
+    },
+    "/v1/pos/sync/menu": {
+      "get": {
+        "operationId": "PosDevice_menu",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "menu:read"
+        ]
+      }
+    },
+    "/v1/pos/sync/orders": {
+      "get": {
+        "operationId": "PosDevice_syncOrders",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
         ]
       }
     },

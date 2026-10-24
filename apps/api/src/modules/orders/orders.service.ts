@@ -161,36 +161,45 @@ export class OrdersService implements OrdersQueryPort {
   async create(ctx: TenantContext, body: StaffOrderRequest, key: string | undefined) {
     if (!key) throw badRequest('idempotency_key_required', 'An Idempotency-Key header is required');
     ctx.assertBranch(body.branchId);
-    return this.db.scoped(ctx, (tx) => this.idempotency.run(tx, ctx.orgId, 'staff-order', key, body, async () => {
-      let tableId = body.tableId ?? null;
-      let visitId = body.visitId ?? null;
-      if (body.fulfillment === 'dine_in') {
-        if (visitId) {
-          const v = await tx.maybeOne<any>(`select table_id, branch_id, status from visits where id = $1`, [visitId]);
-          if (!v || v.branch_id !== body.branchId) throw notFound('Visit');
-          if (v.status !== 'open') throw conflict('visit_closed', 'This visit is closed.');
-          tableId = v.table_id;
-        } else if (tableId) {
-          const open = await tx.maybeOne<{ id: string }>(`select id from visits where table_id = $1 and status = 'open'`, [tableId]);
-          visitId = open ? open.id : (await this.visits.open(tx, ctx, { tableId, via: 'staff' })).visit.id;
-        } else throw invalid('table_required', 'Dine-in orders need a table');
-      }
-      if (body.customerId && !(await tx.maybeOne(`select 1 from customers where id = $1 and org_id = $2 and anonymized_at is null and merged_into_id is null`, [body.customerId, ctx.orgId]))) {
-        throw notFound('Customer');
-      }
-      if (body.loyaltyRewardId && !body.customerId && !body.customer?.phone) {
-        throw invalid('loyalty_customer_required', 'Choose the customer whose points are redeemed');
-      }
-      const placed = await this.kernel.place(tx, ctx, {
-        branchId: body.branchId, channel: body.channel, fulfillment: body.fulfillment, lines: body.lines, tableId, visitId,
-        customer: body.customer ?? null, customerId: body.customerId ?? null, deliveryAddress: body.deliveryAddress ?? null, notes: body.notes ?? null,
-        promotionCode: body.promotionCode ?? null,
-        // FT-03: the signed-in staff member identifies the guest (and the redemption is attributed to them in the ledger).
-        loyaltyRewardId: body.loyaltyRewardId ?? null, customerIdentified: !!body.loyaltyRewardId,
-      });
-      await this.audit.record(tx, ctx, { action: 'order.created', entityType: 'order', entityId: placed.id, branchId: body.branchId, metadata: { channel: body.channel, totalMinor: placed.totalMinor } });
-      return { id: placed.id, number: placed.number, publicRef: placed.publicRef, status: placed.status, totalMinor: placed.totalMinor, currency: placed.currency, visitId };
-    }));
+    return this.db.scoped(ctx, (tx) => this.idempotency.run(tx, ctx.orgId, 'staff-order', key, body, () => this.placeStaffOrder(tx, ctx, body)));
+  }
+
+  /**
+   * A staff-taken order inside the caller's transaction: opens the table's visit for dine-in when none is open, then
+   * places it through the kernel. Shared by the staff route and the POS device API (21-POSAPI, channel `pos`).
+   */
+  async placeStaffOrder(tx: Tx, ctx: TenantContext, body: Omit<StaffOrderRequest, 'channel'> & { channel: StaffOrderRequest['channel'] | 'pos';
+    partySize?: number; expectedTotalMinor?: number }) {
+    ctx.assertBranch(body.branchId);
+    let tableId = body.tableId ?? null;
+    let visitId = body.visitId ?? null;
+    if (body.fulfillment === 'dine_in') {
+      if (visitId) {
+        const v = await tx.maybeOne<any>(`select table_id, branch_id, status from visits where id = $1`, [visitId]);
+        if (!v || v.branch_id !== body.branchId) throw notFound('Visit');
+        if (v.status !== 'open') throw conflict('visit_closed', 'This visit is closed.');
+        tableId = v.table_id;
+      } else if (tableId) {
+        const open = await tx.maybeOne<{ id: string }>(`select id from visits where table_id = $1 and status = 'open'`, [tableId]);
+        visitId = open ? open.id : (await this.visits.open(tx, ctx, { tableId, via: 'staff', partySize: body.partySize })).visit.id;
+      } else throw invalid('table_required', 'Dine-in orders need a table');
+    }
+    if (body.customerId && !(await tx.maybeOne(`select 1 from customers where id = $1 and org_id = $2 and anonymized_at is null and merged_into_id is null`, [body.customerId, ctx.orgId]))) {
+      throw notFound('Customer');
+    }
+    if (body.loyaltyRewardId && !body.customerId && !body.customer?.phone) {
+      throw invalid('loyalty_customer_required', 'Choose the customer whose points are redeemed');
+    }
+    const placed = await this.kernel.place(tx, ctx, {
+      branchId: body.branchId, channel: body.channel, fulfillment: body.fulfillment, lines: body.lines, tableId, visitId,
+      customer: body.customer ?? null, customerId: body.customerId ?? null, deliveryAddress: body.deliveryAddress ?? null, notes: body.notes ?? null,
+      promotionCode: body.promotionCode ?? null,
+      // FT-03: the signed-in staff member identifies the guest (and the redemption is attributed to them in the ledger).
+      loyaltyRewardId: body.loyaltyRewardId ?? null, customerIdentified: !!body.loyaltyRewardId,
+      expectedTotalMinor: body.expectedTotalMinor,
+    });
+    await this.audit.record(tx, ctx, { action: 'order.created', entityType: 'order', entityId: placed.id, branchId: body.branchId, metadata: { channel: body.channel, totalMinor: placed.totalMinor } });
+    return { id: placed.id, number: placed.number, publicRef: placed.publicRef, status: placed.status, totalMinor: placed.totalMinor, currency: placed.currency, visitId };
   }
 
   async transition(ctx: TenantContext, orderId: string, to: OrderStatus, version?: number) {

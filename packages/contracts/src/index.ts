@@ -36,3 +36,4 @@ export * from './sales';
 export * from './operations';
 export * from './studio-ai';
 export * from './changes';
+export * from './pos';

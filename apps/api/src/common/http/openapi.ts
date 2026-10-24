@@ -4,7 +4,7 @@ import { RouteParamtypes } from '@nestjs/common/enums/route-paramtypes.enum';
 import { ModulesContainer } from '@nestjs/core';
 import { baseComponents, jsonSchemaOf, type JsonSchema, type OpenApiDoc, type OpenApiOperation, type SchemaDefs } from '@resuto/contracts/openapi';
 import { z } from 'zod';
-import { IS_PUBLIC, MODULE, PERMISSION, PLATFORM_ROLE } from '../auth/decorators';
+import { IS_PUBLIC, MODULE, PERMISSION, PLATFORM_ROLE, POS_DEVICE } from '../auth/decorators';
 import { ZodPipe } from './zod.pipe';
 
 /**
@@ -180,6 +180,8 @@ export class OpenApiService {
         : { required: true, content: { 'application/json': { schema: body } } };
     }
     if (isPublic) op.security = [];
+    // 21-POSAPI: device routes take the device credential (rpos_...), never a staff token.
+    if (Reflect.getMetadata(POS_DEVICE, ctrl) === true) op.security = [{ posDeviceAuth: [] }];
     const permissions = meta<string[]>(PERMISSION);
     if (permissions?.length) op['x-resuto-permissions'] = permissions;
     const module = meta<string>(MODULE);
