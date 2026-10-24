@@ -178,9 +178,11 @@ export interface LoadState<T> { data: T | undefined; error: UiError | null; load
  * Renders a query's state consistently: skeleton while nothing is available, the failure state when loading failed,
  * an empty state when the data is empty, otherwise the content (with a stale notice if a refresh failed).
  */
-export function Loadable<T>({ state, skeleton, isEmpty, empty, children, locale = 'en', timeZone }: {
+export function Loadable<T>({ state, skeleton, isEmpty, empty, children, locale = 'en', timeZone, fade }: {
   state: LoadState<T>; skeleton: ReactNode; isEmpty?: (data: T) => boolean; empty?: ReactNode;
   children: (data: T) => ReactNode; locale?: UiLocale; timeZone?: string;
+  /** Fades the content in when it replaces the skeleton (.motion-content, 120 ms; off with reduced motion). */
+  fade?: boolean;
 }) {
   const { data, error, reload } = state;
   if (data === undefined) {
@@ -190,7 +192,9 @@ export function Loadable<T>({ state, skeleton, isEmpty, empty, children, locale 
   return (
     <>
       {error && <StaleNotice error={error} updatedAt={state.updatedAt ?? 0} onRetry={reload} locale={locale} timeZone={timeZone} />}
-      {isEmpty?.(data) && empty !== undefined ? empty : children(data)}
+      {fade
+        ? <div className="motion-content">{isEmpty?.(data) && empty !== undefined ? empty : children(data)}</div>
+        : isEmpty?.(data) && empty !== undefined ? empty : children(data)}
     </>
   );
 }
