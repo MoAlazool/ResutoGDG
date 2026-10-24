@@ -26,6 +26,7 @@ measurements, redeploy staging and re-verify.
 | Wave 7: ws13 polish (POL-01..03), ws14a API remainders, ws14b web remainders, ws14c legacy counter / venue QR session (FT-07); demo-loader stale-visit fix, graceful in-process worker shutdown | done, on staging: web/AI/MCP `e711f39`, API `435f602` (smoke 43/43, MCP 7/7, demo integrity holds) |
 | Wave 8: ws15 guest repeat-visit LCP race (PERF-01): repeat LCP 1.4 s → 0.3 s | done |
 | Final deploy + regression + handoff (`docs/HANDOFF.md`) | done: all four services at `424687d` (smoke 43/43, MCP 7/7, demo integrity holds) |
+| CI repair (DB role race, zod/body-parser audit, E2E isolation incl. WebKit, visual DB + baseline recording, action updates) | done: GitHub CI run 61 green at `5c359d5`; all four services redeployed at `5c359d5` (smoke 43/43, MCP 7/7, demo integrity holds) |
 
 ## Next executable task
 Nothing internal is blocked. Owner-dependent next steps, in order (details in `docs/HANDOFF.md` §7): provider TEST

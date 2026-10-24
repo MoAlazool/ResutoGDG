@@ -1,6 +1,6 @@
 # Resuto 2.0 — handoff report
 
-Branch `claude/relaxed-mayer-omkl3f`, deployed commit **`424687d`** (2026-10-23). `main`, `legacy/` and every legacy
+Branch `claude/relaxed-mayer-omkl3f`, deployed commit **`5c359d5`** (2026-10-24; GitHub CI run 61 green on it). `main`, `legacy/` and every legacy
 production resource are untouched. Detailed evidence lives in the documents linked from each section; this page is the
 summary the owner asked for.
 
@@ -10,10 +10,10 @@ Private staging (Vercel Deployment Protection on; sign in with a Vercel account 
 
 | Service | Where | Commit |
 |---|---|---|
-| Web | https://resuto-2-staging-web.vercel.app (production deployment `dpl_8j4jkXKJfwCkFs8K22nEbfdAQQAB` of project `resuto-2-staging-web`) | `424687d` |
-| API (+ in-process worker) | Render `resuto-2-staging-api` | `424687d` |
-| AI service | Render `resuto-2-staging-ai` | `424687d` |
-| MCP server | Render `resuto-2-staging-mcp` | `424687d` |
+| Web | https://resuto-2-staging-web.vercel.app (production deployment `dpl_3zK3oCMFqb6eJAFY5jNjkgR7ECNG` of project `resuto-2-staging-web`) | `5c359d5` |
+| API (+ in-process worker) | Render `resuto-2-staging-api` | `5c359d5` |
+| AI service | Render `resuto-2-staging-ai` | `5c359d5` |
+| MCP server | Render `resuto-2-staging-mcp` | `5c359d5` |
 | Database | Supabase `resuto-staging` (Free plan, PostgreSQL 17) | migrations through `20261023040002_counter_legacy_revoke` |
 
 Every API, AI and MCP response carries `X-Build: <service>@<commit>`; `/health` reports the build, and the staging
@@ -120,26 +120,30 @@ API figures: baseline `f2b232c` vs `50ed79b`/`ed4501d`. Guest repeat-visit LCP: 
 alternated, 5 runs per build, 4× CPU and 1.6 Mbit/s throttling. A bundle-budget gate in CI keeps the public, staff
 and guest groups under budget.
 
-## 6. Test results (deployed commit `424687d`)
+## 6. Test results (deployed commit `5c359d5`)
+
+GitHub-hosted CI run 61 passes all four jobs on `5c359d5`: https://github.com/MoAlazool/ResutoGDG/actions/runs/40101012201
+(database security, dependency audit, API as owner and as `resuto_api`, MCP, web, bundle budget, browser E2E on
+Chromium and WebKit iPhone 13, visual parity, legacy).
 
 | Suite | Result |
 |---|---|
 | API integration (110 files, real PostgreSQL) | **914 passed, 4 skipped** |
 | Database security / roles / RLS | **82 / 82** |
-| Contracts | **59 / 59** |
+| Contracts | **63 / 63** |
 | Integrations (adapters, signatures, acceptance harness) | **320 / 320** |
 | MCP server | **27 / 27** |
-| Web unit (incl. Chromium layout and first-paint guards) | **463 / 463** |
-| Demo loader / staging / UI scripts | **60 / 60** |
+| Web unit (incl. Chromium layout and first-paint guards) | **465 / 465** |
+| Demo loader / staging / UI scripts | **60 / 60** (48 demo + 12 staging/UI) |
 | OpenAPI drift check | **5 / 5** |
 | API + web typecheck, web production build, bundle budget | pass |
-| E2E Chromium, full run (ws14b stack, 21:27 UTC) | 56 passed, 4 failed: driver and WhatsApp scenarios get `branch_closed` at night (they depend on the demo branch's opening hours; same on the base) |
+| E2E Chromium + WebKit iPhone 13 (GitHub CI run 61) | **all pass** (the night-time `branch_closed` failures are fixed: fixture branches are open 24 h) |
 | E2E Chromium, guest first paint (ws15 stack) | **2 / 2** |
 | Staging smoke (`scripts/staging/smoke.mjs`, commit pinned on API/AI/MCP) | **43 / 43** |
 | Staging MCP check | **7 / 7** |
 | Staging demo data integrity (boot refresh) | all assertions hold |
 
-Not covered here: WebKit / real iPhone (CR-10), provider acceptance runs (section 4), real email delivery (AUTH-03).
+Not covered here: a real iPhone (CR-10; WebKit emulation now runs in CI), provider acceptance runs (section 4), real email delivery (AUTH-03).
 Every run with its commit: `docs/TEST_RESULTS.md`.
 
 ## 7. Remaining external prerequisites (owner)
