@@ -23189,6 +23189,50 @@
         ]
       }
     },
+    "/v1/o/{orgId}/menu-qr": {
+      "get": {
+        "operationId": "Onboarding_menuQr",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch",
+            "required": false,
+            "schema": {
+              "pattern": "^[a-z0-9-]{1,40}$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "menu-qr"
+        ],
+        "x-resuto-permissions": [
+          "menu:read"
+        ]
+      }
+    },
     "/v1/o/{orgId}/menu/categories": {
       "post": {
         "operationId": "Menu_createCategory",
@@ -28834,6 +28878,172 @@
         ]
       }
     },
+    "/v1/o/{orgId}/social-links": {
+      "get": {
+        "operationId": "Onboarding_socialLinks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "social-links"
+        ]
+      },
+      "put": {
+        "operationId": "Onboarding_setSocialLinks",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "facebook": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "google_maps": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "instagram": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "snapchat": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "tiktok": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "website": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "whatsapp": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "x": {
+                    "anyOf": [
+                      {
+                        "maxLength": 350,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "social-links"
+        ],
+        "x-resuto-permissions": [
+          "org:manage"
+        ]
+      }
+    },
     "/v1/o/{orgId}/studio-ai/capabilities": {
       "get": {
         "operationId": "StudioAi_capabilities",
@@ -32160,6 +32370,39 @@
         },
         "responses": {
           "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "orgs"
+        ]
+      }
+    },
+    "/v1/orgs/slug-availability": {
+      "get": {
+        "operationId": "Onboarding_slugAvailability",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {}

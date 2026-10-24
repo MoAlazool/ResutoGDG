@@ -7,6 +7,28 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — Free QR menu onboarding, increment 1 (21-ONB)
+
+- `GET /v1/orgs/slug-availability?slug=` (signed-in people): `{ slug, available, reason }` with `reason`
+  `invalid | reserved | taken | null`. Reserved words (app routes, infrastructure hosts, official-sounding names) are
+  `RESERVED_SLUGS` in `@resuto/contracts`; `POST /v1/orgs` now refuses them with `422 slug_reserved`.
+- `GET /v1/o/:orgId/social-links` (members) and `PUT /v1/o/:orgId/social-links` (`org:manage`, replaces the set):
+  https links for `instagram`, `facebook`, `tiktok`, `x`, `snapchat`, `whatsapp`, `google_maps`, `website`, each
+  checked against the network's own hosts. `GET /v1/o/:orgId` gains `socialLinks`.
+- `GET /v1/o/:orgId/menu-qr?branch=` (`menu:read`): the view-only menu QR `{ kind: 'menu', url, branchCode, svg, png }`
+  pointing at `/m/<slug>` (no token; never an ordering QR).
+- Response fields: `org.socialLinks` on `GET /v1/public/menu/:slug` (and the guest menus built the same way) and on
+  `GET /v1/public/sites/:slug`; `planId` on `GET /v1/o/:orgId/setup` and `POST /v1/o/:orgId/setup/launch`, and
+  `detail.optional` on the profile step.
+- Behaviour: setup requirements follow the plan and service model. On Free (and without a live subscription) the
+  legal name, floor and payments steps are optional; on paid plans the floor is required only for table service.
+  Entitlements: without a live subscription a restaurant keeps the free plan's modules (`app.module_enabled`), so a
+  lapsed trial keeps `core`; `GET /v1/o/:orgId/billing/entitlements` reports those with source `plan`.
+- Error code: `slug_reserved`.
+
+No existing route was removed or made stricter for its existing inputs except `POST /v1/orgs` with a reserved address
+(checked with `scripts/openapi/additive.mjs`).
+
 ### Added — POS device API, contract 0.1.0 (21-POSAPI, draft)
 
 For the native iPad POS app (`feature/ipad-pos`). Every route and event is listed with its status in

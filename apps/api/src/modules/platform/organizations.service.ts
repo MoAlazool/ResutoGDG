@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  COUNTRY_DEFAULTS, assignableRoles,
+  COUNTRY_DEFAULTS, assignableRoles, slugProblem, socialLinksOf,
   type BranchInput, type CreateOrganization, type InviteMember, type OrganizationSummary, type Role,
 } from '@resuto/contracts';
 import type { AuthUser, TenantContext } from '../../common/auth/context';
@@ -56,6 +56,8 @@ export class OrganizationsService {
   async create(user: AuthUser, input: CreateOrganization): Promise<OrganizationSummary & { branchId: string }> {
     const defaults = COUNTRY_DEFAULTS[input.country];
     return this.db.withPlatform(async (tx) => {
+      // 21-ONB: route names, infrastructure hosts and official-sounding words are not restaurant addresses.
+      if (slugProblem(input.slug) === 'reserved') throw invalid('slug_reserved', 'This web address is reserved. Choose another one.');
       const plan = await tx.maybeOne<{ id: string }>('select id from plans where id = $1 and is_public', [input.planId]);
       if (!plan) throw invalid('unknown_plan', 'Choose an available plan');
       const owned = await tx.one<{ n: number }>(
@@ -114,7 +116,7 @@ export class OrganizationsService {
       const org = await tx.one('select * from organizations where id = $1', [ctx.orgId]);
       const branches = await tx.query('select * from branches where org_id = $1 order by created_at', [ctx.orgId]);
       return { ...toOrg(org), role: ctx.role, legalName: org.legal_name, taxRegistrationNumber: org.tax_registration_number,
-        commercialRegistration: org.commercial_registration, onboarding: org.onboarding,
+        commercialRegistration: org.commercial_registration, onboarding: org.onboarding, socialLinks: socialLinksOf(org.social_links),
         branches: branches.filter((b) => ctx.canAccessBranch(b.id)).map(toBranch) };
     });
   }
