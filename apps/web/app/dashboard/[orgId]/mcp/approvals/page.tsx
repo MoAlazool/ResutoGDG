@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useState } from 'react';
 import { Badge, Card, EmptyState, Notice, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
 import { ApiRequestError } from '@/lib/api';
@@ -36,6 +37,10 @@ export default function McpApprovalsPage() {
 
   return (
     <McpPage tab="approvals" permission="mcp:approve">
+      <Notice tone="info">
+        <div className="spread"><span>{t('mcp.inbox.mcpLink')}</span>
+          <Link className="btn btn-sm btn-ghost" href={`/dashboard/${org.id}/approvals?origin=mcp`}>{t('mcp.inbox.open')}</Link></div>
+      </Notice>
       <Tabs tabs={FILTERS.map((k) => ({ key: k, label: t(`mcp.approvals.filter.${k}`) }))} value={filter} onChange={setFilter} />
       {recent.map((d) => (
         <Notice key={d.id} tone={d.tone}>

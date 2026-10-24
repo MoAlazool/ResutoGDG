@@ -96,13 +96,19 @@ export class McpClientsService {
    * Creates a connection in the caller's transaction. With `oauthClientId` (OAuth consent, FT-17) the row authenticates
    * only through OAuth access tokens: its key hash is of a random value that is never returned, and the prefix says so.
    */
-  async createInTx(tx: Tx, ctx: TenantContext, input: CreateMcpClient, oauthClientId?: string, permitted?: ReadonlySet<string>): Promise<McpClientCreated> {
+  /**
+   * `permitted` (OAuth) keeps only the tools the requested scopes cover; with `exactTools` the explicit tool list is the
+   * allow-list as it is (the consent screen shows the groups' tools and the person may untick some), and the groups are
+   * recorded with it.
+   */
+  async createInTx(tx: Tx, ctx: TenantContext, input: CreateMcpClient, oauthClientId?: string, permitted?: ReadonlySet<string>,
+    exactTools = false): Promise<McpClientCreated> {
     this.assertRole(ctx, input.actingRole);
     this.assertFuture(input.expiresAt);
     await this.assertStricter(ctx, input.policyOverrides);
     const branchIds = await this.resolveBranches(tx, ctx, input.branchIds);
     const groups = [...new Set(input.groups ?? [])];
-    const tools = await this.toolsFor(ctx.orgId, input.actingRole, groups, input.allowedTools ?? [], permitted);
+    const tools = await this.toolsFor(ctx.orgId, input.actingRole, exactTools && input.allowedTools?.length ? [] : groups, input.allowedTools ?? [], permitted);
     const k = newMcpKey();
     const prefix = oauthClientId ? `oauth_${k.key.slice(MCP_KEY_PREFIX.length, MCP_KEY_PREFIX.length + 8)}` : k.prefix;
     const row = await tx.one<any>(
