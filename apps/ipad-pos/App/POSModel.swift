@@ -37,6 +37,8 @@ import CryptoKit
     @Published var configuration = Configuration.saved
     @Published var locked = false
     @Published var refundStatus: String?
+    private var transportOverride: (any HTTPTransport)?
+    @Published private(set) var simulatedUITest = false
     private var auth: AuthService?
     private var api: APIClient?
     private var queue: OrderQueue?
@@ -59,10 +61,23 @@ import CryptoKit
     }
     var estimate: Int64? { guard let menu, let order = draftOrder else { return nil }; return try? CartRules.estimate(order, menu: menu) }
     func can(_ permission: String) -> Bool {
-        let offlineAccess = reachable || (lastRefresh.map { Date().timeIntervalSince($0) < 8 * 3600 } ?? false)
+        let offlineAccess = reachable || (lastRefresh.map { (0..<(8 * 3600)).contains(Date().timeIntervalSince($0)) } ?? false)
         return membership?.can(permission) == true && !locked && offlineAccess
     }
     init() {
+#if DEBUG && targetEnvironment(simulator)
+        if let bootstrap = UITestBootstrap.load() {
+            configuration = bootstrap.configuration; transportOverride = bootstrap.transport; simulatedUITest = true
+            if bootstrap.reset {
+                try? KeychainStore(namespace: bootstrap.configuration.namespace).remove("session")
+                let directory = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                if let directory, let children = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
+                    for child in children where child.lastPathComponent.hasPrefix(bootstrap.configuration.namespace) { try? FileManager.default.removeItem(at: child) }
+                }
+                UserDefaults.standard.removeObject(forKey: "arabic")
+            }
+        }
+#endif
         monitor.pathUpdateHandler = { [weak self] path in Task { @MainActor in self?.reachable = path.status == .satisfied } }
         monitor.start(queue: DispatchQueue(label: "resuto.connectivity"))
     }
@@ -81,7 +96,7 @@ import CryptoKit
     private func connect() throws {
         guard let configuration else { throw RuleError.invalid("configuration_required") }; try configuration.validate()
         if api != nil { return }
-        let transport = RejectRedirects.transport()
+        let transport: any HTTPTransport = transportOverride ?? RejectRedirects.transport()
         let auth = try AuthService(url: configuration.supabaseURL, publicKey: configuration.publicKey, transport: transport, secrets: KeychainStore(namespace: configuration.namespace))
         self.auth = auth; api = try APIClient(base: configuration.apiURL, auth: auth, transport: transport)
     }
@@ -281,8 +296,9 @@ import CryptoKit
         // Manual cash only. No offline capture and no automatic financial replay.
         let _: CollectResult = try await api.post("o/\(scope.orgId)/orders/\(order.id)/collect", body: CashCollection(amountMinor: amount, method: "cash"), key: intent.key)
         try financialStore!.write(JSONEncoder().encode(Optional<FinancialIntent>.none)); financial = nil
-        detail = nil // Never keep an actionable checkout with stale due after an acknowledged collection.
-        try await openOrder(order.id); try await refresh()
+        do { try await openOrder(order.id) }
+        catch { detail = nil; throw error } // Close stale checkout only when a fresh server read fails.
+        try await refresh()
     }
     func recoverFinancial() async throws {
         guard reachable, let intent = financial, let scope, let api, Date().timeIntervalSince(intent.createdAt) < 6 * 86400 else { throw RuleError.invalid("payment_reconciliation_required") }
@@ -327,7 +343,7 @@ import CryptoKit
         await api?.clearCache(); try await loadIdentity()
     }
     func signOut() async {
-        generation = UUID(); try? await auth?.signOut(); await api?.clearCache(); me = nil; membership = nil; restaurant = nil; clearWorkspace()
+        generation = UUID(); me = nil; membership = nil; restaurant = nil; clearWorkspace(); await api?.clearCache(); try? await auth?.signOut()
     }
     private func clearWorkspace() {
         customerId = nil; customerName = nil; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; reservations = []

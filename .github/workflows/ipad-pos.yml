@@ -44,7 +44,7 @@ jobs:
       - name: Build and run native UI tests
         run: |
           set -o pipefail
-          xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination "platform=iOS Simulator,id=$IPAD_UDID" -derivedDataPath apps/ipad-pos/DerivedData -resultBundlePath apps/ipad-pos/NativeResults.xcresult CODE_SIGNING_ALLOWED=NO test | tee apps/ipad-pos/xcodebuild.log
+          xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination "platform=iOS Simulator,id=$IPAD_UDID" -parallel-testing-enabled NO -derivedDataPath apps/ipad-pos/DerivedData -resultBundlePath apps/ipad-pos/NativeResults.xcresult CODE_SIGNING_ALLOWED=NO test | tee apps/ipad-pos/xcodebuild.log
       - name: Export native screenshots
         if: always()
         run: |

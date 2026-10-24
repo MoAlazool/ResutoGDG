@@ -33,10 +33,13 @@ def config_list(name, settings):
 project_config=config_list('project',base)
 app_config=config_list('app',{'PRODUCT_BUNDLE_IDENTIFIER':'com.resuto.ipadpos','PRODUCT_NAME':'$(TARGET_NAME)','INFOPLIST_FILE':'Resources/Info.plist','GENERATE_INFOPLIST_FILE':'NO','CODE_SIGN_STYLE':'Automatic','MARKETING_VERSION':'0.1.0','CURRENT_PROJECT_VERSION':'1','SUPPORTED_PLATFORMS':'iphoneos iphonesimulator','SUPPORTS_MACCATALYST':'NO','ENABLE_USER_SCRIPT_SANDBOXING':'YES'})
 app_id=add('app','PBXNativeTarget',name='ResutoPOS',productName='ResutoPOS',productType='com.apple.product-type.application',productReference=ref(product),buildConfigurationList=app_config,buildPhases=[phase('app-sources','PBXSourcesBuildPhase',source_builds),phase('app-frameworks','PBXFrameworksBuildPhase',[]),phase('app-resources','PBXResourcesBuildPhase',resources)],buildRules=[],dependencies=[])
+fixture_ref=add('test-fixtures','PBXFileReference',lastKnownFileType='folder',path='Tests/ResutoCoreTests/Fixtures',sourceTree='<group>')
+objects[main]['children'].append(ref(fixture_ref))
+fixture_build=add('test-fixtures-build','PBXBuildFile',fileRef=ref(fixture_ref))
 proxy=add('ui-proxy','PBXContainerItemProxy',containerPortal=ref(uid('project')),proxyType=1,remoteGlobalIDString=ref(app_id),remoteInfo='ResutoPOS')
 dep=add('ui-dependency','PBXTargetDependency',target=ref(app_id),targetProxy=ref(proxy))
 ui_config=config_list('ui',{'PRODUCT_BUNDLE_IDENTIFIER':'com.resuto.ipadpos.uitests','PRODUCT_NAME':'$(TARGET_NAME)','GENERATE_INFOPLIST_FILE':'YES','TEST_TARGET_NAME':'ResutoPOS','CODE_SIGN_STYLE':'Automatic'})
-ui_id=add('ui','PBXNativeTarget',name='ResutoPOSUITests',productName='ResutoPOSUITests',productType='com.apple.product-type.bundle.ui-testing',productReference=ref(ui_product),buildConfigurationList=ui_config,buildPhases=[phase('ui-sources','PBXSourcesBuildPhase',ui_builds),phase('ui-frameworks','PBXFrameworksBuildPhase',[])],buildRules=[],dependencies=[ref(dep)])
+ui_id=add('ui','PBXNativeTarget',name='ResutoPOSUITests',productName='ResutoPOSUITests',productType='com.apple.product-type.bundle.ui-testing',productReference=ref(ui_product),buildConfigurationList=ui_config,buildPhases=[phase('ui-sources','PBXSourcesBuildPhase',ui_builds),phase('ui-frameworks','PBXFrameworksBuildPhase',[]),phase('ui-resources','PBXResourcesBuildPhase',[ref(fixture_build)])],buildRules=[],dependencies=[ref(dep)])
 project_id=add('project','PBXProject',attributes={'BuildIndependentTargetsInParallel':'YES','LastUpgradeCheck':'1600','TargetAttributes':{ui_id:{'TestTargetID':ref(app_id)}}},buildConfigurationList=project_config,compatibilityVersion='Xcode 14.0',developmentRegion='en',knownRegions=['en','ar','Base'],mainGroup=ref(main),productRefGroup=ref(products),projectDirPath='',projectRoot='',targets=[ref(app_id),ref(ui_id)])
 def encode(v, depth=0):
     if isinstance(v,Ref): return v

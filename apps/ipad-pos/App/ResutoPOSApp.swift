@@ -44,6 +44,7 @@ struct RootView: View {
     @EnvironmentObject var l: Language
     var body: some View {
         VStack(spacing: 0) {
+            if m.simulatedUITest { Text("SIMULATED UI TEST — NOT STAGING").font(.caption.bold()).padding(6).accessibilityIdentifier("simulatedTestBanner") }
             if let error = m.error {
                 HStack { Image(systemName: "exclamationmark.triangle.fill"); Text(l.text(error)).textSelection(.enabled); Spacer(); Button { m.error = nil } label: { Image(systemName: "xmark") }.accessibilityLabel(l.text("close")) }
                     .padding().foregroundStyle(.primary).background(.orange.opacity(0.18)).accessibilityIdentifier("errorBanner")
@@ -121,13 +122,13 @@ struct WorkspaceSelection: View {
                     ForEach(m.me?.memberships ?? []) { member in
                         Button { Task { await m.perform { try await m.choose(member) } } } label: {
                             HStack { Label(member.orgName, systemImage: "building.2"); Spacer(); Text(member.role).foregroundStyle(.secondary); if member.id == m.membership?.id { Image(systemName: "checkmark.circle.fill") } }.frame(minHeight: 48)
-                        }
+                        }.accessibilityIdentifier("restaurant." + member.id)
                     }
                 }
                 if let restaurant = m.restaurant {
                     Section(l.text("choose_branch")) {
                         ForEach(restaurant.branches.filter { $0.isActive && m.membership?.allows(branch: $0.id) == true }) { branch in
-                            Button(l.name(branch.name, branch.nameAr)) { Task { await m.perform { try await m.choose(branch) } } }.frame(minHeight: 48)
+                            Button(l.name(branch.name, branch.nameAr)) { Task { await m.perform { try await m.choose(branch) } } }.frame(minHeight: 48).accessibilityIdentifier("branch." + branch.id)
                         }
                     }
                 }
@@ -154,7 +155,7 @@ struct WorkspaceView: View {
                     Text(l.name(m.branch?.name ?? "", m.branch?.nameAr)).foregroundStyle(.secondary)
                 }
                 ForEach(Destination.allCases.filter { $0.permission == nil || m.can($0.permission!) }) { destination in
-                    Label(l.text(destination.rawValue), systemImage: destination.symbol).frame(minHeight: 44).tag(destination)
+                    Label(l.text(destination.rawValue), systemImage: destination.symbol).frame(minHeight: 44).tag(destination).accessibilityIdentifier("nav." + destination.rawValue)
                 }
                 Section {
                     Label(l.text(m.reachable ? "online" : "offline"), systemImage: m.reachable ? "wifi" : "wifi.slash").foregroundStyle(m.reachable ? Color.secondary : Color.orange)

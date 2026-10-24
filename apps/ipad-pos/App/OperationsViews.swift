@@ -85,7 +85,7 @@ struct OrdersView: View {
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 6) { Text(Money.text(order.totalMinor, currency: order.currency)).font(.headline); Text(l.text(order.paymentStatus)).font(.caption).foregroundStyle(.secondary) }
                             }.padding(.vertical, 12)
-                        }.foregroundStyle(.primary).disabled(!m.reachable)
+                        }.foregroundStyle(.primary).disabled(!m.reachable).accessibilityIdentifier("order." + order.id)
                     }
                     if history && m.nextCursor != nil { Button(l.text("more")) { Task { await m.perform { try await m.moreOrders() } } } }
                 }.searchable(text: $query, prompt: l.text("search_menu"))
@@ -118,7 +118,7 @@ struct KitchenView: View {
                                 }
                             }
                             if let note = ticket.notes { Text(note).padding(10).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8)) }
-                            Button(l.text("orders")) { Task { await m.perform { try await m.openOrder(ticket.id) } } }.buttonStyle(.bordered).disabled(!m.reachable)
+                            Button(l.text("orders")) { Task { await m.perform { try await m.openOrder(ticket.id) } } }.buttonStyle(.bordered).disabled(!m.reachable).accessibilityIdentifier("kitchen.open." + ticket.id)
                         }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Design.surface, in: RoundedRectangle(cornerRadius: 20))
                     }
                 }.padding(20)
@@ -195,7 +195,7 @@ struct OrderView: View {
                     total("subtotal", current.subtotalMinor); total("discount", current.discountMinor); total("tax", current.taxMinor); total("service", current.serviceChargeMinor); total("delivery", current.deliveryFeeMinor); total("total", current.totalMinor); total("due", current.dueMinor)
                 }
                 if m.can("orders:status"), OrderLifecycle.next(current.status, fulfillment: current.fulfillment) != nil {
-                    Button(l.text("advance")) { Task { await m.perform { try await m.transition(current) } } }.disabled(!m.reachable)
+                    Button(l.text("advance")) { Task { await m.perform { try await m.transition(current) } } }.disabled(!m.reachable).accessibilityIdentifier("order.advance")
                 }
                 if m.can("payments:collect"), current.dueMinor > 0, current.status != "cancelled" {
                     Section(l.text("payment")) {
@@ -209,11 +209,11 @@ struct OrderView: View {
                                 }
                             }
                         }
-                        Button(l.text("record_cash")) { confirmCash = true }.disabled(!m.reachable || (Money.parse(amount) ?? 0) <= 0 || (Money.parse(amount) ?? Int64.max) > current.dueMinor)
+                        Button(l.text("record_cash")) { confirmCash = true }.accessibilityIdentifier("checkout.reviewCash").disabled(!m.reachable || (Money.parse(amount) ?? 0) <= 0 || (Money.parse(amount) ?? Int64.max) > current.dueMinor)
                     }
                 }
                 Section(l.text("receipt")) {
-                    Button(l.text("queue_receipt")) { Task { await m.perform { try await m.enqueueReceipt(current, arabic: l.arabic) } } }
+                    Button(l.text("queue_receipt")) { Task { await m.perform { try await m.enqueueReceipt(current, arabic: l.arabic) } } }.accessibilityIdentifier("receipt.enqueue")
                     ForEach(current.payments) { payment in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack { Text(l.text(payment.method)); Spacer(); Text(l.text(payment.status)); if payment.isTest { Text(l.text("test")).foregroundStyle(.orange) } }
@@ -230,9 +230,9 @@ struct OrderView: View {
                         Button(l.text("cancel_order"), role: .destructive) { confirmCancel = true }.disabled(!m.reachable || reason.count < 2 || reason.count > 300)
                     }
                 }
-            }.navigationTitle(l.text("orders")).toolbar { Button(l.text("done")) { m.detail = nil; dismiss() } }
+            }.navigationTitle(l.text("orders")).toolbar { Button(l.text("done")) { m.detail = nil; dismiss() }.accessibilityIdentifier("order.done") }
                 .confirmationDialog(l.text("payment_notice"), isPresented: $confirmCash, titleVisibility: .visible) {
-                    Button(l.text("record_cash")) { Task { await m.perform { guard let value = Money.parse(amount) else { return }; try await m.collect(current, amount: value); amount = "" } } }
+                    Button(l.text("record_cash")) { Task { await m.perform { guard let value = Money.parse(amount) else { return }; try await m.collect(current, amount: value); amount = "" } } }.accessibilityIdentifier("checkout.confirmCash")
                 }
                 .confirmationDialog(l.text("cancel_order"), isPresented: $confirmCancel, titleVisibility: .visible) {
                     Button(l.text("cancel_order"), role: .destructive) { Task { await m.perform { try await m.cancel(current, reason: reason) } } }

@@ -43,7 +43,7 @@ struct MenuView: View {
                                 Text(l.name(item.name, item.nameAr)).font(.headline).lineLimit(2)
                                 Text(item.available(branch: m.branch?.id ?? "") ? Money.text(item.price(branch: m.branch?.id ?? ""), currency: menu.currency) : l.text("sold_out")).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
                             }.padding(12).background(Design.surface, in: RoundedRectangle(cornerRadius: 18)).contentShape(Rectangle())
-                        }.buttonStyle(.plain).disabled(!item.available(branch: m.branch?.id ?? "") || !m.can("orders:write"))
+                        }.buttonStyle(.plain).accessibilityIdentifier("product." + item.id).disabled(!item.available(branch: m.branch?.id ?? "") || !m.can("orders:write"))
                     }
                 }.padding(16)
             }
@@ -85,7 +85,7 @@ struct ProductView: View {
             }.navigationTitle(l.name(product.name, product.nameAr)).navigationBarTitleDisplayMode(.inline)
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button(l.text("cancel")) { dismiss() } }; ToolbarItem(placement: .confirmationAction) {
                     Button(l.text("add_to_order")) { let line = CartLine(productId: product.id, quantity: quantity, modifiers: selections.sorted { $0.optionId < $1.optionId }, notes: notes)
-                        if let index = editingIndex, m.cart.indices.contains(index) { m.cart[index] = line; m.persistDraft() } else { m.add(line) }; dismiss() }.disabled(!valid)
+                        if let index = editingIndex, m.cart.indices.contains(index) { m.cart[index] = line; m.persistDraft() } else { m.add(line) }; dismiss() }.disabled(!valid).accessibilityIdentifier("product.add")
                 } }
         }.onAppear {
             if let index = editingIndex, m.cart.indices.contains(index) { let line = m.cart[index]; selections = Set(line.modifiers); notes = line.notes ?? ""; quantity = line.quantity; return }
@@ -144,9 +144,9 @@ struct CartView: View {
             if let estimate = m.estimate { Text(Money.text(estimate, currency: m.menu?.currency ?? "")).font(.title2.bold()).monospacedDigit() }
             Text(l.text("estimate")).font(.caption).foregroundStyle(.secondary)
             if m.reachable {
-                Button(l.text("review_send")) { Task { await m.perform { try await m.prepareCurrentDraft(); review = true } } }.buttonStyle(.borderedProminent).controlSize(.large).disabled(m.estimate == nil || !m.can("orders:write")).frame(maxWidth: .infinity)
+                Button(l.text("review_send")) { Task { await m.perform { try await m.prepareCurrentDraft(); review = true } } }.buttonStyle(.borderedProminent).controlSize(.large).disabled(m.estimate == nil || !m.can("orders:write")).frame(maxWidth: .infinity).accessibilityIdentifier("cart.review")
             }
-            Button(l.text("save_order")) { Task { await m.perform { _ = try await m.saveOrder() } } }.buttonStyle(.borderedProminent).controlSize(.large).disabled(m.estimate == nil || !m.can("orders:write")).frame(maxWidth: .infinity)
+            Button(l.text("save_order")) { Task { await m.perform { _ = try await m.saveOrder() } } }.accessibilityIdentifier("cart.save").buttonStyle(.borderedProminent).controlSize(.large).disabled(m.estimate == nil || !m.can("orders:write")).frame(maxWidth: .infinity)
         }.padding(20).background(Design.surface)
             .sheet(item: $editing) { value in ProductView(product: value.product, editingIndex: value.id) }
             .sheet(isPresented: $customer) { CustomerPicker() }
@@ -155,7 +155,7 @@ struct CartView: View {
                     Form {
                         if let estimate = m.estimate { Text(Money.text(estimate, currency: m.menu?.currency ?? "")).font(.title.bold()) }
                         Text(l.text("server_total_notice"))
-                        Button(l.text("confirm_send")) { Task { await m.perform { try await m.sendCurrentDraft(); review = false } } }.disabled(!m.reachable || m.estimate == nil)
+                        Button(l.text("confirm_send")) { Task { await m.perform { try await m.sendCurrentDraft(); review = false } } }.disabled(!m.reachable || m.estimate == nil).accessibilityIdentifier("cart.confirm")
                     }.navigationTitle(l.text("review_send")).toolbar { Button(l.text("cancel")) { review = false } }
                 }
             }
