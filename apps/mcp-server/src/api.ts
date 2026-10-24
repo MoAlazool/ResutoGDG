@@ -30,6 +30,13 @@ export interface ToolDescriptor {
   sensitive: boolean;
 }
 
+/** Mirrors `McpSessionView` (21-MCP): sessions live in the API database, so every MCP server instance can serve them. */
+export interface SessionView {
+  sessionId: string;
+  expiresAt: string;
+  who: WhoAmI;
+}
+
 export interface ToolCallResponse {
   status: 'ok' | 'approval_required';
   tool: string;
@@ -61,7 +68,7 @@ export class ResutoApi {
     this.key = key;
   }
 
-  private async request<T>(method: 'GET' | 'POST', path: string, body?: unknown, label = path): Promise<T> {
+  private async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, label = path): Promise<T> {
     const requestId = newRequestId();
     const started = Date.now();
     let res: Response;
@@ -104,6 +111,18 @@ export class ResutoApi {
 
   whoami() {
     return this.request<WhoAmI>('GET', '/mcp/whoami', undefined, 'whoami');
+  }
+
+  openSession(body: { protocolVersion?: string; clientName?: string; idleMinutes: number }) {
+    return this.request<SessionView>('POST', '/mcp/sessions', body, 'session/open');
+  }
+
+  touchSession(id: string) {
+    return this.request<SessionView>('GET', `/mcp/sessions/${encodeURIComponent(id)}`, undefined, 'session/touch');
+  }
+
+  closeSession(id: string) {
+    return this.request<null>('DELETE', `/mcp/sessions/${encodeURIComponent(id)}`, undefined, 'session/close');
   }
 
   listTools(orgId: string) {

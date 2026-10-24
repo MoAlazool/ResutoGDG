@@ -1,10 +1,9 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from 'node:http';
-import type { Server as McpSdkServer } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { CallToolRequestSchema, isInitializeRequest, JSONRPCRequestSchema, SUPPORTED_PROTOCOL_VERSIONS } from '@modelcontextprotocol/sdk/types.js';
-import { ApiError, ResutoApi } from './api.js';
+import { ApiError, ResutoApi, type WhoAmI } from './api.js';
 import { buildHeader, readBuildInfo } from './build-info.js';
 import { mcpErrorReporter, routeLabel } from './error-tracking.js';
 import type { Config } from './config.js';
@@ -12,24 +11,29 @@ import { log } from './log.js';
 import { createMcpServer, prefetchedAuthInfo, SERVER_INFO } from './mcp.js';
 import { bearerChallenge, handleOAuth, insufficientScopeChallenge } from './oauth.js';
 
+/** What one HTTP request of a session needs: who the connection is and an API client carrying this request's credential. */
 interface Session {
-  transport: StreamableHTTPServerTransport;
-  server: McpSdkServer;
-  keyHash: string;
+  sessionId: string;
   clientId: string;
-  lastSeen: number;
-  api: ResutoApi;
-  /** OAuth sessions: when the access token was last confirmed valid by the API (re-checked every minute). */
-  oauthCheckedAt: number | null;
   orgId: string;
+  api: ResutoApi;
+  who: WhoAmI;
+  /** OAuth access token (rmat_): tool calls get the scope step-up check. */
+  oauth: boolean;
 }
 
-const OAUTH_RECHECK_MS = 60_000;
+/**
+ * How long this instance trusts a session check it made with the API. Sessions live in the API database (21-MCP), so
+ * any instance serves any request of any session; this short cache only saves an API round trip per request. Every
+ * tool call is still authorized by the API with the request's credential (a revoked key fails at once); a session
+ * closed through another instance stops being served here within this window.
+ */
+const SESSION_CHECK_MS = 15_000;
 
 const sha256 = (v: string) => createHash('sha256').update(v).digest();
-const sameKey = (a: Buffer, b: Buffer) => a.length === b.length && timingSafeEqual(a, b);
 /** rmcp_: a connection key; rmat_: an OAuth access token issued by Resuto for this server's resource (FT-17). */
 const KEY_RE = /^(rmcp|rmat)_[A-Za-z0-9_-]{16,128}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 class HttpFailure extends Error {
   constructor(readonly status: number, message: string, readonly headers: Record<string, string> = {}) {
@@ -66,82 +70,91 @@ async function readJson(req: IncomingMessage, limit: number): Promise<unknown> {
   }
 }
 
-
 /**
  * Streamable HTTP endpoint (`POST/GET/DELETE /mcp`) with per-session API keys.
  *
- * Security (MCP transport guidance): Origin validated against an allow-list,
- * Host validated (DNS rebinding), loopback bind by default, body size limit,
- * every request authenticated with the same key that opened the session, and
- * no state beyond in-memory sessions — all data and authorization live in the API.
+ * Security (MCP transport guidance): Origin validated against an allow-list, Host validated (DNS rebinding), loopback
+ * bind by default, body size limit, every request authenticated, and a session usable only by the connection that
+ * opened it. 21-MCP: no session state in this process. Sessions (Mcp-Session-Id) are rows in the API database and
+ * every request gets its own MCP server and stateless transport, so instances scale horizontally without sticky
+ * sessions; all data and authorization live in the API.
  */
 export function createHttpApp(config: Config) {
-  const sessions = new Map<string, Session>();
+  /** `<sessionId>:<credential hash>` → a recent successful session check (SESSION_CHECK_MS). */
+  const checked = new Map<string, { at: number; who: WhoAmI }>();
   const unauthorized = (description?: string, error?: 'invalid_token') => ({ 'WWW-Authenticate': bearerChallenge(config, error, description) });
+  const newApi = (key: string) => new ResutoApi(config.apiUrl, key, config.apiTimeoutMs, config.oauth?.resource ?? null);
 
-  /**
-   * Resolves the caller with the API. OAuth access tokens must have been issued for this server's resource
-   * (audience check, MCP spec "Token Handling"); anything else is answered 401 invalid_token.
-   */
-  async function identify(api: ResutoApi, key: string) {
-    let who;
-    try {
-      who = await api.whoami();
-    } catch (e) {
-      if (e instanceof ApiError) {
-        if (e.status === 401) throw new HttpFailure(401, 'Invalid, expired or revoked credential', unauthorized('The access token or key is invalid, expired or revoked', 'invalid_token'));
-        if (e.status === 402 || e.status === 403) throw new HttpFailure(403, e.message);
-        if (e.status === 429) throw new HttpFailure(429, e.message);
-        throw new HttpFailure(502, e.message);
-      }
-      throw e;
+  /** API errors while resolving the caller, as HTTP answers (401 makes OAuth clients refresh their access token). */
+  function authFailure(e: unknown): never {
+    if (e instanceof ApiError) {
+      if (e.status === 401) throw new HttpFailure(401, 'Invalid, expired or revoked credential', unauthorized('The access token or key is invalid, expired or revoked', 'invalid_token'));
+      if (e.code === 'session_not_found') throw new HttpFailure(404, 'Session not found');
+      if (e.code === 'session_other_connection') throw new HttpFailure(403, 'This session belongs to another key');
+      if (e.status === 402 || e.status === 403) throw new HttpFailure(403, e.message);
+      if (e.status === 429) throw new HttpFailure(429, e.message);
+      throw new HttpFailure(502, e.message);
     }
+    throw e;
+  }
+
+  /** OAuth access tokens must have been issued for this server's resource (audience check, MCP spec "Token Handling"). */
+  function assertAudience(key: string, who: WhoAmI) {
     if (key.startsWith('rmat_') && (!config.oauth || who.auth !== 'oauth' || who.resource !== config.oauth.resource)) {
       throw new HttpFailure(401, 'This access token was not issued for this MCP server', unauthorized('The token audience is not this server', 'invalid_token'));
     }
-    return who;
   }
 
-  async function openSession(req: IncomingMessage, res: ServerResponse, key: string, keyHash: Buffer, body: unknown) {
-    if (sessions.size >= config.maxSessions) throw new HttpFailure(503, 'Too many open sessions; retry later');
-    const api = new ResutoApi(config.apiUrl, key, config.apiTimeoutMs, config.oauth?.resource ?? null);
-    const who = await identify(api, key);
-    const server = createMcpServer(api, who);
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      maxRequestBodySize: config.maxBodyBytes,
-      onsessioninitialized: (id) => {
-        sessions.set(id, { transport, server, keyHash: keyHash.toString('hex'), clientId: who.clientId, lastSeen: Date.now(), api,
-          oauthCheckedAt: key.startsWith('rmat_') ? Date.now() : null, orgId: who.orgId });
-        log('info', 'session opened', { sessionId: id, clientId: who.clientId, orgId: who.orgId, keyPrefix: key.slice(0, 13) });
-      },
-      onsessionclosed: (id) => { sessions.delete(id); },
-    });
-    transport.onclose = () => { if (transport.sessionId) sessions.delete(transport.sessionId); };
-    await server.connect(transport);
-    await transport.handleRequest(req, res, body);
+  /** Initialize: the API opens the session and says who the caller is; the id goes back in Mcp-Session-Id. */
+  async function openSession(res: ServerResponse, key: string, body: unknown): Promise<Session> {
+    const api = newApi(key);
+    const init = (Array.isArray(body) ? body.find((m) => isInitializeRequest(m)) : body) as
+      { params?: { protocolVersion?: unknown; clientInfo?: { name?: unknown } } } | undefined;
+    const version = init?.params?.protocolVersion;
+    const clientName = init?.params?.clientInfo?.name;
+    const opened = await api.openSession({
+      protocolVersion: typeof version === 'string' ? version.slice(0, 40) : undefined,
+      clientName: typeof clientName === 'string' ? clientName.slice(0, 120) : undefined,
+      idleMinutes: Math.max(1, Math.round(config.sessionIdleMs / 60_000)),
+    }).catch(authFailure);
+    assertAudience(key, opened.who);
+    res.setHeader('Mcp-Session-Id', opened.sessionId);
+    log('info', 'session opened', { sessionId: opened.sessionId, clientId: opened.who.clientId, orgId: opened.who.orgId, keyPrefix: key.slice(0, 13) });
+    return { sessionId: opened.sessionId, clientId: opened.who.clientId, orgId: opened.who.orgId, api, who: opened.who, oauth: key.startsWith('rmat_') };
   }
 
+  /**
+   * A request of an open session: the API confirms the session belongs to this credential's connection (another key is
+   * refused with 403; a refreshed OAuth access token of the same connection continues it) and refreshes its idle timer.
+   * An expired or revoked access token is answered with HTTP 401, so the client refreshes it.
+   */
   async function sessionFor(req: IncomingMessage, key: string, keyHash: Buffer): Promise<Session> {
     const sid = header(req, 'mcp-session-id');
     if (!sid) throw new HttpFailure(400, 'Bad Request: No valid session ID provided');
-    const s = sessions.get(sid);
-    if (!s) throw new HttpFailure(404, 'Session not found');
-    if (!sameKey(Buffer.from(s.keyHash, 'hex'), keyHash)) {
-      // A refreshed OAuth access token for the same grant may continue the session; anything else may not.
-      if (!(key.startsWith('rmat_') && s.oauthCheckedAt !== null)) throw new HttpFailure(403, 'This session belongs to another key');
-      const who = await identify(new ResutoApi(config.apiUrl, key, config.apiTimeoutMs, config.oauth?.resource ?? null), key);
-      if (who.clientId !== s.clientId) throw new HttpFailure(403, 'This session belongs to another connection');
-      s.keyHash = keyHash.toString('hex');
-      s.api.setKey(key);
-      s.oauthCheckedAt = Date.now();
-    } else if (s.oauthCheckedAt !== null && Date.now() - s.oauthCheckedAt > OAUTH_RECHECK_MS) {
-      // Expired or revoked access tokens get HTTP 401 (so the client refreshes), not a tool error.
-      await identify(s.api, key);
-      s.oauthCheckedAt = Date.now();
+    if (!UUID_RE.test(sid)) throw new HttpFailure(404, 'Session not found');
+    const api = newApi(key);
+    const cacheKey = `${sid}:${keyHash.toString('hex')}`;
+    const hit = checked.get(cacheKey);
+    let who: WhoAmI;
+    if (hit && Date.now() - hit.at < SESSION_CHECK_MS) who = hit.who;
+    else {
+      who = (await api.touchSession(sid).catch(authFailure)).who;
+      assertAudience(key, who);
+      checked.set(cacheKey, { at: Date.now(), who });
     }
-    s.lastSeen = Date.now();
-    return s;
+    return { sessionId: sid, clientId: who.clientId, orgId: who.orgId, api, who, oauth: key.startsWith('rmat_') };
+  }
+
+  /** One MCP server and one stateless transport per HTTP request (the session id is handled above, by the API). */
+  async function serve(req: IncomingMessage, res: ServerResponse, s: Session, body?: unknown) {
+    const server = createMcpServer(s.api, s.who);
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, maxRequestBodySize: config.maxBodyBytes });
+    res.on('close', () => {
+      void transport.close().catch(() => undefined);
+      void server.close().catch(() => undefined);
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, body);
   }
 
   /**
@@ -157,7 +170,7 @@ export function createHttpApp(config: Config) {
    * so it cannot answer another request that reuses the id.
    */
   async function scopeCheck(req: IncomingMessage & { auth?: AuthInfo }, s: Session, body: unknown) {
-    if (s.oauthCheckedAt === null || !body || typeof body !== 'object' || Array.isArray(body)) return;
+    if (!s.oauth || !body || typeof body !== 'object' || Array.isArray(body)) return;
     if (!JSONRPCRequestSchema.safeParse(body).success) return;   // the transport answers 400 (parse error)
     const parsed = CallToolRequestSchema.safeParse(body);
     if (!parsed.success) return;                                  // not a tools/call, or the SDK answers invalid params
@@ -214,13 +227,26 @@ export function createHttpApp(config: Config) {
       if (header(req, 'mcp-session-id')) {
         const s = await sessionFor(req, key, keyHash);
         await scopeCheck(req, s, body);
-        return s.transport.handleRequest(req, res, body);
+        return serve(req, res, s, body);
       }
       const init = Array.isArray(body) ? body.some((m) => isInitializeRequest(m)) : isInitializeRequest(body);
       if (!init) throw new HttpFailure(400, 'Bad Request: No valid session ID provided');
-      return openSession(req, res, key, keyHash, body);
+      return serve(req, res, await openSession(res, key, body), body);
     }
-    if (req.method === 'GET' || req.method === 'DELETE') return (await sessionFor(req, key, keyHash)).transport.handleRequest(req, res);
+    if (req.method === 'DELETE') {
+      const s = await sessionFor(req, key, keyHash);
+      await s.api.closeSession(s.sessionId).catch(authFailure);
+      for (const k of checked.keys()) if (k.startsWith(`${s.sessionId}:`)) checked.delete(k);
+      log('info', 'session closed', { sessionId: s.sessionId, clientId: s.clientId });
+      res.writeHead(200).end();
+      return;
+    }
+    if (req.method === 'GET') {
+      // No standalone server-to-client stream: each request gets its own server and Resuto sends no notifications
+      // (tools.listChanged is false). MCP clients read 405 here as "this server offers no SSE stream".
+      await sessionFor(req, key, keyHash);
+      throw new HttpFailure(405, 'This server does not offer a standalone SSE stream', { Allow: 'POST, DELETE, OPTIONS' });
+    }
     throw new HttpFailure(405, 'Method not allowed', { Allow: 'GET, POST, DELETE, OPTIONS' });
   }
 
@@ -243,7 +269,7 @@ export function createHttpApp(config: Config) {
         }
         res.writeHead(api === 'unreachable' ? 503 : 200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: api === 'unreachable' ? 'degraded' : 'ok', service: 'resuto-mcp', version: SERVER_INFO.version,
-          build, sessions: sessions.size, ...(api ? { api, apiBuild } : {}) }));
+          build, sessionStore: 'api', ...(api ? { api, apiBuild } : {}) }));
         return;
       }
       if (await handleOAuth(req, res, path ?? '/', config)) return;
@@ -270,27 +296,19 @@ export function createHttpApp(config: Config) {
   http.headersTimeout = 30_000;
 
   const sweeper = setInterval(() => {
-    const cutoff = Date.now() - config.sessionIdleMs;
-    for (const [id, s] of sessions) {
-      if (s.lastSeen < cutoff) {
-        sessions.delete(id);
-        void s.transport.close().catch(() => undefined);
-        log('info', 'session expired', { sessionId: id, clientId: s.clientId });
-      }
-    }
+    const cutoff = Date.now() - SESSION_CHECK_MS;
+    for (const [k, v] of checked) if (v.at < cutoff) checked.delete(k);
   }, 60_000);
   sweeper.unref();
 
   return {
     http,
-    sessions,
     listen(): Promise<void> {
       return new Promise((resolve) => http.listen(config.port, config.host, () => resolve()));
     },
     async close() {
       clearInterval(sweeper);
-      for (const s of sessions.values()) await s.transport.close().catch(() => undefined);
-      sessions.clear();
+      checked.clear();
       await new Promise<void>((resolve) => http.close(() => resolve()));
     },
   };
