@@ -96,7 +96,8 @@ dashboard's minimum length + required characters (section 2).
   and payment-provider credentials (create / update connection, OAuth start / complete, account selection), WhatsApp
   Embedded Signup completion (stores the WhatsApp Business token), ZATCA EGS creation and compliance / production CSID
   requests (signing key and CSIDs), MCP client keys (create / update) and MCP OAuth grant approval, and role grants
-  (invitations, member role changes, member removal). The web
+  (invitations, member role changes, member removal), MCP approval decisions (approve / reject) and change-set
+  decisions (approve, reject, undo an effect, approval-policy edits; docs/architecture/CHANGE_SETS.md). The web
   turns that answer into the code step (also when this tab's user object did not yet list a factor added elsewhere).
   Users **without** a verified factor, including the demo accounts, are not affected. The guard runs after access
   control, so it never reveals a tenant or overrides a permission refusal.

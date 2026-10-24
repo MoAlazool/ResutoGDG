@@ -559,7 +559,8 @@ export class ChangesService {
     } catch (error: any) {
       if (error instanceof LeaseLost) return null;
       const d = describeError(error);
-      if (!(error instanceof DomainError)) this.logger.error(error);
+      // Provider and network errors are expected here: the attempt is retried with backoff (or fails after the last one).
+      if (!(error instanceof DomainError)) this.logger.warn(`change effect ${effectId} attempt ${claimed.attempts} failed: ${(error as Error)?.message ?? error}`);
       const message = `${d.code}: ${d.message}`.slice(0, 1000);
       return this.db.withTenant(orgId, async (tx) => {
         const cs = await this.lockSet(tx, orgId, claimed.change_set_id);
@@ -639,17 +640,45 @@ export class ChangesService {
   // Jobs: due effects, expiry, resume after a crash
   // -------------------------------------------------------------------------
 
-  async runDueEffects(limit = 50): Promise<{ attempted: number; succeeded: number }> {
+  async runDueEffects(limit = 50): Promise<{ attempted: number; succeeded: number; needsAttention: number }> {
+    const needsAttention = await this.flagUnknownOutcomes(limit);
     const due = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string }>(
       `select id, org_id from change_effects
-        where (status = 'pending_effect' and next_attempt_at <= now()) or (status = 'running' and locked_until < now())
+        where (status = 'pending_effect' and next_attempt_at <= now()) or (status = 'running' and atomic and locked_until < now())
         order by next_attempt_at limit $1`, [limit]), 'system:changes.effects');
     let succeeded = 0;
     for (const e of due) {
       const r = await this.runEffect(e.org_id, e.id).catch((err) => { this.logger.warn(`effect ${e.id}: ${(err as Error).message}`); return null; });
       if (r?.status === 'succeeded') succeeded++;
     }
-    return { attempted: due.length, succeeded };
+    return { attempted: due.length, succeeded, needsAttention };
+  }
+
+  /**
+   * A non-atomic effect (one whose provider call cannot commit with its success mark) whose attempt outlived its lease
+   * may or may not have happened: it is never retried blindly but flagged for a person.
+   */
+  private async flagUnknownOutcomes(limit: number): Promise<number> {
+    const lost = await this.db.withPlatform((tx) => tx.query<{ id: string; org_id: string; change_set_id: string }>(
+      `select id, org_id, change_set_id from change_effects where status = 'running' and not atomic and locked_until < now() limit $1`, [limit]),
+    'system:changes.effects');
+    let n = 0;
+    for (const e of lost) {
+      await this.db.withTenant(e.org_id, async (tx) => {
+        const cs = await this.lockSet(tx, e.org_id, e.change_set_id);
+        const row = await tx.maybeOne<{ op_id: string }>(
+          `update change_effects set status = 'needs_attention', finished_at = now(), locked_until = null, claimed_by = null,
+              last_error = 'The outcome of the last attempt is unknown; check with the provider before trying again'
+            where id = $1 and status = 'running' and not atomic and locked_until < now() returning op_id`, [e.id]);
+        if (!row) return;
+        n++;
+        await tx.query(`update change_ops set status = 'needs_attention' where id = $1`, [row.op_id]);
+        await this.audit.record(tx, this.systemCtx(e.org_id), { action: 'change_op.needs_attention', entityType: 'change_set', entityId: cs.id,
+          metadata: { opId: row.op_id, reason: 'lease expired with an unknown outcome' } });
+        await this.rollupTx(tx, cs, {});
+      }, 'system:changes.effects');
+    }
+    return n;
   }
 
   /** Sets left 'approved' (crash after approval) are applied; 'applying' sets whose effects all settled are rolled up. */

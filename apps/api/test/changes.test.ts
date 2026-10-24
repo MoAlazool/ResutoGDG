@@ -72,7 +72,7 @@ let waiter: TestUser;
 let jwt: JwtService;
 
 const base = (tenant: TestTenant) => `/v1/o/${tenant.orgId}/change-sets`;
-const propose = (u: TestUser, body: unknown, key = unique('cs-key'), tenant = a) =>
+const propose = (u: TestUser, body: object, key = unique('cs-key'), tenant = a) =>
   t.http.post(base(tenant)).set(auth(u)).set('Idempotency-Key', key).send(body);
 const approve = (u: { token: string }, id: string, body: Record<string, unknown> = {}, tenant = a) =>
   t.http.post(`${base(tenant)}/${id}/approve`).set(auth(u)).send(body);
@@ -240,6 +240,19 @@ describe('approval and apply', () => {
     expect((await approve(a.owner, cs.id)).body.error.code).toBe('change_set_not_pending');
   });
 
+  it('a website section edited in the Studio after the proposal invalidates the set (draft ops under an approval policy)', async () => {
+    expect((await setPolicy(a.owner, 'website_drafts', { mode: 'approval' })).status).toBe(200);
+    const created = await t.http.post(`/v1/o/${a.orgId}/studio/website/sections`).set(auth(a.owner)).send({ kind: 'about', content: { headline: { en: 'About us' } } });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const cs = (await propose(manager, { title: 'New about', ops: [{ type: 'website.section.update', input: { sectionId: created.body.id, content: { headline: { en: 'Our story' } } } }] })).body;
+    expect(cs).toMatchObject({ status: 'pending_approval', ops: [{ target: { type: 'website_section', id: created.body.id }, changes: [{ before: 'About us', after: 'Our story' }] }] });
+    expect((await t.http.patch(`/v1/o/${a.orgId}/studio/website/sections/${created.body.id}`).set(auth(a.owner)).send({ isVisible: false })).status).toBe(200);
+    const res = await approve(a.owner, cs.id);
+    expect(res.body.error.code).toBe('change_set_invalidated');
+    expect((await sql(`select content->'headline'->>'en' as h from website_sections where id = $1`, [created.body.id]))[0].h).toBe('About us');
+    await setPolicy(a.owner, 'website_drafts', { mode: 'auto' });
+  });
+
   it('refuses an approval made on a stale screen (digest) and lets a reject close the set', async () => {
     const cs = (await propose(manager, { title: 'Digest', ops: [priceOp(menu.products.soda, 2700)] })).body;
     const stale = await approve(a.owner, cs.id, { previewDigest: 'f'.repeat(64) });
@@ -313,6 +326,20 @@ describe('external effects (transactional outbox)', () => {
     const n = calls.checkout.length;
     await jobs.effects();
     expect(calls.checkout.length).toBe(n);
+  });
+
+  it('an attempt whose outcome is unknown (non-atomic effect, lease lost) is flagged needs_attention and never retried', async () => {
+    script.checkout.push('transient');
+    const cs = (await propose(manager, { title: 'Unknown outcome', ops: [link(6000)] })).body;
+    expect((await approve(a.owner, cs.id)).body.status).toBe('applying');
+    await sql(`update change_effects set status = 'running', atomic = false, locked_until = now() - interval '1 second' where change_set_id = $1`, [cs.id]);
+    const n = calls.checkout.length;
+    expect((await t.app.get(ChangesJobs).effects()).needsAttention).toBe(1);
+    expect(calls.checkout.length).toBe(n);
+    const v = await view(manager, cs.id);
+    expect(v).toMatchObject({ status: 'failed', ops: [{ status: 'needs_attention', effect: { status: 'needs_attention' } }] });
+    expect(v.ops[0].effect.lastError).toMatch(/outcome of the last attempt is unknown/);
+    expect(await auditActions(cs.id)).toContain('change_op.needs_attention');
   });
 
   it('hands the payment URL to the approver once, as a deliverable that is not stored', async () => {
