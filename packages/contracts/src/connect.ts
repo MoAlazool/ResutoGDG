@@ -84,6 +84,8 @@ export const inboxConversationFilters = pagination.extend({
   assigned: z.enum(['me', 'unassigned']).optional(),
   channelId: uuid.optional(),
   q: z.string().trim().max(80).optional(),
+  /** 21-INBOX: conversations carrying this tag (conversation_tags). */
+  tagId: uuid.optional(),
 });
 export type InboxConversationFilters = z.infer<typeof inboxConversationFilters>;
 
