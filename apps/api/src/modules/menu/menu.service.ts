@@ -52,7 +52,7 @@ export const PUBLIC_MENU_NO_STORE = 'no-store';
 const PUBLIC_MENU_SHAPE = 3;
 
 /** Branch columns the public menu exposes (toPublicBranch) plus the lookup code (PCL-28: no select *). */
-const PUBLIC_BRANCH_COLUMNS = `id, code, name, name_ar, accepts_dine_in, accepts_pickup, accepts_delivery, accepts_reservations, delivery_fee_minor,
+export const PUBLIC_BRANCH_COLUMNS = `id, code, name, name_ar, accepts_dine_in, accepts_pickup, accepts_delivery, accepts_reservations, delivery_fee_minor,
   min_order_minor, address, city, phone`;
 
 export const toPublicBranch = (b: any): PublicBranch => ({

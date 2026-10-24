@@ -7,6 +7,7 @@ export const PERMISSION = 'resuto:permission';
 export const MODULE = 'resuto:module';
 export const PLATFORM_ROLE = 'resuto:platform';
 export const MCP_RUNTIME = 'resuto:mcp-runtime';
+export const POS_DEVICE = 'resuto:pos-device';
 
 /** No authentication required (guest, webhook, public website endpoints). */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
@@ -23,6 +24,12 @@ export const PlatformAdmin = (...roles: Array<'superadmin' | 'support' | 'financ
  * route (apps/api/test/mcp-route-lockdown.test.ts).
  */
 export const McpRuntime = (): ClassDecorator => SetMetadata(MCP_RUNTIME, true);
+/**
+ * The POS device API (21-POSAPI): the ONLY routes a device credential (rpos_...) may reach, and routes only a paired
+ * device may call (a staff session is refused). The guard builds the tenant from the device (org, branch, acting
+ * role), so these routes have no :orgId. Class-level only; test/pos-flow.test.ts enumerates every route.
+ */
+export const PosDevice = (): ClassDecorator => SetMetadata(POS_DEVICE, true);
 export const Tenant = createParamDecorator((_: unknown, ctx: ExecutionContext) => {
   const req = ctx.switchToHttp().getRequest<ResutoRequest>();
   if (!req.tenant) throw new Error('Tenant context missing: route needs :orgId');

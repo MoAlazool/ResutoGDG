@@ -23,6 +23,7 @@ import { MenuModule } from './menu/menu.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
+import { PosModule } from './pos/pos.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { StudioModule } from './studio/studio.module';
 
@@ -49,6 +50,7 @@ export const DOMAIN_MODULES: Type[] = [
   NotificationsModule,
   OrdersModule,
   PaymentsModule,
+  PosModule,
   ReservationsModule,
   StudioModule,
 ];

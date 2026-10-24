@@ -22,7 +22,16 @@ export interface AuthMcpClient {
   oauthScopes?: string[];
 }
 
-export type AuthPrincipal = AuthUser | AuthMcpClient;
+/** A paired POS device (21-POSAPI, rpos_ credential): one org, one branch, one acting role (waiter, cashier or kitchen). */
+export interface AuthPosDevice {
+  kind: 'device';
+  deviceId: string;
+  orgId: string;
+  branchId: string;
+  role: Role;
+}
+
+export type AuthPrincipal = AuthUser | AuthMcpClient | AuthPosDevice;
 
 /**
  * Who is acting, inside which tenant, with which role. Every tenant-scoped
@@ -33,9 +42,9 @@ export class TenantContext {
     readonly orgId: string,
     readonly role: Role,
     readonly branchIds: string[] | null,
-    /** Staff user id, or null for MCP clients / system jobs. */
+    /** Staff user id, or null for MCP clients, POS devices and system jobs. */
     readonly userId: string | null,
-    readonly actorType: 'user' | 'mcp_client' | 'system' | 'guest' | 'driver',
+    readonly actorType: 'user' | 'mcp_client' | 'system' | 'guest' | 'driver' | 'device',
     readonly actorId: string,
     readonly source: 'api' | 'mcp' | 'worker' | 'webhook' | 'web' = 'api',
   ) {}
