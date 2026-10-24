@@ -47,6 +47,7 @@ import CryptoKit
     @Published private(set) var financial: FinancialIntent?
     private let monitor = NWPathMonitor()
     private var generation = UUID()
+    private var draftID = UUID()
     private var refreshing = false
     var scope: Scope? {
         guard let configuration, let me, let membership, let branch else { return nil }
@@ -97,7 +98,7 @@ import CryptoKit
     }
     func choose(_ branch: Branch) async throws {
         guard let membership, membership.allows(branch: branch.id), restaurant?.branches.contains(where: { $0.id == branch.id && $0.isActive }) == true else { throw RuleError.invalid("forbidden") }
-        generation = UUID(); self.branch = branch; fulfillment = branch.acceptsPickup ? "pickup" : (branch.acceptsDineIn ? "dine_in" : "delivery"); customerId = nil; customerName = nil; reservations = []; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
+        generation = UUID(); draftID = UUID(); self.branch = branch; fulfillment = branch.acceptsPickup ? "pickup" : (branch.acceptsDineIn ? "dine_in" : "delivery"); customerId = nil; customerName = nil; reservations = []; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
         menu = nil; layout = nil; live = nil; orders = []; historyOrders = []; nextCursor = nil; tickets = []; pending = []; financial = nil; lastRefresh = nil
         guard let scope, let configuration, let api else { return }
         let hash = SHA256.hash(data: try JSONEncoder().encode(scope)).map { String(format: "%02x", $0) }.joined()
@@ -112,7 +113,10 @@ import CryptoKit
             let cached = try JSONDecoder().decode(CachedWorkspace.self, from: data)
             if cached.scope == scope, Date().timeIntervalSince(cached.savedAt) < 24 * 3600 { menu = cached.menu; layout = cached.floor; cacheDate = cached.savedAt }
         }
-        if let data = try draft?.read(), let saved = try JSONDecoder().decode(DraftSnapshot?.self, from: data), saved.scope == scope {
+        let capturedIDs = Set(await queue!.list(scope: scope).map(\.id))
+        if let data = try draft?.read(), let saved = try JSONDecoder().decode(DraftSnapshot?.self, from: data), saved.scope == scope,
+           saved.id.map({ !capturedIDs.contains($0) }) ?? true {
+            draftID = saved.id ?? UUID()
             customerId = saved.order.customerId; deliveryLine = saved.order.deliveryAddress?.line1 ?? ""; deliveryArea = saved.order.deliveryAddress?.area ?? ""; deliveryCity = saved.order.deliveryAddress?.city ?? ""
             cart = saved.order.lines; fulfillment = saved.order.fulfillment; notes = saved.order.notes ?? ""; promotion = saved.order.promotionCode ?? ""
             selectedTable = layout?.tables.first { $0.id == saved.order.tableId }
@@ -122,7 +126,7 @@ import CryptoKit
     }
     func persistDraft() {
         guard let draft, let scope, let order = draftOrder else { return }
-        do { try draft.write(JSONEncoder().encode(DraftSnapshot(scope: scope, order: order))) } catch { handle(error) }
+        do { try draft.write(JSONEncoder().encode(DraftSnapshot(scope: scope, order: order, id: draftID))) } catch { handle(error) }
     }
     func add(_ line: CartLine) { cart.append(line); persistDraft() }
     func refresh() async throws {
@@ -198,7 +202,8 @@ import CryptoKit
     @discardableResult func saveOrder() async throws -> UUID {
         guard can("orders:write"), let order = draftOrder, let menu, let scope, let queue else { throw RuleError.invalid("permission_denied") }
         _ = try CartRules.estimate(order, menu: menu)
-        let id = try await queue.save(scope: scope, payload: order)
+        let id = try await queue.save(scope: scope, payload: order, id: draftID)
+        draftID = UUID()
         cart = []; notes = ""; promotion = ""; customerId = nil; customerName = nil; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; persistDraft(); pending = await queue.list(scope: scope); return id
     }
     func prepareCurrentDraft() async throws {
@@ -330,7 +335,7 @@ import CryptoKit
         selectedTable = nil; notes = ""; promotion = ""; queue = nil; prints = nil; cache = nil; draft = nil; financialStore = nil; financial = nil; lastRefresh = nil; cacheDate = nil
     }
 }
-private struct DraftSnapshot: Codable { let scope: Scope; let order: StaffOrder }
+private struct DraftSnapshot: Codable { let scope: Scope; let order: StaffOrder; let id: UUID? }
 struct FinancialIntent: Codable { let orderId: String; let amountMinor: Int64; let key: String; let createdAt: Date; let kind: String; let reason: String? }
 private struct RefundRequest: Encodable, Sendable { let amountMinor: Int64; let reason: String; let key: String }
 private struct RefundResult: Decodable, Sendable { let id: String; let status: String }

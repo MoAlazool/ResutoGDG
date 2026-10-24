@@ -226,3 +226,25 @@ final class TimestampTests: XCTestCase {
         XCTAssertNotNil(ServerDate.parse("2026-10-24T12:00:00.123Z")); XCTAssertNil(ServerDate.parse("invalid"))
     }
 }
+final class CaptureAtomicityTests: XCTestCase {
+    func testCrashBeforeCartClearCannotCreateSecondOperation() async throws {
+        let storage = MemoryStore(), sender = Submitter(), draftID = UUID()
+        let first = try OrderQueue(storage: storage, submitter: sender)
+        _ = try await first.save(scope: scope(), payload: payload(), id: draftID)
+        // Simulate process death before the separate cart snapshot was cleared.
+        let restarted = try OrderQueue(storage: storage, submitter: sender)
+        let recoveredID = try await restarted.save(scope: scope(), payload: payload(), id: draftID)
+        XCTAssertEqual(recoveredID, draftID)
+        let operations = await restarted.list(scope: scope()); XCTAssertEqual(operations.count, 1)
+        try await restarted.approve(draftID, scope: scope(), menu: decode("menu")); try await restarted.drain(scope: scope(), authorized: true)
+        _ = try await restarted.save(scope: scope(), payload: payload(), id: draftID)
+        try await restarted.drain(scope: scope(), authorized: true)
+        let calls = await sender.calls; XCTAssertEqual(calls.count, 1)
+    }
+    func testCapturedIDCannotBeReusedWithDifferentPayloadOrTenant() async throws {
+        let queue = try OrderQueue(storage: MemoryStore(), submitter: Submitter()), id = UUID()
+        _ = try await queue.save(scope: scope(), payload: payload(), id: id)
+        do { _ = try await queue.save(scope: scope(), payload: payload(quantity: 2), id: id); XCTFail("Immutable payload must be preserved") } catch {}
+        do { _ = try await queue.save(scope: scope(org: "other"), payload: payload(), id: id); XCTFail("Scope must be preserved") } catch {}
+    }
+}

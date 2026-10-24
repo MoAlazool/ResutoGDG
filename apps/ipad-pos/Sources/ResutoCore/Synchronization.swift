@@ -11,8 +11,8 @@ public struct PendingOrder: Codable, Identifiable, Sendable {
     public let id: UUID; public let scope: Scope; public let payload: StaffOrder; public let createdAt: Date
     public var state: SyncState; public var firstAttemptAt: Date?; public var attempts: Int; public var nextAttemptAt: Date
     public var serverOrderId: String?; public var serverNumber: String?; public var issue: String?
-    public init(scope: Scope, payload: StaffOrder, now: Date = Date()) {
-        id = UUID(); self.scope = scope; self.payload = payload; createdAt = now; state = .local; attempts = 0; nextAttemptAt = now
+    public init(scope: Scope, payload: StaffOrder, now: Date = Date(), id: UUID = UUID()) {
+        self.id = id; self.scope = scope; self.payload = payload; createdAt = now; state = .local; attempts = 0; nextAttemptAt = now
     }
 }
 public protocol DataStore: Sendable {
@@ -39,9 +39,13 @@ public actor OrderQueue {
         for index in operations.indices where operations[index].state == .submitting { operations[index].state = .queued }
     }
     public func list(scope: Scope) -> [PendingOrder] { operations.filter { $0.scope == scope }.sorted { $0.createdAt > $1.createdAt } }
-    public func save(scope: Scope, payload: StaffOrder, now: Date = Date()) throws -> UUID {
+    public func save(scope: Scope, payload: StaffOrder, now: Date = Date(), id: UUID = UUID()) throws -> UUID {
         guard payload.branchId == scope.branchId else { throw RuleError.invalid("branch_mismatch") }
-        let operation = PendingOrder(scope: scope, payload: payload, now: now)
+        if let existing = operations.first(where: { $0.id == id }) {
+            guard existing.scope == scope, existing.payload == payload else { throw RuleError.invalid("operation_payload_changed") }
+            return existing.id
+        }
+        let operation = PendingOrder(scope: scope, payload: payload, now: now, id: id)
         var copy = operations; copy.append(operation); try persist(copy); return operation.id
     }
     public func approve(_ id: UUID, scope: Scope, menu: Menu, now: Date = Date()) throws {
