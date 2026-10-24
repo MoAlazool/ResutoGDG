@@ -135,7 +135,7 @@ struct SyncView: View {
             if m.pending.isEmpty { EmptyState(key: "no_pending", symbol: "checkmark.icloud") }
             ForEach(m.pending) { operation in
                 VStack(alignment: .leading, spacing: 12) {
-                    Label(l.text(operation.state.rawValue), systemImage: operation.state == .accepted ? "checkmark.circle" : "arrow.triangle.2.circlepath")
+                    Label(l.text("sync_" + operation.state.rawValue), systemImage: operation.state == .accepted ? "checkmark.circle" : "arrow.triangle.2.circlepath")
                         .font(.headline).foregroundStyle(operation.state == .attention ? .orange : Design.accent)
                     Text(operation.serverNumber.map { "#\($0)" } ?? String(operation.id.uuidString.prefix(8))).font(.subheadline.monospaced())
                     Text(operation.createdAt, style: .date).font(.caption)

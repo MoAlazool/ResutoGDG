@@ -7,7 +7,7 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 | Area | Implemented | Tested | Verified on Staging | Verified on Real Device | Blocked / remaining |
 |---|---|---|---|---|---|
 | Swift portable core | Yes | 42 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
-| Native SwiftUI app/project | Yes | Syntax parsed; macOS CI pending | No | No | Xcode/simulator evidence required |
+| Native SwiftUI app/project | Yes | Xcode 16.4 build + 4 UI smoke tests passed at `be5a528`; latest checks on PR #3 | No | No | Authenticated screens and physical-device acceptance remain |
 | Supabase auth/refresh/Keychain | Yes | Core transport/refresh tests | No | No | Authorized staff account/project config; Keychain device checks |
 | Restaurant/branch/role scoping | Yes | Core permission and queue isolation tests | Unauthenticated access rejects 401 | No | Authenticated cross-tenant/branch negative cases |
 | Menu, images, search, category, modifiers | Yes | Core constraints/fixtures | No | No | Layout, 1000-product performance, real catalogue acceptance |
@@ -20,8 +20,8 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 | Refund request + manual same-key recovery | Yes | No dedicated refund integration test yet | No | No | Provider/manual completion verification; web completes physical manual refund |
 | Encrypted offline draft/cache/outbox | Yes | Core restart/retry/isolation tests | No | No | AES-GCM/Keychain/force-close/reboot actual iPad checks |
 | AirPrint and LAN raster adapter | Yes, experimental LAN path | Core print-queue tests | N/A | No | Model certification, paper/status/reconnect/Arabic tests |
-| Arabic/English, RTL, Western digits | Yes, central catalogue | Money tests; Arabic launch test prepared | No | No | Full bilingual visual/accessibility audit and server-error translations |
-| Xcode/macOS Actions workflow | Prepared | First run passed core; native compile failed on ambiguous ShapeStyle, fixed; rerun pending | N/A | N/A | Actual Actions run result required |
+| Arabic/English, RTL, Western digits | Yes, central catalogue | Money tests, key-parity check; Arabic launch assertions in UI suite | No | No | Full bilingual visual/accessibility audit and server-error translations |
+| Xcode/macOS Actions workflow | Prepared | Run 40125492140 passed at `be5a528`; latest workflow changes checked on PR #3 | N/A | N/A | See `docs/evidence/native-ci-be5a528.json` and latest PR checks |
 | Device enrollment/remote revoke | No | No | No | No | Backend contract missing |
 | Native delivery entry/customer lookup/reservations workspace | Yes: delivery addresses, customer lookup/selection, daily reservations/check-in | No | No | No | Customer/reservation workflow acceptance and reservation creation/editing UI remain |
 | Existing order line amendments/table move/merge | No | No | No | No | Shared backend contracts missing |

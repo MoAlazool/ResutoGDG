@@ -22,3 +22,9 @@ assert '6 * 24 * 3600' in swift, 'Retry horizon must remain below 7-day server r
 for name in ['Info.plist','PrivacyInfo.xcprivacy']:
     plistlib.loads((root/'apps/ipad-pos/Resources'/name).read_bytes())
 print(f'PASS: {sum(map(len,required.values()))} route/method contracts, request channel, retention, resource plists')
+
+localization=(root/'apps/ipad-pos/App/Localization.swift').read_text()
+en,ar=localization.split('static let en:')[1].split('static let ar:')
+key_pattern=r'"([^"\n]+)"\s*:'
+assert set(re.findall(key_pattern,en)) == set(re.findall(key_pattern,ar)), 'English/Arabic localization keys differ'
+print('PASS: English/Arabic localization key parity')

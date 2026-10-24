@@ -17,7 +17,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, Node 24
       - name: Report selected Apple toolchain
         run: |
           xcodebuild -version
@@ -51,7 +51,7 @@ jobs:
           if [ -d apps/ipad-pos/NativeResults.xcresult ]; then
             xcrun xcresulttool export attachments --path apps/ipad-pos/NativeResults.xcresult --output-path apps/ipad-pos/ui-artifacts || true
           fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2, Node 24
         if: always()
         with:
           name: native-ipad-results

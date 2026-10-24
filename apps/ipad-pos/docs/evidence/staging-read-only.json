@@ -43,5 +43,19 @@
         }
       }
     }
+  ],
+  "additionalPublicReads": [
+    {
+      "path": "/public/menu/the-olive-room",
+      "status": 200,
+      "categories": 4,
+      "products": 8,
+      "currency": "EGP"
+    },
+    {
+      "path": "/public/floor/the-olive-room/main",
+      "status": 200,
+      "tables": 6
+    }
   ]
 }

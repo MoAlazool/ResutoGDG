@@ -49,7 +49,7 @@ struct RootView: View {
                     .padding().foregroundStyle(.primary).background(.orange.opacity(0.18)).accessibilityIdentifier("errorBanner")
             }
             if let notice = m.notice {
-                HStack { Image(systemName: "checkmark.circle.fill"); Text(notice.replacingOccurrences(of: "accepted", with: l.text("accepted"))); Spacer(); Button { m.notice = nil } label: { Image(systemName: "xmark") }.accessibilityLabel(l.text("close")) }.padding().foregroundStyle(Design.accent).background(Design.accent.opacity(0.1))
+                HStack { Image(systemName: "checkmark.circle.fill"); Text(notice.replacingOccurrences(of: "accepted", with: l.text("sync_accepted"))); Spacer(); Button { m.notice = nil } label: { Image(systemName: "xmark") }.accessibilityLabel(l.text("close")) }.padding().foregroundStyle(Design.accent).background(Design.accent.opacity(0.1))
             }
             if m.me == nil { SignInView() }
             else if m.locked {
