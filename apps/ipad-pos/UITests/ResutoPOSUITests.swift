@@ -21,5 +21,13 @@ final class ResutoPOSUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Welcome Detail"].exists)
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = "welcome-ipad"; attachment.lifetime = .keepAlways; add(attachment)
     }
-    func testLaunchPerformance() { measure(metrics: [XCTApplicationLaunchMetric()]) { XCUIApplication().launch() } }
+    func testLaunchPerformance() {
+        let app = XCUIApplication()
+        let options = XCTMeasureOptions(); options.iterationCount = 3
+        measure(metrics: [XCTApplicationLaunchMetric(waitUntilResponsive: true)], options: options) {
+            app.launch()
+            app.terminate()
+            XCTAssertTrue(app.wait(for: .notRunning, timeout: 15), "Simulator must finish terminating before the next launch sample")
+        }
+    }
 }
