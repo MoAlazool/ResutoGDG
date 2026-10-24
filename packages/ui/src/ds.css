@@ -1,0 +1,21 @@
+/*
+ * Resuto 2.1 design-system styles for the @resuto/ui components added in 21-DS (docs/ui/DESIGN_SYSTEM.md).
+ * Imported once by apps/web/app/globals.css after tokens.css, so the global rules that follow win ties: selectors that
+ * restyle a global class (table.data, .empty, .input) are written one step more specific. Rules:
+ * - semantic tokens only (no colour literals: lib/tokens-policy.test.ts);
+ * - logical properties only (inline/block, start/end: lib/logical-css-policy.test.ts); transforms that must flip are
+ *   mirrored under [dir='rtl'];
+ * - only transform and opacity animate, and prefers-reduced-motion switches every animation off.
+ */
+
+/* ---------- Icon ---------- */
+.rui-icon { display: inline-block; flex-shrink: 0; vertical-align: middle; }
+[dir='rtl'] .rui-icon-dir { transform: scaleX(-1); }
+
+/* ---------- Provider logo ---------- */
+.rui-provider { display: inline-block; vertical-align: middle; object-fit: contain; }
+.rui-provider[data-fallback] {
+  display: inline-grid; place-items: center; inline-size: var(--provider-size, 24px); block-size: var(--provider-size, 24px);
+  border-radius: var(--radius-1); background: var(--surface-selected); color: var(--text-secondary); border: 1px solid var(--border);
+}
+.rui-provider-monogram { font-family: var(--font-body-en); font-weight: var(--fw-bold); font-size: calc(var(--provider-size, 24px) * .42); letter-spacing: -.02em; line-height: 1; }

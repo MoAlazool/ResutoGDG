@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -11,12 +11,13 @@ describe('landing images (VP-27)', () => {
   it('keeps one copy of each image across public/brand and public/landing', () => {
     const seen = new Map<string, string>();
     const dupes: string[] = [];
-    for (const dir of ['brand', 'landing']) {
-      for (const f of readdirSync(path.join(PUBLIC, dir))) {
-        const hash = createHash('sha256').update(readFileSync(path.join(PUBLIC, dir, f))).digest('hex');
-        if (seen.has(hash)) dupes.push(`${seen.get(hash)} = ${dir}/${f}`);
-        else seen.set(hash, `${dir}/${f}`);
-      }
+    // Subfolders count too (public/brand/providers holds the provider marks).
+    const walk = (dir: string): string[] => readdirSync(path.join(PUBLIC, dir))
+      .flatMap((f) => (statSync(path.join(PUBLIC, dir, f)).isDirectory() ? walk(`${dir}/${f}`) : [`${dir}/${f}`]));
+    for (const rel of [...walk('brand'), ...walk('landing')]) {
+      const hash = createHash('sha256').update(readFileSync(path.join(PUBLIC, rel))).digest('hex');
+      if (seen.has(hash)) dupes.push(`${seen.get(hash)} = ${rel}`);
+      else seen.set(hash, rel);
     }
     expect(dupes).toEqual([]);
   });

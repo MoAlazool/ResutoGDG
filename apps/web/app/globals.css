@@ -8,6 +8,8 @@
  * pages keep the shared base until their own workstreams restyle them.
  */
 @import '../../../packages/ui/src/tokens.css';
+/* 2.1 design-system component styles (Sheet, Menu, DataTableV2, charts, templates, motion …): docs/ui/DESIGN_SYSTEM.md */
+@import '../../../packages/ui/src/ds.css';
 
 @font-face { font-family: Manrope; src: url('/fonts/manrope.057a560f.woff2') format('woff2'); font-weight: 200 800; font-display: swap; }
 @font-face { font-family: 'Plex Arabic'; src: url('/fonts/plex-arabic.fc3ab7c3.woff2') format('woff2'); font-weight: 400; font-display: swap; }

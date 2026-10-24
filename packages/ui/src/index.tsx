@@ -1,5 +1,5 @@
-// @resuto/ui — Resuto design-system React components.
-// base: PageHeader, Card, Stat, Badge, Notice, EmptyState, Skeleton, Field, SelectField,
+// @resuto/ui — Resuto design-system React components (docs/ui/DESIGN_SYSTEM.md).
+// base: PageHeader, Card, Stat, Badge, Notice, EmptyState (+icon), Skeleton, Field, SelectField,
 //       TextareaField, DataTable, Modal, Tabs, useAction (stable since the shell commit)
 // overlays: Drawer, ConfirmDialog, useConfirm · toast: ToastProvider, useToast
 // inputs: SearchInput, Pagination, DateRangePicker, lastDays
@@ -10,6 +10,14 @@
 // shell: Wordmark, NAV_GLYPHS/NavGlyph, NavBadge, RestaurantChip, Topbar, LiveStatus, WorkspaceFooter, ProfileButton,
 //        RouteProgress, initialOf
 // display (bidi): UserText, Ltr, Phone, Email, Code · order-ref: OrderRef · figure: figureOf (KPI values that never wrap)
+// 2.1 design system (21-DS):
+// icon: Icon, DIRECTIONAL_ICONS · nav-icons: NAV_ICONS, NavIcon · provider-logo: ProviderLogo, PROVIDER_LOGOS
+// sheet: Sheet, useModalDialog · popover: Popover, Menu, Tooltip
+// controls: SegmentedControl, Switch, Combobox, MoneyInput, PhoneInput, Kbd · data-table: DataTableV2, useCursorPagination
+// filter-bar: FilterBar, useSavedViews · stat: StatV2, ProvenanceBadge · locked-feature: LockedFeature
+// templates: ListPage, DetailPage, WorkspacePage, BoardPage, SettingsPage
+// charts: LineChart, AreaChart, BarChart, BarList, DonutChart, FunnelChart, Heatmap, Sparkline, ForecastChart, legends
+// motion: withViewTransition, prefersReducedMotion, staggerStyle (CSS classes in ds.css)
 export * from './base';
 export * from './primitives';
 export * from './shell';
@@ -22,3 +30,6 @@ export { figureOf, plainText, type Figure } from './figure';
 export * from './states';
 export * from './locale';
 export { UiStyles } from './styles';
+export * from './icon';
+export * from './nav-icons';
+export * from './provider-logo';
