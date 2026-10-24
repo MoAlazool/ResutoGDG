@@ -12,7 +12,7 @@ GitHub repository metadata was successfully read through the connected GitHub pl
 
 - Core domain: input bounds, required/foreign/duplicate/unavailable modifiers, branch overrides, dine-in table requirement, unsupported delivery entry rejection, amount parsing, Western digits, exact minor-unit splits, lifecycle, permissions, branch access and Codable fixtures.
 - Queue: local-only until approval, restart persistence, same-key lost-response retries, backoff/Retry-After, scope isolation, authorization gates, semantic conflict handling, replay expiry, failed persistence, corrupt storage, concurrent drains.
-- Networking: verified request paths, bearer/request ID headers, typed decoding, single-flight refresh, error envelope/request ID, ETag/304, HTTPS, no automatic mutation retry.
+- Networking: verified request paths, bearer/request ID headers, typed decoding, single-flight refresh, late-refresh logout race, error envelope/request ID, ETag/304, HTTPS, no automatic mutation retry.
 - Printing: persistent queue, ambiguous-send confirmation, interrupted print recovery, server-total projection. No physical hardware implied.
 - Performance: repeated catalogue validation XCTest measure; UI launch metric on macOS simulator CI. These do not establish busy-restaurant real-device performance.
 - UI: unauthenticated launch, disabled sign-in, Arabic locale launch, portrait/landscape rotation, welcome screenshot and startup performance. Authenticated workflows require added authorized fixtures/accounts and tests before release.

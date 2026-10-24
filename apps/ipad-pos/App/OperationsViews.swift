@@ -18,6 +18,11 @@ struct FloorView: View {
                             let scale = min(geometry.size.width / max(layout.width, 1), geometry.size.height / max(layout.height, 1))
                             ZStack(alignment: .topLeading) {
                                 RoundedRectangle(cornerRadius: 24).fill(Design.surface)
+                                FloorBackdrop(background: layout.background)
+                                    .frame(width: layout.background.width * scale, height: layout.background.height * scale)
+                                    .opacity(layout.background.opacity)
+                                    .position(x: (layout.background.x + layout.background.width / 2) * scale, y: (layout.background.y + layout.background.height / 2) * scale)
+                                    .allowsHitTesting(false)
                                 ForEach((layout.zones + layout.objects).filter { $0.hidden != true }) { element in
                                     RoundedRectangle(cornerRadius: element.type == "plant" ? 40 : 5)
                                         .fill(Color(floorHex: element.color).opacity(element.type == "zone" ? 0.12 : 0.25))
@@ -266,5 +271,17 @@ private extension Color {
     init(floorHex: String?) {
         let number = floorHex.flatMap { UInt64($0.replacingOccurrences(of: "#", with: ""), radix: 16) } ?? 0x6b8178
         self.init(red: Double((number >> 16) & 255) / 255, green: Double((number >> 8) & 255) / 255, blue: Double(number & 255) / 255)
+    }
+}
+
+private struct FloorBackdrop: View {
+    let background: FloorBackground
+    var body: some View {
+        if let image = background.image, image.hasPrefix("data:image/"), image.count <= 1_000_000,
+           let comma = image.firstIndex(of: ","), let data = Data(base64Encoded: String(image[image.index(after: comma)...])), let decoded = UIImage(data: data) {
+            Image(uiImage: decoded).resizable().scaledToFit().accessibilityHidden(true)
+        } else if let image = background.image, let url = URL(string: image), url.scheme == "https" {
+            AsyncImage(url: url) { image in image.resizable().scaledToFit() } placeholder: { Color.clear }.accessibilityHidden(true)
+        }
     }
 }

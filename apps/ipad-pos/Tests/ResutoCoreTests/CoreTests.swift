@@ -195,3 +195,28 @@ final class ExtendedCatalogueTests: XCTestCase {
         XCTAssertEqual(encoded["customerId"] as? String, "customer"); XCTAssertNotNil(encoded["deliveryAddress"])
     }
 }
+actor RefreshGateTransport: HTTPTransport {
+    private var gate: CheckedContinuation<HTTPResult, Never>?
+    private var waiting: CheckedContinuation<Void, Never>?
+    func send(_ request: URLRequest) async throws -> HTTPResult {
+        if request.url?.query?.contains("grant_type=refresh_token") == true {
+            return await withCheckedContinuation { continuation in gate = continuation; waiting?.resume(); waiting = nil }
+        }
+        if request.url?.path.hasSuffix("logout") == true { return HTTPResult(data: Data(), status: 204) }
+        return HTTPResult(data: Data("{\"access_token\":\"old\",\"refresh_token\":\"refresh\",\"expires_in\":0}".utf8), status: 200)
+    }
+    func waitForRefresh() async { if gate != nil { return }; await withCheckedContinuation { waiting = $0 } }
+    func finishRefresh() { gate?.resume(returning: HTTPResult(data: Data("{\"access_token\":\"new\",\"refresh_token\":\"rotated\",\"expires_in\":3600}".utf8), status: 200)); gate = nil }
+}
+final class AuthenticationRaceTests: XCTestCase {
+    func testLateRefreshCannotRestoreSignedOutSession() async throws {
+        let transport = RefreshGateTransport(), secrets = MemoryStore()
+        let auth = try AuthService(url: URL(string: "https://auth.example")!, publicKey: "public", transport: transport, secrets: secrets)
+        try await auth.signIn(email: "a", password: "b")
+        let refresh = Task { try await auth.token() }; await transport.waitForRefresh()
+        try await auth.signOut(); await transport.finishRefresh()
+        do { _ = try await refresh.value; XCTFail("Late refresh must be discarded") } catch {}
+        XCTAssertNil(try secrets.read("session"))
+        do { _ = try await auth.token(); XCTFail("Must remain signed out") } catch {}
+    }
+}

@@ -1,136 +1,133 @@
 [0/1] Planning build
 Building for debugging...
-[0/5] Write sources
-[2/5] Copying Fixtures
-[3/5] Write swift-version--1255A8ECADF5D0A.txt
-[5/7] Compiling ResutoCore Contracts.swift
-[6/7] Emitting module ResutoCore
-[7/11] Compiling ResutoCore Networking.swift
-[8/11] Compiling ResutoCore Domain.swift
-[9/11] Compiling ResutoCore Synchronization.swift
-[10/11] Compiling ResutoCore Receipts.swift
-[11/19] Wrapping AST for ResutoCore for debugging
-[13/21] Compiling ResutoCoreTests CoreTests.swift
-[14/21] Emitting module ResutoCoreTests
-[15/22] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageDiscoveredTests.derived/all-discovered-tests.swift
-[16/23] Write sources
-[17/23] Wrapping AST for ResutoCoreTests for debugging
-[19/26] Emitting module ResutoPOSPackageDiscoveredTests
-[20/26] Compiling ResutoPOSPackageDiscoveredTests all-discovered-tests.swift
-[21/26] Compiling ResutoPOSPackageDiscoveredTests ResutoCoreTests.swift
-[22/27] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageTests.derived/runner.swift
-[23/28] Write sources
-[24/28] Wrapping AST for ResutoPOSPackageDiscoveredTests for debugging
-[26/30] Emitting module ResutoPOSPackageTests
-[27/30] Compiling ResutoPOSPackageTests runner.swift
-[28/30] Write Objects.LinkFileList
-[29/30] Linking ResutoPOSPackageTests.xctest
-Build complete! (4.80s)
-Test Suite 'All tests' started at 2026-10-24 19:20:06.713
-Test Suite 'debug.xctest' started at 2026-10-24 19:20:06.715
-Test Suite 'DomainTests' started at 2026-10-24 19:20:06.715
-Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' started at 2026-10-24 19:20:06.715
-Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' passed (0.002 seconds)
-Test Case 'DomainTests.testDeliveryCannotBeInventedWithoutAddressFlow' started at 2026-10-24 19:20:06.716
+[0/3] Write sources
+[1/3] Write swift-version--1255A8ECADF5D0A.txt
+[3/5] Emitting module ResutoCoreTests
+[4/5] Compiling ResutoCoreTests CoreTests.swift
+[5/12] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageDiscoveredTests.derived/all-discovered-tests.swift
+[6/13] Write sources
+[7/13] Wrapping AST for ResutoCoreTests for debugging
+[9/16] Compiling ResutoPOSPackageDiscoveredTests all-discovered-tests.swift
+[10/16] Compiling ResutoPOSPackageDiscoveredTests ResutoCoreTests.swift
+[11/16] Emitting module ResutoPOSPackageDiscoveredTests
+[12/17] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageTests.derived/runner.swift
+[13/18] Write sources
+[14/18] Wrapping AST for ResutoPOSPackageDiscoveredTests for debugging
+[16/20] Emitting module ResutoPOSPackageTests
+[17/20] Compiling ResutoPOSPackageTests runner.swift
+[18/20] Write Objects.LinkFileList
+[19/20] Linking ResutoPOSPackageTests.xctest
+Build complete! (2.53s)
+Test Suite 'All tests' started at 2026-10-24 19:21:37.043
+Test Suite 'debug.xctest' started at 2026-10-24 19:21:37.044
+Test Suite 'AuthenticationRaceTests' started at 2026-10-24 19:21:37.044
+Test Case 'AuthenticationRaceTests.testLateRefreshCannotRestoreSignedOutSession' started at 2026-10-24 19:21:37.044
+Test Case 'AuthenticationRaceTests.testLateRefreshCannotRestoreSignedOutSession' passed (0.001 seconds)
+Test Suite 'AuthenticationRaceTests' passed at 2026-10-24 19:21:37.046
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'DomainTests' started at 2026-10-24 19:21:37.046
+Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' started at 2026-10-24 19:21:37.046
+Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' passed (0.001 seconds)
+Test Case 'DomainTests.testDeliveryCannotBeInventedWithoutAddressFlow' started at 2026-10-24 19:21:37.047
 Test Case 'DomainTests.testDeliveryCannotBeInventedWithoutAddressFlow' passed (0.0 seconds)
-Test Case 'DomainTests.testDineInNeedsTable' started at 2026-10-24 19:20:06.717
+Test Case 'DomainTests.testDineInNeedsTable' started at 2026-10-24 19:21:37.047
 Test Case 'DomainTests.testDineInNeedsTable' passed (0.0 seconds)
-Test Case 'DomainTests.testDuplicateModifierRejected' started at 2026-10-24 19:20:06.717
+Test Case 'DomainTests.testDuplicateModifierRejected' started at 2026-10-24 19:21:37.047
 Test Case 'DomainTests.testDuplicateModifierRejected' passed (0.0 seconds)
-Test Case 'DomainTests.testForeignModifierRejected' started at 2026-10-24 19:20:06.717
+Test Case 'DomainTests.testForeignModifierRejected' started at 2026-10-24 19:21:37.047
 Test Case 'DomainTests.testForeignModifierRejected' passed (0.0 seconds)
-Test Case 'DomainTests.testLifecycleRespectsFulfillment' started at 2026-10-24 19:20:06.717
+Test Case 'DomainTests.testLifecycleRespectsFulfillment' started at 2026-10-24 19:21:37.048
 Test Case 'DomainTests.testLifecycleRespectsFulfillment' passed (0.0 seconds)
-Test Case 'DomainTests.testMembershipBranchIsolation' started at 2026-10-24 19:20:06.718
+Test Case 'DomainTests.testMembershipBranchIsolation' started at 2026-10-24 19:21:37.048
 Test Case 'DomainTests.testMembershipBranchIsolation' passed (0.0 seconds)
-Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' started at 2026-10-24 19:20:06.718
-Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' passed (0.002 seconds)
-Test Case 'DomainTests.testPermissionsFailClosed' started at 2026-10-24 19:20:06.720
+Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' started at 2026-10-24 19:21:37.048
+Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' passed (0.102 seconds)
+Test Case 'DomainTests.testPermissionsFailClosed' started at 2026-10-24 19:21:37.151
 Test Case 'DomainTests.testPermissionsFailClosed' passed (0.0 seconds)
-Test Case 'DomainTests.testQuantityBounds' started at 2026-10-24 19:20:06.720
+Test Case 'DomainTests.testQuantityBounds' started at 2026-10-24 19:21:37.151
 Test Case 'DomainTests.testQuantityBounds' passed (0.0 seconds)
-Test Case 'DomainTests.testRequestUsesSupportedStaffChannel' started at 2026-10-24 19:20:06.720
+Test Case 'DomainTests.testRequestUsesSupportedStaffChannel' started at 2026-10-24 19:21:37.151
 Test Case 'DomainTests.testRequestUsesSupportedStaffChannel' passed (0.001 seconds)
-Test Case 'DomainTests.testRequiredModifierCannotBeOmitted' started at 2026-10-24 19:20:06.721
+Test Case 'DomainTests.testRequiredModifierCannotBeOmitted' started at 2026-10-24 19:21:37.152
 Test Case 'DomainTests.testRequiredModifierCannotBeOmitted' passed (0.0 seconds)
-Test Case 'DomainTests.testResponseContracts' started at 2026-10-24 19:20:06.721
+Test Case 'DomainTests.testResponseContracts' started at 2026-10-24 19:21:37.152
 Test Case 'DomainTests.testResponseContracts' passed (0.001 seconds)
-Test Case 'DomainTests.testSplitPreservesEveryMinorUnit' started at 2026-10-24 19:20:06.722
+Test Case 'DomainTests.testSplitPreservesEveryMinorUnit' started at 2026-10-24 19:21:37.153
 Test Case 'DomainTests.testSplitPreservesEveryMinorUnit' passed (0.104 seconds)
-Test Case 'DomainTests.testUnavailableProductRejected' started at 2026-10-24 19:20:06.826
+Test Case 'DomainTests.testUnavailableProductRejected' started at 2026-10-24 19:21:37.257
 Test Case 'DomainTests.testUnavailableProductRejected' passed (0.001 seconds)
-Test Case 'DomainTests.testWesternMoneyAndArabicInput' started at 2026-10-24 19:20:06.827
+Test Case 'DomainTests.testWesternMoneyAndArabicInput' started at 2026-10-24 19:21:37.257
 Test Case 'DomainTests.testWesternMoneyAndArabicInput' passed (0.0 seconds)
-Test Suite 'DomainTests' passed at 2026-10-24 19:20:06.828
-	 Executed 16 tests, with 0 failures (0 unexpected) in 0.113 (0.113) seconds
-Test Suite 'ExtendedCatalogueTests' started at 2026-10-24 19:20:06.828
-Test Case 'ExtendedCatalogueTests.testDeliveryWithAddressUsesSupportedStaffContract' started at 2026-10-24 19:20:06.828
+Test Suite 'DomainTests' passed at 2026-10-24 19:21:37.258
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.212 (0.212) seconds
+Test Suite 'ExtendedCatalogueTests' started at 2026-10-24 19:21:37.258
+Test Case 'ExtendedCatalogueTests.testDeliveryWithAddressUsesSupportedStaffContract' started at 2026-10-24 19:21:37.258
 Test Case 'ExtendedCatalogueTests.testDeliveryWithAddressUsesSupportedStaffContract' passed (0.0 seconds)
-Test Case 'ExtendedCatalogueTests.testInactiveCategoryIsNotOrderable' started at 2026-10-24 19:20:06.828
+Test Case 'ExtendedCatalogueTests.testInactiveCategoryIsNotOrderable' started at 2026-10-24 19:21:37.258
 Test Case 'ExtendedCatalogueTests.testInactiveCategoryIsNotOrderable' passed (0.001 seconds)
-Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' started at 2026-10-24 19:20:06.829
-Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' passed (0.001 seconds)
-Test Suite 'ExtendedCatalogueTests' passed at 2026-10-24 19:20:06.830
+Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' started at 2026-10-24 19:21:37.259
+Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' passed (0.0 seconds)
+Test Suite 'ExtendedCatalogueTests' passed at 2026-10-24 19:21:37.260
 	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'NetworkTests' started at 2026-10-24 19:20:06.830
-Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' started at 2026-10-24 19:20:06.830
-Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' passed (0.001 seconds)
-Test Case 'NetworkTests.testETag304ReusesDecodedBody' started at 2026-10-24 19:20:06.831
-Test Case 'NetworkTests.testETag304ReusesDecodedBody' passed (0.001 seconds)
-Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' started at 2026-10-24 19:20:06.831
-Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' passed (0.001 seconds)
-Test Case 'NetworkTests.testHTTPSRequired' started at 2026-10-24 19:20:06.832
+Test Suite 'NetworkTests' started at 2026-10-24 19:21:37.260
+Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' started at 2026-10-24 19:21:37.260
+Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' passed (0.101 seconds)
+Test Case 'NetworkTests.testETag304ReusesDecodedBody' started at 2026-10-24 19:21:37.361
+Test Case 'NetworkTests.testETag304ReusesDecodedBody' passed (0.0 seconds)
+Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' started at 2026-10-24 19:21:37.362
+Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' passed (0.0 seconds)
+Test Case 'NetworkTests.testHTTPSRequired' started at 2026-10-24 19:21:37.362
 Test Case 'NetworkTests.testHTTPSRequired' passed (0.0 seconds)
-Test Case 'NetworkTests.testMutationNeverAutomaticallyRetries' started at 2026-10-24 19:20:06.832
+Test Case 'NetworkTests.testMutationNeverAutomaticallyRetries' started at 2026-10-24 19:21:37.362
 Test Case 'NetworkTests.testMutationNeverAutomaticallyRetries' passed (0.0 seconds)
-Test Case 'NetworkTests.testRefreshSingleFlight' started at 2026-10-24 19:20:06.833
+Test Case 'NetworkTests.testRefreshSingleFlight' started at 2026-10-24 19:21:37.362
 Test Case 'NetworkTests.testRefreshSingleFlight' passed (0.0 seconds)
-Test Suite 'NetworkTests' passed at 2026-10-24 19:20:06.833
-	 Executed 6 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
-Test Suite 'PerformanceTests' started at 2026-10-24 19:20:06.833
-Test Case 'PerformanceTests.testMenuPriceValidationPerformance' started at 2026-10-24 19:20:06.833
-/workspace/ResutoGDG/apps/ipad-pos/Tests/ResutoCoreTests/CoreTests.swift:175: Test Case 'PerformanceTests.testMenuPriceValidationPerformance' measured [Time, seconds] average: 0.006, relative standard deviation: 0.405%, values: [0.005995, 0.005944, 0.005934, 0.005962, 0.005937, 0.005968, 0.005937, 0.005937, 0.005984, 0.005921], performanceMetricID:org.swift.XCTPerformanceMetric_WallClockTime, maxPercentRelativeStandardDeviation: 10.000%, maxStandardDeviation: 0.100
-Test Case 'PerformanceTests.testMenuPriceValidationPerformance' passed (0.06 seconds)
-Test Suite 'PerformanceTests' passed at 2026-10-24 19:20:06.893
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.06 (0.06) seconds
-Test Suite 'PrinterTests' started at 2026-10-24 19:20:06.893
-Test Case 'PrinterTests.testAmbiguousPrintRequiresExplicitReprint' started at 2026-10-24 19:20:06.893
+Test Suite 'NetworkTests' passed at 2026-10-24 19:21:37.363
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.103 (0.103) seconds
+Test Suite 'PerformanceTests' started at 2026-10-24 19:21:37.363
+Test Case 'PerformanceTests.testMenuPriceValidationPerformance' started at 2026-10-24 19:21:37.363
+/workspace/ResutoGDG/apps/ipad-pos/Tests/ResutoCoreTests/CoreTests.swift:175: Test Case 'PerformanceTests.testMenuPriceValidationPerformance' measured [Time, seconds] average: 0.006, relative standard deviation: 10.581%, values: [0.005887, 0.005835, 0.005842, 0.005849, 0.005799, 0.005800, 0.005808, 0.005786, 0.007842, 0.005841], performanceMetricID:org.swift.XCTPerformanceMetric_WallClockTime, maxPercentRelativeStandardDeviation: 10.000%, maxStandardDeviation: 0.100
+Test Case 'PerformanceTests.testMenuPriceValidationPerformance' passed (0.161 seconds)
+Test Suite 'PerformanceTests' passed at 2026-10-24 19:21:37.524
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.161 (0.161) seconds
+Test Suite 'PrinterTests' started at 2026-10-24 19:21:37.524
+Test Case 'PrinterTests.testAmbiguousPrintRequiresExplicitReprint' started at 2026-10-24 19:21:37.524
 Test Case 'PrinterTests.testAmbiguousPrintRequiresExplicitReprint' passed (0.001 seconds)
-Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' started at 2026-10-24 19:20:06.894
-Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' passed (0.001 seconds)
-Test Case 'PrinterTests.testPrintQueueSurvivesRestart' started at 2026-10-24 19:20:06.895
+Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' started at 2026-10-24 19:21:37.525
+Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' passed (0.0 seconds)
+Test Case 'PrinterTests.testPrintQueueSurvivesRestart' started at 2026-10-24 19:21:37.526
 Test Case 'PrinterTests.testPrintQueueSurvivesRestart' passed (0.0 seconds)
-Test Case 'PrinterTests.testReceiptContainsServerTotalsNotLocalEstimate' started at 2026-10-24 19:20:06.895
+Test Case 'PrinterTests.testReceiptContainsServerTotalsNotLocalEstimate' started at 2026-10-24 19:21:37.526
 Test Case 'PrinterTests.testReceiptContainsServerTotalsNotLocalEstimate' passed (0.0 seconds)
-Test Suite 'PrinterTests' passed at 2026-10-24 19:20:06.896
+Test Suite 'PrinterTests' passed at 2026-10-24 19:21:37.526
 	 Executed 4 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'SynchronizationTests' started at 2026-10-24 19:20:06.896
-Test Case 'SynchronizationTests.testApprovalAndAcknowledgementPersist' started at 2026-10-24 19:20:06.896
+Test Suite 'SynchronizationTests' started at 2026-10-24 19:21:37.526
+Test Case 'SynchronizationTests.testApprovalAndAcknowledgementPersist' started at 2026-10-24 19:21:37.526
 Test Case 'SynchronizationTests.testApprovalAndAcknowledgementPersist' passed (0.001 seconds)
-Test Case 'SynchronizationTests.testConcurrentDrainDoesNotDuplicate' started at 2026-10-24 19:20:06.897
+Test Case 'SynchronizationTests.testConcurrentDrainDoesNotDuplicate' started at 2026-10-24 19:21:37.527
 Test Case 'SynchronizationTests.testConcurrentDrainDoesNotDuplicate' passed (0.001 seconds)
-Test Case 'SynchronizationTests.testCorruptStorageDoesNotSilentlyReset' started at 2026-10-24 19:20:06.898
+Test Case 'SynchronizationTests.testCorruptStorageDoesNotSilentlyReset' started at 2026-10-24 19:21:37.528
 Test Case 'SynchronizationTests.testCorruptStorageDoesNotSilentlyReset' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testCrossTenantAndCrossUserCannotReplay' started at 2026-10-24 19:20:06.898
+Test Case 'SynchronizationTests.testCrossTenantAndCrossUserCannotReplay' started at 2026-10-24 19:21:37.528
 Test Case 'SynchronizationTests.testCrossTenantAndCrossUserCannotReplay' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testExpiryPreventsReplayAfterServerRetention' started at 2026-10-24 19:20:06.898
+Test Case 'SynchronizationTests.testExpiryPreventsReplayAfterServerRetention' started at 2026-10-24 19:21:37.529
 Test Case 'SynchronizationTests.testExpiryPreventsReplayAfterServerRetention' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testFailedPersistenceNeverQueuesOrSends' started at 2026-10-24 19:20:06.899
+Test Case 'SynchronizationTests.testFailedPersistenceNeverQueuesOrSends' started at 2026-10-24 19:21:37.529
 Test Case 'SynchronizationTests.testFailedPersistenceNeverQueuesOrSends' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testLocalDraftDoesNotSendUntilApproved' started at 2026-10-24 19:20:06.899
+Test Case 'SynchronizationTests.testLocalDraftDoesNotSendUntilApproved' started at 2026-10-24 19:21:37.529
 Test Case 'SynchronizationTests.testLocalDraftDoesNotSendUntilApproved' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testLostResponseRetainsIdentityAndPayload' started at 2026-10-24 19:20:06.899
+Test Case 'SynchronizationTests.testLostResponseRetainsIdentityAndPayload' started at 2026-10-24 19:21:37.529
 Test Case 'SynchronizationTests.testLostResponseRetainsIdentityAndPayload' passed (0.001 seconds)
-Test Case 'SynchronizationTests.testServerConflictNeedsAttentionAndDoesNotRetry' started at 2026-10-24 19:20:06.900
+Test Case 'SynchronizationTests.testServerConflictNeedsAttentionAndDoesNotRetry' started at 2026-10-24 19:21:37.530
 Test Case 'SynchronizationTests.testServerConflictNeedsAttentionAndDoesNotRetry' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testUnauthorizedCannotDrain' started at 2026-10-24 19:20:06.900
+Test Case 'SynchronizationTests.testUnauthorizedCannotDrain' started at 2026-10-24 19:21:37.530
 Test Case 'SynchronizationTests.testUnauthorizedCannotDrain' passed (0.0 seconds)
-Test Suite 'SynchronizationTests' passed at 2026-10-24 19:20:06.901
-	 Executed 10 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
-Test Suite 'debug.xctest' passed at 2026-10-24 19:20:06.901
-	 Executed 40 tests, with 0 failures (0 unexpected) in 0.185 (0.185) seconds
-Test Suite 'All tests' passed at 2026-10-24 19:20:06.901
-	 Executed 40 tests, with 0 failures (0 unexpected) in 0.185 (0.185) seconds
+Test Suite 'SynchronizationTests' passed at 2026-10-24 19:21:37.530
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.004 (0.004) seconds
+Test Suite 'debug.xctest' passed at 2026-10-24 19:21:37.531
+	 Executed 41 tests, with 0 failures (0 unexpected) in 0.486 (0.486) seconds
+Test Suite 'All tests' passed at 2026-10-24 19:21:37.531
+	 Executed 41 tests, with 0 failures (0 unexpected) in 0.486 (0.486) seconds
 ◇ Test run started.
 ↳ Testing Library Version: 6.0.3 (18c42c19cac3faf)
 ✔ Test run with 0 tests passed after 0.001 seconds.
