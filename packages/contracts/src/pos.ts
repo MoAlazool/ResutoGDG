@@ -305,6 +305,15 @@ export interface PosOrderSubmitted {
   repriced: { lines: PosRepricedLine[]; expectedTotalMinor: number | null; totalMinor: number } | null;
 }
 
+/**
+ * GET /v1/pos/orders/by-client-id/:clientOrderId (contract 0.2.0): what became of a submit whose answer the device did
+ * not get. `accepted` carries the original submit response; `processing` means a submit with this id is still running
+ * (ask again shortly). Never accepted is 404 not_found: resubmit with the same clientOrderId (still idempotent).
+ */
+export type PosOrderByClientId =
+  | { state: 'accepted'; orderId: string; number: string; response: PosOrderSubmitted }
+  | { state: 'processing' };
+
 export interface PosPrintJob {
   id: string; kind: (typeof PRINT_JOB_KINDS)[number]; status: (typeof PRINT_JOB_STATUSES)[number]; orderId: string; station: string | null;
   claimedBy: string | null; claimedAt: string | null; attempts: number; completedAt: string | null; error: string | null; createdAt: string;

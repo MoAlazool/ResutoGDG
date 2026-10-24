@@ -128,6 +128,16 @@ export class PosDeviceController {
     return out.result;
   }
 
+  /**
+   * Durable reconciliation (contract 0.2.0): accepted (with the original submit response), processing, or 404 when
+   * never accepted (resubmit with the same clientOrderId).
+   */
+  @Get('orders/by-client-id/:clientOrderId')
+  @RequirePermission('orders:read')
+  byClientId(@Tenant() ctx: TenantContext, @Param('clientOrderId', uuidPipe) clientOrderId: string) {
+    return this.orders.byClientId(ctx, clientOrderId);
+  }
+
   @Get('orders/:id')
   @RequirePermission('orders:read')
   order(@Tenant() ctx: TenantContext, @Param('id', uuidPipe) id: string) {
