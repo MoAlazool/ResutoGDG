@@ -118,7 +118,10 @@ export async function publishSite(request: APIRequestContext, t: Tenant, opts: {
 /** Signs the browser in with an API-issued dev token (same storage the app uses). */
 export async function signIn(page: Page, user: User, locale: 'en' | 'ar' = 'en') {
   await page.context().addCookies([{ name: 'resuto_locale', value: locale, url: WEB_URL }]);
-  await page.goto('/login');
+  // The session lives in localStorage, so it is written from a same-origin page that runs no app code: on /login the
+  // page hydrates after the write, sees the session and redirects to the dashboard, which raced the caller's next
+  // navigation in WebKit ("navigation interrupted by another navigation").
+  await page.goto('/robots.txt');
   await page.evaluate(([token, email]) => localStorage.setItem('resuto_session', JSON.stringify({ accessToken: token, expiresAt: Date.now() + 3600e3, email })), [user.token, user.email]);
 }
 
@@ -275,7 +278,7 @@ export function collectApiFailures(page: Page, allow: Array<{ url: RegExp; statu
   page.on('requestfailed', (r) => {
     if (!r.url().startsWith(API_URL)) return;
     const reason = r.failure()?.errorText ?? 'failed';
-    if (/ERR_ABORTED|NS_BINDING_ABORTED/.test(reason)) return; // navigations cancel in-flight polls
+    if (/ERR_ABORTED|NS_BINDING_ABORTED|Load request cancelled/.test(reason)) return; // navigations cancel in-flight polls (Chromium, Firefox, WebKit wording)
     failures.push(`${r.method()} ${r.url().replace(API_URL, '')} → ${reason}`);
   });
   return failures;
