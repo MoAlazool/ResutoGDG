@@ -23,7 +23,7 @@ const HIT_TTL = 60_000;
 const MISS_TTL = 30_000;
 const cache = new Map<string, { slug: string | null; at: number }>();
 /** Guest routes already qualified by slug/token work on every host unchanged. */
-const PASS_THROUGH = /^\/(reserve|order|t|v|pay|s|o|l)\/[^/]+/;
+const PASS_THROUGH = /^\/(reserve|order|t|m|v|pay|s|o|l)\/[^/]+/;
 /** Restaurant website, web ordering and booking pages: the only places the Meta Pixel can run. */
 const GUEST_SITE = /^\/(r|order|reserve)\/[^/]+/;
 

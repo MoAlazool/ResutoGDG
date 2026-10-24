@@ -103,6 +103,12 @@ const en: Record<string, string> = {
   'core.res.done.calendar': 'Add to calendar', 'core.res.done.share': 'Share', 'core.res.done.backHome': 'Back to the restaurant', 'core.res.done.copied': 'Reservation details copied',
   'core.res.done.timeLeft': 'Time left to pay: {time}', 'core.res.done.windowClosed': 'The deposit window closed. Book again to choose a table.',
   'core.res.done.bookAgain': 'Book again',
+  // View-only digital menu /m/<slug> (21-ONB): no cart, no ordering
+  'core.guest.menuOnly.title': 'Our menu', 'core.guest.menuOnly.body': 'Dishes, prices and what is available today.',
+  'core.guest.menuOnly.note': 'This menu is for browsing. Our team will take your order.',
+  'core.guest.social.title': 'Find us online', 'core.guest.social.open': '{network} (opens in a new tab)',
+  'core.guest.social.instagram': 'Instagram', 'core.guest.social.facebook': 'Facebook', 'core.guest.social.tiktok': 'TikTok', 'core.guest.social.x': 'X',
+  'core.guest.social.snapchat': 'Snapchat', 'core.guest.social.whatsapp': 'WhatsApp', 'core.guest.social.google_maps': 'Google Maps', 'core.guest.social.website': 'Website',
   // Staff: Analytics → Guests (VS-27)
   'insights.analytics.tab.guests': 'Guests', 'insights.ratings.title': 'Guest satisfaction', 'insights.ratings.subtitle': 'Ratings guests left after paying.',
   'insights.ratings.count': 'Ratings', 'insights.ratings.overall': 'Overall', 'insights.ratings.food': 'Food', 'insights.ratings.service': 'Service',
@@ -208,6 +214,12 @@ const ar: Record<string, string> = {
   'core.res.done.calendar': 'إضافة للتقويم', 'core.res.done.share': 'مشاركة', 'core.res.done.backHome': 'العودة للمطعم', 'core.res.done.copied': 'تم نسخ تفاصيل الحجز',
   'core.res.done.timeLeft': 'الوقت المتبقي للدفع: {time}', 'core.res.done.windowClosed': 'انتهت مهلة دفع العربون. احجز من جديد لاختيار طاولة.',
   'core.res.done.bookAgain': 'احجز من جديد',
+  // View-only digital menu /m/<slug> (21-ONB): no cart, no ordering
+  'core.guest.menuOnly.title': 'قائمتنا', 'core.guest.menuOnly.body': 'الأطباق والأسعار والمتاح اليوم.',
+  'core.guest.menuOnly.note': 'هذه القائمة للتصفح فقط، وسيأخذ فريقنا طلبك.',
+  'core.guest.social.title': 'تجدنا على الإنترنت', 'core.guest.social.open': '{network} (يفتح في علامة تبويب جديدة)',
+  'core.guest.social.instagram': 'إنستغرام', 'core.guest.social.facebook': 'فيسبوك', 'core.guest.social.tiktok': 'تيك توك', 'core.guest.social.x': 'إكس',
+  'core.guest.social.snapchat': 'سناب شات', 'core.guest.social.whatsapp': 'واتساب', 'core.guest.social.google_maps': 'خرائط Google', 'core.guest.social.website': 'الموقع الإلكتروني',
   'insights.analytics.tab.guests': 'الضيوف', 'insights.ratings.title': 'رضا الضيوف', 'insights.ratings.subtitle': 'تقييمات تركها الضيوف بعد الدفع.',
   'insights.ratings.count': 'التقييمات', 'insights.ratings.overall': 'التقييم العام', 'insights.ratings.food': 'الأكل', 'insights.ratings.service': 'الخدمة',
   'insights.ratings.speed': 'السرعة', 'insights.ratings.value': 'القيمة', 'insights.ratings.distribution': 'التقييمات', 'insights.ratings.bySource': 'أين دفع الضيوف',
