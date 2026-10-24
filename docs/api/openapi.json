@@ -309,6 +309,12 @@
         "description": "Paired POS device credential (POST /v1/pos/pair). Accepted only on the POS device routes (/v1/pos/...).",
         "scheme": "bearer",
         "type": "http"
+      },
+      "posStaffAuth": {
+        "description": "POS contract 0.2.0: a staff session on a paired device, `Bearer <Supabase access token>`, sent together with the device credential. The request acts as that staff member (active membership of the device's restaurant and branch), with their role bounded by the device's acting role.",
+        "in": "header",
+        "name": "X-Resuto-Staff-Authorization",
+        "type": "apiKey"
       }
     }
   },
@@ -27966,6 +27972,10 @@
                     "maxLength": 60,
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "requireStaff": {
+                    "default": false,
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -32211,6 +32221,15 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -32229,6 +32248,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32249,6 +32272,15 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -32292,6 +32324,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32312,6 +32348,15 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -32364,6 +32409,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32378,7 +32427,17 @@
     "/v1/pos/kitchen/routing": {
       "get": {
         "operationId": "PosDevice_routing",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -32395,6 +32454,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32427,6 +32490,15 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -32445,6 +32517,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32458,7 +32534,17 @@
     "/v1/pos/orders": {
       "post": {
         "operationId": "PosDevice_submit",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -32656,6 +32742,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32666,10 +32756,73 @@
         ]
       }
     },
+    "/v1/pos/orders/by-client-id/{clientOrderId}": {
+      "get": {
+        "operationId": "PosDevice_byClientId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "clientOrderId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ],
+        "x-resuto-permissions": [
+          "orders:read"
+        ]
+      }
+    },
     "/v1/pos/orders/quote": {
       "post": {
         "operationId": "PosDevice_quote",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -32769,6 +32922,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32791,6 +32948,15 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -32809,6 +32975,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32829,6 +32999,15 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -32895,6 +33074,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32915,6 +33098,15 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -32955,6 +33147,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -32975,6 +33171,15 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -33028,6 +33233,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -33172,6 +33381,15 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -33192,6 +33410,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -33214,6 +33436,15 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -33232,6 +33463,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -33254,6 +33489,15 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -33272,6 +33516,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -33292,6 +33540,15 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
               "type": "string"
             }
           }
@@ -33345,6 +33602,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -33358,41 +33619,13 @@
     "/v1/pos/session": {
       "get": {
         "operationId": "PosDevice_session",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Success"
-          },
-          "default": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "posDeviceAuth": []
-          }
-        ],
-        "tags": [
-          "pos"
-        ]
-      }
-    },
-    "/v1/pos/sync/floor": {
-      "get": {
-        "operationId": "PosDevice_floor",
         "parameters": [
           {
-            "in": "query",
-            "name": "since",
+            "description": "Optional staff session on this device (`Bearer <staff access token>`): the answer then names the staff member and their effective permissions. Never required here, also on a device paired with requireStaff.",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
             "required": false,
             "schema": {
-              "maxLength": 200,
-              "minLength": 1,
               "type": "string"
             }
           }
@@ -33413,6 +33646,61 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
+          }
+        ],
+        "tags": [
+          "pos"
+        ]
+      }
+    },
+    "/v1/pos/sync/floor": {
+      "get": {
+        "operationId": "PosDevice_floor",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -33436,6 +33724,15 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -33454,6 +33751,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
@@ -33477,6 +33778,15 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, whose role is bounded by the device's acting role. Required on a device paired with requireStaff (401 pos_staff_required).",
+            "in": "header",
+            "name": "X-Resuto-Staff-Authorization",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -33495,6 +33805,10 @@
         "security": [
           {
             "posDeviceAuth": []
+          },
+          {
+            "posDeviceAuth": [],
+            "posStaffAuth": []
           }
         ],
         "tags": [
