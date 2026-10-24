@@ -43,6 +43,6 @@
 .ws-copy{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 .ws-copy code{background:var(--surface-warm);padding:2px 6px;border-radius:6px;font-size:12px;overflow-wrap:anywhere}
 .ws-creative{border:1px solid var(--line-soft);border-radius:14px;padding:14px;display:grid;gap:8px}
-.ws-variant{margin:0;padding:12px 14px;border-inline-start:3px solid var(--accent);background:var(--surface-warm);border-radius:8px;white-space:pre-line}
+.ws-variant{margin:0;padding:12px 14px;border-inline-start:3px solid var(--accent-warm);background:var(--surface-warm);border-radius:8px;white-space:pre-line}
 .ws-variant p{margin:4px 0}
 .ws-variant small{color:var(--muted)}
