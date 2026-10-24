@@ -33,3 +33,6 @@ export { UiStyles } from './styles';
 export * from './icon';
 export * from './nav-icons';
 export * from './provider-logo';
+export * from './sheet';
+export * from './popover';
+export * from './controls';
