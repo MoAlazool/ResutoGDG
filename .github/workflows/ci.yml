@@ -62,16 +62,21 @@ jobs:
       # or when a route breaks docs/API_STYLE.md (action POSTs answer 200, bounded list limits with a cursor, no examples).
       - name: API contract (OpenAPI 3.1 drift and style lint, error envelope)
         run: cd apps/api && npx vitest run test/openapi.test.ts test/error-contract.test.ts
-      # 21-POSAPI: /v1 changes are additive only (docs/api/IPAD_COMPATIBILITY.md); compared with the base branch's document.
-      - name: API contract is additive (pull requests)
-        if: github.event_name == 'pull_request'
+      # 21-POSAPI: /v1 changes are additive only (docs/api/IPAD_COMPATIBILITY.md). Pull requests compare with the base
+      # branch's document, pushes with the commit before the push (skipped for a new branch).
+      - name: API contract is additive
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
+          BEFORE_SHA: ${{ github.event_name == 'push' && github.event.before || '' }}
         run: |
           node --test scripts/openapi/test/*.test.mjs
-          git fetch --depth=1 origin "${{ github.base_ref }}"
-          if git cat-file -e FETCH_HEAD:docs/api/openapi.json 2>/dev/null; then
-            git show FETCH_HEAD:docs/api/openapi.json > "$RUNNER_TEMP/openapi.base.json"
+          if [ -n "$BASE_REF" ]; then git fetch --depth=1 origin "$BASE_REF" && BASE=FETCH_HEAD;
+          elif [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then git fetch --depth=1 origin "$BEFORE_SHA" && BASE=FETCH_HEAD;
+          else BASE=; fi
+          if [ -n "$BASE" ] && git cat-file -e "$BASE:docs/api/openapi.json" 2>/dev/null; then
+            git show "$BASE:docs/api/openapi.json" > "$RUNNER_TEMP/openapi.base.json"
             node scripts/openapi/additive.mjs "$RUNNER_TEMP/openapi.base.json" docs/api/openapi.json
-          fi
+          else echo "No base OpenAPI document to compare with"; fi
       - name: API integration tests
         run: pnpm --filter @resuto/api test
       # PS-16: the same suite with the API connected as the NOINHERIT, NOBYPASSRLS resuto_api login (per-run password on
