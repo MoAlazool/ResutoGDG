@@ -62,6 +62,32 @@ final class WorkflowTests: XCTestCase {
         tap(app,"nav.orders")
         XCTAssertFalse(element(app,"order." + order).exists, "A restored cart must not silently submit")
     }
+    func testAvailabilityIsServerRefreshedAndReversible() throws {
+        let app = try launch()
+        tap(app,"nav.availability")
+        tap(app,"availability." + product)
+        tap(app,"nav.pos")
+        XCTAssertFalse(element(app,"product." + product).isEnabled)
+        tap(app,"nav.availability"); tap(app,"availability." + product); tap(app,"nav.pos")
+        XCTAssertTrue(element(app,"product." + product).isEnabled)
+    }
+    func testDineInTableSelectionAndOrderSubmission() throws {
+        let app = try launch()
+        tap(app,"nav.floor"); tap(app,"table.table"); tap(app,"floor.order")
+        XCTAssertTrue(app.staticTexts["T1"].waitForExistence(timeout:10))
+        tap(app,"product." + product); tap(app,"product.add"); tap(app,"cart.review"); tap(app,"cart.confirm")
+        tap(app,"nav.orders"); tap(app,"order." + order)
+        XCTAssertTrue(app.staticTexts["Placed"].waitForExistence(timeout:15))
+        attach(app,"simulated-dine-in-order")
+    }
+    func testEnglishAndArabicAccessibilityDescriptions() throws {
+        for arabic in [false,true] {
+            let app = try launch(arabic:arabic)
+            try app.performAccessibilityAudit(for:[.sufficientElementDescription])
+            attach(app,arabic ? "simulated-arabic-accessibility" : "simulated-english-accessibility")
+            app.terminate()
+        }
+    }
     func testHostCannotEnterOrdersOrPayments() throws {
         let app = try launch(role: "host")
         XCTAssertFalse(element(app,"nav.pos").exists)

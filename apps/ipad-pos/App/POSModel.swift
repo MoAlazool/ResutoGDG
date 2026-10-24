@@ -181,6 +181,11 @@ import CryptoKit
         try await queue?.drain(scope: scope, authorized: can("orders:write"))
         guard snapshot == generation else { return }; pending = await queue?.list(scope: scope) ?? []
     }
+    func setAvailability(product: String, available: Bool) async throws {
+        guard reachable, can("menu:availability"), let scope, let api else { throw RuleError.invalid("online_required") }
+        let _: EmptyResponse = try await api.post("o/\(scope.orgId)/menu/products/\(product)/availability", body: AvailabilityRequest(branchId:scope.branchId,available:available))
+        try await refresh()
+    }
     func kitchenLine(_ id: String, status: String) async throws {
         guard reachable, can("kitchen:operate"), let scope, let api, ["queued", "preparing", "ready"].contains(status) else { throw RuleError.invalid("permission_denied") }
         let _: EmptyResponse = try await api.post("o/\(scope.orgId)/kitchen/lines/\(id)", body: ["status": status])
@@ -358,3 +363,5 @@ private struct RefundResult: Decodable, Sendable { let id: String; let status: S
 private struct Transition: Encodable, Sendable { let to: String; let version: Int }
 private struct Cancellation: Encodable, Sendable { let reason: String; let version: Int }
 private struct CashCollection: Encodable, Sendable { let amountMinor: Int64; let method: String }
+
+private struct AvailabilityRequest: Encodable, Sendable { let branchId: String; let available: Bool }

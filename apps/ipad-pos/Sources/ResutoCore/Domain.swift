@@ -9,28 +9,36 @@ public enum CartRules {
     public static func estimate(_ order: StaffOrder, menu: Menu) throws -> Int64 {
         guard (1...60).contains(order.lines.count), ["pickup", "dine_in", "delivery"].contains(order.fulfillment),
               order.fulfillment != "dine_in" || order.tableId != nil || order.visitId != nil,
-              (order.notes?.count ?? 0) <= 500, (order.promotionCode?.count ?? 0) <= 40 else { throw RuleError.invalid("invalid_order") }
+              (order.notes?.utf16.count ?? 0) <= 500, (order.promotionCode?.utf16.count ?? 0) <= 40 else { throw RuleError.invalid("invalid_order") }
         if order.fulfillment == "delivery" {
-            guard let address = order.deliveryAddress, (3...300).contains(address.line1.trimmingCharacters(in: .whitespaces).count), (address.area?.count ?? 0) <= 120, (address.city?.count ?? 0) <= 80 else { throw RuleError.invalid("delivery_address_required") }
+            guard let address = order.deliveryAddress, (3...300).contains(address.line1.trimmingCharacters(in: .whitespaces).utf16.count), (address.area?.utf16.count ?? 0) <= 120, (address.city?.utf16.count ?? 0) <= 80 else { throw RuleError.invalid("delivery_address_required") }
         }
+        // Build indexes once per estimate, rather than filtering the complete menu for every cart line.
+        let products = Dictionary(menu.products(branch: order.branchId).map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+        let activeGroups = Dictionary(menu.modifierGroups.filter(\.isActive).map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
         var total: Int64 = 0
         for line in order.lines {
             guard (1...99).contains(line.quantity), line.modifiers.count <= 40, Set(line.modifiers).count == line.modifiers.count,
-                  (line.notes?.count ?? 0) <= 200,
-                  let product = menu.products(branch: order.branchId).first(where: { $0.id == line.productId }), product.available(branch: order.branchId) else { throw RuleError.invalid("item_unavailable") }
+                  (line.notes?.utf16.count ?? 0) <= 200,
+                  let product = products[line.productId], product.available(branch: order.branchId) else { throw RuleError.invalid("item_unavailable") }
             var price = product.price(branch: order.branchId)
-            let groups = menu.modifierGroups.filter { product.modifierGroupIds.contains($0.id) && $0.isActive }
+            let groups = product.modifierGroupIds.compactMap { activeGroups[$0] }
             for selection in line.modifiers {
                 guard let group = groups.first(where: { $0.id == selection.groupId }),
                       let option = group.options.first(where: { $0.id == selection.optionId && $0.isAvailable }) else { throw RuleError.invalid("modifier_unavailable") }
-                price += option.priceDeltaMinor
+                let addition = price.addingReportingOverflow(option.priceDeltaMinor)
+                guard !addition.overflow else { throw RuleError.invalid("invalid_price") }
+                price = addition.partialValue
             }
             for group in groups {
                 let count = line.modifiers.filter { $0.groupId == group.id }.count
                 guard count >= group.minSelect && count <= group.maxSelect else { throw RuleError.invalid("modifier_selection") }
             }
             guard price >= 0, price <= 10_000_000_000_000 else { throw RuleError.invalid("invalid_price") }
-            total += price * Int64(line.quantity)
+            let lineTotal = price.multipliedReportingOverflow(by: Int64(line.quantity))
+            let sum = total.addingReportingOverflow(lineTotal.partialValue)
+            guard !lineTotal.overflow, !sum.overflow, sum.partialValue <= 9_007_199_254_740_991 else { throw RuleError.invalid("invalid_price") }
+            total = sum.partialValue
         }
         return total
     }

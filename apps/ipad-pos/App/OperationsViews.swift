@@ -36,7 +36,7 @@ struct FloorView: View {
                                             .frame(width: max(52, table.width * scale), height: max(52, table.height * scale))
                                             .background(table.visit == nil ? Design.accent.opacity(0.10) : Design.accent.opacity(0.28), in: RoundedRectangle(cornerRadius: table.shape == "round" ? 60 : 12))
                                             .overlay { RoundedRectangle(cornerRadius: 12).stroke(table.status == "cleaning" ? .orange : Design.accent.opacity(0.3), lineWidth: 2) }
-                                    }.buttonStyle(.plain).rotationEffect(.degrees(table.rotation)).position(x: table.cx * scale, y: table.cy * scale)
+                                    }.buttonStyle(.plain).accessibilityIdentifier("table." + table.id).rotationEffect(.degrees(table.rotation)).position(x: table.cx * scale, y: table.cy * scale)
                                         .accessibilityLabel("\(l.text("table")) \(table.label), \(l.text(table.visit == nil ? table.status : "occupied")), \(table.capacity)")
                                 }
                             }.environment(\.layoutDirection, .leftToRight)
@@ -52,7 +52,7 @@ struct FloorView: View {
                     if let visit = table.visit { LabeledContent(l.text("due"), value: Money.text(visit.dueMinor, currency: m.restaurant?.currency ?? "")) }
                     if let reservation = table.nextReservation { Section(l.text("reservation")) { Text(reservation.guestName); Text(reservation.startsAt).font(.caption); Text("\(reservation.partySize)").monospacedDigit() } }
                     if m.can("orders:write") {
-                        Button(l.text("add_to_order")) { m.selectedTable = table; m.fulfillment = "dine_in"; m.persistDraft(); selected = nil; onSelect() }.frame(minHeight: 44)
+                        Button(l.text("add_to_order")) { m.selectedTable = table; m.fulfillment = "dine_in"; m.persistDraft(); selected = nil; onSelect() }.frame(minHeight: 44).accessibilityIdentifier("floor.order")
                     }
                     if m.can("floor:seat") {
                         if table.visit == nil { Button(l.text(table.status == "cleaning" ? "mark_clean" : "seat")) { action(table, table.status == "cleaning" ? "clean" : "seat") }.disabled(!m.reachable) }

@@ -66,7 +66,10 @@ public actor AuthService {
         let existing = session
         try clear() // Local logout must work even if the remote endpoint is unavailable.
         if let existing {
-            var request = URLRequest(url: url.appendingPathComponent("auth/v1/logout"))
+            var endpoint = URLComponents(url: url.appendingPathComponent("auth/v1/logout"), resolvingAgainstBaseURL: false)!
+            endpoint.queryItems = [URLQueryItem(name:"scope",value:"local")]
+            var request = URLRequest(url: endpoint.url!)
+            request.timeoutInterval = 10
             request.httpMethod = "POST"; request.setValue(publicKey, forHTTPHeaderField: "apikey")
             request.setValue("Bearer \(existing.access_token)", forHTTPHeaderField: "Authorization")
             _ = try? await transport.send(request)

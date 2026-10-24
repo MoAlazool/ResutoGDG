@@ -20,6 +20,7 @@ struct UITestBootstrap {
 actor ScenarioTransport: HTTPTransport {
     private let fixtures: [String: Any]
     private let role: String
+    private var soldOut = false
     private var order: [String: Any]?
     private var acceptedByKey: [String: [String: Any]] = [:]
     private let branchID = "22222222-2222-4222-8222-222222222222"
@@ -40,7 +41,15 @@ actor ScenarioTransport: HTTPTransport {
         if path == "/v1/o/org" {
             return try response(["id":"org", "name":"UI Test Restaurant", "currency":"EGP", "timezone":"Africa/Cairo", "branches":[["id":branchID,"name":"UI Test Branch","nameAr":"فرع الاختبار","isActive":true,"acceptsDineIn":true,"acceptsPickup":true,"acceptsDelivery":true]]])
         }
-        if path == "/v1/o/org/menu" { return try response(fixtures["menu"]!) }
+        if path == "/v1/o/org/menu" {
+            var menu = fixtures["menu"] as! [String:Any], products = (fixtures["menu"] as! [String:Any])["products"] as! [[String:Any]]
+            var settings = products[0]["branchSettings"] as! [[String:Any]]; settings[0]["soldOut"] = soldOut; products[0]["branchSettings"] = settings; menu["products"] = products
+            return try response(menu)
+        }
+        if path.hasSuffix("/availability"), request.httpMethod == "POST" {
+            guard Permissions.can(role,"menu:availability"), body["branchId"] as? String == branchID else { return try failure(403,"forbidden") }
+            soldOut = body["available"] as? Bool != true; return try response(["available":!soldOut])
+        }
         if path == "/v1/o/org/floor/\(branchID)" { return try response(fixtures["floor"]!) }
         if path == "/v1/o/org/floor/\(branchID)/live" { return try response(["revision":1,"tables":(fixtures["floor"] as! [String: Any])["tables"]!]) }
         if path == "/v1/o/org/orders", request.httpMethod == "POST" {
@@ -49,6 +58,8 @@ actor ScenarioTransport: HTTPTransport {
             guard body["branchId"] as? String == branchID, body["channel"] as? String == "staff" else { return try failure(400, "validation_failed") }
             order = fixtures["detail"] as? [String: Any]
             order!["id"] = "33333333-3333-4333-8333-333333333333"
+            order!["fulfillment"] = body["fulfillment"]
+            order!["tableLabel"] = body["tableId"] == nil ? NSNull() : "T1" as Any
             let result = fixtures["accepted"] as! [String: Any]; acceptedByKey[key] = result
             return try response(result, status: 201)
         }
@@ -56,7 +67,7 @@ actor ScenarioTransport: HTTPTransport {
             var summaries: [[String: Any]] = []
             if let order {
                 var summary = (fixtures["orders"] as! [String: Any])["items"] as! [[String: Any]]
-                for key in ["id","status","paymentStatus","dueMinor","version"] { summary[0][key] = order[key] }
+                for key in ["id","status","paymentStatus","dueMinor","version","fulfillment","tableLabel"] { summary[0][key] = order[key] }
                 summaries = summary
             }
             return try response(["items":summaries,"nextCursor":NSNull()])
@@ -65,7 +76,7 @@ actor ScenarioTransport: HTTPTransport {
             var tickets: [[String: Any]] = []
             if let order {
                 var ticket = order
-                ticket["ageSeconds"] = 2; ticket["tableLabel"] = NSNull(); ticket["notes"] = NSNull()
+                ticket["ageSeconds"] = 2; ticket["tableLabel"] = order["tableLabel"] ?? NSNull(); ticket["notes"] = NSNull()
                 var lines = order["lines"] as! [[String: Any]]
                 lines[0]["modifiers"] = ["Regular"]; ticket["lines"] = lines
                 tickets = [ticket]

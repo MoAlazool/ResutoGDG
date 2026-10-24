@@ -263,3 +263,43 @@ final class StorageIdentityTests: XCTestCase {
         XCTAssertNotEqual(scope().storageIdentity, scope(org: "other").storageIdentity)
     }
 }
+final class CatalogueScaleTests: XCTestCase {
+    func testLargeCatalogueAndSixtyLineEstimate() throws {
+        var object = try JSONSerialization.jsonObject(with: fixture("menu")) as! [String: Any]
+        let original = (object["products"] as! [[String: Any]])[0]
+        object["products"] = (0..<1000).map { index -> [String: Any] in var product = original; product["id"] = "product-\(index)"; return product }
+        let menu = try JSONDecoder().decode(Menu.self, from: JSONSerialization.data(withJSONObject: object))
+        let lines = (0..<60).map { CartLine(productId:"product-\($0)",quantity:1,modifiers:[.init(groupId:"group",optionId:"option")]) }
+        let order = StaffOrder(branchId:branchID,fulfillment:"pickup",lines:lines)
+        XCTAssertEqual(try CartRules.estimate(order,menu:menu),549000)
+        measure { for _ in 0..<10 { _ = try? CartRules.estimate(order,menu:menu) } }
+    }
+    func testModifierOverflowIsRejectedWithoutTrapping() throws {
+        var object = try JSONSerialization.jsonObject(with: fixture("menu")) as! [String: Any]
+        var groups = object["modifierGroups"] as! [[String: Any]]
+        var options = groups[0]["options"] as! [[String: Any]]; options[0]["priceDeltaMinor"] = Int64.max
+        groups[0]["options"] = options; object["modifierGroups"] = groups
+        let menu = try JSONDecoder().decode(Menu.self, from: JSONSerialization.data(withJSONObject: object))
+        XCTAssertThrowsError(try CartRules.estimate(payload(),menu:menu))
+    }
+    func testArabicCombiningNotesMatchBackendUTF16Limit() throws {
+        let notes = String(repeating:"نَ",count:101)
+        XCTAssertLessThan(notes.count,200); XCTAssertGreaterThan(notes.utf16.count,200)
+        let line = CartLine(productId:productID,quantity:1,modifiers:payload().lines[0].modifiers,notes:notes)
+        XCTAssertThrowsError(try CartRules.estimate(StaffOrder(branchId:branchID,fulfillment:"pickup",lines:[line]),menu:decode("menu")))
+    }
+}
+final class SessionScopeTests: XCTestCase {
+    func testNativeLogoutRevokesOnlyItsOwnSession() async throws {
+        let response = HTTPResult(data:Data("{\"access_token\":\"access\",\"refresh_token\":\"refresh\",\"expires_in\":3600}".utf8),status:200)
+        let transport = ScriptedTransport([response,HTTPResult(data:Data(),status:204)]), secrets = MemoryStore()
+        let auth = try AuthService(url:URL(string:"https://auth.example")!,publicKey:"public",transport:transport,secrets:secrets)
+        try await auth.signIn(email:"staff@example.test",password:"test-only")
+        try await auth.signOut()
+        let requests = await transport.requests
+        XCTAssertEqual(requests.last?.url?.query,"scope=local")
+        XCTAssertEqual(requests.last?.value(forHTTPHeaderField:"Authorization"),"Bearer access")
+        XCTAssertNil(try secrets.read("session"))
+        do { _ = try await auth.token(); XCTFail("Signed-out token must be inaccessible") } catch {}
+    }
+}

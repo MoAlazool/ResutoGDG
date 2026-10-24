@@ -138,10 +138,10 @@ struct WorkspaceSelection: View {
     }
 }
 enum Destination: String, CaseIterable, Identifiable {
-    case pos, floor, orders, kitchen, reservations, history, sync, settings
+    case pos, floor, orders, kitchen, availability, reservations, history, sync, settings
     var id: String { rawValue }
-    var symbol: String { switch self { case .pos: "square.grid.2x2"; case .floor: "square.split.2x2"; case .orders: "list.bullet.rectangle"; case .kitchen: "flame"; case .reservations: "calendar"; case .history: "clock"; case .sync: "arrow.triangle.2.circlepath"; case .settings: "gearshape" } }
-    var permission: String? { switch self { case .pos: "menu:read"; case .floor: "floor:read"; case .orders, .history: "orders:read"; case .kitchen: "kitchen:operate"; case .reservations: "reservations:read"; default: nil } }
+    var symbol: String { switch self { case .pos: "square.grid.2x2"; case .floor: "square.split.2x2"; case .orders: "list.bullet.rectangle"; case .kitchen: "flame"; case .availability: "checkmark.circle"; case .reservations: "calendar"; case .history: "clock"; case .sync: "arrow.triangle.2.circlepath"; case .settings: "gearshape" } }
+    var permission: String? { switch self { case .pos: "menu:read"; case .floor: "floor:read"; case .orders, .history: "orders:read"; case .kitchen: "kitchen:operate"; case .availability: "menu:availability"; case .reservations: "reservations:read"; default: nil } }
 }
 struct WorkspaceView: View {
     @EnvironmentObject var m: POSModel
@@ -172,6 +172,7 @@ struct WorkspaceView: View {
                     case .orders: OrdersView(history: false)
                     case .history: OrdersView(history: true)
                     case .kitchen: KitchenView()
+                    case .availability: AvailabilityView()
                     case .reservations: ReservationsView()
                     case .sync: SyncView()
                     case .settings: SettingsView()

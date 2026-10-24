@@ -17,7 +17,7 @@ for path in app_sources+ui_sources:
     rel=str(path.relative_to(root)); f=add(rel,'PBXFileReference',lastKnownFileType='sourcecode.swift',path=rel,sourceTree='<group>');file_refs.append(ref(f))
     build=add(rel+'-build','PBXBuildFile',fileRef=ref(f)); (ui_builds if path in ui_sources else source_builds).append(ref(build))
 for path in sorted(root.glob('Resources/*')):
-    if path.name=='Info.plist': continue
+    if path.name=='Info.plist' or path.suffix=='.entitlements': continue
     rel=str(path.relative_to(root)); f=add(rel,'PBXFileReference',lastKnownFileType='text.xml',path=rel,sourceTree='<group>');file_refs.append(ref(f)); resources.append(ref(add(rel+'-build','PBXBuildFile',fileRef=ref(f))))
 product=add('app-product','PBXFileReference',explicitFileType='wrapper.application',path='ResutoPOS.app',sourceTree='BUILT_PRODUCTS_DIR')
 ui_product=add('ui-product','PBXFileReference',explicitFileType='wrapper.cfbundle',path='ResutoPOSUITests.xctest',sourceTree='BUILT_PRODUCTS_DIR')
@@ -31,7 +31,7 @@ def config_list(name, settings):
         configs.append(ref(add(name+mode,'XCBuildConfiguration',name=mode,buildSettings={**settings,'SWIFT_OPTIMIZATION_LEVEL':'-Onone' if mode=='Debug' else '-O','DEBUG_INFORMATION_FORMAT':'dwarf-with-dsym','SWIFT_ACTIVE_COMPILATION_CONDITIONS':'DEBUG' if mode=='Debug' else ''})))
     return ref(add(name+'configs','XCConfigurationList',buildConfigurations=configs,defaultConfigurationIsVisible=0,defaultConfigurationName='Release'))
 project_config=config_list('project',base)
-app_config=config_list('app',{'PRODUCT_BUNDLE_IDENTIFIER':'com.resuto.ipadpos','PRODUCT_NAME':'$(TARGET_NAME)','INFOPLIST_FILE':'Resources/Info.plist','GENERATE_INFOPLIST_FILE':'NO','CODE_SIGN_STYLE':'Automatic','MARKETING_VERSION':'0.1.0','CURRENT_PROJECT_VERSION':'1','SUPPORTED_PLATFORMS':'iphoneos iphonesimulator','SUPPORTS_MACCATALYST':'NO','ENABLE_USER_SCRIPT_SANDBOXING':'YES'})
+app_config=config_list('app',{'PRODUCT_BUNDLE_IDENTIFIER':'com.resuto.ipadpos','PRODUCT_NAME':'$(TARGET_NAME)','INFOPLIST_FILE':'Resources/Info.plist','GENERATE_INFOPLIST_FILE':'NO','CODE_SIGN_STYLE':'Automatic','CODE_SIGN_ENTITLEMENTS':'Resources/ResutoPOS.entitlements','MARKETING_VERSION':'0.1.0','CURRENT_PROJECT_VERSION':'1','SUPPORTED_PLATFORMS':'iphoneos iphonesimulator','SUPPORTS_MACCATALYST':'NO','ENABLE_USER_SCRIPT_SANDBOXING':'YES'})
 app_id=add('app','PBXNativeTarget',name='ResutoPOS',productName='ResutoPOS',productType='com.apple.product-type.application',productReference=ref(product),buildConfigurationList=app_config,buildPhases=[phase('app-sources','PBXSourcesBuildPhase',source_builds),phase('app-frameworks','PBXFrameworksBuildPhase',[]),phase('app-resources','PBXResourcesBuildPhase',resources)],buildRules=[],dependencies=[])
 fixture_ref=add('test-fixtures','PBXFileReference',lastKnownFileType='folder',path='Tests/ResutoCoreTests/Fixtures',sourceTree='<group>')
 objects[main]['children'].append(ref(fixture_ref))
