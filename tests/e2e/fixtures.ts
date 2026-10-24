@@ -135,9 +135,21 @@ export async function setLocale(page: Page, locale: 'en' | 'ar') {
  */
 export function collectErrors(page: Page, ignore: RegExp[] = []) {
   const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error' && !ignore.some((r) => r.test(m.text()))) errors.push(m.text()); });
-  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => { if (m.type() === 'error' && !ignore.some((r) => r.test(m.text())) && !isCancelledRscFetch(m.text())) errors.push(m.text()); });
+  page.on('pageerror', (e) => { if (!isCancelledRscFetch(e.message)) errors.push(`pageerror: ${e.message}`); });
   return errors;
+}
+
+/**
+ * A navigation cancels Next's in-flight RSC link prefetches for this app's own pages. WebKit reports each one as
+ * "<url>?_rsc=… due to access control checks." plus Next's "Failed to fetch RSC payload for <url>. Falling back to
+ * browser navigation. TypeError: Load failed" (Chromium reports nothing). Only same-origin RSC requests match;
+ * any other error, including a real cross-origin access-control failure, is still recorded.
+ */
+export function isCancelledRscFetch(text: string): boolean {
+  const host = new URL(WEB_URL).host.replace(/[.]/g, '\\.');
+  return new RegExp(`//?${host}/[^\\s?]*\\?_rsc=\\S+ due to access control checks\\.$`).test(text)
+    || new RegExp(`^Failed to fetch RSC payload for https?://${host}/\\S*\\. Falling back to browser navigation\\. TypeError: Load failed$`).test(text);
 }
 
 /** No element may make the page scroll sideways (RTL and 390 px layouts). */
