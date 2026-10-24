@@ -1,7 +1,7 @@
 // Staff notification centre (FT-06).
 import { z } from 'zod';
 
-export const NOTIFICATION_KINDS = ['licence_expiring', 'stock_low', 'mcp_approval_requested', 'member_invited', 'payment_alert', 'payment_failed'] as const;
+export const NOTIFICATION_KINDS = ['licence_expiring', 'stock_low', 'mcp_approval_requested', 'member_invited', 'payment_alert', 'payment_failed', 'approval_requested'] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 export const notificationsQuery = z.object({

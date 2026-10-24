@@ -29,6 +29,7 @@ export const CAMPAIGN_SEND_PORT = Symbol.for('resuto.CAMPAIGN_SEND_PORT');
     { provide: CAMPAIGNS_PORT, useExisting: CampaignsService },
     { provide: CAMPAIGN_SEND_PORT, useExisting: CampaignsService },
   ],
-  exports: [SEGMENTS_PORT, CAMPAIGNS_PORT, CAMPAIGN_SEND_PORT],
+  // PromotionsService: change sets create offers in their own transaction (21-CS).
+  exports: [SEGMENTS_PORT, CAMPAIGNS_PORT, CAMPAIGN_SEND_PORT, PromotionsService],
 })
 export class MarketingModule {}

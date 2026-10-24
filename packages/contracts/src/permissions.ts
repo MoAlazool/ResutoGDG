@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   'analytics:read', 'ai:use',
   'integrations:manage',
   'mcp:manage', 'mcp:approve',
+  // 21-CS change sets: see the approvals inbox, approve or reject, and set the approval policy.
+  'changes:read', 'changes:approve', 'changes:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -31,7 +33,8 @@ const without = (...excluded: Permission[]) => all.filter((p) => !excluded.inclu
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: all,
   admin: without('billing:manage'),
-  manager: without('org:manage', 'billing:manage', 'members:manage', 'integrations:manage', 'mcp:manage', 'delivery:drive', 'customers:export'),
+  manager: without('org:manage', 'billing:manage', 'members:manage', 'integrations:manage', 'mcp:manage', 'delivery:drive', 'customers:export',
+    'changes:manage'),
   cashier: ['menu:read', 'menu:availability', 'floor:read', 'floor:seat', 'orders:read', 'orders:write', 'orders:status',
     'reservations:read', 'reservations:write', 'customers:read', 'payments:read', 'payments:collect'],
   waiter: ['menu:read', 'menu:availability', 'floor:read', 'floor:seat', 'orders:read', 'orders:write', 'orders:status',
@@ -39,7 +42,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   kitchen: ['menu:read', 'menu:availability', 'orders:read', 'orders:status', 'kitchen:operate', 'inventory:read'],
   host: ['floor:read', 'floor:seat', 'reservations:read', 'reservations:write', 'customers:read', 'orders:read'],
   marketing: ['menu:read', 'customers:read', 'marketing:read', 'marketing:write', 'marketing:approve', 'connect:read', 'connect:reply',
-    'studio:read', 'studio:write', 'studio:publish', 'analytics:read', 'ai:use'],
+    'studio:read', 'studio:write', 'studio:publish', 'analytics:read', 'ai:use', 'changes:read', 'changes:approve'],
   accountant: ['orders:read', 'payments:read', 'payments:reconcile', 'finance:read', 'finance:write', 'compliance:read',
     'compliance:write', 'analytics:read', 'audit:read'],
   driver: ['delivery:drive'],

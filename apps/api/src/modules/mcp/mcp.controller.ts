@@ -96,8 +96,10 @@ export class McpController {
     return this.exec.getApproval(ctx, id);
   }
 
+  /** MFA step-up for users with a verified factor (21-CS: approving an AI action is as sensitive as issuing a key). */
   @HttpCode(200)
   @Post('approvals/:approvalId/approve')
+  @RequireMfa()
   @RequirePermission('mcp:approve')
   approve(@Tenant() ctx: TenantContext, @Param('approvalId', ParseUUIDPipe) id: string, @Body(zod(mcpDecision)) body: z.infer<typeof mcpDecision>) {
     return this.exec.approve(ctx, id, body.note, body.previewDigest);
@@ -105,6 +107,7 @@ export class McpController {
 
   @HttpCode(200)
   @Post('approvals/:approvalId/reject')
+  @RequireMfa()
   @RequirePermission('mcp:approve')
   reject(@Tenant() ctx: TenantContext, @Param('approvalId', ParseUUIDPipe) id: string, @Body(zod(mcpDecision)) body: z.infer<typeof mcpDecision>) {
     return this.exec.reject(ctx, id, body.note);

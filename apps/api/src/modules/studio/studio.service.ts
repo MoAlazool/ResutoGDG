@@ -53,33 +53,49 @@ export class StudioService {
 
   // --- Sections --------------------------------------------------------------
   async createSection(ctx: TenantContext, input: CreateSection) {
-    return this.db.scoped(ctx, async (tx) => {
-      const site = await this.site(tx, ctx, true);
-      const { n, max } = await tx.one<{ n: number; max: number | null }>(
-        'select count(*)::int as n, max(sort_order) as max from website_sections where website_id = $1', [site.id]);
-      if (n >= MAX_SECTIONS) throw invalid('too_many_sections', `A website can have at most ${MAX_SECTIONS} sections`);
-      await this.assertContentRefs(tx, ctx, input.content);
-      const row = await tx.one(
-        `insert into website_sections(org_id, website_id, kind, sort_order, is_visible, content) values ($1, $2, $3, $4, $5, $6) returning *`,
-        [ctx.orgId, site.id, input.kind, (max ?? -1) + 1, input.isVisible, input.content]);
-      await this.touch(tx, site.id);
-      await this.audit.record(tx, ctx, { action: 'website.section_created', entityType: 'website_section', entityId: row.id, metadata: { kind: input.kind } });
-      return toSection(row);
-    });
+    return this.db.scoped(ctx, (tx) => this.createSectionTx(tx, ctx, input));
+  }
+
+  /** Adds a draft section inside the caller's transaction (the route above, and change sets). */
+  async createSectionTx(tx: Tx, ctx: TenantContext, input: CreateSection) {
+    const site = await this.site(tx, ctx, true);
+    await this.assertCanAddSection(tx, ctx, site.id, input);
+    const { max } = await tx.one<{ max: number | null }>('select max(sort_order) as max from website_sections where website_id = $1', [site.id]);
+    const row = await tx.one(
+      `insert into website_sections(org_id, website_id, kind, sort_order, is_visible, content) values ($1, $2, $3, $4, $5, $6) returning *`,
+      [ctx.orgId, site.id, input.kind, (max ?? -1) + 1, input.isVisible, input.content]);
+    await this.touch(tx, site.id);
+    await this.audit.record(tx, ctx, { action: 'website.section_created', entityType: 'website_section', entityId: row.id, metadata: { kind: input.kind } });
+    return toSection(row);
+  }
+
+  /** The section limit and the content's references (media, menu items of this restaurant). */
+  async assertCanAddSection(tx: Tx, ctx: TenantContext, websiteId: string, input: Pick<CreateSection, 'content'>) {
+    const { n } = await tx.one<{ n: number }>('select count(*)::int as n from website_sections where website_id = $1', [websiteId]);
+    if (n >= MAX_SECTIONS) throw invalid('too_many_sections', `A website can have at most ${MAX_SECTIONS} sections`);
+    await this.assertContentRefs(tx, ctx, input.content);
+  }
+
+  /** The media and menu items a section's content refers to exist in this restaurant (and may be shown). */
+  assertSectionContent(tx: Tx, ctx: TenantContext, content: SectionContent) {
+    return this.assertContentRefs(tx, ctx, content);
   }
 
   async updateSection(ctx: TenantContext, sectionId: string, patch: UpdateSection) {
-    return this.db.scoped(ctx, async (tx) => {
-      const existing = await tx.maybeOne<any>('select * from website_sections where id = $1 and org_id = $2 for update', [sectionId, ctx.orgId]);
-      if (!existing) throw notFound('Section');
-      if (patch.content) await this.assertContentRefs(tx, ctx, patch.content);
-      const row = await tx.one(
-        `update website_sections set content = coalesce($2, content), is_visible = coalesce($3, is_visible), updated_at = now()
-          where id = $1 returning *`, [sectionId, patch.content ?? null, patch.isVisible ?? null]);
-      await this.touch(tx, existing.website_id);
-      await this.audit.record(tx, ctx, { action: 'website.section_updated', entityType: 'website_section', entityId: sectionId, metadata: { fields: Object.keys(patch) } });
-      return toSection(row);
-    });
+    return this.db.scoped(ctx, (tx) => this.updateSectionTx(tx, ctx, sectionId, patch));
+  }
+
+  /** Edits a draft section inside the caller's transaction (the route above, and change sets). */
+  async updateSectionTx(tx: Tx, ctx: TenantContext, sectionId: string, patch: UpdateSection) {
+    const existing = await tx.maybeOne<any>('select * from website_sections where id = $1 and org_id = $2 for update', [sectionId, ctx.orgId]);
+    if (!existing) throw notFound('Section');
+    if (patch.content) await this.assertContentRefs(tx, ctx, patch.content);
+    const row = await tx.one(
+      `update website_sections set content = coalesce($2, content), is_visible = coalesce($3, is_visible), updated_at = now()
+        where id = $1 returning *`, [sectionId, patch.content ?? null, patch.isVisible ?? null]);
+    await this.touch(tx, existing.website_id);
+    await this.audit.record(tx, ctx, { action: 'website.section_updated', entityType: 'website_section', entityId: sectionId, metadata: { fields: Object.keys(patch) } });
+    return toSection(row);
   }
 
   async deleteSection(ctx: TenantContext, sectionId: string) {
@@ -112,22 +128,26 @@ export class StudioService {
   // --- Publish & revisions ------------------------------------------------------
   async publish(ctx: TenantContext, key: string, note?: string) {
     return this.db.scoped(ctx, async (tx) => {
-      const site = await this.site(tx, ctx, true);
-      return this.idempotency.run(tx, ctx.orgId, 'studio.publish', key, { note: note ?? null }, async () => {
-        const doc = await this.document(tx, ctx, site, true);
-        const missing = await this.missingMedia(tx, ctx, referencedMedia(doc));
-        if (missing.length) throw invalid('media_missing', 'Some images used by the website were deleted. Replace them before publishing.', { mediaIds: missing });
-        const revision = site.publishedRevision + 1;
-        await tx.query(
-          `insert into website_revisions(org_id, website_id, revision, snapshot, note, published_by) values ($1, $2, $3, $4, $5, $6)`,
-          [ctx.orgId, site.id, revision, doc, note ?? null, ctx.userId]);
-        const row = await tx.one(
-          `update websites set status = 'published', published_revision = $2, published_at = now() where id = $1 returning published_at`, [site.id, revision]);
-        await this.audit.record(tx, ctx, { action: 'website.published', entityType: 'website', entityId: site.id, metadata: { revision } });
-        await this.outbox.publish(tx, ctx.orgId, { type: 'website.published', aggregateType: 'website', aggregateId: site.id, payload: { revision } });
-        return { revision, publishedAt: new Date(row.published_at).toISOString() };
-      });
+      await this.site(tx, ctx, true);
+      return this.idempotency.run(tx, ctx.orgId, 'studio.publish', key, { note: note ?? null }, () => this.publishTx(tx, ctx, note));
     });
+  }
+
+  /** Publishes the current draft as a new revision inside the caller's transaction (the route above, and change sets). */
+  async publishTx(tx: Tx, ctx: TenantContext, note?: string | null) {
+    const site = await this.site(tx, ctx, true);
+    const doc = await this.document(tx, ctx, site, true);
+    const missing = await this.missingMedia(tx, ctx, referencedMedia(doc));
+    if (missing.length) throw invalid('media_missing', 'Some images used by the website were deleted. Replace them before publishing.', { mediaIds: missing });
+    const revision = site.publishedRevision + 1;
+    await tx.query(
+      `insert into website_revisions(org_id, website_id, revision, snapshot, note, published_by) values ($1, $2, $3, $4, $5, $6)`,
+      [ctx.orgId, site.id, revision, doc, note ?? null, ctx.userId]);
+    const row = await tx.one(
+      `update websites set status = 'published', published_revision = $2, published_at = now() where id = $1 returning published_at`, [site.id, revision]);
+    await this.audit.record(tx, ctx, { action: 'website.published', entityType: 'website', entityId: site.id, metadata: { revision } });
+    await this.outbox.publish(tx, ctx.orgId, { type: 'website.published', aggregateType: 'website', aggregateId: site.id, payload: { revision } });
+    return { revision, publishedAt: new Date(row.published_at).toISOString() };
   }
 
   async revisions(ctx: TenantContext, q: { limit: number; cursor?: string } = { limit: 50 }) {

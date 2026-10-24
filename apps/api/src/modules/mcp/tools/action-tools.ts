@@ -1,10 +1,14 @@
 // MCP tools that change state. Writes never touch another module's tables
 // directly: they go through that module's port (MODULE_CONTRACTS.md §4/§5).
 // Sensitive tools only *request* an action; a human with mcp:approve approves
-// it in the dashboard and the stored input is then executed exactly once.
+// it in the dashboard and the stored input is then executed exactly once as a
+// change set (modules/changes, 21-CS: MCP_TOOL_OPS in mcp-execution.service.ts).
+// Their preview() is what the approver reviews; their handler() is the same
+// action through the same port and is no longer called after approval.
 import type { TenantContext } from '../../../common/auth/context';
 import type { Tx } from '../../../common/db/db.service';
-import { conflict, invalid, notFound } from '../../../common/errors/domain-error';
+import { notFound } from '../../../common/errors/domain-error';
+import { loadSendableCampaign, paymentTarget } from '../../changes/ops/effect.ops';
 import { requirePort } from '../../kernel/ports';
 import { OFFERED_SQL, SOLD_OUT_SQL } from '../../menu/availability';
 import { maskName } from '../mcp.util';
@@ -20,38 +24,8 @@ async function assertSegment(tx: Tx, ctx: TenantContext, segmentId: string | und
   return s;
 }
 
-async function loadCampaign(tx: Tx, ctx: TenantContext, campaignId: string) {
-  const c = await tx.maybeOne<any>(
-    `select c.id, c.name, c.status, c.channel, c.is_sandbox, s.name as segment_name, s.member_count
-       from campaigns c left join segments s on s.id = c.segment_id where c.org_id = $1 and c.id = $2`, [ctx.orgId, campaignId]);
-  if (!c) throw notFound('Campaign');
-  if (!['draft', 'approved'].includes(c.status)) {
-    throw conflict('campaign_not_sendable', `Campaign is ${c.status}; only draft or approved campaigns can be sent`, { status: c.status });
-  }
-  return c;
-}
-
-async function paymentTarget(tx: Tx, ctx: TenantContext, input: { orderId?: string; amountMinor?: number; customerId?: string }) {
-  const org = await tx.one<{ currency: string }>('select currency from organizations where id = $1', [ctx.orgId]);
-  let order: any = null;
-  if (input.orderId) {
-    order = await tx.maybeOne<any>(
-      `select id, number, branch_id, total_minor, paid_minor, refunded_minor, currency, status from orders where org_id = $1 and id = $2`,
-      [ctx.orgId, input.orderId]);
-    if (!order || !ctx.canAccessBranch(order.branch_id)) throw notFound('Order');
-    if (order.status === 'cancelled') throw conflict('order_cancelled', 'The order is cancelled');
-  }
-  const due = order ? order.total_minor - (order.paid_minor - order.refunded_minor) : null;
-  if (due !== null && due <= 0) throw conflict('nothing_due', 'Nothing is due on this order');
-  const amount = input.amountMinor ?? due!;
-  if (due !== null && amount > due) throw invalid('amount_exceeds_due', `The amount exceeds what is due (${due})`, { dueMinor: due });
-  let customer: any = null;
-  if (input.customerId) {
-    customer = await tx.maybeOne<any>('select id, display_name from customers where org_id = $1 and id = $2', [ctx.orgId, input.customerId]);
-    if (!customer) throw notFound('Customer');
-  }
-  return { order, amount, currency: order?.currency ?? org.currency, customer };
-}
+// Shared with the change-set ops that execute these requests (21-CS), so the preview and the executed op agree.
+const loadCampaign = (tx: Tx, ctx: TenantContext, campaignId: string) => loadSendableCampaign(tx, ctx, campaignId);
 
 async function productAtBranch(tx: Tx, ctx: TenantContext, productId: string, branchId: string) {
   const row = await tx.maybeOne<any>(

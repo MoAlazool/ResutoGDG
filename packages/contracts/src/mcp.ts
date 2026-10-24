@@ -135,7 +135,7 @@ export const mcpDecision = z.object({
 });
 
 export const mcpApprovalsQuery = z.object({
-  status: z.enum(['pending', 'executed', 'rejected', 'expired', 'failed', 'invalidated', 'all']).default('pending'),
+  status: z.enum(['pending', 'approved', 'executed', 'rejected', 'expired', 'failed', 'invalidated', 'all']).default('pending'),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   /** The previous page's nextCursor (opaque). */
   cursor: z.string().min(1).max(500).optional(),

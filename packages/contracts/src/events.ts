@@ -18,6 +18,8 @@ export const DOMAIN_EVENTS = [
   'compliance.document_expiring',
   'fiscal_document.issued',
   'mcp.approval_requested',
+  // 21-CS: a change set waits for an approver (MCP-originated sets notify through mcp.approval_requested).
+  'change_set.approval_requested',
   'customer.merged', 'customer.anonymised',
   'website.published',
   // ws7b (wave 4): a POS reported a menu change (Foodics menu.updated nudge) → schedule a pull sync.

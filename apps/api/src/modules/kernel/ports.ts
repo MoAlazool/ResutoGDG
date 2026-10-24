@@ -52,6 +52,8 @@ export interface CheckoutSessionCreated {
 
 export interface CheckoutPort {
   createSession(tx: Tx, ctx: TenantContext, input: CheckoutSessionRequest): Promise<CheckoutSessionCreated>;
+  /** Cancels a still-open session (the reverse action of a change-set payment link). False when it is no longer open. */
+  cancelSession?(tx: Tx, ctx: TenantContext, sessionId: string, reason: string): Promise<boolean>;
 }
 
 export interface MessagingPort {
@@ -97,7 +99,7 @@ export interface MenuAvailabilityPort {
  */
 export interface CampaignSendPort {
   requestSend(tx: Tx, ctx: TenantContext, input: {
-    campaignId: string; scheduledAt?: string | null; approvedBy: string | null; source: 'mcp';
+    campaignId: string; scheduledAt?: string | null; approvedBy: string | null; source: 'mcp' | 'staff' | 'studio_ai' | 'copilot';
   }): Promise<{ campaignId: string; status: string; scheduledAt: string | null }>;
 }
 

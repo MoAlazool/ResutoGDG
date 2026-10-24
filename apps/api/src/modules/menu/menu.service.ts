@@ -276,25 +276,33 @@ export class MenuService {
 
   async updateProduct(ctx: TenantContext, id: string, input: ProductUpdate): Promise<Product> {
     const { version, ...patch } = input;
-    const entries = Object.entries(patch).filter(([k, v]) => PRODUCT_COLUMNS[k] && v !== undefined);
     const urls = this.storage.urls(MENU_IMAGE_TTL_SECONDS);
     const product = await this.db.scoped(ctx, async (tx) => {
-      const current = await tx.maybeOne<{ version: number; price_minor: number }>('select version, price_minor from products where id = $1 for update', [id]);
-      if (!current) throw notFound('Product');
-      if (current.version !== version) throw conflict('stale_product', 'This item was changed by someone else. Refresh before saving.', { version: current.version });
-      if (patch.categoryId && !(await tx.maybeOne('select 1 from menu_categories where id = $1', [patch.categoryId]))) throw notFound('Category');
-      if (entries.length) {
-        await tx.query(
-          `update products set ${entries.map(([k], i) => `${PRODUCT_COLUMNS[k]} = $${i + 2}`).join(', ')}, version = version + 1 where id = $1`,
-          [id, ...entries.map(([, v]) => v)]);
-        await this.changed(tx, ctx, 'menu.product.updated', 'product', id, {
-          fields: entries.map(([k]) => k), ...(patch.priceMinor !== undefined && patch.priceMinor !== current.price_minor ? { priceFrom: current.price_minor, priceTo: patch.priceMinor } : {}),
-        });
-      }
+      await this.patchProductTx(tx, ctx, id, patch, version);
       return (await this.loadProducts(tx, ctx, [id], urls))[0]!;
     });
     await urls.resolve();
     return product;
+  }
+
+  /**
+   * A product edit inside the caller's transaction (the editor above, and change sets). `version` is the version the
+   * editor loaded (mismatch: 409 stale_product); null when the caller checked the version itself under the same lock.
+   */
+  async patchProductTx(tx: Tx, ctx: TenantContext, id: string, patch: Omit<ProductUpdate, 'version'>, version: number | null): Promise<{ version: number }> {
+    const entries = Object.entries(patch).filter(([k, v]) => PRODUCT_COLUMNS[k] && v !== undefined);
+    const current = await tx.maybeOne<{ version: number; price_minor: number }>('select version, price_minor from products where id = $1 and org_id = $2 for update', [id, ctx.orgId]);
+    if (!current) throw notFound('Product');
+    if (version !== null && current.version !== version) throw conflict('stale_product', 'This item was changed by someone else. Refresh before saving.', { version: current.version });
+    if (patch.categoryId && !(await tx.maybeOne('select 1 from menu_categories where id = $1', [patch.categoryId]))) throw notFound('Category');
+    if (!entries.length) return { version: current.version };
+    await tx.query(
+      `update products set ${entries.map(([k], i) => `${PRODUCT_COLUMNS[k]} = $${i + 2}`).join(', ')}, version = version + 1 where id = $1`,
+      [id, ...entries.map(([, v]) => v)]);
+    await this.changed(tx, ctx, 'menu.product.updated', 'product', id, {
+      fields: entries.map(([k]) => k), ...(patch.priceMinor !== undefined && patch.priceMinor !== current.price_minor ? { priceFrom: current.price_minor, priceTo: patch.priceMinor } : {}),
+    });
+    return { version: current.version + 1 };
   }
 
   async archiveProduct(ctx: TenantContext, id: string) {
