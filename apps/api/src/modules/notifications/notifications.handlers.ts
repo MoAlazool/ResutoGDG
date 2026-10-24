@@ -81,6 +81,25 @@ export class NotificationsHandlers {
     });
   }
 
+  /** A change set (Studio AI, copilot or staff) waits for an approver (21-CS); MCP requests notify above. */
+  @OnDomainEvent('notifications.change_set_approval', 'change_set.approval_requested')
+  async onChangeSetApproval(e: OutboxEvent) {
+    if (!e.orgId) return;
+    const { id } = await this.db.withTenant(e.orgId, async (tx) => {
+      const cs = await tx.maybeOne<{ title: string; origin: string; expires_at: Date | null; requires_owner: boolean; approvals_required: number }>(
+        'select title, origin, expires_at, requires_owner, approvals_required from change_sets where id = $1', [e.aggregateId]);
+      return this.notifications.raise(tx, e.orgId!, {
+        audiencePermission: 'changes:approve', kind: 'approval_requested', severity: 'warning', templateKey: 'approval_requested',
+        params: { title: cs?.title ?? null, origin: cs?.origin ?? null, requiresOwner: cs?.requires_owner ?? false,
+          approvalsRequired: cs?.approvals_required ?? 1, expiresAt: cs?.expires_at ? new Date(cs.expires_at).toISOString() : null },
+        entityType: 'change_set', entityId: e.aggregateId, link: `/approvals/${e.aggregateId}`, dedupeKey: `change_set:${e.aggregateId}`,
+      });
+    }, 'system:notifications');
+    await this.notifications.deliverEmail(e.orgId, id, {
+      subject: 'Approval needed in Resuto', text: 'A change is waiting for your approval. Review it in Resuto → Approvals. Nothing changes until someone approves it.',
+    });
+  }
+
   /**
    * A member was invited: the people who manage the team see it in the centre. The invitee's link is shared by the
    * inviter (only the token hash is stored), so no invitation email is sent from here.

@@ -4,6 +4,7 @@ import type { Type } from '@nestjs/common';
 import { AdminModule } from './admin/admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BillingModule } from './billing/billing.module';
+import { ChangesModule } from './changes/changes.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { ConnectModule } from './connect/connect.module';
 import { CustomersModule } from './customers/customers.module';
@@ -30,6 +31,7 @@ export const DOMAIN_MODULES: Type[] = [
   AdminModule,
   AnalyticsModule,
   BillingModule,
+  ChangesModule,
   ComplianceModule,
   ConnectModule,
   CustomersModule,

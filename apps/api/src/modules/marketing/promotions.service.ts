@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { PromotionInput } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
-import { DbService } from '../../common/db/db.service';
+import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
@@ -31,25 +31,28 @@ export class PromotionsService {
         order by created_at desc, id desc limit ${k.fetch(q.limit)}`, [ctx.orgId, ...k.params]), q.limit, (r) => ({ at: r.cursor_at, id: r.id }), view));
   }
 
-  private async checkBranches(tx: any, ctx: TenantContext, branchIds: string[] | null | undefined) {
+  async checkBranches(tx: Tx, ctx: TenantContext, branchIds: string[] | null | undefined) {
     if (!branchIds?.length) return;
     const { n } = await tx.one(`select count(*)::int as n from branches where org_id = $1 and id = any($2::uuid[])`, [ctx.orgId, branchIds]);
     if (n !== new Set(branchIds).size) throw invalid('unknown_branch', 'A selected branch does not exist');
   }
 
   create(ctx: TenantContext, input: PromotionInput) {
-    return this.db.scoped(ctx, async (tx) => {
-      await this.checkBranches(tx, ctx, input.branchIds);
-      const row = await tx.one(
-        `insert into promotions(org_id, code, name, name_ar, kind, value, max_discount_minor, min_order_minor, branch_ids, channels, starts_at, ends_at,
-            max_redemptions, per_customer_limit, is_active)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::order_channel[], $11, $12, $13, $14, $15) returning *`,
-        [ctx.orgId, input.code ?? null, input.name, input.nameAr ?? null, input.kind, input.kind === 'free_delivery' ? 0 : input.value, input.maxDiscountMinor ?? null,
-          input.minOrderMinor, input.branchIds?.length ? input.branchIds : null, input.channels?.length ? input.channels : null, input.startsAt ?? null, input.endsAt ?? null,
-          input.maxRedemptions ?? null, input.perCustomerLimit ?? null, input.isActive]);
-      await this.audit.record(tx, ctx, { action: 'marketing.promotion_created', entityType: 'promotion', entityId: row.id, metadata: { code: row.code, kind: row.kind } });
-      return view(row);
-    });
+    return this.db.scoped(ctx, (tx) => this.createTx(tx, ctx, input));
+  }
+
+  /** Creates an offer inside the caller's transaction (the route above, and change sets). */
+  async createTx(tx: Tx, ctx: TenantContext, input: PromotionInput) {
+    await this.checkBranches(tx, ctx, input.branchIds);
+    const row = await tx.one(
+      `insert into promotions(org_id, code, name, name_ar, kind, value, max_discount_minor, min_order_minor, branch_ids, channels, starts_at, ends_at,
+          max_redemptions, per_customer_limit, is_active)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::order_channel[], $11, $12, $13, $14, $15) returning *`,
+      [ctx.orgId, input.code ?? null, input.name, input.nameAr ?? null, input.kind, input.kind === 'free_delivery' ? 0 : input.value, input.maxDiscountMinor ?? null,
+        input.minOrderMinor, input.branchIds?.length ? input.branchIds : null, input.channels?.length ? input.channels : null, input.startsAt ?? null, input.endsAt ?? null,
+        input.maxRedemptions ?? null, input.perCustomerLimit ?? null, input.isActive]);
+    await this.audit.record(tx, ctx, { action: 'marketing.promotion_created', entityType: 'promotion', entityId: row.id, metadata: { code: row.code, kind: row.kind } });
+    return view(row);
   }
 
   update(ctx: TenantContext, id: string, input: Partial<PromotionInput>) {

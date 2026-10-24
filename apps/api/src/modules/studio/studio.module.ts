@@ -33,6 +33,7 @@ import { StudioService } from './studio.service';
     { provide: DNS_RESOLVER, useValue: systemTxtResolver },
     { provide: DOMAIN_PROVIDER, useFactory: () => domainProviderFromEnv() },
   ],
-  exports: [PublicSitesService],
+  // StudioService: change sets edit drafts and publish in their own transaction (21-CS).
+  exports: [PublicSitesService, StudioService],
 })
 export class StudioModule {}

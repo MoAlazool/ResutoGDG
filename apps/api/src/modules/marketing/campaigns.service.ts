@@ -333,13 +333,13 @@ export class CampaignsService implements CampaignsPort {
   }
 
   /**
-   * CAMPAIGN_SEND_PORT (used by ResutoMCP after a human approved the MCP request).
+   * CAMPAIGN_SEND_PORT (used by change sets, including ResutoMCP's, after a human approved the request).
    * Same rules as the dashboard: org-owned draft/approved messaging campaign, the
    * acting context must hold marketing:approve, consent is filtered at send time and
    * sandbox channels are labelled. With scheduledAt → 'scheduled' (sent by the
    * dispatcher job); without → dispatched immediately (sending → 'sent').
    */
-  async requestSend(tx: Tx, ctx: TenantContext, input: { campaignId: string; scheduledAt?: string | null; approvedBy: string | null; source: 'mcp' }) {
+  async requestSend(tx: Tx, ctx: TenantContext, input: { campaignId: string; scheduledAt?: string | null; approvedBy: string | null; source: 'mcp' | 'staff' | 'studio_ai' | 'copilot' }) {
     ctx.require('marketing:approve');
     const r = await this.row(tx, ctx, input.campaignId, true);
     if (!['draft', 'pending_approval', 'approved'].includes(r.status)) {

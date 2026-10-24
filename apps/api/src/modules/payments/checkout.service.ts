@@ -9,6 +9,7 @@ import { DbService, type Tx } from '../../common/db/db.service';
 import { EntitlementsService } from '../../common/entitlements/entitlements.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import type { OutboxEvent } from '../../common/events/events';
+import { AuditService } from '../../common/platform/audit.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { PaymentLedgerService, type PaymentMethod } from '../kernel/payment-ledger.service';
 import type { CheckoutPort, CheckoutSessionCreated, CheckoutSessionRequest } from '../kernel/ports';
@@ -48,6 +49,7 @@ export class CheckoutService implements CheckoutPort {
     private readonly sandbox: SandboxProviderService,
     private readonly webhooks: PaymentWebhooksService,
     private readonly receipts: ReceiptsService,
+    private readonly audit: AuditService,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -82,6 +84,16 @@ export class CheckoutService implements CheckoutPort {
     await this.outbox.publish(tx, ctx.orgId, { type: 'checkout.created', aggregateType: 'checkout_session', aggregateId: row.id,
       payload: { purpose: input.purpose, amountMinor: amount, channel: input.channel } });
     return { id: row.id, token, url: this.url(token), amountMinor: amount, currency: t.currency, expiresAt: new Date(row.expires_at).toISOString() };
+  }
+
+  /** CHECKOUT_PORT: cancels an open session (reverse of a change-set payment link). */
+  async cancelSession(tx: Tx, ctx: TenantContext, sessionId: string, reason: string): Promise<boolean> {
+    const row = await tx.maybeOne<{ id: string; branch_id: string | null }>(
+      `update checkout_sessions set status = 'cancelled' where id = $1 and org_id = $2 and status = 'open' returning id, branch_id`, [sessionId, ctx.orgId]);
+    if (!row) return false;
+    await this.audit.record(tx, ctx, { action: 'payment_link.cancelled', entityType: 'checkout_session', entityId: sessionId, branchId: row.branch_id,
+      metadata: { reason: reason.slice(0, 200) } });
+    return true;
   }
 
   url(token: string) {
