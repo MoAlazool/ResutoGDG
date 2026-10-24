@@ -8,6 +8,8 @@ export * from './permissions';
 export * from './state-machines';
 export * from './events';
 export * from './platform';
+export * from './social-links';
+export * from './slugs';
 export * from './billing';
 export * from './admin';
 export * from './catalog';

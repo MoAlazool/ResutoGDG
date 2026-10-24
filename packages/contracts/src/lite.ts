@@ -11,3 +11,5 @@ export * from './options';
 export * from './permissions';
 export * from './units';
 export * from './tax-rules';
+export * from './social-links';
+export * from './slugs';

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { countryCode, locale, optionalPhone, optionalText, phoneE164, slug, text, uuid } from './common';
 import { memberRole } from './common';
+import { checkSocialLink, SOCIAL_LINK_MAX_LENGTH, type SocialLinkProblem, type SocialLinks, type SocialNetwork } from './social-links';
+import type { SlugProblem } from './slugs';
 
 export const branchInput = z.object({
   code: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
@@ -90,4 +92,65 @@ export interface MeResponse {
   user: { id: string; email: string | null; fullName: string | null; locale: 'en' | 'ar' };
   memberships: Array<{ orgId: string; orgSlug: string; orgName: string; role: string; branchIds: string[] | null }>;
   platformRole: string | null;
+}
+
+// --- Social links (21-ONB) ----------------------------------------------------
+const SOCIAL_LINK_MESSAGES: Record<SocialLinkProblem, string> = {
+  unknown_network: 'unknown network',
+  too_long: `at most ${SOCIAL_LINK_MAX_LENGTH} characters`,
+  invalid_url: 'not a valid web address',
+  not_https: 'must start with https://',
+  credentials: 'must not contain a user name or password',
+  wrong_host: 'not a link to this network',
+};
+/** One network's link: an https URL on that network's hosts (normalized), or null / "" to remove it. */
+const socialLink = (network: SocialNetwork) => z.string().max(SOCIAL_LINK_MAX_LENGTH + 50).nullable().optional()
+  .transform((v, ctx) => {
+    if (v === undefined || v === null || v.trim() === '') return undefined;
+    const r = checkSocialLink(network, v);
+    if (!r.ok) {
+      ctx.addIssue({ code: 'custom', message: SOCIAL_LINK_MESSAGES[r.problem] });
+      return z.NEVER;
+    }
+    return r.url;
+  });
+/** PUT /o/:orgId/social-links: the complete set (a network left out or sent as null/"" is removed). Unknown networks are refused. */
+export const socialLinksInput = z.object({
+  instagram: socialLink('instagram'),
+  facebook: socialLink('facebook'),
+  tiktok: socialLink('tiktok'),
+  x: socialLink('x'),
+  snapchat: socialLink('snapchat'),
+  whatsapp: socialLink('whatsapp'),
+  google_maps: socialLink('google_maps'),
+  website: socialLink('website'),
+}).strict();
+export type SocialLinksInput = z.input<typeof socialLinksInput>;
+export interface SocialLinksResponse { socialLinks: SocialLinks }
+
+// --- Web address availability (21-ONB) -----------------------------------------
+export const slugAvailabilityQuery = z.object({ slug: z.string().trim().toLowerCase().min(1).max(60) });
+export interface SlugAvailability {
+  slug: string;
+  available: boolean;
+  /** Why it is not available: wrong shape, a reserved word, or another restaurant's address. */
+  reason: SlugProblem | 'taken' | null;
+}
+
+// --- Menu QR (21-ONB, view-only digital menu) ---------------------------------
+export const menuQrQuery = z.object({
+  /** A branch code: the QR opens that branch's menu. Omitted: the restaurant's first branch. */
+  branch: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
+});
+/**
+ * The view-only menu QR: it opens /m/<slug>, the digital menu with no cart, ordering or table session. It is a
+ * different kind from the ordering QRs (/t/<table token>, /v/<venue token>) and carries no token.
+ */
+export interface MenuQr {
+  kind: 'menu';
+  url: string;
+  branchCode: string | null;
+  svg: string;
+  /** data:image/png;base64,… (1024 px), for download. */
+  png: string;
 }

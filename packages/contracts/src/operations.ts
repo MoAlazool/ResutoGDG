@@ -44,7 +44,7 @@ export interface SetupCheck {
   done: boolean;
   /** Required before launch (welcome and launch itself are not). */
   required: boolean;
-  /** Short machine-readable evidence, e.g. { products: 12 } or { missing: ['legalName'] }. */
+  /** Short machine-readable evidence, e.g. { products: 12 } or { missing: ['legalName'] } (profile: optional lists recommended blanks). */
   detail: Record<string, unknown>;
 }
 export interface SetupChecklist {
@@ -56,6 +56,11 @@ export interface SetupChecklist {
   ready: boolean;
   serviceMode: ServiceMode;
   branchId: string | null;
+  /**
+   * The plan the requirements follow (21-ONB): the live subscription's plan, or 'free' without one. On Free the
+   * legal name, floor and payments steps are optional; the floor is required only for table service.
+   */
+  planId?: string;
   steps: SetupCheck[];
 }
 
