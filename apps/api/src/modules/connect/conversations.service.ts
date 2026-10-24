@@ -13,6 +13,7 @@ import { ENV, type Env } from '../../config/env';
 import { OrdersKernelService } from '../kernel/orders-kernel.service';
 import { hasArabic, textCommand } from './bot-copy';
 import { HandoffService } from './handoff.service';
+import { NOTE_SELECT, noteView, tagsByConversation } from './inbox.service';
 import { assertConnectSandbox } from './sandbox-gate';
 import { HUMAN_AGENT_WINDOW_MS, MessagingService, windowState, type ConversationRow } from './messaging.service';
 import { OrderingService, type InboundMessage } from './ordering.service';
@@ -134,7 +135,7 @@ export class ConversationsService {
                 exists(select 1 from handoffs h where h.conversation_id = c.id and h.status <> 'resolved') as handoff_open
            from conversations c join messaging_channels ch on ch.id = c.channel_id
            left join customers cu on cu.id = c.customer_id
-           left join lateral (select body, direction, kind from messages m where m.conversation_id = c.id order by m.created_at desc limit 1) lm on true
+           left join lateral (select body, direction, kind from messages m where m.conversation_id = c.id and m.kind <> 'note' order by m.created_at desc limit 1) lm on true
           where c.org_id = $1
             and ($2::text is null or c.status = $2)
             and ($3::boolean is null or ($3 and c.unread_count > 0) or (not $3 and c.unread_count = 0))
@@ -143,14 +144,16 @@ export class ConversationsService {
             and ($7::text is null or c.contact_name ilike '%' || $7 || '%' or c.external_contact like '%' || $7 || '%' or cu.display_name ilike '%' || $7 || '%')
             and ($8::timestamptz is null or (${lastAt}, c.id) < ($8, $9::uuid))
             and ${branchScope('c.branch_id', 11)}
+            and ($12::uuid is null or exists (select 1 from conversation_tag_assignments ta where ta.conversation_id = c.id and ta.tag_id = $12))
           order by ${lastAt} desc, c.id desc limit $10`,
         [ctx.orgId, f.status ?? null, f.unread ?? null, f.assigned ?? null, ctx.userId, f.channelId ?? null,
-          f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, k.fetch(f.limit), ctx.branchFilter]);
+          f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, k.fetch(f.limit), ctx.branchFilter, f.tagId ?? null]);
+      const tags = await tagsByConversation(tx, rows.slice(0, f.limit).map((r) => r.id));
       return pageOf(rows, f.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => ({
         id: r.id, channelId: r.channel_id, channelName: r.channel_name, channelKind: r.channel_kind, sandbox: r.transport === 'sandbox', customerId: r.customer_id,
         contact: phoneContact(r.transport, r.external_contact), name: r.customer_name ?? r.contact_name, status: r.status, assignedTo: r.assigned_to,
         unreadCount: r.unread_count, lastMessageAt: iso(r.last_message_at), lastMessage: r.last_body ? { body: r.last_body, direction: r.last_direction, kind: r.last_kind } : null,
-        window: windowState(r.last_inbound_at), handoffOpen: r.handoff_open, locale: r.locale,
+        window: windowState(r.last_inbound_at), handoffOpen: r.handoff_open, locale: r.locale, tags: tags.get(r.id) ?? [],
       }));
     });
   }
@@ -170,7 +173,12 @@ export class ConversationsService {
           from conversations c join messaging_channels ch on ch.id = c.channel_id left join customers cu on cu.id = c.customer_id where c.id = $1`, [id]);
       const messages = await tx.query(
         `select * from (select id, direction, kind, body, payload, status, error, attempts, sent_by, is_automated, provider_message_id, created_at
-           from messages where conversation_id = $1 order by created_at desc limit 200) x order by created_at`, [id]);
+           from messages where conversation_id = $1 and kind <> 'note' order by created_at desc limit 200) x order by created_at`, [id]);
+      // Internal notes (21-INBOX) are staff-only and listed apart from the customer thread (latest 50, oldest first).
+      const notes = await tx.query(
+        `select * from (select ${NOTE_SELECT} from messages m left join profiles p on p.id = m.sent_by
+           where m.conversation_id = $1 and m.kind = 'note' order by m.created_at desc, m.id desc limit 50) x order by created_at, id`, [id]);
+      const tags = (await tagsByConversation(tx, [id])).get(id) ?? [];
       const handoff = await tx.maybeOne(`select id, reason, status, requested_at, accepted_by, accepted_at from handoffs where conversation_id = $1 and status <> 'resolved'`, [id]);
       return {
         id, status: c.status, channel: { id: c.channel_id, name: extra.display_name, transport: c.transport, kind: c.channel_kind, sandbox: c.transport === 'sandbox' },
@@ -186,6 +194,8 @@ export class ConversationsService {
           automated: m.is_automated, sandbox: !!m.payload?.sandbox, interactive: m.kind === 'interactive' || m.kind === 'template' ? m.payload : null,
           createdAt: iso(m.created_at),
         })),
+        notes: notes.map(noteView),
+        tags,
       };
     });
   }

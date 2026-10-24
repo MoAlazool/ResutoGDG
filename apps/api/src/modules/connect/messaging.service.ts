@@ -313,6 +313,7 @@ export class MessagingService implements MessagingPort {
            select m2.id, m2.priority, m2.next_attempt_at
              from messages m2 join conversations c on c.id = m2.conversation_id join messaging_channels ch on ch.id = c.channel_id
             where m2.org_id = o.org_id and m2.status = 'queued' and m2.direction = 'outbound' and m2.next_attempt_at <= now()
+              and m2.kind <> 'note' -- internal notes (21-INBOX) are never sent; the schema already keeps them out of the queue
               and ch.transport in ('meta_cloud', 'meta_page')
             order by m2.priority, m2.next_attempt_at limit $2) x)
        update messages m set next_attempt_at = now() + ${LEASE}
@@ -337,7 +338,7 @@ export class MessagingService implements MessagingPort {
     const prep = await this.db.withTenant(orgId, async (tx): Promise<Prepared> => {
       const m = await tx.maybeOne<any>(
         `update messages set next_attempt_at = now() + ${LEASE}
-          where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz
+          where id = $1 and status = 'queued' and next_attempt_at = $2::timestamptz and direction = 'outbound' and kind <> 'note'
           returning id, conversation_id, payload, attempts, next_attempt_at::text as lease`,
         [messageId, claimed]);
       if (!m) return { kind: 'skip' };

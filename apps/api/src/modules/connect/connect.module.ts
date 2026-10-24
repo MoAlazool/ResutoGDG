@@ -6,6 +6,8 @@ import { ConnectEventsService } from './connect-events.service';
 import { ConnectController } from './connect.controller';
 import { ConversationsService } from './conversations.service';
 import { HandoffService } from './handoff.service';
+import { InboxController } from './inbox.controller';
+import { InboxService } from './inbox.service';
 import { MessagingService } from './messaging.service';
 import { OrderingService } from './ordering.service';
 import { PublicOrderingController } from './public-ordering.controller';
@@ -17,15 +19,16 @@ import { WhatsAppWebhookService } from './whatsapp-webhook.service';
 /**
  * connect module. Owner: Agent C (docs/architecture/MODULE_CONTRACTS.md).
  * Channels (sandbox, WhatsApp Cloud API, Messenger / Instagram Direct), webhook ingestion, unified inbox,
- * structured ordering sessions, templates, handoff and the outbound queue.
+ * structured ordering sessions, templates, handoff and the outbound queue; internal notes, conversation tags and
+ * saved replies (21-INBOX).
  * Global so MESSAGING_PORT reaches every module.
  */
 @Global()
 @Module({
   imports: [IntegrationsModule],
-  controllers: [ConnectController, PublicOrderingController, WhatsAppWebhookController, MetaPagesWebhookController],
+  controllers: [ConnectController, InboxController, PublicOrderingController, WhatsAppWebhookController, MetaPagesWebhookController],
   providers: [
-    MessagingService, HandoffService, OrderingService, ConversationsService, ChannelsService, WhatsAppWebhookService, MetaPagesWebhookService, WhatsAppSignupService, ConnectEventsService,
+    MessagingService, HandoffService, OrderingService, ConversationsService, ChannelsService, WhatsAppWebhookService, MetaPagesWebhookService, WhatsAppSignupService, ConnectEventsService, InboxService,
     { provide: MESSAGING_PORT, useExisting: MessagingService },
   ],
   exports: [MESSAGING_PORT, MessagingService],
