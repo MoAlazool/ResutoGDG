@@ -1,5 +1,5 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 import { useMemo } from 'react';
 import { useT } from '@/lib/i18n/client';
 import { labelForms } from './labels';

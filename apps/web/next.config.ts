@@ -20,9 +20,11 @@ const config: NextConfig = {
   // The contracts package ships CommonJS for Node consumers (API, worker, MCP).
   // The web app compiles its TypeScript source instead, so dev-mode React Refresh
   // works and pages never depend on a stale dist/ build. lib/contracts-entry.ts switches zod's JIT off before
-  // re-exporting that source (no CSP 'eval' probe on documents; REM-W08).
+  // re-exporting that source (no CSP 'eval' probe on documents; REM-W08). '@resuto/contracts/lite' is the zod-free
+  // subset (packages/contracts/src/lite.ts) that guest and public pages import helpers from.
   webpack(config) {
-    config.resolve.alias = { ...config.resolve.alias, '@resuto/contracts$': path.join(repoRoot, 'apps/web/lib/contracts-entry.ts') };
+    config.resolve.alias = { ...config.resolve.alias, '@resuto/contracts$': path.join(repoRoot, 'apps/web/lib/contracts-entry.ts'),
+      '@resuto/contracts/lite$': path.join(repoRoot, 'packages/contracts/src/lite.ts') };
     return config;
   },
   async headers() {

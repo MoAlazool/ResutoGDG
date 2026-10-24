@@ -1,6 +1,7 @@
 'use client';
 import { useState, type FormEvent } from 'react';
-import { LICENCE_KINDS, type ExpiryStatus, type LicenceView } from '@resuto/contracts';
+import type { ExpiryStatus, LicenceView } from '@resuto/contracts';
+import { LICENCE_KINDS } from '@resuto/contracts/lite';
 import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, TextareaField, useAction, useConfirm, type Tone } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';

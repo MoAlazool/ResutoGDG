@@ -2,7 +2,8 @@
 // Service model of a branch (legacy settings "Service model" cards + setup "Operating mode"; VS-16, FT-07) and the
 // counter's single venue QR (legacy /qr/venue launch card). Shared by Settings, Guided setup, the Overview and the QR sheet.
 import { useState } from 'react';
-import { SERVICE_MODES, type ServiceMode, type VenueQr } from '@resuto/contracts';
+import type { ServiceMode, VenueQr } from '@resuto/contracts';
+import { SERVICE_MODES } from '@resuto/contracts/lite';
 import { Notice, Skeleton, useConfirm } from '@resuto/ui';
 import { sanitizeQrSvg } from '@/components/floor/QrSheet';
 import { formatWhen } from '@/lib/format';

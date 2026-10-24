@@ -8,7 +8,7 @@
  *   claim, next level aal2 as soon as the user has a verified factor.
  * - enrolment, verification and removal; removal re-verifies a fresh code first.
  */
-import { normalizeNumericInput } from '@resuto/contracts';
+import { normalizeNumericInput } from '@resuto/contracts/lite';
 import { AuthFlowError } from '../auth-errors';
 
 export interface MfaFactor { id: string; friendly_name?: string | null; factor_type: string; status: 'verified' | 'unverified' | string; created_at?: string }

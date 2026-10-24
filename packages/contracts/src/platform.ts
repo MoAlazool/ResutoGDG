@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { countryCode, locale, optionalPhone, optionalText, phoneE164, slug, text, uuid } from './common';
-import { memberRole } from './permissions';
+import { memberRole } from './common';
 
 export const branchInput = z.object({
   code: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),

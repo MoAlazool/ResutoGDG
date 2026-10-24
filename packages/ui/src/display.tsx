@@ -1,5 +1,5 @@
 'use client';
-import { INTL_LOCALE, toWesternDigits } from '@resuto/contracts';
+import { INTL_LOCALE, toWesternDigits } from '@resuto/contracts/lite';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Badge, type Tone } from './base';
 import { UiStyles } from './styles';

@@ -1,5 +1,6 @@
 'use client';
-import { formatDate, formatNumber, type StaffNotification } from '@resuto/contracts';
+import type { StaffNotification } from '@resuto/contracts';
+import { formatDate, formatNumber } from '@resuto/contracts/lite';
 import type { ReactNode } from 'react';
 import { useT } from '@/lib/i18n/client';
 

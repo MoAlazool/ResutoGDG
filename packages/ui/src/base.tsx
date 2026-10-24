@@ -1,5 +1,5 @@
 'use client';
-import { dateTimeFormat, formatClock, normalizeNumericInput } from '@resuto/contracts';
+import { dateTimeFormat, formatClock, normalizeNumericInput } from '@resuto/contracts/lite';
 import { useUiLocale } from './locale';
 import { PageHeading } from './primitives';
 import { figureOf, figureProps } from './figure';

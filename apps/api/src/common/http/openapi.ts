@@ -2,7 +2,7 @@ import { Injectable, RequestMethod } from '@nestjs/common';
 import { HEADERS_METADATA, HTTP_CODE_METADATA, METHOD_METADATA, PATH_METADATA, ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
 import { RouteParamtypes } from '@nestjs/common/enums/route-paramtypes.enum';
 import { ModulesContainer } from '@nestjs/core';
-import { baseComponents, jsonSchemaOf, type JsonSchema, type OpenApiDoc, type OpenApiOperation } from '@resuto/contracts/openapi';
+import { baseComponents, jsonSchemaOf, type JsonSchema, type OpenApiDoc, type OpenApiOperation, type SchemaDefs } from '@resuto/contracts/openapi';
 import { z } from 'zod';
 import { IS_PUBLIC, MODULE, PERMISSION, PLATFORM_ROLE } from '../auth/decorators';
 import { ZodPipe } from './zod.pipe';
@@ -40,8 +40,8 @@ const zodOf = (pipes: unknown[] | undefined): z.ZodType | null => {
 };
 
 /** Splits an object schema into query parameters; anything else is one `query` object parameter. */
-function queryParameters(schema: z.ZodType) {
-  const json = jsonSchemaOf(schema) as { properties?: Record<string, JsonSchema>; required?: string[] };
+function queryParameters(schema: z.ZodType, defs: SchemaDefs) {
+  const json = jsonSchemaOf(schema, defs) as { properties?: Record<string, JsonSchema>; required?: string[] };
   if (!json.properties) return [{ name: 'query', in: 'query', required: false, schema: json }];
   return Object.entries(json.properties).map(([name, s]) => ({ name, in: 'query', required: (json.required ?? []).includes(name), schema: s }));
 }
@@ -51,6 +51,8 @@ export interface RouteInfo { method: string; path: string; operationId: string }
 @Injectable()
 export class OpenApiService {
   private cached: OpenApiDoc | null = null;
+  /** Definitions of recursive schemas met while building (published under components/schemas). */
+  private defs: SchemaDefs = {};
 
   constructor(private readonly modules: ModulesContainer) {}
 
@@ -65,6 +67,7 @@ export class OpenApiService {
   }
 
   private build(): OpenApiDoc {
+    this.defs = {};
     const paths: Record<string, Record<string, OpenApiOperation>> = {};
     const seen = new Set<unknown>();
     for (const mod of this.modules.values()) {
@@ -104,6 +107,7 @@ export class OpenApiService {
       paths: sorted,
       components: {
         ...components,
+        schemas: { ...components.schemas, ...Object.fromEntries(Object.keys(this.defs).sort().map((k) => [k, this.defs[k]!])) },
         responses: { Error: { description: 'Error envelope (code, message, details, requestId).', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } } },
       },
     };
@@ -127,12 +131,12 @@ export class OpenApiService {
         const int = (arg.pipes ?? []).some((p) => (p as { constructor?: { name?: string } })?.constructor?.name === 'ParseIntPipe');
         const zs = zodOf(arg.pipes);
         parameters.push({ name: arg.data, in: 'path', required: true,
-          schema: zs ? jsonSchemaOf(zs) : uuid ? { type: 'string', format: 'uuid' } : int ? { type: 'integer' } : { type: 'string' } });
+          schema: zs ? jsonSchemaOf(zs, this.defs) : uuid ? { type: 'string', format: 'uuid' } : int ? { type: 'integer' } : { type: 'string' } });
       } else if (type === RouteParamtypes.QUERY) {
         const zs = zodOf(arg.pipes);
-        if (typeof arg.data === 'string') parameters.push({ name: arg.data, in: 'query', required: false, schema: zs ? jsonSchemaOf(zs) : { type: 'string' } });
+        if (typeof arg.data === 'string') parameters.push({ name: arg.data, in: 'query', required: false, schema: zs ? jsonSchemaOf(zs, this.defs) : { type: 'string' } });
         else if (zs) {
-          const q = queryParameters(zs);
+          const q = queryParameters(zs, this.defs);
           isList ||= q.some((p) => p.name === 'limit') && q.some((p) => p.name === 'cursor');
           parameters.push(...q);
         }
@@ -140,7 +144,7 @@ export class OpenApiService {
         parameters.push({ name: arg.data, in: 'header', required: false, schema: { type: 'string' } });
       } else if (type === RouteParamtypes.BODY) {
         const zs = zodOf(arg.pipes);
-        body = zs ? jsonSchemaOf(zs) : typeof arg.data === 'string' ? { type: 'object', properties: { [arg.data]: {} } } : { type: 'object' };
+        body = zs ? jsonSchemaOf(zs, this.defs) : typeof arg.data === 'string' ? { type: 'object', properties: { [arg.data]: {} } } : { type: 'object' };
       } else if (type === RouteParamtypes.FILE || type === RouteParamtypes.FILES) {
         multipart = true;
       } else if (type === RouteParamtypes.RESPONSE) {

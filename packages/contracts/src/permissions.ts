@@ -1,9 +1,6 @@
 // Role → permission matrix. Single source of truth for the API guard, the
 // dashboard (to hide actions) and MCP clients (which act with a non-owner role).
-import { z } from 'zod';
-
 export const ROLES = ['owner', 'admin', 'manager', 'cashier', 'waiter', 'kitchen', 'host', 'marketing', 'accountant', 'driver'] as const;
-export const memberRole = z.enum(ROLES);
 export type Role = (typeof ROLES)[number];
 
 export const PERMISSIONS = [

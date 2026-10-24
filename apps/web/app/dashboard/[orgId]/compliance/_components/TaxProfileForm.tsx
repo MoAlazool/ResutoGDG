@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { REGIME_FOR_COUNTRY, hasBlockingIssues, validateTaxProfile, type TaxProfileFields, type TaxProfileView, type TaxValidationIssue } from '@resuto/contracts';
+import type { TaxProfileFields, TaxProfileView, TaxValidationIssue } from '@resuto/contracts';
+import { REGIME_FOR_COUNTRY, hasBlockingIssues, validateTaxProfile } from '@resuto/contracts/lite';
 import { Badge, Card, Field, Notice, SelectField, Skeleton, useAction } from '@resuto/ui';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';

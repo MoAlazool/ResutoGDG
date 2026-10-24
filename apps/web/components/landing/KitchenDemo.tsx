@@ -1,5 +1,5 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 // "Kitchen" chapter (port of legacy/public/landing-kitchen.js): one order list drives
 // the board, every counter, station load and the guest's status preview.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';

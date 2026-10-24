@@ -3,6 +3,9 @@
 import { z } from 'zod';
 import type { GuestVisitView } from './orders';
 import { isoDate, optionalText, uuid } from './common';
+import { ASSISTANT_ALLERGENS } from './options';
+
+export { ASSISTANT_ALLERGENS } from './options';
 
 // ---------------------------------------------------------------------------
 // Table QR lookup (GET /v1/public/tables/:qrToken) — no session side effects
@@ -73,8 +76,6 @@ export const guestVisitPollQuery = z.object({ v: z.string().regex(/^[0-9a-f]{8,6
 // ---------------------------------------------------------------------------
 // "Help me choose" — a deterministic, server-validated recommendation over the live menu (no generative model)
 // ---------------------------------------------------------------------------
-/** Allergens a guest can ask to avoid (the menu's allergen vocabulary). */
-export const ASSISTANT_ALLERGENS = ['milk', 'eggs', 'wheat', 'gluten', 'fish', 'shellfish', 'tree_nuts', 'peanuts', 'sesame', 'soy'] as const;
 export const assistantRequest = z.object({
   /** Free text in English or Arabic ("for three under EGP 1,000, not spicy" / "إحنا ٣ وميزانيتنا ١٠٠٠"). */
   text: optionalText(500),

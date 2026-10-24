@@ -14,10 +14,46 @@ export type JsonSchema = Record<string, unknown>;
  * coerced numbers are strings on the wire, defaults are optional). Transforms and refinements that JSON Schema cannot
  * express become `{}` instead of failing, so a route always gets a document.
  */
-export function jsonSchemaOf(schema: z.ZodType): JsonSchema {
-  const out = z.toJSONSchema(schema, { target: 'draft-2020-12', io: 'input', unrepresentable: 'any', reused: 'inline' }) as JsonSchema;
+export function jsonSchemaOf(schema: z.ZodType, defs?: SchemaDefs): JsonSchema {
+  const out = stripExamples(z.toJSONSchema(schema, { target: 'draft-2020-12', io: 'input', unrepresentable: 'any', reused: 'inline' })) as JsonSchema;
   delete out.$schema;
-  return stripExamples(out) as JsonSchema;
+  const local = (out.$defs ?? {}) as Record<string, JsonSchema>;
+  delete out.$defs;
+  const selfRef = JSON.stringify(out).includes('"$ref":"#"');
+  if (!Object.keys(local).length && !selfRef) return out;
+  // A recursive schema (e.g. a segment rule that nests and/or rules) cannot be inlined: zod refers to it as
+  // `#/$defs/<name>`, or as `#` when the schema itself is the recursive one. Inside an OpenAPI document `#` is the
+  // document root, so those definitions move to components/schemas under a name derived from their content (stable,
+  // shared by every route that uses the same schema) and the references are rewritten to point there.
+  if (!defs) throw new Error('jsonSchemaOf: a recursive schema needs a defs map to collect its definitions');
+  const ref = (name: string) => `#/components/schemas/${name}`;
+  const names = new Map(Object.entries(local).map(([k, v]) => [k, `Recursive_${fnv1a(stableJson(v))}`]));
+  const rootName = selfRef ? `Recursive_${fnv1a(stableJson(out))}` : null;
+  const rewrite = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(rewrite);
+    if (!v || typeof v !== 'object') return v;
+    const o: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (k === '$ref' && val === '#' && rootName) { o[k] = ref(rootName); continue; }
+      const m = k === '$ref' && typeof val === 'string' ? /^#\/\$defs\/(.+)$/.exec(val) : null;
+      o[k] = m && names.has(m[1]!) ? ref(names.get(m[1]!)!) : rewrite(val);
+    }
+    return o;
+  };
+  for (const [k, v] of Object.entries(local)) defs[names.get(k)!] = rewrite(v) as JsonSchema;
+  if (!rootName) return rewrite(out) as JsonSchema;
+  defs[rootName] = rewrite(out) as JsonSchema;
+  return { $ref: ref(rootName) };
+}
+
+/** Definitions collected from recursive schemas, published as components/schemas. */
+export type SchemaDefs = Record<string, JsonSchema>;
+
+/** 32-bit FNV-1a as 8 hex digits: a short, deterministic component name (no Node crypto in this browser-safe module). */
+function fnv1a(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, '0');
 }
 
 /** Removes `example`/`examples` recursively: the published document never carries sample data (PS-19). */
@@ -106,6 +142,12 @@ export function lintOpenApi(doc: OpenApiDoc): string[] {
   const ids = new Map<string, string>();
   const text = JSON.stringify(doc);
   if (/"examples?"\s*:/.test(text)) problems.push('the document must not carry example data');
+  // Every reference must resolve inside this document (a schema-local `#/$defs/...` would point at the document root).
+  for (const ref of new Set([...text.matchAll(/"\$ref":"([^"]*)"/g)].map((m) => m[1]!))) {
+    const target = ref.startsWith('#/') ? ref.slice(2).split('/').reduce<unknown>((node, key) =>
+      (node && typeof node === 'object' ? (node as Record<string, unknown>)[key.replace(/~1/g, '/').replace(/~0/g, '~')] : undefined), doc) : undefined;
+    if (target === undefined) problems.push(`$ref ${ref} does not resolve in the document`);
+  }
   for (const [path, ops] of Object.entries(doc.paths)) {
     if (!path.startsWith('/v1/')) problems.push(`${path}: every route lives under /v1`);
     const pathParams = [...path.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);

@@ -1,7 +1,7 @@
 'use client';
 // Order status (legacy guest.js statusPage()/timeline()): a card per order with its number and total, the numbered
 // horizontal tracker (1 Order received → 2 Preparing → 3 Ready → 4 Served / Picked up / Delivered) and its lines.
-import { toWesternDigits } from '@resuto/contracts';
+import { toWesternDigits } from '@resuto/contracts/lite';
 import { useT } from '@/lib/i18n/client';
 import { guestMoney as money, pick, time } from '@/lib/format';
 

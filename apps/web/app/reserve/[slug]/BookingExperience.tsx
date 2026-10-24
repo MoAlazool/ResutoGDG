@@ -5,10 +5,10 @@
 // the table, then confirms it or opens the deposit checkout; the confirmation card follows.
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import {
-  dateTimeFormat, formatDateTime, normalizePhone, PHONE_EXAMPLE, TABLE_FEATURES,
-  type AvailabilityResult, type PublicFloor, type PublicMenu, type ReservationHoldResult, type ReservationSlotsView, type ReservationView,
+import type {
+  AvailabilityResult, PublicFloor, PublicMenu, ReservationHoldResult, ReservationSlotsView, ReservationView,
 } from '@resuto/contracts';
+import { dateTimeFormat, formatDateTime, normalizePhone, PHONE_EXAMPLE, TABLE_FEATURES } from '@resuto/contracts/lite';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { guestMoney as money, pick } from '@/lib/format';
 import { LanguageToggle, useT } from '@/lib/i18n/client';

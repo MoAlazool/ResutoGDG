@@ -1,6 +1,6 @@
 import {
   dateTimeFormat, formatCompact, formatDate, formatDateTime, formatMoney, formatNumber, formatPercent, formatTime, numberFormat, type Currency,
-} from '@resuto/contracts';
+} from '@resuto/contracts/lite';
 import type { Locale } from './i18n/locale';
 
 // Display formatting for the web app. Everything delegates to @resuto/contracts (locale-format.ts), which pins

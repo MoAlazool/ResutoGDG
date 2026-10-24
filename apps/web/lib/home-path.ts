@@ -1,4 +1,5 @@
-import { can, ROLES, type Role } from '@resuto/contracts';
+import type { Role } from '@resuto/contracts';
+import { can, ROLES } from '@resuto/contracts/lite';
 
 /**
  * Where a staff member lands after signing in or opening /dashboard, by role (VS-05): the kitchen team on the

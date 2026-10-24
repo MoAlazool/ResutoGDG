@@ -1,5 +1,5 @@
 // UI strings for the core module (Agent B1). Keys must be prefixed "core." and exist in both languages.
-import { TABLE_FEATURES } from '@resuto/contracts';
+import { TABLE_FEATURES } from '@resuto/contracts/lite';
 
 const FEATURE_AR: Record<string, string> = {
   'Smoking': 'للمدخنين', 'Non-smoking': 'لغير المدخنين', 'Window side': 'بجوار النافذة', 'Quiet area': 'منطقة هادئة', 'Terrace': 'التراس',

@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState, type FormEvent } from 'react';
-import { INVENTORY_UNITS, WASTE_REASONS, parseMajor, unitsCompatible, type AnalyticsMeta, type Currency, type InventoryItemView, type InventoryUnit, type StockLevelView, type StockMovementView } from '@resuto/contracts';
+import type { AnalyticsMeta, Currency, InventoryItemView, InventoryUnit, StockLevelView, StockMovementView } from '@resuto/contracts';
+import { INVENTORY_UNITS, WASTE_REASONS, parseMajor, unitsCompatible } from '@resuto/contracts/lite';
 import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, UserText } from '@resuto/ui';
 import { BarList } from '@/components/charts';
 import { BranchSelect, LoadError, MetaPanel, PeriodPicker, presetPeriod, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';

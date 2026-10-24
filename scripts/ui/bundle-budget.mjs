@@ -23,6 +23,8 @@
 // 2026-10-21 (wave 4 merge): the landing/pricing copy hook and the website editor's preview stopped importing every
 // dictionary (/ 377 -> 220 kB, /pricing 356 -> 199 kB, website editor 371 -> 194 kB), so their ratchets were removed
 // and the public and staff groups were tightened to the new sizes plus headroom.
+// 2026-10-24: zod 4.6.7 (security fix) grew the schema library; guest, public and shell code now import helpers from the
+// zod-free '@resuto/contracts/lite', so guest pages ship no zod at all and /t/[qr] (186.9 -> 140.6 kB) lost its ratchet.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -39,9 +41,7 @@ export const BUDGETS = [
 ];
 
 /** route -> kB. Only for routes already above their group budget; see the header. */
-export const ROUTE_RATCHETS = {
-  '/t/[qr]': 178,
-};
+export const ROUTE_RATCHETS = {};
 
 /**
  * HTML document budgets (gzip kB, ratchets at the largest of EN/AR plus headroom). Sign-in/onboarding pages carry
@@ -63,6 +63,8 @@ async function main() {
     return acc;
   }, []));
   const NEXT = path.resolve(String(args.next ?? path.join(ROOT, 'apps/web/.next')));
+  // --ratchets <file.json> replaces ROUTE_RATCHETS; only the gate's own tests use it (CI runs without it).
+  const ratchets = args.ratchets ? JSON.parse(readFileSync(String(args.ratchets), 'utf8')) : ROUTE_RATCHETS;
   const manifest = JSON.parse(readFileSync(path.join(NEXT, 'app-build-manifest.json'), 'utf8')).pages;
   const sizes = new Map();
   const gz = (file) => {
@@ -88,15 +90,15 @@ async function main() {
     const files = new Set(entriesFor(key).flatMap((k) => manifest[k]).filter((f) => f.endsWith('.js')));
     const bytes = [...files].reduce((n, f) => n + gz(f), 0);
     const budget = BUDGETS.find((b) => b.test(route));
-    const limitKb = ROUTE_RATCHETS[route] ?? budget.kb;
+    const limitKb = ratchets[route] ?? budget.kb;
     rows.push({ route, group: budget.group, firstLoadKb: Math.round(bytes / 100) / 10, budgetKb: limitKb, groupBudgetKb: budget.kb,
-      ratchet: route in ROUTE_RATCHETS, targetKb: budget.targetKb,
+      ratchet: route in ratchets, targetKb: budget.targetKb,
       over: bytes / 1000 > limitKb, aboveTarget: bytes / 1000 > budget.targetKb,
       // A ratchet that the route now fits under its group budget is stale: remove it so the route cannot grow back.
-      staleRatchet: route in ROUTE_RATCHETS && bytes / 1000 <= budget.kb });
+      staleRatchet: route in ratchets && bytes / 1000 <= budget.kb });
   }
   const knownRoutes = new Set(rows.map((r) => r.route));
-  const missingRatchets = Object.keys(ROUTE_RATCHETS).filter((r) => !knownRoutes.has(r));
+  const missingRatchets = Object.keys(ratchets).filter((r) => !knownRoutes.has(r));
 
   const docs = [];
   if (args.web) {

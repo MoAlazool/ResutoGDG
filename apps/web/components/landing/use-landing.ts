@@ -1,5 +1,5 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 import { useEffect, useMemo, useState, type RefObject } from 'react';
 import { platform } from '@/lib/i18n/dict/platform';
 import { useT } from '@/lib/i18n/client';

@@ -4,7 +4,8 @@
 // share rows with their links, and the receipts. Payment always goes through the hosted checkout; nothing here marks
 // anything paid — the bill reflects only what the server has recorded.
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { parseMajor, planSplit, SplitRuleError, type BillUnit, type SplitShareView } from '@resuto/contracts';
+import type { BillUnit, SplitShareView } from '@resuto/contracts';
+import { parseMajor, planSplit, SplitRuleError } from '@resuto/contracts/lite';
 import { api, ApiRequestError } from '@/lib/api';
 import { visitHeaders, type GuestVisit } from '@/lib/guest-visit';
 import { useT } from '@/lib/i18n/client';

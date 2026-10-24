@@ -1,4 +1,5 @@
-import { can, type ModuleKey, type Permission, type Role, type ServiceMode } from '@resuto/contracts';
+import type { ModuleKey, Permission, Role, ServiceMode } from '@resuto/contracts';
+import { can } from '@resuto/contracts/lite';
 import type { NavGlyphName } from '@resuto/ui';
 
 export interface NavItem {

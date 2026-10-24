@@ -1,5 +1,6 @@
 'use client';
-import { formatNumber, type NotificationsPage } from '@resuto/contracts';
+import type { NotificationsPage } from '@resuto/contracts';
+import { formatNumber } from '@resuto/contracts/lite';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useRef } from 'react';

@@ -9,7 +9,8 @@
 import { z } from 'zod';
 import { isoDate, isoDateTime, optionalText, text, uuid } from './common';
 import type { ModuleKey } from './modules';
-import { memberRole, type Permission, type Role } from './permissions';
+import { memberRole } from './common';
+import type { Permission, Role } from './permissions';
 import { ORDER_STATUSES, RESERVATION_STATUSES } from './state-machines';
 
 export const mcpContractsVersion = 1 as const;

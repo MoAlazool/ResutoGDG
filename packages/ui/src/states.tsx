@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, type ReactNode } from 'react';
-import { formatTime } from '@resuto/contracts';
+import { formatTime } from '@resuto/contracts/lite';
 import type { UiLocale } from './overlays';
 
 // Loading, refresh and failure states shared by every screen (docs/ui/LOADING_STATES.md):

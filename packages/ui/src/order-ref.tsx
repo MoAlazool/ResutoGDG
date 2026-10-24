@@ -1,4 +1,4 @@
-import { toWesternDigits } from '@resuto/contracts';
+import { toWesternDigits } from '@resuto/contracts/lite';
 
 /**
  * An order, revision or attempt reference ("#" + number) as one left-to-right unit. Written as "#<bdi>{n}</bdi>" in an

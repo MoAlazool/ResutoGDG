@@ -31,9 +31,9 @@ jobs:
       OUT_DIR: staging-browser-check
       ONLY: ${{ inputs.only }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -41,7 +41,7 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - name: Browser check (records server/via/x-vercel-* headers for every 5xx and failed request)
         run: node scripts/staging/browser-check.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: staging-browser-check

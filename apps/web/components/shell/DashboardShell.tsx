@@ -2,7 +2,8 @@
 import Link, { useLinkStatus } from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { can as roleCan, dateTimeFormat, type EntitlementsView, type ModuleKey } from '@resuto/contracts';
+import type { EntitlementsView, ModuleKey } from '@resuto/contracts';
+import { can as roleCan, dateTimeFormat } from '@resuto/contracts/lite';
 import {
   Breadcrumb, ErrorState, LiveStatus, NavBadge, NavGlyph, PageEyebrowProvider, ProfileButton, RestaurantChip, RouteProgress, Topbar,
   Wordmark, WorkspaceFooter, initialOf,

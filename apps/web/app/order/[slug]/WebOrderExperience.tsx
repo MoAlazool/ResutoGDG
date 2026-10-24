@@ -3,7 +3,8 @@
 // "Help me choose", the cart with suggestions, then a checkout sheet (pickup or delivery, contact, payment).
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { normalizePhone, PHONE_EXAMPLE, type PublicMenu, type PublicMenuProduct } from '@resuto/contracts';
+import type { PublicMenu, PublicMenuProduct } from '@resuto/contracts';
+import { normalizePhone, PHONE_EXAMPLE } from '@resuto/contracts/lite';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { guestMoney as money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';

@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useContext, type ReactNode } from 'react';
-import { can, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
+import type { ModuleKey, Permission, Role } from '@resuto/contracts';
+import { can } from '@resuto/contracts/lite';
 
 export interface OrgInfo {
   id: string; slug: string; name: string; nameAr: string | null; country: 'EG' | 'SA'; currency: 'EGP' | 'SAR';

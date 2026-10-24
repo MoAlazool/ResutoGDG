@@ -9,7 +9,7 @@ import { Notice } from '@resuto/ui';
 import { FloorMapPanel, useLiveFloor } from '@/components/floor/LiveFloor';
 import { VenueQrCard } from '@/components/ops/ServiceMode';
 import { newIdempotencyKey } from '@/lib/api';
-import { formatNumber } from '@resuto/contracts';
+import { formatNumber } from '@resuto/contracts/lite';
 import { useT } from '@/lib/i18n/client';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';

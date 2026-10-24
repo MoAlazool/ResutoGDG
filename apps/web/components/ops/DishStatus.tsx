@@ -1,5 +1,6 @@
 'use client';
-import { formatNumber, type Product } from '@resuto/contracts';
+import type { Product } from '@resuto/contracts';
+import { formatNumber } from '@resuto/contracts/lite';
 import { Badge } from '@resuto/ui';
 import { time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';

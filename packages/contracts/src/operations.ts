@@ -2,6 +2,7 @@
 // the active-visits list, the 86 (sold out) request and the kitchen board lanes.
 import { z } from 'zod';
 import { isoDateTime, optionalText, uuid } from './common';
+import { SERVICE_MODES, type ServiceMode } from './options';
 
 // ---------------------------------------------------------------------------
 // Service model (legacy settings "Service model" cards; FT-07 counter / single venue QR)
@@ -13,8 +14,7 @@ import { isoDateTime, optionalText, uuid } from './common';
  *   order. No floor plan, no reservations.
  * - online: no on-site ordering; pickup and delivery through the website only.
  */
-export const SERVICE_MODES = ['tables', 'counter', 'online'] as const;
-export type ServiceMode = (typeof SERVICE_MODES)[number];
+export { SERVICE_MODES, type ServiceMode } from './options';
 export const serviceModeRequest = z.object({
   mode: z.enum(SERVICE_MODES),
   /** Table service only: accept table reservations. */

@@ -1,5 +1,5 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 // "Payments" (legacy/public/landing-bill.js) and "Manager view"
 // (legacy/public/landing-manager.js) chapters. Sample data only.
 import { useEffect, useRef, useState } from 'react';

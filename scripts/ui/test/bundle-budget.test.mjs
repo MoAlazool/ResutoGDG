@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
-import { BUDGETS, ROUTE_RATCHETS } from '../bundle-budget.mjs';
+import { BUDGETS } from '../bundle-budget.mjs';
 
 const SCRIPT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../bundle-budget.mjs');
 const groupKb = (route) => BUDGETS.find((b) => b.test(route)).kb;
@@ -23,9 +23,13 @@ function fakeBuild(routes) {
   writeFileSync(path.join(dir, 'app-build-manifest.json'), JSON.stringify({ pages }));
   return dir;
 }
-const run = (dir, ...extra) => spawnSync(process.execPath, [SCRIPT, '--next', dir, ...extra], { encoding: 'utf8' });
+/** A fixture ratchet (the real ROUTE_RATCHETS may be empty), passed to every run with --ratchets. */
+const RATCHETS = { '/t/[qr]': 178 };
+const ratchetFile = path.join(mkdtempSync(path.join(tmpdir(), 'ratchets-')), 'ratchets.json');
+writeFileSync(ratchetFile, JSON.stringify(RATCHETS));
+const run = (dir, ...extra) => spawnSync(process.execPath, [SCRIPT, '--next', dir, '--ratchets', ratchetFile, ...extra], { encoding: 'utf8' });
 /** Every ratchet route at `delta` kB relative to its ratchet. */
-const ratchetRoutes = (delta = -3) => Object.fromEntries(Object.entries(ROUTE_RATCHETS).map(([r, kb]) => [r, kb + delta]));
+const ratchetRoutes = (delta = -3) => Object.fromEntries(Object.entries(RATCHETS).map(([r, kb]) => [r, kb + delta]));
 
 describe('bundle budget gate', () => {
   it('passes when every route is within its budget (the CI state: ratchet routes under their ratchet)', () => {
@@ -40,13 +44,13 @@ describe('bundle budget gate', () => {
   });
 
   it('a route ratchet does not loosen the group: another guest route at the ratchet size still fails', () => {
-    const res = run(fakeBuild({ ...ratchetRoutes(), '/t/[qr]/pay': ROUTE_RATCHETS['/t/[qr]'] - 1 }));
+    const res = run(fakeBuild({ ...ratchetRoutes(), '/t/[qr]/pay': RATCHETS['/t/[qr]'] - 1 }));
     assert.equal(res.status, 1);
     assert.match(res.stdout, /OVER\s+guest .*\/t\/\[qr\]\/pay/);
   });
 
   it('fails when a ratcheted route grows past its own ratchet', () => {
-    const res = run(fakeBuild({ ...ratchetRoutes(), '/t/[qr]': ROUTE_RATCHETS['/t/[qr]'] + 2 }));
+    const res = run(fakeBuild({ ...ratchetRoutes(), '/t/[qr]': RATCHETS['/t/[qr]'] + 2 }));
     assert.equal(res.status, 1);
     assert.match(res.stdout, /OVER\s+guest .*\(route ratchet; group 170\).*\/t\/\[qr\]$/m);
   });

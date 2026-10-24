@@ -4,7 +4,8 @@
 // a validated plan from this menu (rules and this restaurant's order history — labelled as such, not a chatbot).
 // Adding the meal only fills the cart; the guest still reviews and confirms.
 import { useRef, useState, type FormEvent } from 'react';
-import { ASSISTANT_ALLERGENS, type AssistantRequest, type AssistantResult, type PublicMenuProduct } from '@resuto/contracts';
+import type { AssistantRequest, AssistantResult, PublicMenuProduct } from '@resuto/contracts';
+import { ASSISTANT_ALLERGENS } from '@resuto/contracts/lite';
 import { api, ApiRequestError } from '@/lib/api';
 import { dishSrcSet } from '@/lib/dish-image';
 import { useT } from '@/lib/i18n/client';

@@ -1,5 +1,5 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 // Digital receipt — React port of legacy/public/receipt.js. Rendered only from
 // a ReceiptView the API builds from a settled payment row.
 import { useRef, useState, type ReactNode } from 'react';

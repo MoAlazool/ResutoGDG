@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toWesternDigits } from './locale-format';
+import { ROLES } from './permissions';
 
 export const uuid = z.uuid();
 export const slug = z.string().regex(/^[a-z0-9](?:[a-z0-9-]{1,46}[a-z0-9])$/, 'lowercase letters, digits and dashes (3–48)');
@@ -47,3 +48,6 @@ export const COUNTRY_DEFAULTS = {
   EG: { currency: 'EGP', timezone: 'Africa/Cairo', vatRateBp: 1400, taxRegime: 'eta' },
   SA: { currency: 'SAR', timezone: 'Asia/Riyadh', vatRateBp: 1500, taxRegime: 'zatca' },
 } as const;
+
+/** A member role in request bodies (permissions.ts stays free of zod for the web; see lite.ts). */
+export const memberRole = z.enum(ROLES);

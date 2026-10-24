@@ -31,14 +31,26 @@ export async function apiSignup(request: APIRequestContext, name = 'Owner'): Pro
   return { token: body.accessToken, email, userId: body.user.id };
 }
 
-export async function apiCreateTenant(request: APIRequestContext, opts: { name?: string; nameAr?: string; planId?: string; country?: 'EG' | 'SA' } = {}): Promise<Tenant> {
+/**
+ * Every fixture restaurant is created from its own client address. In production one address may create 30
+ * restaurants an hour (PS-13, shared limiter); a full e2e run creates more than that from one runner, which is many
+ * owners signing up, not one abuser. The API trusts X-Forwarded-For only from loopback outside production
+ * (trustProxySetting), so the limit itself is untouched; addresses come from 198.18.0.0/15 (RFC 2544 test range).
+ */
+let clientSeq = 0;
+const fixtureClientIp = () => { const i = ++clientSeq + (process.pid % 200) * 256; return `198.18.${(i >> 8) & 255}.${(i & 255) || 1}`; };
+
+export async function apiCreateTenant(request: APIRequestContext, opts: { name?: string; nameAr?: string; planId?: string; country?: 'EG' | 'SA'; openingHours?: Array<{ day: number; opens: string; closes: string }> } = {}): Promise<Tenant> {
   const owner = await apiSignup(request);
   const slug = unique('r').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 40);
   const res = await request.post(`${API_URL}/v1/orgs`, {
-    headers: auth(owner),
+    headers: { ...auth(owner), 'X-Forwarded-For': fixtureClientIp() },
     data: { name: opts.name ?? 'The Olive Room', nameAr: opts.nameAr ?? 'غرفة الزيتون', slug, country: opts.country ?? 'EG', planId: opts.planId ?? 'pro',
       branch: { name: 'Zamalek', city: 'Cairo', phone: '+201001234567', acceptsDelivery: true, deliveryFeeMinor: 3500,
-        openingHours: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, opens: '12:00', closes: '23:30' })) } },
+        // Open around the clock (opens = closes is a 24-hour day) unless a spec passes its own hours: CI runs at any time
+        // of day, and a scenario that places an order must not fail with branch_closed at night in Cairo. The
+        // opening-hours rules themselves are covered by API tests (service-area, reservations availability).
+        openingHours: opts.openingHours ?? [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, opens: '00:00', closes: '00:00' })) } },
   });
   expect(res.status(), await res.text()).toBe(201);
   const body = await res.json();

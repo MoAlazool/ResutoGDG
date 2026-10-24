@@ -1,7 +1,8 @@
 // Table and visit actions shared by the Floor overview, the Front desk and Active visits (VS-11, VS-12, VS-13).
 // Pure and framework-free so the requests each action sends are unit tested: every button TableDetail renders maps to
 // one of these, and each one calls the API (no inert controls on any screen that shows the panel).
-import { MANAGER_ROLES, type Role } from '@resuto/contracts';
+import type { Role } from '@resuto/contracts';
+import { MANAGER_ROLES } from '@resuto/contracts/lite';
 import type { LiveTable } from './live';
 
 /** Actions the selected-table panel can offer. */

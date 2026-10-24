@@ -25,14 +25,14 @@ jobs:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
       - name: AI service environment (used by the intelligence API tests)
@@ -73,6 +73,7 @@ jobs:
       - name: MCP server tests (SDK client end-to-end against the API)
         env:
           MCP_E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test_mcp
+          MCP_OAUTH_E2E_DATABASE_URL: postgres://postgres:postgres@localhost:5432/resuto_test_mcp_oauth
         run: pnpm --filter @resuto/mcp-server test
       - name: Web unit tests (query cache, Western-digits policy, floor model)
         run: pnpm --filter @resuto/web test
@@ -83,7 +84,7 @@ jobs:
       # ROUTE_RATCHETS (scripts/ui/bundle-budget.mjs), so they cannot grow and the rest of each group keeps its budget.
       - name: Web bundle budget
         run: node scripts/ui/bundle-budget.mjs --json bundle-budget.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: bundle-budget
@@ -112,9 +113,9 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -130,7 +131,7 @@ jobs:
         env:
           E2E_WEBKIT: '1'
         run: pnpm e2e --ignore-snapshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: playwright-traces
@@ -156,11 +157,14 @@ jobs:
       E2E_VISUAL: '1'
       E2E_SNAPSHOT_ENV: docker
       RESUTO_ALLOW_AUTH_SHIM: '1'
+      # The service container is reached as "postgres", not localhost: let the e2e starter create and reset this
+      # throwaway database (scripts/db/ensure-db.mjs, migrate.mjs --reset refuse any other non-local database).
+      RESUTO_DISPOSABLE_DB: '1'
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -174,7 +178,7 @@ jobs:
       # --update-snapshots=missing so a missing or changed surface fails the job.
       - name: Visual snapshots (restored surfaces + landing/studio snapshots)
         run: pnpm e2e --project=visual --project=chromium --grep "visual|public surfaces|restaurant and guest surfaces|staff surfaces" --update-snapshots=missing
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: visual-baselines
@@ -191,9 +195,11 @@ jobs:
       run:
         working-directory: legacy
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
+          # The root package.json names pnpm; this job uses npm in legacy/ and installs no pnpm.
+          package-manager-cache: false
       - run: npm ci
       - run: npm test

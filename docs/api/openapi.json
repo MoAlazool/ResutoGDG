@@ -69,6 +69,232 @@
           "nextCursor"
         ],
         "type": "object"
+      },
+      "Recursive_83d02f0f": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": [
+              "and",
+              "or"
+            ],
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "anyOf": [
+                {
+                  "oneOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "days": {
+                          "maximum": 3650,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "type": {
+                          "const": "inactive_days_gte",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "days"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "count": {
+                          "maximum": 100000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "type": {
+                          "const": "orders_gte",
+                          "type": "string"
+                        },
+                        "withinDays": {
+                          "maximum": 3650,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "count"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "amountMinor": {
+                          "maximum": 10000000000000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "type": {
+                          "const": "spent_gte",
+                          "type": "string"
+                        },
+                        "withinDays": {
+                          "maximum": 3650,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "amountMinor"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "tag": {
+                          "maxLength": 40,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "has_tag",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "tag"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "type": {
+                          "const": "consent",
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "branchId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "branch",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "branchId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "productId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "purchased_product",
+                          "type": "string"
+                        },
+                        "withinDays": {
+                          "maximum": 3650,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "productId"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "channel": {
+                          "enum": [
+                            "qr",
+                            "web",
+                            "whatsapp",
+                            "staff",
+                            "pos",
+                            "mcp",
+                            "phone",
+                            "messenger",
+                            "instagram"
+                          ],
+                          "type": "string"
+                        },
+                        "type": {
+                          "const": "channel",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "channel"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "points": {
+                          "maximum": 10000000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "type": {
+                          "const": "points_balance_gte",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "points"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                },
+                {
+                  "$ref": "#/components/schemas/Recursive_83d02f0f"
+                }
+              ]
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "op",
+          "rules"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -349,7 +575,7 @@
                   },
                   "validFrom": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   }
                 },
@@ -420,7 +646,7 @@
                   },
                   "validFrom": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   }
                 },
@@ -675,7 +901,7 @@
                   },
                   "expiresAt": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   },
                   "module": {
@@ -912,7 +1138,7 @@
                 "properties": {
                   "email": {
                     "format": "email",
-                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                     "type": "string"
                   },
                   "password": {
@@ -1010,7 +1236,7 @@
                 "properties": {
                   "email": {
                     "format": "email",
-                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                     "type": "string"
                   },
                   "fullName": {
@@ -2791,13 +3017,9 @@
                     "type": "array"
                   },
                   "phone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "reservationBufferMin": {
@@ -3038,13 +3260,9 @@
                     "type": "array"
                   },
                   "phone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "reservationBufferMin": {
@@ -7230,6 +7448,9 @@
                     "anyOf": [
                       {
                         "items": {
+                          "items": false,
+                          "maxItems": 2,
+                          "minItems": 2,
                           "prefixItems": [
                             {
                               "maximum": 90,
@@ -7435,6 +7656,9 @@
                     "anyOf": [
                       {
                         "items": {
+                          "items": false,
+                          "maxItems": 2,
+                          "minItems": 2,
                           "prefixItems": [
                             {
                               "maximum": 90,
@@ -7692,13 +7916,9 @@
                     "type": "string"
                   },
                   "phone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "status": {
@@ -8658,13 +8878,9 @@
                     ]
                   },
                   "otp": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "proofMediaId": {
@@ -9378,7 +9594,7 @@
                         },
                         "recordedAt": {
                           "format": "date-time",
-                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                           "type": "string"
                         }
                       },
@@ -15793,7 +16009,7 @@
                       {
                         "format": "email",
                         "maxLength": 200,
-                        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                         "type": "string"
                       },
                       {
@@ -15818,13 +16034,9 @@
                     ]
                   },
                   "phone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   }
                 },
@@ -15890,7 +16102,7 @@
                       {
                         "format": "email",
                         "maxLength": 200,
-                        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                         "type": "string"
                       },
                       {
@@ -15915,13 +16127,9 @@
                     ]
                   },
                   "phone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   }
                 },
@@ -16100,7 +16308,7 @@
                   },
                   "email": {
                     "format": "email",
-                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                     "type": "string"
                   },
                   "phone": {
@@ -18052,7 +18260,7 @@
                 "properties": {
                   "scheduledAt": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   }
                 },
@@ -18486,7 +18694,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -18568,7 +18776,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -18741,7 +18949,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -18823,7 +19031,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -19021,461 +19229,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "$defs": {
-                  "__schema0": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "op": {
-                        "enum": [
-                          "and",
-                          "or"
-                        ],
-                        "type": "string"
-                      },
-                      "rules": {
-                        "items": {
-                          "anyOf": [
-                            {
-                              "oneOf": [
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "days": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "inactive_days_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "days"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "count": {
-                                      "maximum": 100000,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "orders_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "count"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "amountMinor": {
-                                      "maximum": 10000000000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "spent_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "amountMinor"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "tag": {
-                                      "maxLength": 40,
-                                      "minLength": 1,
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "has_tag",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "tag"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "type": {
-                                      "const": "consent",
-                                      "type": "string"
-                                    },
-                                    "value": {
-                                      "type": "boolean"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "value"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "branchId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "branch",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "branchId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "productId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "purchased_product",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "productId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "channel": {
-                                      "enum": [
-                                        "qr",
-                                        "web",
-                                        "whatsapp",
-                                        "staff",
-                                        "pos",
-                                        "mcp",
-                                        "phone",
-                                        "messenger",
-                                        "instagram"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "channel",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "channel"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "points": {
-                                      "maximum": 10000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "points_balance_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "points"
-                                  ],
-                                  "type": "object"
-                                }
-                              ]
-                            },
-                            {
-                              "$ref": "#/$defs/__schema0"
-                            }
-                          ]
-                        },
-                        "maxItems": 20,
-                        "minItems": 1,
-                        "type": "array"
-                      }
-                    },
-                    "required": [
-                      "op",
-                      "rules"
-                    ],
-                    "type": "object"
-                  }
-                },
                 "additionalProperties": false,
                 "properties": {
                   "definition": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "op": {
-                        "enum": [
-                          "and",
-                          "or"
-                        ],
-                        "type": "string"
-                      },
-                      "rules": {
-                        "items": {
-                          "anyOf": [
-                            {
-                              "oneOf": [
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "days": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "inactive_days_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "days"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "count": {
-                                      "maximum": 100000,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "orders_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "count"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "amountMinor": {
-                                      "maximum": 10000000000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "spent_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "amountMinor"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "tag": {
-                                      "maxLength": 40,
-                                      "minLength": 1,
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "has_tag",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "tag"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "type": {
-                                      "const": "consent",
-                                      "type": "string"
-                                    },
-                                    "value": {
-                                      "type": "boolean"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "value"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "branchId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "branch",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "branchId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "productId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "purchased_product",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "productId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "channel": {
-                                      "enum": [
-                                        "qr",
-                                        "web",
-                                        "whatsapp",
-                                        "staff",
-                                        "pos",
-                                        "mcp",
-                                        "phone",
-                                        "messenger",
-                                        "instagram"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "channel",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "channel"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "points": {
-                                      "maximum": 10000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "points_balance_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "points"
-                                  ],
-                                  "type": "object"
-                                }
-                              ]
-                            },
-                            {
-                              "$ref": "#/$defs/__schema0"
-                            }
-                          ]
-                        },
-                        "maxItems": 20,
-                        "minItems": 1,
-                        "type": "array"
-                      }
-                    },
-                    "required": [
-                      "op",
-                      "rules"
-                    ],
-                    "type": "object"
+                    "$ref": "#/components/schemas/Recursive_83d02f0f"
                   },
                   "description": {
                     "anyOf": [
@@ -19544,461 +19301,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "$defs": {
-                  "__schema0": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "op": {
-                        "enum": [
-                          "and",
-                          "or"
-                        ],
-                        "type": "string"
-                      },
-                      "rules": {
-                        "items": {
-                          "anyOf": [
-                            {
-                              "oneOf": [
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "days": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "inactive_days_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "days"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "count": {
-                                      "maximum": 100000,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "orders_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "count"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "amountMinor": {
-                                      "maximum": 10000000000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "spent_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "amountMinor"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "tag": {
-                                      "maxLength": 40,
-                                      "minLength": 1,
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "has_tag",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "tag"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "type": {
-                                      "const": "consent",
-                                      "type": "string"
-                                    },
-                                    "value": {
-                                      "type": "boolean"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "value"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "branchId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "branch",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "branchId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "productId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "purchased_product",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "productId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "channel": {
-                                      "enum": [
-                                        "qr",
-                                        "web",
-                                        "whatsapp",
-                                        "staff",
-                                        "pos",
-                                        "mcp",
-                                        "phone",
-                                        "messenger",
-                                        "instagram"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "channel",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "channel"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "points": {
-                                      "maximum": 10000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "points_balance_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "points"
-                                  ],
-                                  "type": "object"
-                                }
-                              ]
-                            },
-                            {
-                              "$ref": "#/$defs/__schema0"
-                            }
-                          ]
-                        },
-                        "maxItems": 20,
-                        "minItems": 1,
-                        "type": "array"
-                      }
-                    },
-                    "required": [
-                      "op",
-                      "rules"
-                    ],
-                    "type": "object"
-                  }
-                },
                 "additionalProperties": false,
                 "properties": {
                   "definition": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "op": {
-                        "enum": [
-                          "and",
-                          "or"
-                        ],
-                        "type": "string"
-                      },
-                      "rules": {
-                        "items": {
-                          "anyOf": [
-                            {
-                              "oneOf": [
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "days": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "inactive_days_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "days"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "count": {
-                                      "maximum": 100000,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "orders_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "count"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "amountMinor": {
-                                      "maximum": 10000000000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "spent_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "amountMinor"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "tag": {
-                                      "maxLength": 40,
-                                      "minLength": 1,
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "has_tag",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "tag"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "type": {
-                                      "const": "consent",
-                                      "type": "string"
-                                    },
-                                    "value": {
-                                      "type": "boolean"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "value"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "branchId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "branch",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "branchId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "productId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "purchased_product",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "productId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "channel": {
-                                      "enum": [
-                                        "qr",
-                                        "web",
-                                        "whatsapp",
-                                        "staff",
-                                        "pos",
-                                        "mcp",
-                                        "phone",
-                                        "messenger",
-                                        "instagram"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "channel",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "channel"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "points": {
-                                      "maximum": 10000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "points_balance_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "points"
-                                  ],
-                                  "type": "object"
-                                }
-                              ]
-                            },
-                            {
-                              "$ref": "#/$defs/__schema0"
-                            }
-                          ]
-                        },
-                        "maxItems": 20,
-                        "minItems": 1,
-                        "type": "array"
-                      }
-                    },
-                    "required": [
-                      "op",
-                      "rules"
-                    ],
-                    "type": "object"
+                    "$ref": "#/components/schemas/Recursive_83d02f0f"
                   }
                 },
                 "required": [
@@ -20142,461 +19448,10 @@
           "content": {
             "application/json": {
               "schema": {
-                "$defs": {
-                  "__schema0": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "op": {
-                        "enum": [
-                          "and",
-                          "or"
-                        ],
-                        "type": "string"
-                      },
-                      "rules": {
-                        "items": {
-                          "anyOf": [
-                            {
-                              "oneOf": [
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "days": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "inactive_days_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "days"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "count": {
-                                      "maximum": 100000,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "orders_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "count"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "amountMinor": {
-                                      "maximum": 10000000000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "spent_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "amountMinor"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "tag": {
-                                      "maxLength": 40,
-                                      "minLength": 1,
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "has_tag",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "tag"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "type": {
-                                      "const": "consent",
-                                      "type": "string"
-                                    },
-                                    "value": {
-                                      "type": "boolean"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "value"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "branchId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "branch",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "branchId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "productId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "purchased_product",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "productId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "channel": {
-                                      "enum": [
-                                        "qr",
-                                        "web",
-                                        "whatsapp",
-                                        "staff",
-                                        "pos",
-                                        "mcp",
-                                        "phone",
-                                        "messenger",
-                                        "instagram"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "channel",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "channel"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "points": {
-                                      "maximum": 10000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "points_balance_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "points"
-                                  ],
-                                  "type": "object"
-                                }
-                              ]
-                            },
-                            {
-                              "$ref": "#/$defs/__schema0"
-                            }
-                          ]
-                        },
-                        "maxItems": 20,
-                        "minItems": 1,
-                        "type": "array"
-                      }
-                    },
-                    "required": [
-                      "op",
-                      "rules"
-                    ],
-                    "type": "object"
-                  }
-                },
                 "additionalProperties": false,
                 "properties": {
                   "definition": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "op": {
-                        "enum": [
-                          "and",
-                          "or"
-                        ],
-                        "type": "string"
-                      },
-                      "rules": {
-                        "items": {
-                          "anyOf": [
-                            {
-                              "oneOf": [
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "days": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "inactive_days_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "days"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "count": {
-                                      "maximum": 100000,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "orders_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "count"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "amountMinor": {
-                                      "maximum": 10000000000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "spent_gte",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "amountMinor"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "tag": {
-                                      "maxLength": 40,
-                                      "minLength": 1,
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "has_tag",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "tag"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "type": {
-                                      "const": "consent",
-                                      "type": "string"
-                                    },
-                                    "value": {
-                                      "type": "boolean"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "value"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "branchId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "branch",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "branchId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "productId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "purchased_product",
-                                      "type": "string"
-                                    },
-                                    "withinDays": {
-                                      "maximum": 3650,
-                                      "minimum": 1,
-                                      "type": "integer"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "productId"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "channel": {
-                                      "enum": [
-                                        "qr",
-                                        "web",
-                                        "whatsapp",
-                                        "staff",
-                                        "pos",
-                                        "mcp",
-                                        "phone",
-                                        "messenger",
-                                        "instagram"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "type": {
-                                      "const": "channel",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "channel"
-                                  ],
-                                  "type": "object"
-                                },
-                                {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "points": {
-                                      "maximum": 10000000,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "type": {
-                                      "const": "points_balance_gte",
-                                      "type": "string"
-                                    }
-                                  },
-                                  "required": [
-                                    "type",
-                                    "points"
-                                  ],
-                                  "type": "object"
-                                }
-                              ]
-                            },
-                            {
-                              "$ref": "#/$defs/__schema0"
-                            }
-                          ]
-                        },
-                        "maxItems": 20,
-                        "minItems": 1,
-                        "type": "array"
-                      }
-                    },
-                    "required": [
-                      "op",
-                      "rules"
-                    ],
-                    "type": "object"
+                    "$ref": "#/components/schemas/Recursive_83d02f0f"
                   },
                   "description": {
                     "anyOf": [
@@ -21469,7 +20324,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -21657,7 +20512,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -21947,7 +20802,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -24450,7 +23305,7 @@
                           },
                           {
                             "format": "date-time",
-                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                             "type": "string"
                           }
                         ]
@@ -25156,7 +24011,7 @@
             "required": false,
             "schema": {
               "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
               "type": "string"
             }
           },
@@ -25208,7 +24063,7 @@
             "required": false,
             "schema": {
               "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
               "type": "string"
             }
           },
@@ -25293,7 +24148,7 @@
                               {
                                 "format": "email",
                                 "maxLength": 200,
-                                "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                                 "type": "string"
                               },
                               {
@@ -25313,13 +24168,9 @@
                             ]
                           },
                           "phone": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           }
                         },
@@ -26689,7 +25540,7 @@
                   },
                   "from": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   },
                   "note": {
@@ -26705,7 +25556,7 @@
                   },
                   "to": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   }
                 },
@@ -26772,7 +25623,7 @@
             "required": true,
             "schema": {
               "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
               "type": "string"
             }
           },
@@ -26782,7 +25633,7 @@
             "required": true,
             "schema": {
               "format": "date-time",
-              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
               "type": "string"
             }
           }
@@ -26974,7 +25825,7 @@
                   },
                   "from": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   },
                   "provider": {
@@ -26990,7 +25841,7 @@
                   },
                   "to": {
                     "format": "date-time",
-                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                     "type": "string"
                   }
                 },
@@ -27642,7 +26493,7 @@
                       {
                         "format": "email",
                         "maxLength": 200,
-                        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                         "type": "string"
                       },
                       {
@@ -27656,13 +26507,9 @@
                     "type": "string"
                   },
                   "guestPhone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "notes": {
@@ -27923,13 +26770,9 @@
                     "type": "string"
                   },
                   "guestPhone": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "notes": {
@@ -31491,13 +30334,9 @@
                         "type": "array"
                       },
                       "phone": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "null"
-                          }
+                        "type": [
+                          "string",
+                          "null"
                         ]
                       },
                       "reservationBufferMin": {
@@ -32378,7 +31217,7 @@
                           {
                             "format": "email",
                             "maxLength": 200,
-                            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                             "type": "string"
                           },
                           {
@@ -32604,7 +31443,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -32994,7 +31833,7 @@
                     "anyOf": [
                       {
                         "format": "date-time",
-                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                         "type": "string"
                       },
                       {
@@ -34317,7 +33156,7 @@
                       {
                         "format": "email",
                         "maxLength": 200,
-                        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                         "type": "string"
                       },
                       {
@@ -34489,7 +33328,7 @@
                   "email": {
                     "format": "email",
                     "maxLength": 200,
-                    "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
                     "type": "string"
                   },
                   "key": {

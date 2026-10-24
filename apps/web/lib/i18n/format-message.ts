@@ -1,4 +1,4 @@
-import { formatNumber } from '@resuto/contracts';
+import { formatNumber } from '@resuto/contracts/lite';
 import type { Locale } from './locale';
 
 // Message formatting shared by the server (getT) and the client (useT). Dictionary values are plain text with

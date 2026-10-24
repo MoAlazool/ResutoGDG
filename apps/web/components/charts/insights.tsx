@@ -1,5 +1,5 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 // Shared building blocks for the overview, analytics, inventory and customers pages (Agent B2).
 import { useCallback, type ReactNode } from 'react';
 import s from './charts.module.css';
