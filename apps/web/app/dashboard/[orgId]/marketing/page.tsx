@@ -1,4 +1,5 @@
 'use client';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AD_CHANNELS, type CampaignReport, type MarketingRecommendation, type SegmentGroup, type SegmentRule } from '@resuto/contracts';
 import { Badge, Card, DataTable, DateTimeInput, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
@@ -164,6 +165,19 @@ function Campaigns() {
   const [form, setForm] = useState({ name: '', channel: 'whatsapp', objective: 'retention', segmentId: '', text: '', templateName: '', budget: '', subject: '' });
   const [note, setNote] = useState<string | null>(null);
   const [scheduleFor, setScheduleFor] = useState<Record<string, string>>({});
+  // "Next actions" on the overview (21-HOME) link here with ?draft=campaign&objective=…&name=…: the editor opens with
+  // those values filled in. Nothing is saved until the member presses "Save draft"; the link is used once.
+  const search = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  useEffect(() => {
+    if (search.get('draft') !== 'campaign' || !can('marketing:write')) return;
+    const objective = search.get('objective') ?? '';
+    setForm((f) => ({ ...f, name: (search.get('name') ?? '').slice(0, 120),
+      objective: ['retention', 'reactivation', 'acquisition', 'upsell', 'awareness', 'reservations'].includes(objective) ? objective : f.objective }));
+    setEditing(true);
+    router.replace(pathname, { scroll: false });
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = useAction(async (e: FormEvent) => {
     e.preventDefault();
