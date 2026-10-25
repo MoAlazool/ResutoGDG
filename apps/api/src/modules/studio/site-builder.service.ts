@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { socialLinksOf, type PublicSite, type PublicSiteSection, type PublicStorefrontLink, type SectionKind } from '@resuto/contracts';
+import {
+  socialLinksOf, type PublicSite, type PublicSiteProduct, type PublicSitePromotion, type PublicSiteSection, type PublicStorefrontLink, type SectionKind,
+} from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { MediaUrls, StorageService } from '../../common/storage/storage.service';
 import type { SiteDocument } from './studio.mappers';
@@ -8,6 +10,17 @@ const DEFAULT_THEME = { primaryColor: '#173f36', accentColor: '#C85E33', backgro
 const SMASH_THEME = { primaryColor: '#b51218', accentColor: '#ffd52f', backgroundColor: '#fff8ed' } as const;
 const MEDIA_TTL_SECONDS = 6 * 3600;
 const HIGHLIGHT_LIMIT = 6;
+/** menu_full: at most this many dishes on the page (a long menu links to the ordering page for the rest). */
+export const FULL_MENU_LIMIT = 200;
+
+/**
+ * What a change-set preview lays over the live data (21-STUDIO): dish prices a proposal changes and offers it creates,
+ * so the canvas shows the page as it will be once approved. Never used for the published site.
+ */
+export interface SiteOverlay {
+  prices?: Map<string, { priceMinor: number; compareAtMinor: number | null }>;
+  promotions?: PublicSitePromotion[];
+}
 
 /**
  * A site built inside a transaction whose media URLs are not signed yet (PCL-11): the caller passes it to
@@ -38,7 +51,8 @@ export class SiteBuilderService {
    * Reads everything the site needs inside the caller's transaction and collects its media URLs without signing
    * them. Call finish() on the result after the transaction has returned.
    */
-  async prepare(tx: Tx, orgId: string, doc: SiteDocument, meta: { revision: number; publishedAt: string | null; preview: boolean }): Promise<PendingSite> {
+  async prepare(tx: Tx, orgId: string, doc: SiteDocument, meta: { revision: number; publishedAt: string | null; preview: boolean },
+    overlay: SiteOverlay = {}): Promise<PendingSite> {
     const org = await tx.one<any>(
       `select slug, name, name_ar, currency, country, default_locale, social_links, coalesce((onboarding->>'demo')::boolean, false) as demo
          from organizations where id = $1`, [orgId]);
@@ -66,31 +80,46 @@ export class SiteBuilderService {
     // branch, and not switched off at every branch. Without pinned dishes, a branch that trades under its own brand
     // (a published storefront, e.g. Smash & Co) is presented by its storefront, so dishes sold only there stay off the
     // restaurant's own highlights. Pinned dishes keep the owner's order. Photos first.
-    const products = await tx.query<any>(
-      `select p.id, p.name, p.name_ar, p.description, p.description_ar, p.price_minor, p.currency, p.dietary,
-              p.image_url, ma.path as image_path, ma.variants as image_variants, ma.width as image_width, ma.height as image_height
-         from products p
-         join menu_categories c on c.id = p.category_id and c.is_active
-         join menus m on m.id = c.menu_id and m.is_active
-         left join media_assets ma on ma.id = p.image_media_id
-        where p.org_id = $1 and p.is_active
-          and (cardinality($2::uuid[]) = 0 or p.id = any($2::uuid[]))
-          and exists (
-            select 1 from branches b
-             where b.org_id = p.org_id and b.is_active
-               and (m.branch_id is null or m.branch_id = b.id)
-               and not exists (select 1 from product_branch_settings s where s.product_id = p.id and s.branch_id = b.id and not s.is_available)
-               and (cardinality($2::uuid[]) > 0 or not (b.id = any($4::uuid[]))))
-        order by case when cardinality($2::uuid[]) > 0 then array_position($2::uuid[], p.id) end,
-                 (p.image_url is not null or p.image_media_id is not null) desc, c.sort_order, p.sort_order, p.created_at
-        limit $3`, [orgId, pinned, pinned.length || HIGHLIGHT_LIMIT, storefronts.map((x) => x.branchId)]);
-    const menuHighlights = products.map((p) => urls.set({
-      id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar,
-      priceMinor: Number(p.price_minor), currency: p.currency, dietary: p.dietary ?? [], imageUrl: null as string | null,
-      // Responsive copies as on the public menu (CR-12 / REM-W01): a phone's two-column card loads the 320 px copy.
-      imageSrcSet: null as string | null,
-      imageWidth: p.image_path ? p.image_width ?? null : null, imageHeight: p.image_path ? p.image_height ?? null : null,
-    }, 'imageUrl', p.image_path, { fallback: safeImageUrl(p.image_url), variants: p.image_variants, minWidth: 640, srcSetKey: 'imageSrcSet' }));
+    const storefrontBranches = storefronts.map((x) => x.branchId);
+    const toProduct = (p: any): PublicSiteProduct => {
+      const priced = overlay.prices?.get(p.id);
+      const priceMinor = priced?.priceMinor ?? Number(p.price_minor);
+      const was = priced ? priced.compareAtMinor : p.compare_at_price_minor === null ? null : Number(p.compare_at_price_minor);
+      return urls.set({
+        id: p.id, name: p.name, nameAr: p.name_ar, description: p.description, descriptionAr: p.description_ar,
+        priceMinor, currency: p.currency, dietary: p.dietary ?? [], imageUrl: null as string | null,
+        // Responsive copies as on the public menu (CR-12 / REM-W01): a phone's two-column card loads the 320 px copy.
+        imageSrcSet: null as string | null,
+        imageWidth: p.image_path ? p.image_width ?? null : null, imageHeight: p.image_path ? p.image_height ?? null : null,
+        // Only a real reduction is shown as "was" (a later price edit above it ends the discount).
+        compareAtMinor: was !== null && was > priceMinor ? was : null,
+      }, 'imageUrl', p.image_path, { fallback: safeImageUrl(p.image_url), variants: p.image_variants, minWidth: 640, srcSetKey: 'imageSrcSet' });
+    };
+    const menuHighlights = (await this.orderable(tx, orgId, { ids: pinned, limit: pinned.length || HIGHLIGHT_LIMIT, skipBranches: storefrontBranches }))
+      .map(toProduct);
+
+    // 21-STUDIO sections: offers show their chosen dishes (orderable ones, in the owner's order) and the badge of a live
+    // promotion named by code; the full menu lists every orderable dish by category.
+    const offerSections = sections.filter((s) => s.kind === 'offers' && s.content?.productIds?.length);
+    const offerIds = [...new Set(offerSections.flatMap((s) => s.content.productIds ?? []))];
+    const offerRows = offerIds.length ? await this.orderable(tx, orgId, { ids: offerIds, limit: offerIds.length, skipBranches: [] }) : [];
+    const offerById = new Map(offerRows.map((r) => [r.id as string, toProduct(r)]));
+    const codes = [...new Set(sections.filter((s) => (s.kind === 'offers' || s.kind === 'promo_banner') && s.content?.promotionCode)
+      .map((s) => String(s.content.promotionCode).toLowerCase()))];
+    const promotions = codes.length ? await this.livePromotions(tx, orgId, codes) : new Map<string, PublicSitePromotion>();
+    for (const p of overlay.promotions ?? []) if (p.code && !promotions.has(p.code.toLowerCase())) promotions.set(p.code.toLowerCase(), p);
+    type FullMenu = NonNullable<PublicSiteSection['content']['menu']>;
+    const fullMenus = new Map<string, FullMenu>();
+    for (const s of sections.filter((x) => x.kind === 'menu_full')) {
+      const rows = await this.orderable(tx, orgId, { ids: [], categoryIds: s.content?.categoryIds ?? [], limit: FULL_MENU_LIMIT, skipBranches: [], byCategory: true });
+      const groups: FullMenu = [];
+      for (const r of rows) {
+        let g = groups.find((x) => x.id === r.category_id);
+        if (!g) groups.push(g = { id: r.category_id, name: r.category_name, nameAr: r.category_name_ar, items: [] });
+        g.items.push(toProduct(r));
+      }
+      fullMenus.set(s.id, groups);
+    }
 
     const domain = await tx.maybeOne<{ hostname: string }>(
       `select hostname from custom_domains where org_id = $1 and status = 'active' order by activated_at nulls last limit 1`, [orgId]);
@@ -128,6 +157,10 @@ export class SiteBuilderService {
             ...s.content,
             media: s.content?.mediaId && media.get(s.content.mediaId) ? media.get(s.content.mediaId)! : null,
             gallery: (s.content?.mediaIds ?? []).map((id) => media.get(id)).filter((m): m is { url: string; alt: string | null } => !!m),
+            ...(s.kind === 'offers' ? { products: (s.content?.productIds ?? []).map((id) => offerById.get(id)).filter((p): p is PublicSiteProduct => !!p) } : {}),
+            ...((s.kind === 'offers' || s.kind === 'promo_banner')
+              ? { promotion: s.content?.promotionCode ? promotions.get(String(s.content.promotionCode).toLowerCase()) ?? null : null } : {}),
+            ...(s.kind === 'menu_full' ? { menu: fullMenus.get(s.id) ?? [] } : {}),
           },
         })),
         branches: branches.map((b) => ({
@@ -143,6 +176,48 @@ export class SiteBuilderService {
       };
     };
     return { urls, assemble };
+  }
+
+  /**
+   * Dishes guests can actually order (audit DF-09): active, in an active category of an active menu that serves an
+   * active branch, and not switched off at every branch. With `ids`, those dishes in that order; without, dishes with
+   * photos first, skipping dishes sold only at `skipBranches` (branches presented by their own storefront). `byCategory`
+   * orders by category for the full menu. Public columns only (never cost or stock).
+   */
+  private orderable(tx: Tx, orgId: string, o: { ids: string[]; limit: number; skipBranches: string[]; categoryIds?: string[]; byCategory?: boolean }) {
+    return tx.query<any>(
+      `select p.id, p.name, p.name_ar, p.description, p.description_ar, p.price_minor, p.compare_at_price_minor, p.currency, p.dietary,
+              p.image_url, ma.path as image_path, ma.variants as image_variants, ma.width as image_width, ma.height as image_height,
+              c.id as category_id, c.name as category_name, c.name_ar as category_name_ar
+         from products p
+         join menu_categories c on c.id = p.category_id and c.is_active
+         join menus m on m.id = c.menu_id and m.is_active
+         left join media_assets ma on ma.id = p.image_media_id
+        where p.org_id = $1 and p.is_active
+          and (cardinality($2::uuid[]) = 0 or p.id = any($2::uuid[]))
+          and (cardinality($5::uuid[]) = 0 or c.id = any($5::uuid[]))
+          and exists (
+            select 1 from branches b
+             where b.org_id = p.org_id and b.is_active
+               and (m.branch_id is null or m.branch_id = b.id)
+               and not exists (select 1 from product_branch_settings s where s.product_id = p.id and s.branch_id = b.id and not s.is_available)
+               and (cardinality($2::uuid[]) > 0 or not (b.id = any($4::uuid[]))))
+        order by ${o.byCategory ? 'm.sort_order, c.sort_order, c.id, p.sort_order, p.created_at' : `case when cardinality($2::uuid[]) > 0 then array_position($2::uuid[], p.id) end,
+                 (p.image_url is not null or p.image_media_id is not null) desc, c.sort_order, p.sort_order, p.created_at`}
+        limit $3`, [orgId, o.ids, o.limit, o.skipBranches, o.categoryIds ?? []]);
+  }
+
+  /** Active promotions by code (lower case) that are running now and not used up: what an offers badge may show. */
+  private async livePromotions(tx: Tx, orgId: string, codes: string[]): Promise<Map<string, PublicSitePromotion>> {
+    const rows = await tx.query<any>(
+      `select code::text as code, name, name_ar, kind, value, min_order_minor, ends_at from promotions
+        where org_id = $1 and lower(code::text) = any($2::text[]) and is_active
+          and (starts_at is null or starts_at <= now()) and (ends_at is null or ends_at > now())
+          and (max_redemptions is null or redemption_count < max_redemptions)`, [orgId, codes]);
+    return new Map(rows.map((r) => [String(r.code).toLowerCase(), {
+      code: r.code, name: r.name, nameAr: r.name_ar, kind: r.kind, value: Number(r.value), minOrderMinor: Number(r.min_order_minor),
+      endsAt: r.ends_at ? new Date(r.ends_at).toISOString() : null,
+    } as PublicSitePromotion]));
   }
 
   /**

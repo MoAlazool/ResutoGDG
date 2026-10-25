@@ -1,14 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import type { CreateSection, SectionContent, UpdateSection, UpdateWebsite } from '@resuto/contracts';
+import {
+  CHANGE_SET_FINAL, missingSectionKinds, sectionContentIssues, templateFamily, TEMPLATE_VARIANTS,
+  type ApplyWebsiteTemplate, type CreateSection, type PublicSite, type PublicSitePromotion, type SectionContent, type TemplateVariantKey, type UpdateSection, type UpdateWebsite,
+} from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
-import { conflict, invalid, notFound } from '../../common/errors/domain-error';
+import { conflict, forbidden, invalid, notFound } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { MediaUrls, StorageService } from '../../common/storage/storage.service';
-import { dropUnsigned, SiteBuilderService } from './site-builder.service';
+import { discountedPrice } from '../menu/menu.service';
+import { dropUnsigned, SiteBuilderService, type SiteOverlay } from './site-builder.service';
 import { referencedMedia, toMedia, toSection, toWebsite, type SiteDocument } from './studio.mappers';
 import { escapeLike } from '../mcp/mcp.util';
 
@@ -70,9 +74,10 @@ export class StudioService {
   }
 
   /** The section limit and the content's references (media, menu items of this restaurant). */
-  async assertCanAddSection(tx: Tx, ctx: TenantContext, websiteId: string, input: Pick<CreateSection, 'content'>) {
+  async assertCanAddSection(tx: Tx, ctx: TenantContext, websiteId: string, input: Pick<CreateSection, 'content'> & { kind?: string }) {
     const { n } = await tx.one<{ n: number }>('select count(*)::int as n from website_sections where website_id = $1', [websiteId]);
     if (n >= MAX_SECTIONS) throw invalid('too_many_sections', `A website can have at most ${MAX_SECTIONS} sections`);
+    if (input.kind) assertKindContent(input.kind, input.content);
     await this.assertContentRefs(tx, ctx, input.content);
   }
 
@@ -89,7 +94,10 @@ export class StudioService {
   async updateSectionTx(tx: Tx, ctx: TenantContext, sectionId: string, patch: UpdateSection) {
     const existing = await tx.maybeOne<any>('select * from website_sections where id = $1 and org_id = $2 for update', [sectionId, ctx.orgId]);
     if (!existing) throw notFound('Section');
-    if (patch.content) await this.assertContentRefs(tx, ctx, patch.content);
+    if (patch.content) {
+      assertKindContent(existing.kind, patch.content);
+      await this.assertContentRefs(tx, ctx, patch.content);
+    }
     const row = await tx.one(
       `update website_sections set content = coalesce($2, content), is_visible = coalesce($3, is_visible), updated_at = now()
         where id = $1 returning *`, [sectionId, patch.content ?? null, patch.isVisible ?? null]);
@@ -193,6 +201,105 @@ export class StudioService {
       return this.builder.prepare(tx, ctx.orgId, doc, { revision: site.publishedRevision, publishedAt: site.publishedAt, preview: true });
     });
     return this.builder.finish(pending);
+  }
+
+  // --- Templates (21-STUDIO) -----------------------------------------------------------
+  /**
+   * Applies a style family × layout variant to the draft: the family's renderer, colours and heading font (logo, hero
+   * image and tagline are kept), and the variant's section kinds the draft does not have yet, appended in the variant's
+   * order with empty copy. Nothing is deleted; the live site changes only on publish.
+   */
+  async applyTemplate(ctx: TenantContext, input: ApplyWebsiteTemplate) {
+    const family = templateFamily(input.family);
+    if (!family) throw invalid('unknown_template', 'This template does not exist');
+    if (!(TEMPLATE_VARIANTS as readonly string[]).includes(input.variant)) throw invalid('unknown_template', 'This template layout does not exist');
+    const kinds = family.variants[input.variant as TemplateVariantKey];
+    return this.done(await this.db.scoped(ctx, async (tx) => {
+      const site = await this.site(tx, ctx, true);
+      const added: string[] = [];
+      if (input.applyStyle) {
+        const theme = { ...site.theme, ...family.theme };
+        await tx.query('update websites set template = $2, theme = $3, draft_revision = draft_revision + 1 where id = $1', [site.id, family.renderer, theme]);
+      }
+      if (input.addSections) {
+        const existing = await tx.query<{ kind: string }>('select kind from website_sections where website_id = $1', [site.id]);
+        const missing = missingSectionKinds(kinds, existing.map((r) => r.kind));
+        if (existing.length + missing.length > MAX_SECTIONS) throw invalid('too_many_sections', `A website can have at most ${MAX_SECTIONS} sections`);
+        const { max } = await tx.one<{ max: number | null }>('select max(sort_order) as max from website_sections where website_id = $1', [site.id]);
+        for (const [i, kind] of missing.entries()) {
+          const row = await tx.one<{ id: string }>(
+            `insert into website_sections(org_id, website_id, kind, sort_order, is_visible, content) values ($1, $2, $3, $4, true, '{}') returning id`,
+            [ctx.orgId, site.id, kind, (max ?? -1) + 1 + i]);
+          added.push(row.id);
+        }
+        if (missing.length) await this.touch(tx, site.id);
+      }
+      await this.audit.record(tx, ctx, { action: 'website.template_applied', entityType: 'website', entityId: site.id,
+        metadata: { family: family.key, variant: input.variant, applyStyle: input.applyStyle, addedSections: added.length } });
+      const view = await this.view(tx, ctx);
+      return { urls: view.urls, value: { ...view.value, addedSectionIds: added } };
+    }));
+  }
+
+  /**
+   * The draft as it will look once a change set is approved and applied (21-STUDIO canvas diff): its website section
+   * ops laid over the draft, its dish discounts over the prices and its new offers over the promotions. Nothing is
+   * written. Readable by whoever may read change sets, or by the person who proposed it.
+   */
+  async changeSetPreview(ctx: TenantContext, changeSetId: string): Promise<PublicSite> {
+    const pending = await this.db.scoped(ctx, async (tx) => {
+      const cs = await tx.maybeOne<{ id: string; status: string; proposed_by: string | null }>(
+        'select id, status, proposed_by from change_sets where id = $1 and org_id = $2', [changeSetId, ctx.orgId]);
+      if (!cs) throw notFound('Change set');
+      if (!ctx.can('changes:read') && cs.proposed_by !== ctx.userId) throw forbidden('Reading this change needs changes:read');
+      const ops = await tx.query<{ id: string; op_type: string; input: any }>(
+        'select id, op_type, input from change_ops where change_set_id = $1 and org_id = $2 order by seq', [cs.id, ctx.orgId]);
+      const site = await this.site(tx, ctx);
+      const all = await tx.query<any>('select * from website_sections where website_id = $1 order by sort_order, id', [site.id]);
+      // An applied set is already in the draft: show the draft as it is, with the set's sections marked.
+      const applied = (CHANGE_SET_FINAL as readonly string[]).includes(cs.status);
+      const rows = all.map((r) => ({ id: r.id as string, kind: r.kind as string, content: (r.content ?? {}) as SectionContent, visible: r.is_visible as boolean }));
+      const diff = { changeSetId: cs.id, added: [] as string[], changed: [] as string[], repriced: [] as string[] };
+      const prices = new Map<string, { priceMinor: number; compareAtMinor: number | null }>();
+      const promotions: PublicSitePromotion[] = [];
+      for (const op of ops) {
+        const input = op.input ?? {};
+        if (op.op_type === 'website.section.add') {
+          diff.added.push(op.id);
+          if (!applied) rows.push({ id: op.id, kind: input.kind, content: input.content ?? {}, visible: input.isVisible !== false });
+        } else if (op.op_type === 'website.section.update') {
+          diff.changed.push(input.sectionId);
+          const row = rows.find((r) => r.id === input.sectionId);
+          if (row && !applied) {
+            if (input.content) row.content = input.content;
+            if (typeof input.isVisible === 'boolean') row.visible = input.isVisible;
+          }
+        } else if (op.op_type === 'product.discount.set') {
+          diff.repriced.push(input.productId);
+          if (!applied) {
+            const p = await tx.maybeOne<{ price_minor: number; compare_at_price_minor: number | null }>(
+              'select price_minor, compare_at_price_minor from products where id = $1 and org_id = $2', [input.productId, ctx.orgId]);
+            if (p) {
+              const original = Number(p.compare_at_price_minor ?? p.price_minor);
+              prices.set(input.productId, input.discountBps > 0
+                ? { priceMinor: discountedPrice(original, input.discountBps), compareAtMinor: original }
+                : { priceMinor: original, compareAtMinor: null });
+            }
+          }
+        } else if (op.op_type === 'promotion.create' && input.code && !applied) {
+          promotions.push({ code: input.code, name: input.name, nameAr: input.nameAr ?? null, kind: input.kind, value: Number(input.value),
+            minOrderMinor: Number(input.minOrderMinor ?? 0), endsAt: input.endsAt ?? null });
+        }
+      }
+      const doc = {
+        template: site.template, theme: site.theme, seo: site.seo, draftRevision: site.draftRevision,
+        sections: rows.filter((r) => r.visible).map((r, i) => ({ id: r.id, kind: r.kind, sortOrder: i, content: r.content })),
+      };
+      const overlay: SiteOverlay = { prices, promotions };
+      return { pending: await this.builder.prepare(tx, ctx.orgId, doc, { revision: site.publishedRevision, publishedAt: site.publishedAt, preview: true }, overlay), diff };
+    });
+    const out = await this.builder.finish(pending.pending);
+    return { ...out, diff: pending.diff };
   }
 
   // --- Media library -------------------------------------------------------------
@@ -321,6 +428,11 @@ export class StudioService {
 
   private async assertContentRefs(tx: Tx, ctx: TenantContext, content: SectionContent) {
     await this.assertMedia(tx, ctx, [content.mediaId, ...(content.mediaIds ?? [])]);
+    const categories = [...new Set(content.categoryIds ?? [])];
+    if (categories.length) {
+      const { n } = await tx.one<{ n: number }>('select count(*)::int as n from menu_categories where org_id = $1 and id = any($2::uuid[])', [ctx.orgId, categories]);
+      if (n !== categories.length) throw invalid('unknown_category', 'One or more menu categories do not exist');
+    }
     const products = [...new Set(content.productIds ?? [])];
     if (products.length) {
       const { n } = await tx.one<{ n: number }>('select count(*)::int as n from products where org_id = $1 and id = any($2::uuid[]) and is_active', [ctx.orgId, products]);
@@ -360,4 +472,10 @@ export class StudioService {
     for (const r of other) used.add(r.id);
     return used;
   }
+}
+
+/** The 21-STUDIO kinds take only their own fields (a FAQ has questions, not dishes): 422 section_content_invalid. */
+function assertKindContent(kind: string, content: SectionContent) {
+  const issues = sectionContentIssues(kind, content as Record<string, unknown>);
+  if (issues.length) throw invalid('section_content_invalid', `This ${kind} section has content it cannot show`, issues);
 }

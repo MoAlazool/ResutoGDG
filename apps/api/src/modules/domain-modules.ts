@@ -27,6 +27,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { PosModule } from './pos/pos.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { SearchModule } from './search/search.module';
+import { StudioEditingModule } from './studio/studio-editing.module';
 import { StudioModule } from './studio/studio.module';
 
 export const DOMAIN_MODULES: Type[] = [
@@ -57,4 +58,5 @@ export const DOMAIN_MODULES: Type[] = [
   ReservationsModule,
   SearchModule,
   StudioModule,
+  StudioEditingModule,
 ];

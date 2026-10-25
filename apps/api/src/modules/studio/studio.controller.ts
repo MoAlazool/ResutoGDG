@@ -3,7 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addDomain, createSection, generateCreative, publishWebsite, reorderSections, reviewCreative, updateMedia, updateSection, updateWebsite,
   upsertStorefront, type UpsertStorefront, createPhotoJob, PHOTO_JOB_STATUSES, publishPhotoJob, reviewPhotoJob, type CreatePhotoJob, type PublishPhotoJob,
-  applyCreative, type ApplyCreative, fullListQuery, listQueryOf,
+  applyCreative, type ApplyCreative, fullListQuery, listQueryOf, applyWebsiteTemplate, type ApplyWebsiteTemplate,
 } from '@resuto/contracts';
 import { StudioPhotosService } from './photos/photos.service';
 import { z } from 'zod';
@@ -52,6 +52,21 @@ export class StudioController {
   @RequirePermission('studio:read')
   preview(@Tenant() ctx: TenantContext) {
     return this.studio.preview(ctx);
+  }
+
+  /** The draft as it will look once a change set is applied (21-STUDIO canvas diff); nothing is written. */
+  @Get('website/preview/change-sets/:changeSetId')
+  @RequirePermission('studio:read')
+  changeSetPreview(@Tenant() ctx: TenantContext, @Param('changeSetId', ParseUUIDPipe) id: string) {
+    return this.studio.changeSetPreview(ctx, id);
+  }
+
+  /** Applies a style family × layout variant (21-STUDIO templates) to the draft; never deletes a section. */
+  @HttpCode(200)
+  @Post('website/template')
+  @RequirePermission('studio:write')
+  applyTemplate(@Tenant() ctx: TenantContext, @Body(zod(applyWebsiteTemplate)) body: ApplyWebsiteTemplate) {
+    return this.studio.applyTemplate(ctx, body);
   }
 
   @HttpCode(200)
