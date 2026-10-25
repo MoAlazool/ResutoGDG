@@ -194,10 +194,11 @@ export default function AdminTenantPage() {
         </Panel>
       </div>
       {write && (
-        <GrantSheet open={grantOpen} onClose={() => setGrantOpen(false)} busy={busy}
+        <GrantSheet open={grantOpen} onClose={() => setGrantOpen(false)} busy={busy} error={grantOpen && msg?.tone === 'danger' ? msg.text : null}
           onSubmit={async (g) => {
             const ok = await run(() => call(`/admin/tenants/${orgId}/overrides`, { body: { ...g, expiresAt: new Date(g.expiresAt).toISOString() } }), s.grantedDone);
             if (ok) setGrantOpen(false);
+            return ok;
           }} />
       )}
     </DetailPage>
@@ -207,7 +208,9 @@ export default function AdminTenantPage() {
 interface Grant { module: ModuleKey; enabled: boolean; reason: string; expiresAt: string }
 
 /** Grant or block one module until a date, with a recorded reason (POST /admin/tenants/:id/overrides). */
-function GrantSheet({ open, onClose, onSubmit, busy }: { open: boolean; onClose: () => void; onSubmit: (g: Grant) => Promise<void>; busy: boolean }) {
+function GrantSheet({ open, onClose, onSubmit, busy, error }: {
+  open: boolean; onClose: () => void; onSubmit: (g: Grant) => Promise<boolean>; busy: boolean; error: string | null;
+}) {
   const { locale } = useT();
   const { s } = useAdmin();
   const [g, setG] = useState<Grant>({ module: 'pay', enabled: true, reason: '', expiresAt: inDays(30) });
@@ -218,7 +221,7 @@ function GrantSheet({ open, onClose, onSubmit, busy }: { open: boolean; onClose:
         <button type="button" className="btn" onClick={onClose}>{s.cancel}</button>
         <button type="submit" form={formId} className="btn btn-primary" disabled={busy || g.reason.trim().length < 3} aria-busy={busy || undefined}>{s.save}</button>
       </div>}>
-      <form id={formId} className="admin-form" onSubmit={(e: FormEvent) => { e.preventDefault(); void onSubmit(g).then(() => setG((x) => ({ ...x, reason: '' }))); }}>
+      <form id={formId} className="admin-form" onSubmit={(e: FormEvent) => { e.preventDefault(); void onSubmit(g).then((ok) => { if (ok) setG((x) => ({ ...x, reason: '' })); }); }}>
         <SelectField label={s.module} value={g.module} onChange={(e) => setG({ ...g, module: e.target.value as ModuleKey })}>
           {MODULE_KEYS.map((m) => <option key={m} value={m}>{pick(locale, MODULE_INFO[m].name, MODULE_INFO[m].nameAr)}</option>)}
         </SelectField>
@@ -227,6 +230,7 @@ function GrantSheet({ open, onClose, onSubmit, busy }: { open: boolean; onClose:
         </SelectField>
         <Field label={s.expiresAt} type="datetime-local" required value={g.expiresAt} onChange={(e) => setG({ ...g, expiresAt: e.target.value })} />
         <Field label={s.reason} required minLength={3} maxLength={500} value={g.reason} onChange={(e) => setG({ ...g, reason: e.target.value })} />
+        {error && <Notice tone="danger">{error}</Notice>}
       </form>
     </Sheet>
   );

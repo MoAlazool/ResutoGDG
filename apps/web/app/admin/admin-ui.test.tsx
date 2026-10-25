@@ -20,6 +20,7 @@ const h = vi.hoisted(() => ({
   routes: {} as Record<string, unknown>,
   calls: [] as string[],
   scope: 'u0',
+  token: 'tok',
 }));
 vi.mock('next/navigation', () => ({
   usePathname: () => h.pathname,
@@ -37,7 +38,7 @@ vi.mock('@/lib/session', () => {
     return typeof v === 'function' ? (v as (p: string) => unknown)(path) : v;
   };
   const session = {
-    ready: true, tokenReady: true, token: 'tok', get scope() { return h.scope; }, meError: null,
+    ready: true, tokenReady: true, get token() { return h.token; }, get scope() { return h.scope; }, meError: null,
     me: { user: { id: 'u1', email: 'ops@resuto.test', fullName: 'Mona Adel' }, memberships: [] },
     call, signOut: vi.fn(async () => undefined),
   };
@@ -61,7 +62,7 @@ const render = async (locale: 'en' | 'ar', node: ReactNode) => {
   return v;
 };
 
-afterEach(() => { document.body.innerHTML = ''; h.routes = {}; h.calls = []; h.pathname = '/admin'; h.search = new URLSearchParams(); });
+afterEach(() => { document.body.innerHTML = ''; h.routes = {}; h.calls = []; h.pathname = '/admin'; h.search = new URLSearchParams(); h.token = 'tok'; });
 
 const tenant = (i: number, over: Partial<AdminTenantRow> = {}): AdminTenantRow => ({
   id: `00000000-0000-4000-8000-00000000000${i}`, slug: `olive-${i}`, name: `Olive ${i}`, nameAr: `زيتون ${i}`, country: 'EG', status: 'active',
@@ -122,6 +123,28 @@ describe('console shell', () => {
     await act(async () => { retry.click(); });
     await flush();
     expect(v.host.querySelector('#child')).not.toBeNull();
+    v.unmount();
+  });
+  it('a token refresh re-checks the role without unmounting the page; a transient failure keeps the console', async () => {
+    h.routes = { '/admin/me': { userId: 'u1', role: 'superadmin' } };
+    const node = <div id="page"><input id="draft" defaultValue="" /></div>;
+    const v = await render('en', node);
+    const draft = v.host.querySelector<HTMLInputElement>('#draft')!;
+    draft.value = 'half-typed reason';
+    h.routes = { '/admin/me': new ApiRequestError(503, 'unavailable', 'Down') };
+    h.token = 'tok-refreshed';
+    v.rerender(inLocale('en', <AdminShell strings={ADMIN_STRINGS.en}>{node}</AdminShell>));
+    await flush();
+    expect(h.calls.filter((c) => c === '/admin/me')).toHaveLength(2);
+    expect(v.host.querySelector('#draft')).toBe(draft);
+    expect(draft.value).toBe('half-typed reason');
+    // Only the API's refusal ends access.
+    h.routes = { '/admin/me': new ApiRequestError(403, 'forbidden', 'Platform administrators only') };
+    h.token = 'tok-3';
+    v.rerender(inLocale('en', <AdminShell strings={ADMIN_STRINGS.en}>{node}</AdminShell>));
+    await flush();
+    expect(v.host.querySelector('#draft')).toBeNull();
+    expect(v.host.textContent).toContain('Platform administrators only.');
     v.unmount();
   });
 });

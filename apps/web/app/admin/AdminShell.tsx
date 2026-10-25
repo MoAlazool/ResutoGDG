@@ -3,9 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { PLATFORM_ROLE_CAPABILITIES, type PlatformRole } from '@resuto/contracts';
-import { ErrorState, ProfileButton, RestaurantChip, SkeletonBlock, Topbar, Wordmark, initialOf, type MenuItem } from '@resuto/ui';
-import { LazyMenu as Menu } from '@/components/shell/LazyMenu';
-import { UiIcon } from '@/components/shell/shell-icons';
+import { ErrorState, Menu, ProfileButton, RestaurantChip, SkeletonBlock, Topbar, Wordmark, initialOf, type MenuItem } from '@resuto/ui';
 import { ApiRequestError } from '@/lib/api';
 import { LanguageToggle, setLocale, useT } from '@/lib/i18n/client';
 import { useSession } from '@/lib/session';
@@ -49,15 +47,18 @@ export function AdminShell({ strings: s, children }: { strings: AdminStrings; ch
   useEffect(() => { setCollapsed(readCollapsed()); }, []);
   const toggleCollapsed = () => setCollapsed((c) => { writeCollapsed(!c); return !c; });
 
+  // Re-checked when the token changes (a refresh): the console stays mounted meanwhile, and a transient failure keeps a
+  // role that was already confirmed (only the API's refusal ends the session's access to the console).
   const check = useCallback(async () => {
-    setGate({ state: 'checking' });
+    setGate((g) => (g.state === 'failed' ? { state: 'checking' } : g));
     try {
       const r = await session.call<{ role: PlatformRole }>('/admin/me');
-      setGate({ state: 'ok', role: r.role });
+      setGate((g) => (g.state === 'ok' && g.role === r.role ? g : { state: 'ok', role: r.role }));
     } catch (e) {
       const err = e instanceof ApiRequestError ? e : new ApiRequestError(0, 'unexpected', (e as Error)?.message ?? String(e));
       if (err.kind === 'unauthorized' || err.kind === 'aborted') return; // the session sends signed-out visitors to /login
-      setGate(err.kind === 'forbidden' || err.kind === 'not_found' ? { state: 'denied' } : { state: 'failed', error: err });
+      if (err.kind === 'forbidden' || err.kind === 'not_found') setGate({ state: 'denied' });
+      else setGate((g) => (g.state === 'ok' ? g : { state: 'failed', error: err }));
     }
   }, [session.call]);
   useEffect(() => {
@@ -77,6 +78,7 @@ export function AdminShell({ strings: s, children }: { strings: AdminStrings; ch
           <div className="row">
             <Link className="btn btn-primary" href="/">{s.backToApp}</Link>
             <button type="button" className="btn btn-ghost" onClick={() => void signOut()}>{t('shell.signOutAction')}</button>
+            <LanguageToggle className="ws-lang-btn" label={t('lang.short')} />
           </div>
         </div>
       </main>
@@ -127,7 +129,7 @@ export function AdminShell({ strings: s, children }: { strings: AdminStrings; ch
               <Link href="/admin" className="ws-brand" aria-label={s.console}><Wordmark label={s.console} size={collapsed ? 'sm' : 'md'} /></Link>
               <button type="button" className="ws-icon-btn ws-collapse" onClick={toggleCollapsed} aria-pressed={collapsed}
                 aria-label={collapsed ? t('shell.expand') : t('shell.collapse')} title={collapsed ? t('shell.expand') : t('shell.collapse')}>
-                <UiIcon name={collapsed ? 'expand' : 'collapse'} />
+                <AdminIcon name={collapsed ? 'expand' : 'collapse'} />
               </button>
             </div>
             <RestaurantChip name={s.operatorConsole} initial="R" branch={roleText} busy={!role} />
