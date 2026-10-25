@@ -61,7 +61,7 @@ struct CartView: View {
             .sheet(item: $editing) { value in ProductView(product: value.product, editingIndex: value.id) }
             .sheet(isPresented: $customer) { CustomerPicker() }
             .sheet(isPresented: $review) {
-                NavigationStack {
+                ResutoNavigationStack {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
                             ResutoCard {
@@ -73,7 +73,7 @@ struct CartView: View {
                                         HStack { Text("\(line.quantity) ×").monospacedDigit(); Text(l.name(item?.name ?? "", item?.nameAr)); Spacer() }
                                     }
                                     Divider()
-                                    if let estimate = m.estimate { HStack { Text(l.text("item_estimate")); Spacer(); Text(Money.text(estimate, currency: m.menu?.currency ?? "")).font(.title2.bold().monospacedDigit()) } }
+                                    if let estimate = m.estimate { HStack { Text(l.text("item_estimate")).accessibilityIdentifier("review.estimateLabel"); Spacer(); Text(Money.text(estimate, currency: m.menu?.currency ?? "")).font(.title2.bold().monospacedDigit()).accessibilityIdentifier("review.estimateAmount") } }
                                 }
                             }
                             Label(l.text("server_total_notice"), systemImage: "checkmark.shield").font(.body)

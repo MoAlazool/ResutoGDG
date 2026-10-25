@@ -20,7 +20,7 @@ struct ProductView: View {
         return try? CartRules.estimate(StaffOrder(branchId: branch.id, fulfillment: "pickup", lines: [line]), menu: menu)
     }
     var body: some View {
-        NavigationStack {
+        ResutoNavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     ResutoCard {
@@ -28,7 +28,7 @@ struct ProductView: View {
                             Text(l.name(product.name, product.nameAr)).font(.title2.bold())
                             Text(Money.text(product.price(branch: m.branch?.id ?? ""), currency: product.currency)).font(.title3.weight(.semibold).monospacedDigit()).foregroundStyle(Design.accent)
                             if let description = l.arabic ? product.descriptionAr ?? product.description : product.description { Text(description).font(.body).fixedSize(horizontal: false, vertical: true) }
-                            if !product.allergens.isEmpty { Label(l.text("allergens") + ": " + product.allergens.joined(separator: ", "), systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.primary) }
+                            if !product.allergens.isEmpty { Label(l.text("allergens") + ": " + product.allergens.map(l.allergen).joined(separator: ", "), systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.primary) }
                         }
                     }
                     ResutoCard { Stepper("\(l.text("quantity")): \(quantity)", value: $quantity, in: 1...99).font(.headline).monospacedDigit().frame(minHeight: 48) }
@@ -75,7 +75,7 @@ struct ProductView: View {
                     }.buttonStyle(PrimaryActionStyle()).disabled(!valid).accessibilityIdentifier("product.add")
                 }.padding(20).modifier(ActionChrome())
             }.navigationTitle(l.text("customize")).navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(l.text("cancel")) { dismiss() } } }
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button(l.text("cancel")) { dismiss() }.accessibilityIdentifier("product.cancel") } }
         }.onAppear {
             if let index = editingIndex, m.cart.indices.contains(index) { let line = m.cart[index]; selections = Set(line.modifiers); notes = line.notes ?? ""; quantity = line.quantity; return }
             selections = Set(groups.flatMap { group in group.options.filter { $0.isDefault && $0.isAvailable }.prefix(group.maxSelect).map { ModifierSelection(groupId: group.id, optionId: $0.id) } })

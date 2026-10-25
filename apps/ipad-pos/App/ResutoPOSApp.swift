@@ -112,7 +112,7 @@ struct ConfigurationView: View {
     @State private var supabase = ""
     @State private var key = ""
     var body: some View {
-        NavigationStack {
+        ResutoNavigationStack {
             Form {
                 Text(l.text("configuration_required"))
                 TextField(l.text("api_url"), text: $api).accessibilityIdentifier("apiURL")
@@ -132,7 +132,7 @@ struct WorkspaceSelection: View {
     @EnvironmentObject var m: POSModel
     @EnvironmentObject var l: Language
     var body: some View {
-        NavigationStack {
+        ResutoNavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     VStack(alignment: .leading, spacing: 10) {
@@ -199,7 +199,7 @@ struct WorkspaceView: View {
                 }
             }.navigationTitle(l.text("app")).navigationSplitViewColumnWidth(min: 220, ideal: 248, max: 280).accessibilityIdentifier("workspace.sidebar")
         } detail: {
-            NavigationStack {
+            ResutoNavigationStack {
                 Group {
                     switch selected ?? .pos {
                     case .pos: MenuView(chooseTable: { selected = .floor })

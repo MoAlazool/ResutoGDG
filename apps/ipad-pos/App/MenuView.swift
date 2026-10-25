@@ -27,7 +27,7 @@ struct MenuView: View {
             } else { EmptyState(key: "empty_menu", symbol: "menucard") }
         }.background(Design.canvas).sheet(item: $product) { ProductView(product: $0) }
             .sheet(isPresented: $cartOpen) {
-                NavigationStack { CartView(chooseTable: { cartOpen = false; chooseTable() }).navigationTitle(l.text("cart")).toolbar { Button(l.text("done")) { cartOpen = false } } }
+                ResutoNavigationStack { CartView(chooseTable: { cartOpen = false; chooseTable() }).navigationTitle(l.text("cart")).toolbar { Button(l.text("done")) { cartOpen = false } } }
             }
     }
     private func catalogue(_ menu: Menu) -> some View {

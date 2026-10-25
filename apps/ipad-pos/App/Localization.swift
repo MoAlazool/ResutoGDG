@@ -5,8 +5,24 @@ import SwiftUI
     func name(_ en: String, _ ar: String?) -> String { arabic ? (ar?.isEmpty == false ? ar! : en) : en }
     func text(_ key: String) -> String { Self.text(key,arabic:arabic) }
     static func text(_ key: String,arabic: Bool) -> String { arabic ? (Self.ar[key] ?? key) : (Self.en[key] ?? key.replacingOccurrences(of: "_", with: " ").capitalized) }
+    // Backend allergens are free text. Translate recognized catalogue tokens only;
+    // preserve unknown descriptions rather than guessing or dropping safety information.
+    func allergen(_ value: String) -> String {
+        let key = "allergen_" + value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return Self.en[key] == nil ? value : text(key)
+    }
     func failureText(_ key: String) -> String { text(Self.en[key] == nil ? "request_failed" : key) }
     static let en: [String: String] = [
+        "allergen_milk": "Milk",
+        "allergen_eggs": "Eggs",
+        "allergen_peanuts": "Peanuts",
+        "allergen_gluten": "Gluten",
+        "allergen_soy": "Soy",
+        "allergen_fish": "Fish",
+        "allergen_sesame": "Sesame",
+        "allergen_shellfish": "Shellfish",
+        "allergen_nuts": "Nuts",
+
         "choose_workspace": "Choose your workspace",
         "workspace_notice": "Select the restaurant and branch for this service. Only your authorized workspaces are shown.",
 
@@ -226,6 +242,16 @@ import SwiftUI
         "welcome_detail": "One workspace for every service.",
     ]
     static let ar: [String: String] = [
+        "allergen_milk": "الحليب",
+        "allergen_eggs": "البيض",
+        "allergen_peanuts": "الفول السوداني",
+        "allergen_gluten": "الغلوتين",
+        "allergen_soy": "الصويا",
+        "allergen_fish": "الأسماك",
+        "allergen_sesame": "السمسم",
+        "allergen_shellfish": "المحار",
+        "allergen_nuts": "المكسرات",
+
         "choose_workspace": "اختر مساحة العمل",
         "workspace_notice": "اختر المطعم والفرع لهذه الوردية. تظهر فقط مساحات العمل المصرح لك بها.",
 

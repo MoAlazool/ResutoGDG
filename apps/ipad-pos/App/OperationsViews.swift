@@ -78,7 +78,7 @@ struct FloorView: View {
                 }
             } else { EmptyState(key: "empty_floor", symbol: "table.furniture") }
         }.sheet(item: $selected) { table in
-            NavigationStack {
+            ResutoNavigationStack {
                 Form {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("\(l.text("table")) \(table.label)").font(.largeTitle.bold())
@@ -223,7 +223,7 @@ struct SyncView: View {
                 }.padding(.vertical, 14)
             }
         }.sheet(item: $reviewing) { operation in
-            NavigationStack {
+            ResutoNavigationStack {
                 Form {
                     Section(l.text("price_review")) {
                         ForEach(Array(operation.payload.lines.enumerated()), id: \.offset) { _, line in
@@ -254,7 +254,7 @@ struct OrderView: View {
     @State private var refundPayment: OrderDetail.Payment?
     private var current: OrderDetail { m.detail ?? order }
     var body: some View {
-        NavigationStack {
+        ResutoNavigationStack {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: 16) {
@@ -365,7 +365,7 @@ struct RefundView: View {
     @State private var reason = ""
     @State private var confirm = false
     var body: some View {
-        NavigationStack {
+        ResutoNavigationStack {
             Form {
                 Text(l.text("refund_notice"))
                 TextField(l.text("amount"), text: $amount).keyboardType(.decimalPad).environment(\.layoutDirection,.leftToRight).accessibilityIdentifier("refund.amount")

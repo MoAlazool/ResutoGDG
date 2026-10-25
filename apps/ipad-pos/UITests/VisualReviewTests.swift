@@ -95,7 +95,16 @@ final class VisualReviewTests: XCTestCase {
     }
     func testArabicOrderingScreens() throws {
         let app=try launch(arabic:true)
-        try capture(app,"03-menu-ar");tap(app,"product."+item);try capture(app,"04-customization-ar");tap(app,"product.add")
-        try capture(app,"05-cart-ar");tap(app,"cart.review");try capture(app,"06-review-ar")
+        try capture(app,"03-menu-ar");tap(app,"product."+item)
+        let cancel=app.buttons["product.cancel"];XCTAssertTrue(cancel.waitForExistence(timeout:10))
+        XCTAssertGreaterThan(cancel.frame.midX,app.frame.midX,"Arabic sheet cancellation belongs on the trailing physical right")
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format:"label CONTAINS %@","الحليب")).firstMatch.exists)
+        try capture(app,"04-customization-ar");tap(app,"product.add")
+        try capture(app,"05-cart-ar");tap(app,"cart.review")
+        let label=app.staticTexts["review.estimateLabel"],amount=app.staticTexts["review.estimateAmount"]
+        XCTAssertTrue(label.waitForExistence(timeout:10));XCTAssertTrue(amount.exists)
+        XCTAssertGreaterThan(label.frame.midX,amount.frame.midX,"Arabic recap leading label must be to the right of the amount")
+        XCTAssertTrue(amount.label.contains("91.50"),"Arabic presentation preserves Western money digits")
+        try capture(app,"06-review-ar")
     }
 }

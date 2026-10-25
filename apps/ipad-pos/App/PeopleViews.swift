@@ -9,7 +9,7 @@ struct CustomerPicker: View {
     @State private var loading = false
     @State private var issue: String?
     var body: some View {
-        NavigationStack {
+        ResutoNavigationStack {
             List {
                 if loading { ProgressView() }
                 if let issue { Text(l.failureText(issue)).foregroundStyle(.orange) }
@@ -58,7 +58,7 @@ struct ReservationsView: View {
         }.environment(\.timeZone,BusinessDate.timezone(branch:m.branch?.timezone,restaurant:m.restaurant?.timezone))
             .task(id: date) { await m.perform { try await m.loadReservations(date: date) } }
             .sheet(item: $selected) { reservation in
-                NavigationStack {
+                ResutoNavigationStack {
                     Form {
                         Text(reservation.guestName).font(.title2)
                         Picker(l.text("table"), selection: $table) {

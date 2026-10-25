@@ -49,3 +49,17 @@ struct ActionChrome: ViewModifier {
             .overlay(alignment: .top) { Rectangle().fill(Design.border).frame(height: 1) }
     }
 }
+
+/// Presentations establish new navigation environments. Reapply the staff-selected
+/// language inside each stack as well as at its boundary, including runtime switches.
+struct ResutoNavigationStack<Content: View>: View {
+    @EnvironmentObject private var language: Language
+    @ViewBuilder var content: () -> Content
+    private var direction: LayoutDirection { language.arabic ? .rightToLeft : .leftToRight }
+    private var locale: Locale { Locale(identifier: language.arabic ? "ar-u-nu-latn" : "en") }
+    var body: some View {
+        NavigationStack {
+            content().environment(\.layoutDirection, direction).environment(\.locale, locale)
+        }.environment(\.layoutDirection, direction).environment(\.locale, locale)
+    }
+}

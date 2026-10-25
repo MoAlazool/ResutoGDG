@@ -8,10 +8,13 @@ struct SettingsView: View {
     @AppStorage("printerWidth") private var width = 576
     @State private var confirm: PrintJob?
     @State private var financialRecovery = false
+    private var staffLabel: String {
+        [m.me?.user.fullName, m.me?.user.email].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }.first { !$0.isEmpty } ?? l.text("staff")
+    }
     var body: some View {
         Form {
             Section(l.text("staff")) {
-                Label(m.me?.user.fullName ?? m.me?.user.email ?? "", systemImage: "person.crop.circle").font(.headline)
+                Label(staffLabel, systemImage: "person.crop.circle").font(.headline)
                 Text(l.text("role_" + (m.membership?.role ?? ""))).foregroundStyle(.secondary)
                 Toggle("العربية / English", isOn: $l.arabic)
                 Button(l.text("change_workspace")) { Task { await m.perform { try await m.changeWorkspace() } } }.disabled(!m.reachable)
