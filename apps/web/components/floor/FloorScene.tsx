@@ -44,11 +44,11 @@ const stateName = (s: string | undefined) => String(s || 'available').replace(/[
 export function SceneDefs() {
   return (
     <defs>
-      <pattern id="material-wood" width="36" height="22" patternUnits="userSpaceOnUse"><path d="M0 1H36M18 1V22" stroke="#735936" opacity=".25" /></pattern>
-      <pattern id="material-garden" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="6" cy="6" r="2" fill="#335e32" /></pattern>
-      <pattern id="floor-grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#31554a" strokeOpacity=".11" strokeWidth="1" /></pattern>
-      <filter id="soft-shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="4" floodColor="#173f36" floodOpacity=".16" /></filter>
-      <filter id="tiny-shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#173f36" floodOpacity=".17" /></filter>
+      <pattern id="material-wood" width="36" height="22" patternUnits="userSpaceOnUse"><path className="floor-wood-grain" d="M0 1H36M18 1V22" opacity=".25" /></pattern>
+      <pattern id="material-garden" width="24" height="24" patternUnits="userSpaceOnUse"><circle className="floor-garden-dot" cx="6" cy="6" r="2" /></pattern>
+      <pattern id="floor-grid" width="20" height="20" patternUnits="userSpaceOnUse"><path className="floor-grid-line" d="M20 0H0V20" fill="none" strokeOpacity=".11" strokeWidth="1" /></pattern>
+      <filter id="soft-shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="4" className="floor-shadow-flood" floodOpacity=".16" /></filter>
+      <filter id="tiny-shadow" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="2" stdDeviation="2" className="floor-shadow-flood" floodOpacity=".17" /></filter>
     </defs>
   );
 }
@@ -125,7 +125,7 @@ function ObjectDrawing({ o, labelOf }: { o: FloorObject; labelOf: (s: string) =>
     case 'zone':
       return (
         <>
-          <rect className="zone-surface" x={-w / 2} y={-h / 2} width={w} height={h} rx="28" style={{ ['--zone-color' as string]: o.color ?? '#edf1e8' }} />
+          <rect className="zone-surface" x={-w / 2} y={-h / 2} width={w} height={h} rx="28" style={o.color ? { ['--zone-color' as string]: o.color } : undefined} />
           {o.material && o.material !== 'stone' && <rect className={`material-${o.material}`} x={-w / 2} y={-h / 2} width={w} height={h} rx="28" pointerEvents="none" />}
           <ZoneLabel label={label} w={w} h={h} />
         </>

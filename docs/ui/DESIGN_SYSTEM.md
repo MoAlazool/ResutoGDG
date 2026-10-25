@@ -23,7 +23,8 @@ Plan reference: `docs/plans/RESUTO_2_1_PLAN.md` §4.
 | `semantic` | `:root, [data-theme='light']` | Roles: surfaces, text, borders, accent, focus, status, charts, elevation | **Yes** |
 | `dark` | `[data-theme='dark']` | The same roles for the dark theme | Automatic |
 | `alias` | `:root, [data-theme]` | Every pre-2.1 name (`--ink`, `--muted`, `--card`, `--line`, `--nav-text` …) mapped onto a semantic token or primitive step | Existing code only; migrate to semantic names |
-| `component` | `:root, [data-theme]` | Domain palettes that are not roles: floor table states (`--state-*`, `--zone-*`), landing identity lines, sign-in panel (`--login-*`), code blocks, shell metrics, font stacks | Their own surfaces |
+| `component` | `:root, [data-theme]` | Domain palettes that are not roles: floor table states (`--state-*`, `--zone-*`), floor scene materials (`--floor-*`) and Floor Studio chrome (`--floor-ui-*`), toasts (`--toast-*`), the digital receipt (`--receipt-*`), the driver header, landing identity lines, sign-in panel (`--login-*`), code blocks, shell metrics, font stacks | Their own surfaces |
+| `component-dark` | `[data-theme='dark']` (after `component`) | Dark values of the component tokens that sit in staff screens (Floor Studio and live-floor chrome onto the semantic dark roles, the toast surface). Floor scene materials stay theme-invariant, like a printed map | Automatic |
 | `ar` | `html[lang='ar'], [lang='ar']` | Arabic type adjustments | Automatic |
 
 Aliases and component tokens are re-declared on every `[data-theme]` element: custom properties inherit computed values, so

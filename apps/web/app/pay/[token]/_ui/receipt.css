@@ -1,10 +1,10 @@
 /* Digital receipt — paper-inspired, mobile-first, grows with its content. */
-:root{--receipt-paper:#fffefb;--receipt-ink:#233b31;--receipt-faint:#8e968f;--receipt-line:#e3e6df;--receipt-tooth:11px;
+:root{--receipt-tooth:11px;
  /* Scalloped top and bottom, straight sides — the paper keeps this shape at any height. */
  --receipt-mask:
-  radial-gradient(circle at 50% 0,transparent var(--receipt-tooth),#000 calc(var(--receipt-tooth) + .5px)) 50% 0/calc(var(--receipt-tooth)*2) var(--receipt-tooth) repeat-x,
-  radial-gradient(circle at 50% 100%,transparent var(--receipt-tooth),#000 calc(var(--receipt-tooth) + .5px)) 50% 100%/calc(var(--receipt-tooth)*2) var(--receipt-tooth) repeat-x,
-  linear-gradient(#000,#000) 50% 50%/100% calc(100% - var(--receipt-tooth)*2) no-repeat}
+  radial-gradient(circle at 50% 0,transparent var(--receipt-tooth),black calc(var(--receipt-tooth) + .5px)) 50% 0/calc(var(--receipt-tooth)*2) var(--receipt-tooth) repeat-x,
+  radial-gradient(circle at 50% 100%,transparent var(--receipt-tooth),black calc(var(--receipt-tooth) + .5px)) 50% 100%/calc(var(--receipt-tooth)*2) var(--receipt-tooth) repeat-x,
+  linear-gradient(black,black) 50% 50%/100% calc(100% - var(--receipt-tooth)*2) no-repeat}
 
 .receipt-stage{display:flex;flex-direction:column;align-items:center;gap:20px;padding:8px 0 max(28px,env(safe-area-inset-bottom));width:100%}
 
@@ -38,7 +38,7 @@
 .receipt-title{font-family:ui-monospace,SFMono-Regular,Menlo,"Courier New",monospace;font-size:23px;font-weight:600;
  letter-spacing:.28em;text-transform:uppercase;margin:0 0 10px;padding-inline-start:.28em;color:var(--receipt-ink)}
 .receipt-stamp{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:11.5px;font-weight:600;letter-spacing:.04em;
- color:#4c7a52;background:#eef5e9;border-radius:999px;padding:5px 12px}
+ color:var(--receipt-ok);background:var(--receipt-ok-bg);border-radius:999px;padding:5px 12px}
 
 .receipt-venue{text-align:center;margin:18px 0 0;display:flex;flex-direction:column;gap:4px}
 .receipt-venue strong{font-size:14px;font-weight:600}
@@ -46,7 +46,7 @@
 
 /* ---- rules ----------------------------------------------------------- */
 .receipt-rule{height:1px;margin:16px 0;background:var(--receipt-line)}
-.receipt-rule.dotted{background:none;border-top:1.5px dotted #cfd5cd}
+.receipt-rule.dotted{background:none;border-top:1.5px dotted var(--receipt-dots)}
 
 /* ---- metadata -------------------------------------------------------- */
 .receipt-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px;margin:0}
@@ -54,7 +54,7 @@
 .receipt-meta dt{font-size:9.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--receipt-faint);margin-bottom:3px}
 .receipt-meta dd{margin:0;font-size:12.5px;font-weight:550;overflow-wrap:anywhere}
 .receipt-payment dd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;font-weight:500}
-.receipt-paid-flag{color:#4c7a52;font-weight:700!important;letter-spacing:.06em}
+.receipt-paid-flag{color:var(--receipt-ok);font-weight:700!important;letter-spacing:.06em}
 
 /* ---- items ----------------------------------------------------------- */
 .receipt-items{display:flex;flex-direction:column;gap:12px}
@@ -67,29 +67,29 @@
 
 /* ---- totals ---------------------------------------------------------- */
 .receipt-totals{display:flex;flex-direction:column;gap:10px}
-.receipt-amount{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:12.5px;color:#5f6d63}
+.receipt-amount{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:12.5px;color:var(--receipt-muted)}
 .receipt-amount b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;white-space:nowrap;color:var(--receipt-ink)}
-.receipt-credit b{color:#4c7a52}
+.receipt-credit b{color:var(--receipt-ok)}
 .receipt-grand{margin-top:4px;padding-top:12px;border-top:1.5px solid var(--receipt-ink);font-size:12px;
  text-transform:uppercase;letter-spacing:.11em;font-weight:700;color:var(--receipt-ink)}
 .receipt-grand b{font-size:19px;letter-spacing:0}
-.receipt-paid b{color:#4c7a52}
-.receipt-due b{color:#a9663f}
-.receipt-settled{margin:12px 0 0;text-align:center;font-size:11.5px;font-weight:600;color:#4c7a52}
+.receipt-paid b{color:var(--receipt-ok)}
+.receipt-due b{color:var(--receipt-due)}
+.receipt-settled{margin:12px 0 0;text-align:center;font-size:11.5px;font-weight:600;color:var(--receipt-ok)}
 .receipt-note{margin:12px 0 0;font-size:10.5px;line-height:1.6;color:var(--receipt-faint);text-align:center}
 
 /* ---- footer / barcode ------------------------------------------------ */
 /* display/padding/font-size override the global `footer` rule in style.css. */
 .receipt-foot{display:block;text-align:center;padding:4px 0 0;font-size:inherit;color:inherit}
-.receipt-thanks{margin:0 0 16px;font-size:12.5px;color:#5f6d63}
-.receipt-thanks span{color:#c07a63}
+.receipt-thanks{margin:0 0 16px;font-size:12.5px;color:var(--receipt-muted)}
+.receipt-thanks span{color:var(--receipt-heart)}
 .receipt-barcode{display:block;width:min(100%,240px);height:52px;margin:0 auto;fill:var(--receipt-ink)}
 .receipt-code{display:block;margin-top:9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
  letter-spacing:.22em;color:var(--receipt-faint)}
 
 /* ---- success beat ---------------------------------------------------- */
-.receipt-checkmark svg{width:56px;height:56px;fill:none;stroke:#4c7a52;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
-.receipt-checkmark circle{stroke:#bcd8b6;stroke-dasharray:151;stroke-dashoffset:151;animation:receipt-ring .5s cubic-bezier(.4,0,.2,1) forwards}
+.receipt-checkmark svg{width:56px;height:56px;fill:none;stroke:var(--receipt-ok);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.receipt-checkmark circle{stroke:var(--receipt-ok-ring);stroke-dasharray:151;stroke-dashoffset:151;animation:receipt-ring .5s cubic-bezier(.4,0,.2,1) forwards}
 .receipt-checkmark path{stroke-dasharray:34;stroke-dashoffset:34;animation:receipt-tick .3s cubic-bezier(.4,0,.2,1) .35s forwards}
 @keyframes receipt-ring{to{stroke-dashoffset:0}}
 @keyframes receipt-tick{to{stroke-dashoffset:0}}
@@ -97,12 +97,12 @@
 /* ---- pending / failed ------------------------------------------------ */
 .receipt-paper.is-loading .receipt-body,.receipt-paper.is-failed .receipt-body{text-align:center;padding:34px 24px 30px}
 .receipt-pending-title{margin:16px 0 6px;font-size:14px;font-weight:600}
-.receipt-spinner{width:26px;height:26px;margin:0 auto;border-radius:50%;border:2.5px solid #dfe6dc;border-top-color:var(--ink,#163d34);animation:receipt-spin .8s linear infinite}
+.receipt-spinner{width:26px;height:26px;margin:0 auto;border-radius:50%;border:2.5px solid var(--receipt-spinner-track);border-top-color:var(--ink);animation:receipt-spin .8s linear infinite}
 @keyframes receipt-spin{to{transform:rotate(360deg)}}
 .receipt-failed-mark{width:40px;height:40px;margin:0 auto;display:grid;place-items:center;border-radius:50%;
- background:#f7ece7;color:#a9663f;font-size:21px;font-weight:700}
+ background:var(--receipt-due-bg);color:var(--receipt-due);font-size:21px;font-weight:700}
 .receipt-skeleton{display:flex;flex-direction:column;gap:11px;margin-top:26px}
-.receipt-skeleton span{height:9px;border-radius:4px;background:linear-gradient(90deg,#eef0ec 25%,#f7f8f5 50%,#eef0ec 75%) 0/300% 100%;
+.receipt-skeleton span{height:9px;border-radius:4px;background:linear-gradient(90deg,var(--receipt-skeleton) 25%,var(--receipt-skeleton-shine) 50%,var(--receipt-skeleton) 75%) 0/300% 100%;
  animation:receipt-shimmer 1.4s ease-in-out infinite}
 .receipt-skeleton span:nth-child(2n){width:72%}
 .receipt-skeleton span:nth-child(3n){width:88%}
@@ -114,17 +114,17 @@
 .receipt-action.is-primary:hover{background:var(--brand-ink-3)}
 .receipt-actions-primary{flex-direction:column;gap:8px}
 .receipt-action{flex:1;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
- background:#fff;border:1px solid #dde3dc;border-radius:9px;color:#43554a;font-size:13px;font-weight:550;
+ background:var(--receipt-card);border:1px solid var(--receipt-action-line);border-radius:9px;color:var(--receipt-action-text);font-size:13px;font-weight:550;
  padding:0 12px;transition:background .15s,transform .15s}
-.receipt-action:hover{background:#f4f7f2}
+.receipt-action:hover{background:var(--receipt-action-hover)}
 .receipt-action:active{transform:scale(.97)}
 .receipt-actions-primary .primary{margin-top:0;min-height:48px}
 
 /* ---- receipt history entry points ------------------------------------ */
 .receipt-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
 .receipt-list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:start;
- background:#fff;border:1px solid var(--receipt-line);border-radius:10px;padding:14px 16px;min-height:48px}
-.receipt-list-item:hover{background:#f7f9f5}
+ background:var(--receipt-card);border:1px solid var(--receipt-line);border-radius:10px;padding:14px 16px;min-height:48px}
+.receipt-list-item:hover{background:var(--receipt-item-hover)}
 .receipt-list-item strong{font-size:13px;font-weight:600;display:block}
 .receipt-list-item small{font-size:11px;color:var(--receipt-faint);display:block;margin-top:3px}
 .receipt-list-item b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;white-space:nowrap}
@@ -173,7 +173,7 @@
 
 /* Guest payment pages (pay, share, table bill) */
 .pay-page{min-height:60dvh;padding:8px 16px 48px;display:flex;flex-direction:column;align-items:center}
-.pay-card{width:100%;max-width:440px;background:#fff;border-radius:var(--radius-lg);padding:24px 20px;box-shadow:0 20px 80px #243b3410}
+.pay-card{width:100%;max-width:440px;background:var(--receipt-card);border-radius:var(--radius-lg);padding:24px 20px;box-shadow:0 20px 80px var(--receipt-card-shadow)}
 .pay-card+.pay-card{margin-top:14px}
 .pay-head{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;max-width:440px;margin-bottom:14px}
 .pay-head strong{font-size:15px;color:var(--brand-ink)}
@@ -181,8 +181,8 @@
 .pay-lines{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px;font-size:14px}
 .pay-lines li{display:flex;justify-content:space-between;gap:12px}
 .pay-lines li span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
-.pay-method{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;min-height:52px;background:#fff}
-.pay-method[aria-checked=true]{border-color:var(--ink);box-shadow:0 0 0 2px #163d3422}
+.pay-method{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;min-height:52px;background:var(--receipt-card)}
+.pay-method[aria-checked=true]{border-color:var(--ink);box-shadow:0 0 0 2px var(--receipt-focus-ring)}
 .pay-method small{display:block;color:var(--muted);font-size:12px}
 .pay-methods{display:grid;gap:8px;margin:12px 0 16px}
 .pay-totals{display:grid;gap:6px;font-size:14px;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px}

@@ -12,7 +12,7 @@ import { checkpoint, clearDraft, draftKey, emptyHistory, loadDraft, redo as redo
 import {
   allItems, arrange, autoNumber, BACKGROUND_MAX_BYTES, BACKGROUND_TYPES, bounds, createItem, demoFloor, duplicateItems, getX, getY, isTable,
   keepsSquare, LAYOUT_HEIGHT, LAYOUT_WIDTH, layoutErrors, normalizeLayout, normalizeRotation, overlaps, put, quantize, resizeFromPointer,
-  rotationFromPointer, sameLayout, TABLE_FEATURES, toSaveBody, type AddKind, type ArrangeAction, type FloorItem, type FloorLayout,
+  rotationFromPointer, sameLayout, TABLE_FEATURES, toSaveBody, ZONE_COLOR_DEFAULT, type AddKind, type ArrangeAction, type FloorItem, type FloorLayout,
   type FloorObject, type FloorTable, type LayoutError,
 } from './model';
 import { useFloorLabels } from './use-floor-labels';
@@ -788,8 +788,8 @@ function PropertiesForm({ o, layout, currency, t, disabled, liveEdit, onZoneRena
               onValue={(n) => liveEdit('minSpend', (x) => { if (isTable(x)) x.minSpendMinor = n > 0 ? Math.round(n * 100) : null; })} />
             <label className="check"><input type="checkbox" checked={table.premium} disabled={disabled} onChange={(e) => liveEdit('premium', (x) => { if (isTable(x)) x.premium = e.target.checked; })} />{t('studio.floor.premium')}</label>
             <label className="check"><input type="checkbox" checked={table.reservable} disabled={disabled} onChange={(e) => liveEdit('reservable', (x) => { if (isTable(x)) x.reservable = e.target.checked; })} />{t('studio.floor.reservable')}</label>
-            <fieldset style={{ border: 0, padding: 0, margin: '8px 0' }}>
-              <legend style={{ fontSize: 12, color: '#6e7f67', marginBlockEnd: 8 }}>{t('studio.floor.features')}</legend>
+            <fieldset className="floor-features">
+              <legend>{t('studio.floor.features')}</legend>
               {TABLE_FEATURES.map((f) => (
                 <label key={f} className="check">
                   <input type="checkbox" checked={table.features.includes(f)} disabled={disabled}
@@ -816,7 +816,7 @@ function PropertiesForm({ o, layout, currency, t, disabled, liveEdit, onZoneRena
           <NumberInput label={t('studio.floor.rotation')} value={o.rotation} min={0} max={359} disabled={disabled} onValue={(n) => liveEdit('rotation', (x) => { x.rotation = normalizeRotation(n); })} />
           {!table && (o as FloorObject).type === 'zone' && (
             <>
-              <label>{t('studio.floor.zoneColor')}<input type="color" value={(o as FloorObject).color ?? '#e7efdc'} disabled={disabled} onChange={(e) => liveEdit('color', (x) => { (x as FloorObject).color = e.target.value; })} /></label>
+              <label>{t('studio.floor.zoneColor')}<input type="color" value={(o as FloorObject).color ?? ZONE_COLOR_DEFAULT} disabled={disabled} onChange={(e) => liveEdit('color', (x) => { (x as FloorObject).color = e.target.value; })} /></label>
               <label>{t('studio.floor.material')}
                 <select value={(o as FloorObject).material ?? 'stone'} disabled={disabled} onChange={(e) => liveEdit('material', (x) => { (x as FloorObject).material = e.target.value as FloorObject['material']; })}>
                   {(['stone', 'wood', 'garden'] as const).map((m) => <option key={m} value={m}>{t(`studio.floor.material.${m}`)}</option>)}

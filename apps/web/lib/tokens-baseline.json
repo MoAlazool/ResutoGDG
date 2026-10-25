@@ -3,18 +3,12 @@
  "files": {
   "apps/web/app/dashboard/[orgId]/compliance/_components/FiscalDocuments.tsx": 1,
   "apps/web/app/dashboard/[orgId]/compliance/compliance.module.css": 3,
-  "apps/web/app/driver/driver.module.css": 14,
   "apps/web/app/driver/layout.tsx": 1,
   "apps/web/app/layout.tsx": 1,
   "apps/web/app/o/[token]/OrderingClient.tsx": 4,
-  "apps/web/app/pay/[token]/_ui/receipt.css": 38,
   "apps/web/app/pay/[token]/sandbox/page.tsx": 1,
   "apps/web/app/r/[slug]/_components/site.css": 84,
-  "apps/web/components/floor/floor.css": 221,
-  "apps/web/components/floor/FloorScene.tsx": 6,
-  "apps/web/components/floor/FloorStudio.tsx": 2,
-  "apps/web/components/floor/model.ts": 4,
-  "apps/web/lib/i18n/dict/platform.ts": 5,
-  "packages/ui/src/styles.tsx": 34
+  "apps/web/components/floor/model.ts": 3,
+  "apps/web/lib/i18n/dict/platform.ts": 5
  }
 }

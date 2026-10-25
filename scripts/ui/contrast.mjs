@@ -18,7 +18,7 @@ export const MIN = { text: 4.5, large: 3, ui: 3 };
 export function resolveTheme(json, theme = 'light') {
   const raw = new Map();
   for (const tier of ['primitive', 'semantic', 'alias', 'component']) for (const [k, v] of tierEntries(json, tier)) raw.set(k, v);
-  if (theme === 'dark') for (const [k, v] of tierEntries(json, 'dark')) raw.set(k, v);
+  if (theme === 'dark') for (const tier of ['dark', 'component-dark']) for (const [k, v] of tierEntries(json, tier)) raw.set(k, v);
   const out = new Map();
   const resolve = (name, stack = []) => {
     if (out.has(name)) return out.get(name);
