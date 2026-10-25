@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { PageHeader, Tabs } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { PeriodPicker, presetPeriod, type Period, InsightsPage } from '@/components/charts/insights';
+import { useUrlParam } from '@/components/ops/use-url-state';
 import { useT } from '@/lib/i18n/client';
 import { useBranchScope, useOrg } from '@/lib/org-context';
 import { CustomersPanel, MarketingPanel, OperationsPanel, ProductsPanel, SalesPanel, SustainabilityPanel } from './_parts/panels';
@@ -15,7 +16,8 @@ const TABS: Tab[] = ['sales', 'products', 'customers', 'guests', 'marketing', 'o
 export default function AnalyticsPage() {
   const { t } = useT();
   const { org } = useOrg();
-  const [tab, setTab] = useState<Tab>('sales');
+  // The tab is in the URL (?tab=guests), so the overview's "Needs attention" can link to a tab (21-HOME).
+  const [tab, setTab] = useUrlParam<Tab>('tab', 'sales', TABS);
   const [period, setPeriod] = useState<Period>(() => presetPeriod('30d', org.timezone));
   // The branch comes from the shell's branch switcher ("All branches" supported).
   const { branchId } = useBranchScope({ allowAll: true });

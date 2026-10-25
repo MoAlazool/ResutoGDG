@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
-import { analyticsPeriodQuery, paperIndicatorQuery, roiInput, uuid } from '@resuto/contracts';
+import { analyticsPeriodQuery, paperIndicatorQuery, roiInput } from '@resuto/contracts';
+import { overviewQuery, type OverviewQuery } from '@resuto/contracts/home';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, Tenant } from '../../common/auth/decorators';
@@ -8,7 +9,6 @@ import { zod } from '../../common/http/zod.pipe';
 import { AnalyticsService } from './analytics.service';
 import { ratingsSummary } from './ratings';
 
-const overviewQuery = z.object({ branchId: uuid.optional() });
 type Period = z.infer<typeof analyticsPeriodQuery>;
 
 /** Read-only analytics. Every response carries `meta { method, assumptions, dataCoverage, kind }`. */
@@ -16,10 +16,14 @@ type Period = z.infer<typeof analyticsPeriodQuery>;
 export class AnalyticsController {
   constructor(private readonly db: DbService, private readonly analytics: AnalyticsService) {}
 
+  /**
+   * The owner home: today vs the same weekday last week, live operations and low stock. With from/to (local dates) it
+   * also returns `period` (21-HOME): KPIs, the comparison chosen by `compare`, customers, acquisition and campaigns.
+   */
   @Get('overview')
   @RequirePermission('analytics:read')
-  overview(@Tenant() ctx: TenantContext, @Query(zod(overviewQuery)) q: z.infer<typeof overviewQuery>) {
-    return this.db.scoped(ctx, (tx) => this.analytics.overview(tx, ctx, q.branchId));
+  overview(@Tenant() ctx: TenantContext, @Query(zod(overviewQuery)) q: OverviewQuery) {
+    return this.db.scoped(ctx, (tx) => this.analytics.overview(tx, ctx, q));
   }
 
   @Get('summary')

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { AnalyticsMeta, AnalyticsPeriodQuery, RevenueTotals, RoiInput } from '@resuto/contracts';
+import type { AcquisitionChannel, OverviewCompare, OverviewPeriod, OverviewPeriodKpis } from '@resuto/contracts/home';
 import type { paperIndicatorQuery } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -119,6 +120,49 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+
+/** The same local dates one year earlier (29 February falls back to the 28th). */
+function lastYear(date: string): string {
+  const y = Number(date.slice(0, 4)) - 1;
+  const md = date.slice(5);
+  return md === '02-29' && !(y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? `${y}-02-28` : `${y}-${md}`;
+}
+
+/**
+ * Each identified customer's first counted order (within the branches in scope), with its local date. Params: $1 org,
+ * $2 branch scope. Shared by the customers report and the overview period.
+ */
+const FIRST_ORDERS = `firsts as (
+      select distinct on (o.customer_id) o.customer_id, o.id as order_id, o.channel::text as channel, o.attribution, o.campaign_id, o.placed_at,
+             (o.placed_at at time zone coalesce(b.timezone, org.timezone))::date as first_day
+        from orders o join branches b on b.id = o.branch_id join organizations org on org.id = o.org_id
+       where o.org_id = $1 and ($2::uuid[] is null or o.branch_id = any($2)) and o.customer_id is not null
+         and o.status not in ('cancelled', 'awaiting_payment')
+       order by o.customer_id, o.placed_at, o.id)`;
+
+const UTM_KEYS = `array['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']`;
+
+/** utm_source values (lower case) of the social and search networks the overview names; anything else is other_source. */
+const SOURCE_CHANNELS: Array<[RegExp, AcquisitionChannel]> = [
+  [/^(instagram|ig|insta)\b/, 'instagram'], [/^(facebook|fb|meta|messenger)\b/, 'facebook'], [/^tiktok\b/, 'tiktok'],
+  [/^(snapchat|snap)\b/, 'snapchat'], [/^google\b/, 'google'], [/^(whatsapp|wa)\b/, 'whatsapp'], [/^qr\b/, 'qr'],
+];
+/** First-order channel → acquisition channel when there is no recorded attribution (inferred). */
+const ORDER_CHANNEL: Record<string, AcquisitionChannel> = {
+  qr: 'qr', web: 'website', whatsapp: 'whatsapp', staff: 'in_venue', pos: 'in_venue', phone: 'phone', mcp: 'assistant',
+};
+
+/** Acquisition channel of a new customer from their first-touch evidence (see AnalyticsService.periodAcquisition). */
+export function acquisitionChannel(r: { basis: string; utm: Record<string, unknown> | null; campaign: boolean; channel: string }): { channel: AcquisitionChannel; attributed: boolean } {
+  if (r.basis !== 'first_order_channel') {
+    const utm = r.utm ?? {};
+    if (r.campaign || (typeof utm.utm_campaign === 'string' && utm.utm_campaign.trim())) return { channel: 'campaign_link', attributed: true };
+    const source = typeof utm.utm_source === 'string' ? utm.utm_source.trim().toLowerCase() : '';
+    if (source) return { channel: SOURCE_CHANNELS.find(([re]) => re.test(source))?.[1] ?? 'other_source', attributed: true };
+  }
+  // No usable attribution (or only utm_medium/content/term): the first order's channel, labelled inferred.
+  return { channel: ORDER_CHANNEL[r.channel] ?? 'other_source', attributed: false };
+}
 
 /** Deterministic analytics over tenant data. Never estimates; hypothetical results are only produced by roi(). */
 @Injectable()
@@ -299,17 +343,10 @@ export class AnalyticsService {
   // -------------------------------------------------------------------------
   // Customers: new vs returning, repeat rate, monthly retention cohorts
   // -------------------------------------------------------------------------
-  async customers(tx: Tx, ctx: TenantContext, q: AnalyticsPeriodQuery) {
-    const { scope, tz } = await this.context(tx, ctx, q.branchId);
-    const params = [ctx.orgId, scope, q.from, q.to];
-    const firstOrders = `firsts as (
-      select distinct on (o.customer_id) o.customer_id, (o.placed_at at time zone coalesce(b.timezone, org.timezone))::date as first_day
-        from orders o join branches b on b.id = o.branch_id join organizations org on org.id = o.org_id
-       where o.org_id = $1 and ($2::uuid[] is null or o.branch_id = any($2)) and o.customer_id is not null
-         and o.status not in ('cancelled', 'awaiting_payment')
-       order by o.customer_id, o.placed_at)`;
-    const agg = await tx.one(
-      `with ${SCOPED}, ${firstOrders}
+  /** New/returning/repeat customer totals of a period. Params: [$1 org, $2 branch scope, $3 from, $4 to]. */
+  private customerTotals(tx: Tx, params: unknown[]) {
+    return tx.one(
+      `with ${SCOPED}, ${FIRST_ORDERS}
        , cust as (select customer_id, count(*)::int as n, sum(total_minor - refunded_minor)::bigint as net from scoped where counted and customer_id is not null group by 1)
        select count(*)::int as customers,
               count(*) filter (where f.first_day >= $3::date)::int as new_customers,
@@ -320,6 +357,13 @@ export class AnalyticsService {
               (select count(*) from scoped where counted and customer_id is null)::int as anonymous_orders,
               (select count(*) from scoped where counted)::int as orders
          from cust c join firsts f using (customer_id)`, params);
+  }
+
+  async customers(tx: Tx, ctx: TenantContext, q: AnalyticsPeriodQuery) {
+    const { scope, tz } = await this.context(tx, ctx, q.branchId);
+    const params = [ctx.orgId, scope, q.from, q.to];
+    const firstOrders = FIRST_ORDERS;
+    const agg = await this.customerTotals(tx, params);
     // Cohorts: customers whose first counted order falls in the period, by local month; activity through the period end.
     const cohorts = await tx.query(
       `with ${firstOrders}
@@ -492,7 +536,8 @@ export class AnalyticsService {
   // -------------------------------------------------------------------------
   // Owner home overview
   // -------------------------------------------------------------------------
-  async overview(tx: Tx, ctx: TenantContext, branchId?: string) {
+  async overview(tx: Tx, ctx: TenantContext, q: { branchId?: string; from?: string; to?: string; compare?: OverviewCompare } = {}) {
+    const branchId = q.branchId;
     const { scope, tz, currency } = await this.context(tx, ctx, branchId);
     const base = `t as (select (now() at time zone $3) as local_now)
       , base as (
@@ -525,6 +570,27 @@ export class AnalyticsService {
         where org_id = $1 and ($2::uuid[] is null or branch_id = any($2)) and (starts_at at time zone $3)::date = (now() at time zone $3)::date
         group by 1`, params);
     const alerts = await this.inventory.openAlerts(tx, ctx, branchId, { limit: 200 });
+    // 21-HOME "Right now": tables occupied/free, kitchen load per station, the next reservations (reservations:read only).
+    const tables = await tx.one(
+      `select count(*)::int as total,
+              count(*) filter (where exists (select 1 from visits v where v.table_id = t.id and v.status = 'open'))::int as occupied,
+              count(*) filter (where t.status = 'out_of_service' and not exists (select 1 from visits v where v.table_id = t.id and v.status = 'open'))::int as out_of_service
+         from dining_tables t where t.org_id = $1 and t.is_active and ($2::uuid[] is null or t.branch_id = any($2))`, [ctx.orgId, scope]);
+    const stations = await tx.query(
+      `select ol.station, coalesce(sum(ol.quantity) filter (where ol.kitchen_status = 'queued'), 0)::int as queued,
+              coalesce(sum(ol.quantity) filter (where ol.kitchen_status = 'preparing'), 0)::int as preparing
+         from orders o join order_lines ol on ol.order_id = o.id
+        where o.org_id = $1 and ($2::uuid[] is null or o.branch_id = any($2)) and o.status in ('placed', 'accepted', 'preparing')
+          and ol.kitchen_status in ('queued', 'preparing')
+        group by 1 order by 1`, [ctx.orgId, scope]);
+    const next = ctx.can('reservations:read') ? await tx.query(
+      `select r.id, r.branch_id, r.guest_name, r.party_size, r.starts_at, r.status::text as status, t.label as table_label
+         from reservations r left join dining_tables t on t.id = r.table_id
+        where r.org_id = $1 and ($2::uuid[] is null or r.branch_id = any($2)) and r.starts_at >= now()
+          and (r.starts_at at time zone $3)::date = (now() at time zone $3)::date
+          and (r.status in ('confirmed', 'pending_deposit') or (r.status = 'held' and r.hold_expires_at > now()))
+        order by r.starts_at, r.id limit 3`, params) : null;
+    const period = q.from && q.to ? await this.overviewPeriod(tx, ctx, scope, tz, { from: q.from, to: q.to, compare: q.compare ?? 'previous_period' }) : undefined;
     const liveBy = Object.fromEntries(live.map((l) => [l.status, l.n]));
     const resBy = Object.fromEntries(reservations.map((r) => [r.status, r.n]));
     const activeRes = reservations.filter((r) => !['cancelled', 'expired', 'no_show'].includes(r.status));
@@ -545,12 +611,154 @@ export class AnalyticsService {
         byStatus: { awaitingPayment: liveBy.awaiting_payment ?? 0, placed: liveBy.placed ?? 0, accepted: liveBy.accepted ?? 0, preparing: liveBy.preparing ?? 0, ready: liveBy.ready ?? 0 },
         oldestOpenOrderAt: iso(live.filter((l) => l.status !== 'awaiting_payment').map((l) => l.oldest).sort()[0] ?? null),
         openVisits: visits.n,
+        tables: { total: tables.total, occupied: tables.occupied, outOfService: tables.out_of_service, free: Math.max(0, tables.total - tables.occupied - tables.out_of_service) },
+        stations: stations.map((r) => ({ station: r.station, queued: r.queued, preparing: r.preparing })),
       },
-      reservationsToday: { total: activeRes.reduce((a, r) => a + r.n, 0), guests: activeRes.reduce((a, r) => a + r.guests, 0), byStatus: resBy },
+      reservationsToday: {
+        total: activeRes.reduce((a, r) => a + r.n, 0), guests: activeRes.reduce((a, r) => a + r.guests, 0), byStatus: resBy,
+        // null when the caller's role cannot read reservations (guest names); the counts above are aggregates.
+        next: next && next.map((r) => ({ id: r.id, branchId: r.branch_id, guestName: r.guest_name, partySize: r.party_size, startsAt: iso(r.starts_at),
+          status: r.status, tableLabel: r.table_label ?? null })),
+      },
       lowStock: { count: alerts.items.length, items: alerts.items.slice(0, 5) },
-      meta: this.meta(tz, 'Today = local date in this timezone. Compared with the same weekday one week earlier up to the same local time (a like-for-like comparison); the full previous-week day is shown separately. Net = billed total − refunds for counted (confirmed, not cancelled) orders. Live counts are current open orders of any date.', {
+      ...(period ? { period } : {}),
+      meta: this.meta(tz, 'Today = local date in this timezone. Compared with the same weekday one week earlier up to the same local time (a like-for-like comparison); the full previous-week day is shown separately. Net = billed total − refunds for counted (confirmed, not cancelled) orders. Live counts are current open orders of any date; tables are active tables, occupied while a visit is open at them; station load is the quantity of open orders\' lines still queued or preparing.', {
         perBranchTimezones: false,
       }),
+    };
+  }
+
+  /** Sales totals and the daily series of a period (the same grain as the summary report). Params: [org, scope, from, to]. */
+  private async periodSales(tx: Tx, params: unknown[]) {
+    const r = await tx.one<any>(
+      `with ${HYBRID(true)}, ${ORDER_GRAIN}
+       , daily as (
+           select d.day::date::text as day, coalesce(sum(g.orders), 0)::int as orders, coalesce(sum(g.net), 0)::bigint as net
+             from generate_series($3::date, $4::date, interval '1 day') d(day) left join grain g on g.local_date = d.day::date group by d.day)
+       select (select row_to_json(t) from (select ${GRAIN_REVENUE} from grain) t) as totals,
+              coalesce((select json_agg(d order by d.day) from daily d), '[]') as daily`, params);
+    return { totals: this.mapRevenue(r.totals), daily: (r.daily as any[]).map((d) => ({ date: d.day as string, orders: d.orders as number, netMinor: int(d.net) })) };
+  }
+
+  /**
+   * The overview's period (21-HOME): revenue, orders, average order and repeat rate of [from, to] (local dates), compared
+   * with the previous period of the same length or the same dates last year, plus new vs returning customers,
+   * acquisition by channel of the period's new customers and campaign conversion. Every number is measured; the
+   * acquisition channel of a customer without recorded attribution is the first order's channel, counted as inferred.
+   */
+  private async overviewPeriod(tx: Tx, ctx: TenantContext, scope: string[] | null, tz: string,
+    p: { from: string; to: string; compare: OverviewCompare }): Promise<OverviewPeriod> {
+    const days = daysBetween(p.from, p.to);
+    const cmp = p.compare === 'none' ? null
+      : p.compare === 'last_year' ? { from: lastYear(p.from), to: lastYear(p.to) } : { from: addDays(p.from, -days), to: addDays(p.from, -1) };
+    const kpisOf = async (from: string, to: string) => {
+      const params = [ctx.orgId, scope, from, to];
+      const sales = await this.periodSales(tx, params);
+      const c = await this.customerTotals(tx, params);
+      const kpis: OverviewPeriodKpis = {
+        orders: sales.totals.orders, netMinor: sales.totals.netMinor, averageOrderMinor: sales.totals.averageOrderMinor,
+        customers: c.customers, repeatCustomers: c.repeat_customers, repeatRatePct: pct(c.repeat_customers, c.customers),
+      };
+      return { kpis, daily: sales.daily, c };
+    };
+    const cur = await kpisOf(p.from, p.to);
+    const prev = cmp ? await kpisOf(cmp.from, cmp.to) : null;
+    const params = [ctx.orgId, scope, p.from, p.to];
+
+    // Acquisition: each new customer's first touch (as in Customer 360): the earliest of their own attribution events
+    // with UTM values or a campaign up to their first order, a tracked link click in the first order's tracking
+    // session, or the first order's stored attribution; otherwise the first order's channel (inferred).
+    const touches = await tx.query<{ channel: string; basis: string; utm: Record<string, unknown> | null; campaign: boolean; sandbox: boolean }>(
+      `with ${FIRST_ORDERS}
+       , newc as (select * from firsts where first_day between $3::date and $4::date)
+       , touch as (
+           select distinct on (n.customer_id) n.customer_id, x.utm, x.campaign_id, x.basis
+             from newc n cross join lateral (
+               select e.utm, e.campaign_id, 'attribution_event'::text as basis, e.occurred_at, e.id as seq from attribution_events e
+                where e.org_id = $1 and e.customer_id = n.customer_id and e.kind not in ('message_sent', 'message_read')
+                  and (e.utm ?| ${UTM_KEYS} or e.campaign_id is not null) and e.occurred_at <= n.placed_at + interval '1 minute'
+                  and (e.order_id is null or exists (select 1 from orders o2 where o2.id = e.order_id and ($2::uuid[] is null or o2.branch_id = any($2))))
+               union all
+               select e.utm, e.campaign_id, 'tracked_link_click', e.occurred_at, e.id from attribution_events e
+                where e.org_id = $1 and e.kind = 'link_click' and coalesce(n.attribution->>'session_key', '') <> ''
+                  and e.session_key = n.attribution->>'session_key' and e.occurred_at <= n.placed_at + interval '1 minute'
+               union all
+               select n.attribution, n.campaign_id, 'order_attribution', n.placed_at, 9223372036854775807
+                where n.attribution ?| ${UTM_KEYS} or n.campaign_id is not null
+             ) x order by n.customer_id, x.occurred_at, x.seq)
+       select n.channel, coalesce(t.basis, 'first_order_channel') as basis, t.utm,
+              (cp.id is not null and not cp.is_sandbox) as campaign, coalesce(cp.is_sandbox, false) as sandbox
+         from newc n left join touch t using (customer_id) left join campaigns cp on cp.id = t.campaign_id and cp.org_id = $1`, params);
+    const byChannel = new Map<AcquisitionChannel, { customers: number; attributed: number; inferred: number }>();
+    let sandboxTouches = 0;
+    for (const t of touches) {
+      // A touch from a sandbox campaign is test data: the customer is counted by their first order's channel instead.
+      if (t.sandbox) sandboxTouches++;
+      const a = acquisitionChannel(t.sandbox ? { ...t, basis: 'first_order_channel' } : t);
+      const row = byChannel.get(a.channel) ?? { customers: 0, attributed: 0, inferred: 0 };
+      row.customers++;
+      if (a.attributed) row.attributed++; else row.inferred++;
+      byChannel.set(a.channel, row);
+    }
+    const channels = [...byChannel.entries()].map(([channel, v]) => ({ channel, ...v }))
+      .sort((a, b) => b.customers - a.customers || a.channel.localeCompare(b.channel));
+
+    // Campaign conversion: counted orders carrying a campaign, and clicks on its tracked links (organization-wide only).
+    const campaignRows = await tx.query(
+      `with ${SCOPED} select c.id, c.name, c.channel::text as channel, c.is_sandbox, count(*)::int as orders,
+              coalesce(sum(s.total_minor - s.refunded_minor), 0)::bigint as net
+         from scoped s join campaigns c on c.id = s.campaign_id where s.counted group by c.id`, params);
+    const clicksIncluded = scope === null;
+    const clicks = clicksIncluded ? await tx.query<{ campaign_id: string; n: number; name: string; channel: string; is_sandbox: boolean }>(
+      `select e.campaign_id, count(*)::int as n, c.name, c.channel::text as channel, c.is_sandbox from attribution_events e
+         join campaigns c on c.id = e.campaign_id join organizations org on org.id = e.org_id
+        where e.org_id = $1 and e.kind = 'link_click'
+          and e.occurred_at >= (($2::date - 1)::timestamp at time zone 'UTC') and e.occurred_at < (($3::date + 2)::timestamp at time zone 'UTC')
+          and (e.occurred_at at time zone org.timezone)::date between $2::date and $3::date
+        group by e.campaign_id, c.name, c.channel, c.is_sandbox`, [ctx.orgId, p.from, p.to]) : [];
+    type CampaignItem = OverviewPeriod['campaigns']['items'][number];
+    const items = new Map<string, CampaignItem>();
+    for (const r of campaignRows) {
+      if (!r.is_sandbox) items.set(r.id, { campaignId: r.id, name: r.name, channel: r.channel, orders: r.orders, netMinor: int(r.net), clicks: clicksIncluded ? 0 : null, conversionPct: null });
+    }
+    for (const r of clicks) {
+      if (r.is_sandbox) continue;
+      const it: CampaignItem = items.get(r.campaign_id) ?? { campaignId: r.campaign_id, name: r.name, channel: r.channel, orders: 0, netMinor: 0, clicks: 0, conversionPct: null };
+      it.clicks = r.n;
+      items.set(r.campaign_id, it);
+    }
+    for (const it of items.values()) it.conversionPct = it.clicks ? pct(it.orders, it.clicks) : null;
+    const realCampaigns = campaignRows.filter((r) => !r.is_sandbox);
+    const inferred = channels.reduce((a, c) => a + c.inferred, 0);
+
+    const k = cur.kpis;
+    const b = prev?.kpis;
+    return {
+      from: p.from, to: p.to, days, compare: p.compare,
+      current: k,
+      comparison: cmp && b ? { ...cmp, kpis: b } : null,
+      changePct: b ? {
+        orders: change(k.orders, b.orders), netMinor: change(k.netMinor, b.netMinor), averageOrderMinor: change(k.averageOrderMinor, b.averageOrderMinor),
+        repeatRatePts: k.repeatRatePct !== null && b.repeatRatePct !== null ? Math.round((k.repeatRatePct - b.repeatRatePct) * 100) / 100 : null,
+      } : null,
+      daily: cur.daily,
+      comparisonDaily: prev ? prev.daily : null,
+      customers: {
+        newCustomers: cur.c.new_customers, returningCustomers: cur.c.returning_customers, newCustomerNetMinor: int(cur.c.new_net),
+        returningCustomerNetMinor: int(cur.c.returning_net), ordersWithoutCustomer: cur.c.anonymous_orders,
+      },
+      acquisition: { newCustomers: touches.length, channels, attributed: touches.length - inferred, inferred },
+      campaigns: {
+        attributedOrders: realCampaigns.reduce((a, r) => a + r.orders, 0), attributedNetMinor: realCampaigns.reduce((a, r) => a + int(r.net), 0),
+        items: [...items.values()].sort((x, y) => y.orders - x.orders || (y.clicks ?? 0) - (x.clicks ?? 0) || x.name.localeCompare(y.name)).slice(0, 10),
+        clicksIncluded,
+        excludedSandboxOrders: campaignRows.filter((r) => r.is_sandbox).reduce((a, r) => a + r.orders, 0),
+      },
+      meta: this.meta(tz, `${REVENUE_METHOD} The period is compared with ${p.compare === 'last_year' ? 'the same local dates one year earlier' : p.compare === 'none' ? 'nothing' : 'the same number of days just before it'}. Repeat rate = identified customers with 2+ counted orders in the period ÷ identified customers; new = first counted order ever (in the branches in scope) falls in the period. Acquisition counts the period's new customers by first touch: recorded attribution (UTM values or a campaign on their own attribution events up to their first order, a tracked link click in the first order's session, or the first order's stored attribution) is attributed; without it the first order's channel is used and counted as inferred. Campaign conversion = attributed counted orders ÷ tracked link clicks in the period; sandbox campaigns are excluded.`, {
+        countedOrders: k.orders, ordersWithoutCustomer: cur.c.anonymous_orders, newCustomers: touches.length,
+        acquisitionInferred: inferred, sandboxCampaignTouches: sandboxTouches,
+        campaignClicksIncluded: clicksIncluded, perBranchTimezones: scope === null || scope.length > 1,
+      }, [], inferred > 0 ? 'mixed' : 'measured'),
     };
   }
 

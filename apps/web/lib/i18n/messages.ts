@@ -15,6 +15,7 @@ import { deliveryStaff } from './dict/delivery-staff';
 import { driver } from './dict/driver';
 import { finance } from './dict/finance';
 import { guest } from './dict/guest';
+import { home } from './dict/home';
 import { insights } from './dict/insights';
 import { integrations } from './dict/integrations';
 import { integrationsWave4 } from './dict/integrations-wave4';
@@ -36,7 +37,7 @@ import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
+const PARTS = [common, core, insights, home, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {

@@ -1,0 +1,89 @@
+/* Overview command centre (21-HOME). Semantic tokens and logical properties only (lib/logical-css-policy.test.ts). */
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-4); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-2);
+}
+.toolbarGroup { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-inline-size: 0; }
+.toolbarLabel { font-size: var(--fs-sm); color: var(--text-muted); }
+/* The period and comparison choices wrap on phones instead of widening the page. */
+.toolbar :global(.rui-seg) { flex-wrap: wrap; max-inline-size: 100%; }
+.date { inline-size: auto; min-block-size: 36px; }
+
+.section { display: grid; gap: var(--space-3); min-inline-size: 0; }
+.sectionHead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2) var(--space-4); }
+.sectionTitle { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--text-strong); }
+.sectionNote { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--space-4); }
+.tile {
+  display: grid; gap: var(--space-3); align-content: start; min-inline-size: 0; padding: var(--space-5);
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-2);
+}
+.tileHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.tileTitle { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-secondary); }
+.big { font-size: var(--fs-3xl); font-weight: var(--fw-bold); color: var(--text-strong); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fine { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+
+.stages { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.stage {
+  display: inline-flex; align-items: baseline; gap: var(--space-1); padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-1); background: var(--surface-2); font-size: var(--fs-sm); color: var(--text-secondary);
+}
+.stage b { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+.stageWarn { background: var(--warn-bg); color: var(--warn-fg); }
+.stageWarn b { color: var(--warn-fg); }
+
+.list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.listRow {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2);
+  border-block-end: 1px solid var(--border-subtle); font-size: var(--fs-sm); min-inline-size: 0;
+}
+.listRow:last-child { border-block-end: 0; }
+.listMain { min-inline-size: 0; overflow-wrap: anywhere; }
+.listValue { flex: none; font-variant-numeric: tabular-nums; color: var(--text-strong); }
+
+.thumbWrap { display: grid; gap: var(--space-2); }
+.thumb { inline-size: 100%; block-size: 120px; border-radius: var(--radius-1); background: var(--surface-2); }
+.tFree { fill: var(--state-available-fill); stroke: var(--state-available-stroke); }
+.tBusy { fill: var(--state-preparing-fill); stroke: var(--state-preparing-stroke); }
+.tOut { fill: var(--surface-3); stroke: var(--border-strong); stroke-dasharray: 4 3; }
+.floorFull { min-inline-size: 0; }
+
+.attention { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.attItem {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2) var(--space-4); align-items: start;
+  padding: var(--space-4) var(--space-5); background: var(--surface-1); border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--border-strong); border-radius: var(--radius-2);
+}
+.attItem[data-severity='critical'] { border-inline-start-color: var(--danger-fg); }
+.attItem[data-severity='warning'] { border-inline-start-color: var(--warn-fg); }
+.attItem[data-severity='info'] { border-inline-start-color: var(--info-fg); }
+.attTitle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--text-strong); }
+.attCount { font-size: var(--fs-2xl); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; color: var(--text-strong); }
+.attSide { display: grid; justify-items: end; gap: var(--space-2); }
+.samples { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); color: var(--text-secondary); }
+.samples li { min-inline-size: 0; overflow-wrap: anywhere; }
+.allClear { margin: 0; padding: var(--space-4) var(--space-5); border: 1px dashed var(--border); border-radius: var(--radius-2); color: var(--text-secondary); }
+
+.insights { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.insight {
+  display: grid; gap: var(--space-2); padding: var(--space-4) var(--space-5); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: var(--radius-2); min-inline-size: 0;
+}
+.insightTitle { margin: 0; font-size: var(--fs-md); font-weight: var(--fw-semibold); color: var(--text-strong); }
+.insightBody { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+
+.customise { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.customiseRow {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface-1);
+}
+.moveButtons { display: flex; gap: var(--space-1); flex: none; }
+
+@media (max-width: 699px) {
+  .attItem { grid-template-columns: minmax(0, 1fr); }
+  .attSide { justify-items: start; grid-auto-flow: column; align-items: center; }
+}
