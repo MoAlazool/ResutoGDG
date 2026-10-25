@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 // left/right properties are rejected in every packages/ui/src file (CSS, CSS-in-TS strings and style objects).
 // A value that is genuinely physical (a tooltip placed at an SVG x coordinate) carries `logical-exempt` on its line.
 // Later workstreams add the CSS files they migrate to ROOTS.
-const ROOTS = ['packages/ui/src'];
+// 21-HOME: the overview command centre (apps/web/app/dashboard/[orgId]/_home).
+const ROOTS = ['packages/ui/src', 'apps/web/app/dashboard/[orgId]/_home'];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');
 
