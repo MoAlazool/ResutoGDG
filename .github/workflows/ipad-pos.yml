@@ -7,6 +7,15 @@ on:
     branches: [feature/ipad-pos]
     paths: ['apps/ipad-pos/**', '.github/workflows/ipad-pos.yml', 'packages/contracts/src/**', 'docs/api/openapi.json']
   workflow_dispatch:
+    inputs:
+      visual_only:
+        description: Capture the current native UX review flow only
+        type: boolean
+        default: false
+      capture_label:
+        description: Screenshot evidence label
+        type: string
+        default: review
 permissions:
   contents: read
 concurrency:
@@ -48,9 +57,17 @@ jobs:
           set -o pipefail
           xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -configuration Release -destination "platform=iOS Simulator,id=$IPAD_UDID" -derivedDataPath apps/ipad-pos/DerivedData CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual AppIdentifierPrefix=RESUTOTEST. build | tee apps/ipad-pos/release-build.log
       - name: Build and run native UI tests
+        env:
+          CAPTURE_LABEL: ${{ inputs.capture_label || 'review' }}
+          VISUAL_ONLY: ${{ inputs.visual_only || false }}
         run: |
           set -o pipefail
-          xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination "platform=iOS Simulator,id=$IPAD_UDID" -parallel-testing-enabled NO -derivedDataPath apps/ipad-pos/DerivedData -resultBundlePath apps/ipad-pos/NativeResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual AppIdentifierPrefix=RESUTOTEST. test | tee apps/ipad-pos/xcodebuild.log
+          python3 apps/ipad-pos/scripts/capture_simulator.py --device "$IPAD_UDID" --output apps/ipad-pos/ui-screenshots --label "$CAPTURE_LABEL" > apps/ipad-pos/capture.log 2>&1 &
+          CAPTURE_PID=$!
+          trap 'kill "$CAPTURE_PID" 2>/dev/null || true' EXIT
+          EXTRA_TEST_ARGS=()
+          if [ "$VISUAL_ONLY" = "true" ]; then EXTRA_TEST_ARGS=(-only-testing:ResutoPOSUITests/VisualReviewTests); fi
+          xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination "platform=iOS Simulator,id=$IPAD_UDID" -parallel-testing-enabled NO -derivedDataPath apps/ipad-pos/DerivedData -resultBundlePath apps/ipad-pos/NativeResults.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual AppIdentifierPrefix=RESUTOTEST. "${EXTRA_TEST_ARGS[@]}" test | tee apps/ipad-pos/xcodebuild.log
       - name: Export native screenshots
         if: always()
         run: |
@@ -66,4 +83,6 @@ jobs:
             apps/ipad-pos/xcodebuild.log
             apps/ipad-pos/release-build.log
             apps/ipad-pos/ui-artifacts/
+            apps/ipad-pos/ui-screenshots/
+            apps/ipad-pos/capture.log
           if-no-files-found: warn
