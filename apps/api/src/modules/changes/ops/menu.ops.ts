@@ -4,12 +4,14 @@ import type { Tx } from '../../../common/db/db.service';
 import { invalid, notFound } from '../../../common/errors/domain-error';
 import { requirePort, type MenuAvailabilityPort } from '../../kernel/ports';
 import { OFFERED_SQL, SOLD_OUT_SQL } from '../../menu/availability';
-import type { MenuService } from '../../menu/menu.service';
+import { discountedPrice, type MenuService } from '../../menu/menu.service';
+import { PERCENT_MAX_BPS, PERCENT_MIN_BPS } from './promotion.ops';
 import { fmtMoney, isoOrNull, type OpHandler } from '../op-handler';
 
 type ItemUpdate = ChangeOpInput<'menu.item.update'>;
 type PriceSet = ChangeOpInput<'menu.item.price.set'>;
 type AvailabilitySet = ChangeOpInput<'menu.item.availability.set'>;
+type DiscountSet = ChangeOpInput<'product.discount.set'>;
 
 const FIELDS: Array<[keyof Omit<ItemUpdate, 'productId'>, string, string]> = [
   ['name', 'name', 'Name'], ['nameAr', 'name_ar', 'Arabic name'], ['description', 'description', 'Description'],
@@ -126,5 +128,60 @@ export function menuOps(deps: { menu: MenuService; availability: () => MenuAvail
     },
   };
 
-  return [itemUpdate, priceSet, availabilitySet];
+  async function discounted(tx: Tx, ctx: TenantContext, productId: string, lock: boolean) {
+    const p = await tx.maybeOne<any>(
+      `select id, name, is_active, price_minor, compare_at_price_minor, currency, version from products where org_id = $1 and id = $2 ${lock ? 'for update' : ''}`,
+      [ctx.orgId, productId]);
+    // Another restaurant's dish reads as missing (RLS and the org filter): the op is refused, never applied there.
+    if (!p) throw notFound('Product');
+    return p as { id: string; name: string; is_active: boolean; price_minor: number; compare_at_price_minor: number | null; currency: string; version: number };
+  }
+  const pct = (bps: number) => `${bps / 100}%`;
+
+  /** product.discount.set (21-STUDIO): a percent off one dish, from its original price; 0 removes the discount. */
+  const discountSet: OpHandler<DiscountSet> = {
+    type: 'product.discount.set', meta: CHANGE_OPS['product.discount.set'], input: changeOpInputs['product.discount.set'],
+    // The owner rule for large discounts (ownerAboveBps) applies to dish discounts as it does to offers.
+    discountBps: (input) => (input.discountBps > 0 ? input.discountBps : null),
+    async validate(tx, ctx, input) {
+      const p = await discounted(tx, ctx, input.productId, false);
+      if (!p.is_active) throw invalid('item_unavailable', `${p.name} is not on the menu`, { productId: p.id });
+      if (input.discountBps === 0) {
+        if (p.compare_at_price_minor === null) throw invalid('no_discount', `${p.name} has no discount to remove`, { productId: p.id });
+        return;
+      }
+      if (input.discountBps < PERCENT_MIN_BPS || input.discountBps > PERCENT_MAX_BPS) {
+        throw invalid('discount_out_of_bounds', `Dish discounts must be between ${PERCENT_MIN_BPS / 100}% and ${PERCENT_MAX_BPS / 100}%`,
+          { minBps: PERCENT_MIN_BPS, maxBps: PERCENT_MAX_BPS, valueBps: input.discountBps });
+      }
+    },
+    async snapshot(tx, ctx, input, lock) {
+      const p = await discounted(tx, ctx, input.productId, lock);
+      return { target: { type: 'product', id: p.id }, version: String(p.version),
+        before: { priceMinor: Number(p.price_minor), compareAtMinor: p.compare_at_price_minor === null ? null : Number(p.compare_at_price_minor), currency: p.currency } };
+    },
+    async preview(tx, ctx, input, snap) {
+      const p = await discounted(tx, ctx, input.productId, false);
+      const before = Number(snap.before?.priceMinor ?? p.price_minor);
+      const original = Number(snap.before?.compareAtMinor ?? before);
+      const after = input.discountBps > 0 ? discountedPrice(original, input.discountBps) : original;
+      return {
+        summary: input.discountBps > 0
+          ? `Put "${p.name}" at ${pct(input.discountBps)} off: ${fmtMoney(after, p.currency)} instead of ${fmtMoney(original, p.currency)}`
+          : `End the discount on "${p.name}": back to ${fmtMoney(original, p.currency)}`,
+        changes: [
+          { label: `Price of ${p.name}`, before: fmtMoney(before, p.currency), after: fmtMoney(after, p.currency) },
+          { label: `Was-price of ${p.name}`, before: snap.before?.compareAtMinor == null ? null : fmtMoney(Number(snap.before.compareAtMinor), p.currency),
+            after: input.discountBps > 0 ? fmtMoney(original, p.currency) : '' },
+        ],
+        after: { priceMinor: after, compareAtMinor: input.discountBps > 0 ? original : null, discountBps: input.discountBps, currency: p.currency },
+      };
+    },
+    async applyLocal(tx, ctx, input) {
+      const r = await deps.menu.setDiscountTx(tx, ctx, input.productId, input.discountBps);
+      return { productId: input.productId, discountBps: input.discountBps, priceMinor: r.priceMinor, compareAtMinor: r.compareAtMinor, version: r.version };
+    },
+  };
+
+  return [itemUpdate, priceSet, availabilitySet, discountSet];
 }
