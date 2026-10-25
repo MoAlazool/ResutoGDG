@@ -119,7 +119,7 @@ const account = (ctx: AdapterContext, provider: string, role: AccountRole): stri
 //     https://developer.wafeq.com/reference/organization_retrieve
 // ---------------------------------------------------------------------------
 export const wafeqDescriptor: ProviderDescriptor = {
-  id: 'wafeq', name: 'Wafeq', category: 'accounting', countries: ['SA', 'EG'], authType: 'api_key', readiness: 'implemented_unverified',
+  id: 'wafeq', name: 'Wafeq', category: 'accounting', countries: ['SA', 'EG'], authType: 'api_key', connectMethod: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://developer.wafeq.com',
   activation: [
     'In Wafeq: Settings → API keys (app.wafeq.com/c/api-keys) → create a key; paste it as the API key.',
@@ -208,7 +208,7 @@ export const wafeqAdapter: AccountingAdapter = {
 //   has no organisation/profile endpoint, so a Qoyod connection reports no account identity (only the chart size).
 // ---------------------------------------------------------------------------
 export const qoyodDescriptor: ProviderDescriptor = {
-  id: 'qoyod', name: 'Qoyod', category: 'accounting', countries: ['SA'], authType: 'api_key', readiness: 'implemented_unverified',
+  id: 'qoyod', name: 'Qoyod', category: 'accounting', countries: ['SA'], authType: 'api_key', connectMethod: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://apidoc.qoyod.com',
   activation: [
     'In Qoyod: General settings → API → generate an API key; paste it as the API key.',
@@ -292,7 +292,7 @@ export const qoyodAdapter: AccountingAdapter = {
 // journal (account.journal by id) — a key that cannot read them, or a journal id that does not exist, fails the check.
 // ---------------------------------------------------------------------------
 export const odooAccountingDescriptor: ProviderDescriptor = {
-  id: 'odoo_accounting', name: 'Odoo Accounting', category: 'accounting', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
+  id: 'odoo_accounting', name: 'Odoo Accounting', category: 'accounting', countries: ['EG', 'SA'], authType: 'api_key', connectMethod: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://www.odoo.com/documentation/19.0/developer/reference/external_api.html',
   activation: [
     'Use Odoo 19 or later (External JSON-2 API) over HTTPS on a plan that includes the external API. Create an API key for an accounting user (Preferences → Account Security → New API Key; keys last at most three months).',

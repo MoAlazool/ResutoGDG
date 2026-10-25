@@ -11,6 +11,7 @@ export const messagingSandboxDescriptor: ProviderDescriptor = {
   category: 'messaging',
   countries: ['EG', 'SA'],
   authType: 'none',
+  connectMethod: 'platform_managed',
   readiness: 'simulated',
   capabilities: ['inbound_simulator', 'interactive_buttons', 'interactive_lists', 'cta_url', 'templates'],
   activation: [

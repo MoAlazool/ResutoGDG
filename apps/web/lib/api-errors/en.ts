@@ -453,4 +453,11 @@ export const en: Record<string, string> = {
   shortcut_taken: 'Another saved reply already uses this shortcut. Choose a different one.',
   tag_limit_reached: 'The tag limit is reached. Remove a tag first.',
   tag_name_taken: 'A tag with this name already exists.',
+  // 21-INT: integrations marketplace, operator console, WhatsApp stepper
+  permissions_not_checkable: 'This provider does not let Resuto read the granted permissions for this connection. Reconnect to refresh them.',
+  provider_app_unknown_field: 'This provider app has no such field. Reload the page and try again.',
+  provider_app_webhook_token_weak: 'The webhook token must be 24 to 200 letters, digits, "_" or "-".',
+  not_whatsapp_channel: 'Test templates can be sent from WhatsApp channels only.',
+  channel_unverified: 'Verify the number first: Resuto sends only from numbers whose ownership Meta confirmed.',
+  test_template_not_approved: 'The test template is not ready. Add it in the Templates step; on a live number Meta must approve it first.',
 };

@@ -5,7 +5,7 @@
 // only the HTTP status and, when present, the standard OAuth `error` code (e.g. invalid_grant), which is safe.
 import { createHash, randomBytes } from 'node:crypto';
 import { ProviderError, type AdapterContext } from '../core';
-import type { OAuthAppConfig, OAuthTokens } from '../ads/types';
+import { parseGrantedScopes, type OAuthAppConfig, type OAuthTokens } from '../ads/types';
 
 export interface OAuthEndpoints {
   provider: string;
@@ -76,6 +76,7 @@ async function tokenRequest(ep: OAuthEndpoints, ctx: Pick<AdapterContext, 'fetch
     refreshToken: typeof json.refresh_token === 'string' && json.refresh_token ? json.refresh_token : null,
     expiresIn: n(json.expires_in),
     refreshExpiresIn: n(json.refresh_token_expires_in ?? json.refresh_expires_in),
+    grantedScopes: parseGrantedScopes(json.scope),
   };
 }
 

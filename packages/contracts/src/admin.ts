@@ -10,10 +10,11 @@ export type PlatformRole = (typeof PLATFORM_ROLES)[number];
 
 /**
  * What each platform role may do. Support is read-only; finance reads billing
- * and prices; only superadmins mutate tenants, overrides and prices.
+ * and prices; only superadmins mutate tenants, overrides, prices and Resuto's provider apps (21-INT operator console;
+ * every platform role reads the console, where secrets are masked).
  */
-export const PLATFORM_ROLE_CAPABILITIES: Record<PlatformRole, readonly ('tenants:read' | 'billing:read' | 'operations:read' | 'tenants:write' | 'prices:write')[]> = {
-  superadmin: ['tenants:read', 'billing:read', 'operations:read', 'tenants:write', 'prices:write'],
+export const PLATFORM_ROLE_CAPABILITIES: Record<PlatformRole, readonly ('tenants:read' | 'billing:read' | 'operations:read' | 'tenants:write' | 'prices:write' | 'providers:write')[]> = {
+  superadmin: ['tenants:read', 'billing:read', 'operations:read', 'tenants:write', 'prices:write', 'providers:write'],
   support: ['tenants:read', 'operations:read'],
   finance: ['tenants:read', 'billing:read', 'operations:read'],
 };

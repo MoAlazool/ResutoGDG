@@ -25,6 +25,12 @@ const channelView = (r: any) => ({
   status: r.status === 'disabled' ? 'disabled' : r.transport === 'sandbox' ? 'sandbox' : !r.verified_at ? 'unverified'
     : r.connection_status === 'connected' ? 'connected' : r.connection_status === 'error' ? 'error' : 'pending',
   orderingEnabled: r.ordering_enabled, createdAt: iso(r.created_at),
+  // 21-INT stepper: how new conversations are assigned, and the number as Meta reported it when ownership was proven.
+  routing: r.routing ?? 'manual',
+  number: r.verification?.phone ? {
+    displayPhoneNumber: r.verification.phone.displayPhoneNumber ?? null, verifiedName: r.verification.phone.verifiedName ?? null,
+    qualityRating: r.verification.phone.qualityRating ?? null,
+  } : null,
 });
 
 const templateView = (r: any) => ({
@@ -367,9 +373,9 @@ export class ChannelsService {
       const status = input.disabled === undefined ? r.status : input.disabled ? 'disabled' : r.transport === 'sandbox' ? 'sandbox' : 'pending';
       const row = await tx.one(
         `update messaging_channels set display_name = coalesce($2, display_name), ordering_enabled = coalesce($3, ordering_enabled), status = $4,
-            branch_id = case when $5 then $6::uuid else branch_id end
+            branch_id = case when $5 then $6::uuid else branch_id end, routing = coalesce($7, routing)
           where id = $1 returning *`,
-        [id, input.displayName ?? null, input.orderingEnabled ?? null, status, input.branchId !== undefined, input.branchId ?? null]);
+        [id, input.displayName ?? null, input.orderingEnabled ?? null, status, input.branchId !== undefined, input.branchId ?? null, input.routing ?? null]);
       const conn = row.connection_id ? await tx.maybeOne(`select status from integration_connections where id = $1`, [row.connection_id]) : null;
       await this.audit.record(tx, ctx, { action: 'connect.channel_updated', entityType: 'messaging_channel', entityId: id, branchId: row.branch_id, metadata: input });
       return channelView({ ...row, connection_status: conn?.status });

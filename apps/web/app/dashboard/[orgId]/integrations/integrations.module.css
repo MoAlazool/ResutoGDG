@@ -1,0 +1,37 @@
+/* 21-INT integrations marketplace, provider sheet and shared connection parts. Logical properties only (RTL). */
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+
+.card {
+  display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: start; text-align: start;
+  background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-md);
+  padding: 14px 16px; font: inherit; cursor: pointer; min-block-size: 112px; inline-size: 100%;
+}
+.card:hover { border-color: color-mix(in srgb, var(--herb) 40%, var(--line)); }
+.card:focus-visible { outline: 2px solid var(--herb); outline-offset: 2px; }
+.cardLogo { grid-row: span 2; display: grid; place-items: center; inline-size: 44px; block-size: 44px; border-radius: 12px; background: var(--surface-warm); overflow: hidden; }
+.cardLogo img { max-inline-size: 36px; object-fit: contain; }
+.cardName { font-weight: 700; line-height: 1.35; }
+.cardMeta { font-size: 12px; color: var(--muted); }
+.cardFoot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.chip { white-space: normal; line-height: 1.35; text-align: start; }
+
+.sheetHead { display: flex; align-items: center; gap: 12px; }
+.section { display: grid; gap: 8px; padding-block: 12px; border-block-start: 1px solid var(--line); }
+.section:first-child { border-block-start: 0; padding-block-start: 0; }
+.section h3 { margin: 0; font-size: 14px; }
+.reasons { margin: 0; padding-inline-start: 18px; font-size: 13px; }
+.steps { margin: 0; padding-inline-start: 18px; font-size: 12px; overflow-wrap: anywhere; }
+.list { margin: 0; padding-inline-start: 18px; font-size: 12px; }
+.plain { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 12px; }
+
+.code { word-break: break-all; background: var(--surface-warm); padding: 6px 8px; border-radius: 6px; flex: 1; }
+.copyRow { display: flex; gap: 6px; align-items: center; }
+.confirm { display: flex; gap: 8px; align-items: flex-start; }
+.confirm input { inline-size: auto; margin-block-start: 3px; }
+.mbe { margin-block-end: 10px; }
+.danger { color: var(--danger); text-align: start; }
+.pre { white-space: pre-wrap; max-block-size: 200px; overflow: auto; }
+.select { min-block-size: 32px; inline-size: auto; }
+.tight { display: grid; gap: 2px; }

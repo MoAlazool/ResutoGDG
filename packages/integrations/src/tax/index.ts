@@ -29,18 +29,18 @@ export interface LicensingRegistry {
 
 export const LICENSING_REGISTRIES: ProviderDescriptor[] = [
   {
-    id: 'balady_manual', name: 'Balady municipal licences (manual tracking)', category: 'tax', countries: ['SA'], authType: 'none',
+    id: 'balady_manual', name: 'Balady municipal licences (manual tracking)', category: 'tax', countries: ['SA'], authType: 'none', connectMethod: 'platform_managed',
     readiness: 'simulated', capabilities: ['manual_tracking', 'expiry_reminders'],
     docsUrl: 'https://balady.gov.sa',
     activation: ['Manual: upload the licence, enter its number and expiry date. No Balady API is called; an authorised partner integration is required for automatic status checks.'],
   },
   {
-    id: 'civil_defense_manual', name: 'Civil defense (Salamah) certificates (manual tracking)', category: 'tax', countries: ['SA'], authType: 'none',
+    id: 'civil_defense_manual', name: 'Civil defense (Salamah) certificates (manual tracking)', category: 'tax', countries: ['SA'], authType: 'none', connectMethod: 'platform_managed',
     readiness: 'simulated', capabilities: ['manual_tracking', 'expiry_reminders'],
     activation: ['Manual tracking only; no registry API is called.'],
   },
   {
-    id: 'eg_licences_manual', name: 'Egypt operating licences & health certificates (manual tracking)', category: 'tax', countries: ['EG'], authType: 'none',
+    id: 'eg_licences_manual', name: 'Egypt operating licences & health certificates (manual tracking)', category: 'tax', countries: ['EG'], authType: 'none', connectMethod: 'platform_managed',
     readiness: 'simulated', capabilities: ['manual_tracking', 'expiry_reminders'],
     activation: ['Manual tracking only; no governorate or NFSA API is called.'],
   },

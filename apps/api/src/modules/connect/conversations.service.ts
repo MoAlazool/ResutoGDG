@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { can, type ConnectSandboxInbound, type InboxConversationFilters, type InboxStaffReply, type Role } from '@resuto/contracts';
+import { can, ROLE_PERMISSIONS, type ChannelRoutingMode, type ConnectSandboxInbound, type InboxConversationFilters, type InboxStaffReply, type Role } from '@resuto/contracts';
 import { renderTemplateBody } from '@resuto/integrations';
 import { randomUUID } from 'node:crypto';
 import { TenantContext } from '../../common/auth/context';
@@ -38,6 +38,30 @@ const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOStrin
 export const phoneContact = (transport: string, externalContact: string): string | null =>
   transport === 'meta_page' ? null : `+${externalContact.replace(/^\+/, '')}`;
 
+/** Roles that can reply in the inbox (connect:reply): the people a routed conversation may go to. */
+const REPLY_ROLES = (Object.keys(ROLE_PERMISSIONS) as Role[]).filter((r) => ROLE_PERMISSIONS[r].includes('connect:reply'));
+
+/**
+ * Assigns a new conversation by the channel's routing (21-INT, plan §6.9 step 5). Candidates are active members whose
+ * role can reply and who can see the conversation's branch (branch-scoped RLS). 'round_robin' picks the candidate who
+ * was assigned a conversation least recently (never assigned first, ties by user id); 'by_branch' does the same among
+ * members assigned to that branch specifically, falling back to all-branch members when the branch has none.
+ */
+export async function assignByRouting(tx: Tx, orgId: string, conversationId: string, branchId: string | null, mode: ChannelRoutingMode) {
+  if (mode === 'manual') return null;
+  const pick = (branchOnly: boolean) => tx.maybeOne<{ user_id: string }>(
+    `select m.user_id from memberships m
+      where m.org_id = $1 and m.status = 'active' and m.role::text = any($2::text[])
+        and ($3::uuid is null or m.branch_ids is null or $3 = any(m.branch_ids))
+        and (not $4 or ($3::uuid is not null and m.branch_ids is not null and $3 = any(m.branch_ids)))
+      order by (select max(c.created_at) from conversations c where c.org_id = $1 and c.assigned_to = m.user_id) asc nulls first, m.user_id
+      limit 1`, [orgId, REPLY_ROLES, branchId, branchOnly]);
+  const chosen = (mode === 'by_branch' && branchId ? await pick(true) : null) ?? await pick(false);
+  if (!chosen) return null;
+  await tx.query(`update conversations set assigned_to = $2 where id = $1 and assigned_to is null`, [conversationId, chosen.user_id]);
+  return chosen.user_id;
+}
+
 @Injectable()
 export class ConversationsService {
   constructor(
@@ -58,12 +82,12 @@ export class ConversationsService {
   async receiveInTx(tx: Tx, ctx: TenantContext, channelId: string, m: InboundEnvelope) {
     const dup = await tx.maybeOne<{ id: string; conversation_id: string }>(`select id, conversation_id from messages where provider_message_id = $1`, [m.providerMessageId]);
     if (dup) return { conversationId: dup.conversation_id, messageId: dup.id, duplicate: true };
-    const channel = await tx.one<{ branch_id: string | null; ordering_enabled: boolean; transport: string; kind: string }>(
-      `select branch_id, ordering_enabled, transport, kind from messaging_channels where id = $1`, [channelId]);
+    const channel = await tx.one<{ branch_id: string | null; ordering_enabled: boolean; transport: string; kind: string; routing: string }>(
+      `select branch_id, ordering_enabled, transport, kind, routing from messaging_channels where id = $1`, [channelId]);
     const contact = m.from.replace(/^\+/, '');
     // Reply language: Arabic text switches to Arabic; an English start command switches back.
     const lang = hasArabic(m.text) ? 'ar' : m.text && /[a-z]/i.test(m.text) && textCommand(m.text) ? 'en' : null;
-    const conv = await tx.one<{ id: string; customer_id: string | null }>(
+    const conv = await tx.one<{ id: string; customer_id: string | null; inserted: boolean }>(
       `insert into conversations(org_id, branch_id, channel_id, external_contact, contact_name, status, last_message_at, last_inbound_at, unread_count, locale)
        values ($1, $2, $3, $4, $5, $6, now(), now(), 1, $7)
        on conflict (channel_id, external_contact) do update set
@@ -71,8 +95,10 @@ export class ConversationsService {
          unread_count = conversations.unread_count + 1,
          status = case when conversations.status = 'closed' then $6 else conversations.status end,
          locale = coalesce($8, conversations.locale)
-       returning id, customer_id`,
+       returning id, customer_id, (xmax = 0) as inserted`,
       [ctx.orgId, channel.branch_id, channelId, contact, m.contactName, channel.ordering_enabled ? 'bot' : 'open', lang ?? 'en', lang]);
+    // 21-INT staff routing: a new conversation on a round-robin / by-branch channel gets an owner right away.
+    if (conv.inserted && channel.routing !== 'manual') await assignByRouting(tx, ctx.orgId, conv.id, channel.branch_id, channel.routing as ChannelRoutingMode);
     // Only a WhatsApp id is a phone number; Messenger / Instagram ids (PSID / IGSID) are page-scoped and never a phone.
     if (!conv.customer_id && channel.kind === 'whatsapp' && /^[1-9][0-9]{6,14}$/.test(contact)) {
       const customerId = await this.kernel.resolveCustomer(tx, ctx.orgId, { name: m.contactName, phone: `+${contact}` }, 'whatsapp');

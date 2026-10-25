@@ -5,6 +5,7 @@ import { Public } from '../../common/auth/decorators';
 import { DomainError } from '../../common/errors/domain-error';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { ENV, type Env } from '../../config/env';
+import { whatsappPlatformSecrets } from '../integrations/meta-platform';
 import { MetaPagesWebhookService } from './meta-pages-webhook.service';
 import { WhatsAppWebhookService } from './whatsapp-webhook.service';
 
@@ -17,7 +18,7 @@ export class WhatsAppWebhookController {
   @Public()
   async verify(@Query() query: Record<string, unknown>, @Req() req: Request, @Res() res: Response) {
     await this.limiter.guard(`wa-verify:${req.ip}`, 30);
-    answer(res, verifyWebhookSubscription(query, this.env.WHATSAPP_VERIFY_TOKEN));
+    answer(res, verifyWebhookSubscription(query, whatsappPlatformSecrets(this.env).verifyToken ?? undefined));
   }
 
   /** Resuto platform app (Embedded Signup numbers): signed with WHATSAPP_APP_SECRET. */

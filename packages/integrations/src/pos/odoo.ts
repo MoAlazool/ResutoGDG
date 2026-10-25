@@ -14,6 +14,7 @@ export const odooDescriptor: ProviderDescriptor = {
   category: 'pos',
   countries: ['EG', 'SA'],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   docsUrl: 'https://www.odoo.com/documentation/19.0/developer/reference/external_api.html',
   capabilities: ['menu_import'],

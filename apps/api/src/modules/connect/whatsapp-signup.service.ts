@@ -10,7 +10,7 @@ import { AuditService } from '../../common/platform/audit.service';
 import { ENV, type Env } from '../../config/env';
 import { credentialsAad, IntegrationConnectionsService, redactedError } from '../integrations/connections.service';
 import { credentialsHint } from '../integrations/catalog';
-import { metaPlatform, metaPlatformApp } from '../integrations/meta-platform';
+import { metaPlatform, metaPlatformApp, whatsappPlatformSecrets } from '../integrations/meta-platform';
 import { ProviderHttp } from '../integrations/provider-http';
 import { ChannelsService, type WhatsAppVerification } from './channels.service';
 
@@ -39,9 +39,10 @@ export class WhatsAppSignupService {
   /** What the web launcher needs (no secrets), and what the owner still has to configure. */
   config() {
     const c = metaPlatform();
+    const wa = whatsappPlatformSecrets(this.env);
     const missing = [
       !c.appId && 'META_APP_ID', !c.appSecret && 'META_APP_SECRET', !c.whatsappSignupConfigId && 'WHATSAPP_ES_CONFIG_ID',
-      !this.env.WHATSAPP_APP_SECRET && 'WHATSAPP_APP_SECRET', !this.env.WHATSAPP_VERIFY_TOKEN && 'WHATSAPP_VERIFY_TOKEN',
+      !wa.appSecret && 'WHATSAPP_APP_SECRET', !wa.verifyToken && 'WHATSAPP_VERIFY_TOKEN',
     ].filter((x): x is string => !!x);
     return {
       available: missing.length === 0, appId: c.appId, configId: c.whatsappSignupConfigId, graphVersion: META_GRAPH_VERSION,

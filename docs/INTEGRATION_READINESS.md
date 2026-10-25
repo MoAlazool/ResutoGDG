@@ -11,6 +11,31 @@ hand-set labels.
 **States (INT-16):** Not configured · Implementation incomplete · Implemented; external verification pending ·
 Official provider test verified · Live capability verified · Blocked by documented provider restrictions.
 
+## Marketplace, permission verification and operator console (21-INT)
+
+The marketplace card chip (`marketplaceStatus`, `packages/contracts/src/marketplace.ts`) is derived from the states
+above and the restaurant's connection: Not connected · Connected · Needs attention · Sandbox · Pending provider review
+· Not yet available. "Pending provider review" stays on every connection made through Resuto's own provider app until
+the operator records the provider's review as approved in `/admin/providers` (nothing is recorded yet). No chip and no
+capability reads "verified": no acceptance run has been recorded for any provider.
+
+Permission verification (granted scopes read back and compared per capability, "needs permission X"):
+
+| Provider | Connect method | How granted scopes are read | Status |
+|---|---|---|---|
+| Meta Ads, Messenger / Instagram (OAuth), WhatsApp | `oauth`, `embedded_signup` | `GET /me/permissions` (Connections › Check permissions); a pasted Page token cannot be checked | Implemented, verification pending (B-4, B-5) |
+| Snapchat Ads | `oauth` | `scope` of the token response, stored at OAuth completion | Implemented, verification pending (B-5) |
+| TikTok Ads | `oauth` | numeric `scope` ids of the token response, stored and shown; not compared (id → name mapping not in the docs checked, B-21) | Implemented, verification pending (B-5) |
+| Foodics | `oauth` | RFC 6749 `scope` when the token response carries one (Foodics documents none) | Implemented, verification pending (B-7) |
+| Every `api_key` provider | `api_key` | not possible: a pasted key carries no scope list | — |
+
+Operator console: `platform_provider_apps` holds Resuto's Meta, TikTok, Snapchat and Foodics apps (app id, secret,
+configuration ids, webhook verify tokens, environment), sealed with the key ring (`CREDENTIALS_KEYS`); the API
+returns only "set" and the last four characters. A complete record replaces the environment variables at runtime
+(OAuth, Embedded Signup, the WhatsApp webhook verification and the Foodics webhook token); the environment variables
+remain the fallback. The WhatsApp stepper's "Send a test template to my phone" and the live inbound check run through
+the existing outbound queue and webhook (sandbox adapter in tests); against Meta they are unverified (B-4).
+
 ## Payments (ws2-payments)
 
 Last updated 2026-10-20 (branch `ws/ws2-payments`). **No payment capability has been run against a provider

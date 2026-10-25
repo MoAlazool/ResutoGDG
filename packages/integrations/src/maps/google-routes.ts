@@ -28,6 +28,7 @@ export const googleRoutesDescriptor: ProviderDescriptor = {
   category: 'delivery',
   countries: ['EG', 'SA'],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   activation: [
     'In the restaurant\'s own Google Cloud project: enable the Routes API, create an API key restricted to the Routes API (server key, no HTTP-referrer restriction) and set a daily quota in the Cloud console.',

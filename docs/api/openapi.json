@@ -695,6 +695,222 @@
         ]
       }
     },
+    "/v1/admin/providers": {
+      "get": {
+        "operationId": "ProviderApps_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-resuto-platform-admin": [
+          "superadmin",
+          "support",
+          "finance"
+        ]
+      }
+    },
+    "/v1/admin/providers/{provider}": {
+      "delete": {
+        "operationId": "ProviderApps_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-resuto-platform-admin": [
+          "superadmin"
+        ]
+      },
+      "get": {
+        "operationId": "ProviderApps_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-resuto-platform-admin": [
+          "superadmin",
+          "support",
+          "finance"
+        ]
+      },
+      "put": {
+        "operationId": "ProviderApps_save",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "appId": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[A-Za-z0-9._:-]{1,200}$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "configIds": {
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "pattern": "^[A-Za-z0-9_-]{1,100}$",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "propertyNames": {
+                      "pattern": "^[A-Za-z]{2,40}$",
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "environment": {
+                    "enum": [
+                      "sandbox",
+                      "live"
+                    ],
+                    "type": "string"
+                  },
+                  "notes": {
+                    "anyOf": [
+                      {
+                        "maxLength": 1000,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reviewStatus": {
+                    "enum": [
+                      "unknown",
+                      "not_submitted",
+                      "in_review",
+                      "approved",
+                      "rejected"
+                    ],
+                    "type": "string"
+                  },
+                  "secrets": {
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "maxLength": 500,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "propertyNames": {
+                      "pattern": "^[A-Za-z]{2,40}$",
+                      "type": "string"
+                    },
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-resuto-platform-admin": [
+          "superadmin"
+        ]
+      }
+    },
     "/v1/admin/sales-inquiries": {
       "get": {
         "operationId": "SalesInquiriesAdmin_list",
@@ -7020,8 +7236,144 @@
                   },
                   "orderingEnabled": {
                     "type": "boolean"
+                  },
+                  "routing": {
+                    "enum": [
+                      "manual",
+                      "round_robin",
+                      "by_branch"
+                    ],
+                    "type": "string"
                   }
                 },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "connect"
+        ],
+        "x-resuto-module": "connect",
+        "x-resuto-permissions": [
+          "connect:manage"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/connect/channels/{id}/inbound-check": {
+      "get": {
+        "operationId": "Connect_inboundCheck",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "connect"
+        ],
+        "x-resuto-module": "connect",
+        "x-resuto-permissions": [
+          "connect:manage"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/connect/channels/{id}/test-template": {
+      "post": {
+        "operationId": "Connect_testTemplate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "language": {
+                    "enum": [
+                      "en",
+                      "ar"
+                    ],
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "templateName": {
+                    "pattern": "^[a-z0-9_]{1,512}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone"
+                ],
                 "type": "object"
               }
             }
@@ -15732,6 +16084,49 @@
                 "schema": {
                   "$ref": "#/components/schemas/Page"
                 }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "integrations"
+        ],
+        "x-resuto-permissions": [
+          "integrations:manage"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/integrations/connections/{id}/permissions": {
+      "post": {
+        "operationId": "Integrations_checkPermissions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             },
             "description": "Success"

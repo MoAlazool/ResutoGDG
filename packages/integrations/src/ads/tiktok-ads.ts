@@ -4,7 +4,7 @@
 // Readiness: implemented_unverified (no TikTok developer app or advertiser account available).
 import { providerRequest, ProviderError, type ProviderDescriptor } from '../core';
 import {
-  campaignNameWithToken, decimalToMinor, adsMinorToDecimal, requireConfig, requireCred, toInt, type AdAccountChoice, type AdInsightRow, type AdsAdapter, type AdsObjective,
+  campaignNameWithToken, decimalToMinor, adsMinorToDecimal, parseGrantedScopes, requireConfig, requireCred, toInt, type AdAccountChoice, type AdInsightRow, type AdsAdapter, type AdsObjective,
   type OAuthAppConfig,
 } from './types';
 
@@ -26,6 +26,10 @@ export const tiktokAdsDescriptor: ProviderDescriptor = {
   category: 'ads',
   countries: ['EG', 'SA'],
   authType: 'oauth',
+  connectMethod: 'oauth',
+  // TikTok returns granted permissions as numeric scope ids whose names are not in the documentation checked
+  // (docs/OPEN_BLOCKERS.md B-21): they are stored and shown, but not compared with per-capability requirements.
+  reviewRequirements: ['app_review', 'ad_account_access'],
   readiness: 'implemented_unverified',
   docsUrl: 'https://business-api.tiktok.com/portal/docs',
   capabilities: ['oauth', 'oauth_state_bound', 'advertiser_picker', 'provider_revoke', 'campaign_create_disabled', 'launch_idempotency', 'daily_reports'],
@@ -64,7 +68,7 @@ export const tiktokAdsAdapter: AdsAdapter = {
 
   async exchangeCode(ctx, app, code) {
     if (!app.clientSecret) throw new ProviderError('tiktok_ads', 'app secret not configured', false);
-    const res = await providerRequest<TikTokEnvelope<{ access_token?: string; advertiser_ids?: string[] }>>('tiktok_ads', ctx, `${API}/oauth2/access_token/`, {
+    const res = await providerRequest<TikTokEnvelope<{ access_token?: string; advertiser_ids?: string[]; scope?: number[] }>>('tiktok_ads', ctx, `${API}/oauth2/access_token/`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ app_id: app.clientId, secret: app.clientSecret, auth_code: code }), retries: 0,
     });
@@ -77,7 +81,7 @@ export const tiktokAdsAdapter: AdsAdapter = {
       const listed = await advertisers({ fetch: ctx.fetch }, app, data.access_token);
       if (listed.length) accounts = ids.map((id) => listed.find((a) => a.id === id) ?? { id, name: null, currency: null, status: null });
     } catch { /* keep the bare ids */ }
-    return { accessToken: data.access_token, accountIds: ids, accounts, tokenKind: 'advertiser' };
+    return { accessToken: data.access_token, accountIds: ids, accounts, tokenKind: 'advertiser', grantedScopes: parseGrantedScopes(data.scope) };
   },
 
   async listAccounts(ctx, app) {

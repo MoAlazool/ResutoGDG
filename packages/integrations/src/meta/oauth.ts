@@ -8,7 +8,7 @@
 //   - Long-lived user tokens (fb_exchange_token, ~60 days): https://developers.facebook.com/docs/facebook-login/guides/access-tokens/get-long-lived/
 //   - Revoking permissions (DELETE /{user-id}/permissions): https://developers.facebook.com/docs/facebook-login/guides/permissions/request-revoke
 import { ProviderError, type AdapterContext } from '../core';
-import { FACEBOOK_WWW, graphRequest, META_GRAPH_VERSION } from './graph';
+import { FACEBOOK_WWW, graphList, graphRequest, META_GRAPH_VERSION } from './graph';
 
 export interface MetaApp { clientId: string; clientSecret?: string; redirectUri: string }
 
@@ -74,4 +74,16 @@ export async function metaTokenIdentity(provider: string, ctx: Pick<AdapterConte
 export async function metaRevokePermissions(provider: string, ctx: Pick<AdapterContext, 'fetch'>, userId: string, token: string, appSecret: string | null) {
   const res = await graphRequest<{ success?: boolean } | boolean>(provider, ctx, `${encodeURIComponent(userId)}/permissions`, { method: 'DELETE', token, appSecret });
   return res === true || (typeof res === 'object' && res?.success === true);
+}
+
+/**
+ * GET /me/permissions (21-INT permission verification): the permissions the person or system user granted to the
+ * app, as Meta reports them (status "granted" only; "declined" and "expired" are not granted).
+ * Docs: https://developers.facebook.com/docs/graph-api/reference/user/permissions/ (checked 2026-10-25). Works for
+ * user and business-integration system user tokens; a Page token has no person, so its connection is checked through
+ * the Login user token instead.
+ */
+export async function metaGrantedPermissions(provider: string, ctx: Pick<AdapterContext, 'fetch'>, token: string, appSecret: string | null): Promise<string[]> {
+  const rows = await graphList<{ permission?: string; status?: string }>(provider, ctx, 'me/permissions', { token, appSecret, retries: 1, maxPages: 3 });
+  return [...new Set(rows.filter((r) => r.status === 'granted' && typeof r.permission === 'string' && /^[a-z_]{2,80}$/.test(r.permission)).map((r) => r.permission!))].sort();
 }

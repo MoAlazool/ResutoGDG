@@ -21,6 +21,13 @@ export const metaAdsDescriptor: ProviderDescriptor = {
   category: 'ads',
   countries: ['EG', 'SA'],
   authType: 'oauth',
+  connectMethod: 'oauth',
+  // Checked against GET /me/permissions (Connect > the connection > Check permissions); META_ADS_SCOPES are requested.
+  requiredScopes: {
+    ad_account_picker: ['ads_read'], campaign_create_paused: ['ads_management'], launch_idempotency: ['ads_management'], daily_insights: ['ads_read'],
+    custom_audience_dry_run: ['ads_management'],
+  },
+  reviewRequirements: ['app_review', 'business_verification', 'ad_account_access'],
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.facebook.com/docs/marketing-apis',
   capabilities: ['oauth', 'oauth_state_bound', 'long_lived_token', 'ad_account_picker', 'appsecret_proof', 'provider_revoke', 'campaign_create_paused',

@@ -8,6 +8,7 @@ import { Scheduled } from '../../common/events/events';
 import { WebhookInboxService } from '../../common/platform/webhook-inbox.service';
 import { ENV, type Env } from '../../config/env';
 import { IntegrationConnectionsService } from '../integrations/connections.service';
+import { whatsappPlatformSecrets } from '../integrations/meta-platform';
 import { ConversationsService } from './conversations.service';
 import { MessagingService } from './messaging.service';
 
@@ -41,8 +42,10 @@ export class WhatsAppWebhookService {
 
   /** Platform app endpoint (/v1/webhooks/whatsapp). */
   async receive(rawBody: Buffer | undefined, signature: string | string[] | undefined, headers: Record<string, unknown>) {
-    if (!this.env.WHATSAPP_APP_SECRET) throw new DomainError('webhook_not_configured', 'WhatsApp webhooks are not configured on this server', 503);
-    return this.ingest(rawBody, signature, headers, this.env.WHATSAPP_APP_SECRET, { kind: 'platform' });
+    // The console's Meta app (21-INT) or WHATSAPP_APP_SECRET.
+    const secret = whatsappPlatformSecrets(this.env).appSecret;
+    if (!secret) throw new DomainError('webhook_not_configured', 'WhatsApp webhooks are not configured on this server', 503);
+    return this.ingest(rawBody, signature, headers, secret, { kind: 'platform' });
   }
 
   /** A merchant-owned app's endpoint (/v1/webhooks/whatsapp/c/<connection id>), verified with that app's secret. */

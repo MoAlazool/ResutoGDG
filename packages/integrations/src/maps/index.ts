@@ -133,6 +133,7 @@ export const MAPS_PROVIDERS: ProviderDescriptor[] = [{
   category: 'delivery',
   countries: ['EG', 'SA'],
   authType: 'none',
+  connectMethod: 'platform_managed',
   readiness: 'simulated',
   activation: ['None: offline haversine distance and speed baseline, used whenever Google Routes (restaurant-owned key) is not connected, over its daily cap or failing.'],
   capabilities: ['distance', 'eta_baseline', 'multi_drop_sequence', 'navigation_link'],

@@ -127,7 +127,7 @@ export async function sendWebPush(fetchImpl: typeof fetch, subscription: PushSub
 }
 
 export const webPushDescriptor: ProviderDescriptor = {
-  id: 'web_push', name: 'Web Push (driver app)', category: 'messaging', countries: ['EG', 'SA'], authType: 'none', readiness: 'implemented_unverified',
+  id: 'web_push', name: 'Web Push (driver app)', category: 'messaging', countries: ['EG', 'SA'], authType: 'none', connectMethod: 'platform_managed', readiness: 'implemented_unverified',
   docsUrl: 'https://www.rfc-editor.org/rfc/rfc8030',
   capabilities: ['push_notification'],
   activation: [

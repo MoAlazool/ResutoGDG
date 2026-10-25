@@ -47,6 +47,7 @@ export const paymobDescriptor: ProviderDescriptor = {
   category: 'payments',
   countries: ['EG', 'SA'],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.paymob.com/paymob-docs/developers/intention-apis/create-intention',
   activation: [

@@ -16,6 +16,7 @@ export const geminiByokDescriptor: ProviderDescriptor = {
   category: 'ai',
   countries: ['EG', 'SA'],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   activation: [
     'Create an API key in Google AI Studio (https://aistudio.google.com/apikey) on the restaurant\'s own Google account.',

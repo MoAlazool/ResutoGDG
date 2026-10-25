@@ -36,6 +36,7 @@ export const stripeDescriptor: ProviderDescriptor = {
   // Stripe does not list Egypt or Saudi Arabia as supported business locations (https://stripe.com/global).
   countries: [],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   docsUrl: 'https://docs.stripe.com/payments/checkout',
   activation: [

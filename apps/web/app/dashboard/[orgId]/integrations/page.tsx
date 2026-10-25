@@ -1,524 +1,99 @@
 'use client';
-import { useEffect, useState, type FormEvent } from 'react';
-import type { IntegrationConnectionView, ProviderCatalogEntry } from '@resuto/contracts';
-import { Badge, Card, DataTable, EmptyState, Field, KeyValueList, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, type Tone, OrderRef } from '@resuto/ui';
+import { useEffect, useMemo, useState } from 'react';
+import type { IntegrationConnectionView } from '@resuto/contracts';
+import { Badge, Card, DataTable, EmptyState, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, OrderRef } from '@resuto/ui';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { ApiRequestError } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
+import { marketCards } from '@/lib/integrations-marketplace';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { capabilityLabel } from '@/lib/vocab';
-import { beginOAuth } from '../../oauth/binding';
+import { Marketplace, ProviderSheet, StatusChip } from './marketplace';
+import { ACCOUNT_KEY, AccountPicker, pickerKey, statusTone, type CatalogItem, type ConnectionView } from './parts';
+import s from './integrations.module.css';
 
-interface FieldSpec {
-  key: string; label: string; secret: boolean; required: boolean; hint?: string;
-  labelKey?: string; hintKey?: string; kind?: 'text' | 'secret' | 'number' | 'select'; pattern?: string; options?: string[]; placeholder?: string;
-}
-type ReadinessState = 'not_configured' | 'implementation_incomplete' | 'pending_external_verification' | 'official_test_verified' | 'live_verified' | 'blocked_by_provider';
-interface CapabilityReadiness { capability: string; test: ReadinessState; live: ReadinessState; note: string | null; blockedBy: string | null }
-interface ReadinessDetail { summary: ReadinessState; configured: boolean; capabilities: CapabilityReadiness[]; restriction: { country: string; reason: string; source: string } | null }
-type CatalogItem = ProviderCatalogEntry & {
-  fields: { credentials: FieldSpec[]; config: FieldSpec[] }; oauthConfigured: boolean | null;
-  activationKeys?: string[]; webhookEvents?: string[]; readinessDetail?: ReadinessDetail | null;
-};
-interface WebhookInfo { url: string; events: string[]; registeredByMerchant: boolean; verifyToken?: string | null }
-interface AccountChoice { id: string; name: string | null; currency: string | null; status: string | null }
-/** Config key of the chosen ad account per ads provider (INT-11 picker). */
-const ACCOUNT_KEY: Record<string, string> = { meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId', foodics: 'businessReference' };
-/** Picker wording: a Facebook Page for Messenger / Instagram (INT-21), an ad account otherwise. */
-const pickerKey = (provider: string, k: 'title' | 'help' | 'label' | 'none' | 'use' | 'choose' | 'change') => `intg.${provider === 'meta_pages' ? 'page' : 'account'}.${k}`;
-type ConnectionView = IntegrationConnectionView & {
-  webhook?: WebhookInfo | null; lastSuccessAt?: string | null; lastFailureAt?: string | null; lastWebhookAt?: string | null; account?: Record<string, string> | null;
-};
 interface ImportRow { externalId?: string; name: string; nameAr?: string; category: string; description?: string; priceMinor: number; station?: string; allergens?: string[]; available?: boolean; action?: 'create' | 'update' }
 interface SyncResult { run: { id: string; status: string; stats: any; error: string | null }; rows: ImportRow[]; warnings: string[]; importSource: 'foodics' | 'odoo' | 'csv' | null; retryable: boolean }
 
-const readinessTone = (r: string): Tone => (r === 'simulated' ? 'sandbox' : r === 'implemented_unverified' ? 'warn' : r === 'sandbox_verified' ? 'info' : 'ok');
-const stateTone = (s: ReadinessState): Tone => (({
-  not_configured: 'neutral', implementation_incomplete: 'danger', pending_external_verification: 'warn', official_test_verified: 'info', live_verified: 'ok', blocked_by_provider: 'danger',
-} as Record<ReadinessState, Tone>)[s]);
-const statusTone = (s: string): Tone => (({ connected: 'ok', sandbox: 'sandbox', pending: 'warn', error: 'danger', revoked: 'neutral', not_configured: 'neutral' } as Record<string, Tone>)[s] ?? 'neutral');
-
-/** Translation with an English fallback for keys a provider declares but the dictionary does not have yet. */
-function useTx() {
-  const { t, locale } = useT();
-  const tx = (key: string | undefined, fallback: string, vars?: Record<string, string | number>) => {
-    if (!key) return fallback;
-    const v = t(key, vars);
-    return v === key ? fallback : v;
-  };
-  return { t, tx, locale };
-}
-
-/** API errors with a known code are shown in the user's language (form validation, environment mismatch). */
-function localizedError(e: unknown, t: (k: string, v?: Record<string, string | number>) => string): Error {
-  if (e instanceof ApiRequestError) {
-    const d = (e.details ?? {}) as { missing?: string[]; invalid?: string[] };
-    const key = `intg.error.${e.code}`;
-    const msg = t(key, { fields: (d.missing ?? d.invalid ?? []).join(', ') });
-    if (msg !== key) return new Error(msg);
-  }
-  return e as Error;
-}
-
+/**
+ * Integrations (21-INT, plan §6.3): the marketplace of provider cards with honest chips, the tenant's connections, the
+ * POS menu import and the integration logs. Every provider opens the same sheet (connect, capabilities, permissions,
+ * requirements, health, logs, disconnect).
+ */
 export default function IntegrationsPage() {
   const { t } = useT();
+  const { org } = useOrg();
   const [tab, setTab] = useState<'catalog' | 'connections' | 'pos' | 'logs'>('catalog');
+  const catalog = useApi<{ items: CatalogItem[] }>(`/o/${org.id}/integrations/catalog`);
+  const list = useApi<{ items: ConnectionView[] }>(`/o/${org.id}/integrations/connections`);
   // Back from a provider's consent screen (PS-11 completion page): show the connections.
   useEffect(() => { if (new URLSearchParams(window.location.search).has('connected')) setTab('connections'); }, []);
+  const reload = async () => { await Promise.all([catalog.reload(), list.reload()]); };
   return (
     <ModuleGate module="core" permission="integrations:manage">
       <PageHeader title={t('nav.integrations')} subtitle={t('connect.int.subtitle')} />
       <Tabs value={tab} onChange={setTab} tabs={[
-        { key: 'catalog', label: t('connect.int.catalog') }, { key: 'connections', label: t('connect.int.connections') },
+        { key: 'catalog', label: t('mkt.tab') }, { key: 'connections', label: t('connect.int.connections') },
         { key: 'pos', label: t('connect.int.posImport') }, { key: 'logs', label: t('connect.int.logs') },
       ]} />
-      {tab === 'catalog' && <Catalog onConnected={() => setTab('connections')} />}
-      {tab === 'connections' && <Connections />}
+      {(catalog.error || list.error) && <Notice tone="danger">{(catalog.error ?? list.error)!.message}</Notice>}
+      {tab === 'catalog' && (catalog.data && list.data
+        ? <Marketplace items={catalog.data.items} connections={list.data.items} onChanged={reload} />
+        : !catalog.error && <Skeleton lines={6} />)}
+      {tab === 'connections' && (catalog.data && list.data ? <Connections items={catalog.data.items} connections={list.data.items} onChanged={reload} /> : <Skeleton />)}
       {tab === 'pos' && <PosImport />}
       {tab === 'logs' && <Logs />}
     </ModuleGate>
   );
 }
 
-function ReadinessBadge({ readiness }: { readiness: string }) {
-  const { t } = useT();
-  return <Badge tone={readinessTone(readiness)}>{t(`connect.readiness.${readiness}`)}</Badge>;
-}
-
-/** A readiness label that may wrap (the six-state labels are sentences, not single words). */
-function StateBadge({ state }: { state: ReadinessState }) {
-  const { t } = useT();
-  const tone = stateTone(state);
-  return <span className={`badge${tone === 'neutral' ? '' : ` badge-${tone}`}`} style={{ whiteSpace: 'normal', lineHeight: 1.35, textAlign: 'start' }}>{t(`intg.readiness.${state}`)}</span>;
-}
-
-/** Six-state readiness (INT-16) when the API computed it; the legacy label otherwise. */
-function ProviderReadiness({ item }: { item: CatalogItem }) {
-  if (!item.readinessDetail) return <ReadinessBadge readiness={item.readiness} />;
-  return <StateBadge state={item.readinessDetail.summary} />;
-}
-
-function CapabilityTable({ detail, provider }: { detail: ReadinessDetail; provider: string }) {
-  const { t, tx, locale } = useTx();
-  const r = detail.restriction;
-  return (
-    <div className="stack gap-6">
-      <strong className="fine">{t('intg.readiness.title')}</strong>
-      {r && <Notice tone="danger">{tx(`intg.restricted.${r.country}`, r.reason, { provider })} <a href={r.source} target="_blank" rel="noreferrer" dir="ltr">{new URL(r.source).host}</a></Notice>}
-      <div className="table-wrap">
-        <table className="data">
-          <thead><tr><th>{t('intg.readiness.col.capability')}</th><th>{t('intg.readiness.col.test')}</th><th>{t('intg.readiness.col.live')}</th></tr></thead>
-          <tbody>{detail.capabilities.map((c) => (
-            <tr key={c.capability}>
-              <td>{capabilityLabel(t, c.capability)}{c.note && locale === 'en' && <div className="fine">{c.note}</div>}</td>
-              <td><StateBadge state={c.test} /></td>
-              <td><StateBadge state={c.live} /></td>
-            </tr>))}</tbody>
-        </table>
-      </div>
-      <p className="fine m-0">{t('intg.readiness.help')}</p>
-    </div>
-  );
-}
-
-function Catalog({ onConnected }: { onConnected: () => void }) {
-  const { t, tx, locale } = useTx();
-  const { org } = useOrg();
-  const catalog = useApi<{ items: CatalogItem[] }>(`/o/${org.id}/integrations/catalog`);
-  const [connecting, setConnecting] = useState<CatalogItem | null>(null);
-  const [filter, setFilter] = useState('');
-  if (!catalog.data) return catalog.error ? <Notice tone="danger">{catalog.error.message}</Notice> : <Skeleton lines={6} />;
-  const groups = [...new Set(catalog.data.items.map((p) => p.category))];
-  const shown = filter && groups.includes(filter) ? [filter] : groups;
-  return (
-    <div className="stack">
-      <Notice>{t('connect.int.readinessHelp')}</Notice>
-      {/* Legacy filter chips: All items / one category (VS-32). */}
-      <div className="integ-chips" role="group" aria-label={t('ops.integ.filter')}>
-        <button type="button" className="integ-chip" aria-pressed={!filter} onClick={() => setFilter('')}>{t('ops.integ.all')}</button>
-        {groups.map((g) => <button key={g} type="button" className="integ-chip" aria-pressed={filter === g} onClick={() => setFilter(g)}>{t(`connect.int.category.${g}`)}</button>)}
-      </div>
-      {shown.map((g) => (
-        <section key={g}>
-          <h2>{t(`connect.int.category.${g}`)}</h2>
-          <div className="grid grid-3">
-            {catalog.data!.items.filter((p) => p.category === g).map((p) => (
-              <article key={p.id} className="card stack integ-card gap-8">
-                <div className="integ-title">
-                  <ProviderTile name={p.name} id={p.id} />
-                  <span><strong><bdi>{p.name}</bdi></strong><small>{t(`connect.int.category.${g}`)}</small></span>
-                </div>
-                <ProviderReadiness item={p} />
-                <span className="fine text-start">{p.countries.length > 0 && <><bdi dir="ltr">{p.countries.join(' · ')}</bdi> · </>}{p.capabilities.slice(0, 4).map((c) => capabilityLabel(t, c)).join(locale === 'ar' ? '، ' : ', ')}</span>
-                <details><summary className="fine">{t('connect.int.activation')}</summary>
-                  <ol className="fine" style={{ paddingInlineStart: 18, overflowWrap: 'anywhere' }}>{p.activation.map((s, i) => <li key={i}>{tx(p.activationKeys?.[i], s)}</li>)}</ol>
-                  {p.readinessDetail && <CapabilityTable detail={p.readinessDetail} provider={p.name} />}
-                  {p.docsUrl && <a className="fine" href={p.docsUrl} target="_blank" rel="noreferrer">{t('connect.int.docs')}</a>}
-                </details>
-                <button className="btn btn-sm" onClick={() => setConnecting(p)}>{p.sandboxOnly ? t('connect.int.enableSandbox') : t('connect.int.connect')}</button>
-              </article>
-            ))}
-          </div>
-        </section>
-      ))}
-      {connecting && <ConnectModal provider={connecting} onClose={() => setConnecting(null)} onDone={() => { setConnecting(null); onConnected(); }} />}
-    </div>
-  );
-}
-
-/** Legacy provider tile (.provider-initial / p-0..p-4): the provider's initial on a tint chosen from its id. */
-function ProviderTile({ name, id }: { name: string; id: string }) {
-  let h = 0;
-  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return <span className="integ-tile" data-tint={h % 5} aria-hidden="true">{name.trim().charAt(0).toUpperCase()}</span>;
-}
-
-const fieldValid = (f: FieldSpec, v: string | undefined) => {
-  if (!v) return !f.required;
-  if (f.options && !f.options.includes(v)) return false;
-  return !f.pattern || new RegExp(f.pattern).test(v);
-};
-const regionKey = (url: string) => `intg.region.${new URL(url).host.split('.')[0]}`;
-/** Select options are either region URLs (Paymob) or plain values (Meta CAPI: on_completion, never, on, off). */
-const optionKey = (o: string) => (/^https?:\/\//.test(o) ? regionKey(o) : `intg.option.${o}`);
-
-/** Provider-declared credential and settings fields (INT-06): localized labels, formats checked before submit. */
-function ProviderFields({ provider, fields, values, onChange, touched }: {
-  provider: string; fields: FieldSpec[]; values: Record<string, string>; onChange: (v: Record<string, string>) => void; touched: boolean;
-}) {
-  const { t, tx } = useTx();
-  return <>{fields.map((f) => {
-    const label = tx(f.labelKey, f.label);
-    const hint = f.hintKey ? tx(f.hintKey, f.hint ?? '') : f.secret ? t('connect.int.secretHint') : f.hint;
-    const invalid = touched && !!values[f.key] && !fieldValid(f, values[f.key]) ? t('intg.field.invalid') : null;
-    if (f.kind === 'select' && f.options) {
-      return (
-        <SelectField key={f.key} label={label} hint={hint} value={values[f.key] || f.options[0]} onChange={(e) => onChange({ ...values, [f.key]: e.target.value })}>
-          {f.options.map((o) => <option key={o} value={o}>{tx(optionKey(o), o)}</option>)}
-        </SelectField>
-      );
-    }
-    return (
-      <Field key={`${provider}-${f.key}`} label={label} type={f.secret ? 'password' : 'text'} autoComplete="off" dir="ltr" required={f.required}
-        inputMode={f.kind === 'number' ? 'numeric' : undefined} placeholder={f.placeholder} value={values[f.key] ?? ''} hint={hint} error={invalid}
-        onChange={(e) => onChange({ ...values, [f.key]: e.target.value })} />
-    );
-  })}</>;
-}
-
-const pickValues = (fs: FieldSpec[], values: Record<string, string>) =>
-  Object.fromEntries(fs.map((f) => [f.key, values[f.key]?.trim()]).filter(([, v]) => v).map(([k, v]) => {
-    const spec = fs.find((f) => f.key === k);
-    return [k, spec?.kind === 'number' && /^\d+$/.test(v!) ? Number(v) : v];
-  }));
-
-function ConnectModal({ provider, onClose, onDone }: { provider: CatalogItem; onClose: () => void; onDone: () => void }) {
-  const { t } = useT();
-  const { org } = useOrg();
-  const session = useSession();
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [touched, setTouched] = useState(false);
-  // Default to the provider's TEST environment; live needs an explicit confirmation (INT-06).
-  const [environment, setEnvironment] = useState<'sandbox' | 'live'>('sandbox');
-  const [liveConfirmed, setLiveConfirmed] = useState(false);
-  const [created, setCreated] = useState<ConnectionView | null>(null);
-  const all = [...provider.fields.credentials, ...provider.fields.config];
-  const isPayment = provider.category === 'payments' && !provider.sandboxOnly;
-  const save = useAction(async (e: FormEvent) => {
-    e.preventDefault();
-    setTouched(true);
-    if (!provider.sandboxOnly && all.some((f) => !fieldValid(f, values[f.key]?.trim()))) throw new Error(t('intg.field.invalid'));
-    try {
-      const c = await session.call<ConnectionView>(`/o/${org.id}/integrations/connections`, { body: {
-        provider: provider.id, environment, credentials: provider.sandboxOnly ? {} : pickValues(provider.fields.credentials, values),
-        config: provider.sandboxOnly ? {} : pickValues(provider.fields.config, values),
-      } });
-      if (!isPayment) { onDone(); return; }
-      setCreated(c);
-      setCreated(await session.call<ConnectionView>(`/o/${org.id}/integrations/connections/${c.id}/health`, { method: 'POST' }));
-    } catch (err) {
-      throw localizedError(err, t);
-    }
-  });
-  const oauth = useAction(async () => {
-    // PS-11: the browser keeps a nonce; only its SHA-256 goes to the API, and completing needs the nonce back.
-    const redirectAfter = `/dashboard/${org.id}/integrations`;
-    const browserBinding = await beginOAuth(provider.id, org.id, redirectAfter);
-    const r = await session.call<{ url: string }>(`/o/${org.id}/integrations/oauth/${provider.id}/start`, { body: { redirectAfter, browserBinding } });
-    window.location.href = r.url;
-  });
-  if (created) {
-    return (
-      <Modal open onClose={onDone} title={<bdi>{provider.name}</bdi>}>
-        <div className="stack">
-          <strong>{t('intg.next.title')}</strong>
-          {save.pending ? <p className="fine">{t('intg.next.checking')}</p> : <Notice tone={created.status === 'connected' ? 'ok' : 'warn'}>
-            {created.status === 'connected' ? t('intg.next.ok') : t('intg.next.failed')}{created.lastError && <> — <bdi dir="ltr">{created.lastError}</bdi></>}</Notice>}
-          {created.webhook && <WebhookPanel webhook={created.webhook} />}
-          <button className="btn btn-primary" onClick={onDone}>{t('connect.int.save')}</button>
-        </div>
-      </Modal>
-    );
-  }
-  return (
-    <Modal open onClose={onClose} title={<bdi>{provider.name}</bdi>}>
-      <div className="row" style={{ marginBlockEnd: 10 }}><ProviderReadiness item={provider} /></div>
-      {provider.readiness === 'implemented_unverified' && <Notice tone="warn">{t('connect.int.unverifiedNotice')}</Notice>}
-      <form className="mbs-12" onSubmit={save.run}>
-        {provider.sandboxOnly ? <p className="fine">{t('connect.int.sandboxNotice')}</p> : <>
-          {provider.authType === 'oauth' && (
-            <div className="stack mbe-12">
-              <button type="button" className="btn btn-leaf" disabled={oauth.pending || !provider.oauthConfigured} onClick={() => oauth.run()}>{t('connect.int.oauth')}</button>
-              {!provider.oauthConfigured && <p className="fine">{t('connect.int.oauthMissing')}</p>}
-              {oauth.error && <Notice tone="danger">{oauth.error}</Notice>}
-              <span className="fine">{t('connect.int.orManual')}</span>
-            </div>
-          )}
-          <SelectField label={t('intg.env.label')} value={environment} onChange={(e) => { setEnvironment(e.target.value as 'sandbox' | 'live'); setLiveConfirmed(false); }}>
-            <option value="sandbox">{t('intg.env.sandbox')}</option><option value="live">{t('intg.env.live')}</option></SelectField>
-          {isPayment && environment === 'sandbox' && <p className="fine">{t('intg.env.testFirst')}</p>}
-          {environment === 'live' && (
-            <label className="fine" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBlockEnd: 8 }}>
-              <input type="checkbox" style={{ width: 'auto', marginBlockStart: 3 }} checked={liveConfirmed} onChange={(e) => setLiveConfirmed(e.target.checked)} /> <span>{t('intg.env.liveConfirm')}</span>
-            </label>
-          )}
-          <ProviderFields provider={provider.id} fields={all} values={values} onChange={setValues} touched={touched} />
-        </>}
-        {save.error && <Notice tone="danger">{save.error}</Notice>}
-        <button className="btn btn-primary" disabled={save.pending || (environment === 'live' && !provider.sandboxOnly && !liveConfirmed)}>{t('connect.int.save')}</button>
-      </form>
-    </Modal>
-  );
-}
-
-/** The merchant's exact webhook URL with a copy button and the events to subscribe (CR-09). */
-function WebhookPanel({ webhook }: { webhook: WebhookInfo }) {
-  const { t } = useT();
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(webhook.url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked: the URL stays selectable */ }
-  };
-  return (
-    <div className="stack gap-6">
-      <strong className="fine">{t('intg.webhook.title')}</strong>
-      <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-        <code dir="ltr" className="fine" style={{ wordBreak: 'break-all', background: 'var(--surface-warm)', padding: '6px 8px', borderRadius: 6, flex: 1 }}>{webhook.url}</code>
-        <button type="button" className="btn btn-sm" onClick={copy}>{copied ? t('intg.webhook.copied') : t('intg.webhook.copy')}</button>
-      </div>
-      <p className="fine m-0">{webhook.registeredByMerchant ? t('intg.webhook.registerInDashboard') : t('intg.webhook.sentPerCheckout')}</p>
-      {webhook.verifyToken && <span className="fine">{t('intg.webhook.verifyToken')} <code className="break-all" dir="ltr">{webhook.verifyToken}</code></span>}
-      {webhook.events.length > 0 && <>
-        <span className="fine">{t('intg.webhook.events')}</span>
-        <ul className="fine" style={{ margin: 0, paddingInlineStart: 18 }}>{webhook.events.map((e) => <li key={e}><code dir="ltr">{e}</code></li>)}</ul>
-      </>}
-    </div>
-  );
-}
-
-function Connections() {
+function Connections({ items, connections, onChanged }: { items: CatalogItem[]; connections: ConnectionView[]; onChanged: () => Promise<void> }) {
   const { t, locale } = useT();
   const { org } = useOrg();
   const session = useSession();
-  const list = useApi<{ items: ConnectionView[] }>(`/o/${org.id}/integrations/connections`);
-  const catalog = useApi<{ items: CatalogItem[] }>(`/o/${org.id}/integrations/catalog`);
   const [open, setOpen] = useState<ConnectionView | null>(null);
-  const [editing, setEditing] = useState<{ c: ConnectionView; mode: 'credentials' | 'settings' } | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
-  const [revocation, setRevocation] = useState<{ attempted: boolean; revoked: boolean; note: string } | null>(null);
+  const cards = useMemo(() => marketCards(items, org.id, (id) => t(`mkt.link.${id}`)), [items, org.id, t]);
   // Back from OAuth with several granted accounts: open the account picker (INT-11).
   useEffect(() => { const id = new URLSearchParams(window.location.search).get('choose'); if (id && /^[0-9a-f-]{36}$/i.test(id)) setPicking(id); }, []);
-  const act = useAction(async (c: ConnectionView, action: 'health' | 'enable' | 'disable' | 'revoke' | 'delete') => {
-    if (action === 'revoke' && !window.confirm(t('connect.int.revokeConfirm'))) return;
-    setRevocation(null);
-    if (action === 'delete') await session.call(`/o/${org.id}/integrations/connections/${c.id}`, { method: 'DELETE' });
-    else {
-      const r = await session.call<{ providerRevocation?: { attempted: boolean; revoked: boolean; note: string } | null }>(`/o/${org.id}/integrations/connections/${c.id}/${action}`, { method: 'POST' });
-      if (action === 'revoke' && r.providerRevocation) setRevocation(r.providerRevocation);
-    }
-    await list.reload();
-  });
-  const needsAccount = (c: ConnectionView) => !!ACCOUNT_KEY[c.provider] && c.status !== 'revoked' && c.authType === 'oauth' && !c.config?.[ACCOUNT_KEY[c.provider]!];
-  const hasChoices = (c: ConnectionView) => !!ACCOUNT_KEY[c.provider] && c.status !== 'revoked' && c.authType === 'oauth';
+  const remove = useAction(async (c: ConnectionView) => { await session.call(`/o/${org.id}/integrations/connections/${c.id}`, { method: 'DELETE' }); await onChanged(); });
   const setSot = useAction(async (c: ConnectionView, menu: string) => {
     await session.call(`/o/${org.id}/integrations/connections/${c.id}`, { method: 'PATCH', body: { sourceOfTruth: { menu } } });
-    await list.reload();
+    await onChanged();
   });
-  const specOf = (c: ConnectionView) => catalog.data?.items.find((i) => i.id === c.provider) ?? null;
-  if (!list.data) return list.error ? <Notice tone="danger">{list.error.message}</Notice> : <Skeleton />;
+  const specOf = (c: ConnectionView) => items.find((i) => i.id === c.provider) ?? null;
+  const cardOf = (c: ConnectionView) => cards.find((x) => x.id === c.provider) ?? null;
+  const needsAccount = (c: ConnectionView) => !!ACCOUNT_KEY[c.provider] && c.status !== 'revoked' && c.authType === 'oauth' && !c.config?.[ACCOUNT_KEY[c.provider]!];
+  const pickingConn = picking ? connections.find((c) => c.id === picking) : undefined;
   return (
     <div className="stack">
-      {act.error && <Notice tone="danger">{act.error}</Notice>}
-      {revocation && <Notice tone={revocation.revoked ? 'ok' : 'warn'}>{t(revocation.revoked ? 'intg.revoke.providerOk' : revocation.attempted ? 'intg.revoke.providerUnconfirmed' : 'intg.revoke.providerManual')} <bdi dir="ltr">{revocation.note}</bdi></Notice>}
-      {setSot.error && <Notice tone="danger">{setSot.error}</Notice>}
-      <DataTable rows={list.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('connect.int.noConnections')}>{t('connect.int.noConnectionsBody')}</EmptyState>} columns={[
+      {(remove.error || setSot.error) && <Notice tone="danger">{remove.error ?? setSot.error}</Notice>}
+      <DataTable rows={connections} rowKey={(c) => c.id} empty={<EmptyState title={t('connect.int.noConnections')}>{t('connect.int.noConnectionsBody')}</EmptyState>} columns={[
         { key: 'p', header: t('connect.int.provider'), render: (c) => <><strong><bdi>{specOf(c)?.name ?? c.provider}</bdi></strong> <div className="row gap-4">
-          {specOf(c)?.readinessDetail ? <StateBadge state={specOf(c)!.readinessDetail!.summary} /> : c.readiness && <ReadinessBadge readiness={c.readiness} />}
+          {specOf(c)?.marketplace?.connectionId === c.id && <StatusChip status={specOf(c)!.marketplace!.status} />}
           <Badge tone={c.environment === 'live' ? 'info' : 'sandbox'}>{c.environment === 'live' ? t('intg.env.liveBadge') : t('intg.env.testBadge')}</Badge></div></> },
-        { key: 's', header: t('connect.channels.status'), render: (c) => <div className="stack" style={{ gap: 2 }}><Badge tone={statusTone(c.status)}>{t(`connect.int.status.${c.status}`)}</Badge>
-          {!c.enabled && <Badge>{t('connect.int.disabled')}</Badge>}{c.lastError && <span className="fine" dir="ltr" style={{ color: 'var(--danger)', textAlign: 'start' }}>{c.lastError}</span>}</div> },
+        { key: 's', header: t('connect.channels.status'), render: (c) => <div className={s.tight}><Badge tone={statusTone(c.status)}>{t(`connect.int.status.${c.status}`)}</Badge>
+          {!c.enabled && <Badge>{t('connect.int.disabled')}</Badge>}{c.lastError && <span className={`fine ${s.danger}`} dir="ltr">{c.lastError}</span>}</div> },
         { key: 'h', header: t('connect.int.health'), render: (c) => <span className="fine">{c.lastHealthCheckAt ? dateTime(c.lastHealthCheckAt, locale) : t('connect.int.neverChecked')}</span> },
         { key: 'cred', header: t('connect.int.credentials'), render: (c) => <code className="fine" dir="ltr">{c.credentialsHint ?? '—'}</code> },
         { key: 'sot', header: t('connect.int.sourceOfTruth'), render: (c) => c.category === 'pos' ? (
-          <select className="select" style={{ minHeight: 32, width: 'auto' }} value={c.sourceOfTruth.menu} onChange={(e) => setSot.run(c, e.target.value)} aria-label={t('connect.int.sourceOfTruth')}>
+          <select className={`select ${s.select}`} value={c.sourceOfTruth.menu} onChange={(e) => setSot.run(c, e.target.value)} aria-label={t('connect.int.sourceOfTruth')}>
             <option value="resuto">{t('connect.int.sot.resuto')}</option><option value="provider">{t('connect.int.sot.provider')}</option></select>) : <span className="fine">{t('connect.int.sot.ordersResuto')}</span> },
         { key: 'a', header: '', align: 'end', render: (c) => (
           <div className="row gap-4 justify-end wrap">
             {needsAccount(c) && <button className="btn btn-sm btn-primary" onClick={() => setPicking(c.id)}>{t(pickerKey(c.provider, 'choose'))}</button>}
-            {!needsAccount(c) && hasChoices(c) && <button className="btn btn-sm btn-ghost" onClick={() => setPicking(c.id)}>{t(pickerKey(c.provider, 'change'))}</button>}
-            {c.status !== 'revoked' && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'health')}>{t('connect.int.check')}</button>}
-            {c.status !== 'sandbox' && specOf(c) && <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ c, mode: 'credentials' })}>{t('intg.action.updateCredentials')}</button>}
-            {c.status !== 'revoked' && c.status !== 'sandbox' && (specOf(c)?.fields.config.length ?? 0) > 0 && <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ c, mode: 'settings' })}>{t('intg.action.editSettings')}</button>}
-            {c.status !== 'revoked' && <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, c.enabled ? 'disable' : 'enable')}>{t(c.enabled ? 'connect.channels.disable' : 'connect.channels.enable')}</button>}
-            {c.status !== 'revoked' && c.status !== 'sandbox' && <button className="btn btn-sm btn-ghost btn-danger" disabled={act.pending} onClick={() => act.run(c, 'revoke')}>{t('connect.int.revoke')}</button>}
-            {['revoked', 'not_configured', 'sandbox'].includes(c.status) && <button className="btn btn-sm btn-ghost btn-danger" disabled={act.pending} onClick={() => act.run(c, 'delete')}>{t('action.delete')}</button>}
-            <button className="btn btn-sm btn-ghost" onClick={() => setOpen(c)}>{t('connect.int.details')}</button>
+            {['revoked', 'not_configured', 'sandbox'].includes(c.status) && <button className="btn btn-sm btn-ghost btn-danger" disabled={remove.pending} onClick={() => remove.run(c)}>{t('action.delete')}</button>}
+            {cardOf(c) && <button className="btn btn-sm btn-ghost" onClick={() => setOpen(c)}>{t('connect.int.details')}</button>}
           </div>) },
       ]} />
       <p className="fine">{t('connect.int.sot.rules')}</p>
-      {open && <ConnectionDetail connection={open} spec={specOf(open)} onClose={() => setOpen(null)} />}
-      {picking && list.data.items.find((c) => c.id === picking) && <AccountPicker connection={list.data.items.find((c) => c.id === picking)!}
-        onClose={() => setPicking(null)} onSaved={async () => { setPicking(null); await list.reload(); }} />}
-      {editing && specOf(editing.c) && <EditConnection connection={editing.c} spec={specOf(editing.c)!} mode={editing.mode} onClose={() => setEditing(null)}
-        onSaved={async () => { setEditing(null); await list.reload(); }} />}
+      {open && cardOf(open) && <ProviderSheet card={cardOf(open)!} item={specOf(open)} connection={connections.find((c) => c.id === open.id) ?? open}
+        onClose={() => setOpen(null)} onChanged={onChanged} />}
+      {pickingConn && <AccountPicker connection={pickingConn} onClose={() => setPicking(null)} onSaved={async () => { setPicking(null); await onChanged(); }} />}
     </div>
-  );
-}
-
-/**
- * INT-11: the owner picks which granted ad account / advertiser the connection uses. Choices come from the provider
- * (stored at authorisation, refreshable here); the API refuses an account the provider did not grant.
- */
-function AccountPicker({ connection, onClose, onSaved }: { connection: ConnectionView; onClose: () => void; onSaved: () => void }) {
-  const { t } = useT();
-  const { org } = useOrg();
-  const session = useSession();
-  const key = ACCOUNT_KEY[connection.provider]!;
-  const [choices, setChoices] = useState<AccountChoice[]>(((connection.config?.accountChoices as AccountChoice[] | undefined) ?? []));
-  const [value, setValue] = useState<string>(String(connection.config?.[key] ?? choices[0]?.id ?? ''));
-  const refresh = useAction(async () => {
-    const r = await session.call<{ accounts: AccountChoice[] }>(`/o/${org.id}/integrations/connections/${connection.id}/accounts`);
-    setChoices(r.accounts);
-    if (!r.accounts.some((a) => a.id === value)) setValue(r.accounts[0]?.id ?? '');
-  });
-  const save = useAction(async (e: FormEvent) => {
-    e.preventDefault();
-    await session.call(`/o/${org.id}/integrations/connections/${connection.id}/account`, { body: { accountId: value } });
-    onSaved();
-  });
-  return (
-    <Modal open onClose={onClose} title={t(pickerKey(connection.provider, 'title'))}>
-      <form onSubmit={save.run} className="stack">
-        <p className="fine m-0">{t(pickerKey(connection.provider, 'help'))}</p>
-        {choices.length === 0 ? <Notice tone="warn">{t(pickerKey(connection.provider, 'none'))}</Notice> : (
-          <SelectField label={t(pickerKey(connection.provider, 'label'))} value={value} onChange={(e) => setValue(e.target.value)}>
-            {choices.map((a) => <option key={a.id} value={a.id}>{[a.name ?? a.id, a.id, a.currency, a.status].filter(Boolean).join(' · ')}</option>)}
-          </SelectField>
-        )}
-        {refresh.error && <Notice tone="danger">{refresh.error}</Notice>}
-        {save.error && <Notice tone="danger">{save.error}</Notice>}
-        <div className="row gap-8">
-          <button type="button" className="btn btn-ghost" disabled={refresh.pending} onClick={() => refresh.run()}>{t('intg.account.refresh')}</button>
-          <button className="btn btn-primary" disabled={save.pending || !value}>{t(pickerKey(connection.provider, 'use'))}</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-/** Reconnect (replace credentials, optionally switch environment) or edit settings, then re-check (INT-06). */
-function EditConnection({ connection, spec, mode, onClose, onSaved }: { connection: ConnectionView; spec: CatalogItem; mode: 'credentials' | 'settings'; onClose: () => void; onSaved: () => void }) {
-  const { t } = useT();
-  const { org } = useOrg();
-  const session = useSession();
-  const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(Object.entries(connection.config ?? {}).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => [k, String(v)])));
-  const [environment, setEnvironment] = useState<'sandbox' | 'live'>(connection.environment);
-  const [liveConfirmed, setLiveConfirmed] = useState(connection.environment === 'live');
-  const [touched, setTouched] = useState(false);
-  const fields = mode === 'credentials' ? [...spec.fields.credentials, ...spec.fields.config] : spec.fields.config;
-  const save = useAction(async (e: FormEvent) => {
-    e.preventDefault();
-    setTouched(true);
-    if (fields.some((f) => !fieldValid(f, values[f.key]?.trim()))) throw new Error(t('intg.field.invalid'));
-    try {
-      const body = mode === 'credentials'
-        ? { environment, credentials: pickValues(spec.fields.credentials, values), config: pickValues(spec.fields.config, values) }
-        : { config: pickValues(spec.fields.config, values) };
-      await session.call(`/o/${org.id}/integrations/connections/${connection.id}`, { method: 'PATCH', body });
-      await session.call(`/o/${org.id}/integrations/connections/${connection.id}/health`, { method: 'POST' });
-    } catch (err) {
-      throw localizedError(err, t);
-    }
-    onSaved();
-  });
-  return (
-    <Modal open onClose={onClose} title={<>{t(mode === 'credentials' ? 'intg.action.updateCredentials' : 'intg.action.editSettings')} · <bdi>{spec.name}</bdi></>}>
-      <form onSubmit={save.run} className="stack">
-        <p className="fine m-0">{t(mode === 'credentials' ? 'intg.update.credentialsHelp' : 'intg.update.settingsHelp')}</p>
-        {mode === 'credentials' && <>
-          <SelectField label={t('intg.env.label')} value={environment} onChange={(e) => { setEnvironment(e.target.value as 'sandbox' | 'live'); setLiveConfirmed(false); }}>
-            <option value="sandbox">{t('intg.env.sandbox')}</option><option value="live">{t('intg.env.live')}</option></SelectField>
-          {environment === 'live' && (
-            <label className="fine" style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <input type="checkbox" style={{ width: 'auto', marginBlockStart: 3 }} checked={liveConfirmed} onChange={(e) => setLiveConfirmed(e.target.checked)} /> <span>{t('intg.env.liveConfirm')}</span>
-            </label>
-          )}
-        </>}
-        <ProviderFields provider={spec.id} fields={fields} values={values} onChange={setValues} touched={touched} />
-        {save.error && <Notice tone="danger">{save.error}</Notice>}
-        <button className="btn btn-primary" disabled={save.pending || (environment === 'live' && !liveConfirmed)}>{t('intg.action.save')}</button>
-      </form>
-    </Modal>
-  );
-}
-
-function ConnectionDetail({ connection, spec, onClose }: { connection: ConnectionView; spec: CatalogItem | null; onClose: () => void }) {
-  const { t, locale } = useT();
-  const { org } = useOrg();
-  const runs = useApi<{ items: Array<{ id: string; status: string; attempt: number; stats: any; error: string | null; startedAt: string }> }>(
-    connection.category === 'pos' ? `/o/${org.id}/integrations/connections/${connection.id}/sync-runs` : null);
-  const logs = useApi<{ items: Array<{ id: number; level: string; message: string; createdAt: string }> }>(`/o/${org.id}/integrations/connections/${connection.id}/logs?limit=30`);
-  const health = (connection.health ?? {}) as { ok?: boolean | null; transient?: boolean; error?: { code?: string; message?: string } | string };
-  const when = (v: string | null | undefined) => (v ? dateTime(v, locale) : t('intg.diag.never'));
-  const account = connection.account ?? null;
-  const accountText = account ? [account.name, account.id, account.country].filter(Boolean).join(' · ') : null;
-  // Lists and server-owned objects (account choices) are not settings; the webhook verify token is shown with the webhook.
-  const configItems = Object.entries(connection.config ?? {}).filter(([k, v]) => v !== null && v !== '' && typeof v !== 'object' && k !== 'webhookVerifyToken');
-  return (
-    <Modal open onClose={onClose} title={<bdi>{spec?.name ?? connection.provider}</bdi>}>
-      <div className="stack">
-        <h3 className="m-0">{t('intg.diag.title')}</h3>
-        <KeyValueList items={[
-          { key: 'h', label: t('connect.int.health'), value: <Badge tone={health.ok === true ? 'ok' : health.ok === false ? (health.transient ? 'warn' : 'danger') : 'neutral'}>
-            {health.ok === true ? t('intg.diag.healthOk') : health.ok === false ? t(health.transient ? 'intg.diag.healthUnreachable' : 'intg.diag.healthFailed') : t('intg.diag.healthUnknown')}</Badge> },
-          ...(accountText ? [{ key: 'acc', label: t('intg.diag.account'), value: <bdi dir="ltr">{accountText}</bdi> }] : []),
-          ...(account?.webhookAccountName ? [{ key: 'wacc', label: t('intg.diag.accountWebhook'), value: <bdi>{account.webhookAccountName}</bdi> }] : []),
-          { key: 'ls', label: t('intg.diag.lastSuccess'), value: when(connection.lastSuccessAt) },
-          { key: 'lf', label: t('intg.diag.lastFailure'), value: when(connection.lastFailureAt) },
-          ...(connection.category === 'payments' ? [{ key: 'lw', label: t('intg.diag.lastWebhook'), value: when(connection.lastWebhookAt) }] : []),
-          ...(typeof health.error === 'object' && health.error?.code ? [{ key: 'ec', label: t('intg.diag.errorCode'), value: <code dir="ltr">{health.error.code}</code> }] : []),
-          ...(connection.lastError ? [{ key: 'le', label: t('intg.diag.error'), value: <bdi dir="ltr">{connection.lastError}</bdi> }] : []),
-        ]} />
-        {connection.webhook && <WebhookPanel webhook={connection.webhook} />}
-        {configItems.length > 0 && <>
-          <h3 className="m-0">{t('intg.diag.settings')}</h3>
-          <KeyValueList items={configItems.map(([k, v]) => {
-            const f = spec?.fields.config.find((x) => x.key === k);
-            return { key: k, label: f?.labelKey ? t(f.labelKey) : k, value: <bdi dir="ltr">{String(v)}</bdi> };
-          })} />
-        </>}
-        {spec?.readinessDetail && <CapabilityTable detail={spec.readinessDetail} provider={spec.name} />}
-        {connection.category === 'pos' && <><h3>{t('connect.int.syncRuns')}</h3>
-          {(runs.data?.items ?? []).length === 0 ? <p className="fine">{t('state.empty')}</p> : <ul className="fine">{runs.data!.items.map((r) => (
-            <li key={r.id}>{dateTime(r.startedAt, locale)} · <Badge tone={r.status === 'succeeded' ? 'ok' : r.status === 'failed' ? 'danger' : 'warn'}>{r.status}</Badge> · <OrderRef n={r.attempt} /> · {r.stats?.fetched ?? 0} / {r.stats?.conflicts ?? 0} {r.error ? `· ${r.error}` : ''}</li>))}</ul>}</>}
-        <h3>{t('connect.int.logs')}</h3>
-        <ul className="fine">{(logs.data?.items ?? []).map((l) => <li key={l.id}><Badge tone={l.level === 'error' ? 'danger' : l.level === 'warn' ? 'warn' : 'neutral'}>{l.level}</Badge> {dateTime(l.createdAt, locale)} — <bdi>{l.message}</bdi></li>)}</ul>
-      </div>
-    </Modal>
   );
 }
 
@@ -611,7 +186,7 @@ function PosImport() {
             <button className="btn" disabled={sendToMenu.pending || !can('menu:write')} onClick={() => sendToMenu.run('preview')}>{t('connect.int.pos.sendPreview')}</button>
             <button className="btn btn-primary" disabled={sendToMenu.pending || !importPreview || !can('menu:write')} onClick={() => sendToMenu.run('commit')}>{t('connect.int.pos.commit')}</button>
           </div>
-          {importPreview != null && <pre className="fine" dir="ltr" style={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>{JSON.stringify(importPreview, null, 2)}</pre>}
+          {importPreview != null && <pre className={`fine ${s.pre}`} dir="ltr">{JSON.stringify(importPreview, null, 2)}</pre>}
           {sendToMenu.error && <Notice tone="danger">{sendToMenu.error}</Notice>}
         </Card>
       )}

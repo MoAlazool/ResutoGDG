@@ -146,6 +146,7 @@ export const ETA_DESCRIPTOR: ProviderDescriptor = {
   category: 'tax',
   countries: ['EG'],
   authType: 'oauth',
+  connectMethod: 'guided_onboarding',
   readiness: 'implemented_unverified',
   docsUrl: 'https://sdk.invoicing.eta.gov.eg/ereceiptapi/',
   activation: [

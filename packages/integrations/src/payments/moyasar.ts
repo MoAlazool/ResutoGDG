@@ -46,6 +46,7 @@ export const moyasarDescriptor: ProviderDescriptor = {
   category: 'payments',
   countries: ['SA'],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   docsUrl: 'https://docs.moyasar.com',
   activation: [

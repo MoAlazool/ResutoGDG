@@ -1,0 +1,17 @@
+/* 21-INT WhatsApp official stepper (plan §6.9). Logical properties only (RTL). */
+.stepper { display: grid; gap: 14px; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.steps button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.steps button[aria-current='step'] { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: 600; }
+.steps button[data-done='true'] { border-color: color-mix(in srgb, var(--herb) 50%, var(--line)); }
+.body { display: grid; gap: 10px; }
+.body h3 { margin: 0; font-size: 15px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; border-block-start: 1px solid var(--line); padding-block-start: 12px; }
+.choices { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+.choice { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.choice input { inline-size: auto; margin-block-start: 3px; grid-row: span 2; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.item { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.item label { display: flex; gap: 8px; align-items: flex-start; }
+.item input { inline-size: auto; margin-block-start: 3px; }

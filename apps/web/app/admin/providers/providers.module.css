@@ -1,0 +1,15 @@
+/* 21-INT operator console (/admin/providers). Logical properties only (RTL). */
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.block { display: grid; gap: 8px; align-content: start; }
+.block h3 { margin: 0; font-size: 14px; }
+.list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 12px; }
+.url { display: flex; gap: 6px; align-items: center; }
+.url code { flex: 1; word-break: break-all; background: var(--surface-warm); padding: 4px 6px; border-radius: 6px; }
+.check { display: flex; gap: 6px; align-items: center; }
+.form { display: grid; gap: 10px; border-block-start: 1px solid var(--line); padding-block-start: 12px; }
+.secret { display: grid; gap: 4px; }
+.secretRow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.secretRow input[type='checkbox'] { inline-size: auto; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }

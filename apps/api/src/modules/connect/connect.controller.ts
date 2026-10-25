@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import {
   connectSandboxInbound, createMessagingChannel, fullListQuery, inboxAssignConversation, inboxConversationFilters, inboxHandoffRequest, inboxStaffReply,
-  messageTemplateInput, messageTemplateUpdate, updateMessagingChannel, whatsappEmbeddedSignup,
+  messageTemplateInput, messageTemplateUpdate, updateMessagingChannel, whatsappEmbeddedSignup, whatsappInboundCheckQuery, whatsappTestTemplate,
 } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
@@ -14,6 +14,7 @@ import { zod } from '../../common/http/zod.pipe';
 import { ChannelsService } from './channels.service';
 import { ConversationsService } from './conversations.service';
 import { OrderingService } from './ordering.service';
+import { WhatsAppOnboardingService } from './whatsapp-onboarding.service';
 import { WhatsAppSignupService } from './whatsapp-signup.service';
 
 @Controller('o/:orgId/connect')
@@ -26,6 +27,7 @@ export class ConnectController {
     private readonly db: DbService,
     private readonly audit: AuditService,
     private readonly signup: WhatsAppSignupService,
+    private readonly onboarding: WhatsAppOnboardingService,
   ) {}
 
   // Channels -----------------------------------------------------------------
@@ -57,6 +59,21 @@ export class ConnectController {
   }
 
   /** INT-13: what the Embedded Signup launcher needs (app id, configuration id, SDK URL) and what is still missing. */
+  /** 21-INT stepper step 6: sends the connection test template from this channel to the owner's phone. */
+  @HttpCode(200)
+  @Post('channels/:id/test-template')
+  @RequirePermission('connect:manage')
+  testTemplate(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body(zod(whatsappTestTemplate)) body: z.infer<typeof whatsappTestTemplate>) {
+    return this.onboarding.sendTestTemplate(ctx, id, body);
+  }
+
+  /** 21-INT stepper step 6: live inbound check (newest inbound message on the channel since the check started). */
+  @Get('channels/:id/inbound-check')
+  @RequirePermission('connect:manage')
+  inboundCheck(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Query(zod(whatsappInboundCheckQuery)) q: z.infer<typeof whatsappInboundCheckQuery>) {
+    return this.onboarding.inboundCheck(ctx, id, q.since);
+  }
+
   @Get('whatsapp/embedded-signup')
   @RequirePermission('connect:manage')
   signupConfig() {

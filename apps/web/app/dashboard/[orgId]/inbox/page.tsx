@@ -10,6 +10,7 @@ import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { ChannelKindBadge, EmbeddedSignupCard, PageChannelCard, SIGNUP_RELOAD_PARAM, VerifyCell } from './MetaChannels';
+import { WhatsAppStepperLauncher } from './WhatsAppStepper';
 
 interface Window { open: boolean; closesAt: string | null }
 /** Messenger / Instagram contacts have no phone number (their ids are page-scoped), so they are labelled by network. */
@@ -39,7 +40,11 @@ export default function InboxPage() {
   const { t } = useT();
   const [tab, setTab] = useState<'conversations' | 'channels' | 'templates'>('conversations');
   // The WhatsApp signup launcher reloads the Inbox (for its Content-Security-Policy) and continues on Channels.
-  useEffect(() => { if (new URLSearchParams(window.location.search).get(SIGNUP_RELOAD_PARAM) === 'whatsapp') setTab('channels'); }, []);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    // 21-INT: the marketplace's "Set up WhatsApp" lands here with ?connect=whatsapp (the stepper opens itself).
+    if (q.get(SIGNUP_RELOAD_PARAM) === 'whatsapp' || q.get('connect') === 'whatsapp') setTab('channels');
+  }, []);
   return (
     <ModuleGate module="connect" permission="connect:read">
       <PageHeader title={t('connect.inbox.title')} subtitle={t('connect.inbox.subtitle')} />
@@ -315,6 +320,12 @@ function Channels() {
   const wa = (conns.data?.items ?? []).filter((c) => c.provider === 'whatsapp_cloud');
   return (
     <div className="stack">
+      {can('connect:manage') && (
+        <Card title={t('wa.title')}>
+          <p className="fine">{t('wa.subtitle')}</p>
+          <WhatsAppStepperLauncher onChanged={() => channels.reload()} />
+        </Card>
+      )}
       {channels.error && <Notice tone="danger">{channels.error.message}</Notice>}
       {!channels.data ? <Skeleton /> : (
         <DataTable rows={channels.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('connect.channels.empty')}>{t('connect.channels.emptyBody')}</EmptyState>}
