@@ -98,7 +98,7 @@ final class VisualReviewTests: XCTestCase {
         try capture(app,"03-menu-ar");tap(app,"product."+item)
         let cancel=app.buttons["product.cancel"];XCTAssertTrue(cancel.waitForExistence(timeout:10))
         XCTAssertGreaterThan(cancel.frame.midX,app.frame.midX,"Arabic sheet cancellation belongs on the trailing physical right")
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format:"label CONTAINS %@","الحليب")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format:"label CONTAINS %@","الحليب")).firstMatch.exists)
         try capture(app,"04-customization-ar");tap(app,"product.add")
         try capture(app,"05-cart-ar");tap(app,"cart.review")
         let label=app.staticTexts["review.estimateLabel"],amount=app.staticTexts["review.estimateAmount"]
