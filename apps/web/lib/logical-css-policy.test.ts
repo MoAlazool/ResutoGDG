@@ -31,6 +31,11 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/settings', 'apps/web/app/dashboard/[orgId]/team', 'apps/web/app/dashboard/[orgId]/billing',
   'apps/web/app/dashboard/[orgId]/data', 'apps/web/app/dashboard/[orgId]/audit', 'apps/web/components/settings',
   'apps/web/app/dashboard/[orgId]/finance', 'apps/web/app/dashboard/[orgId]/payments', 'apps/web/app/dashboard/[orgId]/compliance',
+  // 21-MIGRATE: the remaining staff pages on the page templates, and the tokenised floor and receipt stylesheets.
+  'apps/web/app/dashboard/[orgId]/mcp', 'apps/web/app/dashboard/mcp-authorize', 'apps/web/app/dashboard/oauth', 'apps/web/app/dashboard/page.tsx',
+  'apps/web/app/dashboard/[orgId]/marketing', 'apps/web/app/dashboard/[orgId]/loyalty', 'apps/web/app/dashboard/[orgId]/notifications',
+  'apps/web/app/dashboard/[orgId]/studio-media', 'apps/web/components/icons', 'apps/web/components/floor/floor.css',
+  'apps/web/app/pay/[token]/_ui/receipt.css', 'apps/web/app/driver/driver.module.css',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');
