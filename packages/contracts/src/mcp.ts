@@ -294,9 +294,9 @@ export const MCP_ASSISTANT_COMPAT: Record<McpAssistant, McpAssistantMeta> = {
 /** Automated client suites run on every change. They exercise the protocol; they do not verify a third-party assistant. */
 export const MCP_AUTOMATED_CLIENT_TESTS: readonly McpRecordedTest[] = [
   { client: 'Official MCP TypeScript SDK client (@modelcontextprotocol/sdk 1.32.1), Streamable HTTP with a connection key', auth: 'key',
-    live: false, date: '2026-10-25', evidence: 'apps/mcp-server/test/e2e.test.ts, apps/mcp-server/test/changes-e2e.test.ts' },
+    live: false, date: '2026-10-24', evidence: 'apps/mcp-server/test/e2e.test.ts (incl. "change sets through MCP")' },
   { client: 'Official MCP TypeScript SDK client (@modelcontextprotocol/sdk 1.32.1), OAuth 2.1 with PKCE', auth: 'oauth',
-    live: false, date: '2026-10-25', evidence: 'apps/mcp-server/test/oauth-e2e.test.ts' },
+    live: false, date: '2026-10-24', evidence: 'apps/mcp-server/test/oauth-e2e.test.ts (incl. the permission-group write approved through change sets)' },
 ];
 
 export const isMcpAssistantVerified = (a: McpAssistant) => MCP_ASSISTANT_COMPAT[a].recordedTests.some((x) => x.live);
