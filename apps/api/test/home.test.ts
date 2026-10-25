@@ -256,6 +256,9 @@ describe('GET /o/:orgId/attention', () => {
     await sql(`insert into guest_ratings(org_id, branch_id, source, order_id, overall, comment) values ($1, $2, 'web', $3, 1, 'Cold fries <b>again</b>')`, [tenant.orgId, tenant.branchId, ids.unpaid]);
     await sql(`insert into guest_ratings(org_id, branch_id, source, order_id, overall) values ($1, $2, 'web', $3, 5)`, [tenant.orgId, tenant.branchId, ids.fresh]);
   });
+  // The change-set expiry job runs across every restaurant (test/changes.test.ts counts what it expires): leave no
+  // pending sets behind for files that run after this one.
+  afterAll(async () => { await sql(`delete from change_sets where org_id = $1`, [tenant.orgId]); });
 
   it('lists every kind the owner can act on, most severe first, with counts, samples, links and sources', async () => {
     const res = await get(tenant.owner);
