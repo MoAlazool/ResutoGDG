@@ -5,6 +5,7 @@ import { DbService } from '../../common/db/db.service';
 import { OnDomainEvent, type OutboxEvent } from '../../common/events/events';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { IntegrationConnectionsService } from './connections.service';
+import { foodicsWebhookToken } from './meta-platform';
 import { IntegrationSyncService } from './sync.service';
 
 /** A menu change within this window of the last pull (or a queued one) does not schedule another. */
@@ -30,7 +31,7 @@ export class PosWebhooksService {
   ) {}
 
   async foodics(urlToken: string, body: unknown): Promise<{ status: number; result: Record<string, unknown> }> {
-    const parsed = parseFoodicsWebhook({ urlToken, expectedToken: process.env.FOODICS_WEBHOOK_TOKEN, body });
+    const parsed = parseFoodicsWebhook({ urlToken, expectedToken: foodicsWebhookToken(), body });
     if (!parsed.ok) {
       // Wrong or unconfigured secret: 404 (the URL does not exist). Otherwise 200 so Foodics does not block the endpoint.
       if (parsed.reason === 'not_configured' || parsed.reason === 'bad_token') return { status: 404, result: { ok: false } };

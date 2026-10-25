@@ -1,4 +1,5 @@
 import type { OAuthAppConfig } from '@resuto/integrations';
+import { activePlatformApp, platformAppFor } from './platform-apps';
 
 /**
  * Platform OAuth app credentials per provider. Not in the validated env schema (lead-owned config/env.ts): read from
@@ -15,7 +16,8 @@ export const OAUTH_APP_ENV: Record<string, { id: string; secret: string }> = {
 };
 
 /** Which Foodics environment the configured app belongs to (Foodics registers sandbox and production apps separately). */
-export const foodicsOAuthEnv = (): 'sandbox' | 'live' => (process.env.FOODICS_OAUTH_ENV === 'live' ? 'live' : 'sandbox');
+export const foodicsOAuthEnv = (): 'sandbox' | 'live' =>
+  activePlatformApp('foodics')?.environment ?? (process.env.FOODICS_OAUTH_ENV === 'live' ? 'live' : 'sandbox');
 
 /**
  * The provider's registered redirect URI stays the API callback (no change for owners who already registered it).
@@ -24,7 +26,14 @@ export const foodicsOAuthEnv = (): 'sandbox' | 'live' => (process.env.FOODICS_OA
  */
 export const oauthRedirectUri = (apiOrigin: string, provider: string) => `${apiOrigin.replace(/\/$/, '')}/v1/public/integrations/oauth/${provider}/callback`;
 
+/**
+ * The provider's OAuth client: the operator console record (platform_provider_apps, 21-INT) when it is usable, else
+ * the environment variables above.
+ */
 export function oauthApp(provider: string, apiOrigin: string): OAuthAppConfig | null {
+  const app = platformAppFor(provider);
+  const stored = app && OAUTH_APP_ENV[provider] ? activePlatformApp(app) : null;
+  if (stored) return { clientId: stored.appId!, clientSecret: stored.secrets.appSecret!, redirectUri: oauthRedirectUri(apiOrigin, provider) };
   const keys = OAUTH_APP_ENV[provider];
   const id = keys ? process.env[keys.id] : undefined;
   const secret = keys ? process.env[keys.secret] : undefined;

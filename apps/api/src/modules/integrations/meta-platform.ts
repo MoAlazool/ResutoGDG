@@ -1,4 +1,5 @@
 import type { MetaApp } from '@resuto/integrations';
+import { activePlatformApp } from './platform-apps';
 
 /**
  * Resuto's platform Meta app (docs/INTEGRATION_READINESS.md "Meta: what the owner registers"). Read from the process
@@ -24,11 +25,37 @@ export interface MetaPlatformConfig {
 
 const v = (name: string) => (process.env[name]?.trim() ? process.env[name]!.trim() : null);
 
+/** The Meta app from the operator console (21-INT) when it is usable, else the environment variables above. */
 export function metaPlatform(): MetaPlatformConfig {
+  const stored = activePlatformApp('meta');
+  if (stored) {
+    return {
+      appId: stored.appId, appSecret: stored.secrets.appSecret ?? null, adsLoginConfigId: stored.configIds.adsLoginConfigId ?? null,
+      pagesLoginConfigId: stored.configIds.pagesLoginConfigId ?? null, whatsappSignupConfigId: stored.configIds.whatsappSignupConfigId ?? null,
+      webhookVerifyToken: stored.secrets.webhookVerifyToken ?? null,
+    };
+  }
   return {
     appId: v('META_APP_ID'), appSecret: v('META_APP_SECRET'), adsLoginConfigId: v('META_ADS_LOGIN_CONFIG_ID'),
     pagesLoginConfigId: v('META_PAGES_LOGIN_CONFIG_ID'), whatsappSignupConfigId: v('WHATSAPP_ES_CONFIG_ID'), webhookVerifyToken: v('META_WEBHOOK_VERIFY_TOKEN'),
   };
+}
+
+/**
+ * What verifies the platform WhatsApp webhook (/v1/webhooks/whatsapp): the console's Meta app (its app secret signs
+ * the payloads, its WhatsApp verify token answers the subscription challenge) or WHATSAPP_APP_SECRET /
+ * WHATSAPP_VERIFY_TOKEN.
+ */
+export function whatsappPlatformSecrets(env: { WHATSAPP_APP_SECRET?: string; WHATSAPP_VERIFY_TOKEN?: string }): { appSecret: string | null; verifyToken: string | null } {
+  const stored = activePlatformApp('meta');
+  if (stored) return { appSecret: stored.secrets.appSecret ?? null, verifyToken: stored.secrets.whatsappVerifyToken ?? null };
+  return { appSecret: env.WHATSAPP_APP_SECRET || null, verifyToken: env.WHATSAPP_VERIFY_TOKEN || null };
+}
+
+/** The secret path segment of the Foodics webhook URL: the console's Foodics app, else FOODICS_WEBHOOK_TOKEN. */
+export function foodicsWebhookToken(): string | undefined {
+  const stored = activePlatformApp('foodics');
+  return stored ? stored.secrets.webhookToken : process.env.FOODICS_WEBHOOK_TOKEN;
 }
 
 /** The platform app as an OAuth client, or null when it is not configured. */
