@@ -28,7 +28,7 @@ the employee's permissions.
 |---|---|---|
 | Staff routes `/v1/o/*` used by PR #3 | `main` behaviour, unchanged on this branch | Existing, covered by the API suites. Not changed by this track. |
 | Device API 0.1.0 (`/v1/pos/*`, device credential only) | this branch, `b15bd20` | **Draft.** Contract and API tests pass, including a scripted-iPad cross-platform test. **Not staging-verified, not verified with the real app.** |
-| Device API 0.2.0 (staff on device, `requireStaff`, `by-client-id`) | this branch, merge `f8590ce` | **Draft, implemented.** Additive over 0.1.0. Covered by `apps/api/test/pos-staff.test.ts` and the auth unit test (`apps/api/src/common/auth/context.test.ts`). **Not staging-verified; not verified with the real app.** |
+| Device API 0.2.0 (staff on device, `requireStaff`, `by-client-id`) | this branch, merge `f8590ce` | **Draft, implemented.** Additive over 0.1.0. Covered by `apps/api/test/pos-staff.test.ts`, the auth unit test (`apps/api/src/common/auth/context.test.ts`) and the simulated-device Playwright spec `tests/e2e/pos-ipad.spec.ts` (§8). **Not staging-verified; not verified with the real app.** |
 
 **Exact names (0.2.0):**
 - header `X-Resuto-Staff-Authorization` (`POS_STAFF_HEADER`);
@@ -318,8 +318,35 @@ The flow must also cover event delivery, reconnect, offline replay, idempotency,
 | Level | Status |
 |---|---|
 | Scripted device in `apps/api/test/pos-flow.test.ts` (API level) | **Passes** on this branch |
-| Playwright spec with a simulated device | **Not written yet** (stabilisation phase) |
+| Playwright spec with a simulated device (`tests/e2e/pos-ipad.spec.ts`, Chromium) | **Passes** (branch `ws/21-posapi-e2e`: 8 steps, also 3× in a row with `--repeat-each=3`). See below. |
 | Real iPad build against staging | **Not run.** Contracts stay **draft** until it passes |
+
+**The simulated-device spec.** `tests/e2e/pos-ipad.spec.ts` runs the flow against the real API and the built web app
+that the Playwright config starts. The iPad is a scripted HTTP client (Playwright's request context, no browser): it
+pairs with a code a manager created, uses its `rpos_` credential with and without `X-Resuto-Staff-Authorization`,
+syncs menu, floor and orders, follows the event feed (dedupe by `seq`, every new event exactly the last `seq` + 1) and
+submits with a `clientOrderId` and the totals it showed. The staff side uses pages: the Orders board, the Overview
+"Right now" and the full-screen kitchen display (`/kitchen/{orgId}`), where kitchen staff bump the ticket. The steps:
+
+1. Dine-in submit → 201; the same `clientOrderId` and body → the same order with `Idempotent-Replayed: true`; a different body → `409 client_order_id_reused`.
+2. The order appears on the Orders board (New orders), in Overview "Right now" (Placed 1) and on the kitchen display.
+3. A bump in the kitchen display UI → the device's long-poll delivers `ticket.status_changed`; the `/sync/orders` delta shows the new status; the board moves the card without a reload.
+4. Reconnect resumes from the last `seq`; a foreign epoch or a cursor ahead of the head → `409 resync_required`; a full resync works.
+5. A price change while the device is offline → `409 pos_price_changed` with details, and nothing is created; the reviewed resubmit → 201; `by-client-id` answers `accepted` with the original response, and an id never submitted → 404.
+6. A stale `version` → `409 stale_order`; a cash payment with `clientPaymentId` → `payment.captured`; the web order sheet shows Paid; a replay returns the first payment.
+7. Tracked product stock, recipe stock movements and the analytics summary and overview reconcile with the order totals.
+8. Another branch's device → 404; a revoked device → `401 device_revoked`; staff of another restaurant → `403 pos_staff_not_allowed`; a manager on a kitchen device cannot submit (403).
+
+Command (from the repository root; Chromium installed; the ports and database are only examples):
+
+```sh
+pnpm --filter @resuto/contracts build && pnpm --filter @resuto/integrations build
+E2E_DATABASE_URL=postgres://postgres@127.0.0.1:54329/resuto_e2e_f E2E_API_PORT=4109 E2E_WEB_PORT=3109 \
+  pnpm e2e pos-ipad --project=chromium --repeat-each=3
+```
+
+This passes with a **simulated** device only. The routes stay **draft** until the real iPad build has run the same flow
+against staging and the result is recorded.
 
 ## 9. Open questions (new or changed by this reconciliation)
 

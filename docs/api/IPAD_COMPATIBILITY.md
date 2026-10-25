@@ -15,6 +15,15 @@ when a POS route is served but not listed here, or listed here but not served.
   **stable** = validated against staging with the real app; changes are additive only. Nothing is stable yet: an
   entry moves to stable when the iPad team has run it against staging (plan §10).
 - History: `docs/api/CHANGELOG.md`.
+- Browser-level acceptance: `tests/e2e/pos-ipad.spec.ts` runs the plan §8 cross-platform flow with a **simulated**
+  iPad (a scripted HTTP client: pairing, `rpos_` credential with and without a staff session, menu/floor/order sync,
+  the event feed, quote, submit with `clientOrderId`, reconciliation by client order id, kitchen, payment) against the
+  real API and the built web app (Orders board, Overview "Right now", the full-screen kitchen display). It passes,
+  also three times in a row:
+  `E2E_DATABASE_URL=postgres://postgres@127.0.0.1:54329/resuto_e2e_f E2E_API_PORT=4109 E2E_WEB_PORT=3109 pnpm e2e pos-ipad --project=chromium --repeat-each=3`
+  (after `pnpm --filter @resuto/contracts build && pnpm --filter @resuto/integrations build`; steps in
+  `docs/api/IPAD_INTEGRATION.md` §8). This does **not** make any route stable: every route stays **draft** until the
+  real iPad app has run the flow against staging.
 
 ## Auth model
 

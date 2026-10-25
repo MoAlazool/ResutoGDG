@@ -62,6 +62,13 @@ test('runtime roles are NOLOGIN in migrations, never superuser or BYPASSRLS, and
   assert.deepEqual(members.map((r) => r.rolname), ['resuto_member', 'resuto_platform', 'resuto_tenant']);
 });
 
+test('every migration has its own version (scripts/db/migrate.mjs keys applied migrations by the 14-digit prefix)', () => {
+  // Two files with one version: a fresh database fails on the second, and a database that already applied the first
+  // silently skips the second for good (21-ONB and 21-STUDIO both shipped 20261026100001).
+  const versions = readdirSync(migrationsDir).filter((x) => /^\d{14}_.+\.sql$/.test(x)).map((x) => x.slice(0, 14));
+  assert.deepEqual(versions.filter((v, i) => versions.indexOf(v) !== i), []);
+});
+
 test('no migration creates a login role or stores a password', () => {
   for (const f of readdirSync(migrationsDir).filter((x) => x.endsWith('.sql'))) {
     const sql = readFileSync(path.join(migrationsDir, f), 'utf8').replace(/--.*$/gm, '');
