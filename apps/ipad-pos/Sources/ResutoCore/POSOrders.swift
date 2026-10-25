@@ -60,7 +60,7 @@ public struct CompatibleOrderSubmitter: OrderSubmitting {
             let result: POSReconciliation = try await pos.get("orders/by-client-id/" + operation.id.uuidString)
             switch result.state {
             case "accepted":
-                guard let response = result.response, result.orderId == response.order.id else { throw RuleError.invalid("invalid_response") }
+                guard let response = result.response, result.orderId == response.order.id, result.number == response.order.number else { throw RuleError.invalid("invalid_response") }
                 return try accepted(response,operation:operation)
             case "processing": throw APIError(status:503,code:"pos_operation_processing",message:"reconciliation_required")
             default: throw RuleError.invalid("invalid_response")
@@ -69,7 +69,7 @@ public struct CompatibleOrderSubmitter: OrderSubmitting {
     }
     private func accepted(_ response: POSOrderSubmitted, operation: PendingOrder) throws -> OrderAccepted {
         guard response.clientOrderId.lowercased() == operation.id.uuidString.lowercased(), response.order.clientOrderId?.lowercased() == response.clientOrderId.lowercased(),
-              response.order.branchId == operation.scope.branchId, response.order.totalMinor == operation.posQuote?.totalMinor,
+              response.order.branchId == operation.scope.branchId, response.order.totalMinor == operation.posQuote?.totalMinor, response.order.currency == operation.posQuote?.currency,
               response.repriced == nil else { throw RuleError.invalid("pos_response_mismatch") }
         return OrderAccepted(id:response.order.id,number:response.order.number,status:response.order.status,totalMinor:response.order.totalMinor,currency:response.order.currency)
     }

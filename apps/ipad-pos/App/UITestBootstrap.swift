@@ -56,6 +56,27 @@ actor ScenarioTransport: HTTPTransport {
             return try response(["access_token":"ui-contract-token", "refresh_token":"ui-contract-refresh", "expires_in":3600])
         }
         if path == "/auth/v1/logout" { return HTTPResult(data: Data(), status: 204) }
+        if path == "/v1/pos/pair" {
+            guard body["code"] as? String == "ABCDEFGHJK" else { return try failure(401,"pairing_code_invalid") }
+            return try response(["token":"rpos_" + String(repeating:"a",count:43),"device":device(),"orgId":"org","contractVersion":"0.2.0"],status:201)
+        }
+        if path.hasPrefix("/v1/pos/") {
+            guard request.value(forHTTPHeaderField:"Authorization") == "Bearer rpos_" + String(repeating:"a",count:43),
+                  request.value(forHTTPHeaderField:"X-Resuto-Staff-Authorization") == "Bearer ui-contract-token" else { return try failure(401,"pos_staff_required") }
+            if path == "/v1/pos/session" {
+                let user = (fixtures["me"] as! [String:Any])["user"] as! [String:Any]
+                let permissions = ["menu:read","floor:read","orders:read","orders:write","orders:status","payments:collect"].filter { Permissions.can(role,$0) && Permissions.can("cashier",$0) }
+                return try response(["device":device(),"org":["id":"org","name":"UI Test Restaurant","currency":"EGP","timezone":"Africa/Cairo"],"branch":["id":branchID,"name":"UI Test Branch"],"requireStaff":true,"staff":["id":user["id"]!,"email":user["email"] ?? NSNull(),"role":role],"permissions":permissions,"feed":["epoch":"55555555-5555-4555-8555-555555555555","head":0,"oldest":0],"contractVersion":"0.2.0"])
+            }
+            if path == "/v1/pos/sync/menu" {
+                let product = ((fixtures["menu"] as! [String:Any])["products"] as! [[String:Any]])[0]
+                return try response(["cursor":"pos-menu-1","unchanged":false,"currency":"EGP","stations":["kitchen"],"categories":[["id":"category","name":"Kitchen","nameAr":"المطبخ","products":[["id":product["id"]!,"categoryId":"category","name":product["name"]!,"nameAr":product["nameAr"] ?? NSNull(),"priceMinor":9000,"available":!soldOut,"unavailableReason":soldOut ? "sold_out" as Any : NSNull(),"stockQty":5,"station":"kitchen","imageUrl":NSNull(),"modifierGroups":[]]]]]])
+            }
+            if path == "/v1/pos/sync/floor" { return try response(["cursor":"pos-floor-1","unchanged":false,"layout":["revision":1,"width":1000,"height":800,"zones":[],"objects":[]],"tables":(fixtures["floor"] as! [String:Any])["tables"]!]) }
+            if path == "/v1/pos/sync/orders" { return try response(["cursor":"pos-orders-0","mode":"full","orders":[],"hasMore":false]) }
+            if path == "/v1/pos/events" { return try response(["epoch":"55555555-5555-4555-8555-555555555555","head":0,"events":[],"nextAfter":0,"hasMore":false]) }
+            return try failure(405,"shadow_mode_read_only")
+        }
         guard request.value(forHTTPHeaderField: "Authorization") == "Bearer ui-contract-token" else { return try failure(401, "unauthorized") }
         if path == "/v1/me" {
             var me = fixtures["me"] as! [String: Any]
@@ -134,6 +155,9 @@ actor ScenarioTransport: HTTPTransport {
         if path.hasPrefix("/v1/o/org/orders/"), let order { return try response(order) }
         if path == "/v1/o/org/reservations" { return try response(["date":"2026-10-24","items":[]]) }
         return try failure(404,"not_found")
+    }
+    private func device() -> [String:Any] {
+        ["id":"44444444-4444-4444-8444-444444444444","branchId":branchID,"name":"UI Contract iPad","actingRole":"cashier","status":"active","expired":false,"requireStaff":true]
     }
     private func response(_ object: Any, status: Int = 200) throws -> HTTPResult { HTTPResult(data: try JSONSerialization.data(withJSONObject: object), status: status) }
     private func failure(_ status: Int, _ code: String) throws -> HTTPResult { try response(["error":["code":code,"message":code]], status: status) }

@@ -23,7 +23,7 @@ import SwiftUI
                         try? await Task.sleep(for: .seconds(5))
                     }
                 }
-                .onChange(of: phase) { _, value in if value != .active { model.persistDraft() } }
+                .onChange(of: phase) { _, value in if value != .active { model.persistDraft(); model.deviceIntegration.pause() } else { model.deviceIntegration.resume() } }
         }
     }
 }

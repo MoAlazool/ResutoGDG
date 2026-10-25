@@ -83,6 +83,7 @@ public actor POSShadowSync {
             }
         }
         // Stage 1 shadows menu/floor/orders only. Existing staff KDS and local print queues keep their own reads.
+        try Task.checkCancellation()
         try storage.write(JSONEncoder().encode(updated)); snapshot = updated
     }
 }

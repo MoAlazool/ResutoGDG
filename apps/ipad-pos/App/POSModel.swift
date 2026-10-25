@@ -40,6 +40,7 @@ import CryptoKit
     @Published var refundStatus: String?
     private var transportOverride: (any HTTPTransport)?
     @Published private(set) var simulatedUITest = false
+    let deviceIntegration = DeviceIntegration()
     private var auth: AuthService?
     private var api: APIClient?
     private var queue: OrderQueue?
@@ -71,6 +72,7 @@ import CryptoKit
             configuration = bootstrap.configuration; transportOverride = bootstrap.transport; simulatedUITest = true
             if bootstrap.reset {
                 try? KeychainStore(namespace: bootstrap.configuration.namespace).remove("session")
+                try? KeychainStore(namespace: bootstrap.configuration.namespace).remove("paired-device")
                 let directory = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
                 if let directory, let children = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
                     for child in children where child.lastPathComponent.hasPrefix(bootstrap.configuration.namespace) { try? FileManager.default.removeItem(at: child) }
@@ -91,7 +93,7 @@ import CryptoKit
         error = presentation.key; errorRequestId = presentation.requestId
         if let api = failure as? APIError, [401, 403].contains(api.status) {
             // No continuing access to stale tenant data after revocation or membership removal.
-            locked = true; menu = nil; layout = nil; live = nil; orders = []; tickets = []; detail = nil
+            deviceIntegration.pause(); locked = true; menu = nil; layout = nil; live = nil; orders = []; tickets = []; detail = nil
         }
     }
     func configure(_ value: Configuration) throws { try value.save(); configuration = value; auth = nil; api = nil }
@@ -140,6 +142,12 @@ import CryptoKit
         }
         pending = await queue!.list(scope: scope); printJobs = await prints!.list()
         try await refresh()
+        if let auth {
+#if DEBUG && targetEnvironment(simulator)
+            deviceIntegration.testTransport = transportOverride
+#endif
+            await deviceIntegration.attach(configuration:configuration,auth:auth,scope:scope,membership:membership)
+        }
     }
     func persistDraft() {
         guard let draft, let scope, let order = draftOrder else { return }
@@ -353,6 +361,7 @@ import CryptoKit
         generation = UUID(); me = nil; membership = nil; restaurant = nil; clearWorkspace(); await api?.clearCache(); try? await auth?.signOut()
     }
     private func clearWorkspace() {
+        deviceIntegration.detach()
         customerId = nil; customerName = nil; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; reservations = []
         branch = nil; menu = nil; layout = nil; live = nil; orders = []; historyOrders = []; nextCursor = nil; tickets = []; pending = []; cart = []; printJobs = []; detail = nil
         selectedTable = nil; notes = ""; promotion = ""; queue = nil; prints = nil; cache = nil; draft = nil; financialStore = nil; financial = nil; lastRefresh = nil; cacheDate = nil

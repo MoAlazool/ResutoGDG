@@ -5,6 +5,7 @@ import FoundationNetworking
 
 /// Separate from the staff session: staff switching must not unpair a shared iPad.
 /// The application supplies KeychainStore(namespace: Configuration.namespace).
+public struct DeviceBinding: Sendable { public let deviceId: String; public let orgId: String; public let branchId: String }
 public actor DeviceCredentialStore {
     private struct Credential: Codable { let token: String; let orgId: String; let branchId: String; let deviceId: String }
     private let secrets: any SecretStore
@@ -22,9 +23,14 @@ public actor DeviceCredentialStore {
         guard credential.orgId == scope.orgId, credential.branchId == scope.branchId else { throw RuleError.invalid("pos_context_mismatch") }
         return credential.token
     }
+    public func binding() throws -> DeviceBinding? {
+        guard let data = try secrets.read("paired-device") else { return nil }
+        let value = try JSONDecoder().decode(Credential.self,from:data)
+        return DeviceBinding(deviceId:value.deviceId,orgId:value.orgId,branchId:value.branchId)
+    }
     public func remove() throws { try secrets.remove("paired-device") }
 }
-/// Draft compatibility adapter. Not selected by the live app until the documented shadow migration gate passes.
+/// POS 0.2.0 adapter. The app uses pairing and read-only shadows; order/payment cutover remains gated.
 public actor POSClient {
     private let base: URL; private let auth: AuthService; private let devices: DeviceCredentialStore; private let transport: any HTTPTransport
     public let scope: Scope
@@ -34,7 +40,7 @@ public actor POSClient {
         self.base = base; self.auth = auth; self.devices = devices; self.transport = transport; self.scope = scope
     }
     public func pair(code: String, appVersion: String) async throws {
-        let cleaned = code.uppercased().filter { !$0.isWhitespace && $0 != "-" }
+        let cleaned = Money.western(code).uppercased().filter { !$0.isWhitespace && $0 != "-" }
         guard cleaned.count == 10, cleaned.allSatisfy({ "0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains($0) }), appVersion.utf16.count <= 40 else { throw RuleError.invalid("pos_pairing_code_invalid") }
         struct Pair: Encodable { let code: String; let platform = "ipados"; let appVersion: String }
         var request = URLRequest(url:base.appendingPathComponent("pos/pair")); request.httpMethod = "POST"; request.timeoutInterval = 30

@@ -1,8 +1,8 @@
 {
-  "sourceRevision": "1a0544314d7596dd6b08bb2071755f2e1815195e",
-  "sourceContractVersion": "0.1.0",
+  "sourceRevision": "69ec75e63b3660c2c307564d2dd402de45b4dad7",
+  "sourceContractVersion": "0.2.0",
   "status": "draft_not_staging_verified",
-  "staffOnDeviceVersion": "0.2.0_proposed_not_merged",
+  "staffOnDeviceVersion": "0.2.0_implemented_draft",
   "operations": {
     "/v1/o/{orgId}/pos/devices": [
       "get"
@@ -33,6 +33,9 @@
     ],
     "/v1/pos/orders": [
       "post"
+    ],
+    "/v1/pos/orders/by-client-id/{clientOrderId}": [
+      "get"
     ],
     "/v1/pos/orders/quote": [
       "post"
@@ -77,10 +80,5 @@
       "get"
     ]
   },
-  "proposedOperations": {
-    "/v1/pos/orders/by-client-id/{clientOrderId}": [
-      "get"
-    ]
-  },
-  "sourceOpenAPISHA256": "12de33b068dccfff0704573ef608fde13e19d1e92cb68fccfdbf0bf84f2ea675"
+  "sourceOpenAPISHA256": "2b6597b7e39626dd683a005049400af983e45fadfd4d4e0fd9fe997e0611ce10"
 }

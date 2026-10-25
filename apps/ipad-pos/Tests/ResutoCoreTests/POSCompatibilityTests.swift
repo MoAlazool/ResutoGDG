@@ -4,7 +4,7 @@ import XCTest
 import FoundationNetworking
 #endif
 
-// Synthetic proposed-0.2.0 fixtures. These are NOT captures from staging or backend acceptance evidence.
+// Synthetic reviewed draft-0.2.0 fixtures. These are NOT captures from staging or backend acceptance evidence.
 private let testDeviceToken = "rpos_" + String(repeating:"a",count:43)
 private func jsonResult(_ object: Any,status: Int = 200) throws -> HTTPResult { HTTPResult(data:try JSONSerialization.data(withJSONObject:object),status:status) }
 private func parsed<T: Decodable>(_ object: Any, _: T.Type = T.self) throws -> T { try JSONDecoder().decode(T.self,from:JSONSerialization.data(withJSONObject:object)) }
@@ -17,7 +17,7 @@ private func pair(version: String = "0.2.0",branch: String = branchID,token: Str
 }
 private func member(role: String = "manager") throws -> Membership { try parsed(["orgId":"org","orgSlug":"qa","orgName":"QA","role":role,"branchIds":[branchID]]) }
 private func sessionJSON(role: String = "manager", actingRole: String = "cashier", version: String = "0.2.0", staff: Bool = true) -> [String:Any] {
-    var value: [String:Any] = ["device":device(role:actingRole), "org":["id":"org","name":"QA","currency":"EGP","timezone":"Africa/Cairo"],"branch":["id":branchID,"name":"Main"],"permissions":["menu:read","floor:read","orders:read","orders:write","orders:status","kitchen:operate","payments:collect"],"feed":["epoch":"epoch","head":0,"oldest":0],"contractVersion":version]
+    var value: [String:Any] = ["device":device(role:actingRole), "org":["id":"org","name":"QA","currency":"EGP","timezone":"Africa/Cairo"],"branch":["id":branchID,"name":"Main"],"permissions":["menu:read","floor:read","orders:read","orders:write","orders:status","kitchen:operate","payments:collect"],"feed":["epoch":"epoch","head":0,"oldest":0],"contractVersion":version,"requireStaff":true]
     if staff { value["staff"] = ["id":"user","email":"staff@example.test","role":role] }
     return value
 }
@@ -366,5 +366,38 @@ final class InitialSessionTests: XCTestCase {
         let auth = try AuthService(url:URL(string:"https://auth.example")!,publicKey:"public",transport:transport,secrets:MemoryStore())
         let present = await auth.hasSession(); XCTAssertFalse(present)
         let requests = await transport.requests; XCTAssertTrue(requests.isEmpty)
+    }
+}
+final class POS020ContractTests: XCTestCase {
+    func testTopLevelRequireStaffMustMatchRequiredDevicePolicy() throws {
+        var object = sessionJSON(); object["requireStaff"] = false
+        let session: POSSession = try parsed(object)
+        XCTAssertThrowsError(try session.validate(scope:scope(),membership:member()))
+    }
+    func testImplemented020SessionRequiresTopLevelPolicyField() throws {
+        var object = sessionJSON(); object.removeValue(forKey:"requireStaff")
+        XCTAssertThrowsError(try parsed(object,POSSession.self))
+    }
+    func testDeviceBindingMetadataDoesNotExposeToken() async throws {
+        let store = DeviceCredentialStore(secrets:MemoryStore()); try await store.save(pair(),scope:scope())
+        let binding = try await store.binding(); XCTAssertEqual(binding?.branchId,branchID); XCTAssertEqual(binding?.orgId,"org")
+    }
+}
+
+final class POSCancellationTests: XCTestCase {
+    func testCancelledResyncNeverAcknowledgesFeedWatermark() async throws {
+        let storage = MemoryStore()
+        let journal = try POSEventJournal(scope:scope(),deviceId:"device",storage:storage)
+        let task = Task {
+            try await journal.resync(from:try parsed(["epoch":"epoch","head":5,"oldest":0])) { _ in
+                withUnsafeCurrentTask { $0?.cancel() }
+            }
+        }
+        do { try await task.value; XCTFail("Cancelled snapshot must not advance cursor") } catch is CancellationError {} catch { XCTFail("Unexpected failure: \(error)") }
+        let position = await journal.position()
+        XCTAssertNil(position); XCTAssertNil(try storage.read())
+    }
+    func testExpiredPairingCodeHasSpecificRecoveryInsteadOfStaffLogout() {
+        XCTAssertEqual(FailurePresentation(APIError(status:401,code:"pairing_code_invalid",message:"hidden")).key,"pos_pairing_code_invalid")
     }
 }

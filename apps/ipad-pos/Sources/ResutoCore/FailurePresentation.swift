@@ -6,7 +6,8 @@ public struct FailurePresentation: Sendable {
     public init(_ error: Error) {
         if let api = error as? APIError {
             requestId = api.requestId
-            if api.status == 401 && !["device_revoked","device_expired"].contains(api.code) { key = "session_expired" }
+            if api.code == "pairing_code_invalid" { key = "pos_pairing_code_invalid" }
+            else if api.status == 401 && !["device_revoked","device_expired"].contains(api.code) { key = "session_expired" }
             else if api.status == 403 { key = "permission_denied" }
             else { key = Self.key(code:api.code) }
         } else {

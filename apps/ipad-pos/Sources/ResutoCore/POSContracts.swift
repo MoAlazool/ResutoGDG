@@ -1,6 +1,6 @@
 import Foundation
 
-// Reviewed draft: Claude 1a054431, pos.ts 0.1.0 and IPAD_INTEGRATION.md's proposed 0.2.0.
+// Reviewed draft: Claude 69ec75e, pos.ts / IPAD_INTEGRATION.md contract 0.2.0.
 // Production routing is unchanged until 0.2.0 is merged, deployed and shadow-verified.
 public enum JSONValue: Codable, Equatable, Sendable {
     case object([String: JSONValue]), array([JSONValue]), string(String), integer(Int64), number(Double), bool(Bool), null
@@ -39,9 +39,10 @@ public struct POSSession: Codable, Sendable {
     public struct Branch: Codable, Sendable { public let id: String; public let name: String }
     public struct Staff: Codable, Sendable { public let id: String; public let email: String?; public let role: String }
     public let device: POSDevice; public let org: Organization; public let branch: Branch
+    public let requireStaff: Bool
     public let staff: Staff?; public let permissions: [String]; public let feed: POSFeedPosition; public let contractVersion: String
     public func validate(scope: Scope, membership: Membership) throws {
-        guard contractVersion == "0.2.0", device.requireStaff == true, let staff else { throw RuleError.invalid("pos_staff_contract_required") }
+        guard contractVersion == "0.2.0", requireStaff, device.requireStaff == true, let staff else { throw RuleError.invalid("pos_staff_contract_required") }
         guard org.id == scope.orgId, membership.orgId == org.id, branch.id == scope.branchId,
               device.branchId == branch.id, staff.id == scope.userId, staff.role == membership.role,
               membership.allows(branch: branch.id), device.status == "active", !device.expired,

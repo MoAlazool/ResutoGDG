@@ -21,7 +21,7 @@ struct SettingsView: View {
                 Text(m.configuration?.apiURL.absoluteString ?? "").font(.caption.monospaced()).textSelection(.enabled)
                 Text(m.restaurant?.name ?? ""); Text(m.branch?.name ?? "")
             }
-            Section(l.text("authorized_device")) { Label(l.text("device_dependency"), systemImage: "lock.shield").foregroundStyle(.secondary) }
+            DeviceSettingsView(integration:m.deviceIntegration)
             if let intent = m.financial {
                 Section(l.text("payment_reconciliation_required")) {
                     Text(intent.kind == "cash" ? l.text("cash") : l.text("refund"))

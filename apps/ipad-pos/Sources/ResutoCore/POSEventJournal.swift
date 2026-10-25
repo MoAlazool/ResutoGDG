@@ -48,6 +48,7 @@ public actor POSEventJournal {
     }
     private func persist(epoch: String,lastSeq: Int64) throws {
         let next = Record(scope:scope,deviceId:deviceId,epoch:epoch,lastSeq:lastSeq)
+        try Task.checkCancellation()
         try storage.write(JSONEncoder().encode(next)); record = next
     }
 }

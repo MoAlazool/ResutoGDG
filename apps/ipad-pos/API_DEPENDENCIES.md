@@ -1,8 +1,8 @@
 # Native backend dependency report — for Claude
 
-Latest read-only review: Claude `1a0544314d7596dd6b08bb2071755f2e1815195e` now contains POS API **0.1.0 draft**, `IPAD_INTEGRATION.md` and `IPAD_COMPATIBILITY.md`. The docs explicitly mark staff-on-device **0.2.0** (`requireStaff`, staff permission intersection, by-client-ID lookup) as **in progress, not merged**. No merge/backend/infrastructure mutation was performed.
+Latest read-only review: Claude `69ec75e63b3660c2c307564d2dd402de45b4dad7` implements POS API **0.2.0 draft**, including `requireStaff`, staff permission intersection/attribution and permanent by-client-ID lookup. `IPAD_INTEGRATION.md` and `IPAD_COMPATIBILITY.md` still mark staging/native acceptance pending. No shared branch/backend/infrastructure mutation was performed.
 
-The original proposals below describe gaps in the working **staff-route baseline**. Claude's draft POS API addresses pairing, price consent, permanent order IDs, branch events and shared print jobs; those are now **integration/verification dependencies**, not requests to invent alternative routes. New native adapters are tested against synthetic reviewed/proposed contracts, but live app routing stays on staff routes until Claude's documented shadow/staging gates pass. See `docs/POS_API_MIGRATION.md`.
+The original proposals below describe gaps in the working **staff-route baseline**. Claude's draft POS API addresses pairing, price consent, permanent order IDs, branch events and shared print jobs; those are now **integration/verification dependencies**, not requests to invent alternative routes. New native adapters are tested against synthetic reviewed contracts, but order/payment routing stays on staff routes until Claude's documented shadow/staging gates pass. See `docs/POS_API_MIGRATION.md`.
 
 Contract baseline: `1746b4f6ee5e03bd0d9c8943b37e680eca057dce`; orders/payments contracts v2. This report proposes changes; none of the proposed routes below are called by the app. Backend ownership remains with Claude. No shared backend, migration, deployment, or infrastructure changes are included.
 
@@ -30,7 +30,7 @@ Contract acceptance: price/modifier/promotion/tax/availability change after quot
 
 ## P0 baseline gap: durable operation reconciliation
 
-**Draft resolution:** permanent POS `clientOrderId` rows exist in Claude’s 0.1.0 source; the 0.2.0 `by-client-id` lookup is still being implemented. Use that agreed route rather than the historical generic operation proposal below.
+**Draft resolution:** permanent POS `clientOrderId` rows exist in Claude’s 0.1.0 source; the 0.2.0 `by-client-id` lookup is implemented in the reviewed branch. Use that agreed route rather than the historical generic operation proposal below.
 
 Existing staff idempotency rows expire after seven days. Native retries use the original key and immutable payload; replay stops before that horizon. A replacement key could duplicate an already accepted order after an ambiguous result.
 
@@ -40,13 +40,13 @@ Acceptance: lost response + restart + retry after 8/30 days cannot create a seco
 
 ## P0 baseline gap: device authorization and remote revocation
 
-**Draft resolution:** one-use pairing codes and hashed bearer device credentials now exist in Claude’s draft 0.1.0. `requireStaff`, staff headers/intersection and attribution are awaiting 0.2.0. The proposed public-key/App Attest enrollment below is optional future policy, not an additional route request.
+**Draft resolution:** one-use pairing codes and hashed bearer device credentials now exist in Claude’s draft 0.1.0. `requireStaff`, staff headers/intersection and attribution are implemented in draft 0.2.0. The proposed public-key/App Attest enrollment below is optional future policy, not an additional route request.
 
 No device contract is deployed in the inspected staging environment; attestation/PIN staff-switch contracts remain absent. Do not simulate registration with local UUIDs.
 
 **Proposed** owner/manager enrollment challenge → `POST /v1/o/{orgId}/pos/devices/enroll` with `{challenge, publicKey, displayName, branchId, attestation?}` → `{deviceId, status, policy:{offlineDraftTTLSeconds, allowedBranchIds}, credentialExpiry}`. Add list/revoke endpoints with `members:manage` or a dedicated permission. Device credential supplements user authentication; it must not replace employee permissions. Validate App Attest server-side where adopted. Log enrollment, reassignment, sensitive actions and revocation without raw keys. Native offline unlock policy must define lease expiry and device/user revocation exposure.
 
-Current UI explicitly labels enrollment unavailable. Staff switch is full sign-out/sign-in. Reopening an app after termination needs an online identity validation; ongoing authenticated sessions may capture drafts offline for at most eight hours after last successful refresh. Cached data alone never establishes membership.
+Settings implements pairing and read-only shadow monitoring; staging deployment and actual enrollment verification are pending. Staff switch is full sign-out/sign-in. Reopening an app after termination needs an online identity validation; ongoing authenticated sessions may capture drafts offline for at most eight hours after last successful refresh. Cached data alone never establishes membership.
 
 ## P1: server order amendments, table transfers, merge and item split
 
@@ -72,15 +72,15 @@ OpenAPI includes routes/requests but not every response shape. Add complete vers
 
 ## Coordination with 21-POSAPI / 0.2.0
 
-Use Claude's `docs/api/IPAD_INTEGRATION.md` migration sequence: (1) merged/deployed staff-on-device pairing plus read-only shadows, (2) quoted POS orders/reconciliation/payments after real native cross-platform acceptance, (3) kitchen/shared printing after hardware acceptance, (4) mark contracts stable. The native implementation now includes dual-credential/scoped storage, typed session/menu/floor/order/event/quote/conflict/print DTOs, an encrypted-store-compatible event journal and read-only shadow synchronizer, and a quote-aware submitter. These adapters are not yet selected by the working SwiftUI app. No unsupported route is called live.
+Use Claude's `docs/api/IPAD_INTEGRATION.md` migration sequence: (1) merged/deployed staff-on-device pairing plus read-only shadows, (2) quoted POS orders/reconciliation/payments after real native cross-platform acceptance, (3) kitchen/shared printing after hardware acceptance, (4) mark contracts stable. The native implementation now includes dual-credential/scoped storage, typed session/menu/floor/order/event/quote/conflict/print DTOs, an encrypted-store-compatible event journal and read-only shadow synchronizer, and a quote-aware submitter. Settings now selects pairing and read-only shadows; working order/payment flows retain staff routes. No unsupported route is called live.
 
 Finalization needed from Claude:
 
-1. Land 0.2.0's staff header authentication, `device.requireStaff`, effective permissions and staff attribution alongside device ID; publish exact `staff` response and refresh/error cases. Confirm a missing/expired staff token never acts as device role, and cross-tenant/branch lookup is denied without disclosure.
-2. Land permanent `GET /pos/orders/by-client-id/{clientOrderId}` semantics and accepted/processing/404 response. Native keeps the same UUID and payload on ambiguous retries; legacy in-flight orders retain their original endpoint/key and six-day stop. Do not migrate an ambiguous legacy operation to `/pos/orders`.
+1. Deploy and verify 0.2.0's staff header authentication, `device.requireStaff`, effective permissions and staff attribution alongside device ID; publish exact `staff` response and refresh/error cases. Confirm a missing/expired staff token never acts as device role, and cross-tenant/branch lookup is denied without disclosure.
+2. Deploy and verify permanent `GET /pos/orders/by-client-id/{clientOrderId}` semantics and accepted/processing/404 response. Native keeps the same UUID and payload on ambiguous retries; legacy in-flight orders retain their original endpoint/key and six-day stop. Do not migrate an ambiguous legacy operation to `/pos/orders`.
 3. Clarify POS submit's additive support for existing staff promotion codes, customer IDs and delivery addresses. Current adapter rejects those conversions; existing supported workflows continue on staff routes. An unimplemented field must not silently disappear.
 4. Define print-claim recovery when physical completion exceeds 60 s or TCP/AirPrint output is ambiguous; the native client will not automatically mark a socket handoff as printed.
 5. Confirm payment client-ID retention/reconciliation independently of permanent order IDs. Existing native financial recovery remains bounded/manual. No terminal provider/offline authorization is inferred from `method=card` recording.
-6. Provide final OpenAPI/checklist/changelog and backend `pos-flow` evidence. The pinned draft native manifest is at `contracts/pos-api-draft.json`; by-client-ID is labelled proposed until actually merged. Full-snapshot truncation above 300 open orders needs an explicit paging/completeness policy.
+6. Provide final OpenAPI/checklist/changelog and backend `pos-flow` evidence. The pinned draft native manifest is at `contracts/pos-api-draft.json`; by-client-ID is pinned as implemented draft, with deployment/acceptance pending. Full-snapshot truncation above 300 open orders needs an explicit paging/completeness policy.
 
 Native availability controls use the existing `POST /o/{orgId}/menu/products/{productId}/availability` with `{branchId,available}` and server refresh. This controls temporary sold-out state, not stock replenishment. Staff-only cancellation/refund/reservation/visit/customer routes stay as documented, with staff permission checks. Native logout is session-local, preserving other clients and future device pairing. Dedicated QA prerequisites and the legacy native-client staging probe are in `docs/STAGING.md`; authenticated cross-platform and physical-device acceptance remain pending.

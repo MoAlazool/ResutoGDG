@@ -96,7 +96,8 @@ final class WorkflowTests: XCTestCase {
         tap(app,"product." + product); tap(app,"product.add")
         app.terminate(); XCTAssertTrue(app.wait(for: .notRunning, timeout: 15))
         app = try launch(reset: false)
-        XCTAssertTrue(element(app,"cart.review").isEnabled)
+        let restoredReview = element(app,"cart.review")
+        expectation(for:NSPredicate(format:"enabled == true"),evaluatedWith:restoredReview); waitForExpectations(timeout:20)
         tap(app,"nav.orders")
         XCTAssertFalse(element(app,"order." + order).exists, "A restored cart must not silently submit")
     }
@@ -165,6 +166,18 @@ final class WorkflowTests: XCTestCase {
         tap(app,"nav.orders"); tap(app,"order." + order)
         assertOrderState(app,id:"order.paymentState",label:"Paid")
         attach(app,"simulated-cash-same-key-reconciled")
+    }
+    func testPairedStaffSessionReadOnlyShadowAndLocalForget() throws {
+        let app = try launch()
+        tap(app,"nav.settings")
+        let field = try XCTUnwrap(reveal(app,"pairing.code")); field.tap(); field.typeText("ABCDE-FGHJK")
+        tap(app,"pairing.submit")
+        XCTAssertTrue(element(app,"device.state.active").waitForExistence(timeout:20))
+        XCTAssertTrue(element(app,"device.shadow.ready").waitForExistence(timeout:20))
+        attach(app,"simulated-paired-staff-read-only-shadow")
+        tap(app,"device.forget"); tap(app,"device.confirmForget")
+        XCTAssertTrue(element(app,"device.state.none").waitForExistence(timeout:15))
+        tap(app,"nav.pos"); XCTAssertTrue(app.buttons["product." + product].exists,"Local device forget must preserve staff sign-in")
     }
     func testHostCannotEnterPOSKitchenOrPayments() throws {
         let app = try launch(role: "host")
