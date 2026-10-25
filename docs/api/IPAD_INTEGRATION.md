@@ -28,7 +28,14 @@ the employee's permissions.
 |---|---|---|
 | Staff routes `/v1/o/*` used by PR #3 | `main` behaviour, unchanged on this branch | Existing, covered by the API suites. Not changed by this track. |
 | Device API 0.1.0 (`/v1/pos/*`, device credential only) | this branch, `b15bd20` | **Draft.** Contract and API tests pass, including a scripted-iPad cross-platform test. **Not staging-verified, not verified with the real app.** |
-| Device API 0.2.0 (staff on device, `requireStaff`, `by-client-id`) | `ws/21-posapi-b` (in progress) | **Proposed and being implemented.** Not merged. This document is updated when it merges. |
+| Device API 0.2.0 (staff on device, `requireStaff`, `by-client-id`) | this branch, merge `f8590ce` | **Draft, implemented.** Additive over 0.1.0. Covered by `apps/api/test/pos-staff.test.ts` and the auth unit test (`apps/api/src/common/auth/context.test.ts`). **Not staging-verified; not verified with the real app.** |
+
+**Exact names (0.2.0):**
+- header `X-Resuto-Staff-Authorization` (`POS_STAFF_HEADER`);
+- OpenAPI security `[{posDeviceAuth}, {posDeviceAuth, posStaffAuth}]` on every device route except pairing;
+- error codes `pos_staff_not_allowed` (403) and `pos_staff_required` (401);
+- response types `PosSession.requireStaff`, `PosSession.staff` (`PosSessionStaff`), `PosDeviceSummary.requireStaff` and `PosOrderByClientId`;
+- pairing request field `requireStaff?: boolean`.
 
 **Staging rule:** nothing here counts as staging-verified until the real iPad build has run the end-to-end flow
 (`docs/api/IPAD_COMPATIBILITY.md` → "stable") against staging and the result is recorded.
@@ -43,7 +50,7 @@ The app keeps **two credentials**, both in the Keychain:
 | Device credential `rpos_<43 url-safe chars>` | Once, by pairing (§2) | `Authorization: Bearer rpos_…` | `/v1/pos/*` only |
 | Staff session on a device request (0.2.0) | The same staff JWT | `X-Resuto-Staff-Authorization: Bearer <JWT>` alongside the device credential | `/v1/pos/*` |
 
-**Rules the API enforces.** Status: 0.1.0 is implemented; rules marked 0.2.0 are being implemented.
+**Rules the API enforces.** All of them are implemented in contract 0.2.0.
 
 1. **Device credential scope.** A device credential is accepted **only** on `/v1/pos/*`. Elsewhere it answers `403 pos_device_only`.
 2. **Device routes and staff tokens.** A staff JWT in `Authorization` on `/v1/pos/*` answers `403 pos_device_required`. This is unchanged in 0.2.0: the staff JWT goes in `X-Resuto-Staff-Authorization`.
@@ -55,7 +62,10 @@ The app keeps **two credentials**, both in the Keychain:
    - **Refusals:**
      - `401 unauthorized` for a missing, invalid or expired JWT;
      - `403 pos_staff_not_allowed` for a valid user without such a membership. It never reveals other tenants.
-5. **`requireStaff` devices (0.2.0).** A device paired with `requireStaff: true` refuses every `/v1/pos/*` route except `GET /v1/pos/session` without the staff header, with `401 pos_staff_required`. Use this for shared waiter iPads, so every action has a person behind it. `GET /v1/pos/session` reports `requireStaff` and, when the header is present, the staff member and the effective permissions.
+     - The header must be exactly `Bearer <access token>`. A device credential or MCP key in this header is `401 unauthorized`.
+   - **Order of checks:** the device credential first (`device_revoked`, `device_expired`, `unauthorized` win), then the per-device rate limit, then the staff session, then the route permission.
+   - **What keeps the device id:** `pos_order_submissions.device_id`, print-job claims (`claimedBy`), receipt requests and the session. The audit log carries `metadata.deviceId`.
+5. **`requireStaff` devices (0.2.0).** A device paired with `requireStaff: true` refuses every `/v1/pos/*` route except `GET /v1/pos/session` without the staff header, with `401 pos_staff_required`. Use this for shared waiter iPads, so every action has a person behind it. `GET /v1/pos/session` reports `requireStaff` and, when the header is present, the staff member and the effective permissions. `requireStaff` is fixed at pairing; to change it, pair the device again.
 6. **Device refusals.**
    - `401 device_revoked` or `401 device_expired`: delete the device credential and show the pairing screen. Keep the staff session.
    - `401 unauthorized` on the device credential: the restaurant was closed or suspended, or the branch was deactivated.
@@ -79,7 +89,7 @@ same as for the web app.
 
 **Two-step flow in the app.** Staff signs in as today, picks restaurant and branch, and then, when the device has no
 credential, the app shows "Pair this iPad" (code entry or QR scan of the code). A manager can pair on the spot from
-the web app. The existing "enrollment unavailable" label is replaced by this flow once 0.2.0 is merged.
+the web app. The app's existing "enrollment unavailable" label can be replaced by this flow: 0.2.0 is on the branch (draft).
 
 **Codex's proposed `POST /pos/devices/enroll` (public key, App Attest): not built.** Pairing codes plus a hashed
 bearer credential are the 0.1.0 design. App Attest and key-bound credentials can be added as optional fields later
@@ -130,8 +140,8 @@ outbox. Payments recorded either way reach the same ledger.
 }
 ```
 
-0.2.0 adds `device.requireStaff` and, with the staff header, `staff: { id, email, role }`. In that case
-`permissions` holds the effective (intersected) permissions.
+0.2.0 adds `requireStaff: boolean` (top level and in `device`) and `staff: { id, email | null, role } | null`. With a
+staff session, `permissions` holds the effective (intersected) permissions.
 
 **Menu.** `GET /v1/pos/sync/menu?since=<cursor>` returns:
 - when nothing changed: `{ cursor, unchanged: true }`;
@@ -185,10 +195,10 @@ It returns **201** `PosOrderSubmitted` = `{ clientOrderId, order: PosOrder, repr
   - `422 invalid_modifiers`.
   - In all three cases nothing is created: no order, stock decrement, kitchen ticket or payment. Resubmit the same `clientOrderId` after the staff member reviews.
 
-**Reconcile (0.2.0).** `GET /v1/pos/orders/by-client-id/{clientOrderId}` returns:
+**Reconcile (0.2.0).** `GET /v1/pos/orders/by-client-id/{clientOrderId}` (`orders:read`) returns `PosOrderByClientId`:
 - `{ state: "accepted", orderId, number, response: PosOrderSubmitted }`;
-- `{ state: "processing" }`;
-- `404 not_found` when the order was never accepted (resubmitting the same id is safe; it is idempotent with no expiry).
+- `{ state: "processing" }` while a submit with that id is still running (ask again in about a second);
+- `404 not_found` when the order was never accepted, or was submitted at another branch or restaurant. Resubmitting the same id is safe: it is idempotent with no expiry, and no maintenance job deletes `pos_order_submissions`.
 
 **`PosOrder`:**
 
@@ -285,7 +295,7 @@ Feed retention is 7 days.
 | Step | App | API | Exit criterion |
 |---|---|---|---|
 | 0 (now) | PR #3 on staff routes only | Unchanged | Existing behaviour |
-| 1 | Pairing UI + `POSClient`; read `session`, `sync/menu`, `events` in parallel with the current polling (shadow mode, compare, no writes) | 0.2.0 merged | Feed and sync match the staff reads on staging for a full service day |
+| 1 | Pairing UI + `POSClient`; read `session`, `sync/menu`, `events` in parallel with the current polling (shadow mode, compare, no writes) | 0.2.0 deployed to staging (it is on the branch; staging still runs an older build) | Feed and sync match the staff reads on staging for a full service day |
 | 2 | Orders via `/v1/pos/orders` + quote + reconcile; payments via `/pos/orders/{id}/payments` | — | Cross-platform flow passes on staging with the real app (§8) |
 | 3 | Kitchen and print jobs on `/v1/pos/kitchen/*` and print jobs; drop the polling | — | KDS and printing acceptance on hardware |
 | 4 | Routes in `IPAD_COMPATIBILITY.md` marked **stable** | Additive changes only from then on | Recorded staging run |
