@@ -202,6 +202,8 @@ export const MCP_OP_TOOLS: Record<ChangeOpType, readonly McpToolName[]> = {
   'menu.item.update': ['update_menu_item'],
   'menu.item.price.set': ['set_item_price'],
   'menu.item.availability.set': ['update_product_availability', 'toggle_availability'],
+  // A dish discount changes the price guests pay (group prices): only a connection that may set prices may propose it.
+  'product.discount.set': ['set_item_price'],
   'promotion.create': ['create_promotion'],
   'website.section.add': ['draft_website_change'],
   'website.section.update': ['draft_website_change'],

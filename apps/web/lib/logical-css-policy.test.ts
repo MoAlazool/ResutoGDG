@@ -13,6 +13,8 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/inbox', 'apps/web/components/customers', 'apps/web/app/dashboard/[orgId]/settings/messaging',
   // 21-HOME: the overview command centre.
   'apps/web/app/dashboard/[orgId]/_home',
+  // 21-STUDIO: the Studio workspace and its canvas document.
+  'apps/web/app/dashboard/[orgId]/website', 'apps/web/app/studio-canvas',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

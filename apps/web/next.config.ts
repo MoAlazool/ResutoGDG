@@ -8,8 +8,13 @@ const repoRoot = new URL('../..', import.meta.url).pathname;
  * Pages get a per-request nonce policy from middleware.ts (lib/csp.ts, audit PS-17). This static fallback covers
  * responses the middleware does not handle (static files, Next internals); it is compatible with the page policy.
  */
+// frameSelf: when a page response carries both this and the page policy, the stricter page policy decides (guest pages
+// keep frame-src 'none'); staff pages may frame the Studio canvas (21-STUDIO).
 const fallbackCsp = buildCsp({ nonce: null, dev: process.env.NODE_ENV !== 'production',
-  apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL });
+  apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, frameSelf: true });
+/** The Studio canvas (21-STUDIO) is framed by the Studio: same-origin framing only, for this one page. */
+const canvasCsp = buildCsp({ nonce: null, dev: process.env.NODE_ENV !== 'production',
+  apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, framedBySelf: true });
 
 const config: NextConfig = {
   output: 'standalone',
@@ -46,6 +51,18 @@ const config: NextConfig = {
         { key: 'X-Frame-Options', value: 'DENY' },
         { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
       ],
+    }, {
+      // Later rules override earlier ones for the same header: the canvas may be framed by this site (and nothing else).
+      source: '/studio-canvas',
+      headers: [
+        { key: 'Content-Security-Policy', value: canvasCsp },
+        { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      ],
+    }, {
+      // Fonts are fetched in CORS mode; the canvas document has an opaque origin (sandboxed frame), so the public,
+      // immutable font files allow any origin to read them (they are the same files every page links).
+      source: '/fonts/:file*',
+      headers: [{ key: 'Access-Control-Allow-Origin', value: '*' }],
     }];
   },
 };

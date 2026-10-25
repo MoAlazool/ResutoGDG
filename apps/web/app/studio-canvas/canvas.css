@@ -1,0 +1,14 @@
+/* The Studio canvas document (21-STUDIO): selection and change-set diff marks over the site renderer. */
+.canvas-wait{min-height:100vh;background:var(--surface-3)}
+.canvas-root .site-block[data-sid]{position:relative;cursor:pointer;outline:2px solid transparent;outline-offset:-2px}
+.canvas-root .site-block[data-sid]:hover{outline-color:var(--focus-soft)}
+.canvas-root .site-block[data-sid]:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+.canvas-root .site-block[data-selected]{outline:3px solid var(--focus);outline-offset:-3px}
+.canvas-root[data-site-selected] header,.canvas-root[data-site-selected] footer{outline:3px solid var(--focus);outline-offset:-3px}
+.canvas-root .site-block[data-diff]{outline:3px dashed var(--ok-fg);outline-offset:-3px}
+.canvas-root .site-block[data-diff=changed]{outline-color:var(--info-fg)}
+.canvas-root .site-block[data-diff]::before{content:attr(data-diff-label);position:absolute;inset-block-start:8px;inset-inline-end:8px;z-index:2;padding:2px 10px;border-radius:var(--radius-full);
+  background:var(--ok-bg);color:var(--ok-fg);font-size:12px;font-weight:600;line-height:1.6}
+.canvas-root .site-block[data-diff=changed]::before{background:var(--info-bg);color:var(--info-fg)}
+.canvas-root .site-empty-block{margin:0;padding:28px 5%;color:var(--text-muted);font-size:14px;text-align:center;border:1px dashed var(--border-strong)}
+.canvas-root a{pointer-events:auto}

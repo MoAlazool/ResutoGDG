@@ -3,16 +3,19 @@
 // the Smash & Co storefront ("smash", legacy/public/burger.js/css) and a
 // lighter "minimal" variant, all driven by published Studio data.
 import type { CSSProperties, ReactNode } from 'react';
-import type { PublicSite, PublicSiteSection } from '@resuto/contracts';
+import type { PublicSite, PublicSiteProduct, PublicSiteSection } from '@resuto/contracts';
+import { SOCIAL_NETWORKS, type SocialNetwork } from '@resuto/contracts/lite';
 import { SocialIcons } from '@/components/guest/SocialIcons';
 import { DishImage as PublicDishImage } from '@/components/public/DishImage';
 import { DISH_SIZES, dishSrcSet } from '@/lib/dish-image';
 import { LanguageToggle } from '@/lib/i18n/client';
-import { acceptsOrders, acceptsReservations, clock, DAY_KEYS, heroCopy, loc, openingHours, pickName, price, showsDemoStory, type SiteLocale, type T } from './site-utils';
+import {
+  acceptsOrders, acceptsReservations, clock, DAY_KEYS, discountPercent, heroCopy, loc, openingHours, pickName, price, promotionLabel, showsDemoStory, type SiteLocale, type T,
+} from './site-utils';
 import './site.css';
 
 type Section = PublicSiteSection;
-interface Ctx { site: PublicSite; locale: SiteLocale; t: T; links: { order: string; reserve: string; home: string } }
+interface Ctx { site: PublicSite; locale: SiteLocale; t: T; links: { order: string; reserve: string; home: string }; preview: boolean }
 
 /** Header line under the name: the owner's tagline, "Example restaurant" for the demo tenant (legacy), else the city. */
 const tagline = ({ site, locale, t }: Ctx) => loc(site.theme.tagline, locale) || (site.org.demo ? t('studio.site.example') : site.branches[0]?.city || '');
@@ -24,14 +27,14 @@ export function SiteView({ site, locale, t, preview = false, hostLinks }: {
   /** On a custom domain the guest routes are host-relative. */
   hostLinks?: { order: string; reserve: string; home: string };
 }) {
-  const ctx: Ctx = { site, locale, t, links: hostLinks ?? { order: site.links.order, reserve: site.links.reserve, home: site.links.site } };
+  const ctx: Ctx = { site, locale, t, links: hostLinks ?? { order: site.links.order, reserve: site.links.reserve, home: site.links.site }, preview };
   const vars = {
     '--site-primary': site.theme.primaryColor,
     '--site-accent': site.theme.accentColor,
     '--site-bg': site.theme.backgroundColor,
   } as CSSProperties;
   const name = pickName(locale, site.org.name, site.org.nameAr);
-  const body = site.sections.map((s) => <SectionView key={s.id} s={s} ctx={ctx} />);
+  const body = site.sections.map((s) => <Block key={s.id} s={s} ctx={ctx} />);
   if (site.template === 'smash') {
     return (
       <div className="bg-app site-root" style={vars} data-template="smash" data-preview={preview || undefined}>
@@ -88,6 +91,26 @@ function Footer({ ctx, className }: { ctx: Ctx; className: string }) {
   );
 }
 
+/**
+ * A section with its inspector layout (alignment, spacing, tone, columns) and, on the Studio canvas, the hooks the
+ * canvas uses for selection and the change-set diff (data-sid, data-diff). Published sections without a layout render
+ * exactly as before (no wrapper).
+ */
+function Block({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const view = SectionView({ s, ctx });
+  const layout = s.content.layout;
+  const diff = ctx.site.diff;
+  const mark = diff ? (diff.added.includes(s.id) ? 'added' : diff.changed.includes(s.id) ? 'changed' : undefined) : undefined;
+  if (!ctx.preview && !layout) return view;
+  return (
+    <div className="site-block" data-sid={ctx.preview ? s.id : undefined} data-kind={ctx.preview ? s.kind : undefined} data-diff={mark}
+      data-diff-label={mark ? ctx.t(`studio.site.diff.${mark}`) : undefined}
+      data-align={layout?.align} data-spacing={layout?.spacing} data-tone={layout?.tone} data-columns={layout?.columns}>
+      {view ?? (ctx.preview ? <p className="site-empty-block">{ctx.t('studio.site.emptyBlock')}</p> : null)}
+    </div>
+  );
+}
+
 function SectionView({ s, ctx }: { s: Section; ctx: Ctx }): ReactNode {
   const smash = ctx.site.template === 'smash';
   switch (s.kind) {
@@ -102,6 +125,11 @@ function SectionView({ s, ctx }: { s: Section; ctx: Ctx }): ReactNode {
     case 'testimonials': return <Quotes s={s} ctx={ctx} />;
     case 'contact': return <Contact s={s} ctx={ctx} />;
     case 'custom': return <Custom s={s} ctx={ctx} />;
+    case 'promo_banner': return <PromoBanner s={s} ctx={ctx} />;
+    case 'offers': return <Offers s={s} ctx={ctx} />;
+    case 'social': return <Social s={s} ctx={ctx} />;
+    case 'faq': return <Faq s={s} ctx={ctx} />;
+    case 'menu_full': return <FullMenu s={s} ctx={ctx} />;
     default: return null;
   }
 }
@@ -425,6 +453,166 @@ function Custom({ s, ctx }: { s: Section; ctx: Ctx }) {
         {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
       </div>
       {s.content.media && <img className="dish-photo" src={s.content.media.url} alt={s.content.media.alt ?? ''} loading="lazy" />}
+    </section>
+  );
+}
+
+// --- 21-STUDIO section kinds ----------------------------------------------------------------------------------------
+
+/** "Code EID15 · 15% off" for a live promotion (the badge text an offer or banner shows). */
+function PromoChip({ ctx, s }: { ctx: Ctx; s: Section }) {
+  const p = s.content.promotion;
+  if (!p) return null;
+  return (
+    <p className="site-promo-chip">
+      <strong>{promotionLabel(p, ctx.site.org.currency, ctx.locale, ctx.t)}</strong>
+      {p.code && <> · {ctx.t('studio.site.useCode')} <code dir="ltr">{p.code}</code></>}
+    </p>
+  );
+}
+
+function PromoBanner({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const { locale, t, site } = ctx;
+  const headline = loc(s.content.headline, locale);
+  if (!headline && !loc(s.content.body, locale) && !s.content.promotion) return null;
+  const badge = loc(s.content.badge, locale);
+  return (
+    <section className="site-promo" aria-labelledby={`h-${s.id}`}>
+      <div className="site-promo-copy">
+        {badge && <span className="site-badge">{badge}</span>}
+        <h2 id={`h-${s.id}`}>{headline || (s.content.promotion ? pickName(locale, s.content.promotion.name, s.content.promotion.nameAr) : t('studio.site.offersTitle'))}</h2>
+        {loc(s.content.body, locale) && <p>{loc(s.content.body, locale)}</p>}
+        <PromoChip ctx={ctx} s={s} />
+        {acceptsOrders(site) && <a className="primary button" href={ctx.links.order}><span className="button-label">{loc(s.content.ctaLabel, locale) || t('studio.site.orderCta')}</span></a>}
+      </div>
+      {s.content.media && <img src={s.content.media.url} alt={s.content.media.alt ?? ''} loading="lazy" />}
+    </section>
+  );
+}
+
+function OfferCard({ p, ctx, fallback }: { p: PublicSiteProduct; ctx: Ctx; fallback: string | null }) {
+  const { locale, t, site } = ctx;
+  const name = pickName(locale, p.name, p.nameAr);
+  const pct = discountPercent(p);
+  const inner = (
+    <>
+      <DishImage url={p.imageUrl} srcSet={dishSrcSet(p)} sizes={DISH_SIZES.siteCard} name={name} englishName={p.name} />
+      {(pct !== null || fallback) && <span className="site-badge site-badge-float">{pct !== null ? t('studio.site.percentOff', { pct }) : fallback}</span>}
+      <div className="dish-body">
+        <h3>{name}</h3>
+        <p className="site-offer-price">
+          <strong><bdi>{price(p.priceMinor, p.currency, locale)}</bdi></strong>
+          {pct !== null && <s><span className="sr-only">{t('studio.site.was')} </span><bdi>{price(p.compareAtMinor!, p.currency, locale)}</bdi></s>}
+        </p>
+      </div>
+    </>
+  );
+  return acceptsOrders(site) ? <a className="dish-card site-offer" href={ctx.links.order}>{inner}</a> : <article className="dish-card site-offer">{inner}</article>;
+}
+
+function Offers({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const { locale, t, site } = ctx;
+  const products = s.content.products ?? [];
+  if (!products.length && !s.content.promotion) return null;
+  const promo = s.content.promotion ? promotionLabel(s.content.promotion, site.org.currency, locale, t) : null;
+  const badge = loc(s.content.badge, locale);
+  return (
+    <section className="consumer-main site-offers" aria-labelledby={`h-${s.id}`}>
+      <div className="site-section-head">
+        <div>
+          {badge && <span className="site-badge">{badge}</span>}
+          <h2 id={`h-${s.id}`}>{heading(s, ctx, 'studio.site.offersTitle')}</h2>
+        </div>
+        {acceptsOrders(site) && <a className="site-link" href={ctx.links.order}>{t('studio.site.fullMenu')} <span aria-hidden>{locale === 'ar' ? '←' : '→'}</span></a>}
+      </div>
+      {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
+      <PromoChip ctx={ctx} s={s} />
+      {products.length > 0 && <div className="dish-grid">{products.map((p) => <OfferCard key={p.id} p={p} ctx={ctx} fallback={promo} />)}</div>}
+    </section>
+  );
+}
+
+const SOCIAL_LOGO: Partial<Record<SocialNetwork, string>> = {
+  instagram: '/brand/providers/instagram.svg', facebook: '/brand/providers/facebook.svg', tiktok: '/brand/providers/tiktok.svg',
+  snapchat: '/brand/providers/snapchat.svg', whatsapp: '/brand/providers/whatsapp.svg', google_maps: '/brand/providers/google-maps.svg',
+};
+const SOCIAL_MARK: Record<SocialNetwork, string> = { instagram: 'IG', facebook: 'f', tiktok: 'TT', x: 'X', snapchat: 'SC', whatsapp: 'WA', google_maps: '⌖', website: '⌂' };
+
+function Social({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const { locale, t, site } = ctx;
+  const links = site.org.socialLinks ?? {};
+  const networks = SOCIAL_NETWORKS.filter((n) => links[n]);
+  if (!networks.length) return null;
+  return (
+    <section className="consumer-main site-social" aria-labelledby={`h-${s.id}`}>
+      <h2 id={`h-${s.id}`}>{heading(s, ctx, 'studio.site.socialTitle')}</h2>
+      {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
+      <ul className="site-social-list">
+        {networks.map((n) => (
+          <li key={n}>
+            <a href={links[n]} target="_blank" rel="noopener noreferrer nofollow" aria-label={t('core.guest.social.open', { network: t(`core.guest.social.${n}`) })}>
+              {SOCIAL_LOGO[n] ? <img src={SOCIAL_LOGO[n]} alt="" aria-hidden width={20} height={20} /> : <span className="site-social-mark" aria-hidden>{SOCIAL_MARK[n]}</span>}
+              <span>{t(`core.guest.social.${n}`)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Questions and answers as native disclosure widgets: the text is in the page for guests, search and answer engines. */
+function Faq({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const items = (s.content.items ?? []).filter((i) => loc(i.title, ctx.locale) && loc(i.body, ctx.locale));
+  if (!items.length) return null;
+  return (
+    <section className="consumer-main site-faq" aria-labelledby={`h-${s.id}`}>
+      <h2 id={`h-${s.id}`}>{heading(s, ctx, 'studio.site.faqTitle')}</h2>
+      {loc(s.content.body, ctx.locale) && <p className="site-prose">{loc(s.content.body, ctx.locale)}</p>}
+      <div className="site-faq-list">
+        {items.map((q, i) => (
+          <details key={i} className="site-faq-item" open={i === 0}>
+            <summary>{loc(q.title, ctx.locale)}</summary>
+            <p>{loc(q.body, ctx.locale)}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** The whole menu as text by category (what answer engines read); ordering stays on the live menu page. */
+function FullMenu({ s, ctx }: { s: Section; ctx: Ctx }) {
+  const { locale, t, site } = ctx;
+  const groups = (s.content.menu ?? []).filter((g) => g.items.length);
+  if (!groups.length) return null;
+  return (
+    <section className="consumer-main site-full-menu" aria-labelledby={`h-${s.id}`}>
+      <div className="site-section-head">
+        <h2 id={`h-${s.id}`}>{heading(s, ctx, 'studio.site.menuFullTitle')}</h2>
+        {acceptsOrders(site) && <a className="site-link" href={ctx.links.order}>{t('studio.site.orderCta')} <span aria-hidden>{locale === 'ar' ? '←' : '→'}</span></a>}
+      </div>
+      {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
+      {groups.map((g) => (
+        <section key={g.id} className="site-menu-group" aria-labelledby={`h-${s.id}-${g.id}`}>
+          <h3 id={`h-${s.id}-${g.id}`}>{pickName(locale, g.name, g.nameAr)}</h3>
+          <ul className="site-menu-list">
+            {g.items.map((p) => {
+              const desc = pickName(locale, p.description, p.descriptionAr);
+              const pct = discountPercent(p);
+              return (
+                <li key={p.id}>
+                  <div><strong>{pickName(locale, p.name, p.nameAr)}</strong>{desc && <p>{desc}</p>}</div>
+                  <span className="site-menu-price">
+                    <bdi>{price(p.priceMinor, p.currency, locale)}</bdi>
+                    {pct !== null && <s><span className="sr-only">{t('studio.site.was')} </span><bdi>{price(p.compareAtMinor!, p.currency, locale)}</bdi></s>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
     </section>
   );
 }

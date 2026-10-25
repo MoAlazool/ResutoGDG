@@ -6,7 +6,8 @@ import { getT } from '@/lib/i18n/server';
 import { MetaPixel } from '@/lib/tracking/MetaPixel';
 import { canonicalUrl, loadSite } from './_components/load-site';
 import { SiteView } from './_components/SiteView';
-import { jsonLdScript, loc, pickName, restaurantJsonLd } from './_components/site-utils';
+import { loc, pickName } from './_components/site-utils';
+import { jsonLdScript, siteJsonLd } from './_components/structured-data';
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -39,7 +40,8 @@ export default async function RestaurantSite({ params }: Params) {
   const onCustomHost = !!(await headers()).get('x-resuto-site-host');
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(restaurantJsonLd(site, canonicalUrl(site), locale)) }} />
+      {/* schema.org Restaurant (menu, offers) and FAQPage, server-rendered from the published site (21-STUDIO). */}
+      {siteJsonLd(site, canonicalUrl(site), locale).map((ld, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(ld) }} />)}
       <a className="sr-only" href="#main">{t('studio.site.skip')}</a>
       <MetaPixel slug={slug} />
       <SiteView site={site} locale={locale} t={t} hostLinks={onCustomHost ? { home: '/', order: '/order', reserve: '/reserve' } : undefined} />

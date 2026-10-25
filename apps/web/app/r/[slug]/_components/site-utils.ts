@@ -1,4 +1,5 @@
-import { formatMoney, type Currency, type PublicSite, INTL_LOCALE } from '@resuto/contracts';
+import { formatMoney, INTL_LOCALE, type Currency } from '@resuto/contracts/lite';
+import type { PublicSitePromotion, PublicSite } from '@resuto/contracts';
 
 export type SiteLocale = 'en' | 'ar';
 export type T = (key: string, vars?: Record<string, string | number>) => string;
@@ -25,40 +26,6 @@ export const clock = (hhmm: string, locale: SiteLocale) => {
 export const acceptsOrders = (site: PublicSite) => site.branches.some((b) => b.acceptsPickup || b.acceptsDelivery);
 export const acceptsReservations = (site: PublicSite) => site.branches.some((b) => b.acceptsReservations);
 
-/** schema.org Restaurant JSON-LD built only from published, guest-visible data. */
-export function restaurantJsonLd(site: PublicSite, url: string, locale: SiteLocale) {
-  const b = site.branches[0];
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const ld: Record<string, unknown> = {
-    '@context': 'https://schema.org',
-    '@type': 'Restaurant',
-    name: pickName(locale, site.org.name, site.org.nameAr),
-    url,
-    ...(loc(site.seo.description, locale) ? { description: loc(site.seo.description, locale) } : {}),
-    ...(site.seo.ogImageUrl || site.theme.heroUrl ? { image: site.seo.ogImageUrl ?? site.theme.heroUrl } : {}),
-    ...(site.theme.logoUrl ? { logo: site.theme.logoUrl } : {}),
-    currenciesAccepted: site.org.currency,
-    acceptsReservations: acceptsReservations(site),
-    hasMenu: new URL(site.links.order, url).toString(),
-  };
-  if (b) {
-    if (b.phone) ld.telephone = b.phone;
-    if (b.address || b.city) {
-      ld.address = { '@type': 'PostalAddress', ...(b.address ? { streetAddress: b.address } : {}), ...(b.city ? { addressLocality: b.city } : {}), addressCountry: site.org.country };
-    }
-    if (b.latitude !== null && b.longitude !== null) ld.geo = { '@type': 'GeoCoordinates', latitude: b.latitude, longitude: b.longitude };
-    const hours = openingHours(b.openingHours);
-    if (hours.length) ld.openingHoursSpecification = hours.map((h) => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: `https://schema.org/${dayNames[h.day]}`, opens: h.opens, closes: h.closes }));
-  }
-  if (site.branches.length > 1) {
-    ld.department = site.branches.slice(1).map((x) => ({ '@type': 'Restaurant', name: pickName(locale, x.name, x.nameAr), ...(x.phone ? { telephone: x.phone } : {}) }));
-  }
-  return ld;
-}
-
-/** Escapes a JSON-LD payload for safe embedding in a <script> element. */
-export const jsonLdScript = (data: unknown) => JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
-
 /**
  * Hero copy. A restaurant's hero starts with its name as the headline, which counts as "not written yet"; the name
  * then shows as the eyebrow, as on the legacy page. The legacy guest home's own words ("Good food. Long
@@ -82,3 +49,16 @@ export function heroCopy(s: PublicSite['sections'][number], site: PublicSite, lo
  * an owner-editable section: only the demo tenant (org.demo) shows it, and only when it takes orders.
  */
 export const showsDemoStory = (site: PublicSite) => site.template === 'olive' && site.org.demo && acceptsOrders(site);
+
+/** The discount a dish shows: whole percent off its was-price (null when it is not discounted). */
+export function discountPercent(p: { priceMinor: number; compareAtMinor?: number | null }): number | null {
+  if (!p.compareAtMinor || p.compareAtMinor <= p.priceMinor) return null;
+  return Math.round((1 - p.priceMinor / p.compareAtMinor) * 100);
+}
+
+/** A promotion's discount in words ("15% off", "EGP 50.00 off", "Free delivery"). */
+export function promotionLabel(p: PublicSitePromotion, currency: string, locale: SiteLocale, t: T): string {
+  if (p.kind === 'percent') return t('studio.site.percentOff', { pct: p.value / 100 });
+  if (p.kind === 'fixed') return t('studio.site.amountOff', { amount: price(p.value, currency, locale) });
+  return t('studio.site.freeDelivery');
+}

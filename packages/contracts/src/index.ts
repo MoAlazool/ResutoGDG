@@ -36,6 +36,7 @@ export * from './notifications';
 export * from './loyalty';
 export * from './mcp';
 export * from './studio';
+export * from './studio-templates';
 export * from './sales';
 export * from './operations';
 export * from './studio-ai';

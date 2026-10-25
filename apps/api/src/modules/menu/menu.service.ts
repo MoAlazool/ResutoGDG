@@ -32,6 +32,9 @@ const PRODUCT_COLUMNS: Record<string, string> = {
   isActive: 'is_active', trackStock: 'track_stock', sortOrder: 'sort_order', externalRef: 'external_ref',
 };
 
+/** The price after a percent discount (basis points), rounded to the nearest minor unit and never below 1. */
+export const discountedPrice = (originalMinor: number, discountBps: number) => Math.max(1, Math.round((originalMinor * (10000 - discountBps)) / 10000));
+
 export const toCategory = (r: any): Category => ({
   id: r.id, menuId: r.menu_id, name: r.name, nameAr: r.name_ar, description: r.description, defaultStation: r.default_station,
   sortOrder: r.sort_order, isActive: r.is_active,
@@ -297,13 +300,33 @@ export class MenuService {
     if (version !== null && current.version !== version) throw conflict('stale_product', 'This item was changed by someone else. Refresh before saving.', { version: current.version });
     if (patch.categoryId && !(await tx.maybeOne('select 1 from menu_categories where id = $1', [patch.categoryId]))) throw notFound('Category');
     if (!entries.length) return { version: current.version };
+    // A regular price edit ends a dish discount (21-STUDIO): the struck-through "was" price would no longer be true.
+    const endsDiscount = patch.priceMinor !== undefined && patch.priceMinor !== current.price_minor;
     await tx.query(
-      `update products set ${entries.map(([k], i) => `${PRODUCT_COLUMNS[k]} = $${i + 2}`).join(', ')}, version = version + 1 where id = $1`,
+      `update products set ${entries.map(([k], i) => `${PRODUCT_COLUMNS[k]} = $${i + 2}`).join(', ')}${endsDiscount ? ', compare_at_price_minor = null' : ''},
+              version = version + 1 where id = $1`,
       [id, ...entries.map(([, v]) => v)]);
     await this.changed(tx, ctx, 'menu.product.updated', 'product', id, {
       fields: entries.map(([k]) => k), ...(patch.priceMinor !== undefined && patch.priceMinor !== current.price_minor ? { priceFrom: current.price_minor, priceTo: patch.priceMinor } : {}),
     });
     return { version: current.version + 1 };
+  }
+
+  /**
+   * A percent discount on one dish (change-set op product.discount.set), in the caller's transaction. The original
+   * price is kept in compare_at_price_minor (a second discount starts from it, not from the discounted price); 0 bps
+   * restores it. Callers validate bounds and lock the row (the op's snapshot) before calling.
+   */
+  async setDiscountTx(tx: Tx, ctx: TenantContext, id: string, discountBps: number): Promise<{ version: number; priceMinor: number; compareAtMinor: number | null }> {
+    const p = await tx.maybeOne<{ version: number; price_minor: number; compare_at_price_minor: number | null }>(
+      'select version, price_minor, compare_at_price_minor from products where id = $1 and org_id = $2 for update', [id, ctx.orgId]);
+    if (!p) throw notFound('Product');
+    const original = Number(p.compare_at_price_minor ?? p.price_minor);
+    const priceMinor = discountBps > 0 ? discountedPrice(original, discountBps) : original;
+    const compareAtMinor = discountBps > 0 ? original : null;
+    await tx.query('update products set price_minor = $2, compare_at_price_minor = $3, version = version + 1 where id = $1', [id, priceMinor, compareAtMinor]);
+    await this.changed(tx, ctx, 'menu.product.discount_set', 'product', id, { discountBps, priceFrom: Number(p.price_minor), priceTo: priceMinor, compareAtMinor });
+    return { version: p.version + 1, priceMinor, compareAtMinor };
   }
 
   async archiveProduct(ctx: TenantContext, id: string) {

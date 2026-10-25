@@ -17,3 +17,5 @@ export * from './marketplace';
 export * from './whatsapp-onboarding';
 export * from './onboarding';
 export * from './csv';
+export * from './studio-templates';
+export * from './studio-sections';
