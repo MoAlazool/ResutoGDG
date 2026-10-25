@@ -206,6 +206,23 @@ private func submitted(_ id: UUID,branch: String = branchID) throws -> [String:A
     return ["clientOrderId":id.uuidString,"order":detail,"repriced":NSNull()]
 }
 final class POSOrderAdapterTests: XCTestCase {
+    func testReconciliationRejectsMismatchedOrderNumberWithoutPosting() async throws {
+        let id = UUID()
+        let (client,transport,_,_,_) = try await setup([jsonResult(sessionJSON()),jsonResult(["state":"accepted","orderId":"order","number":"wrong-number","response":submitted(id)])])
+        let sender = CompatibleOrderSubmitter(legacy:Submitter(),pos:client,membership:try member())
+        var op = PendingOrder(scope:scope(),payload:payload(),id:id); op.posQuote = try quote(); op.attempts = 2
+        do { _ = try await sender.submit(op); XCTFail("Mismatched response must not count as accepted") } catch {}
+        let requests = await transport.requests
+        XCTAssertFalse(requests.contains { $0.httpMethod == "POST" && $0.url?.path == "/v1/pos/orders" })
+    }
+    func testSubmissionRejectsDifferentCurrencyEvenWithSameNumericTotal() async throws {
+        let id = UUID(); var response = try submitted(id); var order = response["order"] as! [String:Any]
+        order["currency"] = "USD"; response["order"] = order
+        let (client,_,_,_,_) = try await setup([jsonResult(sessionJSON()),jsonResult(response)])
+        let sender = CompatibleOrderSubmitter(legacy:Submitter(),pos:client,membership:try member())
+        var op = PendingOrder(scope:scope(),payload:payload(),id:id); op.posQuote = try quote(); op.attempts = 1
+        do { _ = try await sender.submit(op); XCTFail("Currency mismatch must require reconciliation") } catch {}
+    }
     func testAmbiguousSubmissionReconcilesWithoutSecondPost() async throws {
         let id = UUID(), result = try submitted(id), lookup: [String:Any] = ["state":"accepted","orderId":"order","number":"42","response":result]
         let (client,transport,_,_,_) = try await setup([jsonResult(sessionJSON()),jsonResult(["error":["code":"internal","message":"Temporary"]],status:503),jsonResult(lookup)])
@@ -255,6 +272,23 @@ final class POSOrderAdapterTests: XCTestCase {
     }
 }
 final class POSShadowSyncTests: XCTestCase {
+    func testPermissionNarrowingDiscardsProtectedSnapshotsWithoutFeedEvent() async throws {
+        var restricted = sessionJSON(); restricted["permissions"] = ["orders:read"]
+        let empty = try JSONEncoder().encode(page([],head:0,next:0))
+        let (client,transport,_,_,_) = try await setup([
+            jsonResult(sessionJSON()),jsonResult(["cursor":"menu-1","unchanged":false,"currency":"EGP","categories":[],"stations":[]]),
+            jsonResult(["cursor":"floor-1","unchanged":false,"layout":["revision":1],"tables":[]]),
+            jsonResult(["cursor":"orders-0","mode":"full","orders":[],"hasMore":false]),HTTPResult(data:empty,status:200),
+            jsonResult(restricted),HTTPResult(data:empty,status:200)])
+        let journal = try POSEventJournal(scope:scope(),deviceId:"device",storage:MemoryStore())
+        let storage = MemoryStore(), shadow = try POSShadowSync(client:client,membership:member(),deviceId:"device",journal:journal,storage:storage)
+        try await shadow.poll(wait:0); let first = await shadow.current(); XCTAssertNotNil(first.menu); XCTAssertNotNil(first.floor)
+        try await shadow.poll(wait:0); let current = await shadow.current(); XCTAssertNil(current.menu); XCTAssertNil(current.floor)
+        let persisted = try JSONDecoder().decode(POSShadowSync.Snapshot.self,from:XCTUnwrap(storage.read()))
+        XCTAssertNil(persisted.menu); XCTAssertNil(persisted.floor)
+        let requests = await transport.requests
+        XCTAssertEqual(requests.filter { $0.url?.path == "/v1/pos/sync/menu" }.count,1)
+    }
     func testReadOnlyShadowStartsWithSnapshotsAndReplaysWebEvents() async throws {
         let order = try submitted(UUID())["order"]!, session = sessionJSON()
         let event = try JSONEncoder().encode(page([1],kinds:["order.updated"]))
@@ -399,5 +433,35 @@ final class POSCancellationTests: XCTestCase {
     }
     func testExpiredPairingCodeHasSpecificRecoveryInsteadOfStaffLogout() {
         XCTAssertEqual(FailurePresentation(APIError(status:401,code:"pairing_code_invalid",message:"hidden")).key,"pos_pairing_code_invalid")
+    }
+}
+
+final class OperationalAccessLeaseTests: XCTestCase {
+    func testLeaseExpiresWithoutSuccessfulIdentityRegardlessOfNetworkPath() {
+        let now = Date(), lease = OperationalAccessLease(scope:scope(),now:now,uptime:100)
+        XCTAssertTrue(lease.allows(scope(),now:now.addingTimeInterval(28_799),uptime:28_899))
+        XCTAssertFalse(lease.allows(scope(),now:now.addingTimeInterval(28_800),uptime:28_900))
+    }
+    func testClockRollbackOrRestartCannotExtendAuthorization() {
+        let now = Date(), lease = OperationalAccessLease(scope:scope(),now:now,uptime:100)
+        XCTAssertFalse(lease.allows(scope(),now:now.addingTimeInterval(-1),uptime:101))
+        XCTAssertFalse(lease.allows(scope(),now:now.addingTimeInterval(1),uptime:99))
+        XCTAssertFalse(lease.allows(scope(),now:now.addingTimeInterval(1),uptime:29_000))
+    }
+    func testAnotherTenantCannotReuseLease() {
+        let now = Date(), lease = OperationalAccessLease(scope:scope(),now:now,uptime:100)
+        XCTAssertFalse(lease.allows(scope(org:"another"),now:now,uptime:100))
+    }
+}
+
+final class PermissionPerformanceTests: XCTestCase {
+    func testRepeatedPermissionHintsUseCachedRoleSets() {
+        measure {
+            var allowed = 0
+            for index in 0..<20_000 {
+                if Permissions.can(index.isMultiple(of:2) ? "manager" : "cashier","payments:refund") { allowed += 1 }
+            }
+            XCTAssertEqual(allowed,10_000)
+        }
     }
 }

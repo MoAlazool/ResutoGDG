@@ -53,6 +53,7 @@ import CryptoKit
     private var generation = UUID()
     private var draftID = UUID()
     private var refreshing = false
+    private var accessLease: OperationalAccessLease?
     var scope: Scope? {
         guard let configuration, let me, let membership, let branch else { return nil }
         return Scope(environment: configuration.apiURL.absoluteString, userId: me.user.id, orgId: membership.orgId, branchId: branch.id)
@@ -63,7 +64,7 @@ import CryptoKit
     }
     var estimate: Int64? { guard let menu, let order = draftOrder else { return nil }; return try? CartRules.estimate(order, menu: menu) }
     func can(_ permission: String) -> Bool {
-        let offlineAccess = reachable || (lastRefresh.map { (0..<(8 * 3600)).contains(Date().timeIntervalSince($0)) } ?? false)
+        let offlineAccess = scope.map { accessLease?.allows($0) == true } ?? false
         return membership?.can(permission) == true && !locked && offlineAccess
     }
     init() {
@@ -93,7 +94,7 @@ import CryptoKit
         error = presentation.key; errorRequestId = presentation.requestId
         if let api = failure as? APIError, [401, 403].contains(api.status) {
             // No continuing access to stale tenant data after revocation or membership removal.
-            deviceIntegration.pause(); locked = true; menu = nil; layout = nil; live = nil; orders = []; tickets = []; detail = nil
+            deviceIntegration.detach(); accessLease = nil; locked = true; menu = nil; layout = nil; live = nil; orders = []; tickets = []; detail = nil
         }
     }
     func configure(_ value: Configuration) throws { try value.save(); configuration = value; auth = nil; api = nil }
@@ -117,7 +118,7 @@ import CryptoKit
     }
     func choose(_ branch: Branch) async throws {
         guard let membership, membership.allows(branch: branch.id), restaurant?.branches.contains(where: { $0.id == branch.id && $0.isActive }) == true else { throw RuleError.invalid("forbidden") }
-        generation = UUID(); draftID = UUID(); self.branch = branch; fulfillment = branch.acceptsPickup ? "pickup" : (branch.acceptsDineIn ? "dine_in" : "delivery"); customerId = nil; customerName = nil; reservations = []; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
+        accessLease = nil; generation = UUID(); draftID = UUID(); self.branch = branch; fulfillment = branch.acceptsPickup ? "pickup" : (branch.acceptsDineIn ? "dine_in" : "delivery"); customerId = nil; customerName = nil; reservations = []; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; cart = []; notes = ""; promotion = ""; selectedTable = nil; detail = nil
         menu = nil; layout = nil; live = nil; orders = []; historyOrders = []; nextCursor = nil; tickets = []; pending = []; financial = nil; lastRefresh = nil
         guard let scope, let configuration, let api else { return }
         let hash = SHA256.hash(data: Data(scope.storageIdentity.utf8)).map { String(format: "%02x", $0) }.joined()
@@ -165,6 +166,7 @@ import CryptoKit
         if let previous = membership, previous.role != current.role || previous.branchIds != current.branchIds {
             throw APIError(status: 403, code: "permissions_changed", message: "session_expired")
         }
+        accessLease = OperationalAccessLease(scope:scope)
         membership = current; me = identity
         if can("menu:read") {
             let value: Menu = try await api.get("o/\(scope.orgId)/menu"); guard snapshot == generation else { return }; menu = value
@@ -274,7 +276,8 @@ import CryptoKit
     func openOrder(_ id: String) async throws {
         guard reachable, let scope, let api else { throw RuleError.invalid("online_required") }
         let value: OrderDetail = try await api.get("o/\(scope.orgId)/orders/\(id)")
-        guard value.branchId == scope.branchId else { throw RuleError.invalid("branch_mismatch") }; detail = value
+        guard value.branchId == scope.branchId else { throw RuleError.invalid("branch_mismatch") }
+        if detail?.id != value.id { refundStatus = nil }; detail = value
     }
     func transition(_ order: OrderDetail) async throws {
         guard can("orders:status"), reachable, let next = OrderLifecycle.next(order.status, fulfillment: order.fulfillment), let scope, let api else { throw RuleError.invalid("permission_denied") }
@@ -320,11 +323,11 @@ import CryptoKit
         if intent.kind == "cash" {
             guard can("payments:collect") else { throw RuleError.invalid("permission_denied") }
             let _: CollectResult = try await api.post("o/\(scope.orgId)/orders/\(intent.orderId)/collect", body: CashCollection(amountMinor: intent.amountMinor, method: "cash"), key: intent.key)
-        } else {
+        } else if intent.kind == "refund" {
             guard can("payments:refund"), let reason = intent.reason else { throw RuleError.invalid("permission_denied") }
             let result: RefundResult = try await api.post("o/\(scope.orgId)/payments/\(intent.orderId)/refunds", body: RefundRequest(amountMinor: intent.amountMinor, reason: reason, key: intent.key))
             refundStatus = result.status
-        }
+        } else { throw RuleError.invalid("payment_reconciliation_required") }
         try financialStore!.write(JSONEncoder().encode(Optional<FinancialIntent>.none)); financial = nil
         try await refresh()
     }
@@ -361,7 +364,7 @@ import CryptoKit
         generation = UUID(); me = nil; membership = nil; restaurant = nil; clearWorkspace(); await api?.clearCache(); try? await auth?.signOut()
     }
     private func clearWorkspace() {
-        deviceIntegration.detach()
+        deviceIntegration.detach(); accessLease = nil
         customerId = nil; customerName = nil; deliveryLine = ""; deliveryArea = ""; deliveryCity = ""; reservations = []
         branch = nil; menu = nil; layout = nil; live = nil; orders = []; historyOrders = []; nextCursor = nil; tickets = []; pending = []; cart = []; printJobs = []; detail = nil
         selectedTable = nil; notes = ""; promotion = ""; queue = nil; prints = nil; cache = nil; draft = nil; financialStore = nil; financial = nil; lastRefresh = nil; cacheDate = nil

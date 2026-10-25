@@ -25,6 +25,13 @@ public actor POSShadowSync {
         running = true; defer { running = false }
         let session = try await client.session(membership:membership)
         guard session.device.id == deviceId, session.can("orders:read",membership:membership) else { throw RuleError.invalid("pos_context_mismatch") }
+        // Successful session responses may narrow permissions without changing staff role or branch.
+        // Discard those protected projections even when no feed event invalidates them.
+        var restricted = snapshot
+        var narrowed = false
+        if !session.can("menu:read",membership:membership), restricted.menu != nil { restricted.menu = nil; restricted.menuRefreshedAt = nil; narrowed = true }
+        if !session.can("floor:read",membership:membership), restricted.floor != nil { restricted.floor = nil; narrowed = true }
+        if narrowed { snapshot = restricted; try Task.checkCancellation(); try storage.write(JSONEncoder().encode(restricted)) }
         if await journal.position() == nil || snapshot.ordersCursor == nil ||
             (session.can("menu:read",membership:membership) && snapshot.menu == nil) ||
             (session.can("floor:read",membership:membership) && snapshot.floor == nil) { try await reset(position:session.feed,session:session) }

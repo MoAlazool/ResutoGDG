@@ -111,7 +111,10 @@ import CryptoKit
                         self.binding = nil; self.session = nil; self.snapshot = nil; self.shadow = nil; self.files = []; self.issue = "pos_pairing_required"; break
                     }
                     self.issue = failure?.status == 404 ? "pos_backend_pending" : FailurePresentation(error).key
-                    if failure?.status == 401 || failure?.status == 403 { self.session = nil; self.snapshot = nil; break }
+                    if failure?.status == 401 || failure?.status == 403 ||
+                        (error as? RuleError) == .invalid("pos_context_mismatch") || (error as? RuleError) == .invalid("pos_staff_contract_required") {
+                        self.session = nil; self.snapshot = nil; self.shadow = nil; break
+                    }
                     failures += 1
                     do { try await Task.sleep(for:.seconds(min(60,pow(2,Double(min(failures,5)))))) } catch { break }
                 }
@@ -126,7 +129,10 @@ import CryptoKit
         binding = nil; session = nil; snapshot = nil; issue = nil; files = []
     }
     func forget() async {
+        let interrupted = worker
         stopWorker()
+        // Join the cancelled poll before deleting files; an atomic write already in progress must finish first.
+        await interrupted?.value
         do {
             try await devices?.remove()
             for file in files where FileManager.default.fileExists(atPath:file.path) { try FileManager.default.removeItem(at:file) }
