@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  CHANGE_SET_FINAL, missingSectionKinds, sectionContentIssues, templateFamily, TEMPLATE_VARIANTS,
+  missingSectionKinds, sectionContentIssues, templateFamily, TEMPLATE_VARIANTS,
   type ApplyWebsiteTemplate, type CreateSection, type PublicSite, type PublicSitePromotion, type SectionContent, type TemplateVariantKey, type UpdateSection, type UpdateWebsite,
 } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
@@ -252,12 +252,13 @@ export class StudioService {
         'select id, status, proposed_by from change_sets where id = $1 and org_id = $2', [changeSetId, ctx.orgId]);
       if (!cs) throw notFound('Change set');
       if (!ctx.can('changes:read') && cs.proposed_by !== ctx.userId) throw forbidden('Reading this change needs changes:read');
-      const ops = await tx.query<{ id: string; op_type: string; input: any }>(
-        'select id, op_type, input from change_ops where change_set_id = $1 and org_id = $2 order by seq', [cs.id, ctx.orgId]);
+      const ops = await tx.query<{ id: string; op_type: string; input: any; result: any }>(
+        'select id, op_type, input, result from change_ops where change_set_id = $1 and org_id = $2 order by seq', [cs.id, ctx.orgId]);
       const site = await this.site(tx, ctx);
       const all = await tx.query<any>('select * from website_sections where website_id = $1 order by sort_order, id', [site.id]);
-      // An applied set is already in the draft: show the draft as it is, with the set's sections marked.
-      const applied = (CHANGE_SET_FINAL as readonly string[]).includes(cs.status);
+      // An applied set is already in the draft: show the draft as it is, with the sections it created marked. Any other
+      // set (pending, or rejected, expired, invalidated) is shown as proposed.
+      const applied = cs.status === 'applied' || cs.status === 'partially_applied';
       const rows = all.map((r) => ({ id: r.id as string, kind: r.kind as string, content: (r.content ?? {}) as SectionContent, visible: r.is_visible as boolean }));
       const diff = { changeSetId: cs.id, added: [] as string[], changed: [] as string[], repriced: [] as string[] };
       const prices = new Map<string, { priceMinor: number; compareAtMinor: number | null }>();
@@ -265,7 +266,7 @@ export class StudioService {
       for (const op of ops) {
         const input = op.input ?? {};
         if (op.op_type === 'website.section.add') {
-          diff.added.push(op.id);
+          diff.added.push(applied && op.result?.sectionId ? String(op.result.sectionId) : op.id);
           if (!applied) rows.push({ id: op.id, kind: input.kind, content: input.content ?? {}, visible: input.isVisible !== false });
         } else if (op.op_type === 'website.section.update') {
           diff.changed.push(input.sectionId);

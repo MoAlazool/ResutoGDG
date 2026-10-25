@@ -271,6 +271,12 @@ describe('AI-assisted editing through change sets', () => {
     expect(draft.sections.some((s: any) => s.kind === 'offers' && s.content.headline?.en === 'Eid offers')).toBe(true);
     expect(draft.website.publishedRevision).toBe(live);
     expect(draft.website.hasUnpublishedChanges).toBe(true);
+    // After applying, the preview is the draft itself with the section the set created marked (no double overlay).
+    const created = draft.sections.find((s: any) => s.kind === 'offers' && s.content.headline?.en === 'Eid offers').id;
+    const after = (await t.http.get(`${studio(a)}/website/preview/change-sets/${cs.id}`).set(auth(manager))).body;
+    expect(after.diff.added).toEqual([created]);
+    expect(after.sections.filter((s: any) => s.content.headline?.en === 'Eid offers')).toHaveLength(1);
+    expect(after.sections.find((s: any) => s.id === created).content.products[0]).toMatchObject({ priceMinor: 15725, compareAtMinor: 18500 });
     // Publishing is a separate, explicit step.
     const pub = await publish(a.owner);
     expect(pub.status).toBe(200);
@@ -297,6 +303,9 @@ describe('AI-assisted editing through change sets', () => {
     const pv = (await t.http.get(`${studio(a)}/website/preview/change-sets/${first.body.changeSet.id}`).set(auth(manager))).body;
     expect(pv.sections.find((s: any) => s.id === ops[0].id).content.promotion).toMatchObject({ code: 'IFTAR20', value: 2000 });
     await t.http.post(`${changeSets(a)}/${first.body.changeSet.id}/reject`).set(auth(a.owner)).send({});
+    // A rejected set can still be looked at as it was proposed.
+    const rejected = (await t.http.get(`${studio(a)}/website/preview/change-sets/${first.body.changeSet.id}`).set(auth(manager))).body;
+    expect(rejected.sections.some((s: any) => s.id === ops[0].id)).toBe(true);
   });
 
   it('answers FAQ requests from branch data, refuses unclear or unauthorised requests and other restaurants’ dishes', async () => {
