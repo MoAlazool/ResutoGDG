@@ -7,6 +7,14 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — Menu workspace (21-MENU)
+
+- `GET /v1/o/:orgId/menu` and the product responses of the menu editor (`GET`/`POST`/`PATCH …/menu/products…`):
+  each product gains `compareAtMinor`, the price before a dish discount (`products.compare_at_price_minor`, set by the
+  change-set op `product.discount.set`), or `null`. Read-only: the menu editor never writes it, and a regular price
+  edit still ends the discount (`compareAtMinor` becomes `null`). No new endpoints; bulk edits in the web menu
+  workspace use the existing per-product routes.
+
 ### Added — Resuto Studio canvas workspace, section kinds, dish discounts, AI editing (21-STUDIO)
 
 - Website sections: `kind` gains `promo_banner`, `offers`, `social`, `faq` and `menu_full`; section `content` gains

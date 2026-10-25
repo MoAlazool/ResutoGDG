@@ -156,6 +156,7 @@ export class MenuService {
         spiceLevel: r.spice_level, dietary: r.dietary, allergens: r.allergens, ingredients: r.ingredients, calories: r.calories,
         imageUrl: null as string | null, imageMediaId: r.image_media_id, isActive: r.is_active, trackStock: r.track_stock,
         sortOrder: r.sort_order, externalRef: r.external_ref, version: r.version,
+        compareAtMinor: r.compare_at_price_minor === null || r.compare_at_price_minor === undefined ? null : Number(r.compare_at_price_minor),
         branchSettings: settings.filter((s) => s.product_id === r.id).map((s) => ({
           branchId: s.branch_id, isAvailable: s.is_available, priceOverrideMinor: s.price_override_minor, stockQty: s.stock_qty,
           soldOut: s.sold_out_now, soldOutUntil: s.sold_out_now && s.sold_out_until ? new Date(s.sold_out_until).toISOString() : null,

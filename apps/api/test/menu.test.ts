@@ -60,6 +60,22 @@ describe('menu CRUD', () => {
     expect(events[0].n).toBeGreaterThan(2);
   });
 
+  it('shows a dish discount (compare-at price) read-only in the editor view; a regular price edit ends it', async () => {
+    // 21-MENU: the item sheet shows the 21-STUDIO discount without editing it (discounts go through change sets).
+    const p = await t.http.post(`${base()}/products`).set(auth(tenant.owner)).send({ categoryId, name: 'Molokhia', priceMinor: 9000 });
+    expect(p.body.compareAtMinor).toBeNull();
+    await sql('update products set price_minor = 7200, compare_at_price_minor = 9000 where id = $1', [p.body.id]);
+    const view = await t.http.get(base()).set(auth(tenant.owner));
+    expect(view.body.products.find((x: any) => x.id === p.body.id)).toMatchObject({ priceMinor: 7200, compareAtMinor: 9000 });
+    // The kitchen (menu:read) sees it too: guest pages show the was-price, so it is not a secret.
+    const kitchenView = await t.http.get(base()).set(auth(kitchen));
+    expect(kitchenView.body.products.find((x: any) => x.id === p.body.id).compareAtMinor).toBe(9000);
+    const [row] = await sql('select version from products where id = $1', [p.body.id]);
+    const edited = await t.http.patch(`${base()}/products/${p.body.id}`).set(auth(tenant.owner)).send({ version: row.version, priceMinor: 8000 });
+    expect(edited.status).toBe(200);
+    expect(edited.body).toMatchObject({ priceMinor: 8000, compareAtMinor: null });
+  });
+
   it('lets the kitchen 86 an item but not edit the menu', async () => {
     const p = await t.http.post(`${base()}/products`).set(auth(tenant.owner)).send({ categoryId, name: 'Molokhia', priceMinor: 7000 });
     const off = await t.http.post(`${base()}/products/${p.body.id}/availability`).set(auth(kitchen)).send({ branchId: tenant.branchId, available: false });
