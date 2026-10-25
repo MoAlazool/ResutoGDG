@@ -1,0 +1,5 @@
+/* Notification centre (21-MIGRATE): page classes that replace the former inline styles. Logical properties only. */
+.item { padding: 18px; }
+.item[data-unread] { border-inline-start: 3px solid var(--accent); }
+.body { gap: 6px; min-inline-size: 0; flex: 1 1 280px; }
+.title { font-size: var(--fs-lg); }

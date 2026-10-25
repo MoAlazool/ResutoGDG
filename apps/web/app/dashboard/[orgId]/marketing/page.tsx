@@ -2,7 +2,8 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { AD_CHANNELS, type CampaignReport, type MarketingRecommendation, type SegmentGroup, type SegmentRule } from '@resuto/contracts';
-import { Badge, Card, DataTable, DateTimeInput, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
+import { Badge, Card, DataTableV2, DateTimeInput, EmptyState, Field, Icon, ListPage, Notice, SelectField, Sheet, Skeleton, SkeletonTable, StatV2, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
+import { ClockIcon, XIcon } from '@/components/icons/glyphs';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { createAttemptKeys } from '@/lib/attempt-keys';
 import { dateTime, money } from '@/lib/format';
@@ -12,6 +13,7 @@ import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { AudienceDryRunButton, MetaTracking } from './MetaTracking';
 import { QuietHours } from './QuietHours';
+import st from './marketing.module.css';
 
 type TabKey = 'campaigns' | 'segments' | 'promotions' | 'links' | 'recommendations' | 'meta';
 interface Segment { id: string; name: string; memberCount: number; source: string; definition: SegmentGroup; lastComputedAt: string | null }
@@ -28,14 +30,15 @@ export default function MarketingPage() {
   const [tab, setTab] = useState<TabKey>('campaigns');
   return (
     <ModuleGate module="marketing" permission="marketing:read">
-      <PageHeader title={t('marketing.title')} subtitle={t('marketing.subtitle')} />
-      <Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations', 'meta'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />
-      {tab === 'campaigns' && <><Campaigns /><QuietHours /></>}
-      {tab === 'segments' && <Segments />}
-      {tab === 'promotions' && <Promotions />}
-      {tab === 'links' && <Links />}
-      {tab === 'recommendations' && <Recommendations onApplied={() => setTab('campaigns')} />}
-      {tab === 'meta' && <MetaTracking />}
+      <ListPage header={{ title: t('marketing.title'), subtitle: t('marketing.subtitle') }}
+        filters={<Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations', 'meta'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />}>
+        {tab === 'campaigns' && <><Campaigns /><QuietHours /></>}
+        {tab === 'segments' && <Segments />}
+        {tab === 'promotions' && <Promotions />}
+        {tab === 'links' && <Links />}
+        {tab === 'recommendations' && <Recommendations onApplied={() => setTab('campaigns')} />}
+        {tab === 'meta' && <MetaTracking />}
+      </ListPage>
     </ModuleGate>
   );
 }
@@ -58,7 +61,7 @@ function RuleEditor({ rule, onChange, onRemove }: { rule: SegmentRule; onChange:
   const { org } = useOrg();
   const num = (v: string) => Math.max(0, Math.floor(Number(v) || 0));
   return (
-    <div className="row" style={{ gap: 8, alignItems: 'flex-end', padding: '8px 0', borderBlockEnd: '1px solid var(--line-soft)' }}>
+    <div className={`row ${st.rule}`}>
       <SelectField label={t('marketing.seg.rule')} value={rule.type} onChange={(e) => onChange(defaultRule(e.target.value as SegmentRule['type'], org.branches[0]?.id ?? ''))}>
         {RULE_TYPES.map((r) => <option key={r} value={r}>{t(`marketing.rule.${r}`)}</option>)}
       </SelectField>
@@ -79,7 +82,7 @@ function RuleEditor({ rule, onChange, onRemove }: { rule: SegmentRule; onChange:
         {['qr', 'web', 'whatsapp', 'staff', 'pos', 'mcp', 'phone'].map((c) => <option key={c} value={c}>{t(`marketing.orderChannel.${c}`)}</option>)}</SelectField>}
       {rule.type === 'points_balance_gte' && <Field label={t('marketing.seg.points')} type="number" inputMode="numeric" min={0} value={rule.points}
         onChange={(e) => onChange({ ...rule, points: num(e.target.value) })} />}
-      <button type="button" className="btn btn-sm btn-ghost btn-danger mbe-14" onClick={onRemove} aria-label={t('action.delete')}>✕</button>
+      <button type="button" className="btn btn-sm btn-ghost btn-danger mbe-14" onClick={onRemove} aria-label={t('action.delete')}><Icon icon={XIcon} size={16} /></button>
     </div>
   );
 }
@@ -123,23 +126,23 @@ function Segments() {
             </div>
             {def.rules.map((r, i) => <RuleEditor key={i} rule={r} onChange={(nr) => setDef({ ...def, rules: def.rules.map((x, j) => (j === i ? nr : x)) })}
               onRemove={() => setDef({ ...def, rules: def.rules.filter((_, j) => j !== i) })} />)}
-            <button type="button" className="btn btn-sm" style={{ marginBlock: 10 }} disabled={def.rules.length >= 20} onClick={() => setDef({ ...def, rules: [...def.rules, { type: 'orders_gte', count: 1 }] })}>{t('marketing.seg.addRule')}</button>
-            <div className="row" style={{ marginBlockEnd: 10 }} aria-live="polite">
+            <button type="button" className={`btn btn-sm ${st.addRule}`} disabled={def.rules.length >= 20} onClick={() => setDef({ ...def, rules: [...def.rules, { type: 'orders_gte', count: 1 }] })}>{t('marketing.seg.addRule')}</button>
+            <div className={`row ${st.count}`} aria-live="polite">
               {count ? <><Badge tone="info">{t('marketing.seg.liveCount', { n: count.count })}</Badge><Badge tone="ok">{t('marketing.seg.liveConsented', { n: count.consentedCount })}</Badge></>
                 : countError ? <Notice tone="danger">{countError}</Notice> : <span className="fine">{t('state.loading')}</span>}
             </div>
             <div className="row">
-              <input className="input" style={{ flex: 1, minWidth: 180 }} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('marketing.seg.name')} required maxLength={80} aria-label={t('marketing.seg.name')} />
+              <input className={`input ${st.nameInput}`} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('marketing.seg.name')} required maxLength={80} aria-label={t('marketing.seg.name')} />
               <button className="btn btn-primary" disabled={save.pending || !def.rules.length}>{t('action.save')}</button>
             </div>
             {save.error && <Notice tone="danger">{save.error}</Notice>}
           </form>
         </Card>
       )}
-      {!list.data ? <Skeleton /> : (
-        <DataTable rows={list.data.items} rowKey={(s) => s.id} empty={<EmptyState title={t('marketing.seg.empty')} />} columns={[
+      {!list.data ? <SkeletonTable rows={4} cols={4} /> : (
+        <DataTableV2 label={t('marketing.tab.segments')} rows={list.data.items} rowKey={(s) => s.id} empty={<EmptyState title={t('marketing.seg.empty')} />} columns={[
           { key: 'name', header: t('marketing.seg.name'), render: (s) => <><strong>{s.name}</strong> {s.source !== 'manual' && <Badge>{t(`marketing.source.${s.source}`)}</Badge>}</> },
-          { key: 'n', header: t('marketing.seg.members'), align: 'end', render: (s) => <span className="num">{s.memberCount}</span> },
+          { key: 'n', header: t('marketing.seg.members'), align: 'end', sort: (a, b) => a.memberCount - b.memberCount, render: (s) => <span className="num">{s.memberCount}</span> },
           { key: 'at', header: t('marketing.seg.computed'), render: (s) => dateTime(s.lastComputedAt, locale) },
           { key: 'a', header: '', align: 'end', render: (s) => can('marketing:write') && <div className="row gap-4 justify-end">
             <button className="btn btn-sm btn-ghost" disabled={refresh.pending} onClick={() => refresh.run(s.id)}>{t('marketing.seg.refresh')}</button><AudienceDryRunButton segmentId={s.id} /></div> },
@@ -212,14 +215,14 @@ function Campaigns() {
         {can('marketing:write') && <button className="btn btn-primary" onClick={() => setEditing(true)}>{t('marketing.camp.new')}</button>}</div>
       {note && <Notice tone="ok">{note}</Notice>}
       {act.error && <Notice tone="danger">{act.error}</Notice>}
-      {!list.data ? <Skeleton /> : (
-        <DataTable rows={list.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('marketing.camp.empty')}>{t('marketing.camp.emptyBody')}</EmptyState>} columns={[
+      {!list.data ? <SkeletonTable rows={4} cols={4} /> : (
+        <DataTableV2 label={t('marketing.tab.campaigns')} rows={list.data.items} rowKey={(c) => c.id} empty={<EmptyState title={t('marketing.camp.empty')}>{t('marketing.camp.emptyBody')}</EmptyState>} columns={[
           { key: 'name', header: t('marketing.camp.name'), render: (c) => <><strong>{c.name}</strong><div className="fine">{t(`marketing.channel.${c.channel}`)} · {t(`marketing.objective.${c.objective}`)}</div></> },
           { key: 'status', header: t('marketing.camp.status'), render: (c) => <div className="row gap-4"><Badge tone={statusTone(c.status)}>{t(`marketing.status.${c.status}`)}</Badge>
             {c.isSandbox && ['sent', 'sending'].includes(c.status) && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
             {c.source !== 'manual' && <Badge>{t(`marketing.source.${c.source}`)}</Badge>}
-            {c.status === 'launching' && <span className="fine" style={{ flexBasis: '100%' }}>{c.launch?.error ? <bdi dir="ltr">{c.launch.error}</bdi> : t('marketing.camp.launchingNote')}</span>}</div> },
-          { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className="fine">{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? `◷ ${dateTime(c.scheduledAt, locale)}` : '—'}</span> },
+            {c.status === 'launching' && <span className={`fine ${st.fullRow}`}>{c.launch?.error ? <bdi dir="ltr">{c.launch.error}</bdi> : t('marketing.camp.launchingNote')}</span>}</div> },
+          { key: 'when', header: t('marketing.camp.when'), render: (c) => <span className={`fine ${st.when}`}>{c.sentAt ? dateTime(c.sentAt, locale) : c.scheduledAt ? <><Icon icon={ClockIcon} size={14} label={t('marketing.camp.scheduleAt')} />{dateTime(c.scheduledAt, locale)}</> : '—'}</span> },
           { key: 'a', header: '', align: 'end', render: (c) => (
             <div className="row gap-4 justify-end">
               {c.status === 'draft' && can('marketing:write') && <button className="btn btn-sm" disabled={act.pending} onClick={() => act.run(c, 'submit')}>{t('marketing.camp.submit')}</button>}
@@ -227,8 +230,8 @@ function Campaigns() {
                 <button className="btn btn-sm btn-leaf" disabled={act.pending} onClick={() => act.run(c, 'approve')}>{t('marketing.camp.approve')}</button>
                 <button className="btn btn-sm btn-ghost" disabled={act.pending} onClick={() => act.run(c, 'reject', {})}>{t('marketing.camp.reject')}</button></>}
               {['approved', 'scheduled'].includes(c.status) && !isAd(c) && can('marketing:write') && <>
-                <DateTimeInput type="datetime-local" style={{ width: 'auto', minHeight: 32 }} aria-label={t('marketing.camp.scheduleAt')}
-                  value={scheduleFor[c.id] ?? ''} onChange={(e) => setScheduleFor({ ...scheduleFor, [c.id]: e.target.value })} />
+                <span className={st.schedule}><DateTimeInput type="datetime-local" aria-label={t('marketing.camp.scheduleAt')}
+                  value={scheduleFor[c.id] ?? ''} onChange={(e) => setScheduleFor({ ...scheduleFor, [c.id]: e.target.value })} /></span>
                 <button className="btn btn-sm" disabled={act.pending || !scheduleFor[c.id]} onClick={() => act.run(c, 'schedule', { scheduledAt: new Date(scheduleFor[c.id]!).toISOString() })}>{t('marketing.camp.schedule')}</button>
                 <button className="btn btn-sm btn-primary" disabled={act.pending} onClick={async () => { if (await confirm({ title: t('marketing.camp.sendConfirm'), confirmLabel: t('marketing.camp.sendNow') })) void act.run(c, 'send', undefined, true); }}>{t('marketing.camp.sendNow')}</button></>}
               {c.status === 'approved' && isAd(c) && can('marketing:write') && <>
@@ -243,7 +246,7 @@ function Campaigns() {
             </div>) },
         ]} />
       )}
-      <Modal open={editing} onClose={() => setEditing(false)} title={t('marketing.camp.new')}>
+      <Sheet open={editing} onClose={() => setEditing(false)} title={t('marketing.camp.new')} locale={locale}>
         <form onSubmit={create.run}>
           <Field label={t('marketing.camp.name')} value={form.name} required maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <div className="form-row">
@@ -269,7 +272,7 @@ function Campaigns() {
           {create.error && <Notice tone="danger">{create.error}</Notice>}
           <button className="btn btn-primary" disabled={create.pending}>{t('marketing.camp.saveDraft')}</button>
         </form>
-      </Modal>
+      </Sheet>
       {report && <ReportModal campaign={report} onClose={() => setReport(null)} />}
     </div>
   );
@@ -281,22 +284,22 @@ function ReportModal({ campaign, onClose }: { campaign: Campaign; onClose: () =>
   const r = useApi<CampaignReport & { orderValueMinor: number }>(`/o/${org.id}/marketing/campaigns/${campaign.id}/report`);
   const d = r.data;
   return (
-    <Modal open onClose={onClose} title={`${t('marketing.camp.report')} · ${campaign.name}`}>
+    <Sheet open onClose={onClose} title={`${t('marketing.camp.report')} · ${campaign.name}`} size="lg" locale={locale}>
       {!d ? (r.error ? <Notice tone="danger">{r.error.message}</Notice> : <Skeleton />) : (
         <div className="stack">
           {d.isSandbox && <Notice tone="warn">{t('marketing.report.sandbox')}</Notice>}
-          <div className="grid grid-3">
-            <Stat label={t('marketing.report.clicks')} value={d.clicks} />
-            <Stat label={t('marketing.report.orders')} value={d.orders} />
-            <Stat label={t('marketing.report.revenue')} value={money(d.revenueMinor, d.currency, locale)} hint={t('marketing.report.orderValue', { v: money(d.orderValueMinor, d.currency, locale) })} />
-            <Stat label={t('marketing.report.cost')} value={money(d.costMinor, d.currency, locale)} hint={d.sandboxRowsExcluded ? t('marketing.report.sandboxExcluded', { n: d.sandboxRowsExcluded }) : undefined} />
-            <Stat label="ROAS" value={d.roas === null ? '—' : `${d.roas}×`} hint={d.roas === null ? t('marketing.report.noCost') : undefined} />
-            <Stat label={t('marketing.report.messages')} value={d.messages.sent} hint={t('marketing.report.messagesHint', { delivered: d.messages.delivered, read: d.messages.read, skipped: d.messages.skippedNoConsent, failed: d.messages.failed })} />
+          <div className="rui-stat-grid">
+            <StatV2 label={t('marketing.report.clicks')} value={d.clicks} />
+            <StatV2 label={t('marketing.report.orders')} value={d.orders} />
+            <StatV2 label={t('marketing.report.revenue')} value={money(d.revenueMinor, d.currency, locale)} hint={t('marketing.report.orderValue', { v: money(d.orderValueMinor, d.currency, locale) })} />
+            <StatV2 label={t('marketing.report.cost')} value={money(d.costMinor, d.currency, locale)} hint={d.sandboxRowsExcluded ? t('marketing.report.sandboxExcluded', { n: d.sandboxRowsExcluded }) : undefined} />
+            <StatV2 label="ROAS" value={d.roas === null ? '—' : `${d.roas}×`} hint={d.roas === null ? t('marketing.report.noCost') : undefined} />
+            <StatV2 label={t('marketing.report.messages')} value={d.messages.sent} hint={t('marketing.report.messagesHint', { delivered: d.messages.delivered, read: d.messages.read, skipped: d.messages.skippedNoConsent, failed: d.messages.failed })} />
           </div>
           <p className="fine">{t('marketing.report.disclaimer')}</p>
         </div>
       )}
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -327,8 +330,8 @@ function Promotions() {
   return (
     <div className="stack">
       <Notice>{t('marketing.promo.help')}</Notice>
-      {!list.data ? <Skeleton /> : (
-        <DataTable rows={list.data.items} rowKey={(p) => p.id} empty={<EmptyState title={t('marketing.promo.empty')} />} columns={[
+      {!list.data ? <SkeletonTable rows={4} cols={5} /> : (
+        <DataTableV2 label={t('marketing.tab.promotions')} rows={list.data.items} rowKey={(p) => p.id} empty={<EmptyState title={t('marketing.promo.empty')} />} columns={[
           { key: 'code', header: t('marketing.promo.code'), render: (p) => <strong dir="ltr">{p.code ?? '—'}</strong> },
           { key: 'name', header: t('marketing.promo.name'), render: (p) => p.name },
           { key: 'v', header: t('marketing.promo.value'), render: describe },
@@ -380,13 +383,13 @@ function Links() {
   return (
     <div className="stack">
       <Notice>{t('marketing.links.help')}</Notice>
-      {!list.data ? <Skeleton /> : (
-        <DataTable rows={list.data.items} rowKey={(l) => l.id} empty={<EmptyState title={t('marketing.links.empty')} />} columns={[
+      {!list.data ? <SkeletonTable rows={4} cols={4} /> : (
+        <DataTableV2 label={t('marketing.tab.links')} rows={list.data.items} rowKey={(l) => l.id} empty={<EmptyState title={t('marketing.links.empty')} />} columns={[
           { key: 'url', header: t('marketing.links.short'), render: (l) => <span className="row gap-6"><code dir="ltr">{l.shortUrl}</code>
             <button className="btn btn-sm btn-ghost" onClick={() => void navigator.clipboard?.writeText(l.shortUrl)}>{t('marketing.links.copy')}</button></span> },
           { key: 'dest', header: t('marketing.links.destination'), render: (l) => <code dir="ltr" className="fine">{l.destinationPath}</code> },
           { key: 'camp', header: t('marketing.links.campaign'), render: (l) => campaigns.data?.items.find((c) => c.id === l.campaignId)?.name ?? '—' },
-          { key: 'clicks', header: t('marketing.report.clicks'), align: 'end', render: (l) => <span className="num">{l.clickCount}</span> },
+          { key: 'clicks', header: t('marketing.report.clicks'), align: 'end', sort: (a, b) => a.clickCount - b.clickCount, render: (l) => <span className="num">{l.clickCount}</span> },
         ]} />
       )}
       {can('marketing:write') && (
@@ -429,7 +432,7 @@ function Recommendations({ onApplied }: { onApplied: () => void }) {
         {recs.data.items.map((r) => (
           <Card key={r.key} title={locale === 'ar' ? r.titleAr : r.title}>
             <p>{r.rationale}</p>
-            <details><summary className="fine">{t('marketing.recs.evidence')}</summary><pre className="fine" dir="ltr" style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(r.evidence, null, 2)}</pre></details>
+            <details><summary className="fine">{t('marketing.recs.evidence')}</summary><pre className={`fine ${st.evidence}`} dir="ltr">{JSON.stringify(r.evidence, null, 2)}</pre></details>
             {r.action.kind === 'create_campaign_draft' && can('marketing:write') && (
               <button className="btn btn-primary mbs-10" disabled={apply.pending} onClick={() => apply.run(r.key)}>{t('marketing.recs.createDraft')}</button>
             )}

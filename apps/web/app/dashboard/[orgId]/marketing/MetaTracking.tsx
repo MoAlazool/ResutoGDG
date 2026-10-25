@@ -1,12 +1,13 @@
 'use client';
 // Marketing > Meta Pixel (INT-20 diagnostics) and the Custom Audience dry run (INT-22).
 import { useState } from 'react';
-import { Badge, Card, DataTable, EmptyState, Modal, Notice, Skeleton, Stat, useAction } from '@resuto/ui';
+import { Badge, Card, DataTableV2, EmptyState, Notice, Sheet, Skeleton, StatV2, useAction } from '@resuto/ui';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import st from './marketing.module.css';
 
 interface CapiEvent {
   id: string; eventName: string; eventId: string; source: 'order' | 'test'; status: 'pending' | 'sent' | 'failed' | 'skipped'; skipReason: string | null;
@@ -64,13 +65,13 @@ export function MetaTracking() {
           {test.error && <Notice tone="danger">{test.error}</Notice>}
         </Card>
       )}
-      <div className="grid grid-4">
-        <Stat label={t('marketing.meta.sent7')} value={d.last7Days.sent ?? 0} />
-        <Stat label={t('marketing.meta.skipped7')} value={d.last7Days.skipped ?? 0} />
-        <Stat label={t('marketing.meta.failed7')} value={d.last7Days.failed ?? 0} />
-        <Stat label={t('marketing.meta.consented7')} value={d.last7Days.consentedOrders} />
+      <div className="rui-stat-grid">
+        <StatV2 label={t('marketing.meta.sent7')} value={d.last7Days.sent ?? 0} />
+        <StatV2 label={t('marketing.meta.skipped7')} value={d.last7Days.skipped ?? 0} />
+        <StatV2 label={t('marketing.meta.failed7')} value={d.last7Days.failed ?? 0} />
+        <StatV2 label={t('marketing.meta.consented7')} value={d.last7Days.consentedOrders} />
       </div>
-      <DataTable rows={d.events} rowKey={(e) => e.id} empty={<EmptyState title={t('marketing.meta.noEvents')} />} columns={[
+      <DataTableV2 label={t('marketing.tab.meta')} rows={d.events} rowKey={(e) => e.id} empty={<EmptyState title={t('marketing.meta.noEvents')} />} columns={[
         { key: 'ev', header: t('marketing.meta.event'), render: (e) => <><strong>{e.eventName}</strong> {e.source === 'test' && <Badge tone="sandbox">{t('marketing.meta.synthetic')}</Badge>}
           {e.testMode && e.source !== 'test' && <Badge tone="sandbox">{t('marketing.meta.testMode')}</Badge>}<div className="fine" dir="ltr">{e.eventId}</div></> },
         { key: 'st', header: t('marketing.meta.result'), render: (e) => <><Badge tone={tone(e.status)}>{t(`marketing.meta.evStatus.${e.status}`)}</Badge>
@@ -90,7 +91,7 @@ interface DryRun {
 
 /** INT-22: what a Meta Custom Audience upload of a segment would contain. Nothing is sent to Meta. */
 export function AudienceDryRunButton({ segmentId }: { segmentId: string }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { org } = useOrg();
   const session = useSession();
   const [plan, setPlan] = useState<DryRun | null>(null);
@@ -100,18 +101,18 @@ export function AudienceDryRunButton({ segmentId }: { segmentId: string }) {
       <button className="btn btn-sm btn-ghost" disabled={run.pending} onClick={() => run.run()}>{t('marketing.audience.dryRun')}</button>
       {run.error && <Notice tone="danger">{run.error}</Notice>}
       {plan && (
-        <Modal open title={t('marketing.audience.title')} onClose={() => setPlan(null)}>
+        <Sheet open title={t('marketing.audience.title')} onClose={() => setPlan(null)} locale={locale}>
           <Notice tone="info">{t('marketing.audience.notSent')}</Notice>
-          <div className="grid grid-3" style={{ marginBlock: 10 }}>
-            <Stat label={t('marketing.audience.segment')} value={plan.counts.segment} />
-            <Stat label={t('marketing.audience.consented')} value={plan.counts.withConsent} />
-            <Stat label={t('marketing.audience.matchable')} value={plan.counts.matchable} />
+          <div className={`rui-stat-grid ${st.dryRunStats}`}>
+            <StatV2 label={t('marketing.audience.segment')} value={plan.counts.segment} />
+            <StatV2 label={t('marketing.audience.consented')} value={plan.counts.withConsent} />
+            <StatV2 label={t('marketing.audience.matchable')} value={plan.counts.matchable} />
           </div>
           <p className="fine">{t('marketing.audience.excluded', { noConsent: plan.counts.excludedNoConsent, noId: plan.counts.excludedNoIdentifier })}</p>
           <p className="fine">{t('marketing.audience.batches', { n: plan.batches.length })}</p>
           {!plan.adAccountConnected && <Notice tone="warn">{t('marketing.audience.noAccount')}</Notice>}
           <p className="fine">{t('marketing.audience.deferred')}</p>
-        </Modal>
+        </Sheet>
       )}
     </>
   );
