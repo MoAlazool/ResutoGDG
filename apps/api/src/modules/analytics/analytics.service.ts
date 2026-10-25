@@ -253,9 +253,11 @@ export class AnalyticsService {
     const cur = report.totals;
     const totals = this.mapRevenue(cur);
     let comparison = null;
-    if (q.compare === 'previous') {
+    if (q.compare === 'previous' || q.compare === 'last_year') {
       const n = daysBetween(q.from, q.to);
-      const prevPeriod = { from: addDays(q.from, -n), to: addDays(q.from, -1) };
+      // previous: the same number of days just before; last_year: the same local dates one year earlier (21-INSIGHTS,
+      // so a drill-down from the overview keeps its comparison).
+      const prevPeriod = q.compare === 'last_year' ? { from: lastYear(q.from), to: lastYear(q.to) } : { from: addDays(q.from, -n), to: addDays(q.from, -1) };
       const prev = this.mapRevenue(await this.revenue(tx, ctx.orgId, scope, prevPeriod, rollups));
       comparison = {
         ...prevPeriod, totals: prev,

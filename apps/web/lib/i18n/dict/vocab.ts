@@ -88,6 +88,9 @@ const enActions: Record<string, string> = {
   'connect.saved_reply_created': 'Saved reply added',
   'connect.saved_reply_deleted': 'Saved reply deleted',
   'connect.saved_reply_updated': 'Saved reply updated',
+  'insights.report_saved': 'Insights report saved',
+  'insights.report_updated': 'Insights report changed',
+  'insights.report_deleted': 'Insights report deleted',
   'connect.tag_assigned': 'Tag added to a conversation',
   'connect.tag_created': 'Conversation tag added',
   'connect.tag_deleted': 'Conversation tag deleted',
@@ -332,6 +335,9 @@ const arActions: Record<string, string> = {
   'connect.saved_reply_created': 'أُضيف رد محفوظ',
   'connect.saved_reply_deleted': 'حُذف رد محفوظ',
   'connect.saved_reply_updated': 'عُدّل رد محفوظ',
+  'insights.report_saved': 'حُفظ تقرير رؤى',
+  'insights.report_updated': 'عُدّل تقرير رؤى',
+  'insights.report_deleted': 'حُذف تقرير رؤى',
   'connect.tag_assigned': 'أُضيف وسم إلى محادثة',
   'connect.tag_created': 'أُضيف وسم محادثات',
   'connect.tag_deleted': 'حُذف وسم محادثات',
@@ -507,7 +513,7 @@ const enEntities: Record<string, string> = {
   reservation: 'Reservation', segment: 'Customer segment', service_request: 'Guest request', subscription: 'Plan', supplier: 'Supplier',
   tax_profile: 'Tax settings', tracking_link: 'Tracking link', visit: 'Visit', website: 'Website', website_section: 'Website section',
   entitlement_override: 'Module access', change_set: 'Change', change_policy: 'Approval policy', pos_device: 'POS device', pos_device_pairing: 'POS pairing code',
-  conversation_tag: 'Conversation tag', saved_reply: 'Saved reply',
+  conversation_tag: 'Conversation tag', saved_reply: 'Saved reply', saved_report: 'Saved report',
   'integration_oauth_state': 'Authorisation',
 };
 
@@ -525,7 +531,7 @@ const arEntities: Record<string, string> = {
   reservation: 'حجز', segment: 'شريحة عملاء', service_request: 'طلب ضيف', subscription: 'الخطة', supplier: 'مورّد',
   tax_profile: 'إعدادات الضريبة', tracking_link: 'رابط تتبّع', visit: 'زيارة', website: 'الموقع', website_section: 'قسم الموقع',
   entitlement_override: 'صلاحية وحدة', change_set: 'تغيير', change_policy: 'سياسة الموافقات', pos_device: 'جهاز نقاط بيع', pos_device_pairing: 'رمز ربط جهاز نقاط بيع',
-  conversation_tag: 'وسم محادثات', saved_reply: 'رد محفوظ',
+  conversation_tag: 'وسم محادثات', saved_reply: 'رد محفوظ', saved_report: 'تقرير محفوظ',
   'integration_oauth_state': 'تفويض',
 };
 

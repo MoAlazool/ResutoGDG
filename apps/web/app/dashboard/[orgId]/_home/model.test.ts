@@ -90,7 +90,7 @@ describe('next actions', () => {
     expect(insightAction(insight('stock_sold_out', {}, { productId: 'not-an-id' }), owner, names)).toBeNull();
     expect(insightAction(insight('low_stock'), owner, names)).toEqual({ kind: 'stock', href: '/inventory?tab=alerts' });
     expect(insightAction(insight('slow_kitchen'), owner, names)).toEqual({ kind: 'kitchen', href: '/kitchen' });
-    expect(insightAction(insight('revenue_drop'), owner, names)).toEqual({ kind: 'sales', href: '/analytics' });
+    expect(insightAction(insight('revenue_drop'), owner, names)).toEqual({ kind: 'sales', href: '/analytics/sales' });
     expect(insightAction(insight('mystery'), owner, names)).toBeNull();
     // Marketing outside the plan: no draft.
     expect(insightAction(insight('churn_high'), access(['marketing:write'], ['core']), names)).toBeNull();

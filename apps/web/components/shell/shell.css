@@ -128,6 +128,9 @@ button.ws-chip:hover { background: var(--surface-hover); }
 }
 .section-nav a:hover { color: var(--text); }
 .section-nav a[aria-current='page'] { color: var(--text); border-block-end-color: var(--accent); font-weight: 600; }
+/* A new group of links (Insights: analytics, then intelligence): a short divider at its reading start. */
+.section-nav li[data-group-start] { display: flex; align-items: center; gap: var(--space-1); }
+.section-nav li[data-group-start]::before { content: ''; inline-size: 1px; block-size: 20px; background: var(--border); margin-inline: var(--space-2); }
 
 /* Area loading placeholders (components/shell/AreaSkeleton.tsx) */
 .area-sk-title { inline-size: min(420px, 100%); display: grid; gap: 12px; }

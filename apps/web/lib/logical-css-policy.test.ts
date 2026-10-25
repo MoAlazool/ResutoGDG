@@ -25,6 +25,8 @@ const ROOTS = [
   'apps/web/lib/funnel-beacon.ts', 'apps/web/components/guest/FunnelView.tsx',
   // 21-MENU: the menu workspace and the assisted import it links to.
   'apps/web/app/dashboard/[orgId]/menu', 'apps/web/app/dashboard/[orgId]/menu-import',
+  // 21-INSIGHTS: the Insights area (analytics and intelligence views, its shell and saved reports).
+  'apps/web/app/dashboard/[orgId]/analytics', 'apps/web/app/dashboard/[orgId]/intelligence', 'apps/web/components/insights',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

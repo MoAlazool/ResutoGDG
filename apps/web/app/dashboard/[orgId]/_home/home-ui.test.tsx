@@ -84,6 +84,35 @@ describe('performance row', () => {
   });
 });
 
+describe('drill-down to Insights (21-INSIGHTS)', () => {
+  const drill = (section: string) => `/dashboard/o1/analytics/${section}?period=7d&compare=last_year&branch=all`;
+  it('each Performance tile opens its Insights view with the same period, comparison and branch', () => {
+    const v = render('en', <Performance period={PERIOD} hourlyToday={null} ratings={{ count: 8, averages: { overall: 4.26 } }} drill={drill} />);
+    const tiles = $$(v.host, 'a.rui-stat');
+    expect(tiles.map((a) => a.getAttribute('href'))).toEqual([
+      drill('sales'), drill('sales'), drill('sales'), drill('customers'), drill('ratings'),
+    ]);
+    // Still the same honest tiles: provenance on each.
+    expect(tiles.every((a) => a.getAttribute('data-provenance'))).toBe(true);
+    v.unmount();
+  });
+
+  it('the Customers row links its tiles and widgets (Arabic, Western digits)', () => {
+    const v = render('ar', <Customers period={PERIOD} drill={drill} />);
+    const hrefs = $$(v.host, 'a').map((a) => a.getAttribute('href'));
+    expect(hrefs).toEqual([drill('customers'), drill('customers'), drill('customers'), drill('marketing')]);
+    expect(v.host.textContent).toContain('افتح في الرؤى');
+    expect(v.host.textContent).not.toMatch(EASTERN_DIGITS);
+    v.unmount();
+  });
+
+  it('without a link builder the rows render no links (as before)', () => {
+    const v = render('en', <Customers period={PERIOD} />);
+    expect($$(v.host, 'a')).toHaveLength(0);
+    v.unmount();
+  });
+});
+
 describe('needs attention row', () => {
   for (const locale of ['en', 'ar'] as const) {
     it(`lists items with severity, count, samples, provenance and a link; names the omitted kinds (${locale})`, () => {

@@ -3,8 +3,7 @@
 // the chart code ships only to staff who open these tabs. Charts come from the shared chart kit (FunnelChart,
 // LineChart); the cohort grid reuses its tokens. Every step shows its data source and how complete it is.
 import type { AnalyticsMeta, FunnelReport, FunnelStep, RetentionReport } from '@resuto/contracts';
-import { Badge, DataTable, FunnelChart, LineChart, Notice, Skeleton, Stat } from '@resuto/ui';
-import { CohortHeatmap } from './CohortHeatmap';
+import { Badge, CohortHeatmap, DataTable, FunnelChart, LineChart, Notice, Skeleton, Stat } from '@resuto/ui';
 import { LoadError, MetaPanel, qs, Section, useFormat, type Period } from '@/components/charts/insights';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -79,7 +78,10 @@ export function RetentionPanel(props: PanelProps) {
     <div className="stack gap-16" data-testid="retention-panel">
       <Section title={t('crm.retention.cohorts')}>
         <p className="fine">{t('crm.retention.cohortsHint')}</p>
-        {data.cohorts.length ? <CohortHeatmap cohorts={data.cohorts} formatPct={f.pct} formatNum={(n) => f.num(n)} />
+        {data.cohorts.length ? <CohortHeatmap cohorts={data.cohorts} formatPct={f.pct} formatNum={(n) => f.num(n)}
+          title={t('crm.retention.cohorts')} caption={t('crm.retention.cohortsHint')} cohortLabel={t('crm.retention.cohort')}
+          sizeLabel={t('crm.retention.size')} periodLabel={(m) => t('crm.retention.month', { m })}
+          cellTitle={(c, m, p) => t('crm.retention.cell', { cohort: c.cohort, m, pct: f.pct(p), matched: f.num(c.active[m] ?? 0), size: f.num(c.size) })} />
           : <p className="muted">{t('crm.retention.none')}</p>}
       </Section>
       <Section title={t('crm.retention.curve')}>

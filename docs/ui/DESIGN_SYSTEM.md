@@ -101,7 +101,7 @@ defaults chosen by the page language (`UiLocaleProvider`, set by the web app's `
 | `Kbd` | `controls.tsx` | Shortcut hints | LTR key names |
 | `DataTableV2`, `useCursorPagination` | `data-table.tsx` | Lists | See below. The original `DataTable` is unchanged |
 | `FilterBar`, `useSavedViews` | `filter-bar.tsx` | The row above a list | Saved views, search, controls, removable chips |
-| `StatV2`, `ProvenanceBadge`, `provenanceFromMetaKind` | `stat.tsx` | KPI tiles | Value, unit, delta, sparkline, provenance |
+| `StatV2`, `ProvenanceBadge`, `provenanceFromMetaKind` | `stat.tsx` | KPI tiles | Value, unit, delta, sparkline, provenance; `href` + `linkAs` (Next `Link`) for a drill-down tile |
 | `EmptyState` (+ `icon`, `secondary`) | `base.tsx` | Empty lists and sections | Old markup unchanged without the new props |
 | `LockedFeature` | `locked-feature.tsx` | Modules outside the plan | Inert preview, benefits, upgrade action |
 | `ListPage`, `DetailPage`, `WorkspacePage`, `BoardPage`, `SettingsPage` | `templates.tsx` | Page layouts | Regions only; content stays in the page. `BoardPage` lanes carry `data-lane` and take `boardRef`, `label`, `footer` (21-OPS: drag and drop on the Orders board and kitchen display, `components/ops/KanbanBoard`) |
@@ -169,12 +169,14 @@ To add an official asset: put the file in `public/brand/providers/`, set `src`, 
 
 ## 5. Charts
 
-One kit (`packages/ui/src/charts/`, one module per chart so a page ships only what it renders) replaces `apps/web/components/charts` and
-`intelligence/_components/charts.tsx`; both now re-export or adapt it, so existing imports keep working.
+One kit (`packages/ui/src/charts/`, one module per chart so a page ships only what it renders). 21-INSIGHTS retired the
+two older kits (`apps/web/components/charts` and `intelligence/_components/charts.tsx` are deleted): pages import every
+chart from `@resuto/ui`, and `apps/web/lib/chart-kit-policy.test.ts` fails on a chart imported from anywhere else or
+defined outside the kit.
 
 `LineChart`, `AreaChart`, `BarChart` (grouped), `BarList` (`items` or `rows`, optional toggle rows, single or
-categorical palette), `DonutChart`, `FunnelChart`, `Heatmap`, `Sparkline`, `ForecastChart`, `SeriesLegend`,
-`ChartLegend`, `ChartTable`, `chartColor`, `niceScale`.
+categorical palette), `DonutChart`, `FunnelChart`, `Heatmap`, `Sparkline`, `ForecastChart` (`empty`), `RouteMap`
+(`projectRoute`; `empty`), `SeriesLegend`, `ChartLegend`, `ChartTable`, `chartColor`, `niceScale`.
 
 - Inline SVG, no library. Every chart has a text alternative (`role="img"` + title, or a list) and a values table.
 - Colour: one magnitude = `--chart-1`; current vs comparison = `--chart-1` + `--chart-4`; categories cycle 1–8.
@@ -182,7 +184,9 @@ categorical palette), `DonutChart`, `FunnelChart`, `Heatmap`, `Sparkline`, `Fore
 - Motion: lines draw in once (stroke-dash on `pathLength=1`), bars grow from zero once. Values are never animated past or
   counted up to their real value. With reduced motion the final state shows at once.
 - RTL: pass `rtl`; time runs right to left and the value axis sits on the right. Chart SVG text is laid out left to right
-  and anchored by physical coordinates.
+  and anchored by physical coordinates. `RouteMap` is geographic and never mirrored.
+- Empty states: an empty `BarList`, `ForecastChart` or `RouteMap` shows its `empty` text; charts never draw a made-up
+  value (a flat zero series stays at zero).
 - Provenance: wrap a chart's figures with `ProvenanceBadge` / `MetaPanel`; never chart data that has no source.
 
 ## 6. Motion

@@ -1,10 +1,13 @@
 'use client';
+// Insights › Research: offline evaluations of the models on synthetic data (sandbox), never this restaurant's figures.
 import type { ResearchModel } from '@resuto/contracts';
 import { Badge, Card, Skeleton } from '@resuto/ui';
+import { InsightsShell } from '@/components/insights/InsightsShell';
+import s from '@/components/insights/insights.module.css';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
-import { ApiErrorNotice, Empty, IntelShell, fmtNum } from '../_components/IntelShell';
+import { ApiErrorNotice, Empty, fmtNum } from '../_components/intel';
 
 const KEYS: Record<string, string[]> = {
   demand_forecast: ['mae', 'rmse', 'wape', 'interval80Coverage'],
@@ -47,7 +50,7 @@ function Metrics({ task, metrics, baseline }: { task: string; metrics: any; base
       {keys.map((k) => (
         <div key={k}>
           <dt className="fine">{k}</dt>
-          <dd className="num" style={{ margin: 0, fontWeight: 700, fontSize: 18 }}>{fmtNum(metrics[k], locale, 3)}</dd>
+          <dd className={`num ${s.metricValue}`}>{fmtNum(metrics[k], locale, 3)}</dd>
           {typeof baseline?.[k] === 'number' && <dd className="fine m-0">{t('intelligence.research.baseline')}: {fmtNum(baseline[k], locale, 3)}</dd>}
         </div>
       ))}
@@ -55,23 +58,23 @@ function Metrics({ task, metrics, baseline }: { task: string; metrics: any; base
   );
 }
 
-export default function ResearchPage() {
+function Research() {
   const { t } = useT();
   const { org } = useOrg();
   const { data, error, loading, reload } = useApi<{ notice: string; models: ResearchModel[] }>(`/o/${org.id}/intelligence/research`);
   const tasks = [...new Set((data?.models ?? []).map((m) => m.task))];
   return (
-    <IntelShell>
+    <>
       <div role="note" className="card card-sandbox is-strong mbe-16">
         <div className="row"><Badge tone="sandbox">{t('intelligence.research.synthetic')}</Badge></div>
-        <p style={{ marginBlockEnd: 0 }}>{t('intelligence.research.notice')}</p>
+        <p className={s.finePlain}>{t('intelligence.research.notice')}</p>
         {data?.notice && <p className="fine sandbox-ink" dir="ltr">{data.notice}</p>}
       </div>
       {loading && !data ? <div className="card"><Skeleton lines={6} /></div>
         : error ? <ApiErrorNotice error={error} onRetry={reload} />
           : !data?.models.length ? <Empty title={t('intelligence.research.empty')} />
             : tasks.map((task) => (
-              <section key={task} style={{ marginBlockEnd: 20 }}>
+              <section key={task} className={s.researchSection}>
                 <h2>{t(`intelligence.task.${task}`)}</h2>
                 <div className="stack">
                   {data.models.filter((m) => m.task === task).map((m) => (
@@ -92,6 +95,10 @@ export default function ResearchPage() {
                 </div>
               </section>
             ))}
-    </IntelShell>
+    </>
   );
+}
+
+export default function ResearchPage() {
+  return <InsightsShell section="research"><Research /></InsightsShell>;
 }

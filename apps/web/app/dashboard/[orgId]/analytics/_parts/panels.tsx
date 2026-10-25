@@ -2,14 +2,21 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import type { AnalyticsMeta, RevenueTotals } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Notice, Skeleton, Stat } from '@resuto/ui';
-import { BarList, Heatmap, LineChart } from '@/components/charts';
+import dynamic from 'next/dynamic';
+import { Badge, BarList, DataTable, EmptyState, Notice, Skeleton, Stat } from '@resuto/ui';
 import { Delta, LoadError, MetaPanel, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
+import a from './analytics.module.css';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
 
-interface PanelProps { period: Period; branchId: string }
+// The sales view's line chart and heatmap load on demand (their own chunk): the figures above them render first.
+const chartLoading = () => <div className="skeleton" aria-hidden="true" />;
+const LineChart = dynamic(() => import('./sales-charts').then((m) => m.LineChart), { ssr: false, loading: chartLoading });
+const Heatmap = dynamic(() => import('./sales-charts').then((m) => m.Heatmap), { ssr: false, loading: chartLoading });
+
+/** `compare` (sales only): the analytics API's comparison, from the Insights toolbar (default: the days just before). */
+export interface PanelProps { period: Period; branchId: string; compare?: 'previous' | 'last_year' | 'none' }
 
 function usePanel<T>(path: string, props: PanelProps | null, extra: Record<string, string | number | undefined> = {}) {
   const { org } = useOrg();
@@ -38,7 +45,8 @@ export function SalesPanel(props: PanelProps) {
   const { t, dir } = useT();
   const f = useFormat();
   const branchName = useBranchName();
-  const { data, error, loading, reload } = usePanel<Summary>('summary', props);
+  const { data, error, loading, reload } = usePanel<Summary>('summary', props, { compare: props.compare });
+  const lastYear = props.compare === 'last_year';
   const prevPath = data?.comparison ? { period: { ...props.period, from: data.comparison.from, to: data.comparison.to }, branchId: props.branchId } : null;
   const prev = usePanel<Summary>('summary', prevPath, { compare: 'none' });
   if (error) return <LoadError error={error} retry={reload} />;
@@ -61,11 +69,11 @@ export function SalesPanel(props: PanelProps) {
         <Stat label={t('insights.kpi.refunds')} value={f.money(tot.refundsMinor)} hint={<Delta value={ch.refundsMinor} inverse />} />
         <Stat label={t('insights.kpi.vat')} value={f.money(tot.vatMinor)} hint={t('insights.kpi.cancelled', { count: tot.cancelledOrders })} />
       </div>
-      {data.comparison && <p className="fine m-0">{t('insights.compare.note', { from: f.date(data.comparison.from), to: f.date(data.comparison.to) })}</p>}
+      {data.comparison && <p className="fine m-0">{t(lastYear ? 'insights.area.compareLastYear' : 'insights.compare.note', { from: f.date(data.comparison.from), to: f.date(data.comparison.to) })}</p>}
       <Section title={t('insights.sales.daily')}>
         <LineChart title={t('insights.sales.daily')} rtl={dir === 'rtl'} labels={data.daily.map((d) => f.date(d.date))}
           series={[{ name: t('insights.series.thisPeriod'), values: data.daily.map((d) => d.netMinor) },
-            ...(prevDaily && prevDaily.length === days ? [{ name: t('insights.series.previousPeriod'), values: prevDaily.map((d) => d.netMinor) }] : [])]}
+            ...(prevDaily && prevDaily.length === days ? [{ name: t(lastYear ? 'insights.area.series.lastYear' : 'insights.series.previousPeriod'), values: prevDaily.map((d) => d.netMinor) }] : [])]}
           format={f.money} compactFormat={f.compactMoney} xLabel={t('insights.chart.date')} tableCaption={t('insights.chart.showTable')} />
       </Section>
       <div className="grid grid-2">
@@ -328,8 +336,8 @@ export function SustainabilityPanel(props: PanelProps) {
           <Stat label={t('insights.sust.eDocs')} value={f.num(p.electronicFiscalDocuments)} />
           <Stat label={t('insights.sust.indicator')} value={f.num(p.printedTicketsAvoidedIndicator)} hint={t('insights.sust.indicatorHint')} />
         </div>
-        <div className="row" style={{ marginBlockStart: 14, alignItems: 'flex-end' }}>
-          <label className="field" style={{ margin: 0, maxWidth: 260 }}>
+        <div className={`row ${a.gramsRow}`}>
+          <label className={`field ${a.gramsField}`}>
             <span>{t('insights.sust.gramsPerSheet')}</span>
             <input className="input" inputMode="decimal" value={grams} onChange={(e) => setGrams(e.target.value)} placeholder={t('insights.sust.gramsPlaceholder')} />
           </label>

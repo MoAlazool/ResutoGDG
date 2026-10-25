@@ -129,7 +129,8 @@ export function insightAction(insight: Pick<Insight, 'templateKey' | 'params' | 
     case 'slow_kitchen':
       return a.can('kitchen:operate') ? { kind: 'kitchen', href: '/kitchen' } : null;
     case 'revenue_drop':
-      return a.can('analytics:read') ? { kind: 'sales', href: '/analytics' } : null;
+      // The Insights sales view (21-INSIGHTS; /analytics is the Insights overview).
+      return a.can('analytics:read') ? { kind: 'sales', href: '/analytics/sales' } : null;
     default:
       return null;
   }

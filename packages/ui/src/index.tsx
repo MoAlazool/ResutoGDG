@@ -16,7 +16,7 @@
 // controls: SegmentedControl, Switch, Combobox, MoneyInput, PhoneInput, Kbd · data-table: DataTableV2, useCursorPagination
 // filter-bar: FilterBar, useSavedViews · stat: StatV2, ProvenanceBadge · locked-feature: LockedFeature
 // templates: ListPage, DetailPage, WorkspacePage, BoardPage, SettingsPage
-// charts: LineChart, AreaChart, BarChart, BarList, DonutChart, FunnelChart, Heatmap, Sparkline, ForecastChart, legends
+// charts: LineChart, AreaChart, BarChart, BarList, DonutChart, FunnelChart, Heatmap, Sparkline, ForecastChart, RouteMap, legends
 // motion: withViewTransition, prefersReducedMotion, staggerStyle (CSS classes in ds.css)
 export * from './base';
 export * from './primitives';

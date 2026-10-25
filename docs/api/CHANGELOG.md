@@ -39,6 +39,24 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
   edit still ends the discount (`compareAtMinor` becomes `null`). No new endpoints; bulk edits in the web menu
   workspace use the existing per-product routes.
 
+### Added — Saved Insights reports, last-year comparison (21-INSIGHTS)
+
+- `GET /v1/o/:orgId/reports` (`analytics:read`, `limit` ≤ 200 default 100, `cursor`, `section`, `owner` all|mine|shared):
+  the caller's saved reports and the reports colleagues shared, most recently changed first. Each report is
+  `{ id, name, section, view { period, from?, to?, compare, filters }, branchId, shared, mine, authorName, createdAt,
+  updatedAt }`.
+- `POST /v1/o/:orgId/reports` (`analytics:read`, 201): saves a view (`section` one of `REPORT_SECTIONS`, the section's
+  own filters only, `branchId` null = every branch the viewer can see, `shared` default false). `409
+  saved_report_name_taken` (names are unique per member, ignoring case), `422 saved_report_limit_reached` (50 per
+  member), `422 unknown_branch`, `403` for a branch outside the caller's scope, `429` past 30 writes a minute.
+- `GET`/`PATCH`/`DELETE /v1/o/:orgId/reports/:reportId` (`analytics:read`): open a report; rename, re-save the view,
+  move it to another branch or share/unshare it; delete it. Only the author changes or deletes a report (a colleague's
+  shared report answers 404). Stored in the new `saved_reports` table (RLS: own rows, plus shared rows for roles with
+  analytics:read; branch-scoped).
+- `GET /v1/o/:orgId/analytics/summary` (and the other analytics period reports): `compare` accepts `last_year` (the
+  same local dates one year earlier) besides `previous` and `none`, so a drill-down from the overview keeps its
+  comparison.
+
 ### Added — Resuto Studio canvas workspace, section kinds, dish discounts, AI editing (21-STUDIO)
 
 - Website sections: `kind` gains `promo_banner`, `offers`, `social`, `faq` and `menu_full`; section `content` gains

@@ -6,6 +6,8 @@ export * from './bar-list';
 export * from './donut';
 export * from './funnel';
 export { Heatmap } from './heatmap';
+export * from './cohort-heatmap';
 export { Sparkline } from './sparkline';
 export { ForecastChart } from './forecast';
+export * from './route-map';
 export type { XYProps } from './xy';

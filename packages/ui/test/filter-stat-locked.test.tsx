@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { EmptyState } from '../src/base';
 import { FilterBar, useSavedViews } from '../src/filter-bar';
@@ -85,6 +85,12 @@ describe('StatV2 and provenance', () => {
 
   it('is a link when it drills down', () => {
     expect(html(<StatV2 label="Orders" value="42" href="/orders" />)).toMatch(/^<a class="rui-stat" href="\/orders"/);
+  });
+
+  it('drills down through the given link component (client navigation), keeping its provenance', () => {
+    const AppLink = ({ href, children, ...rest }: { href: string; children: ReactNode }) => <a data-app-link="" href={href} {...rest}>{children}</a>;
+    const out = html(<StatV2 label="Orders" value="42" href="/analytics/sales?period=7d" linkAs={AppLink} provenance="live" />);
+    expect(out).toMatch(/^<a data-app-link="" href="\/analytics\/sales\?period=7d" class="rui-stat" data-provenance="live"/);
   });
 });
 

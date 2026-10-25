@@ -2,8 +2,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import type { AnalyticsMeta, Currency, InventoryItemView, InventoryUnit, StockLevelView, StockMovementView } from '@resuto/contracts';
 import { INVENTORY_UNITS, WASTE_REASONS, parseMajor, unitsCompatible } from '@resuto/contracts/lite';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, UserText } from '@resuto/ui';
-import { BarList } from '@/components/charts';
+import { Badge, BarList, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, UserText } from '@resuto/ui';
 import { LoadError, MetaPanel, PeriodPicker, presetPeriod, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime, pick } from '@/lib/format';

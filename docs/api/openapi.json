@@ -2161,6 +2161,7 @@
               "default": "previous",
               "enum": [
                 "previous",
+                "last_year",
                 "none"
               ],
               "type": "string"
@@ -2317,6 +2318,7 @@
               "default": "previous",
               "enum": [
                 "previous",
+                "last_year",
                 "none"
               ],
               "type": "string"
@@ -2395,6 +2397,7 @@
               "default": "previous",
               "enum": [
                 "previous",
+                "last_year",
                 "none"
               ],
               "type": "string"
@@ -2551,6 +2554,7 @@
               "default": "previous",
               "enum": [
                 "previous",
+                "last_year",
                 "none"
               ],
               "type": "string"
@@ -2629,6 +2633,7 @@
               "default": "previous",
               "enum": [
                 "previous",
+                "last_year",
                 "none"
               ],
               "type": "string"
@@ -2891,6 +2896,7 @@
               "default": "previous",
               "enum": [
                 "previous",
+                "last_year",
                 "none"
               ],
               "type": "string"
@@ -30578,6 +30584,450 @@
         },
         "tags": [
           "preferences"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/reports": {
+      "get": {
+        "operationId": "Reports_list",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 9000,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "enum": [
+                "all",
+                "mine",
+                "shared"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "enum": [
+                "overview",
+                "sales",
+                "menu",
+                "customers",
+                "ratings",
+                "marketing",
+                "operations",
+                "sustainability",
+                "findings",
+                "forecast",
+                "recommendations"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "reports"
+        ],
+        "x-resuto-permissions": [
+          "analytics:read"
+        ]
+      },
+      "post": {
+        "operationId": "Reports_create",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "branchId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "name": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "section": {
+                    "enum": [
+                      "overview",
+                      "sales",
+                      "menu",
+                      "customers",
+                      "ratings",
+                      "marketing",
+                      "operations",
+                      "sustainability",
+                      "findings",
+                      "forecast",
+                      "recommendations"
+                    ],
+                    "type": "string"
+                  },
+                  "shared": {
+                    "type": "boolean"
+                  },
+                  "view": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "compare": {
+                        "default": "previous_period",
+                        "enum": [
+                          "previous_period",
+                          "last_year",
+                          "none"
+                        ],
+                        "type": "string"
+                      },
+                      "filters": {
+                        "additionalProperties": {
+                          "maxLength": 100,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "default": {},
+                        "propertyNames": {
+                          "pattern": "^[a-zA-Z][a-zA-Z0-9]{0,31}$",
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "from": {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      },
+                      "period": {
+                        "enum": [
+                          "today",
+                          "7d",
+                          "30d",
+                          "month",
+                          "lastMonth",
+                          "90d",
+                          "custom"
+                        ],
+                        "type": "string"
+                      },
+                      "to": {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "period"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "name",
+                  "section",
+                  "view"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "reports"
+        ],
+        "x-resuto-permissions": [
+          "analytics:read"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/reports/{reportId}": {
+      "delete": {
+        "operationId": "Reports_remove",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "reportId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "reports"
+        ],
+        "x-resuto-permissions": [
+          "analytics:read"
+        ]
+      },
+      "get": {
+        "operationId": "Reports_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "reportId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "reports"
+        ],
+        "x-resuto-permissions": [
+          "analytics:read"
+        ]
+      },
+      "patch": {
+        "operationId": "Reports_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "reportId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "branchId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "name": {
+                    "maxLength": 80,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "shared": {
+                    "type": "boolean"
+                  },
+                  "view": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "compare": {
+                        "default": "previous_period",
+                        "enum": [
+                          "previous_period",
+                          "last_year",
+                          "none"
+                        ],
+                        "type": "string"
+                      },
+                      "filters": {
+                        "additionalProperties": {
+                          "maxLength": 100,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "default": {},
+                        "propertyNames": {
+                          "pattern": "^[a-zA-Z][a-zA-Z0-9]{0,31}$",
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "from": {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      },
+                      "period": {
+                        "enum": [
+                          "today",
+                          "7d",
+                          "30d",
+                          "month",
+                          "lastMonth",
+                          "90d",
+                          "custom"
+                        ],
+                        "type": "string"
+                      },
+                      "to": {
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "period"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "reports"
+        ],
+        "x-resuto-permissions": [
+          "analytics:read"
         ]
       }
     },

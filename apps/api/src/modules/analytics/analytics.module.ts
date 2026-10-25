@@ -5,12 +5,17 @@ import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { FunnelBeaconBodyMiddleware, FunnelBeaconService, PublicFunnelController } from './funnel-beacon';
 import { FunnelsService } from './funnels.service';
+import { ReportsController } from './reports.controller';
+import { ReportsService } from './reports.service';
 
-/** analytics module. Owner: Agent B2 (docs/architecture/MODULE_CONTRACTS.md). 21-CRM adds the funnel reports and beacons. */
+/**
+ * analytics module. Owner: Agent B2 (docs/architecture/MODULE_CONTRACTS.md). 21-CRM adds the funnel reports and
+ * beacons; 21-INSIGHTS the saved Insights reports.
+ */
 @Module({
   imports: [InventoryModule],
-  controllers: [AnalyticsController, PublicFunnelController],
-  providers: [AnalyticsService, AnalyticsRollupJobs, FunnelsService, FunnelBeaconService],
+  controllers: [AnalyticsController, PublicFunnelController, ReportsController],
+  providers: [AnalyticsService, AnalyticsRollupJobs, FunnelsService, FunnelBeaconService, ReportsService],
   exports: [AnalyticsService],
 })
 export class AnalyticsModule implements NestModule {

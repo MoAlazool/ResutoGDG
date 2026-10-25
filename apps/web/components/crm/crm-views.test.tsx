@@ -7,7 +7,7 @@ import { $, $$, click, EASTERN_DIGITS, mount } from '../../../../packages/ui/tes
 import { LocaleProvider } from '@/lib/i18n/client';
 import { messagesFor } from '@/lib/i18n/messages';
 import { OrgProvider, type OrgInfo } from '@/lib/org-context';
-import { level } from './CohortHeatmap';
+import { cohortLevel as level } from '@resuto/ui';
 import { FunnelPanel, RetentionPanel } from './FunnelPanels';
 import { SegmentsView } from './SegmentBuilder';
 
@@ -111,10 +111,10 @@ describe('funnel view', () => {
 describe('retention view', () => {
   it('draws the cohort grid on the sequential scale and the repeat-purchase curve', () => {
     const v = mount(wrap('en', <RetentionPanel period={period} branchId="" />));
-    const cells = $$(v.host, '.crm-cohort-cell');
+    const cells = $$(v.host, '.rui-cohort-cell');
     expect(cells.map((c) => c.getAttribute('data-level'))).toEqual(['10', '4', '2', '10', '3', 'none']);
     expect(cells[1]!.getAttribute('title')).toBe('2026-08, month 1: 40% (8 of 20)');
-    expect($(v.host, '.crm-cohort-table caption').textContent).toContain('first counted order');
+    expect($(v.host, '.rui-cohort-table caption').textContent).toContain('first counted order');
     // The chart kit's line chart, with its table fallback; only days every counted customer has had.
     expect(v.host.querySelector('.rui-chart svg')).not.toBeNull();
     expect(v.host.textContent).toContain('30 new customers');

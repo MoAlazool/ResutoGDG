@@ -1,26 +1,12 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
+// Shared pieces of the intelligence views of the Insights area (21-INSIGHTS: the header and sub-navigation moved to
+// components/insights/InsightsShell, which replaced IntelShell).
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
-import { EmptyState, Notice, PageHeader } from '@resuto/ui';
-import { ModuleGate } from '@/components/shell/ModuleGate';
-import { SectionNav } from '@/components/shell/SectionNav';
-import { INTELLIGENCE_SECTIONS } from '@/lib/sections';
+import { EmptyState, Notice } from '@resuto/ui';
 import type { ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { useBranchScope, useOrg } from '@/lib/org-context';
-
-/** Header, sub-navigation and module/permission gate shared by every intelligence page. */
-export function IntelShell({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
-  const { t } = useT();
-  return (
-    <ModuleGate module="intelligence" permission="ai:use">
-      <PageHeader overline={t('nav.group.intelligence')} title={t('intelligence.title')} subtitle={t('intelligence.subtitle')} actions={actions} />
-      <SectionNav sections={INTELLIGENCE_SECTIONS} label={t('intelligence.title')} />
-      {children}
-    </ModuleGate>
-  );
-}
 
 /**
  * The branch these screens work on: the shell's branch switcher (21-SHELL single branch context). Forecasts,

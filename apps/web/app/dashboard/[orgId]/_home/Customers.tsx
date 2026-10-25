@@ -1,23 +1,29 @@
 'use client';
 // Row 4 "Customers & channels": new vs returning customers, acquisition of the period's new customers by channel
 // (attributed from tracked links/UTM/campaigns, otherwise inferred from the first order's channel, and labelled so) and
-// campaign conversion (attributed orders ÷ tracked link clicks).
+// campaign conversion (attributed orders ÷ tracked link clicks). Each widget drills down to its Insights view with the
+// same period, comparison and branch (21-INSIGHTS).
+import Link from 'next/link';
 import type { OverviewPeriod } from '@resuto/contracts/home';
 import { BarList, ProvenanceBadge, StatV2, UserText } from '@resuto/ui';
 import { useFormat } from '@/components/charts/insights';
 import { useT } from '@/lib/i18n/client';
+import type { InsightsSection } from '@/lib/insights';
 import s from './home.module.css';
 
-export function Customers({ period }: { period: OverviewPeriod }) {
+export function Customers({ period, drill }: { period: OverviewPeriod; drill?: (section: InsightsSection) => string }) {
   const { t } = useT();
+  const to = (section: InsightsSection) => (drill ? { href: drill(section), linkAs: Link } : {});
+  const open = (section: InsightsSection, name: string) => (drill
+    ? <Link className={s.fine} href={drill(section)}>{t('insights.area.openIn')}<span className="sr-only"> {name}</span></Link> : null);
   const f = useFormat();
   const cu = period.customers;
   const acq = period.acquisition;
   const camp = period.campaigns;
   return (
     <div className={s.tiles}>
-      <StatV2 label={t('home.cust.new')} value={f.num(cu.newCustomers)} provenance="live" hint={f.money(cu.newCustomerNetMinor)} />
-      <StatV2 label={t('home.cust.returning')} value={f.num(cu.returningCustomers)} provenance="live"
+      <StatV2 label={t('home.cust.new')} value={f.num(cu.newCustomers)} provenance="live" hint={f.money(cu.newCustomerNetMinor)} {...to('customers')} />
+      <StatV2 label={t('home.cust.returning')} value={f.num(cu.returningCustomers)} provenance="live" {...to('customers')}
         hint={<>{f.money(cu.returningCustomerNetMinor)}{cu.ordersWithoutCustomer > 0 ? <> · {t('home.cust.anonymous', { n: cu.ordersWithoutCustomer })}</> : null}</>} />
 
       <article className={s.tile} aria-labelledby="cust-acq">
@@ -25,6 +31,7 @@ export function Customers({ period }: { period: OverviewPeriod }) {
           <h3 id="cust-acq" className={s.tileTitle}>{t('home.cust.acquisition')}</h3>
           <ProvenanceBadge provenance={acq.inferred > 0 ? 'estimated' : 'live'} />
         </div>
+        {open('customers', t('home.cust.acquisition'))}
         {acq.newCustomers ? (
           <>
             <BarList label={t('home.cust.acquisition')} format={(n) => f.num(n)}
@@ -37,6 +44,7 @@ export function Customers({ period }: { period: OverviewPeriod }) {
 
       <article className={s.tile} aria-labelledby="cust-camp">
         <div className={s.tileHead}><h3 id="cust-camp" className={s.tileTitle}>{t('home.cust.campaigns')}</h3><ProvenanceBadge provenance="live" /></div>
+        {open('marketing', t('home.cust.campaigns'))}
         {camp.items.length ? (
           <ul className={s.list}>
             {camp.items.map((c) => (

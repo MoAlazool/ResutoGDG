@@ -1,11 +1,18 @@
+import type { ReactNode } from 'react';
+
 interface Point { date: string; value: number }
 interface Band { date: string; yhat: number; lower: number; upper: number }
 
-/** History (solid) followed by a forecast (dashed) with its uncertainty band. */
-export function ForecastChart({ history, forecast, label, rtl }: { history: Point[]; forecast: Band[]; label: string; rtl?: boolean }) {
+/**
+ * History (solid) followed by a forecast (dashed) with its uncertainty band. A forecast is a model's estimate: the
+ * page labels it as one and names its method (the kit draws only what it is given). `empty` replaces a chart with no
+ * points.
+ */
+export function ForecastChart({ history, forecast, label, rtl, empty }: { history: Point[]; forecast: Band[]; label: string; rtl?: boolean; empty?: ReactNode }) {
   const W = 640, H = 220, PAD = { l: 36, r: 12, t: 12, b: 26 };
   const all = [...history.map((h) => h.date), ...forecast.map((f) => f.date)];
   const n = all.length;
+  if (!n) return empty ? <p className="muted rui-chart-empty">{empty}</p> : null;
   const maxY = Math.max(1, ...history.map((h) => h.value), ...forecast.map((f) => f.upper));
   const x = (i: number) => { const v = PAD.l + (i / Math.max(n - 1, 1)) * (W - PAD.l - PAD.r); return rtl ? W - v : v; };
   const y = (v: number) => PAD.t + (1 - v / maxY) * (H - PAD.t - PAD.b);
