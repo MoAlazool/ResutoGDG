@@ -16,7 +16,8 @@ import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededM
 // ---------------------------------------------------------------------------
 // The real Python AI service runs as a subprocess (no mocks). If it cannot start, the suite fails.
 // ---------------------------------------------------------------------------
-const AI_PORT = 8107;
+// AI_TEST_PORT lets concurrent runs on one machine use different ports (the default stays 8107).
+const AI_PORT = Number(process.env.AI_TEST_PORT ?? 8107);
 const AI_TOKEN = 'e1-integration-test-token-0123456789';
 let ai: ChildProcess | null = null;
 

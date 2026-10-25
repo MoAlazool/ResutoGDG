@@ -10,7 +10,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addMember, auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant, type TestUser } from '../helpers';
 import { addDays, buildMenuViaApi, burgerLine, cairoToday, key, startAiService, type ApiMenu } from './support';
 
-const AI_PORT = 8117;
+// AI_SCENARIO_TEST_PORT lets concurrent runs on one machine use different ports (the default stays 8117).
+const AI_PORT = Number(process.env.AI_SCENARIO_TEST_PORT ?? 8117);
 const AI_TOKEN = 'g-scenario-ai-token-0123456789abcdef';
 const DAYS = 90;
 
