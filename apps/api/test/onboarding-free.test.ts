@@ -198,7 +198,10 @@ describe('view-only menu QR', () => {
     const png = Buffer.from(res.body.png.split(',')[1], 'base64');
     expect(png.subarray(1, 4).toString('latin1')).toBe('PNG');
     // Never an ordering QR: no table or venue route, no table/venue token.
-    expect(JSON.stringify(res.body)).not.toMatch(/\/t\/|\/v\//);
+    // Checked on the URL and the SVG markup, not the base64 PNG: base64 uses '/', 't' and 'v', so "/t/" turns up in
+    // PNG bytes by chance (CI run 94).
+    expect(res.body.url).not.toMatch(/\/t\/|\/v\//);
+    expect(res.body.svg).not.toMatch(/\/t\/|\/v\//);
     // (Venue tokens are derived from a stored nonce and only ever appear under /v/, excluded above.)
     const tables = await sql(`select qr_token as v from dining_tables where org_id = $1`, [free.orgId]);
     expect(tables.length).toBeGreaterThan(0);
