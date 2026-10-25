@@ -60,7 +60,7 @@ describe.each(['en', 'ar'] as const)('marketplace rendering (%s)', (lang) => {
 
   it('the grid shows every card with its chip and connect method, Western digits only, nothing "verified"', () => {
     const html = render(lang, h(Marketplace, { items, connections: [], onChanged: () => {} }));
-    for (const id of ['meta_ads', 'whatsapp_cloud', 'stripe', 'zatca', 'vercel_domains']) expect(html).toContain(`data-provider="${id}"`);
+    for (const id of ['meta_ads', 'whatsapp_cloud', 'stripe', 'zatca', 'vercel_domains']) expect(html).toContain(`data-card="${id}"`);
     expect(html).toContain(lang === 'en' ? 'Not yet available' : 'غير متاح بعد');
     expect(html).toContain(lang === 'en' ? 'Needs attention' : 'يحتاج إلى انتباه');
     expect(html).toContain(lang === 'en' ? 'Meta signup window' : 'نافذة التسجيل من Meta');

@@ -65,7 +65,7 @@ export function Marketplace({ items, connections, onChanged }: { items: CatalogI
         <ul className={s.grid} aria-label={t('mkt.tab')}>
           {shown.map((c) => (
             <li key={c.id}>
-              <button type="button" className={s.card} onClick={() => setOpen(c.id)} aria-haspopup="dialog" data-provider={c.id}>
+              <button type="button" className={s.card} onClick={() => setOpen(c.id)} aria-haspopup="dialog" data-card={c.id}>
                 <CardLogo card={c} />
                 <span className={s.cardName}><bdi>{c.name}</bdi></span>
                 <span className={s.cardMeta}>{t(`mkt.category.${c.category}`)} · {t(`mkt.method.${c.connectMethod}`)}</span>
