@@ -7,6 +7,7 @@ import { RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { zod } from '../../common/http/zod.pipe';
 import { AnalyticsService } from './analytics.service';
+import { FunnelsService } from './funnels.service';
 import { ratingsSummary } from './ratings';
 
 type Period = z.infer<typeof analyticsPeriodQuery>;
@@ -14,7 +15,7 @@ type Period = z.infer<typeof analyticsPeriodQuery>;
 /** Read-only analytics. Every response carries `meta { method, assumptions, dataCoverage, kind }`. */
 @Controller('o/:orgId/analytics')
 export class AnalyticsController {
-  constructor(private readonly db: DbService, private readonly analytics: AnalyticsService) {}
+  constructor(private readonly db: DbService, private readonly analytics: AnalyticsService, private readonly funnels: FunnelsService) {}
 
   /**
    * The owner home: today vs the same weekday last week, live operations and low stock. With from/to (local dates) it
@@ -54,6 +55,23 @@ export class AnalyticsController {
   @RequirePermission('analytics:read')
   operations(@Tenant() ctx: TenantContext, @Query(zod(analyticsPeriodQuery)) q: Period) {
     return this.db.scoped(ctx, (tx) => this.analytics.operations(tx, ctx, q));
+  }
+
+  /**
+   * Growth funnel (21-CRM): visits → QR scans → messages → leads → orders → repeat for the period, each step with its
+   * source table and completeness (complete / partial / estimate / unavailable), plus guest cart activity.
+   */
+  @Get('funnel')
+  @RequirePermission('analytics:read')
+  funnel(@Tenant() ctx: TenantContext, @Query(zod(analyticsPeriodQuery)) q: Period) {
+    return this.db.scoped(ctx, (tx) => this.funnels.funnel(tx, ctx, q));
+  }
+
+  /** Retention (21-CRM): monthly cohorts of new customers and the repeat-purchase curve of the period's new customers. */
+  @Get('retention')
+  @RequirePermission('analytics:read')
+  retention(@Tenant() ctx: TenantContext, @Query(zod(analyticsPeriodQuery)) q: Period) {
+    return this.db.scoped(ctx, (tx) => this.funnels.retention(tx, ctx, q));
   }
 
   /** Guest satisfaction: ratings left after payment (VS-27). */
