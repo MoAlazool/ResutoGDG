@@ -1,12 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { DataTable, Notice, SelectField, useAction } from '@resuto/ui';
+import { DataTableV2, EmptyState, Notice, SelectField, useAction } from '@resuto/ui';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { LoadState, McpPage, OutcomeBadge, type McpCall, type McpClient } from '../_components/shared';
+import st from '../_components/mcp.module.css';
 
 const OUTCOMES = ['ok', 'approval_required', 'invalid_input', 'denied', 'rate_limited', 'error'] as const;
 
@@ -32,7 +33,7 @@ export default function McpCallsPage() {
 
   return (
     <McpPage tab="calls">
-      <div className="form-row" style={{ maxWidth: 560 }}>
+      <div className={`form-row ${st.filters}`}>
         <SelectField label={t('mcp.col.outcome')} value={outcome} onChange={(e) => setOutcome(e.target.value)}>
           <option value="">{t('mcp.calls.allOutcomes')}</option>
           {OUTCOMES.map((o) => <option key={o} value={o}>{t(`mcp.outcome.${o}`)}</option>)}
@@ -43,19 +44,19 @@ export default function McpCallsPage() {
         </SelectField>
       </div>
       <LoadState loading={first.loading} error={first.error} retry={first.reload}>
-        <DataTable rows={rows} rowKey={(r) => r.id} empty={<p className="muted m-0">{t('mcp.calls.empty')}</p>} columns={[
+        <DataTableV2 label={t('mcp.tab.calls')} rows={rows} rowKey={(r) => r.id} empty={<EmptyState title={t('mcp.calls.empty')} />} columnToggle columns={[
           { key: 'time', header: t('mcp.col.time'), render: (r) => <span className="num">{dateTime(r.createdAt, locale, org.timezone)}</span> },
           { key: 'client', header: t('mcp.col.client'), render: (r) => <span>{r.clientName} <code className="fine" dir="ltr">{r.keyPrefix}…</code></span> },
           { key: 'tool', header: t('mcp.col.tool'), render: (r) => <code dir="ltr">{r.tool}</code> },
           { key: 'outcome', header: t('mcp.col.outcome'), render: (r) => <OutcomeBadge outcome={r.outcome} /> },
-          { key: 'via', header: t('mcp.col.via'), render: (r) => t(`mcp.via.${r.via}`) },
+          { key: 'via', header: t('mcp.col.via'), hideable: true, render: (r) => t(`mcp.via.${r.via}`) },
           { key: 'ms', header: t('mcp.col.duration'), align: 'end', render: (r) => <span className="num">{r.durationMs ?? '—'} ms</span> },
           { key: 'err', header: t('mcp.col.error'), render: (r) => r.errorCode
             ? <span className="fine" dir="ltr" title={r.error ?? undefined}>{r.errorCode}</span> : '' },
         ]} />
         {loadMore.error && <Notice tone="danger">{loadMore.error}</Notice>}
         {cursor && (
-          <div className="row" style={{ justifyContent: 'center', marginBlockStart: 14 }}>
+          <div className={`row ${st.more}`}>
             <button type="button" className="btn btn-ghost" disabled={loadMore.pending} onClick={() => void loadMore.run()}>
               {loadMore.pending ? t('state.loading') : t('mcp.calls.more')}
             </button>

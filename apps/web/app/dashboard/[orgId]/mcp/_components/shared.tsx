@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { assignableRoles, can, MCP_ACTING_ROLES, type Permission, type Role } from '@resuto/contracts';
-import { Badge, Card, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, type Tone } from '@resuto/ui';
+import { Badge, Card, EmptyState, ErrorState, Field, ListPage, Notice, SelectField, SkeletonTable, type Tone } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { SectionNav } from '@/components/shell/SectionNav';
 import { MCP_SECTIONS } from '@/lib/sections';
@@ -10,6 +10,7 @@ import type { ApiRequestError } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
+import st from './mcp.module.css';
 
 export interface CatalogTool {
   name: string; title: string; titleAr: string; description: string; sensitive: boolean; readOnly: boolean;
@@ -33,32 +34,29 @@ type Tab = 'clients' | 'approvals' | 'calls' | 'connect' | 'inbox';
 // 21-MCP: 'inbox' is the cross-feature approvals inbox (MCP, Studio AI, staff change sets) at /approvals.
 const MCP_TAB_HREF: Record<Tab, string> = { clients: '/mcp', approvals: '/mcp/approvals', calls: '/mcp/calls', connect: '/mcp/connect', inbox: '/approvals' };
 
-/** Page frame for every MCP screen: entitlement/permission gate, header and section tabs. */
+/**
+ * Page frame for every MCP screen (ListPage template): entitlement/permission gate, header, the area's SectionNav in
+ * the filter slot, then the screen.
+ */
 export function McpPage({ tab, permission = 'mcp:manage', actions, children }: { tab: Tab; permission?: Permission; actions?: ReactNode; children: ReactNode }) {
   const { t } = useT();
   return (
     <ModuleGate module="mcp" permission={permission}>
-      {/* inline-size containment: wide tables scroll inside .table-wrap instead of widening the shell column at 390px */}
-      <div style={{ containerType: 'inline-size' }}>
-      <PageHeader overline="ResutoMCP" title={t('mcp.title')} subtitle={t('mcp.subtitle')} actions={actions} />
-      <SectionNav sections={MCP_SECTIONS} label={t('mcp.title')} active={MCP_TAB_HREF[tab]} />
-      {children}
+      <div className={st.frame}>
+        <ListPage header={{ eyebrow: 'ResutoMCP', title: t('mcp.title'), subtitle: t('mcp.subtitle'), actions }}
+          filters={<SectionNav sections={MCP_SECTIONS} label={t('mcp.title')} active={MCP_TAB_HREF[tab]} />}>
+          {children}
+        </ListPage>
       </div>
     </ModuleGate>
   );
 }
 
+/** Loading → table skeleton; a failed request → the shared ErrorState with Try again; otherwise the screen. */
 export function LoadState({ loading, error, retry, children }: { loading: boolean; error: ApiRequestError | null; retry: () => void; children: ReactNode }) {
-  const { t } = useT();
-  if (error) {
-    return (
-      <Notice tone="danger">
-        <div className="spread"><span>{t('mcp.error.load', { message: error.message })}</span>
-          <button type="button" className="btn btn-sm btn-ghost" onClick={retry}>{t('action.retry')}</button></div>
-      </Notice>
-    );
-  }
-  if (loading) return <Card><Skeleton lines={4} /></Card>;
+  const { locale } = useT();
+  if (error) return <Card><ErrorState error={error} onRetry={retry} locale={locale} /></Card>;
+  if (loading) return <SkeletonTable rows={4} cols={4} />;
   return <>{children}</>;
 }
 
@@ -130,11 +128,11 @@ export function ToolChecklist({ catalog, value, onChange, role, disabled }: {
   const groups = (['read', 'draft', 'sensitive'] as const).map((k) => ({ k, tools: catalog.filter((x) => toolKind(x) === k) }));
   const toggle = (name: string, on: boolean) => onChange(on ? [...new Set([...value, name])] : value.filter((v) => v !== name));
   return (
-    <div className="stack" style={{ gap: 18 }}>
+    <div className={`stack ${st.toolGroups}`}>
       {groups.map(({ k, tools }) => (
-        <fieldset key={k} style={{ border: 0, padding: 0, margin: 0 }} disabled={disabled}>
-          <div className="spread" style={{ marginBlockEnd: 8 }}>
-            <legend style={{ fontWeight: 650 }}>{t(`mcp.kind.${k}`)}</legend>
+        <fieldset key={k} className={st.plainFieldset} disabled={disabled}>
+          <div className={`spread ${st.groupHead}`}>
+            <legend className={st.groupLegend}>{t(`mcp.kind.${k}`)}</legend>
             {k === 'read' && !disabled && (
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange([...new Set([...value, ...tools.map((x) => x.name)])])}>
                 {t('mcp.form.selectAllRead')}
@@ -145,7 +143,7 @@ export function ToolChecklist({ catalog, value, onChange, role, disabled }: {
             {tools.map((tool) => {
               const blocked = tool.permission !== null && !can(role, tool.permission);
               return (
-                <label key={tool.name} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: disabled ? 'default' : 'pointer' }}>
+                <label key={tool.name} className={st.tool}>
                   <input className="mbs-4" type="checkbox" checked={value.includes(tool.name)}
                     onChange={(e) => toggle(tool.name, e.target.checked)} />
                   <span className="stack gap-4 min-w-0">
@@ -155,7 +153,7 @@ export function ToolChecklist({ catalog, value, onChange, role, disabled }: {
                       <ToolBadges tool={tool} />
                     </span>
                     <span className="fine text-start" dir="ltr">{tool.description}</span>
-                    {blocked && <span className="fine" style={{ color: 'var(--warn)' }}>{t('mcp.roleCannot', { role: t(`mcp.role.${role}`) })}</span>}
+                    {blocked && <span className={`fine ${st.blocked}`}>{t('mcp.roleCannot', { role: t(`mcp.role.${role}`) })}</span>}
                   </span>
                 </label>
               );
@@ -213,11 +211,11 @@ export function ScopeForm({ catalog, initial, submitLabel, pending, error, disab
       </Card>
 
       <Card title={t('mcp.form.branches')}>
-        <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0, gap: 10 }} disabled={disabled}>
+        <fieldset className={`stack gap-10 ${st.plainFieldset}`} disabled={disabled}>
           <label className="check"><input type="radio" name="branch-mode" checked={v.branchIds === null} onChange={() => set('branchIds', null)} /> {t('mcp.form.branchesAll')}</label>
           <label className="check"><input type="radio" name="branch-mode" checked={v.branchIds !== null} onChange={() => set('branchIds', [])} /> {t('mcp.form.branchesPick')}</label>
           {v.branchIds !== null && (
-            <div className="row" style={{ paddingInlineStart: 24 }}>
+            <div className={`row ${st.branchPick}`}>
               {org.branches.map((b) => (
                 <label key={b.id} className="check">
                   <input type="checkbox" checked={v.branchIds!.includes(b.id)}

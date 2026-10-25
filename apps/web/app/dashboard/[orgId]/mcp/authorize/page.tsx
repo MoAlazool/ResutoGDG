@@ -2,7 +2,7 @@
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
 import { assignableRoles, MCP_ACTING_ROLES, MCP_GROUPS, mcpToolsFor, type Role } from '@resuto/contracts';
-import { Badge, Card, KeyValueList, Notice, PageHeader, useAction } from '@resuto/ui';
+import { Badge, Card, DetailPage, KeyValueList, Notice, useAction } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -11,6 +11,7 @@ import { useSession } from '@/lib/session';
 import { clearOAuthDraft, readOAuthDraft } from '@/lib/mcp-wizard';
 import { useApi } from '@/lib/use-api';
 import { endOfDayIso, LoadState, ScopeForm, type CatalogTool, type ScopeValue } from '../_components/shared';
+import st from '../_components/mcp.module.css';
 
 interface OAuthRequest {
   id: string; status: 'pending' | 'approved' | 'denied' | 'expired'; clientName: string; clientId: string; clientKind: 'dynamic' | 'metadata_document';
@@ -55,14 +56,14 @@ function Consent() {
   const permitted = (catalog.data?.items ?? []).filter((x) => d?.tools.includes(x.name));
   return (
     <ModuleGate module="mcp" permission="mcp:manage">
-      <div style={{ containerType: 'inline-size' }}>
-        <PageHeader overline="ResutoMCP" title={t('mcp.oauth.title')} subtitle={t('mcp.oauth.subtitle')} />
+      <div className={st.frame}>
+        <DetailPage header={{ eyebrow: 'ResutoMCP', title: t('mcp.oauth.title'), subtitle: t('mcp.oauth.subtitle') }}>
         <LoadState loading={(req.loading && !d) || (catalog.loading && !catalog.data)} error={req.error ?? catalog.error} retry={req.reload}>
           {d && d.status !== 'pending' ? <Notice tone="warn">{t(`mcp.oauth.closed.${d.status}`)}</Notice> : d && (
             <div className="stack gap-16">
               <Card warm>
                 <div className="stack gap-12">
-                  <p style={{ margin: 0, fontSize: 17 }}>{t('mcp.oauth.asks', { client: d.clientName, org: org.name })}</p>
+                  <p className={st.lead}>{t('mcp.oauth.asks', { client: d.clientName, org: org.name })}</p>
                   <KeyValueList items={[
                     { key: 'return', label: t('mcp.oauth.returnTo'), value: <strong><bdi dir="ltr">{d.redirectHost}</bdi></strong> },
                     { key: 'kind', label: t('mcp.oauth.clientKind'), value: d.clientKind === 'metadata_document'
@@ -99,6 +100,7 @@ function Consent() {
             </div>
           )}
         </LoadState>
+        </DetailPage>
       </div>
     </ModuleGate>
   );

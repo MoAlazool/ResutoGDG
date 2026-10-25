@@ -9,6 +9,7 @@ import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { ApprovalStatusBadge, CopyButton, LoadState, McpPage } from '../_components/shared';
+import st from '../_components/mcp.module.css';
 
 interface Approval {
   id: string; tool: string; toolTitle: string; toolTitleAr: string; status: string; summary: string; input: Record<string, unknown>;
@@ -116,7 +117,7 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
           {open ? t('mcp.approvals.hide') : t('mcp.approvals.review')}
         </button>
       </div>
-      <p dir="auto" style={{ margin: '10px 0 6px', fontSize: 15 }}>{a.summary}</p>
+      <p dir="auto" className={st.summary}>{a.summary}</p>
       <div className="fine">
         {t('mcp.approvals.requestedBy', { client: a.client.name, role: t(`mcp.role.${a.client.actingRole}`) })}
         {' · '}{t('mcp.approvals.requestedAt', { date: fmt(a.requestedAt) })}
@@ -135,16 +136,16 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
           {detail.data?.preview && (
             <>
               <div>
-                <h4 style={{ margin: '0 0 8px' }}>{t('mcp.approvals.change')}</h4>
+                <h4 className={st.subhead}>{t('mcp.approvals.change')}</h4>
                 <div className="table-wrap">
                   <table className="data">
                     <thead><tr><th scope="col" /><th scope="col">{t('mcp.approvals.before')}</th><th scope="col">{t('mcp.approvals.after')}</th></tr></thead>
                     <tbody>
                       {detail.data.preview.changes.map((c) => (
                         <tr key={c.label}>
-                          <th scope="row" style={{ textAlign: 'start', fontWeight: 650 }} dir="auto">{c.label}</th>
-                          <td dir="auto"><del style={{ color: 'var(--danger)' }}>{c.before ?? '—'}</del></td>
-                          <td dir="auto"><ins style={{ color: 'var(--ok)', textDecoration: 'none', fontWeight: 650 }}>{c.after}</ins></td>
+                          <th scope="row" className={st.changeLabel} dir="auto">{c.label}</th>
+                          <td dir="auto"><del className={st.before}>{c.before ?? '—'}</del></td>
+                          <td dir="auto"><ins className={st.after}>{c.after}</ins></td>
                         </tr>
                       ))}
                     </tbody>
@@ -153,10 +154,10 @@ function ApprovalCard({ approval: a, onDecided }: { approval: Approval; onDecide
               </div>
               {!!detail.data.preview.facts.length && (
                 <div>
-                  <h4 style={{ margin: '0 0 8px' }}>{t('mcp.approvals.details')}</h4>
-                  <dl style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '6px 16px', margin: 0 }}>
+                  <h4 className={st.subhead}>{t('mcp.approvals.details')}</h4>
+                  <dl className={st.facts}>
                     {detail.data.preview.facts.map((f) => (
-                      <div key={f.label} style={{ display: 'contents' }}><dt className="muted" dir="auto">{f.label}</dt><dd className="m-0" dir="auto">{f.value}</dd></div>
+                      <div key={f.label}><dt className="muted" dir="auto">{f.label}</dt><dd className="m-0" dir="auto">{f.value}</dd></div>
                     ))}
                   </dl>
                 </div>

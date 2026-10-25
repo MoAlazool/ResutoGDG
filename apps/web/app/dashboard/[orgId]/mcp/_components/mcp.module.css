@@ -1,0 +1,31 @@
+/* ResutoMCP screens (21-MIGRATE): page classes that replace the former inline styles. Logical properties only. */
+
+/* inline-size containment: wide tables scroll inside .table-wrap instead of widening the shell column at 390 px */
+.frame { container-type: inline-size; }
+
+.plainFieldset { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+.toolGroups { gap: var(--space-5); }
+.groupHead { margin-block-end: var(--space-2); }
+.groupLegend { font-weight: 650; }
+.tool { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.tool:has(input:disabled) { cursor: default; }
+.blocked { color: var(--warn-fg); }
+.branchPick { padding-inline-start: var(--space-6); }
+.monoInput { font-family: var(--font-mono); }
+
+.summary { margin-block: 10px 6px; margin-inline: 0; font-size: 15px; }
+.subhead { margin-block: 0 var(--space-2); margin-inline: 0; }
+.changeLabel { text-align: start; font-weight: 650; }
+.before { color: var(--danger-fg); }
+.after { color: var(--ok-fg); text-decoration: none; font-weight: 650; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px var(--space-4); margin: 0; }
+.facts > div { display: contents; }
+
+.snippet { position: relative; }
+.snippetCopy { position: absolute; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); }
+.url { font-size: 15px; word-break: break-all; }
+.safety { margin: 0; padding-inline-start: var(--space-5); gap: 6px; }
+
+.filters { max-inline-size: 560px; }
+.more { justify-content: center; margin-block-start: 14px; }
+.lead { margin: 0; font-size: 17px; }

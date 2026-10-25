@@ -24,7 +24,7 @@ export default function DashboardIndex() {
   }
   return (
     <main className="ws-solo" aria-busy="true">
-      <div className="ws-solo-card" style={{ display: 'grid', gap: 20 }}>
+      <div className="ws-solo-card is-roomy">
         <Wordmark label={t('app.name')} />
         <NavSkeleton count={3} />
       </div>

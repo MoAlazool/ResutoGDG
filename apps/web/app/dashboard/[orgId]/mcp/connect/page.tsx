@@ -2,15 +2,16 @@
 import { Card, Notice } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { CopyButton, McpPage } from '../_components/shared';
+import st from '../_components/mcp.module.css';
 
 /** Public HTTPS URL of the deployed ResutoMCP server, e.g. https://mcp.example.com/mcp */
 const CONFIGURED_URL = process.env.NEXT_PUBLIC_MCP_URL?.replace(/\/$/, '') ?? null;
 
 function Snippet({ text }: { text: string }) {
   return (
-    <div style={{ position: 'relative' }}>
+    <div className={st.snippet}>
       <pre dir="ltr" className="code-block is-dark">{text}</pre>
-      <div style={{ position: 'absolute', insetBlockStart: 8, insetInlineEnd: 8 }}><CopyButton text={text} className="btn btn-sm btn-ghost" /></div>
+      <div className={st.snippetCopy}><CopyButton text={text} className="btn btn-sm btn-ghost" /></div>
     </div>
   );
 }
@@ -35,7 +36,7 @@ export default function McpConnectPage() {
         <Card title={t('mcp.connect.url')}>
           {!CONFIGURED_URL && <Notice tone="info">{t('mcp.connect.urlMissing')}</Notice>}
           <div className="row mbs-10">
-            <code dir="ltr" style={{ fontSize: 15, wordBreak: 'break-all' }}>{url}</code>
+            <code dir="ltr" className={st.url}>{url}</code>
             <CopyButton text={url} />
           </div>
           <h3 className="mbe-6">{t('mcp.connect.header')}</h3>
@@ -62,7 +63,7 @@ export default function McpConnectPage() {
         <Notice tone="info">{t('mcp.connect.oauth')}</Notice>
 
         <Card title={t('mcp.connect.safety')}>
-          <ul className="stack" style={{ margin: 0, paddingInlineStart: 20, gap: 6 }}>
+          <ul className={`stack ${st.safety}`}>
             {[1, 2, 3, 4].map((i) => <li key={i}>{t(`mcp.connect.safety${i}`)}</li>)}
           </ul>
         </Card>

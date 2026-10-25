@@ -14,6 +14,7 @@ import {
   ClientStatus, endOfDayIso, ExpiryBadge, isoToDateInput, LoadState, McpPage, OutcomeBadge, ScopeForm,
   type CatalogTool, type McpCall, type McpClient, type ScopeValue,
 } from '../../_components/shared';
+import st from '../../_components/mcp.module.css';
 
 interface Usage {
   windows: Record<'24h' | '7d' | '30d', Record<string, number>>;
@@ -197,7 +198,7 @@ function TestPanel({ client, catalog, onRan }: { client: McpClient; catalog: Cat
           </SelectField>
           <TextareaField label={t('mcp.test.input')} value={input} rows={3} dir="ltr" spellCheck={false}
             hint={Object.keys(catalog.find((x) => x.name === tool)?.inputSchema.properties ?? {}).join(', ') || '{}'}
-            onChange={(e) => setInput(e.target.value)} style={{ fontFamily: 'ui-monospace, monospace' }} />
+            onChange={(e) => setInput(e.target.value)} className={`textarea ${st.monoInput}`} />
           {run.error && <Notice tone="danger">{run.error}</Notice>}
           <div className="row"><button className="btn btn-primary" disabled={run.pending || !tool}>{run.pending ? t('state.loading') : t('mcp.test.run')}</button></div>
           {result !== null && (
