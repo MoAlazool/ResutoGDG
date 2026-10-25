@@ -1,5 +1,5 @@
 'use client';
-// Inbox > Channels, Meta parts: WhatsApp Embedded Signup v4 (INT-13), Messenger / Instagram Direct channels (INT-21 /
+// Settings › Messaging > Channels (moved from the Inbox in 21-INBOX increment 2), Meta parts: WhatsApp Embedded Signup v4 (INT-13), Messenger / Instagram Direct channels (INT-21 /
 // FT-05) and re-verification of provider channels (INT-03).
 // Embedded Signup docs (2026-10-20): https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation
 import { useEffect, useRef, useState } from 'react';
@@ -59,9 +59,9 @@ function loadSdk(cfg: SignupConfig): Promise<FBType> {
 export const SIGNUP_RELOAD_PARAM = 'signup';
 
 /**
- * Whether this document was loaded with the Inbox's Content-Security-Policy (the one that lets Meta's SDK frame
- * www.facebook.com). Staff usually reach the Inbox by client-side navigation from another dashboard page, whose
- * stricter policy the document keeps; the launcher then reloads the Inbox before opening Meta's window.
+ * Whether this document was loaded with the Messaging settings page's Content-Security-Policy (the one that lets Meta's
+ * SDK frame www.facebook.com). Staff usually reach the page by client-side navigation from another dashboard page, whose
+ * stricter policy the document keeps; the launcher then reloads the page before opening Meta's window.
  */
 function loadedWithSdkPolicy(): boolean {
   const nav = (typeof performance !== 'undefined' && performance.getEntriesByType?.('navigation')[0]) as PerformanceNavigationTiming | undefined;
@@ -113,7 +113,7 @@ export function EmbeddedSignupCard({ onDone }: { onDone: () => Promise<void> | v
     setNote(null);
     info.current = null;
     if (!loadedWithSdkPolicy()) {
-      // Reached by client-side navigation: load the Inbox itself so its policy (Meta's hosts) applies, then start again.
+      // Reached by client-side navigation: load this page itself so its policy (Meta's hosts) applies, then start again.
       window.location.assign(`${window.location.pathname}?${SIGNUP_RELOAD_PARAM}=whatsapp`);
       return;
     }

@@ -64,16 +64,20 @@ describe('newNonce', () => {
 });
 
 describe('Meta SDK policy follows the loaded document (INT-13 review)', () => {
-  it('allows the SDK only in a document that was itself loaded at the Inbox path', () => {
-    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/inbox')).toBe(true);
-    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/inbox/?signup=whatsapp')).toBe(true);
-    // Loaded at the dashboard home, then client-side navigation to the Inbox: the document keeps frame-src 'none'.
+  it('allows the SDK only in a document that was itself loaded at the Settings › Messaging path', () => {
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/settings/messaging')).toBe(true);
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/settings/messaging/?signup=whatsapp')).toBe(true);
+    // Loaded at the dashboard home, then client-side navigation to Messaging: the document keeps frame-src 'none'.
     expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1')).toBe(false);
     expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/marketing')).toBe(false);
-    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/inbox/x')).toBe(false);
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/settings')).toBe(false);
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/settings/messaging/x')).toBe(false);
+    // 21-INBOX increment 2: the channels left the Inbox, and so did Meta's hosts.
+    expect(documentAllowsMetaSdk('https://app.resuto.app/dashboard/org-1/inbox')).toBe(false);
+    expect(META_SDK_PAGE.test('/dashboard/org-1/inbox')).toBe(false);
     expect(documentAllowsMetaSdk(null)).toBe(false);
-    expect(META_SDK_PAGE.test('/dashboard/org-1/inbox')).toBe(true);
-    // The policies that go with it: only the Inbox document can frame www.facebook.com.
+    expect(META_SDK_PAGE.test('/dashboard/org-1/settings/messaging')).toBe(true);
+    // The policies that go with it: only the Messaging document can frame www.facebook.com.
     expect(directive(buildCsp({ ...opts, nonce: 'n', dev: false, metaSdk: true }), 'frame-src')).toContain('https://www.facebook.com');
     expect(directive(buildCsp({ ...opts, nonce: 'n', dev: false }), 'frame-src')).toBe("frame-src 'none'");
   });

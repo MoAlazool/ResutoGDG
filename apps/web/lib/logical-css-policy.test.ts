@@ -7,7 +7,11 @@ import { describe, expect, it } from 'vitest';
 // left/right properties are rejected in every packages/ui/src file (CSS, CSS-in-TS strings and style objects).
 // A value that is genuinely physical (a tooltip placed at an SVG x coordinate) carries `logical-exempt` on its line.
 // Later workstreams add the CSS files they migrate to ROOTS.
-const ROOTS = ['packages/ui/src'];
+const ROOTS = [
+  'packages/ui/src',
+  // 21-INBOX increment 2: the Inbox workspace, the Customer 360 panel and Settings › Messaging.
+  'apps/web/app/dashboard/[orgId]/inbox', 'apps/web/components/customers', 'apps/web/app/dashboard/[orgId]/settings/messaging',
+];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');
 
@@ -58,7 +62,7 @@ describe('logical CSS properties in the design system (RTL)', () => {
     expect(physicalDeclarations('a.css', '@media (max-width: 700px) { .x { max-inline-size: none } }')).toEqual([]);
   });
 
-  it('packages/ui/src uses logical properties only', () => {
+  it('packages/ui/src and the migrated screens use logical properties only', () => {
     const offenders: string[] = [];
     for (const root of ROOTS) {
       for (const f of files(join(repo, root))) {

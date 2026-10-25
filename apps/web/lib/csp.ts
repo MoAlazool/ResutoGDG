@@ -35,20 +35,24 @@ export interface CspOptions {
   tiktokPixel?: boolean;
   snapPixel?: boolean;
   /**
-   * Inbox > Channels (INT-13): WhatsApp Embedded Signup runs Meta's JavaScript SDK (loaded by trusted code), whose
-   * login dialog talks to www.facebook.com through a hidden frame. Only that page gets these hosts.
+   * Settings › Messaging > Channels (INT-13; the Inbox's Channels tab until 21-INBOX increment 2): WhatsApp Embedded
+   * Signup runs Meta's JavaScript SDK (loaded by trusted code), whose login dialog talks to www.facebook.com through a
+   * hidden frame. Only that page gets these hosts.
    */
   metaSdk?: boolean;
 }
 
 export const META_SDK_HOSTS = ['https://www.facebook.com', 'https://web.facebook.com', 'https://connect.facebook.net'];
 
-/** Inbox > Channels runs Meta's SDK for WhatsApp Embedded Signup (INT-13): only documents loaded at this path get META_SDK_HOSTS. */
-export const META_SDK_PAGE = /^\/dashboard\/[^/]+\/inbox\/?$/;
+/**
+ * Settings › Messaging runs Meta's SDK for WhatsApp Embedded Signup (INT-13): only documents loaded at this path get
+ * META_SDK_HOSTS. (It was the Inbox until the channels moved; the Inbox no longer gets them.)
+ */
+export const META_SDK_PAGE = /^\/dashboard\/[^/]+\/settings\/messaging\/?$/;
 
 /**
- * A document keeps the policy it was loaded with: client-side navigation (next/link) to the Inbox does not bring the
- * Inbox's policy. So the SDK may only run when the document itself was loaded at the Inbox path. `loadedUrl` is the
+ * A document keeps the policy it was loaded with: client-side navigation (next/link) to Messaging does not bring that
+ * page's policy. So the SDK may only run when the document itself was loaded at the Messaging path. `loadedUrl` is the
  * URL the browser loaded the document from (its navigation timing entry), not the current URL.
  */
 export function documentAllowsMetaSdk(loadedUrl: string | null | undefined): boolean {
