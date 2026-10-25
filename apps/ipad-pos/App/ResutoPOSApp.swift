@@ -189,10 +189,12 @@ struct WorkspaceView: View {
                     }
             }
         }.onAppear {
+            // Choose an initial destination from membership hints while branch identity validation is loading.
+            // Operational controls still require the scoped lease through m.can and the backend guard.
             if m.membership?.role == "kitchen" { selected = .kitchen }
-            else if m.can("orders:write") { selected = .pos }
-            else if m.can("floor:read") { selected = .floor }
-            else if m.can("orders:read") { selected = .orders }
+            else if m.membership?.can("orders:write") == true { selected = .pos }
+            else if m.membership?.can("floor:read") == true { selected = .floor }
+            else if m.membership?.can("orders:read") == true { selected = .orders }
             else { selected = .settings }
         }.sheet(item: $m.detail) { order in OrderView(order: order) }
     }

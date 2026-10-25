@@ -474,6 +474,7 @@ private actor CacheReadGate: HTTPTransport {
     func send(_ request: URLRequest) async throws -> HTTPResult {
         requests.append(request)
         if request.url?.path == "/auth/v1/token" { return try authResponse() }
+        if request.httpMethod == "POST" { return HTTPResult(data:Data("{}".utf8),status:200) }
         reads += 1
         if reads == 1 { return await withCheckedContinuation { gate = $0; waiting?.resume(); waiting = nil } }
         return HTTPResult(data:Data(),status:304)
@@ -504,5 +505,30 @@ final class OrderDetailRefreshTests: XCTestCase {
         XCTAssertFalse(OrderLifecycle.acceptsRefresh(current:newer,incoming:initial))
         value["id"] = "another-order"; let another: OrderDetail = try parsed(value)
         XCTAssertFalse(OrderLifecycle.acceptsRefresh(current:another,incoming:newer))
+    }
+}
+
+final class MutationCacheTests: XCTestCase {
+    func testUncachedIdentityReadDoesNotDiscardUnrelatedMenuETag() async throws {
+        let transport = ScriptedTransport(try [authResponse(),HTTPResult(data:fixture("menu"),status:200,headers:["etag":"menu-tag"]),HTTPResult(data:fixture("me"),status:200),HTTPResult(data:Data(),status:304)])
+        let auth = try AuthService(url:URL(string:"https://auth.example")!,publicKey:"public",transport:transport,secrets:MemoryStore())
+        try await auth.signIn(email:"synthetic@example.test",password:"synthetic")
+        let client = try APIClient(base:URL(string:"https://api.example/v1")!,auth:auth,transport:transport)
+        let _: Menu = try await client.get("o/org/menu"); let _: Me = try await client.get("me")
+        let menu: Menu = try await client.get("o/org/menu"); XCTAssertFalse(menu.products.isEmpty)
+        let requests = await transport.requests; XCTAssertEqual(requests.last?.value(forHTTPHeaderField:"If-None-Match"),"menu-tag")
+    }
+    func testMutationInvalidatesLateReadWithoutReplayingMutation() async throws {
+        let transport = CacheReadGate(), auth = try AuthService(url:URL(string:"https://auth.example")!,publicKey:"public",transport:transport,secrets:MemoryStore())
+        try await auth.signIn(email:"synthetic@example.test",password:"synthetic")
+        let client = try APIClient(base:URL(string:"https://api.example/v1")!,auth:auth,transport:transport)
+        let read = Task { let value: Me = try await client.get("me"); return value }
+        await transport.waitForRead()
+        let body: [String:JSONValue] = ["branchId":.string(branchID),"available":.bool(false)]
+        let _: JSONValue = try await client.post("o/org/menu/products/" + productID + "/availability",body:body)
+        try await transport.finish()
+        do { _ = try await read.value; XCTFail("Pre-mutation read must not overwrite confirmed state") } catch is CancellationError {} catch { XCTFail("Unexpected error: \(error)") }
+        let requests = await transport.requests
+        XCTAssertEqual(requests.filter { $0.httpMethod == "POST" && $0.url?.path.contains("availability") == true }.count,1)
     }
 }

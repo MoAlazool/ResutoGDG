@@ -108,7 +108,9 @@ public actor APIClient {
         try await request(path, method: "GET", query: query, body: nil, key: nil)
     }
     public func post<B: Encodable & Sendable, T: Decodable & Sendable>(_ path: String, body: B, key: String? = nil) async throws -> T {
-        try await request(path, method: "POST", query: [:], body: JSONEncoder().encode(body), key: key)
+        // A mutation may have committed even when its response is lost or malformed. Revalidate every read afterward.
+        defer { clearCache() }
+        return try await request(path, method: "POST", query: [:], body: JSONEncoder().encode(body), key: key)
     }
     private func request<T: Decodable & Sendable>(_ path: String, method: String, query: [String: String], body: Data?, key: String?) async throws -> T {
         guard !path.contains(".."), !path.contains(":"), !path.contains("?"), !path.hasPrefix("/") else { throw RuleError.invalid("invalid_path") }
@@ -140,7 +142,7 @@ public actor APIClient {
                 if cached.count >= 24, let oldest = cached.keys.sorted().first { cached.removeValue(forKey: oldest); etags.removeValue(forKey: oldest) }
                 cached[cacheKey] = result.data; etags[cacheKey] = tag
             }
-            else { cached.removeAll(); etags.removeAll() }
+            else if method == "GET" { cached.removeValue(forKey:cacheKey); etags.removeValue(forKey:cacheKey) }
             return decoded
         }
         throw APIError(status: 401, code: "unauthorized", message: "session_expired")
