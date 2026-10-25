@@ -16,13 +16,23 @@ struct FloorView: View {
                 else {
                     VStack(alignment: .leading) {
                         HStack {
-                            Text("\(tables.count) · \(l.text("table"))").monospacedDigit()
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(l.text("floor")).font(.title2.bold())
+                                Text("\(tables.count) · \(l.text("table"))").font(.subheadline).monospacedDigit()
+                            }
                             Spacer()
                             if !typeSize.isAccessibilitySize {
                                 Button(l.text(listMode ? "floor_map" : "floor_list"),systemImage:listMode ? "map" : "list.bullet") { listMode.toggle() }
                                     .frame(minHeight:44).accessibilityIdentifier("floor.mode")
                             }
-                        }.font(.subheadline).padding(.horizontal)
+                        }.padding(.horizontal, 20).padding(.top, 16)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                StatusBadge(text: l.text("available"), symbol: "circle", tone: .positive)
+                                StatusBadge(text: l.text("occupied"), symbol: "person.2.fill", tone: .neutral)
+                                StatusBadge(text: l.text("cleaning"), symbol: "sparkles", tone: .warning)
+                            }.padding(.horizontal, 20).padding(.vertical, 8)
+                        }
                         if listMode || typeSize.isAccessibilitySize {
                             List(tables.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }) { table in
                                 Button { selected = table } label: {
@@ -55,7 +65,8 @@ struct FloorView: View {
                                     Button { selected = table } label: {
                                         VStack(spacing: 3) { Text(table.label).font(.headline); Text("\(table.capacity)").font(.caption.monospacedDigit()); if table.visit != nil { Image(systemName: "person.2.fill") } }
                                             .frame(width: max(52, table.width * scale), height: max(52, table.height * scale))
-                                            .background(table.visit == nil ? Design.accent.opacity(0.10) : Design.accent.opacity(0.28), in: RoundedRectangle(cornerRadius: table.shape == "round" ? 60 : 12))
+                                            .foregroundStyle(Design.accent)
+                                            .background(table.visit == nil ? Design.surface : Design.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: table.shape == "round" ? 60 : 12))
                                             .overlay { RoundedRectangle(cornerRadius: 12).stroke(table.status == "cleaning" ? .orange : Design.accent.opacity(0.3), lineWidth: 2) }
                                     }.buttonStyle(.plain).accessibilityIdentifier("table." + table.id).rotationEffect(.degrees(table.rotation)).position(x: table.cx * scale, y: table.cy * scale)
                                         .accessibilityLabel("\(l.text("table")) \(table.label), \(l.text(table.visit == nil ? table.status : "occupied")), \(table.capacity) \(l.text("seats"))").accessibilityHint(l.text("table_details_hint"))
@@ -69,12 +80,15 @@ struct FloorView: View {
         }.sheet(item: $selected) { table in
             NavigationStack {
                 Form {
-                    Text("\(l.text("table")) \(table.label)").font(.title)
-                    Label(l.text(table.visit == nil ? table.status : "occupied"), systemImage: "circle.fill")
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("\(l.text("table")) \(table.label)").font(.largeTitle.bold())
+                        StatusBadge(text: l.text(table.visit == nil ? table.status : "occupied"), symbol: "table.furniture", tone: table.status == "cleaning" ? .warning : .neutral)
+                        Text("\(table.capacity) \(l.text("seats"))").font(.body).monospacedDigit()
+                    }.padding(.vertical, 8)
                     if let visit = table.visit { LabeledContent(l.text("due"), value: Money.text(visit.dueMinor, currency: m.restaurant?.currency ?? "")) }
                     if let reservation = table.nextReservation { Section(l.text("reservation")) { Text(reservation.guestName); Text(reservation.startsAt).font(.caption); Text("\(reservation.partySize)").monospacedDigit() } }
                     if m.can("orders:write") {
-                        Button(l.text("add_to_order")) { m.selectedTable = table; m.fulfillment = "dine_in"; m.persistDraft(); selected = nil; onSelect() }.frame(minHeight: 44).accessibilityIdentifier("floor.order")
+                        Button(l.text("add_to_order")) { m.selectedTable = table; m.fulfillment = "dine_in"; m.persistDraft(); selected = nil; onSelect() }.buttonStyle(.borderedProminent).controlSize(.large).frame(minHeight: 48).accessibilityIdentifier("floor.order")
                     }
                     if m.can("floor:seat") {
                         if table.visit == nil { Button(l.text(table.status == "cleaning" ? "mark_clean" : "seat")) { action(table, table.status == "cleaning" ? "clean" : "seat") }.disabled(!m.reachable) }
@@ -105,7 +119,7 @@ struct OrdersView: View {
                                 Text("#\(order.number)").font(.title3.bold()).monospacedDigit().frame(minWidth: 70)
                                 VStack(alignment: .leading, spacing: 6) { Text(order.tableLabel ?? l.text(order.fulfillment)); Text(l.text(order.status)).foregroundStyle(Design.accent) }
                                 Spacer()
-                                VStack(alignment: .trailing, spacing: 6) { Text(Money.text(order.totalMinor, currency: order.currency)).font(.headline); Text(l.text(order.paymentStatus)).font(.caption).foregroundStyle(.secondary) }
+                                VStack(alignment: .trailing, spacing: 6) { Text(Money.text(order.totalMinor, currency: order.currency)).font(.headline); Text(l.text(order.paymentStatus)).font(.subheadline).foregroundStyle(order.paymentStatus == "paid" ? Design.accent : .primary) }
                             }.padding(.vertical, 12)
                         }.foregroundStyle(.primary).disabled(!m.reachable).accessibilityIdentifier("order." + order.id)
                     }
@@ -126,22 +140,50 @@ struct KitchenView: View {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 400))], spacing: 20) {
                     ForEach(m.tickets) { ticket in
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack { Text("#\(ticket.number)").font(.title2.bold()); Spacer(); Text("\(max(0,ticket.ageSeconds) / 60) \(l.text("minutes_short"))").monospacedDigit().accessibilityLabel("\(max(0,ticket.ageSeconds) / 60) \(l.text("minutes"))") }
-                            Text(ticket.tableLabel ?? l.text(ticket.fulfillment)).foregroundStyle(.secondary)
-                            Text(l.text(ticket.status)).font(.headline).foregroundStyle(Design.accent)
-                            Divider()
-                            ForEach(ticket.lines) { line in
-                                VStack(alignment: .leading, spacing: 4) { Text("\(line.quantity) × \(l.name(line.name, line.nameAr))").font(.headline); Text(line.modifiers.joined(separator: ", ")).font(.subheadline); if let note = line.notes { Text(note).foregroundStyle(.orange) }; Text(l.text(line.kitchenStatus)).font(.caption).foregroundStyle(.secondary)
-                                    if m.can("kitchen:operate"), ["queued", "preparing"].contains(line.kitchenStatus) {
-                                        let next = line.kitchenStatus == "queued" ? "preparing" : "ready"
-                                        Button(l.text(next)) { Task { await m.perform { try await m.kitchenLine(line.id, status: next) } } }.buttonStyle(.bordered).disabled(!m.reachable)
+                        ResutoCard {
+                            VStack(alignment: .leading, spacing: 16) {
+                                HStack(alignment: .top) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("#\(ticket.number)").font(.title.bold()).monospacedDigit()
+                                        Label(ticket.tableLabel ?? l.text(ticket.fulfillment), systemImage: ticket.tableLabel == nil ? "bag" : "table.furniture").font(.subheadline)
                                     }
+                                    Spacer()
+                                    Label("\(max(0,ticket.ageSeconds) / 60) \(l.text("minutes_short"))", systemImage: "clock")
+                                        .font(.subheadline.weight(.semibold)).monospacedDigit()
+                                        .accessibilityLabel("\(max(0,ticket.ageSeconds) / 60) \(l.text("minutes"))")
                                 }
+                                StatusBadge(text: l.text(ticket.status), symbol: ticket.status == "ready" ? "checkmark.circle.fill" : "flame", tone: ticket.status == "ready" ? .positive : .neutral)
+                                Divider()
+                                ForEach(ticket.lines) { line in
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        Text("\(line.quantity) × \(l.name(line.name, line.nameAr))").font(.headline)
+                                        if !line.modifiers.isEmpty { Text(line.modifiers.joined(separator: ", ")).font(.body) }
+                                        if let note = line.notes, !note.isEmpty {
+                                            Label(note, systemImage: "text.bubble").font(.body.weight(.medium)).padding(12)
+                                                .frame(maxWidth: .infinity, alignment: .leading)
+                                                .background(Design.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
+                                        }
+                                        HStack {
+                                            Text(l.text(line.kitchenStatus)).font(.subheadline.weight(.medium))
+                                            Spacer()
+                                            if m.can("kitchen:operate"), ["queued", "preparing"].contains(line.kitchenStatus) {
+                                                let next = line.kitchenStatus == "queued" ? "preparing" : "ready"
+                                                Button(l.text(next)) { Task { await m.perform { try await m.kitchenLine(line.id, status: next) } } }
+                                                    .buttonStyle(.borderedProminent).controlSize(.large).frame(minHeight: 48).disabled(!m.reachable)
+                                            }
+                                        }
+                                    }.padding(.vertical, 4)
+                                    Divider()
+                                }
+                                if let note = ticket.notes, !note.isEmpty {
+                                    Label(note, systemImage: "text.bubble").padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(Design.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
+                                }
+                                Button { Task { await m.perform { try await m.openOrder(ticket.id) } } } label: {
+                                    Label(l.text("orders"), systemImage: "arrow.up.right.square").frame(maxWidth: .infinity, minHeight: 48)
+                                }.buttonStyle(.bordered).disabled(!m.reachable).accessibilityIdentifier("kitchen.open." + ticket.id)
                             }
-                            if let note = ticket.notes { Text(note).padding(10).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8)) }
-                            Button(l.text("orders")) { Task { await m.perform { try await m.openOrder(ticket.id) } } }.buttonStyle(.bordered).disabled(!m.reachable).accessibilityIdentifier("kitchen.open." + ticket.id)
-                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Design.surface, in: RoundedRectangle(cornerRadius: 20))
+                        }
                     }
                 }.padding(20)
             }
@@ -155,13 +197,19 @@ struct SyncView: View {
     var body: some View {
         List {
             if m.pending.isEmpty { EmptyState(key: "no_pending", symbol: "checkmark.icloud") }
+            if !m.pending.isEmpty {
+                Section {
+                    Label(l.text(m.reachable ? "online" : "offline"), systemImage: m.reachable ? "wifi" : "wifi.slash").font(.headline)
+                    Text(l.text("sync_integrity_notice")).font(.body)
+                }
+            }
             ForEach(m.pending) { operation in
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 14) {
                     Label(l.text("sync_" + operation.state.rawValue), systemImage: operation.state == .accepted ? "checkmark.circle" : "arrow.triangle.2.circlepath")
                         .font(.headline).foregroundStyle(operation.state == .attention ? .orange : Design.accent).accessibilityIdentifier("sync.state." + operation.state.rawValue)
                     Text(operation.serverNumber.map { "#\($0)" } ?? String(operation.id.uuidString.prefix(8))).font(.subheadline.monospaced())
-                    Text(operation.createdAt, style: .date).font(.caption)
-                    if let issue = operation.issue { Text(l.failureText(FailurePresentation.key(code:issue))).foregroundStyle(.secondary) }
+                    Text(operation.createdAt, style: .date).font(.subheadline)
+                    if let issue = operation.issue { Label(l.failureText(FailurePresentation.key(code:issue)), systemImage: "exclamationmark.triangle").font(.body) }
                     HStack {
                         if operation.state == .local {
                             Button(l.text("review_send")) { Task { await m.perform { try await m.prepareReview(operation); reviewing = operation } } }.disabled(!m.reachable)
@@ -171,8 +219,8 @@ struct SyncView: View {
                         } else if let id = operation.serverOrderId {
                             Button(l.text("orders")) { Task { await m.perform { try await m.openOrder(id) } } }.disabled(!m.reachable)
                         }
-                    }.buttonStyle(.bordered)
-                }.padding(.vertical, 10)
+                    }.buttonStyle(.bordered).controlSize(.large).frame(minHeight: 48)
+                }.padding(.vertical, 14)
             }
         }.sheet(item: $reviewing) { operation in
             NavigationStack {
@@ -209,30 +257,72 @@ struct OrderView: View {
         NavigationStack {
             Form {
                 Section {
-                    HStack { Text("#\(current.number)").font(.largeTitle.bold()); Spacer(); Text(l.text(current.status)).foregroundStyle(Design.accent).accessibilityIdentifier("order.status") }
-                    Text(l.text(current.paymentStatus)).font(.headline).accessibilityIdentifier("order.paymentState")
-                    ForEach(current.lines) { line in HStack { Text("\(line.quantity) × \(l.name(line.name, line.nameAr))"); Spacer(); Text(Money.text(line.lineTotalMinor, currency: current.currency)).monospacedDigit() } }
-                }
-                Section(l.text("total")) {
-                    total("subtotal", current.subtotalMinor); total("discount", current.discountMinor); total("tax", current.taxMinor); total("service", current.serviceChargeMinor); total("delivery", current.deliveryFeeMinor); total("total", current.totalMinor); total("due", current.dueMinor)
-                }
-                if m.can("orders:status"), OrderLifecycle.next(current.status, fulfillment: current.fulfillment) != nil {
-                    Button(l.text("advance")) { Task { await m.perform { try await m.transition(current) } } }.disabled(!m.reachable).accessibilityIdentifier("order.advance")
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("#\(current.number)").font(.largeTitle.bold()).monospacedDigit()
+                                Text(l.text(current.fulfillment)).font(.body)
+                            }
+                            Spacer()
+                            Text(l.text(current.status)).font(.headline).foregroundStyle(Design.accent).accessibilityIdentifier("order.status")
+                        }
+                        Text(l.text(current.paymentStatus)).font(.headline).accessibilityIdentifier("order.paymentState")
+                        Divider()
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(l.text(current.dueMinor > 0 ? "due" : "total")).font(.subheadline.weight(.semibold))
+                            Text(Money.text(current.dueMinor > 0 ? current.dueMinor : current.totalMinor, currency: current.currency))
+                                .font(.largeTitle.bold()).monospacedDigit().foregroundStyle(Design.accent)
+                        }
+                    }.padding(.vertical, 12)
                 }
                 if m.can("payments:collect"), current.dueMinor > 0, current.status != "cancelled" {
                     Section(l.text("payment")) {
-                        Text(l.text("payment_notice")).font(.subheadline).foregroundStyle(.secondary)
-                        TextField(l.text("amount"), text: $amount).keyboardType(.decimalPad).environment(\.layoutDirection, .leftToRight).accessibilityIdentifier("cashAmount")
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(l.text("amount")).font(.subheadline.weight(.semibold))
+                            TextField(l.text("amount"), text: $amount).keyboardType(.decimalPad)
+                                .environment(\.layoutDirection, .leftToRight).accessibilityIdentifier("cashAmount")
+                                .font(.title2.weight(.semibold)).padding(14)
+                                .background(Design.mutedSurface, in: RoundedRectangle(cornerRadius: 12))
+                            Button { confirmCash = true } label: {
+                                Label(l.text("record_cash"), systemImage: "banknote").frame(maxWidth: .infinity, minHeight: 48)
+                            }.buttonStyle(.borderedProminent).controlSize(.large).accessibilityIdentifier("checkout.reviewCash")
+                                .disabled(!m.reachable || (Money.parse(amount) ?? 0) <= 0 || (Money.parse(amount) ?? Int64.max) > current.dueMinor)
+                            Text(l.text("payment_notice")).font(.subheadline)
+                        }.padding(.vertical, 8)
                         DisclosureGroup(l.text("split_amount")) {
-                            Stepper("\(l.text("people")): \(people)", value: $people, in: 2...20)
+                            Stepper("\(l.text("people")): \(people)", value: $people, in: 2...20).monospacedDigit()
                             if let split = try? Money.split(current.dueMinor, people: people) {
                                 ForEach(Array(split.enumerated()), id: \.offset) { index, share in
-                                    Button("\(index + 1) · \(Money.text(share, currency: current.currency))") { amount = Money.text(share, currency: "").trimmingCharacters(in: .whitespaces) }
+                                    Button("\(index + 1) · \(Money.text(share, currency: current.currency))") { amount = Money.text(share, currency: "").trimmingCharacters(in: .whitespaces) }.frame(minHeight: 48)
                                 }
                             }
                         }
-                        Button(l.text("record_cash")) { confirmCash = true }.accessibilityIdentifier("checkout.reviewCash").disabled(!m.reachable || (Money.parse(amount) ?? 0) <= 0 || (Money.parse(amount) ?? Int64.max) > current.dueMinor)
                     }
+                }
+                Section(l.text("orders")) {
+                    ForEach(current.lines) { line in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                                Text("\(line.quantity) × \(l.name(line.name, line.nameAr))").font(.body.weight(.medium))
+                                Spacer()
+                                Text(Money.text(line.lineTotalMinor, currency: current.currency)).monospacedDigit()
+                            }
+                            if let note = line.notes, !note.isEmpty { Label(note, systemImage: "text.bubble").font(.subheadline) }
+                        }.padding(.vertical, 6)
+                    }
+                    DisclosureGroup(l.text("total_breakdown")) {
+                        total("subtotal", current.subtotalMinor)
+                        total("discount", current.discountMinor)
+                        total("tax", current.taxMinor)
+                        total("service", current.serviceChargeMinor)
+                        total("delivery", current.deliveryFeeMinor)
+                        total("total", current.totalMinor)
+                        total("due", current.dueMinor)
+                    }
+                }
+                if m.can("orders:status"), OrderLifecycle.next(current.status, fulfillment: current.fulfillment) != nil {
+                    Button(l.text("advance")) { Task { await m.perform { try await m.transition(current) } } }
+                        .buttonStyle(.bordered).controlSize(.large).frame(minHeight: 48).disabled(!m.reachable).accessibilityIdentifier("order.advance")
                 }
                 Section(l.text("receipt")) {
                     Button(l.text("queue_receipt")) { Task { await m.perform { try await m.enqueueReceipt(current, arabic: l.arabic) } } }.accessibilityIdentifier("receipt.enqueue")

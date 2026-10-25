@@ -11,14 +11,14 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section(l.text("staff")) {
-                Text(m.me?.user.fullName ?? m.me?.user.email ?? "")
+                Label(m.me?.user.fullName ?? m.me?.user.email ?? "", systemImage: "person.crop.circle").font(.headline)
                 Text(l.text("role_" + (m.membership?.role ?? ""))).foregroundStyle(.secondary)
                 Toggle("العربية / English", isOn: $l.arabic)
                 Button(l.text("change_workspace")) { Task { await m.perform { try await m.changeWorkspace() } } }.disabled(!m.reachable)
                 Button(l.text("sign_out"), role: .destructive) { Task { await m.signOut() } }
             }
             Section(l.text("environment")) {
-                Text(m.configuration?.apiURL.absoluteString ?? "").font(.caption.monospaced()).textSelection(.enabled)
+                Text(m.configuration?.apiURL.absoluteString ?? "").font(.subheadline.monospaced()).textSelection(.enabled)
                 Text(m.restaurant?.name ?? ""); Text(m.branch?.name ?? "")
             }
             DeviceSettingsView(integration:m.deviceIntegration)
@@ -26,7 +26,7 @@ struct SettingsView: View {
                 Section(l.text("payment_reconciliation_required")) {
                     Text(intent.kind == "cash" ? l.text("cash") : l.text("refund"))
                     Text(Money.text(intent.amountMinor, currency: m.restaurant?.currency ?? ""))
-                    Text(intent.orderId).font(.caption.monospaced()).textSelection(.enabled)
+                    Text(intent.orderId).font(.subheadline.monospaced()).textSelection(.enabled)
                     Text(intent.createdAt, style: .date)
                     Button(l.text("retry_same_financial")) { financialRecovery = true }.accessibilityIdentifier("financial.retry").disabled(!m.reachable)
                 }
@@ -37,13 +37,13 @@ struct SettingsView: View {
                     TextField(l.text("printer_host"), text: $host).keyboardType(.decimalPad).environment(\.layoutDirection, .leftToRight)
                     Picker(l.text("printer_width"), selection: $width) { Text("384").tag(384); Text("576").tag(576) }
                 }
-                Text(l.text("hardware_notice")).font(.subheadline).foregroundStyle(.secondary)
+                Text(l.text("hardware_notice")).font(.body).foregroundStyle(.primary)
             }
             Section(l.text("receipt")) {
                 ForEach(m.printJobs) { job in
                     VStack(alignment: .leading, spacing: 10) {
                         Text("#\(job.receipt.number)").font(.headline)
-                        Text(l.text(job.state.rawValue)).foregroundStyle(.secondary)
+                        StatusBadge(text:l.text(job.state.rawValue),symbol:job.state == .waiting ? "printer" : "exclamationmark.circle")
                         if let issue = job.issue { Text(l.text(issue)).foregroundStyle(.orange) }
                         Button(l.text(job.state == .waiting ? "print" : "reprint")) {
                             if job.state == .waiting { printNow(job, reprint: false) } else { confirm = job }

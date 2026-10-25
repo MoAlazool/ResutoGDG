@@ -108,8 +108,19 @@ final class WorkflowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["عادي"].waitForExistence(timeout: 10))
         tap(app,"product.add")
         XCUIDevice.shared.orientation = .portrait
+        tap(app,"cart.open")
         XCTAssertTrue(element(app,"cart.save").waitForExistence(timeout: 15))
         attach(app,"simulated-arabic-order-entry")
+    }
+    func testAccessibleCompactCartKeepsExplicitServerReview() throws {
+        let app = try launch(accessibilityText: true)
+        tap(app,"product." + product); tap(app,"product.add")
+        XCUIDevice.shared.orientation = .portrait
+        tap(app,"cart.open")
+        tap(app,"cart.review")
+        XCTAssertTrue(element(app,"cart.confirm").waitForExistence(timeout:15))
+        XCTAssertTrue(element(app,"cart.confirm").isEnabled)
+        attach(app,"simulated-accessibility-size-compact-cart-review")
     }
     func testDraftSurvivesTerminationWithoutBecomingServerOrder() throws {
         var app = try launch()

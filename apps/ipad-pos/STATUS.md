@@ -2,6 +2,10 @@
 
 **Not production ready.** Contract baseline `1746b4f6ee5e03bd0d9c8943b37e680eca057dce`. Source branch `feature/ipad-pos`; PR base must be `feature/ipad-pos`.
 
+## Current native UX refinement
+
+Fresh native screenshot audit and implemented SwiftUI refinements are documented in [`docs/UX_REVIEW.md`](docs/UX_REVIEW.md). Ordering now uses a compact sidebar, adaptive catalogue/cart, explicit modifier requirements, clear send-versus-save actions and a fuller submission recap. Checkout, kitchen, floor, sync and device state hierarchy are also refined. Local core tests (107), localization parity, route contracts and simulator-transport checks pass. **These UI changes require a new successful Xcode run and final screenshot inspection; the older green run below does not verify them.**
+
 Latest completed native run: [40189594156](https://github.com/MoAlazool/ResutoGDG/actions/runs/40189594156) at `05096ad` is **green: 107 core tests, all 18 simulator UI tests, Debug and Release builds**, Xcode 16.4 / Swift 6.1.2. These are synthetic simulator workflows using real Keychain/encrypted client files. Authenticated staging and physical-device verification remain pending. Detailed coverage and remaining internal work are in `docs/TEST_MATRIX.md`.
 
 Legend: Implemented = functional source exists; Tested = executed automated evidence; Staging = actual authorized deployed workflow; Device = actual physical verification. “No” is not an inferred pass.

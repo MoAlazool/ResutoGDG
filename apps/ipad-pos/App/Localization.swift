@@ -7,6 +7,20 @@ import SwiftUI
     static func text(_ key: String,arabic: Bool) -> String { arabic ? (Self.ar[key] ?? key) : (Self.en[key] ?? key.replacingOccurrences(of: "_", with: " ").capitalized) }
     func failureText(_ key: String) -> String { text(Self.en[key] == nil ? "request_failed" : key) }
     static let en: [String: String] = [
+        "choose_workspace": "Choose your workspace",
+        "workspace_notice": "Select the restaurant and branch for this service. Only your authorized workspaces are shown.",
+
+        "clear_search": "Clear search",
+        "optional": "Optional",
+        "choose_options": "Select options",
+        "item_estimate": "Item estimate",
+        "order_details": "Notes & promotion",
+        "offline_draft_notice": "Offline · save a draft for later review",
+        "staff_sign_in": "Staff sign-in",
+        "staff_access_notice": "Use your authorized staff account. Your restaurant and branch permissions apply.",
+        "total_breakdown": "Price breakdown",
+        "sync_integrity_notice": "Saved drafts are not kitchen tickets. Only server-confirmed orders are accepted; payment recovery always requires review.",
+
         "floor_map":"Floor map", "floor_list":"Table list", "seats":"seats", "table_details_hint":"Opens table details and permitted service actions",
         "device_shadow_notice":"Device linking is in read-only validation. Ordering continues through the existing staff service.", "device_connected":"Device linked with staff sign-in", "device_ordering_allowed":"This staff and device combination permits ordering", "device_ordering_denied":"This staff and device combination cannot place device orders", "device_orders_truncated":"The server open-order snapshot is incomplete. Use order history for additional records.", "pair_this_ipad":"Link this iPad", "pairing_code":"Manager pairing code", "pair_and_compare":"Link and synchronize", "forget_pairing":"Forget local device link", "forget_pairing_notice":"Remove the device credential from this iPad. A manager must revoke the device in Resuto to invalidate other copies. Staff sign-in is preserved.", "pos_context_mismatch":"The device belongs to a different restaurant or branch. Select its workspace or ask a manager to link it again.", "pos_staff_contract_required":"Use a manager code requiring staff sign-in on the updated Resuto platform.", "pos_pairing_code_invalid":"Enter the ten-character manager pairing code.", "pairing_ambiguous":"The pairing response was interrupted. Ask a manager to review the device list and issue a new code if needed.", "pos_backend_pending":"Device linking requires the platform staging update. Existing staff workflows remain available.",
         "operational_receipt":"Operational summary — not a tax invoice",
@@ -212,6 +226,20 @@ import SwiftUI
         "welcome_detail": "One workspace for every service.",
     ]
     static let ar: [String: String] = [
+        "choose_workspace": "اختر مساحة العمل",
+        "workspace_notice": "اختر المطعم والفرع لهذه الوردية. تظهر فقط مساحات العمل المصرح لك بها.",
+
+        "clear_search": "مسح البحث",
+        "optional": "اختياري",
+        "choose_options": "اختر الخيارات",
+        "item_estimate": "تقدير الأصناف",
+        "order_details": "ملاحظات ورمز ترويجي",
+        "offline_draft_notice": "غير متصل · احفظ مسودة لمراجعتها لاحقًا",
+        "staff_sign_in": "تسجيل دخول الموظفين",
+        "staff_access_notice": "استخدم حساب الموظف المصرح به. تُطبَّق صلاحيات المطعم والفرع الخاصة بك.",
+        "total_breakdown": "تفاصيل المبلغ",
+        "sync_integrity_notice": "المسودات المحفوظة ليست تذاكر مطبخ. لا يُقبل الطلب إلا بتأكيد الخادم، واستعادة عمليات الدفع تتطلب المراجعة دائمًا.",
+
         "floor_map":"مخطط الصالة", "floor_list":"قائمة الطاولات", "seats":"مقاعد", "table_details_hint":"يفتح تفاصيل الطاولة وإجراءات الخدمة المسموح بها",
         "menu":"القائمة",
         "device_shadow_notice":"ربط الجهاز قيد التحقق للقراءة فقط. يستمر تسجيل الطلبات عبر خدمة الموظفين الحالية.", "device_connected":"تم ربط الجهاز بتسجيل دخول الموظف", "device_ordering_allowed":"يسمح حساب الموظف ودور الجهاز بإنشاء طلبات الجهاز", "device_ordering_denied":"لا يسمح حساب الموظف ودور الجهاز بإنشاء طلبات الجهاز", "device_orders_truncated":"قائمة الطلبات المفتوحة من الخادم غير مكتملة. استخدم سجل الطلبات لعرض المزيد.", "pair_this_ipad":"ربط هذا الآيباد", "pairing_code":"رمز الربط من المدير", "pair_and_compare":"ربط ومزامنة", "forget_pairing":"نسيان ربط الجهاز محلياً", "forget_pairing_notice":"سيُحذف اعتماد الجهاز من هذا الآيباد. على المدير إلغاء الجهاز في ريسوتو لإبطال أي نسخ أخرى. يبقى تسجيل دخول الموظف محفوظاً.", "pos_context_mismatch":"الجهاز مرتبط بمطعم أو فرع آخر. اختر مساحة العمل المرتبطة أو اطلب من المدير إعادة الربط.", "pos_staff_contract_required":"استخدم رمزاً من المدير يشترط تسجيل دخول الموظف على منصة ريسوتو المحدّثة.", "pos_pairing_code_invalid":"أدخل رمز الربط المكوّن من عشرة أحرف من المدير.", "pairing_ambiguous":"انقطع رد الربط. اطلب من المدير مراجعة قائمة الأجهزة وإصدار رمز جديد عند الحاجة.", "pos_backend_pending":"يتطلب ربط الجهاز تحديث منصة الاختبار. تبقى خدمات الموظفين الحالية متاحة.",

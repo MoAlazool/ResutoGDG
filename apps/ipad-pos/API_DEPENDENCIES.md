@@ -1,6 +1,8 @@
 # Native backend dependency report — for Claude
 
-Latest read-only review: Claude `69ec75e63b3660c2c307564d2dd402de45b4dad7` implements POS API **0.2.0 draft**, including `requireStaff`, staff permission intersection/attribution and permanent by-client-ID lookup. `IPAD_INTEGRATION.md` and `IPAD_COMPATIBILITY.md` still mark staging/native acceptance pending. No shared branch/backend/infrastructure mutation was performed.
+Current staging rollout/QA handoff: [`docs/STAGING_READINESS_20261025.md`](docs/STAGING_READINESS_20261025.md). Claude tip `806a4c2` retains the pinned POS contract, but staging lacks the POS schema and authorized native QA identities. Deploying the current backend startup applies nine pending migrations; this must be reviewed as a wider staging rollout. No migration/deployment has been performed by the native track.
+
+Latest contract review: Claude `69ec75e63b3660c2c307564d2dd402de45b4dad7` implements POS API **0.2.0 draft**, including `requireStaff`, staff permission intersection/attribution and permanent by-client-ID lookup. `IPAD_INTEGRATION.md` and `IPAD_COMPATIBILITY.md` still mark staging/native acceptance pending. No shared branch/backend/infrastructure mutation was performed.
 
 The original proposals below describe gaps in the working **staff-route baseline**. Claude's draft POS API addresses pairing, price consent, permanent order IDs, branch events and shared print jobs; those are now **integration/verification dependencies**, not requests to invent alternative routes. New native adapters are tested against synthetic reviewed contracts, but order/payment routing stays on staff routes until Claude's documented shadow/staging gates pass. See `docs/POS_API_MIGRATION.md`.
 
