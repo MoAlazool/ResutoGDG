@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { parseMajor, type AnalyticsMeta, type Currency } from '@resuto/contracts';
 import { Badge, Field, Notice, SelectField, Stat, useAction } from '@resuto/ui';
 import { MetaPanel, Section, useFormat } from '@/components/charts/insights';
+import a from './analytics.module.css';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -89,7 +90,7 @@ export function RoiCalculator({ branchId }: { branchId: string }) {
               </Section>
               <section className="card card-sandbox" aria-label={t('insights.roi.hypothetical')}>
                 <div className="spread mbe-12">
-                  <h2 style={{ margin: 0, fontSize: 18 }}>{t('insights.roi.scenario')}</h2>
+                  <h2 className={a.title}>{t('insights.roi.scenario')}</h2>
                   <Badge tone="sandbox">{t('insights.roi.hypothetical')}</Badge>
                 </div>
                 <p className="fine">{t('insights.roi.notMeasured')}</p>

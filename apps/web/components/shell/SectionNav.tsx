@@ -7,10 +7,11 @@ import { useOrg } from '@/lib/org-context';
 import { activeSection, type SectionLink } from '@/lib/sections';
 
 /**
- * Sub-navigation between the routes of one area (21-SHELL): Finance, Intelligence, MCP. One pattern for every area
+ * Sub-navigation between the routes of one area (21-SHELL): Finance, Insights, MCP. One pattern for every area
  * (it replaces the Finance pills, the Intelligence tabs and the MCP tabs); in-page tabs stay `Tabs`. Links the role
- * cannot open are left out. `query` is appended to every link (Finance keeps its period); `active` overrides the
- * section chosen from the URL.
+ * cannot open are left out; a link whose `group` differs from the previous one starts a new group (a divider).
+ * `query` is appended to every link (Finance and Insights keep their period); `active` overrides the section chosen
+ * from the URL.
  */
 export function SectionNav({ sections, label, query, active }: { sections: SectionLink[]; label: string; query?: string; active?: string }) {
   const { t } = useT();
@@ -23,8 +24,8 @@ export function SectionNav({ sections, label, query, active }: { sections: Secti
   return (
     <nav className="section-nav" aria-label={label}>
       <ul>
-        {shown.map((s) => (
-          <li key={s.href}>
+        {shown.map((s, i) => (
+          <li key={s.href} data-group-start={i > 0 && s.group !== shown[i - 1]!.group ? '' : undefined}>
             <Link href={`${base}${s.href}${query ? `?${query}` : ''}`} aria-current={s.href === current ? 'page' : undefined}>{t(s.label)}</Link>
           </li>
         ))}

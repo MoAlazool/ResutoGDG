@@ -1,14 +1,16 @@
 'use client';
-import { useState } from 'react';
+// Insights › Forecast: demand per dish for the next 7 or 14 days. A forecast is a model's estimate: every card names
+// its model (chosen by back-testing, shown in the table) and its uncertainty band, and is marked as estimated.
 import type { ForecastResponse, ItemForecast } from '@resuto/contracts';
-import { Badge, Card, Notice, SelectField, Skeleton } from '@resuto/ui';
+import { Badge, Card, ChartLegend, ForecastChart, Notice, ProvenanceBadge, SelectField, Skeleton } from '@resuto/ui';
+import { InsightsShell, useInsights } from '@/components/insights/InsightsShell';
+import s from '@/components/insights/insights.module.css';
 import { useT } from '@/lib/i18n/client';
 import { pick } from '@/lib/format';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
 import { forecastReason } from '@/lib/vocab';
-import { ForecastChart, Legend } from '../_components/charts';
-import { ApiErrorNotice, Empty, IntelShell, fmtNum, fmtPct, useBranch } from '../_components/IntelShell';
+import { ApiErrorNotice, Empty, fmtNum, fmtPct, useBranch } from '../_components/intel';
 
 function ItemCard({ item }: { item: ItemForecast }) {
   const { t, locale, dir } = useT();
@@ -27,19 +29,19 @@ function ItemCard({ item }: { item: ItemForecast }) {
   const name = pick(locale, item.name, item.nameAr);
   const level = Math.round(item.interval.level * 100);
   return (
-    <Card title={name} actions={<Badge tone="info">{t(`intelligence.model.${item.model}`)}</Badge>}>
+    <Card title={name} actions={<><ProvenanceBadge provenance="estimated" /><Badge tone="info">{t(`intelligence.model.${item.model}`)}</Badge></>}>
       <p className="muted mbs-0">
         {t('intelligence.forecast.total', { days: item.forecast.length, total: fmtNum(sum('yhat'), locale), lower: fmtNum(sum('lower'), locale), upper: fmtNum(sum('upper'), locale) })}
       </p>
       <ForecastChart history={filled} forecast={item.forecast} rtl={dir === 'rtl'}
         label={`${name}: ${t('intelligence.forecast.total', { days: item.forecast.length, total: fmtNum(sum('yhat'), locale), lower: fmtNum(sum('lower'), locale), upper: fmtNum(sum('upper'), locale) })}`} />
-      <Legend items={[
+      <ChartLegend items={[
         { color: 'var(--chart-4)', label: t('intelligence.forecast.history') },
         { color: 'var(--chart-1)', label: t('intelligence.forecast.prediction'), dashed: true },
         { color: 'var(--chart-1)', label: t('intelligence.forecast.interval', { level }), band: true },
       ]} />
       {item.fallbackReason && <p className="fine">{t('intelligence.forecast.fallback', { reason: forecastReason(t, item.fallbackReason) })}</p>}
-      <h3 style={{ fontSize: 14, marginBlock: '14px 6px' }}>{t('intelligence.forecast.backtest', { folds: item.backtest.folds, horizon: item.backtest.horizon })}</h3>
+      <h3 className={s.subhead}>{t('intelligence.forecast.backtest', { folds: item.backtest.folds, horizon: item.backtest.horizon })}</h3>
       <div className="table-wrap">
         <table className="data">
           <thead><tr><th>{t('intelligence.forecast.model')}</th><th className="text-end">MAE</th><th className="text-end">RMSE</th><th className="text-end">WAPE</th></tr></thead>
@@ -73,16 +75,18 @@ function ItemCard({ item }: { item: ItemForecast }) {
   );
 }
 
-export default function ForecastPage() {
+function Forecast() {
   const { t } = useT();
   const { org } = useOrg();
   const { branchId } = useBranch();
-  const [horizon, setHorizon] = useState(14);
+  const { view, setParams } = useInsights();
+  // The horizon is part of the view (`?horizon=7`, saved with a report); 14 days by default.
+  const horizon = Number(view.filters.horizon ?? 14);
   const { data, error, loading, reload } = useApi<ForecastResponse>(branchId ? `/o/${org.id}/intelligence/forecast?branchId=${branchId}&horizon=${horizon}&top=5` : null);
   return (
-    <IntelShell>
-      <div className="form-row" style={{ maxWidth: 560 }}>
-        <SelectField label={t('intelligence.forecast.horizon')} value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
+    <>
+      <div className={`form-row ${s.formRowNarrow}`}>
+        <SelectField label={t('intelligence.forecast.horizon')} value={horizon} onChange={(e) => setParams({ horizon: e.target.value === '14' ? null : e.target.value })}>
           {[7, 14].map((h) => <option key={h} value={h}>{h}</option>)}
         </SelectField>
       </div>
@@ -97,6 +101,10 @@ export default function ForecastPage() {
                 <div className="grid grid-2">{data.items.map((it) => <div className="min-w-0" key={it.productId}><ItemCard item={it} /></div>)}</div>
               </div>
             )}
-    </IntelShell>
+    </>
   );
+}
+
+export default function ForecastPage() {
+  return <InsightsShell section="forecast"><Forecast /></InsightsShell>;
 }

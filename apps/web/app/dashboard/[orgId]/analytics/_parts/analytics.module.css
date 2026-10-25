@@ -1,0 +1,7 @@
+/* Analytics panels (Insights area, 21-INSIGHTS): formerly inline styles. Logical properties only. */
+.title { margin: 0; font-size: var(--fs-xl); }
+.subtitle { margin: 4px 0 0; }
+.comments { gap: 12px; margin: 0; padding: 0; list-style: none; }
+.comment { border-block-end: 1px solid var(--border); padding-block-end: 10px; }
+.gramsRow { margin-block-start: 14px; align-items: flex-end; }
+.gramsField { margin: 0; max-inline-size: 260px; }

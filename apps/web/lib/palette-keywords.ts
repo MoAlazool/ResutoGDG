@@ -26,6 +26,8 @@ export const PALETTE_KEYWORDS: Record<string, string> = {
   '/finance': 'finance accounting revenue overview',
   '/compliance': 'compliance tax zatca eta invoices',
   '/analytics': 'analytics reports sales',
+  // 21-INSIGHTS: the Insights sections (/analytics/sales …) are found by their labels ("Analytics › Sales"); extra
+  // words here would make unrelated queries ("sign out") match them.
   '/intelligence/assistant': 'assistant copilot ask chat',
   '/mcp/new': 'new connection key',
   '/integrations': 'integrations apps connect providers',
@@ -39,9 +41,8 @@ export const PALETTE_KEYWORDS: Record<string, string> = {
   '/finance/pnl': 'profit loss p&l pnl',
   '/finance/expenses': 'expenses costs bills',
   '/finance/exports': 'exports accounting download',
-  '/intelligence': 'intelligence ai insights forecast',
+  '/intelligence': 'intelligence ai insights findings forecast',
   '/intelligence/forecast': 'forecast demand prediction',
-  '/intelligence/customers': 'segments churn customers ai',
   '/intelligence/recommendations': 'recommendations suggestions',
   '/intelligence/routes': 'routes delivery planning',
   '/intelligence/research': 'research market competitors',

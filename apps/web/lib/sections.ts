@@ -11,6 +11,8 @@ export interface SectionLink {
   permission?: Permission;
   anyPermission?: Permission[];
   module?: ModuleKey;
+  /** Starts a new group in the SectionNav (a divider before the first link of a group). */
+  group?: string;
 }
 
 export const FINANCE_SECTIONS: SectionLink[] = [
@@ -20,15 +22,33 @@ export const FINANCE_SECTIONS: SectionLink[] = [
   { href: '/finance/exports', label: 'finance.nav.exports' },
 ];
 
-export const INTELLIGENCE_SECTIONS: SectionLink[] = [
-  { href: '/intelligence', label: 'intelligence.tab.insights' },
-  { href: '/intelligence/forecast', label: 'intelligence.tab.forecast' },
-  { href: '/intelligence/customers', label: 'intelligence.tab.customers' },
-  { href: '/intelligence/recommendations', label: 'intelligence.tab.recommendations' },
-  { href: '/intelligence/routes', label: 'intelligence.tab.routes', permission: 'delivery:dispatch' },
-  { href: '/intelligence/assistant', label: 'intelligence.tab.assistant' },
-  { href: '/intelligence/research', label: 'intelligence.tab.research' },
+/**
+ * The Insights area (21-INSIGHTS): analytics (measured from the restaurant's own records) then intelligence (findings,
+ * forecasts and models), one SectionNav for both. Routes: lib/insights.ts INSIGHTS_PATHS. The former Analytics tabs
+ * (`/analytics?tab=…`) redirect to these routes and `/intelligence/customers` (segments and churn) merged into
+ * Customers. The Copilot assistant (`/intelligence/assistant`) belongs to AI & Apps, not here.
+ */
+export const INSIGHTS_SECTIONS: SectionLink[] = [
+  { href: '/analytics', label: 'insights.area.overview', permission: 'analytics:read' },
+  { href: '/analytics/sales', label: 'insights.area.sales', permission: 'analytics:read' },
+  { href: '/analytics/menu', label: 'insights.area.menu', permission: 'analytics:read' },
+  { href: '/analytics/customers', label: 'insights.area.customers', permission: 'analytics:read' },
+  // 21-CRM: the funnels and cohorts views take their places here (e.g. { href: '/analytics/funnels', … }).
+  { href: '/analytics/ratings', label: 'insights.area.ratings', permission: 'analytics:read' },
+  { href: '/analytics/marketing', label: 'insights.area.marketing', permission: 'analytics:read' },
+  { href: '/analytics/operations', label: 'insights.area.operations', permission: 'analytics:read' },
+  { href: '/analytics/sustainability', label: 'insights.area.sustainability', permission: 'analytics:read' },
+  { href: '/analytics/roi', label: 'insights.area.roi', permission: 'analytics:read' },
+  { href: '/intelligence', label: 'insights.area.findings', permission: 'ai:use', module: 'intelligence', group: 'intelligence' },
+  { href: '/intelligence/forecast', label: 'insights.area.forecast', permission: 'ai:use', module: 'intelligence', group: 'intelligence' },
+  { href: '/intelligence/recommendations', label: 'insights.area.recommendations', permission: 'ai:use', module: 'intelligence', group: 'intelligence' },
+  { href: '/intelligence/research', label: 'insights.area.research', permission: 'ai:use', module: 'intelligence', group: 'intelligence' },
+  { href: '/intelligence/routes', label: 'insights.area.routes', permission: 'delivery:dispatch', module: 'intelligence', group: 'intelligence' },
 ];
+/** The analytics part of the Insights sections (under the Analytics navigation item). */
+export const ANALYTICS_SECTIONS = INSIGHTS_SECTIONS.filter((s) => s.href.startsWith('/analytics'));
+/** The intelligence part (under the Intelligence navigation item). */
+export const INTELLIGENCE_SECTIONS = INSIGHTS_SECTIONS.filter((s) => s.href.startsWith('/intelligence'));
 
 export const MCP_SECTIONS: SectionLink[] = [
   { href: '/mcp', label: 'mcp.tab.clients', permission: 'mcp:manage' },

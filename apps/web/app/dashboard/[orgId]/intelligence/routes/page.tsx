@@ -1,19 +1,21 @@
 'use client';
+// Insights › Routes: plan a driver's next stops (distance or lateness), compared with the order they came in.
 import { useEffect, useState } from 'react';
 import type { RoutePlanResponse } from '@resuto/contracts';
-import { Badge, Card, Notice, SelectField, Skeleton, Stat, useAction, OrderRef } from '@resuto/ui';
+import { Badge, Card, Notice, OrderRef, RouteMap, SelectField, Skeleton, Stat, useAction } from '@resuto/ui';
+import { InsightsShell } from '@/components/insights/InsightsShell';
+import s from '@/components/insights/insights.module.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { time } from '@/lib/format';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { RouteMap } from '../_components/charts';
-import { ApiErrorNotice, Empty, IntelShell, fmtNum, useBranch } from '../_components/IntelShell';
+import { ApiErrorNotice, Empty, fmtNum, useBranch } from '../_components/intel';
 
 interface Driver { id: string; displayName: string; availability: string; openJobs: number }
 
-export default function RoutesPage() {
+function Routes() {
   const { t, locale } = useT();
   const { org } = useOrg();
   const { call } = useSession();
@@ -28,9 +30,8 @@ export default function RoutesPage() {
   });
 
   return (
-    <IntelShell>
-      <ModuleGate module="driver" permission="delivery:dispatch">
-        <div className="form-row" style={{ maxWidth: 820, alignItems: 'end' }}>
+    <ModuleGate module="driver" permission="delivery:dispatch">
+        <div className={`form-row ${s.formRow}`}>
             <SelectField label={t('intelligence.routes.driver')} value={driverId} onChange={(e) => setDriverId(e.target.value)} disabled={!drivers.data?.items.length}>
             {(drivers.data?.items ?? []).map((d) => <option key={d.id} value={d.id}>{d.displayName} ({d.openJobs})</option>)}
           </SelectField>
@@ -62,7 +63,7 @@ export default function RoutesPage() {
                 {plan.skipped.length > 0 && <Notice tone="warn">{t('intelligence.routes.skipped', { n: plan.skipped.length })}</Notice>}
               </Card></div>
               <div className="min-w-0"><Card title={`#`}>
-                <ol style={{ margin: 0, paddingInlineStart: 20, display: 'grid', gap: 10 }}>
+                <ol className={s.stackList}>
                   {plan.stops.map((s) => (
                     <li key={s.jobId}>
                       <strong><OrderRef n={s.orderNumber} /></strong> <span dir="auto">{s.address ?? ''}</span>{' '}
@@ -75,7 +76,10 @@ export default function RoutesPage() {
             </div>
           </div>
         )}
-      </ModuleGate>
-    </IntelShell>
+    </ModuleGate>
   );
+}
+
+export default function RoutesPage() {
+  return <InsightsShell section="routes" permission="delivery:dispatch"><Routes /></InsightsShell>;
 }

@@ -1,0 +1,59 @@
+/* The Insights area (21-INSIGHTS). Logical properties only (lib/logical-css-policy.test.ts). */
+
+/* A minmax(0, 1fr) track so wide tables scroll inside their own wrapper instead of widening the page at 390 px. */
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+
+.toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3);
+  padding-block-end: var(--space-1);
+}
+.group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.field { display: inline-flex; }
+.select { inline-size: auto; min-block-size: 38px; }
+.date { inline-size: auto; min-block-size: 38px; }
+.toolbarEnd { margin-inline-start: auto; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Saved reports (ReportControls, SavedReportsList) */
+.form { display: grid; gap: var(--space-3); inline-size: min(320px, 80vw); padding: var(--space-3); }
+.form p { margin: 0; }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.menu { inline-size: min(340px, 86vw); max-block-size: 60vh; overflow-y: auto; padding: var(--space-2); display: grid; gap: var(--space-2); }
+.menuHead { margin: 0; padding-inline: var(--space-2); font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--text-muted); text-transform: uppercase; }
+.item {
+  display: grid; gap: 2px; padding: var(--space-2); border-radius: var(--radius-1); color: var(--text); text-decoration: none;
+}
+.item:hover, .item:focus-visible { background: var(--surface-hover); }
+.itemMeta { font-size: var(--fs-xs); color: var(--text-muted); }
+.row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding-block: var(--space-2); border-block-end: 1px solid var(--border-subtle);
+}
+.row:last-child { border-block-end: 0; }
+.rowMain { display: grid; gap: 2px; min-inline-size: 0; }
+.rowActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.empty { margin: 0; color: var(--text-muted); }
+
+/* Overview: KPI tiles and the section cards. */
+.cards { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.cardHead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin-block-end: var(--space-3); }
+.cardTitle { margin: 0; font-size: var(--fs-lg); }
+.note { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+
+/* Intelligence screens */
+.cleanList { list-style: none; margin: 0; padding: 0; }
+.stackList { margin: 0; padding-inline-start: 20px; display: grid; gap: var(--space-2); }
+.insightCard { padding: 18px; }
+.insightMain { display: grid; gap: 6px; min-inline-size: 0; flex: 1 1 280px; }
+.insightTitle { font-size: var(--fs-lg); }
+.evidence {
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0 0; font-size: var(--fs-sm);
+  background: var(--surface-warm); padding: 10px; border-radius: var(--radius-1);
+}
+.evidenceRow { display: contents; }
+.finePlain { margin-block-end: 0; }
+.formRow { max-inline-size: 820px; align-items: end; }
+.formRowNarrow { max-inline-size: 560px; }
+.subhead { font-size: var(--fs-md); margin-block: 14px 6px; }
+.metricValue { margin: 0; font-weight: var(--fw-bold); font-size: var(--fs-xl); }
+.researchSection { margin-block-end: 20px; }
+.recLabel { margin-block-end: 8px; }

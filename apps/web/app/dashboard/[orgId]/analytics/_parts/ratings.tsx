@@ -2,9 +2,9 @@
 // Analytics → Guests (VS-27): the ratings guests leave after paying — average, per-score counts, where they paid and
 // their latest comments. Ratings carry no guest identity.
 import type { AnalyticsMeta, RatingsSummary } from '@resuto/contracts';
-import { EmptyState, Skeleton, Stat } from '@resuto/ui';
-import { BarList } from '@/components/charts';
+import { BarList, EmptyState, Skeleton, Stat } from '@resuto/ui';
 import { LoadError, MetaPanel, qs, Section, useFormat, type Period } from '@/components/charts/insights';
+import a from './analytics.module.css';
 import { formatWhen } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -27,8 +27,8 @@ export function RatingsPanel({ period, branchId }: { period: Period; branchId: s
   return (
     <div className="stack gap-16">
       <div>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{t('insights.ratings.title')}</h2>
-        <p className="muted" style={{ margin: '4px 0 0' }}>{t('insights.ratings.subtitle')}</p>
+        <h2 className={a.title}>{t('insights.ratings.title')}</h2>
+        <p className={`muted ${a.subtitle}`}>{t('insights.ratings.subtitle')}</p>
       </div>
       {data.count === 0 ? <EmptyState title={t('insights.ratings.empty')} /> : (
         <>
@@ -51,11 +51,11 @@ export function RatingsPanel({ period, branchId }: { period: Period; branchId: s
           </div>
           <Section title={t('insights.ratings.comments')}>
             {data.comments.length === 0 ? <p className="muted m-0">{t('insights.ratings.noComments')}</p> : (
-              <ul className="stack" style={{ gap: 12, margin: 0, padding: 0, listStyle: 'none' }}>
+              <ul className={`stack ${a.comments}`}>
                 {data.comments.map((c, i) => (
-                  <li key={`${c.at}-${i}`} style={{ borderBlockEnd: '1px solid var(--line)', paddingBlockEnd: 10 }}>
+                  <li key={`${c.at}-${i}`} className={a.comment}>
                     <div className="fine">{t('insights.ratings.stars', { score: c.overall })} · {source(c.source)} · {formatWhen(c.at, locale, org.timezone)}</div>
-                    <p style={{ margin: '4px 0 0' }} dir="auto"><bdi>{c.comment}</bdi></p>
+                    <p className={a.subtitle} dir="auto"><bdi>{c.comment}</bdi></p>
                   </li>
                 ))}
               </ul>

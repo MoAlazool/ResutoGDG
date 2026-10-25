@@ -4,7 +4,7 @@ import type { Permission, Role } from '@resuto/contracts';
 import { can } from '@resuto/contracts/lite';
 import { EXPLORE_ITEM, navVisible, type NavArea } from './nav';
 import { PALETTE_KEYWORDS } from './palette-keywords';
-import { FINANCE_SECTIONS, INTELLIGENCE_SECTIONS, MCP_SECTIONS, SETTINGS_SECTIONS, type SectionLink } from './sections';
+import { ANALYTICS_SECTIONS, FINANCE_SECTIONS, INTELLIGENCE_SECTIONS, MCP_SECTIONS, SETTINGS_SECTIONS, type SectionLink } from './sections';
 
 export type PaletteAction = 'signOut' | 'language' | 'branches';
 
@@ -33,7 +33,9 @@ type T = (key: string, vars?: Record<string, string | number>) => string;
 export const PALETTE_SUBS: Record<string, SectionLink[]> = {
   '/menu': [{ href: '/menu-import', label: 'nav.menuImport', permission: 'menu:write' }],
   '/finance': FINANCE_SECTIONS.slice(1),
-  '/intelligence': INTELLIGENCE_SECTIONS.filter((s) => s.href !== '/intelligence' && s.href !== '/intelligence/assistant'),
+  // 21-INSIGHTS: the Insights sections, under the Analytics and Intelligence items.
+  '/analytics': ANALYTICS_SECTIONS.filter((s) => s.href !== '/analytics'),
+  '/intelligence': INTELLIGENCE_SECTIONS.filter((s) => s.href !== '/intelligence'),
   '/mcp': [...MCP_SECTIONS.slice(1), { href: '/mcp/new', label: 'mcp.clients.new', permission: 'mcp:manage' }],
   // Channels and templates moved from the Inbox to Settings › Messaging (21-INBOX): listed under the Inbox, so members
   // who use the Inbox without org:manage (no Settings item) find them too.

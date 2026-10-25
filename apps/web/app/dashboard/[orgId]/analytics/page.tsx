@@ -1,42 +1,98 @@
 'use client';
-import { useState } from 'react';
-import { PageHeader, Tabs } from '@resuto/ui';
-import { ModuleGate } from '@/components/shell/ModuleGate';
-import { PeriodPicker, presetPeriod, type Period, InsightsPage } from '@/components/charts/insights';
-import { useUrlParam } from '@/components/ops/use-url-state';
+// Insights › Overview (21-INSIGHTS): the period's headline figures, each with where it comes from and a link to the
+// view that explains it, the top dishes and channels, and the member's saved reports. The former Analytics tabs
+// (`?tab=…`) redirect to their own routes (next.config.ts, lib/insights.ts insightsRedirects).
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+import type { AnalyticsMeta, RatingsSummary, RevenueTotals } from '@resuto/contracts';
+import { BarList, provenanceFromMetaKind, StatV2 } from '@resuto/ui';
+import { InsightsShell, useInsights } from '@/components/insights/InsightsShell';
+import { SavedReportsList } from '@/components/insights/SavedReportsList';
+import { LoadError, MetaPanel, qs, useFormat } from '@/components/charts/insights';
+import s from '@/components/insights/insights.module.css';
+import { insightsHref, legacyAnalyticsTarget, type InsightsSection } from '@/lib/insights';
 import { useT } from '@/lib/i18n/client';
-import { useBranchScope, useOrg } from '@/lib/org-context';
-import { CustomersPanel, MarketingPanel, OperationsPanel, ProductsPanel, SalesPanel, SustainabilityPanel } from './_parts/panels';
-import { RatingsPanel } from './_parts/ratings';
-import { RoiCalculator } from './_parts/roi';
+import { useOrg } from '@/lib/org-context';
+import { useApi } from '@/lib/use-api';
 
-type Tab = 'sales' | 'products' | 'customers' | 'guests' | 'marketing' | 'operations' | 'sustainability' | 'roi';
-const TABS: Tab[] = ['sales', 'products', 'customers', 'guests', 'marketing', 'operations', 'sustainability', 'roi'];
+interface Summary {
+  totals: RevenueTotals;
+  comparison: null | { from: string; to: string; changePct: Record<string, number | null> };
+  byChannel: Array<{ key: string; orders: number; netMinor: number }>;
+  daily: Array<{ date: string; orders: number; netMinor: number }>;
+  meta: AnalyticsMeta;
+}
+interface Products { top: Array<{ productId: string; name: string; nameAr: string | null; revenueMinor: number; quantity: number }>; meta: AnalyticsMeta }
+interface Customers { customers: number; repeatCustomers: number; repeatRatePct: number | null; meta: AnalyticsMeta }
 
-export default function AnalyticsPage() {
-  const { t } = useT();
+function Overview() {
+  const { t, locale } = useT();
   const { org } = useOrg();
-  // The tab is in the URL (?tab=guests), so the overview's "Needs attention" can link to a tab (21-HOME).
-  const [tab, setTab] = useUrlParam<Tab>('tab', 'sales', TABS);
-  const [period, setPeriod] = useState<Period>(() => presetPeriod('30d', org.timezone));
-  // The branch comes from the shell's branch switcher ("All branches" supported).
-  const { branchId } = useBranchScope({ allowAll: true });
-  const props = { period, branchId };
+  const f = useFormat();
+  const { period, branchId, compare, view } = useInsights();
+  const range = { from: period.from, to: period.to, branchId };
+  const summary = useApi<Summary>(`/o/${org.id}/analytics/summary${qs({ ...range, compare })}`);
+  const products = useApi<Products>(`/o/${org.id}/analytics/products${qs({ ...range, compare: 'none' })}`);
+  const customers = useApi<Customers>(`/o/${org.id}/analytics/customers${qs({ ...range, compare: 'none' })}`);
+  const ratings = useApi<RatingsSummary & { meta: AnalyticsMeta }>(`/o/${org.id}/analytics/ratings${qs({ ...range, compare: 'none' })}`);
+  const link = (section: InsightsSection) => `/dashboard/${org.id}${insightsHref(section, view)}`;
+  const d = summary.data;
+  const ch = d?.comparison?.changePct;
+  const vs = d?.comparison ? t('home.perf.vs', { from: f.date(d.comparison.from), to: f.date(d.comparison.to) }) : undefined;
+  const delta = (v: number | null | undefined) => (d?.comparison ? { value: v ?? null, label: vs } : undefined);
+  const live = d ? provenanceFromMetaKind(d.meta.kind) : 'unavailable';
+  const spark = d && d.daily.length >= 2 ? d.daily : null;
+  const r = ratings.data;
+  const c = customers.data;
   return (
-    <ModuleGate module="core" permission="analytics:read"><InsightsPage>
-      <PageHeader overline={t('nav.analytics')} title={t('insights.analytics.title')} subtitle={t('insights.analytics.subtitle')}
-        actions={tab !== 'roi' ? <PeriodPicker value={period} onChange={setPeriod} /> : undefined} />
-      <div style={{ overflowX: 'auto' }}>
-        <Tabs tabs={TABS.map((k) => ({ key: k, label: t(`insights.analytics.tab.${k}`) }))} value={tab} onChange={setTab} />
+    <div className="stack gap-16">
+      <LoadError error={summary.error} retry={summary.reload} />
+      <div className="rui-stat-grid">
+        <StatV2 label={t('insights.kpi.net')} value={d ? f.money(d.totals.netMinor) : '…'} provenance={live} delta={delta(ch?.netMinor)}
+          sparkline={spark ? spark.map((x) => x.netMinor) : undefined} href={link('sales')} linkAs={Link} />
+        <StatV2 label={t('insights.kpi.orders')} value={d ? f.num(d.totals.orders) : '…'} provenance={live} delta={delta(ch?.orders)}
+          sparkline={spark ? spark.map((x) => x.orders) : undefined} href={link('sales')} linkAs={Link} />
+        <StatV2 label={t('insights.kpi.aov')} value={d ? f.money(d.totals.averageOrderMinor) : '…'} provenance={live} delta={delta(ch?.averageOrderMinor)}
+          href={link('sales')} linkAs={Link} />
+        <StatV2 label={t('insights.customers.repeatRate')} value={c ? f.pct(c.repeatRatePct) : '…'} provenance={c ? provenanceFromMetaKind(c.meta.kind) : 'unavailable'}
+          hint={c ? t('insights.customers.repeatHint', { count: c.repeatCustomers }) : undefined} href={link('customers')} linkAs={Link} />
+        <StatV2 label={t('ops.overview.satisfaction')} value={r && r.count && r.averages.overall !== null ? f.num(Math.round(r.averages.overall * 10) / 10) : '—'}
+          unit={r?.count ? '/ 5' : undefined} provenance={r ? 'live' : 'unavailable'}
+          hint={r ? (r.count ? t('home.perf.ratings', { n: r.count }) : t('home.perf.noRatings')) : undefined} href={link('ratings')} linkAs={Link} />
       </div>
-      {tab === 'sales' && <SalesPanel {...props} />}
-      {tab === 'products' && <ProductsPanel {...props} />}
-      {tab === 'customers' && <CustomersPanel {...props} />}
-      {tab === 'guests' && <RatingsPanel {...props} />}
-      {tab === 'marketing' && <MarketingPanel {...props} />}
-      {tab === 'operations' && <OperationsPanel {...props} />}
-      {tab === 'sustainability' && <SustainabilityPanel {...props} />}
-      {tab === 'roi' && <RoiCalculator branchId={branchId} />}
-    </InsightsPage></ModuleGate>
+      {d && d.totals.orders === 0 && <p className={s.note}>{t('insights.empty.period')}</p>}
+      <div className={s.cards}>
+        <section className="card" aria-labelledby="ov-dishes">
+          <div className={s.cardHead}>
+            <h2 id="ov-dishes" className={s.cardTitle}>{t('insights.products.top')}</h2>
+            <Link href={link('menu')}>{t('insights.area.openMenu')}</Link>
+          </div>
+          <BarList label={t('insights.products.top')} format={f.money} empty={t('insights.empty.none')}
+            items={(products.data?.top ?? []).slice(0, 5).map((p) => ({ key: p.productId, label: locale === 'ar' && p.nameAr ? p.nameAr : p.name, value: p.revenueMinor,
+              hint: t('insights.area.qty', { n: p.quantity }) }))} />
+        </section>
+        <section className="card" aria-labelledby="ov-channels">
+          <div className={s.cardHead}>
+            <h2 id="ov-channels" className={s.cardTitle}>{t('insights.sales.byChannel')}</h2>
+            <Link href={link('sales')}>{t('insights.area.openSales')}</Link>
+          </div>
+          <BarList label={t('insights.sales.byChannel')} format={f.money} empty={t('insights.empty.none')}
+            items={(d?.byChannel ?? []).map((b) => ({ key: b.key, label: t(`insights.channel.${b.key}`), value: b.netMinor, hint: t('insights.ordersCount', { count: b.orders }) }))} />
+        </section>
+      </div>
+      <SavedReportsList />
+      <MetaPanel meta={d?.meta} />
+    </div>
   );
+}
+
+export default function AnalyticsOverviewPage() {
+  const router = useRouter();
+  const { org } = useOrg();
+  const params = useSearchParams();
+  // Fallback for an old ?tab= link that reached the page without the server redirect.
+  const legacy = legacyAnalyticsTarget(params.toString());
+  useEffect(() => { if (legacy) router.replace(`/dashboard/${org.id}${legacy}`); }, [legacy, org.id, router]);
+  return <InsightsShell section="overview">{legacy ? null : <Overview />}</InsightsShell>;
 }

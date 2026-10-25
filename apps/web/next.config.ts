@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 import path from 'node:path';
 import { buildCsp } from './lib/csp';
+import { insightsRedirects } from './lib/insights';
 
 const repoRoot = new URL('../..', import.meta.url).pathname;
 
@@ -31,6 +32,10 @@ const config: NextConfig = {
     config.resolve.alias = { ...config.resolve.alias, '@resuto/contracts$': path.join(repoRoot, 'apps/web/lib/contracts-entry.ts'),
       '@resuto/contracts/lite$': path.join(repoRoot, 'packages/contracts/src/lite.ts') };
     return config;
+  },
+  // 21-INSIGHTS: routes that merged into the Insights area (the old Analytics tabs, the intelligence customers screen).
+  async redirects() {
+    return insightsRedirects();
   },
   async headers() {
     // Static files from public/ (PCL-22, docs/CACHE_POLICY.md). Fonts carry a content hash in their name
