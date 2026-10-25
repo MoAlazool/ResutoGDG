@@ -6,8 +6,11 @@ import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
+import styles from './compliance.module.css';
 import { FiscalDocuments } from './_components/FiscalDocuments';
 import { ExpiryBadge, Licences } from './_components/Licences';
+import { RegimeStepper } from './_components/RegimeStepper';
+import type { EgsUnitLite } from './_components/steps';
 import { TaxProfileForm } from './_components/TaxProfileForm';
 import { ZatcaOnboarding } from './_components/ZatcaOnboarding';
 
@@ -22,13 +25,23 @@ interface Provider { id: string; name: string; readiness: string; countries: str
 
 function Overview({ go }: { go(tab: Tab): void }) {
   const { t, locale } = useT();
-  const { org } = useOrg();
+  const { org, can } = useOrg();
   const summary = useApi<Summary>(`/o/${org.id}/compliance/summary`);
   const providers = useApi<{ tax: Provider[]; licensing: Provider[] }>(`/o/${org.id}/compliance/integrations`);
+  const regime = summary.data?.taxProfile.regime;
+  // The stepper's facts: ZATCA EGS units, or the ETA point-of-sale connection (only roles that manage integrations can read it).
+  const egs = useApi<{ items: EgsUnitLite[] }>(regime === 'zatca' ? `/o/${org.id}/compliance/zatca/egs` : null);
+  const conns = useApi<{ items: Array<{ provider: string; status: string; environment: string }> }>(regime === 'eta' && can('integrations:manage') ? `/o/${org.id}/integrations/connections` : null);
   if (summary.loading && !summary.data) return <Skeleton lines={6} />;
   if (summary.error) return <Notice tone="danger">{summary.error.message}</Notice>;
   const s = summary.data!;
   const relevant = [...(providers.data?.tax ?? []), ...(providers.data?.licensing ?? [])].filter((p) => p.countries.includes(org.country));
+  const eta = conns.data?.items.find((c) => c.provider === 'eta_ereceipt');
+  const facts = {
+    profileValidated: s.taxProfile.isValidated, branches: org.branches.filter((b) => b.isActive).length,
+    units: egs.data ? egs.data.items : null, etaConnection: !can('integrations:manage') || conns.error ? undefined : conns.data ? eta ?? null : undefined,
+    issued30d: s.fiscal.issued30d, submissionMode: s.fiscal.submissionMode,
+  };
   return (
     <div className="stack">
       {!s.taxProfile.isValidated && s.taxProfile.regime !== 'none' && (
@@ -45,7 +58,10 @@ function Overview({ go }: { go(tab: Tab): void }) {
           hint={t('compliance.overview.licenceCounts', { expired: s.licences.counts.expired ?? 0, expiring: s.licences.counts.expiring ?? 0 })}
           tone={s.licences.counts.expired ? 'danger' : s.licences.counts.expiring ? 'warn' : undefined} />
       </div>
-      <div className="grid grid-2">
+      {s.taxProfile.regime === 'zatca' || s.taxProfile.regime === 'eta'
+        ? <RegimeStepper regime={s.taxProfile.regime} facts={facts} go={go} />
+        : <Notice>{t('compliance.steps.none')}</Notice>}
+      <div className={styles.pair}>
         <Card title={t('compliance.overview.expiring')} actions={<button className="btn btn-sm" onClick={() => go('licences')}>{t('compliance.overview.manage')}</button>}>
           {s.licences.attention.length ? (
             <div className="stack gap-8">
@@ -56,10 +72,10 @@ function Overview({ go }: { go(tab: Tab): void }) {
           ) : <p className="muted m-0">{s.licences.total ? t('compliance.overview.allValid') : t('compliance.lic.emptyHint')}</p>}
         </Card>
         <Card title={t('compliance.overview.integrations')}>
-          <div className="stack gap-10">
+          <div className="stack gap-10" data-testid="compliance-readiness">
             {relevant.map((p) => (
               <div key={p.id}>
-                <div className="spread"><strong>{p.name}</strong><span className="badge badge-sandbox">{t(`compliance.readiness.${p.readiness}`)}</span></div>
+                <div className={styles.readinessRow}><strong>{p.name}</strong><Badge tone="sandbox">{t(`compliance.readiness.${p.readiness}`)}</Badge></div>
                 <div className="fine">{p.activation[0]}</div>
               </div>
             ))}

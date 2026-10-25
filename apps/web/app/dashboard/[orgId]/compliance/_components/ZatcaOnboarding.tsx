@@ -9,6 +9,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import styles from '../compliance.module.css';
 
 interface Egs {
   id: string; branchId: string; activatedAt: string | null; environment: string; status: string; commonName: string; egsSerial: string; invoiceType: string; csrPem: string;
@@ -59,7 +60,7 @@ export function ZatcaOnboarding() {
               </ul>
             )}
             {editable && unit.status === 'key_generated' && (
-              <form className="row" style={{ gap: 8, alignItems: 'flex-end' }} onSubmit={(e) => { e.preventDefault(); void run.run(`/${unit.id}/compliance-csid`, { otp: otp[unit.id] ?? '' }); }}>
+              <form className={styles.otp} onSubmit={(e) => { e.preventDefault(); void run.run(`/${unit.id}/compliance-csid`, { otp: otp[unit.id] ?? '' }); }}>
                 <Field label={t('compliance.zatca.otp')} dir="ltr" inputMode="numeric" pattern="\d{6}" value={otp[unit.id] ?? ''} onChange={(e) => setOtp({ ...otp, [unit.id]: e.target.value.replace(/\D/g, '').slice(0, 6) })} hint={t('compliance.zatca.otpHint')} />
                 <button className="btn btn-primary" disabled={run.pending || (otp[unit.id] ?? '').length !== 6}>{t('compliance.zatca.requestCsid')}</button>
               </form>
