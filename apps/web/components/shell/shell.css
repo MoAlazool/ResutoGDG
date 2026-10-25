@@ -1,0 +1,150 @@
+/* Staff shell navigation (21-SHELL): areas with secondary lists, collapsible sidebar, branch switcher, account menu,
+   topbar search, phone tab bar and drawer. Logical properties only (RTL); semantic tokens only. The base shell layout
+   (.ws, .ws-sidebar, .ws-topbar, .ws-page …) stays in app/globals.css. */
+
+.ws { transition: grid-template-columns var(--dur) var(--ease-out); }
+.ws[data-collapsed] { --ws-sidebar: 76px; }
+.ws[data-collapsed] .ws-sidebar { padding-inline: 12px; overflow: visible; }
+
+.ws-brand-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-inline-size: 0; }
+.ws[data-collapsed] .ws-brand-row { flex-direction: column; align-items: center; gap: var(--space-3); }
+.ws[data-collapsed] .ws-brand { padding-inline-start: 0; }
+.ws[data-collapsed] .ws-brand .ws-wordmark > span:not(.ws-wordmark-mark) { display: none; }
+
+.ws-icon-btn {
+  display: inline-grid; place-items: center; inline-size: 34px; block-size: 34px; flex-shrink: 0; border: 1px solid transparent;
+  border-radius: var(--radius-1); background: none; color: var(--text-muted); cursor: pointer;
+}
+.ws-icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+
+/* The menus' slot (components/shell/LazyMenu.tsx) does not take part in the layout. */
+.ws-menu-slot { display: contents; }
+
+/* Restaurant chip / branch switcher */
+.ws-chip-menu { display: flex; inline-size: 100%; margin: 28px 0 18px; }
+.ws-chip-menu > .ws-chip { margin: 0; }
+button.ws-chip { inline-size: 100%; background: none; font: inherit; color: inherit; text-align: start; cursor: pointer; }
+button.ws-chip:hover { background: var(--surface-hover); }
+.ws-chip[data-switch] { padding-inline-end: 10px; }
+.ws-chip-chev { margin-inline-start: auto; display: inline-flex; color: var(--text-subtle); flex-shrink: 0; }
+.ws-chip-menu .rui-pop-panel { inline-size: 100%; }
+.ws-check { color: var(--accent); font-weight: 700; }
+.ws[data-collapsed] .ws-chip { justify-content: center; padding: 6px; }
+.ws[data-collapsed] :is(.ws-chip-text, .ws-chip-chev) { display: none; }
+.ws[data-collapsed] .ws-chip-menu .rui-pop-panel { inline-size: auto; }
+.ws > .ws-sidebar > .ws-sidebar-head > .ws-chip { margin: 28px 0 18px; }
+
+/* Areas */
+.ws-nav { display: grid; gap: 2px; align-content: start; }
+.ws-area { display: grid; }
+.ws-area-btn {
+  position: relative; display: flex; align-items: center; gap: 12px; inline-size: 100%; min-block-size: 40px; padding: 8px 12px;
+  border: 0; border-radius: 7px; background: none; color: var(--nav-text); font: inherit; font-size: 14px; text-align: start;
+  text-decoration: none; cursor: pointer;
+}
+.ws-area-btn:hover { background: var(--nav-hover); color: var(--text); }
+.ws-area[data-current] > .ws-area-btn { color: var(--text); font-weight: 600; }
+.ws-area-btn .rui-icon { flex-shrink: 0; }
+.ws-area-chev { margin-inline-start: auto; display: inline-flex; color: var(--text-subtle); transition: transform var(--dur-fast) var(--ease-out); }
+.ws-area[data-open] .ws-area-chev { transform: rotate(180deg); }
+.ws-area-btn .ws-badge + .ws-area-chev { margin-inline-start: 6px; }
+.ws-sub { list-style: none; margin: 2px 0 6px; padding: 0; padding-inline-start: 30px; display: grid; gap: 1px; }
+.ws-sub[hidden] { display: none; }
+.ws-sub .ws-nav-link { font-size: 13.5px; padding: 7px 12px; }
+.ws-area-icon { justify-content: center; padding: 10px; }
+.ws-area-icon[aria-current] { background: var(--nav-active-bg); color: var(--nav-active-text); }
+.ws-dot-badge { position: absolute; inset-block-start: 7px; inset-inline-end: 9px; inline-size: 7px; block-size: 7px; border-radius: 50%; background: var(--accent); }
+.ws-explore { margin-block-start: 4px; }
+.ws-explore[aria-current='page'] { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: 600; }
+.ws[data-collapsed] :is(.ws-nav-text, .ws-mode-note, .ws-profile-text) { display: none; }
+.ws[data-collapsed] :is(.ws-explore, .ws-area-btn) { justify-content: center; }
+.ws[data-collapsed] .ws-profile { justify-content: center; padding-inline: 0; }
+
+/* Sidebar footer: Settings cluster, Explore, account menu */
+.ws-sidebar-bottom { display: grid; gap: 2px; padding-block-start: 18px; }
+.ws-account { display: flex; inline-size: 100%; }
+.ws-account .rui-pop-panel { inline-size: 100%; min-inline-size: 220px; }
+.ws[data-collapsed] .ws-account .rui-pop-panel { inline-size: 240px; }
+.ws-profile:hover { background: var(--surface-hover); border-radius: 8px; }
+.ws-profile[aria-expanded='true'] { background: var(--surface-hover); border-radius: 8px; }
+.ws-out { color: var(--text-subtle); }
+
+/* Topbar: search (opens the command palette) and language */
+.ws-search {
+  display: inline-flex; align-items: center; gap: 8px; min-inline-size: 220px; min-block-size: 34px; padding-block: 4px;
+  padding-inline: 10px 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); color: var(--text-muted);
+  font: inherit; font-size: var(--t-sm); cursor: pointer;
+}
+.ws-search:hover { border-color: var(--border-strong); color: var(--text); }
+.ws-search .rui-kbd { margin-inline-start: auto; }
+.ws-lang-btn {
+  min-block-size: 32px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-1);
+  color: var(--text); font: inherit; font-size: var(--t-sm); font-weight: 600; cursor: pointer;
+}
+.ws-lang-btn:hover { background: var(--surface-hover); }
+
+/* Phone tab bar and drawer (< 700 px) */
+.ws-tabbar { display: none; }
+.ws-drawer .ws-nav { margin-block-end: var(--space-3); }
+.ws-drawer-account { list-style: none; margin: var(--space-3) 0 0; padding: var(--space-3) 0 0; border-block-start: 1px solid var(--border-subtle); display: grid; gap: 2px; }
+.ws-drawer-account .ws-nav-link { border: 0; background: none; font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
+.ws-drawer-account .ws-nav-link[data-tone='danger'] { color: var(--danger-fg); }
+
+@media (max-width: 700px) {
+  .ws > .ws-sidebar > :is(.ws-nav, .ws-nav-skeleton, .ws-sidebar-bottom), .ws-collapse { display: none; }
+  .ws-brand-row { flex: 0 0 auto; }
+  .ws-chip-menu { margin: 0; max-inline-size: 62%; inline-size: auto; }
+  .ws > .ws-sidebar > .ws-sidebar-head > .ws-chip { margin: 0; }
+  .ws-chip-menu .rui-pop-panel { inline-size: min(300px, calc(100vw - 32px)); inset-inline-start: auto; inset-inline-end: 0; }
+  .ws-search { min-inline-size: 0; padding: 0; inline-size: 34px; justify-content: center; border-radius: 50%; }
+  .ws-search :is(.ws-search-text, .rui-kbd) { display: none; }
+  .ws-topbar .ws-sync { display: none; }
+  .ws-tabbar {
+    position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+    background: var(--surface-1); border-block-start: 1px solid var(--border); padding-block-end: env(safe-area-inset-bottom);
+  }
+  .ws-tab {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-block-size: 56px; min-inline-size: 0;
+    padding: 6px 2px; border: 0; background: none; color: var(--nav-text); font: inherit; font-size: 11px; text-decoration: none; cursor: pointer;
+  }
+  .ws-tab[aria-current='page'], .ws-tab[data-current] { color: var(--accent); font-weight: 600; }
+  .ws-tab-text { max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ws-page { padding-block-end: calc(80px + env(safe-area-inset-bottom)); }
+  .ws-footer { padding-block-end: calc(72px + env(safe-area-inset-bottom)); }
+  body:has(.ws-tabbar) .toast-region { inset-block-end: calc(72px + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws, .ws-area-chev { transition: none; }
+}
+
+/* SectionNav: the sub-navigation of an area's routes (Finance, Intelligence, MCP) */
+.section-nav { margin-block-end: 18px; border-block-end: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.section-nav::-webkit-scrollbar { display: none; }
+.section-nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-1); }
+.section-nav a {
+  display: inline-flex; align-items: center; min-block-size: 40px; padding: 8px 12px; margin-block-end: -1px; white-space: nowrap;
+  border-block-end: 2px solid transparent; color: var(--text-muted); font-size: var(--t-md); text-decoration: none;
+}
+.section-nav a:hover { color: var(--text); }
+.section-nav a[aria-current='page'] { color: var(--text); border-block-end-color: var(--accent); font-weight: 600; }
+
+/* Area loading placeholders (components/shell/AreaSkeleton.tsx) */
+.area-sk-title { inline-size: min(420px, 100%); display: grid; gap: 12px; }
+.area-sk-panel { padding: 24px; display: grid; gap: 14px; align-content: start; }
+.area-sk-filters { display: flex; gap: var(--space-3); margin-block-end: var(--space-4); flex-wrap: wrap; }
+.area-sk-lanes { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: var(--space-4); overflow-x: auto; }
+.area-sk-panes { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(220px, 320px); gap: var(--space-4); }
+.area-sk-settings { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--space-6); }
+.area-sk-nav { display: grid; gap: var(--space-2); align-content: start; }
+@media (max-width: 1100px) { .area-sk-panes { grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); } .area-sk-end { display: none; } }
+@media (max-width: 700px) {
+  .area-sk-lanes { grid-template-columns: repeat(4, minmax(200px, 80vw)); }
+  .area-sk-panes, .area-sk-settings { grid-template-columns: minmax(0, 1fr); }
+}
+.area-error .err-actions { margin-block-start: var(--space-4); }
+
+/* Explore Resuto */
+.explore-grid { display: grid; gap: var(--space-6); }
+.explore-preview { display: grid; gap: 12px; padding: 20px; }
+.explore-preview-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }

@@ -27,13 +27,14 @@ import { notifications } from './dict/notifications';
 import { ops } from './dict/ops';
 import { pay } from './dict/pay';
 import { platform } from './dict/platform';
+import { shell } from './dict/shell';
 import { studio } from './dict/studio';
 import { studioAi } from './dict/studio-ai';
 import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff, counter];
+const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff, counter, shell];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {

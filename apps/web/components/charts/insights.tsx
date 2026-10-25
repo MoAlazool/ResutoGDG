@@ -89,19 +89,6 @@ export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p:
   );
 }
 
-export function BranchSelect({ value, onChange, allowAll = true }: { value: string; onChange: (v: string) => void; allowAll?: boolean }) {
-  const { t, locale } = useT();
-  const { org } = useOrg();
-  const branches = org.branches.filter((b) => b.isActive);
-  if (branches.length < 2 && allowAll) return null;
-  return (
-    <select className="select" style={{ width: 'auto', minHeight: 38 }} value={value} onChange={(e) => onChange(e.target.value)} aria-label={t('insights.branch.label')}>
-      {allowAll && <option value="">{t('insights.branch.all')}</option>}
-      {branches.map((b) => <option key={b.id} value={b.id}>{locale === 'ar' && b.nameAr ? b.nameAr : b.name}</option>)}
-    </select>
-  );
-}
-
 export function useBranchName() {
   const { locale } = useT();
   const { org } = useOrg();

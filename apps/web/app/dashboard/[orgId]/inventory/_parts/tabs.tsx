@@ -4,11 +4,11 @@ import type { AnalyticsMeta, Currency, InventoryItemView, InventoryUnit, StockLe
 import { INVENTORY_UNITS, WASTE_REASONS, parseMajor, unitsCompatible } from '@resuto/contracts/lite';
 import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, UserText } from '@resuto/ui';
 import { BarList } from '@/components/charts';
-import { BranchSelect, LoadError, MetaPanel, PeriodPicker, presetPeriod, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
+import { LoadError, MetaPanel, PeriodPicker, presetPeriod, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchScope, useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { unitLabel } from '@/lib/vocab';
@@ -33,13 +33,12 @@ export function LevelsTab({ onRecord }: { onRecord?: () => void }) {
   const f = useFormat();
   const branchName = useBranchName();
   const { base } = useInv();
-  const [branchId, setBranchId] = useState('');
+  const { branchId } = useBranchScope({ allowAll: true }); // the shell's branch switcher (21-SHELL)
   const [onlyLow, setOnlyLow] = useState(false);
   const { data, error, loading, reload } = useApi<{ items: StockLevelView[] }>(`${base}/levels${qs({ branchId })}`);
   const rows = (data?.items ?? []).filter((l) => !onlyLow || l.low);
   return (
     <Section title={t('insights.inventory.tab.levels')} actions={<>
-      <BranchSelect value={branchId} onChange={setBranchId} />
       <label className="check"><input type="checkbox" checked={onlyLow} onChange={(e) => setOnlyLow(e.target.checked)} /> {t('insights.inventory.onlyLow')}</label>
       {onRecord && <button className="btn btn-sm btn-primary" onClick={onRecord}>{t('insights.inventory.record')}</button>}
     </>}>
@@ -394,10 +393,10 @@ export function AlertsTab() {
   const f = useFormat();
   const branchName = useBranchName();
   const { base } = useInv();
-  const [branchId, setBranchId] = useState('');
+  const { branchId } = useBranchScope({ allowAll: true }); // the shell's branch switcher (21-SHELL)
   const { data, error, reload } = useApi<{ items: Array<{ id: string; branchId: string; name: string; nameAr: string | null; unit: string; quantity: number; reorderLevel: number; openedAt: string; supplierName: string | null; supplierPhone: string | null }> }>(`${base}/alerts${qs({ branchId })}`, { pollMs: 60_000 });
   return (
-    <Section title={t('insights.inventory.tab.alerts')} actions={<BranchSelect value={branchId} onChange={setBranchId} />}>
+    <Section title={t('insights.inventory.tab.alerts')}>
       <LoadError error={error} retry={reload} />
       {!data ? <Skeleton lines={3} /> : (
         <DataTable rows={data.items} rowKey={(a) => a.id} empty={<EmptyState title={t('insights.overview.stockOk')} />} columns={[
@@ -429,13 +428,12 @@ export function ValueWasteTab() {
   const { org } = useOrg();
   const f = useFormat();
   const { base } = useInv();
-  const [branchId, setBranchId] = useState('');
+  const { branchId } = useBranchScope({ allowAll: true }); // the shell's branch switcher (21-SHELL)
   const [period, setPeriod] = useState<Period>(() => presetPeriod('30d', org.timezone));
   const valuation = useApi<{ totalValueMinor: number; branches: Array<{ branchId: string; branchName: string; valueMinor: number; itemsInStock: number; negativeLevels: number; itemsWithoutCost: number }>; meta: AnalyticsMeta }>(`${base}/valuation${qs({ branchId })}`);
   const waste = useApi<Waste>(`${base}/waste-report${qs({ from: period.from, to: period.to, branchId })}`);
   return (
     <div className="stack gap-16">
-      <div className="row"><BranchSelect value={branchId} onChange={setBranchId} /></div>
       <Section title={t('insights.inventory.valuation')}>
         <LoadError error={valuation.error} retry={valuation.reload} />
         {!valuation.data ? <Skeleton lines={2} /> : (
@@ -483,7 +481,7 @@ export function HistoryTab() {
   const f = useFormat();
   const branchName = useBranchName();
   const { base, call } = useInv();
-  const [branchId, setBranchId] = useState('');
+  const { branchId } = useBranchScope({ allowAll: true }); // the shell's branch switcher (21-SHELL)
   const [reason, setReason] = useState('');
   const first = useApi<{ items: StockMovementView[]; nextCursor: string | null }>(`${base}/movements${qs({ branchId, reason, limit: 50 })}`);
   const [more, setMore] = useState<{ items: StockMovementView[]; nextCursor: string | null } | null>(null);
@@ -496,7 +494,6 @@ export function HistoryTab() {
   const reasons = ['purchase', 'sale', 'waste', 'adjustment', 'transfer_in', 'transfer_out', 'count', 'return'];
   return (
     <Section title={t('insights.inventory.tab.history')} actions={<>
-      <BranchSelect value={branchId} onChange={(v) => { setBranchId(v); setMore(null); }} />
       <select className="select" style={{ width: 'auto', minHeight: 38 }} value={reason} aria-label={t('insights.movement.reason')} onChange={(e) => { setReason(e.target.value); setMore(null); }}>
         <option value="">{t('insights.movement.allKinds')}</option>
         {reasons.map((r) => <option key={r} value={r}>{t(`insights.reason.${r}`)}</option>)}

@@ -9,7 +9,7 @@ import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { RouteMap } from '../_components/charts';
-import { ApiErrorNotice, BranchSelect, Empty, IntelShell, fmtNum, useBranch } from '../_components/IntelShell';
+import { ApiErrorNotice, Empty, IntelShell, fmtNum, useBranch } from '../_components/IntelShell';
 
 interface Driver { id: string; displayName: string; availability: string; openJobs: number }
 
@@ -17,7 +17,7 @@ export default function RoutesPage() {
   const { t, locale } = useT();
   const { org } = useOrg();
   const { call } = useSession();
-  const { branchId, setBranchId } = useBranch();
+  const { branchId } = useBranch();
   const drivers = useApi<{ items: Driver[] }>(branchId ? `/o/${org.id}/intelligence/routes/drivers?branchId=${branchId}` : null);
   const [driverId, setDriverId] = useState('');
   const [objective, setObjective] = useState<'distance' | 'lateness'>('distance');
@@ -31,8 +31,7 @@ export default function RoutesPage() {
     <IntelShell>
       <ModuleGate module="driver" permission="delivery:dispatch">
         <div className="form-row" style={{ maxWidth: 820, alignItems: 'end' }}>
-          <BranchSelect value={branchId} onChange={setBranchId} />
-          <SelectField label={t('intelligence.routes.driver')} value={driverId} onChange={(e) => setDriverId(e.target.value)} disabled={!drivers.data?.items.length}>
+            <SelectField label={t('intelligence.routes.driver')} value={driverId} onChange={(e) => setDriverId(e.target.value)} disabled={!drivers.data?.items.length}>
             {(drivers.data?.items ?? []).map((d) => <option key={d.id} value={d.id}>{d.displayName} ({d.openJobs})</option>)}
           </SelectField>
           <SelectField label={t('intelligence.routes.optimised')} value={objective} onChange={(e) => setObjective(e.target.value as 'distance' | 'lateness')}>

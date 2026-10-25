@@ -321,29 +321,10 @@ table.data tr:last-child td { border-block-end: 0; }
 .ws-chip[data-switch] { padding-inline-end: 30px; }
 .ws-chip strong { display: block; font-size: var(--t-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-chip small { display: block; margin-block-start: 4px; color: var(--fine-text); font-size: var(--t-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-switch > summary { position: absolute; inset: 0; list-style: none; cursor: pointer; border-radius: 8px; display: flex; align-items: center; justify-content: flex-end; padding-inline-end: 10px; color: var(--faint); }
-.ws-switch > summary::-webkit-details-marker { display: none; }
-.ws-switch > summary:hover { background: color-mix(in srgb, var(--nav-hover) 60%, transparent); }
-.ws-switch[open] > summary { background: color-mix(in srgb, var(--nav-hover) 60%, transparent); }
-.ws-switch-menu {
-  position: absolute; inset-inline: -1px; inset-block-start: calc(100% + 6px); z-index: 30; background: var(--card);
-  border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-float); padding: 8px; display: grid; gap: 2px; max-height: 60vh; overflow-y: auto;
-}
-.ws-switch-menu .ws-switch-label { font-size: var(--t-xs); color: var(--nav-label); letter-spacing: 1.2px; text-transform: uppercase; padding: 8px 10px 4px; }
-[lang='ar'] .ws-switch-menu .ws-switch-label { letter-spacing: 0; }
-.ws-switch-menu :is(a, button) { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: start; padding: 9px 10px; border: 0; background: none; border-radius: 7px; font-size: var(--t-md); color: var(--text); text-decoration: none; cursor: pointer; }
-.ws-switch-menu :is(a, button):hover { background: var(--nav-hover); }
-.ws-switch-menu [aria-current='true'] { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: 600; }
-
 .ws-nav { display: grid; gap: 2px; }
-.ws-nav-group { display: grid; gap: 2px; }
-.ws-nav-group + .ws-nav-group { margin-block-start: 14px; }
-.ws-nav-label { font-size: var(--t-xs); color: var(--nav-label); letter-spacing: 1.2px; text-transform: uppercase; padding: 0 13px; margin-block-end: 8px; }
-[lang='ar'] .ws-nav-label { letter-spacing: 0; }
 .ws-nav-link { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; font-size: 14px; color: var(--nav-text); padding: 10px 14px; border-radius: 7px; text-decoration: none; }
 .ws-nav-link:hover { background: var(--nav-hover); }
 .ws-nav-link[aria-current='page'] { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: 600; }
-.ws-nav-link[data-locked] { color: var(--faint); }
 .ws-nav-link[data-pending] { background: var(--nav-hover); }
 .ws-nav-link[data-pending]::after { content: ''; position: absolute; inset-inline-start: 4px; inset-block: 12px; width: 2px; border-radius: 2px; background: var(--period); }
 [lang='ar'] .ws-nav-link { font-weight: 500; }
@@ -351,7 +332,6 @@ table.data tr:last-child td { border-block-end: 0; }
 .ws-glyph { font-family: var(--font-glyph); font-size: 21px; line-height: 20px; width: 21px; text-align: center; flex-shrink: 0; font-style: normal; font-weight: 400; }
 .ws-nav-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-badge { font-size: 11px; margin-inline-start: auto; background: var(--nav-badge); padding: 2px 6px; border-radius: 4px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--font-body-en); }
-.ws-lock { margin-inline-start: auto; font-family: var(--font-glyph); font-size: 12px; opacity: .7; }
 
 .ws-sidebar-bottom { margin-block-start: auto; padding-block-start: 25px; }
 .ws-guest-link { font-size: var(--t-sm); color: var(--guest-link); display: block; padding: 12px; text-decoration: none; border-radius: 7px; }
@@ -426,21 +406,15 @@ body:has(.gx-dock, .bk-bar, .gx-sheet-foot) .ws-lang { inset-block-end: calc(88p
   .ws-brand .ws-wordmark-mark { width: 27px; height: 29px; font-size: 30px; border-radius: 7px 7px 7px 0; padding-bottom: 6px; }
   .ws-brand .ws-wordmark-period { margin-left: -9px; }
   .ws-chip { margin: 0; padding-block: 4px; padding-inline: 4px 10px; max-width: 58%; gap: 8px; border-radius: 99px; }
-  .ws-chip[data-switch] { padding-inline-end: 26px; }
   .ws-chip-icon { width: 26px; height: 26px; font-size: 13px; }
   .ws-chip small { display: none; }
   .ws-chip strong { font-size: var(--t-sm); }
-  .ws-switch > summary { border-radius: 99px; padding-inline-end: 6px; }
-  .ws-switch-menu { inset-inline: auto 0; width: min(300px, calc(100vw - 32px)); }
-  [dir='rtl'] .ws-switch-menu { inset-inline: 0 auto; }
-  .ws-nav-label, .ws-sidebar-bottom { display: none; }
-  .ws-nav { display: flex; gap: 5px; overflow-x: auto; margin-block-start: 12px; scroll-snap-type: x proximity; scrollbar-width: none; padding-block-end: 2px; }
-  .ws-nav::-webkit-scrollbar { display: none; }
-  .ws-nav-group { display: contents; }
-  .ws-nav-group + .ws-nav-group { margin: 0; }
-  .ws-nav-link { width: auto; white-space: nowrap; font-size: 12px; padding: 8px 10px; gap: 5px; flex-shrink: 0; scroll-snap-align: start; }
-  .ws-glyph { font-size: 15px; width: auto; }
-  .ws-badge, .ws-lock { display: none; }
+  /* Admin console: its few links become a scrolling chip row (the dashboard has a tab bar and a drawer instead). */
+  .ws-sidebar-bottom { display: none; }
+  .ws-sidebar > .ws-nav { display: flex; gap: 5px; overflow-x: auto; margin-block-start: 12px; scroll-snap-type: x proximity; scrollbar-width: none; padding-block-end: 2px; }
+  .ws-sidebar > .ws-nav::-webkit-scrollbar { display: none; }
+  .ws-sidebar > .ws-nav > .ws-nav-link { width: auto; white-space: nowrap; font-size: 12px; padding: 8px 10px; gap: 5px; flex-shrink: 0; scroll-snap-align: start; }
+  .ws-sidebar > .ws-nav .ws-glyph { font-size: 15px; width: auto; }
   .ws-nav-skeleton { display: flex; gap: 5px; margin-block-start: 12px; overflow: hidden; }
   .ws-nav-skeleton span { width: 92px; height: 34px; flex-shrink: 0; }
   .ws-topbar { height: 47px; padding: 0 20px; }

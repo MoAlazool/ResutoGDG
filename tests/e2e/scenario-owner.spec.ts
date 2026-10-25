@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { request as playwrightRequest, type Page } from '@playwright/test';
 import {
-  apiAs, apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, API_URL, collectApiFailures, collectErrors, expect, navLockFor, newContext, ROOT, test, unique,
+  apiAs, apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, API_URL, collectApiFailures, collectErrors, expect, exploreLink, navLinkFor, newContext, ROOT, test, unique,
   workspaceNav, type Tenant,
 } from './fixtures';
 
@@ -105,6 +105,8 @@ for (const key of PAGES) {
 
 const PAID = ['marketing', 'delivery', 'finance'] as const;
 const UPGRADE = { en: { title: 'This module is not in your plan', cta: 'Upgrade' }, ar: { title: 'هذه الوحدة غير مضمنة في خطتك', cta: 'ترقية' } } as const;
+/** The Explore Resuto previews of the PAID modules above (marketing, delivery, finance). */
+const EXPLORE = { en: ['Resuto Marketing', 'ResutoDriver', 'Resuto Finance'], ar: ['ريسوتو للتسويق', 'ريسوتو درايفر', 'ريسوتو المالية'] } as const;
 
 test('a free-plan owner sees the upgrade prompt on paid module pages (en/ar) and the API refuses with 402', async ({ browser }) => {
   const request = await playwrightRequest.newContext();
@@ -122,9 +124,14 @@ test('a free-plan owner sees the upgrade prompt on paid module pages (en/ar) and
         await page.goto(`/dashboard/${free.orgId}/${key}`);
         await expect(page.locator('.empty strong')).toHaveText(UPGRADE[locale].title);
         await expect(page.getByRole('link', { name: UPGRADE[locale].cta })).toHaveAttribute('href', `/dashboard/${free.orgId}/billing`);
-        // The sidebar marks paid modules as locked.
-        await expect(navLockFor(page, key)).toBeVisible();
+        // Paid modules are not offered as (disabled) navigation entries; Explore Resuto lists them instead (21-SHELL).
+        await expect(navLinkFor(page, `/${key}`)).toHaveCount(0);
+        await expect(exploreLink(page)).toBeVisible();
       }
+      await exploreLink(page).click();
+      await expect(page).toHaveURL(/\/explore$/);
+      for (const title of EXPLORE[locale]) await expect(page.getByRole('heading', { name: title })).toBeVisible();
+      await page.goBack();
       await page.getByRole('link', { name: UPGRADE[locale].cta }).click();
       await expect(page).toHaveURL(/\/billing$/);
       expect(errors).toEqual([]);

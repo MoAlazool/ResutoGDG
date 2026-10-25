@@ -12,6 +12,8 @@ export interface ShellSnapshot {
   scope: string;
   org: OrgInfo;
   modules: Partial<Record<ModuleKey, boolean>> | null;
+  /** The plan id when the entitlements were known (the Free shell). Absent in snapshots written before 21-SHELL. */
+  plan?: string | null;
   savedAt: number;
 }
 
@@ -49,6 +51,18 @@ export function readPreferredBranch(orgId: string, store: Store | null = local()
 }
 export function writePreferredBranch(orgId: string, branchId: string, store: Store | null = local()) {
   try { store?.setItem(BRANCH_KEY(orgId), branchId); } catch { /* ignore */ }
+}
+
+const ALL_KEY = (orgId: string) => `resuto.shell.allBranches.${orgId}`;
+/**
+ * Whether the branch switcher is on "All branches" (per user, per restaurant). Nothing stored = all branches, as the
+ * overview, analytics, customers and inventory screens opened before they followed the shell.
+ */
+export function readAllBranches(orgId: string, store: Store | null = local()): boolean {
+  try { return (store?.getItem(ALL_KEY(orgId)) ?? '1') === '1'; } catch { return true; }
+}
+export function writeAllBranches(orgId: string, all: boolean, store: Store | null = local()) {
+  try { store?.setItem(ALL_KEY(orgId), all ? '1' : '0'); } catch { /* ignore */ }
 }
 
 /**

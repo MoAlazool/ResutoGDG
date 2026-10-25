@@ -327,9 +327,11 @@ export async function paySandboxInBrowser(page: Page, method: RegExp = /Card/) {
 /** The dashboard's workspace navigation: the `<aside>` landmark labelled "Workspace navigation" (AR "تنقل مساحة العمل"). */
 export const workspaceNav = (page: Page) => page.getByRole('complementary', { name: /^(Workspace navigation|تنقل مساحة العمل)$/ });
 
-/** The "not in your plan" marker on a locked module link in the workspace navigation. */
-export const navLockFor = (page: Page, module: string) =>
-  workspaceNav(page).locator(`a[href$="/${module}"]`).getByLabel(/^(Not in your plan|غير متاح في خطتك)$/);
+/** A link to a dashboard page in the workspace navigation (`path` relative to the restaurant, e.g. "/orders"). */
+export const navLinkFor = (page: Page, path: string) => workspaceNav(page).locator(`a[href$="${path}"]`);
+
+/** The "Explore Resuto" entry: modules outside the plan are listed there, never as disabled navigation (21-SHELL). */
+export const exploreLink = (page: Page) => workspaceNav(page).getByRole('link', { name: /^(Explore Resuto|اكتشف ريسوتو)$/ });
 
 /**
  * expect(target).toHaveScreenshot(name), except that the CI visual job (E2E_RECORD_MISSING_BASELINES=1) records a

@@ -5,16 +5,16 @@ import { Suspense, useEffect, useState } from 'react';
 import type { CustomerSummary } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, useAction, Email, Phone, UserText } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
-import { BranchSelect, LoadError, qs, useFormat, InsightsPage } from '@/components/charts/insights';
+import { LoadError, qs, useFormat, InsightsPage } from '@/components/charts/insights';
 import { API_URL, ApiRequestError } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchScope, useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 
 interface Page { items: CustomerSummary[]; nextCursor: string | null; total: number }
-const EMPTY = { q: '', tag: '', consent: '', lastOrderBefore: '', lastOrderAfter: '', minOrders: '', minSpend: '', branchId: '', sort: 'last_order' };
+const EMPTY = { q: '', tag: '', consent: '', lastOrderBefore: '', lastOrderAfter: '', minOrders: '', minSpend: '', sort: 'last_order' };
 
 type Filters = typeof EMPTY;
 /** Filters as they appear in the URL (PCL-20): only non-default values, so plain links stay clean. */
@@ -31,6 +31,8 @@ export default function CustomersPage() {
 function Customers() {
   const { t, locale } = useT();
   const { org, can } = useOrg();
+  // The branch comes from the shell's branch switcher (21-SHELL single branch context; "All branches" supported).
+  const { branchId } = useBranchScope({ allowAll: true });
   const session = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -52,7 +54,7 @@ function Customers() {
   }, [draft]); // eslint-disable-line react-hooks/exhaustive-deps
   const params = {
     q: filters.q, tag: filters.tag.trim().toLowerCase(), consent: filters.consent, lastOrderBefore: filters.lastOrderBefore, lastOrderAfter: filters.lastOrderAfter,
-    minOrders: filters.minOrders, minSpendMinor: filters.minSpend ? Math.round(Number(filters.minSpend) * 100) : undefined, branchId: filters.branchId, sort: filters.sort,
+    minOrders: filters.minOrders, minSpendMinor: filters.minSpend ? Math.round(Number(filters.minSpend) * 100) : undefined, branchId, sort: filters.sort,
   };
   const { data, error, loading, pending, reload } = useApi<Page>(`/o/${org.id}/customers${qs({ ...params, limit: 50, cursor })}`);
   const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) => setDraft({ ...draft, [k]: e.target.value });
@@ -104,7 +106,6 @@ function Customers() {
             <Field label={t('insights.customers.lastOrderBefore')} type="date" value={draft.lastOrderBefore} onChange={set('lastOrderBefore')} hint={t('insights.customers.lapsedHint')} />
             <Field label={t('insights.customers.minOrders')} type="number" min={0} value={draft.minOrders} onChange={set('minOrders')} />
             <Field label={t('insights.customers.minSpend', { currency: org.currency })} type="number" min={0} value={draft.minSpend} onChange={set('minSpend')} />
-            <div className="field"><span>{t('insights.branch.label')}</span><BranchSelect value={draft.branchId} onChange={(v) => setDraft({ ...draft, branchId: v })} /></div>
           </div>
         </details>
         {filtered && <button className="btn btn-sm btn-ghost" onClick={() => setDraft(EMPTY)}>{t('insights.customers.clear')}</button>}

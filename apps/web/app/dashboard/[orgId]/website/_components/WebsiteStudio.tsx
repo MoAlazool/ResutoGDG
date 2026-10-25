@@ -1,4 +1,5 @@
 'use client';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PublicSite } from '@resuto/contracts';
 import { Badge, EmptyState, Notice, PageHeader, Skeleton, Tabs, useConfirm, useToast, OrderRef } from '@resuto/ui';
@@ -28,6 +29,12 @@ export function WebsiteStudio({ orgId, can }: { orgId: string; can: (p: 'studio:
   const [previewLocale, setPreviewLocale] = useState<'en' | 'ar'>(locale);
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [tab, setTab] = useState<Tab>('sections');
+  // The navigation's Domains entry opens this tab (`?tab=domains`, 21-SHELL).
+  const search = useSearchParams();
+  const wantedTab = search.get('tab');
+  useEffect(() => {
+    if (wantedTab && (['sections', 'design', 'seo', 'media', 'domains', 'creative', 'history'] as string[]).includes(wantedTab)) setTab(wantedTab as Tab);
+  }, [wantedTab]);
   const [publishing, setPublishing] = useState(false);
   const publishKey = useRef<{ key: string; rev: number } | null>(null);
   const canWrite = can('studio:write');

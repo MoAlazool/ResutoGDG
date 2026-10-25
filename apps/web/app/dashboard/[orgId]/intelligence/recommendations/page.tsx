@@ -5,7 +5,7 @@ import { useT } from '@/lib/i18n/client';
 import { pick } from '@/lib/format';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
-import { ApiErrorNotice, BranchSelect, Empty, IntelShell, fmtNum, useBranch } from '../_components/IntelShell';
+import { ApiErrorNotice, Empty, IntelShell, fmtNum, useBranch } from '../_components/IntelShell';
 
 function RecList({ items }: { items: RecommendedItem[] }) {
   const { t, locale } = useT();
@@ -26,11 +26,10 @@ function RecList({ items }: { items: RecommendedItem[] }) {
 export default function RecommendationsPage() {
   const { t, locale } = useT();
   const { org } = useOrg();
-  const { branchId, setBranchId } = useBranch();
+  const { branchId } = useBranch();
   const { data, error, loading, reload } = useApi<RecommendationsResponse>(branchId ? `/o/${org.id}/intelligence/recommendations?branchId=${branchId}&k=5` : null);
   return (
     <IntelShell>
-      <div style={{ maxWidth: 320 }}><BranchSelect value={branchId} onChange={setBranchId} /></div>
       {loading && !data ? <div className="card"><Skeleton lines={6} /></div>
         : error ? <ApiErrorNotice error={error} onRetry={reload} />
           : !data?.stats.baskets ? <Empty title={t('intelligence.rec.empty')} />

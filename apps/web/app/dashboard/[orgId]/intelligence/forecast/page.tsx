@@ -8,7 +8,7 @@ import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
 import { forecastReason } from '@/lib/vocab';
 import { ForecastChart, Legend } from '../_components/charts';
-import { ApiErrorNotice, BranchSelect, Empty, IntelShell, fmtNum, fmtPct, useBranch } from '../_components/IntelShell';
+import { ApiErrorNotice, Empty, IntelShell, fmtNum, fmtPct, useBranch } from '../_components/IntelShell';
 
 function ItemCard({ item }: { item: ItemForecast }) {
   const { t, locale, dir } = useT();
@@ -76,13 +76,12 @@ function ItemCard({ item }: { item: ItemForecast }) {
 export default function ForecastPage() {
   const { t } = useT();
   const { org } = useOrg();
-  const { branchId, setBranchId } = useBranch();
+  const { branchId } = useBranch();
   const [horizon, setHorizon] = useState(14);
   const { data, error, loading, reload } = useApi<ForecastResponse>(branchId ? `/o/${org.id}/intelligence/forecast?branchId=${branchId}&horizon=${horizon}&top=5` : null);
   return (
     <IntelShell>
       <div className="form-row" style={{ maxWidth: 560 }}>
-        <BranchSelect value={branchId} onChange={setBranchId} />
         <SelectField label={t('intelligence.forecast.horizon')} value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
           {[7, 14].map((h) => <option key={h} value={h}>{h}</option>)}
         </SelectField>
