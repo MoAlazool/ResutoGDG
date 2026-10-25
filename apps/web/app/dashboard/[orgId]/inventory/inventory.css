@@ -1,0 +1,13 @@
+/* Inventory (21-OPS ListPage): tabs, the low-stock filter chip and the tab forms (were inline styles). */
+.inventory-tabs { overflow-x: auto; }
+.inventory-low-chip .num { margin-inline-start: 4px; }
+.inv-note { min-block-size: 60px; }
+.inv-product { font-weight: var(--fw-medium); }
+.inv-product[data-current] { font-weight: var(--fw-bold); }
+.inv-line-item, .inv-line-qty, .inv-line-unit { margin: 0; }
+.inv-line-item { flex: 2 1 160px; }
+.inv-line-qty { flex: 1 1 80px; }
+.inv-line-unit { flex: 0 1 90px; }
+.inv-reason { inline-size: auto; min-block-size: 38px; }
+.inv-delta[data-tone='danger'] { color: var(--danger-fg); }
+.inv-delta[data-tone='ok'] { color: var(--ok-fg); }

@@ -28,8 +28,6 @@
   "apps/web/app/dashboard/[orgId]/intelligence/recommendations/page.tsx": 2,
   "apps/web/app/dashboard/[orgId]/intelligence/research/page.tsx": 3,
   "apps/web/app/dashboard/[orgId]/intelligence/routes/page.tsx": 2,
-  "apps/web/app/dashboard/[orgId]/inventory/_parts/tabs.tsx": 7,
-  "apps/web/app/dashboard/[orgId]/inventory/page.tsx": 1,
   "apps/web/app/dashboard/[orgId]/loyalty/_components/CustomerLoyalty.tsx": 3,
   "apps/web/app/dashboard/[orgId]/loyalty/page.tsx": 5,
   "apps/web/app/dashboard/[orgId]/marketing/MetaTracking.tsx": 1,
