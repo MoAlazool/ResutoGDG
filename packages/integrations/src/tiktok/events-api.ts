@@ -36,6 +36,7 @@ export const tiktokEventsDescriptor: ProviderDescriptor = {
   category: 'ads',
   countries: ['EG', 'SA'],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   docsUrl: 'https://ads.tiktok.com/help/article/events-api',
   capabilities: ['browser_pixel_consented', 'server_purchase', 'event_id_dedup', 'hashed_user_data', 'test_event_code', 'outbox_retry'],

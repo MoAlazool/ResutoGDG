@@ -7,7 +7,7 @@
 // the refresh token. Snap documents neither PKCE nor a revocation endpoint for this OAuth flow.
 // Readiness: implemented_unverified (no Snap Business app or ad account available).
 import { providerRequest, ProviderError, type ProviderDescriptor } from '../core';
-import { campaignNameWithToken, requireConfig, requireCred, toInt, type AdAccountChoice, type AdInsightRow, type AdsAdapter, type AdsObjective, type OAuthAppConfig } from './types';
+import { campaignNameWithToken, parseGrantedScopes, requireConfig, requireCred, toInt, type AdAccountChoice, type AdInsightRow, type AdsAdapter, type AdsObjective, type OAuthAppConfig } from './types';
 
 const API = 'https://adsapi.snapchat.com/v1';
 const AUTH = 'https://accounts.snapchat.com/login/oauth2';
@@ -18,6 +18,13 @@ export const snapchatAdsDescriptor: ProviderDescriptor = {
   category: 'ads',
   countries: ['EG', 'SA'],
   authType: 'oauth',
+  connectMethod: 'oauth',
+  // Snap's token response carries `scope`; every Marketing API call needs this one.
+  requiredScopes: {
+    ad_account_picker: ['snapchat-marketing-api'], campaign_create_paused: ['snapchat-marketing-api'], launch_idempotency: ['snapchat-marketing-api'],
+    daily_stats: ['snapchat-marketing-api'], token_refresh: ['snapchat-marketing-api'],
+  },
+  reviewRequirements: ['ad_account_access'],
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.snap.com/api/marketing-api/Ads-API/introduction',
   capabilities: ['oauth', 'oauth_state_bound', 'token_refresh', 'ad_account_picker', 'campaign_create_paused', 'launch_idempotency', 'daily_stats'],
@@ -39,11 +46,11 @@ export const microToMinor = (micro: unknown) => Math.round(toInt(micro) / 10_000
 async function tokenRequest(ctx: { fetch: typeof fetch }, app: OAuthAppConfig, params: Record<string, string>) {
   if (!app.clientSecret) throw new ProviderError('snapchat_ads', 'client secret not configured', false);
   const body = new URLSearchParams({ client_id: app.clientId, client_secret: app.clientSecret, ...params });
-  const res = await providerRequest<{ access_token?: string; refresh_token?: string; expires_in?: number }>('snapchat_ads', ctx, `${AUTH}/access_token`, {
+  const res = await providerRequest<{ access_token?: string; refresh_token?: string; expires_in?: number; scope?: string }>('snapchat_ads', ctx, `${AUTH}/access_token`, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, retries: 0,
   });
   if (!res.access_token) throw new ProviderError('snapchat_ads', 'no access token in response', false);
-  return { accessToken: res.access_token, refreshToken: res.refresh_token ?? null, expiresIn: res.expires_in ?? null };
+  return { accessToken: res.access_token, refreshToken: res.refresh_token ?? null, expiresIn: res.expires_in ?? null, grantedScopes: parseGrantedScopes(res.scope) };
 }
 
 /** GET /me/organizations?with_ad_accounts=true: every ad account the person can use, for the picker. */

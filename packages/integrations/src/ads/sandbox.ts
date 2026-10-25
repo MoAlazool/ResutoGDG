@@ -11,6 +11,7 @@ export const adsSandboxDescriptor: ProviderDescriptor = {
   category: 'ads',
   countries: ['EG', 'SA'],
   authType: 'none',
+  connectMethod: 'platform_managed',
   readiness: 'simulated',
   capabilities: ['campaign_create_recorded', 'zero_insights'],
   activation: [

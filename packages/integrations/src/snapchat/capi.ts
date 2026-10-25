@@ -36,6 +36,7 @@ export const snapCapiDescriptor: ProviderDescriptor = {
   category: 'ads',
   countries: ['EG', 'SA'],
   authType: 'api_key',
+  connectMethod: 'api_key',
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.snap.com/api/marketing-api/Conversions-API',
   capabilities: ['browser_pixel_consented', 'server_purchase', 'event_id_dedup', 'hashed_user_data', 'validate_endpoint', 'outbox_retry'],

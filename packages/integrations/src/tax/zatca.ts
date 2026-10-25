@@ -205,6 +205,7 @@ export const ZATCA_DESCRIPTOR: ProviderDescriptor = {
   category: 'tax',
   countries: ['SA'],
   authType: 'api_key',
+  connectMethod: 'guided_onboarding',
   readiness: 'implemented_unverified',
   docsUrl: 'https://zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/Pages/default.aspx',
   activation: [

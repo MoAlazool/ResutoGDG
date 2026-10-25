@@ -36,6 +36,14 @@ export const whatsappCloudDescriptor: ProviderDescriptor = {
   category: 'messaging',
   countries: ['EG', 'SA'],
   authType: 'api_key',
+  connectMethod: 'embedded_signup',
+  // The business token from Embedded Signup carries these (GET /me/permissions when the token allows it).
+  requiredScopes: {
+    phone_ownership_check: ['whatsapp_business_management'], webhook_subscription: ['whatsapp_business_management'],
+    templates: ['whatsapp_business_management'], template_submission: ['whatsapp_business_management'],
+    inbound_messages: ['whatsapp_business_messaging'], status_callbacks: ['whatsapp_business_messaging'],
+  },
+  reviewRequirements: ['tech_provider', 'app_review', 'business_verification'],
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api',
   capabilities: ['embedded_signup', 'phone_ownership_check', 'inbound_messages', 'interactive_buttons', 'interactive_lists', 'cta_url', 'location_request',

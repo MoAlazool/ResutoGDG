@@ -29,6 +29,10 @@ export const foodicsDescriptor: ProviderDescriptor = {
   category: 'pos',
   countries: ['EG', 'SA'],
   authType: 'oauth',
+  connectMethod: 'oauth',
+  // Foodics' token response documents no `scope`; when one is returned it is compared with this.
+  requiredScopes: { menu_import: ['general.read'] },
+  reviewRequirements: ['partner_app'],
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.foodics.com',
   capabilities: ['menu_import', 'oauth_connect', 'menu_change_webhook'],

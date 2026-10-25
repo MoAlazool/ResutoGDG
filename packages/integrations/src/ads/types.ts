@@ -23,6 +23,19 @@ export interface OAuthTokens {
   identity?: { userId?: string | null; businessId?: string | null } | null;
   /** 'user' tokens expire (Meta long-lived ≈ 60 days); 'system_user' business integration tokens do not. */
   tokenKind?: 'user' | 'system_user' | 'advertiser';
+  /**
+   * 21-INT: the scopes the provider reports as granted in the token response (RFC 6749 §5.1 `scope`; Snapchat's
+   * space-separated string; TikTok's numeric permission ids as strings). Absent when the provider reports none.
+   */
+  grantedScopes?: string[];
+}
+
+/** A token response `scope` (string separated by spaces or commas, or an array) as a sorted list; undefined when absent. */
+export function parseGrantedScopes(scope: unknown): string[] | undefined {
+  const raw = Array.isArray(scope) ? scope.map((v) => String(v)) : typeof scope === 'string' ? scope.split(/[\s,]+/) : null;
+  if (!raw) return undefined;
+  const list = [...new Set(raw.map((s) => s.trim()).filter((s) => /^[A-Za-z0-9_.:\/-]{1,120}$/.test(s)))].sort();
+  return list.length ? list.slice(0, 100) : undefined;
 }
 
 /** An ad account the authorising person can grant (shown in the account picker). */

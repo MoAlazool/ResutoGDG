@@ -63,7 +63,7 @@ export const isE164 = (v: string) => E164.test(v);
 export const RESEND_API = 'https://api.resend.com';
 
 export const resendDescriptor: ProviderDescriptor = {
-  id: 'resend', name: 'Resend (email)', category: 'messaging', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
+  id: 'resend', name: 'Resend (email)', category: 'messaging', countries: ['EG', 'SA'], authType: 'api_key', connectMethod: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://resend.com/docs/api-reference/emails/send-email',
   capabilities: ['email_transactional', 'email_marketing', 'list_unsubscribe', 'delivery_webhook', 'idempotent_send'],
   activation: [
@@ -185,7 +185,7 @@ const TWILIO_NOT_OWNED_FROM = new Set([21606, 21659, 21212]);
 const TWILIO_TEST_CREDENTIALS_ONLY = 20008;
 
 export const twilioSmsDescriptor: ProviderDescriptor = {
-  id: 'twilio_sms', name: 'Twilio SMS', category: 'messaging', countries: ['EG', 'SA'], authType: 'api_key', readiness: 'implemented_unverified',
+  id: 'twilio_sms', name: 'Twilio SMS', category: 'messaging', countries: ['EG', 'SA'], authType: 'api_key', connectMethod: 'api_key', readiness: 'implemented_unverified',
   docsUrl: 'https://www.twilio.com/docs/messaging/api/message-resource',
   capabilities: ['sms_transactional', 'sms_marketing', 'delivery_webhook'],
   activation: [

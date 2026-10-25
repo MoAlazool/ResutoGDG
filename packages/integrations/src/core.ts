@@ -14,12 +14,32 @@ export type ProviderCategory = 'pos' | 'payments' | 'accounting' | 'messaging' |
  */
 export type Readiness = 'simulated' | 'implemented_unverified' | 'sandbox_verified' | 'live_verified';
 
+/**
+ * How a restaurant connects the provider (21-INT, plan §6.3): 'oauth' ("Continue with …" through Resuto's provider
+ * app), 'embedded_signup' (Meta's WhatsApp signup window), 'guided_onboarding' (a stepper with the provider's own
+ * onboarding codes), 'api_key' (keys pasted under "Advanced", where the provider offers nothing else), and
+ * 'platform_managed' (Resuto runs it; the restaurant enters nothing — also every simulated sandbox).
+ */
+export type ConnectMethod = 'oauth' | 'embedded_signup' | 'guided_onboarding' | 'api_key' | 'platform_managed';
+
+/** What the provider (not Resuto) must grant before some capabilities work. */
+export type ReviewRequirement = 'app_review' | 'business_verification' | 'ad_account_access' | 'tech_provider' | 'partner_app';
+
 export interface ProviderDescriptor {
   id: string;
   name: string;
   category: ProviderCategory;
   countries: Array<'EG' | 'SA'>;
   authType: 'oauth' | 'api_key' | 'webhook_secret' | 'none';
+  /** 21-INT: the connect method the marketplace offers (connection-form auth stays `authType`). */
+  connectMethod?: ConnectMethod;
+  /**
+   * 21-INT: provider scopes each capability needs, compared with the scopes the provider reports as granted
+   * ("needs permission X"). Only for providers whose OAuth or permissions API reports scopes.
+   */
+  requiredScopes?: Record<string, string[]>;
+  /** 21-INT: provider-side approvals some capabilities depend on (shown in the connection sheet). */
+  reviewRequirements?: ReviewRequirement[];
   readiness: Readiness;
   /** Exact steps/credentials required before live activation. */
   activation: string[];

@@ -10,6 +10,7 @@ export const posSandboxDescriptor: ProviderDescriptor = {
   category: 'pos',
   countries: ['EG', 'SA'],
   authType: 'none',
+  connectMethod: 'platform_managed',
   readiness: 'simulated',
   capabilities: ['menu_import'],
   activation: ['No activation needed. Returns a fixed sample catalogue labelled [Sandbox]; connect Foodics or Odoo for your real menu.'],

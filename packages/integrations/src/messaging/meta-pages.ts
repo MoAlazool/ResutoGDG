@@ -29,6 +29,14 @@ export const metaPagesDescriptor: ProviderDescriptor = {
   category: 'messaging',
   countries: ['EG', 'SA'],
   authType: 'oauth',
+  connectMethod: 'oauth',
+  // Checked against GET /me/permissions with the Login user token (META_PAGES_SCOPES are requested).
+  requiredScopes: {
+    page_picker: ['pages_show_list'], page_ownership_proof: ['pages_show_list'], webhook_subscription: ['pages_manage_metadata'],
+    standard_window_24h: ['pages_messaging'], human_agent_tag: ['pages_messaging'], quick_replies: ['pages_messaging'], url_button: ['pages_messaging'],
+    handoff: ['pages_messaging'], instagram_account_proof: ['instagram_basic', 'instagram_manage_messages'],
+  },
+  reviewRequirements: ['app_review', 'business_verification'],
   readiness: 'implemented_unverified',
   docsUrl: 'https://developers.facebook.com/docs/messenger-platform',
   capabilities: ['oauth', 'oauth_state_bound', 'page_picker', 'long_lived_page_token', 'provider_revoke', 'page_ownership_proof', 'instagram_account_proof', 'webhook_subscription', 'signed_webhooks', 'standard_window_24h', 'human_agent_tag',

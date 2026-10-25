@@ -49,6 +49,7 @@ export const simulatedDescriptor: ProviderDescriptor = {
   category: 'payments',
   countries: ['EG', 'SA'],
   authType: 'webhook_secret',
+  connectMethod: 'platform_managed',
   readiness: 'simulated',
   activation: ['Available only when PAYMENT_MODE=sandbox. No provider account and no money involved.'],
   capabilities: ['checkout', 'webhooks', 'status_query', 'refunds', 'transaction_listing'],
