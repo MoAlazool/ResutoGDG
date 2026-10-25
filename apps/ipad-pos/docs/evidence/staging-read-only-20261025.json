@@ -1,0 +1,22 @@
+{
+  "checkedOn": "2026-10-25",
+  "supabaseProject": "skvnznyfxpxfuzvuipju",
+  "nativeQARestaurantExists": false,
+  "posTablesPresent": {
+    "pos_devices": false,
+    "pos_order_submissions": false,
+    "pos_events": false,
+    "pos_print_jobs": false
+  },
+  "apiCommit": "5c359d5c73e861634c3e289488579df9ef0d02f9",
+  "apiEnvironment": "staging",
+  "paymentsMode": "sandbox",
+  "credentialDiscovery": {
+    "runtimeSecretBindings": 0,
+    "runtimeOutboundIdentities": 0,
+    "githubSecretMetadata": "403 Resource not accessible by integration; existence/values not established"
+  },
+  "authenticatedLifecyclePerformed": false,
+  "stagingWritesPerformed": false,
+  "productionAccessPerformed": false
+}

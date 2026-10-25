@@ -1,0 +1,31 @@
+{
+  "runId": 40189594097,
+  "jobId": 121157556476,
+  "sourceCommit": "05096ad4f7dff6853bba40c2eb6f07c4249f795c",
+  "job": "Database, API and web",
+  "step": "API integration tests as restricted runtime role",
+  "testFile": "apps/api/test/connect.test.ts",
+  "line": 364,
+  "test": "WhatsApp Cloud API webhook accepts signed message, resolves tenant, queues bot reply, ignores duplicates",
+  "expected": {
+    "retried": 1,
+    "sent": 0
+  },
+  "actual": {
+    "retried": 1,
+    "sent": 3
+  },
+  "passed": 916,
+  "failed": 1,
+  "skipped": 1,
+  "sharedCodeModified": false,
+  "rerunRequested": true,
+  "rerunJobId": 121160347693,
+  "rerunResult": "success",
+  "restrictedRuntimePassed": 917,
+  "restrictedRuntimeSkipped": 1,
+  "normalRuntimePassed": 914,
+  "normalRuntimeSkipped": 4,
+  "sharedWorkflowFinalResult": "success",
+  "originalFailureFixedInSource": false
+}

@@ -1,0 +1,11 @@
+{
+  "runId": 40188215832,
+  "jobId": 121153426279,
+  "sourceCommit": "e6feb5a4d9b7640b87da7a1f4ba664fb8e4f7ddd",
+  "job": "Browser end-to-end (Playwright, real API)",
+  "passed": 69,
+  "failed": 1,
+  "failure": "WebKit iPhone 13 QR dine-in scenario, tests/e2e/scenario-dine-in.spec.ts:156; unexpected RSC fallback warnings for local /r, /order and /reserve routes",
+  "sharedCodeModified": false,
+  "nativeStagingAcceptance": false
+}

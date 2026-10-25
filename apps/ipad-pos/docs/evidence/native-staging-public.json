@@ -1,0 +1,14 @@
+{
+  "apiCommit" : "5c359d5c73e861634c3e289488579df9ef0d02f9",
+  "blocked" : [
+    "authenticated_lifecycle_not_requested",
+    "browser_dashboard_not_verified",
+    "physical_device_not_verified"
+  ],
+  "checks" : [
+    "native_URLSession_staging_health",
+    "unauthenticated_identity_401"
+  ],
+  "observedAt" : "2026-10-24T23:59:00Z",
+  "scope" : "Native Swift API client; browser and physical-device verification are separate"
+}

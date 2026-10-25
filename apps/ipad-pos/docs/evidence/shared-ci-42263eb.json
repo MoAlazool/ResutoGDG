@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "42263eb48c343d8894d1e847beebfce878850b54",
+  "runId": 40210274579,
+  "conclusion": "success",
+  "browser": {
+    "jobId": 121219958871,
+    "conclusion": "success",
+    "passed": 70
+  },
+  "databaseApiWeb": {
+    "jobId": 121219958887,
+    "conclusion": "success",
+    "api": {
+      "passed": 914,
+      "skipped": 4
+    },
+    "restrictedApi": {
+      "passed": 917,
+      "skipped": 1
+    },
+    "web": {
+      "passed": 445,
+      "skipped": 20
+    }
+  },
+  "visualParity": {
+    "jobId": 121219958726,
+    "conclusion": "success"
+  },
+  "legacy": {
+    "jobId": 121219958902,
+    "conclusion": "success"
+  },
+  "scope": "Disposable CI services and synthetic fixtures, not authenticated staging or real-device evidence. Browser installation took approximately 26 minutes before tests started; the job subsequently passed."
+}

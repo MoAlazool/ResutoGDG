@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "812439b5183b6bf2e7f7b49530764807a158749b",
+  "runId": 40150009851,
+  "result": "failure",
+  "toolchain": "Xcode 16.4; iOS 18.5; iPad Pro 11-inch (M4)",
+  "coreTests": 96,
+  "uiTests": 15,
+  "uiPassed": 14,
+  "uiFailed": 1,
+  "releaseBuild": "passed",
+  "debugBuild": "passed",
+  "failure": "Order-to-Settings navigation blocked by active order sheet after Done. Background detail refresh can repopulate dismissed selection.",
+  "stagingVerified": false,
+  "physicalDeviceVerified": false
+}
