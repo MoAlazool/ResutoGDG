@@ -1,4 +1,4 @@
-import { API_URL, apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, collectApiFailures, collectErrors, expect, newContext, sql, test, unique, type Tenant } from './fixtures';
+import { API_URL, apiAs, apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, collectApiFailures, collectErrors, expect, newContext, sql, test, unique, type Tenant } from './fixtures';
 
 // 21-OPS: keyboard order triage on the Orders board (j/k, a, Enter, x + bulk move) and the kitchen display's bump
 // flow (1-9, Enter, arrows, b), against the real API. The dashboard's Kitchen link opens the one full-screen display.
@@ -126,5 +126,39 @@ test('kitchen display: the dashboard link opens it full screen, and the bump bar
     expect(errors).toEqual([]);
   } finally {
     await context.close();
+  }
+});
+
+test('reservations: tomorrow\'s timeline per table, a bar opens the booking sheet, front-of-house tabs', async ({ browser, request }) => {
+  const tenant = await apiCreateTenant(request);
+  const layout = await apiSaveFloor(request, tenant);
+  const t2 = layout.tables.find((x: { label: string }) => x.label === 'T2');
+  const tomorrow = new Date(Date.parse(`${new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(new Date())}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/reservations`,
+    { branchId: tenant.branchId, date: tomorrow, time: '20:00', partySize: 2, tableId: t2.id, guestName: 'Salma Adel', source: 'phone' }, { 'Idempotency-Key': unique('res') });
+  for (const locale of ['en', 'ar'] as const) {
+    const { context, page } = await newContext(browser, { user: tenant.owner, locale });
+    const errors = collectErrors(page);
+    try {
+      await page.goto(`/dashboard/${tenant.orgId}/reservations`);
+      // The front-of-house tabs link the floor, the front desk and reservations.
+      const foh = page.getByRole('navigation', { name: locale === 'en' ? 'Front of house' : 'الصالة والاستقبال' });
+      await expect(foh.getByRole('link')).toHaveCount(3);
+      await expect(foh.locator('a[aria-current="page"]')).toHaveAttribute('href', `/dashboard/${tenant.orgId}/reservations`);
+      await page.getByRole('button', { name: locale === 'en' ? 'Next day' : 'اليوم التالي' }).click();
+      await expect(page).toHaveURL(new RegExp(`date=${tomorrow}`));
+      const bar = page.getByRole('button', { name: /^T2: 20:00–21:30 · Salma Adel/ });
+      await expect(bar).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator('.res-gantt-row').filter({ hasText: 'T1' }).locator('.res-gantt-bar')).toHaveCount(0);
+      await bar.click();
+      const sheet = page.getByRole('dialog', { name: 'Salma Adel' });
+      await expect(sheet).toBeVisible();
+      await expect(sheet).toContainText(locale === 'en' ? 'Confirmed' : 'مؤكد');
+      await page.keyboard.press('Escape');
+      await expect(sheet).toBeHidden();
+      expect(errors).toEqual([]);
+    } finally {
+      await context.close();
+    }
   }
 });

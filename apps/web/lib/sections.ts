@@ -44,6 +44,16 @@ export const SETTINGS_SECTIONS: SectionLink[] = [
   { href: '/settings/messaging', label: 'nav.messaging', permission: 'connect:read', module: 'connect' },
 ];
 
+/**
+ * Front of house (21-OPS): the floor, the front desk and reservations share one live map and one set of tabs, so the
+ * three screens read as one area. Table-service branches only (the pages' nav items carry the same rule).
+ */
+export const FRONT_OF_HOUSE_SECTIONS: SectionLink[] = [
+  { href: '/floor', label: 'nav.floorTables', permission: 'floor:read' },
+  { href: '/host', label: 'ops.host.nav', permission: 'floor:seat' },
+  { href: '/reservations', label: 'nav.reservations', permission: 'reservations:read' },
+];
+
 /** The section whose route is the longest prefix of `path` (relative to the restaurant), or null. */
 export function activeSection(sections: SectionLink[], path: string): SectionLink | null {
   let best: SectionLink | null = null;

@@ -85,3 +85,18 @@ export function smallestFreeTable(tables: LiveTable[], party: number, now = Date
     .filter((t) => liveStateKey(t, now) === 'available' && t.capacity >= party)
     .sort((a, b) => a.capacity - b.capacity || a.label.localeCompare(b.label, undefined, { numeric: true }))[0] ?? null;
 }
+
+/** States of a table whose guests are on their way out, closest to free first (cleaning, paid, paying, part paid). */
+const FREEING: LiveStateKey[] = ['cleaning', 'paid', 'payment', 'partiallyPaid'];
+
+/**
+ * Tables that fit the party and should free up next (21-OPS walk-in sheet): needs cleaning, paid, paying, then part
+ * paid; smaller tables first within a state. What the front desk quotes a walk-in when no table is free.
+ */
+export function freeingSoon(tables: LiveTable[], party: number, now = Date.now()): Array<{ table: LiveTable; key: LiveStateKey }> {
+  return tables
+    .map((table) => ({ table, key: liveStateKey(table, now) }))
+    .filter((x) => FREEING.includes(x.key) && x.table.capacity >= party)
+    .sort((a, b) => FREEING.indexOf(a.key) - FREEING.indexOf(b.key) || a.table.capacity - b.table.capacity
+      || a.table.label.localeCompare(b.table.label, undefined, { numeric: true }));
+}

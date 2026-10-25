@@ -2,12 +2,14 @@
 // Front desk (VS-12), restored from legacy/public/host.js: who is in, what is free, and who is next. KPIs (tables free,
 // seated now, booked today, needs you), the live floor (tap a free table to seat guests), "Free right now" chips,
 // "Arriving today" with Check in inside the -15/+30 minute window, open bills and service requests.
-import { useMemo, useState } from 'react';
-import { RESERVATION_RULES, type ReservationView } from '@resuto/contracts';
+import { Suspense, useMemo, useState } from 'react';
+import type { ReservationView } from '@resuto/contracts';
+import { RESERVATION_RULES } from '@resuto/contracts/lite';
 import { Badge, PageHeading, StatsStrip, StatsStripSkeleton, ToastProvider, useToast } from '@resuto/ui';
-import { FloorMapPanel, LIVE_POLL_MS, TableDetail, WalkInDialog, useLiveFloor, useVisitActions } from '@/components/floor/LiveFloor';
+import { FloorMapPanel, LIVE_POLL_MS, TableDetail, WalkInSheet, useLiveFloor, useVisitActions } from '@/components/floor/LiveFloor';
 import { liveCounts, liveState } from '@/components/floor/live';
 import { canForceClose } from '@/components/floor/visit-actions';
+import { FrontOfHouseNav } from '@/components/ops/FrontOfHouseNav';
 import { ServiceRequestList, useServiceRequests } from '@/components/ops/ServiceRequests';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -66,6 +68,7 @@ function FrontDesk() {
   return (
     <>
       {visit.confirmDialog}
+      <FrontOfHouseNav />
       <PageHeading title={t('ops.host.title')} subtitle={t('ops.host.subtitle')}
         actions={can('floor:seat') && <button type="button" className="btn btn-primary" disabled={!live.data} onClick={() => setWalkIn(true)}>＋ {t('ops.floor.seatWalkIn')}</button>} />
       {counts ? (
@@ -134,7 +137,9 @@ function FrontDesk() {
         </aside>
       </div>
       {walkIn && live.data && (
-        <WalkInDialog tables={tables} busy={busy} onClose={() => setWalkIn(false)} onSeat={async (tb, party) => { await visit.seat(tb, party); setWalkIn(false); setSelectedId(tb.id); }} />
+        <Suspense fallback={null}>
+          <WalkInSheet tables={tables} busy={busy} onClose={() => setWalkIn(false)} onSeat={async (tb, party) => { await visit.seat(tb, party); setWalkIn(false); setSelectedId(tb.id); }} />
+        </Suspense>
       )}
     </>
   );

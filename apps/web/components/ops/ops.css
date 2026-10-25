@@ -93,6 +93,21 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .legend { display: flex; gap: 6px 13px; flex-wrap: wrap; }
 .legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--faint); }
 .legend i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; display: inline-block; }
+.legend i[data-state='available'] { background: var(--state-available-fill); border-color: var(--state-available-stroke); }
+.legend i[data-state='seated'] { background: var(--state-occupied-fill); border-color: var(--state-occupied-stroke); }
+.legend i[data-state='preparing'] { background: var(--state-preparing-fill); border-color: var(--state-preparing-stroke); }
+.legend i[data-state='ready'] { background: var(--state-ready-fill); border-color: var(--state-ready-stroke); }
+.legend i[data-state='payment'] { background: var(--state-payment-fill); border-color: var(--state-payment-stroke); }
+.legend i[data-state='paid'] { background: var(--state-paid-fill); border-color: var(--state-paid-stroke); }
+.legend i[data-state='reserved'] { background: var(--state-reserved-fill); border-color: var(--state-reserved-stroke); }
+.legend i[data-state='cleaning'] { background: var(--state-cleaning-fill); border-color: var(--state-cleaning-stroke); }
+/* Area tabs of the shared live map (21-OPS): Entire floor and each zone that has tables. */
+.floor-areas { display: flex; flex-wrap: wrap; gap: 6px; }
+.floor-area { min-block-size: 36px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface-1);
+  color: var(--text-secondary); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.floor-area .num { color: var(--text-muted); margin-inline-start: 4px; }
+.floor-area[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.floor-area[aria-pressed='true'] .num { color: inherit; }
 .floor-panel .saved-floor { padding: 16px 20px; }
 .floor-bottom { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--border); padding: 14px 20px; font-size: 11px; color: var(--faint); }
 .floor-bottom .ws-live-dot { margin-inline-start: 6px; }
@@ -150,6 +165,11 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .visit-card .table-title { margin-bottom: 14px; }
 .visit-card h3 { margin: 0 0 6px; font-size: 15px; }
 .visit-card .btn { margin-top: 12px; width: 100%; }
+
+/* ---------- Walk-in sheet: tables closest to free (21-OPS) ---------- */
+.walkin-soon h3 { margin: 0 0 var(--space-2); font-size: var(--fs-md); }
+.walkin-soon ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); font-size: var(--fs-sm); }
+.walkin-soon li { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; min-block-size: 44px; border-block-end: 1px solid var(--border-subtle); }
 
 /* ---------- Front desk (legacy host.js .host-layout / .host-chips / .host-row) ---------- */
 .host-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }

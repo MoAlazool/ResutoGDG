@@ -17,6 +17,10 @@ const en: Record<string, string> = {
   'ops.kds.keys.move': 'Arrow keys or j and k: move between tickets and lanes',
   'ops.kds.keys.bump': 'Enter, Space or b: move the ticket to its next step',
   'ops.kds.back': 'Back to the workspace',
+  'ops.foh.nav': 'Front of house', 'ops.floor.areas': 'Floor areas',
+  'ops.res.timeline': 'Timeline', 'ops.res.noTable': 'No table yet', 'ops.res.code': 'Booking code',
+  'ops.res.prevDay': 'Previous day', 'ops.res.nextDay': 'Next day', 'ops.res.today': 'Today',
+  'ops.walkin.soon': 'Next to free up', 'ops.walkin.soonHint': 'These tables fit the party and are closest to free. Quote the wait from here.',
 };
 
 const ar: Record<string, string> = {
@@ -34,6 +38,10 @@ const ar: Record<string, string> = {
   'ops.kds.keys.move': 'الأسهم أو j و k: التنقل بين التذاكر والأعمدة',
   'ops.kds.keys.bump': 'Enter أو المسافة أو b: نقل التذكرة إلى خطوتها التالية',
   'ops.kds.back': 'العودة إلى مساحة العمل',
+  'ops.foh.nav': 'الصالة والاستقبال', 'ops.floor.areas': 'مناطق الصالة',
+  'ops.res.timeline': 'المخطط الزمني', 'ops.res.noTable': 'بدون طاولة بعد', 'ops.res.code': 'رمز الحجز',
+  'ops.res.prevDay': 'اليوم السابق', 'ops.res.nextDay': 'اليوم التالي', 'ops.res.today': 'اليوم',
+  'ops.walkin.soon': 'الأقرب للتفرّغ', 'ops.walkin.soonHint': 'هذه الطاولات تتسع للمجموعة وهي الأقرب للتفرّغ. حدّد وقت الانتظار من هنا.',
 };
 
 export const opsBoard = { en, ar };

@@ -5,16 +5,17 @@
 // selected table (seat / mark clean / close visit, remaining balance, its QR code) and the service requests.
 // GET /floor/:branch/live is polled every 3 s; polling holds still while a dialog is open (VS-20).
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Modal, Notice, PageHeading, StatsStrip, StatsStripSkeleton, useConfirm, useToast } from '@resuto/ui';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Notice, PageHeading, StatsStrip, StatsStripSkeleton, useConfirm, useToast } from '@resuto/ui';
 import { ServiceRequestList, useServiceRequests } from '@/components/ops/ServiceRequests';
 import '@/components/ops/ops.css';
 import { newIdempotencyKey } from '@/lib/api';
 import { money, time } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 import { useSession } from '@/lib/session';
+import { areaScene, floorAreas } from './areas';
 import { FloorScene, type SceneTable } from './FloorScene';
-import { LEGEND, liveCounts, liveState, smallestFreeTable, type LiveFloorResponse, type LiveTable } from './live';
+import { LEGEND, liveCounts, liveState, type LiveFloorResponse, type LiveTable } from './live';
 import { normalizeLayout } from './model';
 import { sanitizeQrSvg } from './QrSheet';
 import { useFloorLabels } from './use-floor-labels';
@@ -22,6 +23,9 @@ import { tableActionKeys, visitActions, type VisitActions } from './visit-action
 import './floor.css';
 
 export const LIVE_POLL_MS = 3000;
+
+/** The walk-in sheet loads when it opens (staff bundle budget). */
+export const WalkInSheet = lazy(() => import('./WalkInSheet').then((m) => ({ default: m.WalkInSheet })));
 
 /**
  * Seat / close / release / clean with one guard (one action at a time, buttons disabled while it runs), toasts and the
@@ -78,7 +82,10 @@ export function useLiveFloor(orgId: string, branchId: string, pollMs = LIVE_POLL
   return { L, layout, live, scene };
 }
 
-/** The floor plan panel: legend, scene and the "N tables · M seats" footer (shared by floor, front desk, overview). */
+/**
+ * The shared live map (floor overview, front desk, overview): area tabs (Entire floor and each zone that has tables,
+ * 21-OPS), the legend, the scene cropped to the chosen area, and the "N tables · M seats" footer.
+ */
 export function FloorMapPanel({ data, selectedId, onSelect, title, note, actions, compact }: {
   data: ReturnType<typeof useLiveFloor>; selectedId?: string | null; onSelect?: (id: string) => void; title?: ReactNode; note?: ReactNode;
   actions?: ReactNode; compact?: boolean;
@@ -86,18 +93,30 @@ export function FloorMapPanel({ data, selectedId, onSelect, title, note, actions
   const { L, scene, live } = data;
   const { t, nf } = L;
   const counts = live.data ? liveCounts(live.data.tables) : null;
+  const areas = useMemo(() => (scene ? floorAreas(scene) : []), [scene]);
+  const [area, setArea] = useState<string | null>(null);
+  const shown = useMemo(() => (scene ? areaScene(scene, area) : null), [scene, area]);
   return (
     <section className="panel floor-panel">
       {(title || actions) && <div className="panel-head"><div>{title && <h2>{title}</h2>}{note && <p>{note}</p>}</div>{actions && <div className="row">{actions}</div>}</div>}
       <div className="floor-toolbar">
-        <span className="segmented">{t('ops.floor.entire')}</span>
+        {areas.length > 1 ? (
+          <div className="floor-areas" role="group" aria-label={t('ops.floor.areas')}>
+            <button type="button" className="floor-area" aria-pressed={!area || !areas.some((a) => a.label === area)} onClick={() => setArea(null)}>{t('ops.floor.entire')}</button>
+            {areas.map((a) => (
+              <button key={a.label} type="button" className="floor-area" aria-pressed={area === a.label} onClick={() => setArea(a.label)}>
+                {L.labelOf(a.label)} <span className="num">{nf.format(a.tables)}</span>
+              </button>
+            ))}
+          </div>
+        ) : <span className="segmented">{t('ops.floor.entire')}</span>}
         <div className="legend" aria-label={t('ops.floor.legend')}>
-          {LEGEND.map((l) => <span key={l.key}><i style={{ background: l.fill, borderColor: l.stroke }} aria-hidden="true" />{t(`ops.floor.state.${l.key}`)}</span>)}
+          {LEGEND.map((l) => <span key={l.key}><i data-state={l.key} aria-hidden="true" />{t(`ops.floor.state.${l.key}`)}</span>)}
         </div>
       </div>
-      {scene ? (
+      {shown ? (
         <div className="saved-floor floor-mode-operations">
-          <FloorScene layout={scene} mode="operations" ariaLabel={t('studio.live.mapLabel')} seatsLabel={L.seatsLabel} labelOf={L.labelOf}
+          <FloorScene layout={shown.layout} viewBox={shown.viewBox} mode="operations" ariaLabel={t('studio.live.mapLabel')} seatsLabel={L.seatsLabel} labelOf={L.labelOf}
             selected={selectedId ? [selectedId] : []} onTableActivate={onSelect ?? (() => undefined)}
             tableAria={(x) => `${x.label}, ${L.seatsLabel(x.capacity)}, ${x.statusText ?? ''}`} />
         </div>
@@ -184,8 +203,10 @@ export function LiveFloor({ orgId, branchId, currency, timezone, canSeat, canFor
         </aside>
       </div>
       {walkIn && live.data && (
-        <WalkInDialog tables={tables} onClose={() => setWalkIn(false)} busy={busy}
-          onSeat={async (tbl, party) => { await seat(tbl, party); setWalkIn(false); setSelectedId(tbl.id); }} />
+        <Suspense fallback={null}>
+          <WalkInSheet tables={tables} onClose={() => setWalkIn(false)} busy={busy}
+            onSeat={async (tbl, party) => { await seat(tbl, party); setWalkIn(false); setSelectedId(tbl.id); }} />
+        </Suspense>
       )}
     </div>
   );
@@ -274,40 +295,5 @@ function TableQr({ orgId, branchId, tableId, label }: { orgId: string; branchId:
         {svg && <button type="button" className="ops-link qr-download" onClick={download}>{t('ops.floor.downloadQr')} ↓</button>}
       </div>
     </div>
-  );
-}
-
-/** "+ Seat a walk-in" (legacy modal): picks the smallest free table that fits the party; staff can choose another. */
-export function WalkInDialog({ tables, onClose, onSeat, busy }: { tables: LiveTable[]; onClose(): void; onSeat(t: LiveTable, party: number): Promise<void>; busy: boolean }) {
-  const { t, nf } = useFloorLabels();
-  const [party, setParty] = useState(2);
-  const free = tables.filter((x) => liveState(x).key === 'available').sort((a, b) => a.capacity - b.capacity);
-  const suggested = smallestFreeTable(tables, party);
-  const [tableId, setTableId] = useState<string>('');
-  const chosen = free.find((x) => x.id === tableId && x.capacity >= party) ?? suggested;
-  return (
-    <Modal open onClose={onClose} title={t('ops.floor.seatWalkIn')} footer={<>
-      <button type="button" className="btn" onClick={onClose}>{t('action.cancel')}</button>
-      <button type="button" className="btn btn-primary" disabled={!chosen || busy} onClick={() => chosen && void onSeat(chosen, party)}>
-        {chosen ? t('ops.floor.seatAt', { label: chosen.label }) : t('ops.floor.seatGuests')}
-      </button>
-    </>}>
-      <div className="stack">
-        <label className="field"><span>{t('studio.live.partySize')}</span>
-          <input className="input" type="number" inputMode="numeric" min={1} max={50} value={party} onChange={(e) => setParty(Math.max(1, Math.min(50, Number(e.target.value) || 1)))} />
-        </label>
-        {free.length === 0 ? <Notice tone="warn">{t('ops.floor.noFree')}</Notice> : (
-          <div className="free-chips" role="radiogroup" aria-label={t('ops.floor.freeTables')}>
-            {free.map((x) => (
-              <button key={x.id} type="button" role="radio" aria-checked={chosen?.id === x.id} disabled={x.capacity < party}
-                className={`chip-btn${chosen?.id === x.id ? ' is-on' : ''}`} onClick={() => setTableId(x.id)}>
-                <strong>{x.label}</strong><small>{t('studio.floor.seats', { n: nf.format(x.capacity) })}</small>
-              </button>
-            ))}
-          </div>
-        )}
-        {!suggested && free.length > 0 && <p className="fine">{t('ops.floor.noneFits')}</p>}
-      </div>
-    </Modal>
   );
 }

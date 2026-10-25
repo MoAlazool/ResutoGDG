@@ -15,3 +15,4 @@ export * from './social-links';
 export * from './slugs';
 export * from './marketplace';
 export * from './whatsapp-onboarding';
+export * from './reservation-rules';
