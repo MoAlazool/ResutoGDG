@@ -36,6 +36,8 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/marketing', 'apps/web/app/dashboard/[orgId]/loyalty', 'apps/web/app/dashboard/[orgId]/notifications',
   'apps/web/app/dashboard/[orgId]/studio-media', 'apps/web/components/icons', 'apps/web/components/floor/floor.css',
   'apps/web/app/pay/[token]/_ui/receipt.css', 'apps/web/app/driver/driver.module.css',
+  'apps/web/app/dashboard/[orgId]/approvals', 'apps/web/app/dashboard/[orgId]/explore', 'apps/web/app/dashboard/[orgId]/integrations',
+  'apps/web/app/dashboard/[orgId]/setup', 'apps/web/components/charts',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');
