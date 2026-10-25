@@ -7,6 +7,26 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — Overview command centre (21-HOME)
+
+- `GET /v1/o/:orgId/analytics/overview` accepts optional `from`, `to` (local dates, together, at most 400 days) and
+  `compare` (`previous_period` default, `last_year`, `none`; only with `from`/`to`). With them the response gains
+  `period` (`OverviewPeriod` in `packages/contracts/src/home.ts`): orders, net, average order and repeat rate with the
+  comparison and daily series, new vs returning customers, acquisition of the period's new customers by channel
+  (attributed from recorded attribution, otherwise inferred from the first order's channel and counted as inferred),
+  and campaign conversion (attributed orders ÷ tracked link clicks; clicks only without a branch filter; sandbox
+  campaigns excluded). Without `from`/`to` the response is unchanged except for three new fields:
+  `live.tables { total, occupied, outOfService, free }`, `live.stations [{ station, queued, preparing }]` and
+  `reservationsToday.next` (the next three of today, `null` for roles without `reservations:read`).
+- `GET /v1/o/:orgId/attention?branchId=` (any member): slow orders, unpaid bills, low stock, failing integrations,
+  expiring OAuth tokens, change sets pending approval, creative drafts and campaigns waiting for approval, negative
+  guest ratings. Each kind is read only with its permission and module (`ATTENTION_ACCESS`); the others are listed in
+  `omitted` with the reason. Items carry `kind`, `severity`, `count`, `samples`, `href`, `source` and `provenance`.
+- `GET|PUT /v1/o/:orgId/preferences/overview` (the signed-in staff member's own layout: `{ sections: [{ id, visible }] }`,
+  every section at most once). Stored in the new `user_preferences` table, readable and writable only by that user.
+
+No existing route changed (checked with `scripts/openapi/additive.mjs` against the previous document).
+
 ### Added — Inbox workspace and Customer 360, increment 1 (21-INBOX)
 
 - Internal notes: `POST /v1/o/:orgId/connect/conversations/:id/notes` (`connect:reply`, idempotent by `key`) and

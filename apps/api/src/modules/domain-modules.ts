@@ -13,6 +13,7 @@ import { ServiceAreaModule } from './delivery/service-area.module';
 import { FinanceModule } from './finance/finance.module';
 import { FloorModule } from './floor/floor.module';
 import { GuestModule } from './guest/guest.module';
+import { HomeModule } from './home/home.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { IntelligenceModule } from './intelligence/intelligence.module';
 import { InventoryModule } from './inventory/inventory.module';
@@ -42,6 +43,7 @@ export const DOMAIN_MODULES: Type[] = [
   FinanceModule,
   FloorModule,
   GuestModule,
+  HomeModule,
   IntegrationsModule,
   IntelligenceModule,
   InventoryModule,
