@@ -7,6 +7,30 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — Resuto Studio canvas workspace, section kinds, dish discounts, AI editing (21-STUDIO)
+
+- Website sections: `kind` gains `promo_banner`, `offers`, `social`, `faq` and `menu_full`; section `content` gains
+  optional `layout` `{ align, spacing, tone, columns }`, `promotionCode`, `badge` and `categoryIds`. The new kinds take
+  only their own fields (`400 validation_failed` on create, `422 section_content_invalid` on edit); `menu_full`
+  categories must be the restaurant's (`422 unknown_category`). Older kinds are unchanged.
+- `GET /v1/public/sites/:slug` (and `by-host`): every dish (`menuHighlights`, offers, full menu) gains
+  `compareAtMinor` (the price before a dish discount, only when above `priceMinor`); `offers` sections gain
+  `content.products`, `offers`/`promo_banner` gain `content.promotion` (a live promotion named by code: code, name,
+  kind, value, minimum order, end; never redemption counts) and `menu_full` gains `content.menu` (categories with
+  their orderable dishes, at most 200).
+- `POST /v1/o/:orgId/studio/website/template` (`studio:write`, 200): applies a style family × layout variant
+  (`packages/contracts/src/studio-templates.ts`); answers the editor view plus `addedSectionIds`. `422 unknown_template`.
+- `GET /v1/o/:orgId/studio/website/preview/change-sets/:changeSetId` (`studio:read`, and `changes:read` or the
+  proposer): the draft as it will look once the change set applies, with `diff { changeSetId, added, changed,
+  repriced }`. Nothing is written.
+- `POST /v1/o/:orgId/studio/ai/proposals` (`studio:write`, `Idempotency-Key` required, 201): a request in plain words
+  → one change set (origin `studio_ai`, always waiting for approval) plus `plan { planner: 'resuto_rules', model:
+  null, notes }`. `422 ai_request_unclear`, `422 unknown_product`.
+- Change sets: new op `product.discount.set` `{ productId, discountBps }` (group `prices`, `menu:write`; 1–90 %, `0`
+  removes it; `422 discount_out_of_bounds`, `422 no_discount`). The price guests pay (`products.price_minor`) is the
+  discounted one, so menus, checkout and POS sync see it as an ordinary price change; a regular price edit ends the
+  discount. MCP `propose_changes` allows it only with `set_item_price`.
+
 ### Added — Integrations marketplace, operator console, WhatsApp official stepper (21-INT)
 
 - `GET /v1/o/:orgId/integrations/catalog`: each item gains `connectMethod` (`oauth | embedded_signup |

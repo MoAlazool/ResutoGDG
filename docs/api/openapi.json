@@ -4139,6 +4139,40 @@
                             "input": {
                               "additionalProperties": false,
                               "properties": {
+                                "discountBps": {
+                                  "maximum": 10000,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "productId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "productId",
+                                "discountBps"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "product.discount.set",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
                                 "branchIds": {
                                   "anyOf": [
                                     {
@@ -4319,6 +4353,20 @@
                                   "additionalProperties": false,
                                   "default": {},
                                   "properties": {
+                                    "badge": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 30,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 30,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
                                     "body": {
                                       "additionalProperties": false,
                                       "properties": {
@@ -4332,6 +4380,15 @@
                                         }
                                       },
                                       "type": "object"
+                                    },
+                                    "categoryIds": {
+                                      "items": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "maxItems": 30,
+                                      "type": "array"
                                     },
                                     "ctaLabel": {
                                       "additionalProperties": false,
@@ -4416,6 +4473,52 @@
                                       "maxItems": 12,
                                       "type": "array"
                                     },
+                                    "layout": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "align": {
+                                          "enum": [
+                                            "start",
+                                            "center"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "columns": {
+                                          "anyOf": [
+                                            {
+                                              "const": 2,
+                                              "type": "number"
+                                            },
+                                            {
+                                              "const": 3,
+                                              "type": "number"
+                                            },
+                                            {
+                                              "const": 4,
+                                              "type": "number"
+                                            }
+                                          ]
+                                        },
+                                        "spacing": {
+                                          "enum": [
+                                            "compact",
+                                            "normal",
+                                            "roomy"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "tone": {
+                                          "enum": [
+                                            "default",
+                                            "muted",
+                                            "accent",
+                                            "contrast"
+                                          ],
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
                                     "mediaId": {
                                       "anyOf": [
                                         {
@@ -4445,6 +4548,17 @@
                                       },
                                       "maxItems": 12,
                                       "type": "array"
+                                    },
+                                    "promotionCode": {
+                                      "anyOf": [
+                                        {
+                                          "pattern": "^[A-Za-z0-9_-]{3,32}$",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "type": "object"
@@ -4465,7 +4579,12 @@
                                     "hours",
                                     "testimonials",
                                     "contact",
-                                    "custom"
+                                    "custom",
+                                    "promo_banner",
+                                    "offers",
+                                    "social",
+                                    "faq",
+                                    "menu_full"
                                   ],
                                   "type": "string"
                                 }
@@ -4495,6 +4614,20 @@
                                 "content": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "badge": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "ar": {
+                                          "maxLength": 30,
+                                          "type": "string"
+                                        },
+                                        "en": {
+                                          "maxLength": 30,
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
                                     "body": {
                                       "additionalProperties": false,
                                       "properties": {
@@ -4508,6 +4641,15 @@
                                         }
                                       },
                                       "type": "object"
+                                    },
+                                    "categoryIds": {
+                                      "items": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "maxItems": 30,
+                                      "type": "array"
                                     },
                                     "ctaLabel": {
                                       "additionalProperties": false,
@@ -4592,6 +4734,52 @@
                                       "maxItems": 12,
                                       "type": "array"
                                     },
+                                    "layout": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "align": {
+                                          "enum": [
+                                            "start",
+                                            "center"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "columns": {
+                                          "anyOf": [
+                                            {
+                                              "const": 2,
+                                              "type": "number"
+                                            },
+                                            {
+                                              "const": 3,
+                                              "type": "number"
+                                            },
+                                            {
+                                              "const": 4,
+                                              "type": "number"
+                                            }
+                                          ]
+                                        },
+                                        "spacing": {
+                                          "enum": [
+                                            "compact",
+                                            "normal",
+                                            "roomy"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "tone": {
+                                          "enum": [
+                                            "default",
+                                            "muted",
+                                            "accent",
+                                            "contrast"
+                                          ],
+                                          "type": "string"
+                                        }
+                                      },
+                                      "type": "object"
+                                    },
                                     "mediaId": {
                                       "anyOf": [
                                         {
@@ -4621,6 +4809,17 @@
                                       },
                                       "maxItems": 12,
                                       "type": "array"
+                                    },
+                                    "promotionCode": {
+                                      "anyOf": [
+                                        {
+                                          "pattern": "^[A-Za-z0-9_-]{3,32}$",
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
                                     }
                                   },
                                   "type": "object"
@@ -30867,6 +31066,88 @@
         ]
       }
     },
+    "/v1/o/{orgId}/studio/ai/proposals": {
+      "post": {
+        "operationId": "StudioEditing_propose",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "locale": {
+                    "default": "en",
+                    "enum": [
+                      "en",
+                      "ar"
+                    ],
+                    "type": "string"
+                  },
+                  "productIds": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 12,
+                    "type": "array"
+                  },
+                  "prompt": {
+                    "maxLength": 600,
+                    "minLength": 3,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "prompt"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "studio"
+        ],
+        "x-resuto-module": "studio",
+        "x-resuto-permissions": [
+          "studio:write"
+        ]
+      }
+    },
     "/v1/o/{orgId}/studio/creative": {
       "get": {
         "operationId": "Studio_listCreative",
@@ -32791,6 +33072,50 @@
         ]
       }
     },
+    "/v1/o/{orgId}/studio/website/preview/change-sets/{changeSetId}": {
+      "get": {
+        "operationId": "Studio_changeSetPreview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "changeSetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "studio"
+        ],
+        "x-resuto-module": "studio",
+        "x-resuto-permissions": [
+          "studio:read"
+        ]
+      }
+    },
     "/v1/o/{orgId}/studio/website/publish": {
       "post": {
         "operationId": "Studio_publish",
@@ -32979,6 +33304,20 @@
                     "additionalProperties": false,
                     "default": {},
                     "properties": {
+                      "badge": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "ar": {
+                            "maxLength": 30,
+                            "type": "string"
+                          },
+                          "en": {
+                            "maxLength": 30,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
                       "body": {
                         "additionalProperties": false,
                         "properties": {
@@ -32992,6 +33331,15 @@
                           }
                         },
                         "type": "object"
+                      },
+                      "categoryIds": {
+                        "items": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "maxItems": 30,
+                        "type": "array"
                       },
                       "ctaLabel": {
                         "additionalProperties": false,
@@ -33076,6 +33424,52 @@
                         "maxItems": 12,
                         "type": "array"
                       },
+                      "layout": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "align": {
+                            "enum": [
+                              "start",
+                              "center"
+                            ],
+                            "type": "string"
+                          },
+                          "columns": {
+                            "anyOf": [
+                              {
+                                "const": 2,
+                                "type": "number"
+                              },
+                              {
+                                "const": 3,
+                                "type": "number"
+                              },
+                              {
+                                "const": 4,
+                                "type": "number"
+                              }
+                            ]
+                          },
+                          "spacing": {
+                            "enum": [
+                              "compact",
+                              "normal",
+                              "roomy"
+                            ],
+                            "type": "string"
+                          },
+                          "tone": {
+                            "enum": [
+                              "default",
+                              "muted",
+                              "accent",
+                              "contrast"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
                       "mediaId": {
                         "anyOf": [
                           {
@@ -33105,6 +33499,17 @@
                         },
                         "maxItems": 12,
                         "type": "array"
+                      },
+                      "promotionCode": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[A-Za-z0-9_-]{3,32}$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "type": "object"
@@ -33125,7 +33530,12 @@
                       "hours",
                       "testimonials",
                       "contact",
-                      "custom"
+                      "custom",
+                      "promo_banner",
+                      "offers",
+                      "social",
+                      "faq",
+                      "menu_full"
                     ],
                     "type": "string"
                   }
@@ -33296,6 +33706,20 @@
                   "content": {
                     "additionalProperties": false,
                     "properties": {
+                      "badge": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "ar": {
+                            "maxLength": 30,
+                            "type": "string"
+                          },
+                          "en": {
+                            "maxLength": 30,
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
                       "body": {
                         "additionalProperties": false,
                         "properties": {
@@ -33309,6 +33733,15 @@
                           }
                         },
                         "type": "object"
+                      },
+                      "categoryIds": {
+                        "items": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "maxItems": 30,
+                        "type": "array"
                       },
                       "ctaLabel": {
                         "additionalProperties": false,
@@ -33393,6 +33826,52 @@
                         "maxItems": 12,
                         "type": "array"
                       },
+                      "layout": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "align": {
+                            "enum": [
+                              "start",
+                              "center"
+                            ],
+                            "type": "string"
+                          },
+                          "columns": {
+                            "anyOf": [
+                              {
+                                "const": 2,
+                                "type": "number"
+                              },
+                              {
+                                "const": 3,
+                                "type": "number"
+                              },
+                              {
+                                "const": 4,
+                                "type": "number"
+                              }
+                            ]
+                          },
+                          "spacing": {
+                            "enum": [
+                              "compact",
+                              "normal",
+                              "roomy"
+                            ],
+                            "type": "string"
+                          },
+                          "tone": {
+                            "enum": [
+                              "default",
+                              "muted",
+                              "accent",
+                              "contrast"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
                       "mediaId": {
                         "anyOf": [
                           {
@@ -33422,6 +33901,17 @@
                         },
                         "maxItems": 12,
                         "type": "array"
+                      },
+                      "promotionCode": {
+                        "anyOf": [
+                          {
+                            "pattern": "^[A-Za-z0-9_-]{3,32}$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "type": "object"
@@ -33430,6 +33920,75 @@
                     "type": "boolean"
                   }
                 },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "studio"
+        ],
+        "x-resuto-module": "studio",
+        "x-resuto-permissions": [
+          "studio:write"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/studio/website/template": {
+      "post": {
+        "operationId": "Studio_applyTemplate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "addSections": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "applyStyle": {
+                    "default": true,
+                    "type": "boolean"
+                  },
+                  "family": {
+                    "pattern": "^[a-z_]{3,40}$",
+                    "type": "string"
+                  },
+                  "variant": {
+                    "pattern": "^[a-z_]{3,40}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "family",
+                  "variant"
+                ],
                 "type": "object"
               }
             }
