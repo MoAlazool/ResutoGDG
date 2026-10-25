@@ -40,6 +40,13 @@ export interface CspOptions {
    * hidden frame. Only that page gets these hosts.
    */
   metaSdk?: boolean;
+  /**
+   * Staff documents (21-STUDIO): may frame this site's own pages ('self'), which the Studio canvas needs
+   * (/studio-canvas in an iframe sandboxed with allow-scripts only, lib/studio-canvas.ts). Guest pages never frame.
+   */
+  frameSelf?: boolean;
+  /** The Studio canvas document itself: it may be framed by this site only (frame-ancestors 'self'). */
+  framedBySelf?: boolean;
 }
 
 export const META_SDK_HOSTS = ['https://www.facebook.com', 'https://web.facebook.com', 'https://connect.facebook.net'];
@@ -58,6 +65,21 @@ export const META_SDK_PAGE = /^\/dashboard\/[^/]+\/settings\/messaging\/?$/;
 export function documentAllowsMetaSdk(loadedUrl: string | null | undefined): boolean {
   if (!loadedUrl) return false;
   try { return META_SDK_PAGE.test(new URL(loadedUrl, 'http://local').pathname); } catch { return false; }
+}
+
+/**
+ * Documents that may frame the Studio canvas: staff and sign-in pages (a sign-in hands over to the dashboard by
+ * client-side navigation, and a document keeps the policy it was loaded with). Restaurant websites, ordering, payment
+ * and the landing page keep frame-src 'none'.
+ */
+export const STAFF_DOCUMENT = /^\/(dashboard|admin|kitchen|driver|onboarding|invite|login|signup|forgot-password|reset-password|account|auth)(\/|$)/;
+/** The Studio canvas page (framed by the Studio only). */
+export const STUDIO_CANVAS_PAGE = /^\/studio-canvas\/?$/;
+
+/** Whether the document loaded from `loadedUrl` may frame the Studio canvas (see documentAllowsMetaSdk). */
+export function documentAllowsStudioCanvas(loadedUrl: string | null | undefined): boolean {
+  if (!loadedUrl) return false;
+  try { return STAFF_DOCUMENT.test(new URL(loadedUrl, 'http://local').pathname); } catch { return false; }
 }
 
 export const META_PIXEL_CONNECT = ['https://www.facebook.com', 'https://connect.facebook.net'];
@@ -98,8 +120,8 @@ export function buildCsp(o: CspOptions): string {
     list("media-src 'self' blob: https:", api),
     "worker-src 'self' blob:",
     "manifest-src 'self'",
-    o.metaSdk ? list('frame-src', ...META_SDK_HOSTS) : "frame-src 'none'",
-    "frame-ancestors 'none'",
+    o.metaSdk || o.frameSelf ? list('frame-src', o.frameSelf && "'self'", ...(o.metaSdk ? META_SDK_HOSTS : [])) : "frame-src 'none'",
+    o.framedBySelf ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
