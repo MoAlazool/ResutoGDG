@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import type { IntegrationConnectionView } from '@resuto/contracts';
-import { Badge, Card, DataTable, EmptyState, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, OrderRef } from '@resuto/ui';
+import { Badge, Card, DataTable, EmptyState, ListPage, Notice, SelectField, Skeleton, Tabs, useAction, OrderRef } from '@resuto/ui';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { ApiRequestError } from '@/lib/api';
@@ -34,11 +34,11 @@ export default function IntegrationsPage() {
   const reload = async () => { await Promise.all([catalog.reload(), list.reload()]); };
   return (
     <ModuleGate module="core" permission="integrations:manage">
-      <PageHeader title={t('nav.integrations')} subtitle={t('connect.int.subtitle')} />
-      <Tabs value={tab} onChange={setTab} tabs={[
-        { key: 'catalog', label: t('mkt.tab') }, { key: 'connections', label: t('connect.int.connections') },
-        { key: 'pos', label: t('connect.int.posImport') }, { key: 'logs', label: t('connect.int.logs') },
-      ]} />
+      <ListPage header={{ title: t('nav.integrations'), subtitle: t('connect.int.subtitle') }}
+        filters={<Tabs value={tab} onChange={setTab} tabs={[
+          { key: 'catalog', label: t('mkt.tab') }, { key: 'connections', label: t('connect.int.connections') },
+          { key: 'pos', label: t('connect.int.posImport') }, { key: 'logs', label: t('connect.int.logs') },
+        ]} />}>
       {(catalog.error || list.error) && <Notice tone="danger">{(catalog.error ?? list.error)!.message}</Notice>}
       {tab === 'catalog' && (catalog.data && list.data
         ? <Marketplace items={catalog.data.items} connections={list.data.items} onChanged={reload} />
@@ -46,6 +46,7 @@ export default function IntegrationsPage() {
       {tab === 'connections' && (catalog.data && list.data ? <Connections items={catalog.data.items} connections={list.data.items} onChanged={reload} /> : <Skeleton />)}
       {tab === 'pos' && <PosImport />}
       {tab === 'logs' && <Logs />}
+      </ListPage>
     </ModuleGate>
   );
 }

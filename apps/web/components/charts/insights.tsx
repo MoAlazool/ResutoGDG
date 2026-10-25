@@ -71,17 +71,17 @@ export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p:
   const { org } = useOrg();
   const presets = ['today', '7d', '30d', 'month', 'lastMonth', '90d'];
   return (
-    <div className="row" style={{ gap: 8 }} role="group" aria-label={t('insights.period.label')}>
-      <select className="select" style={{ width: 'auto', minHeight: 38 }} value={value.preset} aria-label={t('insights.period.label')}
+    <div className={`row ${s.period}`} role="group" aria-label={t('insights.period.label')}>
+      <select className="select" value={value.preset} aria-label={t('insights.period.label')}
         onChange={(e) => onChange(e.target.value === 'custom' ? { ...value, preset: 'custom' } : presetPeriod(e.target.value, org.timezone))}>
         {presets.map((p) => <option key={p} value={p}>{t(`insights.period.${p}`)}</option>)}
         <option value="custom">{t('insights.period.custom')}</option>
       </select>
       {value.preset === 'custom' && (
         <>
-          <DateTimeInput type="date" style={{ width: 'auto', minHeight: 38 }} aria-label={t('insights.period.from')} value={value.from}
+          <DateTimeInput type="date" aria-label={t('insights.period.from')} value={value.from}
             max={value.to} onChange={(e) => e.target.value && onChange({ ...value, from: e.target.value })} />
-          <DateTimeInput type="date" style={{ width: 'auto', minHeight: 38 }} aria-label={t('insights.period.to')} value={value.to}
+          <DateTimeInput type="date" aria-label={t('insights.period.to')} value={value.to}
             min={value.from} onChange={(e) => e.target.value && onChange({ ...value, to: e.target.value })} />
         </>
       )}
@@ -104,21 +104,21 @@ export function MetaPanel({ meta }: { meta: AnalyticsMeta | undefined }) {
   if (!meta) return null;
   const coverage = Object.entries(meta.dataCoverage ?? {});
   return (
-    <details className="fine" style={{ marginBlockStart: 12 }}>
-      <summary style={{ cursor: 'pointer' }}>{t('insights.meta.how')} {meta.kind !== 'measured' && <Badge tone="sandbox">{t(`insights.meta.kind.${meta.kind}`)}</Badge>}</summary>
-      <div className="stack" style={{ gap: 6, marginBlockStart: 8 }}>
-        <p style={{ margin: 0 }} lang="en">{meta.method}</p>
+    <details className={`fine ${s.meta}`}>
+      <summary>{t('insights.meta.how')} {meta.kind !== 'measured' && <Badge tone="sandbox">{t(`insights.meta.kind.${meta.kind}`)}</Badge>}</summary>
+      <div className={`stack ${s.metaBody}`}>
+        <p className="m-0" lang="en">{meta.method}</p>
         <div>{t('insights.meta.timezone')}: <span className="num">{meta.timezone}</span></div>
         {meta.assumptions.length > 0 && (
           <div><strong>{t('insights.meta.assumptions')}</strong>
-            <ul style={{ margin: '4px 0', paddingInlineStart: 18 }}>
+            <ul className={s.metaList}>
               {meta.assumptions.map((a) => <li key={a.key}><code>{a.key}</code> = {String(a.value)} <Badge>{t(`insights.meta.source.${a.source}`)}</Badge></li>)}
             </ul>
           </div>
         )}
         {coverage.length > 0 && (
           <div><strong>{t('insights.meta.coverage')}</strong>
-            <ul style={{ margin: '4px 0', paddingInlineStart: 18 }}>
+            <ul className={s.metaList}>
               {coverage.map(([k, v]) => <li key={k}><code>{k}</code>: {v === null ? '—' : String(v)}</li>)}
             </ul>
           </div>
@@ -146,8 +146,8 @@ export function InsightsPage({ children }: { children: ReactNode }) {
 export function Section({ title, actions, children }: { title: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
     <section className="card">
-      <div className="spread" style={{ marginBlockEnd: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
+      <div className={`spread ${s.sectionHead}`}>
+        <h2 className={s.sectionTitle}>{title}</h2>
         {actions && <div className="row">{actions}</div>}
       </div>
       {children}

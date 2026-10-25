@@ -1,6 +1,6 @@
 'use client';
 import { Suspense } from 'react';
-import { PageHeader, Skeleton, Tabs } from '@resuto/ui';
+import { ListPage, Skeleton, Tabs } from '@resuto/ui';
 import { useUrlParam } from '@/components/ops/use-url-state';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
@@ -30,18 +30,17 @@ function Delivery() {
   const tab: Tab = raw === 'map' ? 'board' : raw;
   const { branchId } = useBranchScope({ allowAll: true });
   return (
-    <>
-      <PageHeader title={t('driver.dispatch.title')} subtitle={t('driver.dispatch.subtitle')} />
-      <Tabs<Tab> value={tab} onChange={setTab} label={t('driver.dispatch.title')} tabs={[
+    <ListPage header={{ title: t('driver.dispatch.title'), subtitle: t('driver.dispatch.subtitle') }}
+      filters={<Tabs<Tab> value={tab} onChange={setTab} label={t('driver.dispatch.title')} tabs={[
         { key: 'board', label: t('driver.dispatch.tab.board') },
         { key: 'drivers', label: t('driver.dispatch.tab.drivers') },
         { key: 'cash', label: t('driver.dispatch.tab.cash') },
         { key: 'zones', label: t('zones.tab') },
-      ]} />
+      ]} />}>
       {tab === 'board' && <Board key={branchId} branchId={branchId} />}
       {tab === 'drivers' && <Drivers />}
       {tab === 'cash' && <Cash />}
       {tab === 'zones' && <Zones key={branchId} branchId={branchId} />}
-    </>
+    </ListPage>
   );
 }

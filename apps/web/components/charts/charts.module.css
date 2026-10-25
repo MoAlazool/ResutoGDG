@@ -1,3 +1,12 @@
 /* Page wrapper: a minmax(0,1fr) track so wide tables scroll inside their own wrapper instead of widening the page at 390px.
    The chart styles moved to the shared chart kit (packages/ui/src/ds.css, .rui-chart-*). */
 .page { display: grid; grid-template-columns: minmax(0, 1fr); }
+/* Period picker, "how this is calculated" and Section (21-MIGRATE: former inline styles). */
+.period { gap: var(--space-2); }
+.period select, .period input { inline-size: auto; min-block-size: 38px; }
+.meta { margin-block-start: var(--space-3); }
+.meta > summary { cursor: pointer; }
+.metaBody { gap: 6px; margin-block-start: var(--space-2); }
+.metaList { margin-block: 4px; margin-inline: 0; padding-inline-start: 18px; }
+.sectionHead { margin-block-end: 14px; }
+.sectionTitle { margin: 0; font-size: var(--fs-xl); }

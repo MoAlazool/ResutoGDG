@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { MCP_TOOLS, type ChangeAuditEntry, type ChangeSetView, type McpToolName, type Page } from '@resuto/contracts';
-import { Card, EmptyState, KeyValueList, Notice, PageHeader, Skeleton, TextareaField, useAction } from '@resuto/ui';
+import { Card, DetailPage, EmptyState, ErrorState, KeyValueList, Notice, Skeleton, TextareaField, useAction } from '@resuto/ui';
 import { AuditTimeline, ChangeSetDiff, RequirementLine, SetStatusBadge } from '@/components/changes/ChangeSetDiff';
 import { ApiRequestError } from '@/lib/api';
 import { canDecide, canReject } from '@/lib/change-diff';
@@ -72,29 +72,38 @@ export default function ChangeSetPage() {
   const verdict = c ? canDecide(c, me, mayDecide) : null;
   const rejectable = c ? canReject(c, me, mayDecide) : null;
 
-  return (
-    <div className="stack gap-16">
-      <PageHeader overline={t('mcp.inbox.title')} title={c?.title ?? t('mcp.inbox.title')} subtitle={c?.summary ?? undefined}
-        actions={<Link className="btn btn-ghost" href={`/dashboard/${org.id}/approvals`}>{t('mcp.inbox.back')}</Link>} />
-      {cs.error ? <Notice tone="danger">{t('mcp.error.load', { message: cs.error.message })}</Notice>
-        : !c ? <Card><Skeleton lines={5} /></Card> : (
-          <>
-            <Card>
-              <KeyValueList items={[
-                { key: 'status', label: t('mcp.col.status'), value: <SetStatusBadge status={c.status} /> },
-                { key: 'origin', label: t('mcp.inbox.source'), value: t(`mcp.inbox.origin.${c.origin}`) },
-                ...(c.sourceTool ? [{ key: 'tool', label: t('mcp.col.tool'), value: <code dir="ltr">{c.sourceTool}</code> }] : []),
-                ...(c.actor.mcpClientId && can('mcp:manage')
-                  ? [{ key: 'conn', label: t('mcp.col.client'), value: <Link href={`/dashboard/${org.id}/mcp/clients/${c.actor.mcpClientId}`}>{t('mcp.inbox.openConnection')}</Link> }] : []),
-                { key: 'needs', label: t('mcp.inbox.approvers'), value: <RequirementLine cs={c} /> },
-                { key: 'created', label: t('mcp.inbox.proposedAt'), value: fmt(c.createdAt) },
-                ...(c.status === 'pending_approval' && c.expiresAt ? [{ key: 'exp', label: t('mcp.inbox.expiresAt'), value: fmt(c.expiresAt) }] : []),
-                ...(c.decidedAt ? [{ key: 'dec', label: t('mcp.inbox.decidedAt'), value: fmt(c.decidedAt) }] : []),
-                ...(c.decisionNote ? [{ key: 'note', label: t('mcp.inbox.reason'), value: <span dir="auto">{c.decisionNote}</span> }] : []),
-              ]} />
-              {(c.error || c.invalidatedReason) && <Notice tone="warn">{c.invalidatedReason ?? c.error}</Notice>}
-            </Card>
+  const facts = c && (
+    <Card>
+      <KeyValueList items={[
+        { key: 'status', label: t('mcp.col.status'), value: <SetStatusBadge status={c.status} /> },
+        { key: 'origin', label: t('mcp.inbox.source'), value: t(`mcp.inbox.origin.${c.origin}`) },
+        ...(c.sourceTool ? [{ key: 'tool', label: t('mcp.col.tool'), value: <code dir="ltr">{c.sourceTool}</code> }] : []),
+        ...(c.actor.mcpClientId && can('mcp:manage')
+          ? [{ key: 'conn', label: t('mcp.col.client'), value: <Link href={`/dashboard/${org.id}/mcp/clients/${c.actor.mcpClientId}`}>{t('mcp.inbox.openConnection')}</Link> }] : []),
+        { key: 'needs', label: t('mcp.inbox.approvers'), value: <RequirementLine cs={c} /> },
+        { key: 'created', label: t('mcp.inbox.proposedAt'), value: fmt(c.createdAt) },
+        ...(c.status === 'pending_approval' && c.expiresAt ? [{ key: 'exp', label: t('mcp.inbox.expiresAt'), value: fmt(c.expiresAt) }] : []),
+        ...(c.decidedAt ? [{ key: 'dec', label: t('mcp.inbox.decidedAt'), value: fmt(c.decidedAt) }] : []),
+        ...(c.decisionNote ? [{ key: 'note', label: t('mcp.inbox.reason'), value: <span dir="auto">{c.decisionNote}</span> }] : []),
+      ]} />
+      {(c.error || c.invalidatedReason) && <Notice tone="warn">{c.invalidatedReason ?? c.error}</Notice>}
+    </Card>
+  );
 
+  // DetailPage: the changes and the decision in the main column; facts and the audit trail in the inspector.
+  return (
+    <DetailPage inspectorLabel={t('mcp.inbox.audit')}
+      header={{ eyebrow: t('mcp.inbox.title'), title: c?.title ?? t('mcp.inbox.title'), subtitle: c?.summary ?? undefined,
+        actions: <Link className="btn btn-ghost" href={`/dashboard/${org.id}/approvals`}>{t('mcp.inbox.back')}</Link> }}
+      inspector={c ? <>
+        {facts}
+        <Card title={t('mcp.inbox.audit')}>
+          {audit.loading && !audit.data ? <Skeleton lines={3} /> : <AuditTimeline rows={audit.data?.items ?? []} timezone={org.timezone} />}
+        </Card>
+      </> : undefined}>
+      {cs.error ? <Card><ErrorState error={cs.error} onRetry={cs.reload} locale={locale} /></Card>
+        : !c ? <Card><Skeleton lines={5} /></Card> : (
+          <div className="stack gap-16">
             <Card title={t('mcp.inbox.changes')}>
               <ChangeSetDiff cs={c} />
             </Card>
@@ -120,12 +129,8 @@ export default function ChangeSetPage() {
                 )}
               </Card>
             )}
-
-            <Card title={t('mcp.inbox.audit')}>
-              {audit.loading && !audit.data ? <Skeleton lines={3} /> : <AuditTimeline rows={audit.data?.items ?? []} timezone={org.timezone} />}
-            </Card>
-          </>
+          </div>
         )}
-    </div>
+    </DetailPage>
   );
 }

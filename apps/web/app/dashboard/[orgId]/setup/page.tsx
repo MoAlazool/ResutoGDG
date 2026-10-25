@@ -7,7 +7,8 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { SETUP_STEPS, formatNumber, type ServiceMode, type SetupChecklist, type SetupStep } from '@resuto/contracts';
-import { Field, Notice, SelectField, Skeleton } from '@resuto/ui';
+import { Field, Icon, Notice, SelectField, Skeleton } from '@resuto/ui';
+import { CheckIcon, CircleIcon, ExternalIcon, ForwardIcon } from '@/components/icons/glyphs';
 import { ServiceModeCards, VenueQrCard } from '@/components/ops/ServiceMode';
 import '@/components/ops/ops.css';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -82,7 +83,7 @@ function Setup() {
             return (
               <li key={s} className={s === step ? 'current' : undefined}>
                 <button type="button" onClick={() => go(s)} aria-current={s === step ? 'step' : undefined}>
-                  <span className={done ? 'is-done' : undefined} aria-hidden="true">{done ? '✓' : nf(i + 1)}</span>
+                  <span className={done ? 'is-done' : undefined} aria-hidden="true">{done ? <Icon icon={CheckIcon} size={14} /> : nf(i + 1)}</span>
                   {t(`ops.setup.step.${s}`)}
                   {done && <span className="sr-only"> · {t('ops.setup.done')}</span>}
                 </button>
@@ -90,7 +91,7 @@ function Setup() {
             );
           })}
         </ol>
-        <Link href={`/dashboard/${org.id}`} className="setup-later">{t('ops.setup.later')} →</Link>
+        <Link href={`/dashboard/${org.id}`} className="setup-later">{t('ops.setup.later')} <Icon icon={ForwardIcon} size={14} /></Link>
       </aside>
 
       <section className="setup-card">
@@ -114,8 +115,8 @@ function Setup() {
         <div className="setup-footer">
           <button type="button" className="btn btn-ghost" disabled={index === 0 || pending} onClick={() => go(SETUP_STEPS[index - 1]!)}>{t('action.back')}</button>
           {submit
-            ? <button type="submit" className="btn btn-primary" disabled={pending || disabled}>{pending ? t('state.loading') : `${label ?? t('ops.setup.saveContinue')} →`}</button>
-            : <button type="button" className="btn btn-primary" disabled={pending || disabled} onClick={() => void saveAndContinue()}>{label ?? t('action.continue')} →</button>}
+            ? <button type="submit" className="btn btn-primary" disabled={pending || disabled}>{pending ? t('state.loading') : <>{label ?? t('ops.setup.saveContinue')} <Icon icon={ForwardIcon} size={16} /></>}</button>
+            : <button type="button" className="btn btn-primary" disabled={pending || disabled} onClick={() => void saveAndContinue()}>{label ?? t('action.continue')} <Icon icon={ForwardIcon} size={16} /></button>}
         </div>
       </>
     );
@@ -124,7 +125,7 @@ function Setup() {
   function Status({ s }: { s: SetupStep }) {
     const c = check(s);
     if (!c || s === 'welcome') return null;
-    return <p className={`setup-status${c.done ? ' is-done' : ''}`}><span aria-hidden="true">{c.done ? '✓' : '○'}</span>{t(c.done ? 'ops.setup.status.done' : c.required ? 'ops.setup.status.todo' : 'ops.setup.status.optional')}</p>;
+    return <p className={`setup-status${c.done ? ' is-done' : ''}`}><span aria-hidden="true"><Icon icon={c.done ? CheckIcon : CircleIcon} size={14} /></span>{t(c.done ? 'ops.setup.status.done' : c.required ? 'ops.setup.status.todo' : 'ops.setup.status.optional')}</p>;
   }
 
   function renderStep(): ReactNode {
@@ -267,10 +268,10 @@ function Setup() {
             <h3>{t('ops.setup.payments.title')}</h3>
             <p className="fine">{t('ops.setup.payments.body')}</p>
             <div className="readiness-list">
-              <p><span aria-hidden="true">✓</span><strong>{t('ops.setup.payments.cash')}</strong><small>{t('ops.setup.payments.cashKind')}</small></p>
-              <p><span aria-hidden="true">{n ? '✓' : '○'}</span><strong>{t('ops.setup.payments.online')}</strong><small>{n ? t('ops.setup.payments.connected', { n }) : t('ops.setup.payments.none')}</small></p>
+              <p><span aria-hidden="true"><Icon icon={CheckIcon} size={14} /></span><strong>{t('ops.setup.payments.cash')}</strong><small>{t('ops.setup.payments.cashKind')}</small></p>
+              <p><span aria-hidden="true"><Icon icon={n ? CheckIcon : CircleIcon} size={14} /></span><strong>{t('ops.setup.payments.online')}</strong><small>{n ? t('ops.setup.payments.connected', { n }) : t('ops.setup.payments.none')}</small></p>
             </div>
-            <Link href={`${base}/${can('payments:read') ? 'payments' : 'integrations'}`}>{t('ops.setup.payments.review')} ↗</Link>
+            <Link href={`${base}/${can('payments:read') ? 'payments' : 'integrations'}`}>{t('ops.setup.payments.review')} <Icon icon={ExternalIcon} size={14} /></Link>
           </div>
           <Footer />
         </>);
@@ -282,7 +283,7 @@ function Setup() {
           <div className="setup-checklist">
             {s.steps.filter((x) => x.step !== 'welcome' && x.step !== 'launch').map((x) => (
               <p key={x.step} className={x.done ? 'is-done' : undefined}>
-                <span aria-hidden="true">{x.done ? '✓' : '○'}</span>
+                <span aria-hidden="true"><Icon icon={x.done ? CheckIcon : CircleIcon} size={14} /></span>
                 <button type="button" className="ops-link" onClick={() => go(x.step)}>{t(`ops.setup.step.${x.step}`)}</button>
                 {!x.required && <small>{t('ops.setup.status.optional')}</small>}
               </p>
@@ -290,7 +291,7 @@ function Setup() {
           </div>
           <p>{t('ops.setup.launch.preview')}</p>
           <div className="row">
-            <a className="btn" href={`/r/${org.slug}`} target="_blank" rel="noopener noreferrer">{t('ops.setup.launch.guest')} ↗</a>
+            <a className="btn" href={`/r/${org.slug}`} target="_blank" rel="noopener noreferrer">{t('ops.setup.launch.guest')} <Icon icon={ExternalIcon} size={14} /></a>
             <Link className="btn" href={base}>{t('ops.setup.launch.dashboard')}</Link>
           </div>
           {s.launched ? <Notice tone="ok">{t('ops.setup.launch.live')}</Notice>

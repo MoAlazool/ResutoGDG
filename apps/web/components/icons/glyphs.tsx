@@ -25,6 +25,11 @@ export const ExternalIcon = /*#__PURE__*/ svgIcon('ArrowUpRight', <><path d="M7 
 export const BackIcon = /*#__PURE__*/ svgIcon('ArrowLeft', <><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></>);
 export const DownloadIcon = /*#__PURE__*/ svgIcon('Download', <><path d="M12 15V3" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /></>);
 export const PlusIcon = /*#__PURE__*/ svgIcon('Plus', <><path d="M5 12h14" /><path d="M12 5v14" /></>);
+export const UploadIcon = /*#__PURE__*/ svgIcon('Upload', <><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></>);
+export const SwapIcon = /*#__PURE__*/ svgIcon('ArrowRightLeft', <><path d="m16 3 4 4-4 4" /><path d="M20 7H4" /><path d="m8 21-4-4 4-4" /><path d="M4 17h16" /></>);
+export const UsersIcon = /*#__PURE__*/ svgIcon('Users', <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>);
+export const SigmaIcon = /*#__PURE__*/ svgIcon('Sigma', <path d="M18 7V5a1 1 0 0 0-1-1H6.5a.5.5 0 0 0-.4.8l4.5 6a2 2 0 0 1 0 2.4l-4.5 6a.5.5 0 0 0 .4.8H17a1 1 0 0 0 1-1v-2" />);
+export const GridIcon = /*#__PURE__*/ svgIcon('LayoutGrid', <><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></>);
 export const ForwardIcon = /*#__PURE__*/ svgIcon('ArrowRight', <><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>);
 
 /** An icon at text size (16 px) inline with a label; decorative unless `label` is given. */

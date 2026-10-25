@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Badge, Card, Notice, PageHeader, Skeleton, Stat, Tabs } from '@resuto/ui';
+import { Badge, Card, ListPage, Notice, Skeleton, Stat, Tabs } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -95,17 +95,18 @@ export default function CompliancePage() {
   const [tab, setTab] = useState<Tab>('overview');
   return (
     <ModuleGate module="compliance" permission="compliance:read">
-      <PageHeader title={t('compliance.title')} subtitle={t('compliance.subtitle')} />
-      <Tabs<Tab> value={tab} onChange={setTab} tabs={[
-        { key: 'overview', label: t('compliance.tab.overview') },
-        { key: 'profile', label: t('compliance.tab.profile') },
-        { key: 'documents', label: t('compliance.tab.documents') },
-        { key: 'licences', label: t('compliance.tab.licences') },
-      ]} />
+      <ListPage header={{ title: t('compliance.title'), subtitle: t('compliance.subtitle') }}
+        filters={<Tabs<Tab> value={tab} onChange={setTab} tabs={[
+          { key: 'overview', label: t('compliance.tab.overview') },
+          { key: 'profile', label: t('compliance.tab.profile') },
+          { key: 'documents', label: t('compliance.tab.documents') },
+          { key: 'licences', label: t('compliance.tab.licences') },
+        ]} />}>
       {tab === 'overview' && <Overview go={setTab} />}
       {tab === 'profile' && <><TaxProfileForm /><ZatcaOnboarding /></>}
       {tab === 'documents' && <FiscalDocuments />}
       {tab === 'licences' && <Licences />}
+      </ListPage>
     </ModuleGate>
   );
 }
