@@ -7,6 +7,32 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — Integrations marketplace, operator console, WhatsApp official stepper (21-INT)
+
+- `GET /v1/o/:orgId/integrations/catalog`: each item gains `connectMethod` (`oauth | embedded_signup |
+  guided_onboarding | api_key | platform_managed`), `marketplaceCategory`, `requiredScopes`, `reviewRequirements` and
+  `marketplace` `{ status, reasons, connectionId, providerReview }`. `status` is one of `not_connected | connected |
+  needs_attention | sandbox | pending_review | not_available`, derived from the readiness facts and the connection
+  (`marketplaceStatus` in `packages/contracts/src/marketplace.ts`); nothing in it means "verified".
+- Connection views gain `grantedScopes` and `permissions` `{ checked, granted, missing[{ capability, scopes }],
+  checkable, source }`. OAuth completion stores the scopes the provider reported in its token response (Snapchat,
+  TikTok numeric ids, RFC 6749 `scope`); the code exchange makes the same provider calls as before.
+- `POST /v1/o/:orgId/integrations/connections/:id/permissions` (`integrations:manage`): reads the granted permissions
+  back from Meta (`GET /me/permissions`) for Meta Ads, WhatsApp and OAuth-connected Messenger / Instagram;
+  `422 permissions_not_checkable` for other providers.
+- Operator console (platform staff only, `@PlatformAdmin`): `GET /v1/admin/providers`, `GET /v1/admin/providers/:provider`
+  (every platform role; secrets masked), `PUT /v1/admin/providers/:provider` and `DELETE /v1/admin/providers/:provider`
+  (superadmins) for Resuto's own Meta, TikTok, Snapchat and Foodics apps (`platform_provider_apps`, secrets sealed
+  with the key ring and never returned). The environment variables remain the fallback.
+- WhatsApp stepper: `POST /v1/o/:orgId/connect/channels/:id/test-template` (`connect:manage`, 10 per hour per
+  restaurant) sends the connection test template to a phone; `GET /v1/o/:orgId/connect/channels/:id/inbound-check?since=`
+  reports inbound messages since the check started. `PATCH /v1/o/:orgId/connect/channels/:id` accepts `routing`
+  (`manual | round_robin | by_branch`); channel views gain `routing` and `number`.
+- Error codes: `channel_unverified`, `not_whatsapp_channel`, `permissions_not_checkable`, `provider_app_unknown_field`,
+  `provider_app_webhook_token_weak`, `test_template_not_approved`.
+
+No existing route changed (checked with `scripts/openapi/additive.mjs` against 04c07c7).
+
 ### Added — Inbox workspace and Customer 360, increment 1 (21-INBOX)
 
 - Internal notes: `POST /v1/o/:orgId/connect/conversations/:id/notes` (`connect:reply`, idempotent by `key`) and
