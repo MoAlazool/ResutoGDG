@@ -70,7 +70,7 @@ export function ConversationList(props: ConversationListProps) {
       <div className="inbox-filters">
         <input className="input" type="search" placeholder={t('connect.inbox.search')} aria-label={t('connect.inbox.search')} value={filters.q}
           onChange={(e) => set({ q: e.target.value })} maxLength={80} />
-        <div className="inbox-chips" role="group" aria-label={t('connect.ws.views')}>
+        <div className="inbox-chips" data-wrap="" role="group" aria-label={t('connect.ws.views')}>
           {INBOX_VIEW_KEYS.map((k) => (
             <button key={k} type="button" className="inbox-chip" aria-pressed={filters.view === k} onClick={() => set({ view: k })}>{viewLabel(k)}</button>
           ))}

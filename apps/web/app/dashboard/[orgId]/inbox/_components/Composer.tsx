@@ -145,7 +145,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       )) : (
         <div className="composer-field">
           <label className="sr-only" htmlFor={`${id}-text`}>{note ? t('connect.ws.noteMode') : t('connect.inbox.message')}</label>
-          <textarea id={`${id}-text`} ref={area} className="textarea composer-text" rows={3} value={text} dir="auto"
+          <textarea id={`${id}-text`} ref={area} className="textarea composer-text" rows={2} value={text} dir="auto"
             placeholder={note ? t('connect.ws.notePlaceholder') : t('connect.ws.replyPlaceholder')}
             maxLength={note ? NOTE_MAX : pageChannel ? 2000 : 4096} disabled={blocked}
             aria-autocomplete="list" aria-controls={pickerOpen ? listId : undefined} aria-activedescendant={pickerOpen ? `${listId}-${active}` : undefined}
@@ -164,19 +164,18 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           )}
         </div>
       )}
-      {!note && (
-        <div className="composer-quick" role="group" aria-label={t('connect.ws.quickActions')}>
-          <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || !savedReplies.length} onClick={() => snippet('/')}>{t('connect.ws.savedReplies')} <Kbd>/</Kbd></button>
-          {quick.orderUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.orderUrl!)}><InboxIcon name="link" /> {t('connect.ws.orderLink')}</button>}
-          {quick.paymentLink && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || pending === 'pay'} onClick={() => void makePaymentLink()}><InboxIcon name="card" /> {t('connect.ws.paymentLink')}</button>}
-          {quick.reserveUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.reserveUrl!)}><InboxIcon name="calendar" /> {t('connect.ws.reservationLink')}</button>}
-        </div>
-      )}
       {error && <Notice tone="danger">{error}</Notice>}
       {info && !error && <p className="fine m-0" role="status">{info}</p>}
       <div className="composer-send">
-        <span className="fine">{t('connect.ws.sendHint')} <Kbd keys={['Ctrl', 'Enter']} /></span>
-        <button className={note ? 'btn btn-note' : 'btn btn-primary'} disabled={disabled}>
+        {note ? <span className="fine composer-hint">{t('connect.ws.sendHint')} <Kbd keys={['Ctrl', 'Enter']} /></span> : (
+          <div className="composer-quick" role="group" aria-label={t('connect.ws.quickActions')}>
+            <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || !savedReplies.length} onClick={() => snippet('/')}>{t('connect.ws.savedReplies')} <Kbd>/</Kbd></button>
+            {quick.orderUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.orderUrl!)}><InboxIcon name="link" /> {t('connect.ws.orderLink')}</button>}
+            {quick.paymentLink && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || pending === 'pay'} onClick={() => void makePaymentLink()}><InboxIcon name="card" /> {t('connect.ws.paymentLink')}</button>}
+            {quick.reserveUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.reserveUrl!)}><InboxIcon name="calendar" /> {t('connect.ws.reservationLink')}</button>}
+          </div>
+        )}
+        <button className={note ? 'btn btn-note' : 'btn btn-primary'} disabled={disabled} aria-keyshortcuts="Control+Enter" title={`${t('connect.ws.sendHint')} Ctrl+Enter`}>
           {note ? t('connect.ws.addNote') : t('connect.inbox.send')}
         </button>
       </div>
