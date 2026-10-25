@@ -2,7 +2,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import {
   Badge, Card, DataTable, DataTableV2, EmptyState, Field, FilterBar, ListPage, Notice, SelectField, Sheet, Skeleton, Tabs, TextareaField, useAction, useConfirm,
   useCursorPagination, type FilterChip,
@@ -30,7 +30,7 @@ interface PaymentRow { id: string; amountMinor: number; currency: string; method
 
 function PaymentsPage() {
   const { t } = useT();
-  const { org, can } = useOrg();
+  const { org, can, hasModule } = useOrg();
   const params = useSearchParams();
   const asked = params.get('tab') as Tab | null;
   const [tab, setTab] = useState<Tab>(asked && TABS.includes(asked) ? asked : 'payments');
@@ -39,7 +39,8 @@ function PaymentsPage() {
   const [open, setOpen] = useState<string | null>(null);
   const { branchId: scoped } = useBranchScope({ allowAll: true });
   const configBranch = scoped || org.branches.find((b) => b.isActive)?.id || org.branches[0]?.id;
-  const config = useApi<any>(configBranch && can('payments:read') ? `/o/${org.id}/payments/config?branchId=${configBranch}` : null);
+  // Only with the module: the page's hooks run before ModuleGate decides, and a locked module answers 402.
+  const config = useApi<any>(configBranch && hasModule('pay') && can('payments:read') ? `/o/${org.id}/payments/config?branchId=${configBranch}` : null);
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'payments', label: t('pay.dash.tab.payments') }, { key: 'links', label: t('pay.dash.tab.links') }, { key: 'refunds', label: t('pay.dash.tab.refunds') },
     ...(can('payments:reconcile') ? [{ key: 'reconciliation' as Tab, label: t('pay.dash.tab.reconciliation') }, { key: 'cash' as Tab, label: t('pay.dash.tab.cash') }] : []),
@@ -47,8 +48,8 @@ function PaymentsPage() {
   ];
   // ⌘K: the page's own actions (21-SHELL page-command registry).
   usePageCommands({ title: t('pay.dash.title'), commands: [
-    { id: 'collect', label: t('pay.dash.collect'), keywords: 'record cash payment collect take', enabled: can('payments:collect'), run: () => setCollect(true) },
-    { id: 'link', label: t('pay.dash.newLink'), keywords: 'new payment link send pay', enabled: can('payments:collect'), run: () => setLinkOpen(true) },
+    { id: 'collect', label: t('pay.dash.collect'), keywords: 'record cash payment collect take', enabled: hasModule('pay') && can('payments:collect'), run: () => setCollect(true) },
+    { id: 'link', label: t('pay.dash.newLink'), keywords: 'new payment link send pay', enabled: hasModule('pay') && can('payments:collect'), run: () => setLinkOpen(true) },
   ] });
   return (
     <ModuleGate module="pay">
@@ -90,12 +91,30 @@ function PaymentsList({ branchId, onOpen }: { branchId: string; onOpen: (id: str
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const f = filtersFromParams(params);
+  // The filters live in the URL; the list follows a local copy so quick successive changes build on each other
+  // instead of on a URL that has not updated yet. A URL changed from outside (back, a shared link) wins.
+  const fromUrl = filtersFromParams(params);
+  const urlKey = filtersToParams(fromUrl);
+  const [f, setF] = useState<PaymentFilters>(fromUrl);
+  const latest = useRef(f);
+  const written = useRef(urlKey);
+  useEffect(() => {
+    if (urlKey === written.current) return;
+    written.current = urlKey;
+    const next = filtersFromParams(new URLSearchParams(urlKey));
+    latest.current = next;
+    setF(next);
+    setDates({ from: next.from, to: next.to });
+  }, [urlKey]);
   const [dates, setDates] = useState<Pick<PaymentFilters, 'from' | 'to'>>({ from: f.from, to: f.to });
   const pager = useCursorPagination([filtersToParams(f), branchId]);
   const { data, error, loading, pending } = useApi<{ items: PaymentRow[]; nextCursor: string | null }>(`/o/${org.id}/payments?${paymentsQuery(f, { branchId, cursor: pager.cursor })}`);
   const set = (next: Partial<PaymentFilters>) => {
-    const q = filtersToParams({ ...f, ...next });
+    const merged = { ...latest.current, ...next };
+    const q = filtersToParams(merged);
+    latest.current = merged;
+    written.current = q;
+    setF(merged);
     router.replace(`${pathname}${q ? `?${q}` : ''}`, { scroll: false });
   };
   const label: Record<FilterKey, string> = { status: t('pay.dash.filterStatus'), method: t('pay.dash.filterMethod'), mode: t('pay.dash.filterMode'), from: t('pay.dash.filterFrom'), to: t('pay.dash.filterTo') };

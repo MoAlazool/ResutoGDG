@@ -83,7 +83,7 @@ function Exports() {
             <span className="fine">{t('finance.export.forPeriod', { from: day(p.from), to: day(p.to) })} · {branchName(p.branchId || null)}</span>
           </div>
         </form>
-        {done && !create.error && !download.error && <div className="mbs-12" role="status"><Notice tone="ok">{t('finance.export.done', { file: done })}</Notice></div>}
+        {done && !create.error && !download.error && <div className="mbs-12"><Notice tone="ok">{t('finance.export.done', { file: done })}</Notice></div>}
         {(create.error || download.error) && <div className="mbs-12"><Notice tone="danger">{create.error ?? download.error}</Notice></div>}
       </Card>
 

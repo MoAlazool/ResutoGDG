@@ -135,7 +135,7 @@ export function ChangePlan({ v, s, catalog, interval, onInterval, onChanged }: {
             : <button className="btn btn-primary" aria-busy={pending || undefined} onClick={() => void apply()}>{pending ? s.applying : s.apply}</button>}
         </div>
         {result && (
-          <div className="mbs-12" role="status">
+          <div className="mbs-12">
             <Notice tone={result.tone}>
               {result.text}
               {result.violations && <>{' '}{result.violations.map((x) => `${x.current}/${x.allowed} ${s[`limitName_${x.limit}` as keyof BillingStrings] ?? x.limit}`).join(', ')}. {s.reduce}</>}

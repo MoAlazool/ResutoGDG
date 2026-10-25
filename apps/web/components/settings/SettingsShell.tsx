@@ -22,7 +22,7 @@ export function SettingsShell({ header, children }: { header: PageHeaderProps; c
   const shown = SETTINGS_SECTIONS.filter((s) => navVisible(s, org.role) && (!s.module || hasModule(s.module)));
   const active = activeSection(SETTINGS_SECTIONS, path)?.href ?? '';
   return (
-    <SettingsPage header={header} navLabel={t('nav.group.settings')} active={active}
+    <SettingsPage header={header} navLabel={t('nav.settingsSections')} active={active}
       sections={shown.map((s) => ({ key: s.href, label: t(s.label), href: `${base}${s.href}` }))}
       renderLink={(href, label, current) => <Link href={href} aria-current={current}>{label}</Link>}>
       {children}

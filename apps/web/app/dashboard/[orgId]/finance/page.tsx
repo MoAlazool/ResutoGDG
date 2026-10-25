@@ -47,10 +47,10 @@ function Overview() {
   const revenue = revenueProvenance(true, synthetic);
   const profit = profitProvenance(pnl.data);
   const feeProv = feesProvenance(fees.data, synthetic);
-  const provLabels = { live: t('finance.prov.ledger'), estimated: t('finance.prov.estimated'), sandbox: t('finance.prov.sandbox'), unavailable: t('finance.prov.unavailable') };
   const vs = p.previous ? t(`finance.compare.vs.${p.compare}`) : undefined;
   const delta = (cur: number | null | undefined, before: number | null | undefined, ready: boolean) => (p.previous ? { value: ready ? deltaPct(cur, before) : null, label: vs } : null);
-  const badge = (prov: Provenance) => <ProvenanceBadge provenance={prov} labels={provLabels} />;
+  // The design system's provenance words (Live / Estimated / Sandbox / Unavailable) on tiles and cards alike; the legend says what they mean here.
+  const badge = (prov: Provenance) => <ProvenanceBadge provenance={prov} />;
   const stat = (key: string, label: string, value: number | null | undefined, before: number | null | undefined, prov: Provenance, ready: boolean, hint?: ReactNode) => (
     <div data-stat={key}><StatV2 label={label} value={prov === 'unavailable' ? '—' : <bdi>{m(value)}</bdi>} provenance={prov} hint={hint} delta={delta(value, before, ready)} /></div>
   );

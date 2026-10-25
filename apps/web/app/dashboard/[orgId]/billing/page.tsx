@@ -156,7 +156,7 @@ function UsageCard({ e, s }: { e: EntitlementsView; s: BillingStrings }) {
     return fill(s.meterLeft, { n: n(m.remaining ?? 0) });
   };
   return (
-    <Card title={s.usage} actions={<ProvenanceBadge provenance="live" labels={{ live: s.provenance }} />}>
+    <Card title={s.usage} actions={<ProvenanceBadge provenance="live" />}>
       <p className="fine mbs-0">{e.period ? fill(s.usageBodyFrom, { date: day(e.period.start, locale) }) : s.usageBody}</p>
       <ul className={styles.meters} data-testid="usage-meters">
         {usageMeters(e).map((m) => {

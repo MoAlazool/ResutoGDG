@@ -36,8 +36,7 @@ function Pnl() {
   return (
     <div className="grid grid-2 items-start">
       {data.isSyntheticData && <div className={styles.full}><Notice tone="warn">{t('finance.demo')}</Notice></div>}
-      <Card title={t('finance.pnl.title')} actions={<ProvenanceBadge provenance={profitProvenance(data)}
-        labels={{ live: t('finance.prov.ledger'), estimated: t('finance.prov.estimated'), sandbox: t('finance.prov.sandbox'), unavailable: t('finance.prov.unavailable') }} />}>
+      <Card title={t('finance.pnl.title')} actions={<ProvenanceBadge provenance={profitProvenance(data)} />}>
         <div className="table-wrap">
           <table className="data">
             <tbody>

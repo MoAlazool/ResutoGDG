@@ -71,7 +71,7 @@ export function FinanceFrame({ children, actions, compare = true }: { children: 
     <ModuleGate module="finance" permission="finance:read">
       <PageHeader title={t('finance.title')} subtitle={t('finance.subtitle')} actions={actions} />
       <SectionNav sections={FINANCE_SECTIONS} label={t('finance.title')} query={keep} />
-      <form className={`card ${styles.picker}`} aria-label={t('finance.period.label')} onSubmit={(e) => {
+      <form className={`card ${styles.picker}`} onSubmit={(e) => {
         e.preventDefault();
         if (validPeriod(draft)) { setCustom(null); go(draft, period.compare); }
       }}>
