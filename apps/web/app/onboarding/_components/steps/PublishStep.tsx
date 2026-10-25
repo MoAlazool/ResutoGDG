@@ -20,6 +20,7 @@ type Frame = 'phone' | 'desktop';
 export function PublishStep() {
   const { t, tn, locale } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const [frame, setFrame] = useState<Frame>('phone');
   const [menu, setMenu] = useState<PublicMenu | null>(null);
@@ -31,26 +32,28 @@ export function PublishStep() {
 
   useEffect(() => {
     let live = true;
-    Promise.all([w.call<PublicMenu>(`/public/menu/${encodeURIComponent(org.slug)}`), w.call<BrandView>(`/o/${org.id}/brand`)])
+    Promise.all([call<PublicMenu>(`/public/menu/${encodeURIComponent(org.slug)}`), call<BrandView>(`/o/${org.id}/brand`)])
       .then(([m, b]) => { if (live) { setMenu(m); setBrand(b); } })
       .catch((e) => live && setError(errorText(e)));
     return () => { live = false; };
-  }, [org.id, org.slug, w]);
+  }, [org.id, org.slug, call]);
 
   const isPublished = !!published || (brand?.website.status === 'published' && !brand.website.hasUnpublishedChanges);
+  /** Publishes the draft; true when it went live. */
   const publish = async () => {
     setPublishing(true); setError(null);
     try {
-      const r = await w.call<BrandPublishResult>(`/o/${org.id}/brand/publish`, { body: { key } });
-      setPublished(r);
+      setPublished(await call<BrandPublishResult>(`/o/${org.id}/brand/publish`, { body: { key } }));
+      return true;
     } catch (e) {
       setError(errorText(e));
+      return false;
     } finally {
       setPublishing(false);
     }
   };
   const submit = async () => {
-    if (!isPublished) await publish();
+    if (!isPublished && !(await publish())) return;
     await w.finish();
   };
 

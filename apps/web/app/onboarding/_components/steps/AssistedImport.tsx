@@ -13,6 +13,7 @@ const POLL_MS = 2000;
 export function AssistedImport({ onImported }: { onImported(): Promise<void> }) {
   const { t } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const base = `/o/${org.id}/menu-import/jobs`;
   const [text, setText] = useState('');
@@ -36,14 +37,14 @@ export function AssistedImport({ onImported }: { onImported(): Promise<void> }) 
   // Photo/PDF jobs are read in the background: poll until the draft is ready (or failed).
   useEffect(() => {
     if (!job || (job.status !== 'queued' && job.status !== 'processing')) return;
-    const id = setTimeout(() => { w.call<MenuExtractionJob>(`${base}/${job.id}`).then(show).catch((e) => setError(errorText(e))); }, POLL_MS);
+    const id = setTimeout(() => { call<MenuExtractionJob>(`${base}/${job.id}`).then(show).catch((e) => setError(errorText(e))); }, POLL_MS);
     return () => clearTimeout(id);
-  }, [job, base, w]);
+  }, [job, base, call]);
 
   const start = async (body: FormData | { kind: 'text'; text: string }) => {
     setBusy(true); setError(null); setAdded(null); setJob(null); setRows([]);
     try {
-      show(await w.call<MenuExtractionJob>(body instanceof FormData ? `${base}/file` : `${base}/text`, { body }));
+      show(await call<MenuExtractionJob>(body instanceof FormData ? `${base}/file` : `${base}/text`, { body }));
     } catch (e) {
       setError(t('onb.assist.failed', { reason: errorText(e) }));
     } finally {
@@ -65,8 +66,8 @@ export function AssistedImport({ onImported }: { onImported(): Promise<void> }) 
         const minor = priceToMinor(prices[r.id] ?? '');
         return { ...r, priceMinor: minor, status: r.status === 'approved' && minor === null ? 'review' : r.status } as ExtractionRow;
       });
-      const saved = await w.call<MenuExtractionJob>(`${base}/${job.id}`, { method: 'PATCH', body: { version: job.version, rows: edited } });
-      const done = await w.call<MenuExtractionJob>(`${base}/${job.id}/commit`, { body: { version: saved.version, key: newIdempotencyKey() } });
+      const saved = await call<MenuExtractionJob>(`${base}/${job.id}`, { method: 'PATCH', body: { version: job.version, rows: edited } });
+      const done = await call<MenuExtractionJob>(`${base}/${job.id}/commit`, { body: { version: saved.version, key: newIdempotencyKey() } });
       setAdded(done.commitResult?.created ?? edited.filter((r) => r.status === 'approved').length);
       setJob(null); setRows([]);
       await onImported();

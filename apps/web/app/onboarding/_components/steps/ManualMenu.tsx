@@ -13,6 +13,7 @@ const NEW = '__new__';
 export function ManualMenu({ menu, onChanged }: { menu: MenuEditorView; onChanged(): Promise<void> }) {
   const { t, locale } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const categories = menu.categories.filter((c) => c.isActive);
   const [category, setCategory] = useState<string>(categories[categories.length - 1]?.id ?? NEW);
@@ -34,10 +35,10 @@ export function ManualMenu({ menu, onChanged }: { menu: MenuEditorView; onChange
     try {
       let categoryId = chosen;
       if (chosen === NEW) {
-        const c = await w.call<{ id: string }>(`/o/${org.id}/menu/categories`, { body: { name: newCategory.trim(), nameAr: newCategoryAr.trim() || null } });
+        const c = await call<{ id: string }>(`/o/${org.id}/menu/categories`, { body: { name: newCategory.trim(), nameAr: newCategoryAr.trim() || null } });
         categoryId = c.id;
       }
-      await w.call(`/o/${org.id}/menu/products`, { body: { categoryId, name: name.trim(), nameAr: nameAr.trim() || null, priceMinor } });
+      await call(`/o/${org.id}/menu/products`, { body: { categoryId, name: name.trim(), nameAr: nameAr.trim() || null, priceMinor } });
       await onChanged();
       setCategory(categoryId);
       setNewCategory('');

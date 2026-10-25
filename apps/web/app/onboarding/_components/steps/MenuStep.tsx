@@ -19,6 +19,7 @@ type Method = 'manual' | 'spreadsheet' | 'assisted';
 export function MenuStep() {
   const { t, locale } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const [method, setMethod] = useState<Method>(w.progress.draft.menuMethod ?? 'manual');
   const [menu, setMenu] = useState<MenuEditorView | null>(null);
@@ -26,8 +27,8 @@ export function MenuStep() {
   const [tried, setTried] = useState(false);
 
   const reload = useCallback(async () => {
-    try { setMenu(await w.call<MenuEditorView>(`/o/${org.id}/menu`)); } catch (e) { setError(errorText(e)); }
-  }, [org.id, w]);
+    try { setMenu(await call<MenuEditorView>(`/o/${org.id}/menu`)); } catch (e) { setError(errorText(e)); }
+  }, [org.id, call]);
   useEffect(() => { void reload(); }, [reload]);
 
   const dishes = (menu?.products ?? []).filter((p) => p.isActive);

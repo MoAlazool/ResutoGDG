@@ -13,6 +13,7 @@ const SAMPLE = 'name,name_ar,category,price,description\r\nFlat white,,Coffee,65
 export function SpreadsheetImport({ onImported }: { onImported(): Promise<void> }) {
   const { t } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const [reading, setReading] = useState(false);
   const [sheet, setSheet] = useState<ParsedSheet | null>(null);
@@ -31,7 +32,7 @@ export function SpreadsheetImport({ onImported }: { onImported(): Promise<void> 
       const result = await readSpreadsheet(file);
       if (!result.ok) { setError(result.code === 'unsupported' ? t('onb.sheet.unsupported') : t('onb.sheet.failed', { reason: result.message })); return; }
       setSheet(result.sheet);
-      setPreview(await w.call<MenuImportPreview>(`/o/${org.id}/menu/import/preview`, { body: { csv: result.sheet.csv, source: result.sheet.kind } }));
+      setPreview(await call<MenuImportPreview>(`/o/${org.id}/menu/import/preview`, { body: { csv: result.sheet.csv, source: result.sheet.kind } }));
       setKey(newIdempotencyKey());
     } catch (e) {
       setError(errorText(e));
@@ -44,7 +45,7 @@ export function SpreadsheetImport({ onImported }: { onImported(): Promise<void> 
     if (!sheet || !preview || preview.summary.errors) return;
     setError(null);
     try {
-      const r = await w.call<{ created: number; updated: number }>(`/o/${org.id}/menu/import/commit`, {
+      const r = await call<{ created: number; updated: number }>(`/o/${org.id}/menu/import/commit`, {
         body: { csv: sheet.csv, source: sheet.kind, key }, idempotencyKey: key,
       });
       setDone({ created: r.created, updated: r.updated });

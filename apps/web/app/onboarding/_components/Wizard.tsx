@@ -135,7 +135,7 @@ export function Wizard() {
               return (
                 <li key={s} className={`${s === step ? 'is-current' : ''}${done ? ' is-done' : ''}`}>
                   {openable
-                    ? <button type="button" onClick={() => void value?.open(s)} disabled={busy}><StepMark n={stepNumber(s)} done={done} />{t(`onb.step.${s}`)}</button>
+                    ? <button type="button" onClick={() => void value?.open(s).catch(() => undefined)} disabled={busy}><StepMark n={stepNumber(s)} done={done} />{t(`onb.step.${s}`)}</button>
                     : <span aria-current={s === step ? 'step' : undefined}><StepMark n={stepNumber(s)} done={done} />{t(`onb.step.${s}`)}</span>}
                 </li>
               );

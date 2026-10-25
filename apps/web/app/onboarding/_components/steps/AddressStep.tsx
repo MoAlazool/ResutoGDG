@@ -20,13 +20,14 @@ const STATE_KEY: Record<Exclude<SlugCheckState, 'idle'>, string> = {
 export function AddressStep() {
   const { t, tn, locale } = useT();
   const w = useWizard();
+  const { call } = w;
   const session = useSession();
   const d = w.progress.draft;
   const [slug, setSlug] = useState(() => toSlug(d.slug ?? d.name ?? ''));
   const [refused, setRefused] = useState<{ slug: string; state: SlugCheckState } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const check = useCallback((s: string, signal: AbortSignal) =>
-    w.call<SlugAvailability>(`/orgs/slug-availability?slug=${encodeURIComponent(s)}`, { signal }), [w]);
+    call<SlugAvailability>(`/orgs/slug-availability?slug=${encodeURIComponent(s)}`, { signal }), [call]);
   const value = finalSlug(slug);
   const live = useSlugCheck(w.org ? '' : value, check);
   const state: SlugCheckState = refused && refused.slug === value ? refused.state : live;
@@ -45,16 +46,16 @@ export function AddressStep() {
     if (!slugSubmittable(state)) return;
     setError(null);
     try {
-      const created = await w.call<{ id: string; branchId: string }>('/orgs', {
+      const created = await call<{ id: string; branchId: string }>('/orgs', {
         body: {
           name: d.name ?? value, nameAr: d.nameAr || null, slug: value, country: d.country ?? 'EG', planId: 'free',
           defaultLocale: locale, branch: { name: t('onb.address.branch') },
         },
       });
       if (d.serviceMode) {
-        await w.call(`/o/${created.id}/branches/${created.branchId}/service-mode`, { method: 'PUT', body: { mode: d.serviceMode } }).catch(() => undefined);
+        await call(`/o/${created.id}/branches/${created.branchId}/service-mode`, { method: 'PUT', body: { mode: d.serviceMode } }).catch(() => undefined);
       }
-      const org = await w.call<WizardOrg>(`/o/${created.id}`);
+      const org = await call<WizardOrg>(`/o/${created.id}`);
       w.setOrg(org);
       await session.refreshMe().catch(() => undefined);
       await w.finish({ orgId: created.id, draft: { ...d, slug: value } });

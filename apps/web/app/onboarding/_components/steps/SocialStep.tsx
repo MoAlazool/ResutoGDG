@@ -16,6 +16,7 @@ const PLACEHOLDER: Record<SocialNetwork, string> = {
 export function SocialStep() {
   const { t } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const [links, setLinks] = useState<Record<string, string>>(() => ({ ...(org.socialLinks ?? {}) }));
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export function SocialStep() {
     setError(null);
     try {
       const body = Object.fromEntries(SOCIAL_NETWORKS.map((n) => [n, links[n]?.trim() || null]));
-      const r = await w.call<{ socialLinks: SocialLinks }>(`/o/${org.id}/social-links`, { method: 'PUT', body });
+      const r = await call<{ socialLinks: SocialLinks }>(`/o/${org.id}/social-links`, { method: 'PUT', body });
       w.setOrg({ ...org, socialLinks: r.socialLinks });
       await w.finish();
     } catch (e) {

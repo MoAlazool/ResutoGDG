@@ -13,12 +13,13 @@ import { errorText, minorToText, priceToMinor, useWizard } from '../wizard-conte
 export function DetailsStep() {
   const { t } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const [menu, setMenu] = useState<MenuEditorView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const reload = useCallback(async () => {
-    try { setMenu(await w.call<MenuEditorView>(`/o/${org.id}/menu`)); } catch (e) { setError(errorText(e)); }
-  }, [org.id, w]);
+    try { setMenu(await call<MenuEditorView>(`/o/${org.id}/menu`)); } catch (e) { setError(errorText(e)); }
+  }, [org.id, call]);
   useEffect(() => { void reload(); }, [reload]);
   const dishes = (menu?.products ?? []).filter((p) => p.isActive);
   return (
@@ -33,13 +34,17 @@ export function DetailsStep() {
 function DishRow({ product, onChanged }: { product: Product; onChanged(): Promise<void> }) {
   const { t, locale } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const branchId = org.branches[0]?.id ?? '';
   const [price, setPrice] = useState(minorToText(product.priceMinor));
   const [description, setDescription] = useState(product.description ?? '');
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState<string | null>(null);
-  const available = !product.branchSettings.find((s) => s.branchId === branchId)?.soldOut;
+  const serverAvailable = !product.branchSettings.find((s) => s.branchId === branchId)?.soldOut;
+  // Shown at once when switched; the reloaded menu confirms it (or the switch goes back if the change was refused).
+  const [available, setAvailable] = useState(serverAvailable);
+  useEffect(() => { setAvailable(serverAvailable); }, [serverAvailable]);
   const minor = priceToMinor(price);
   const dirty = minor !== product.priceMinor || description.trim() !== (product.description ?? '');
   const base = `/o/${org.id}/menu/products/${product.id}`;
@@ -47,17 +52,20 @@ function DishRow({ product, onChanged }: { product: Product; onChanged(): Promis
 
   const run = async (fn: () => Promise<unknown>) => {
     setError(null); setState('saving');
-    try { await fn(); await onChanged(); setState('saved'); } catch (e) { setError(errorText(e)); setState('idle'); }
+    try { await fn(); await onChanged(); setState('saved'); } catch (e) { setError(errorText(e)); setState('idle'); setAvailable(serverAvailable); }
   };
-  const save = () => run(() => w.call(base, { method: 'PATCH', body: { version: product.version, priceMinor: minor, description: description.trim() || null } }));
+  const save = () => run(() => call(base, { method: 'PATCH', body: { version: product.version, priceMinor: minor, description: description.trim() || null } }));
   const photo = (f: File | undefined) => {
     if (!f) return;
     const form = new FormData();
     form.append('file', f);
     form.append('alt', product.name);
-    void run(() => w.call(`${base}/image`, { body: form }));
+    void run(() => call(`${base}/image`, { body: form }));
   };
-  const toggle = (on: boolean) => run(() => w.call(`${base}/availability`, { body: { branchId, available: on } }));
+  const toggle = async (on: boolean) => {
+    setAvailable(on);
+    await run(() => call(`${base}/availability`, { body: { branchId, available: on } }));
+  };
 
   return (
     <li className="onb-dish">

@@ -27,6 +27,7 @@ function saveBlob(blob: Blob, name: string) {
 export function QrStep() {
   const { t, locale } = useT();
   const w = useWizard();
+  const { call } = w;
   const router = useRouter();
   const org = w.org!;
   const [qr, setQr] = useState<MenuQr | null>(null);
@@ -37,11 +38,11 @@ export function QrStep() {
 
   useEffect(() => {
     let live = true;
-    Promise.all([w.call<MenuQr>(`/o/${org.id}/menu-qr`), w.call<BrandView>(`/o/${org.id}/brand`).catch(() => null)])
+    Promise.all([call<MenuQr>(`/o/${org.id}/menu-qr`), call<BrandView>(`/o/${org.id}/brand`).catch(() => null)])
       .then(([q, b]) => { if (live) { setQr(q); setBrand(b); } })
       .catch((e) => live && setError(errorText(e)));
     return () => { live = false; };
-  }, [org.id, w]);
+  }, [org.id, call]);
 
   const svg = qr ? sanitizeQrSvg(qr.svg) : null;
   const png = qr && isPngDataUrl(qr.png) ? qr.png : null;
@@ -105,7 +106,7 @@ export function QrStep() {
           <ul className="onb-next">
             {qr && <li><a className="onb-link" href={qr.url} target="_blank" rel="noopener noreferrer">{t('onb.qr.open')} ↗</a></li>}
             <li><a className="onb-link" href={`/dashboard/${org.id}/explore`}>{t('onb.qr.explore')}</a></li>
-            <li><button type="button" className="onb-link" onClick={() => void w.restart()}>{t('onb.qr.another')}</button></li>
+            <li><button type="button" className="onb-link" onClick={() => void w.restart().catch(() => undefined)}>{t('onb.qr.another')}</button></li>
           </ul>
         </div>
       )}

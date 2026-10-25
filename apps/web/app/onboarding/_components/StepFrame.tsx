@@ -17,7 +17,8 @@ export function StepFrame({ title, body, children, onSubmit, primary, primaryDis
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (w.busy || primaryDisabled) return;
-    await onSubmit();
+    // A failed progress save is shown by the wizard (and the step stays open); nothing else to do here.
+    try { await onSubmit(); } catch { /* shown by the wizard */ }
   };
   return (
     <form className="onb-form" onSubmit={submit} noValidate>
@@ -29,7 +30,7 @@ export function StepFrame({ title, body, children, onSubmit, primary, primaryDis
       {error && <p className="onb-error" role="alert">{error}</p>}
       <div className="onb-actions">
         {w.step !== 'restaurant' && (
-          <button type="button" className="btn onb-btn" onClick={() => void w.back()} disabled={w.busy}>{t('onb.back')}</button>
+          <button type="button" className="btn onb-btn" onClick={() => void w.back().catch(() => undefined)} disabled={w.busy}>{t('onb.back')}</button>
         )}
         {secondary}
         <button type="submit" className="btn btn-primary onb-btn onb-primary" disabled={w.busy || primaryDisabled}>

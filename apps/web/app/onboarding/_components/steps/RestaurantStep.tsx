@@ -14,6 +14,7 @@ type Service = (typeof ONBOARDING_SERVICE_TYPES)[number];
 export function RestaurantStep() {
   const { t } = useT();
   const w = useWizard();
+  const { call } = w;
   const d = w.progress.draft;
   const branch = w.org?.branches[0];
   const [name, setName] = useState(w.org?.name ?? d.name ?? '');
@@ -31,8 +32,8 @@ export function RestaurantStep() {
     try {
       const draft = { ...d, name: name.trim(), nameAr: nameAr.trim() || undefined, country, serviceMode: service };
       if (w.org) {
-        await w.call(`/o/${w.org.id}`, { method: 'PATCH', body: { name: name.trim(), nameAr: nameAr.trim() || null } });
-        if (branch && branch.serviceMode !== service) await w.call(`/o/${w.org.id}/branches/${branch.id}/service-mode`, { method: 'PUT', body: { mode: service } });
+        await call(`/o/${w.org.id}`, { method: 'PATCH', body: { name: name.trim(), nameAr: nameAr.trim() || null } });
+        if (branch && branch.serviceMode !== service) await call(`/o/${w.org.id}/branches/${branch.id}/service-mode`, { method: 'PUT', body: { mode: service } });
         w.setOrg({ ...w.org, name: name.trim(), nameAr: nameAr.trim() || null, branches: w.org.branches.map((b, i) => (i === 0 ? { ...b, serviceMode: service } : b)) });
       }
       await w.finish({ draft });

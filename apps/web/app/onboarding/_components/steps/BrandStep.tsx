@@ -16,6 +16,7 @@ const COLOR_LABEL: Record<ColorKey, string> = { primaryColor: 'onb.brand.primary
 export function BrandStep() {
   const { t, locale } = useT();
   const w = useWizard();
+  const { call } = w;
   const org = w.org!;
   const [brand, setBrand] = useState<BrandView | null>(null);
   const [presets, setPresets] = useState<ThemePreset[]>([]);
@@ -28,15 +29,15 @@ export function BrandStep() {
 
   useEffect(() => {
     let live = true;
-    Promise.all([w.call<BrandView>(base), w.call<{ items: ThemePreset[] }>(`${base}/presets`)])
+    Promise.all([call<BrandView>(base), call<{ items: ThemePreset[] }>(`${base}/presets`)])
       .then(([b, p]) => { if (live) { setBrand(b); setPresets(p.items); } })
       .catch((e) => live && setError(errorText(e)));
     return () => { live = false; };
-  }, [base, w]);
+  }, [base, call]);
 
   const update = async (body: Record<string, unknown>) => {
     setError(null);
-    try { setBrand(await w.call<BrandView>(base, { method: 'PUT', body })); } catch (e) { setError(errorText(e)); }
+    try { setBrand(await call<BrandView>(base, { method: 'PUT', body })); } catch (e) { setError(errorText(e)); }
   };
   const upload = async (f: File | undefined) => {
     if (!f) return;
@@ -45,7 +46,7 @@ export function BrandStep() {
     form.append('file', f);
     setUploading(true);
     setError(null);
-    try { setBrand(await w.call<BrandView>(`${base}/logo`, { body: form })); } catch (e) { setError(errorText(e)); } finally {
+    try { setBrand(await call<BrandView>(`${base}/logo`, { body: form })); } catch (e) { setError(errorText(e)); } finally {
       setUploading(false);
       if (file.current) file.current.value = '';
     }
@@ -54,7 +55,7 @@ export function BrandStep() {
   const name = pick(locale, org.name, org.nameAr);
   return (
     <StepFrame title={t('onb.brand.title')} body={t('onb.brand.body')} onSubmit={() => w.finish()} primaryDisabled={uploading} error={error}
-      secondary={<button type="button" className="btn onb-btn onb-skip" onClick={() => void w.finish()} disabled={w.busy || uploading}>{t('onb.skip')}</button>}>
+      secondary={<button type="button" className="btn onb-btn onb-skip" onClick={() => void w.finish().catch(() => undefined)} disabled={w.busy || uploading}>{t('onb.skip')}</button>}>
       <div className="onb-logo">
         <div className="onb-logo-box">
           {brand?.logoUrl ? <img src={brand.logoUrl} alt={t('onb.brand.logoAlt', { name })} /> : <span>{t('onb.brand.noLogo')}</span>}
@@ -76,7 +77,7 @@ export function BrandStep() {
             const swatch = { '--sw-1': p.websiteTheme.primaryColor, '--sw-2': p.websiteTheme.accentColor, '--sw-3': p.websiteTheme.backgroundColor } as CSSProperties;
             return (
               <label key={p.id} className={`onb-preset${on ? ' is-on' : ''}`} style={swatch}>
-                <input type="radio" name="preset" value={p.id} checked={on} onChange={() => void update({ presetId: p.id })} />
+                <input type="radio" name="preset" value={p.id} checked={on} onChange={() => { if (brand) setBrand({ ...brand, presetId: p.id }); void update({ presetId: p.id }); }} />
                 <span className="onb-swatch" aria-hidden="true"><i /><i /><i /></span>
                 <strong>{pick(locale, p.name.en ?? p.id, p.name.ar)}</strong>
                 <small>{pick(locale, p.description.en ?? '', p.description.ar)}</small>
