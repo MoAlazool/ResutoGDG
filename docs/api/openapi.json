@@ -3505,6 +3505,269 @@
         ]
       }
     },
+    "/v1/o/{orgId}/brand": {
+      "get": {
+        "operationId": "Brand_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "brand"
+        ],
+        "x-resuto-module": "core",
+        "x-resuto-permissions": [
+          "studio:read"
+        ]
+      },
+      "put": {
+        "operationId": "Brand_update",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "accentColor": {
+                    "pattern": "^#[0-9a-fA-F]{6}$",
+                    "type": "string"
+                  },
+                  "backgroundColor": {
+                    "pattern": "^#[0-9a-fA-F]{6}$",
+                    "type": "string"
+                  },
+                  "logoMediaId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "presetId": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[a-z][a-z0-9_]{1,39}$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "primaryColor": {
+                    "pattern": "^#[0-9a-fA-F]{6}$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "brand"
+        ],
+        "x-resuto-module": "core",
+        "x-resuto-permissions": [
+          "studio:write"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/brand/logo": {
+      "post": {
+        "operationId": "Brand_logo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "contentMediaType": "application/octet-stream",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "brand"
+        ],
+        "x-resuto-module": "core",
+        "x-resuto-permissions": [
+          "studio:write"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/brand/presets": {
+      "get": {
+        "operationId": "Brand_presets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "brand"
+        ],
+        "x-resuto-module": "core",
+        "x-resuto-permissions": [
+          "studio:read"
+        ]
+      }
+    },
+    "/v1/o/{orgId}/brand/publish": {
+      "post": {
+        "operationId": "Brand_publish",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "maxLength": 200,
+                    "minLength": 8,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "brand"
+        ],
+        "x-resuto-module": "core",
+        "x-resuto-permissions": [
+          "studio:publish"
+        ]
+      }
+    },
     "/v1/o/{orgId}/change-policies": {
       "get": {
         "operationId": "ChangePolicies_list",
@@ -24984,7 +25247,8 @@
                       "foodics",
                       "odoo",
                       "ai",
-                      "text"
+                      "text",
+                      "xlsx"
                     ],
                     "type": "string"
                   }
@@ -25104,7 +25368,8 @@
                       "foodics",
                       "odoo",
                       "ai",
-                      "text"
+                      "text",
+                      "xlsx"
                     ],
                     "type": "string"
                   }
@@ -33463,6 +33728,156 @@
         ],
         "x-resuto-permissions": [
           "floor:seat"
+        ]
+      }
+    },
+    "/v1/onboarding/progress": {
+      "get": {
+        "operationId": "Onboarding_progress",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "onboarding"
+        ]
+      },
+      "put": {
+        "operationId": "Onboarding_saveProgress",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "completed": {
+                    "default": [],
+                    "items": {
+                      "enum": [
+                        "account",
+                        "restaurant",
+                        "address",
+                        "brand",
+                        "menu",
+                        "details",
+                        "social",
+                        "publish",
+                        "qr"
+                      ],
+                      "type": "string"
+                    },
+                    "maxItems": 9,
+                    "type": "array"
+                  },
+                  "done": {
+                    "type": "boolean"
+                  },
+                  "draft": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "country": {
+                        "enum": [
+                          "EG",
+                          "SA"
+                        ],
+                        "type": "string"
+                      },
+                      "menuMethod": {
+                        "enum": [
+                          "manual",
+                          "spreadsheet",
+                          "assisted"
+                        ],
+                        "type": "string"
+                      },
+                      "name": {
+                        "maxLength": 120,
+                        "type": "string"
+                      },
+                      "nameAr": {
+                        "maxLength": 120,
+                        "type": "string"
+                      },
+                      "serviceMode": {
+                        "enum": [
+                          "tables",
+                          "counter",
+                          "online"
+                        ],
+                        "type": "string"
+                      },
+                      "slug": {
+                        "maxLength": 60,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "orgId": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "restart": {
+                    "type": "boolean"
+                  },
+                  "step": {
+                    "enum": [
+                      "account",
+                      "restaurant",
+                      "address",
+                      "brand",
+                      "menu",
+                      "details",
+                      "social",
+                      "publish",
+                      "qr"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "step"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "onboarding"
         ]
       }
     },

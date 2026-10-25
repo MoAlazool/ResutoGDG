@@ -174,6 +174,14 @@ export class DbService implements OnModuleDestroy, OnApplicationBootstrap {
     return this.run({ mode: 'member', orgId: ctx.orgId, userId: ctx.userId, actor: ctx.actor ?? `user:${ctx.userId}` }, fn);
   }
 
+  /**
+   * A signed-in person's own records outside any tenant (21-ONB onboarding_progress): member role with no
+   * app.org_id, so tenant tables answer nothing and only policies keyed on auth.uid() let rows through.
+   */
+  withUser<T>(userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
+    return this.run({ mode: 'member', orgId: null, userId, actor: `user:${userId}` }, fn);
+  }
+
   withTenant<T>(orgId: string, fn: (tx: Tx) => Promise<T>, actor = 'system'): Promise<T> {
     return this.run({ mode: 'tenant', orgId, userId: null, actor }, fn);
   }

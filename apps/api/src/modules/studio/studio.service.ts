@@ -15,7 +15,7 @@ import { escapeLike } from '../mcp/mcp.util';
 const MAX_SECTIONS = 30;
 
 /** Media kept out of the library and of website sections: menu-import files and food-photo originals (EXIF/GPS intact). */
-const PRIVATE_MEDIA_SOURCES = ['import', 'photo_original'];
+export const PRIVATE_MEDIA_SOURCES = ['import', 'photo_original'];
 
 /** Matches the website-highlight product picker returns at most (PS-22: a search picker, not a page). */
 export const STUDIO_PRODUCTS_MAX = 200;
