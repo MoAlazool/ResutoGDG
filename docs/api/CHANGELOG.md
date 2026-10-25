@@ -33,6 +33,15 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 No existing route changed (checked with `scripts/openapi/additive.mjs` against 04c07c7).
 
+### Added — Inbox workspace, increment 2 (21-INBOX)
+
+- `GET /v1/o/:orgId/connect/conversations` accepts `view=leads|ordering` (`INBOX_VIEWS` in `@resuto/contracts`):
+  `ordering` lists conversations with an ordering session in progress; `leads` lists contacts without a counted order
+  (confirmed and not cancelled) in the caller's branch scope, or without a customer profile. Each item gains
+  `branchId`, `orderingStep` (the live session's step, or `null`) and `lead`.
+
+No existing route changed (checked with `scripts/openapi/additive.mjs` against the previous document).
+
 ### Added — Inbox workspace and Customer 360, increment 1 (21-INBOX)
 
 - Internal notes: `POST /v1/o/:orgId/connect/conversations/:id/notes` (`connect:reply`, idempotent by `key`) and

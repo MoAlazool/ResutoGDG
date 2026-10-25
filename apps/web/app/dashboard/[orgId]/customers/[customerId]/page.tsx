@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { CONSENT_SOURCES, type CustomerProfile, type CustomerSummary } from '@resuto/contracts';
 import { Badge, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, Email, Ltr, UserText } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -12,6 +12,10 @@ import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { CustomerLoyalty } from '../../loyalty/_components/CustomerLoyalty';
+
+// The Customer 360 panel the Inbox shows (21-INBOX), as its own chunk: value and cadence, favourites, first touch,
+// consent per channel, conversations and staff notes. Identity, orders, reservations and loyalty are on this page already.
+const Customer360Panel = lazy(() => import('@/components/customers/Customer360Panel'));
 
 export default function CustomerProfilePage() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -81,6 +85,11 @@ export default function CustomerProfilePage() {
             <Stat label={t('insights.customers.lastOrder')} value={c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'} />
           </div>
           {!c.anonymisedAt && <CustomerLoyalty customerId={c.id} />}
+          <Section title={t('insights.c360.title')}>
+            <Suspense fallback={<Skeleton lines={4} />}>
+              <Customer360Panel customerId={c.id} omit={['identity', 'orders', 'reservations', 'loyalty']} layout="grid" />
+            </Suspense>
+          </Section>
           <div className="grid grid-2 items-start">
             <Section title={t('insights.profile.details')}>
               <dl className="stack gap-8 m-0">

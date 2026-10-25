@@ -7545,6 +7545,18 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "enum": [
+                "leads",
+                "ordering"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {

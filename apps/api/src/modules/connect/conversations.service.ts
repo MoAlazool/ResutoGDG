@@ -153,12 +153,18 @@ export class ConversationsService {
     const k = keyset(legacy ? null : f.cursor);
     const [cursorAt, cursorId] = legacy ?? (k.key ? [String(k.key.at), k.key.id] : [null, null]);
     const lastAt = 'coalesce(c.last_message_at, c.created_at)';
+    // 21-INBOX increment 2 (workspace views): the live ordering session (at most one per conversation, unique index
+    // ordering_sessions_one_live) and whether the contact is a lead (no counted order in the caller's branch scope).
+    const liveSession = `select s.step from ordering_sessions s where s.conversation_id = c.id and s.step not in ('completed', 'cancelled', 'expired')`;
+    const lead = `(c.customer_id is null or not exists (select 1 from orders o where o.customer_id = c.customer_id and o.org_id = c.org_id
+                     and o.status not in ('cancelled', 'awaiting_payment') and ${branchScope('o.branch_id', 11)}))`;
     return this.db.scoped(ctx, async (tx) => {
       const rows = await tx.query(
         `select ${cursorAtSql(lastAt)} as cursor_at, c.id, c.channel_id, c.customer_id, c.external_contact, c.contact_name, c.status, c.assigned_to, c.last_message_at, c.last_inbound_at,
                 c.unread_count, c.branch_id, c.locale, ch.display_name as channel_name, ch.transport, ch.kind as channel_kind, cu.display_name as customer_name,
                 lm.body as last_body, lm.direction as last_direction, lm.kind as last_kind,
-                exists(select 1 from handoffs h where h.conversation_id = c.id and h.status <> 'resolved') as handoff_open
+                exists(select 1 from handoffs h where h.conversation_id = c.id and h.status <> 'resolved') as handoff_open,
+                (${liveSession} limit 1) as ordering_step, ${lead} as is_lead
            from conversations c join messaging_channels ch on ch.id = c.channel_id
            left join customers cu on cu.id = c.customer_id
            left join lateral (select body, direction, kind from messages m where m.conversation_id = c.id and m.kind <> 'note' order by m.created_at desc limit 1) lm on true
@@ -171,15 +177,17 @@ export class ConversationsService {
             and ($8::timestamptz is null or (${lastAt}, c.id) < ($8, $9::uuid))
             and ${branchScope('c.branch_id', 11)}
             and ($12::uuid is null or exists (select 1 from conversation_tag_assignments ta where ta.conversation_id = c.id and ta.tag_id = $12))
+            and ($13::text is null or ($13 = 'ordering' and exists (${liveSession})) or ($13 = 'leads' and ${lead}))
           order by ${lastAt} desc, c.id desc limit $10`,
         [ctx.orgId, f.status ?? null, f.unread ?? null, f.assigned ?? null, ctx.userId, f.channelId ?? null,
-          f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, k.fetch(f.limit), ctx.branchFilter, f.tagId ?? null]);
+          f.q ? f.q.replace(/[%_\\]/g, '') : null, cursorAt || null, cursorId || null, k.fetch(f.limit), ctx.branchFilter, f.tagId ?? null, f.view ?? null]);
       const tags = await tagsByConversation(tx, rows.slice(0, f.limit).map((r) => r.id));
       return pageOf(rows, f.limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => ({
         id: r.id, channelId: r.channel_id, channelName: r.channel_name, channelKind: r.channel_kind, sandbox: r.transport === 'sandbox', customerId: r.customer_id,
         contact: phoneContact(r.transport, r.external_contact), name: r.customer_name ?? r.contact_name, status: r.status, assignedTo: r.assigned_to,
         unreadCount: r.unread_count, lastMessageAt: iso(r.last_message_at), lastMessage: r.last_body ? { body: r.last_body, direction: r.last_direction, kind: r.last_kind } : null,
         window: windowState(r.last_inbound_at), handoffOpen: r.handoff_open, locale: r.locale, tags: tags.get(r.id) ?? [],
+        branchId: r.branch_id, orderingStep: r.ordering_step ?? null, lead: r.is_lead,
       }));
     });
   }

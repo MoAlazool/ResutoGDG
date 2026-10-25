@@ -72,7 +72,7 @@ describe('connect method per provider', () => {
     expect(keysAreAdvanced('oauth')).toBe(true);
   });
   it('Embedded Signup opens the Inbox stepper with a full page load; API keys lead with the form; guided and sandbox flows', () => {
-    expect(connectAction({ id: 'whatsapp_cloud', connectMethod: 'embedded_signup', href: null }, 'org-9', null)).toEqual({ kind: 'whatsapp', href: '/dashboard/org-9/inbox?connect=whatsapp' });
+    expect(connectAction({ id: 'whatsapp_cloud', connectMethod: 'embedded_signup', href: null }, 'org-9', null)).toEqual({ kind: 'whatsapp', href: '/dashboard/org-9/settings/messaging?connect=whatsapp' });
     expect(keysAreAdvanced('embedded_signup')).toBe(true);
     expect(connectAction({ id: 'paymob', connectMethod: 'api_key', href: null }, 'o', null)).toEqual({ kind: 'keys' });
     expect(keysAreAdvanced('api_key')).toBe(false);

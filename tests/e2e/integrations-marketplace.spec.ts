@@ -62,7 +62,7 @@ test('connection sheet: connect methods, capabilities pending verification, disc
   // WhatsApp: the official path through the Inbox stepper (no QR mode anywhere).
   await grid.locator('[data-card="whatsapp_cloud"]').click();
   sheet = page.getByRole('dialog', { name: /WhatsApp/ });
-  await expect(sheet.getByRole('link', { name: 'Set up WhatsApp' })).toHaveAttribute('href', `/dashboard/${tenant.orgId}/inbox?connect=whatsapp`);
+  await expect(sheet.getByRole('link', { name: 'Set up WhatsApp' })).toHaveAttribute('href', `/dashboard/${tenant.orgId}/settings/messaging?connect=whatsapp`);
   await expect(sheet.getByText(/QR/)).toHaveCount(0);
   await sheet.getByRole('button', { name: 'Close' }).click();
 

@@ -38,6 +38,12 @@ export const MCP_SECTIONS: SectionLink[] = [
   { href: '/approvals', label: 'mcp.tab.inbox', permission: 'changes:read' },
 ];
 
+/** Settings: the restaurant (org:manage) and Messaging, which holds the Inbox's channels and templates (21-INBOX). */
+export const SETTINGS_SECTIONS: SectionLink[] = [
+  { href: '/settings', label: 'nav.settings', permission: 'org:manage' },
+  { href: '/settings/messaging', label: 'nav.messaging', permission: 'connect:read', module: 'connect' },
+];
+
 /** The section whose route is the longest prefix of `path` (relative to the restaurant), or null. */
 export function activeSection(sections: SectionLink[], path: string): SectionLink | null {
   let best: SectionLink | null = null;

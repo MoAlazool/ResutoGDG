@@ -32,6 +32,14 @@ describe('conversation tags', () => {
     expect(inboxConversationFilters.parse({ tagId: '7f1d8f8e-6a3c-4b7a-9a59-0b8c7e9d1a22' }).tagId).toBeDefined();
     expect(inboxConversationFilters.safeParse({ tagId: 'vip' }).success).toBe(false);
   });
+
+  it('filter the conversation list by a workspace view (leads, ordering)', () => {
+    expect(inboxConversationFilters.parse({ view: 'leads' }).view).toBe('leads');
+    expect(inboxConversationFilters.parse({ view: 'ordering' }).view).toBe('ordering');
+    expect(inboxConversationFilters.parse({}).view).toBeUndefined();
+    expect(inboxConversationFilters.safeParse({ view: 'vip' }).success).toBe(false);
+    expect(inboxConversationFilters.safeParse({ view: '' }).success).toBe(false);
+  });
 });
 
 describe('saved replies', () => {

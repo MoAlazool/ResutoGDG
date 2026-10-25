@@ -84,7 +84,7 @@ export function connectAction(card: Pick<MarketCard, 'id' | 'connectMethod' | 'h
   switch (card.connectMethod) {
     case 'oauth': return { kind: 'oauth', brand: oauthBrand(card.id) ?? card.id, configured: !!oauthConfigured };
     // Meta's SDK may only run on the Inbox page (its Content-Security-Policy): a full page load, not client navigation.
-    case 'embedded_signup': return { kind: 'whatsapp', href: `/dashboard/${orgId}/inbox?connect=whatsapp` };
+    case 'embedded_signup': return { kind: 'whatsapp', href: `/dashboard/${orgId}/settings/messaging?connect=whatsapp` };
     case 'guided_onboarding': return { kind: 'guided_keys' };
     case 'platform_managed': return { kind: 'sandbox' };
     default: return { kind: 'keys' };

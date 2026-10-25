@@ -4,7 +4,7 @@ import type { Permission, Role } from '@resuto/contracts';
 import { can } from '@resuto/contracts/lite';
 import { EXPLORE_ITEM, navVisible, type NavArea } from './nav';
 import { PALETTE_KEYWORDS } from './palette-keywords';
-import { FINANCE_SECTIONS, INTELLIGENCE_SECTIONS, MCP_SECTIONS, type SectionLink } from './sections';
+import { FINANCE_SECTIONS, INTELLIGENCE_SECTIONS, MCP_SECTIONS, SETTINGS_SECTIONS, type SectionLink } from './sections';
 
 export type PaletteAction = 'signOut' | 'language' | 'branches';
 
@@ -35,6 +35,9 @@ export const PALETTE_SUBS: Record<string, SectionLink[]> = {
   '/finance': FINANCE_SECTIONS.slice(1),
   '/intelligence': INTELLIGENCE_SECTIONS.filter((s) => s.href !== '/intelligence' && s.href !== '/intelligence/assistant'),
   '/mcp': [...MCP_SECTIONS.slice(1), { href: '/mcp/new', label: 'mcp.clients.new', permission: 'mcp:manage' }],
+  // Channels and templates moved from the Inbox to Settings › Messaging (21-INBOX): listed under the Inbox, so members
+  // who use the Inbox without org:manage (no Settings item) find them too.
+  '/inbox': [{ ...SETTINGS_SECTIONS[1]!, label: 'connect.ws.channelsTemplates' }],
 };
 
 /** Pages: each visible item, then the sections and page actions under it ("Finance › P&L"). */

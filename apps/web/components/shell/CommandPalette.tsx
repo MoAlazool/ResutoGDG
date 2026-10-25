@@ -6,6 +6,7 @@ import { money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import type { NavArea } from '@/lib/nav';
 import type { OrgInfo } from '@/lib/org-context';
+import { usePageCommandsSnapshot } from '@/lib/page-commands';
 import { actionEntries, pageEntries, type PaletteEntry } from '@/lib/palette-entries';
 import { rankEntries, searchableQuery } from '@/lib/palette-match';
 import { GO_SHORTCUTS } from '@/lib/shortcuts';
@@ -36,7 +37,7 @@ export interface CommandPaletteProps {
   search(path: string, signal: AbortSignal): Promise<{ items: SearchHit[] }>;
 }
 
-interface Row { entry: PaletteEntry; group: string; content?: ReactNode }
+interface Row { entry: PaletteEntry; group: string; content?: ReactNode; run?: () => void }
 
 export default function CommandPalette(props: CommandPaletteProps) {
   const { open, onClose, org, role, areas, explore, branchId, allowAll, allBranches, onBranch, onNavigate, onLanguage, onSignOut, search } = props;
@@ -56,6 +57,9 @@ export default function CommandPalette(props: CommandPaletteProps) {
   useEffect(() => { if (open) { setQuery(''); setMode('all'); setActive(0); setRecords(null); setFailed(false); requestAnimationFrame(() => input.current?.focus()); } }, [open]);
 
   const pages = useMemo(() => pageEntries(areas, role, t, { explore }), [areas, role, t, explore]);
+  // Actions of the page that is open (lib/page-commands.ts): listed first, they run on the page.
+  const pageGroup = usePageCommandsSnapshot();
+  const pageActions = useMemo(() => (open && pageGroup ? pageGroup.commands.filter((c) => c.enabled !== false) : []), [open, pageGroup]);
   const actions = useMemo(() => actionEntries({ role, hrefs: new Set(areas.flatMap((a) => a.items.map((i) => i.href))), multiBranch: org.branches.filter((b) => b.isActive).length > 1 }, t), [areas, role, t, org.branches]);
   const branchEntries = useMemo<PaletteEntry[]>(() => [
     ...(allowAll ? [{ id: 'branch:all', kind: 'branch' as const, label: t('shell.allBranches'), branchId: null }] : []),
@@ -81,7 +85,12 @@ export default function CommandPalette(props: CommandPaletteProps) {
 
   const rows: Row[] = useMemo(() => {
     if (mode === 'branches') return rankEntries(branchEntries, query).map((entry) => ({ entry, group: t('palette.group.branches') }));
+    const here = pageActions.map((c) => ({ id: `page-action:${c.id}`, kind: 'action' as const, label: c.label, keywords: c.keywords, key: c.key, run: c.run }));
     const out: Row[] = [
+      ...rankEntries(here, query, query ? 6 : 10).map((e) => ({
+        entry: { id: e.id, kind: e.kind, label: e.label }, group: t('palette.group.page', { page: pageGroup?.title ?? '' }), run: e.run,
+        content: <><bdi>{e.label}</bdi>{e.key && <> <Kbd>{e.key}</Kbd></>}</>,
+      })),
       ...rankEntries(pages, query, query ? 8 : 12).map((entry) => ({ entry, group: t('palette.group.pages') })),
       ...rankEntries(actions, query, 6).map((entry) => ({ entry, group: t('palette.group.actions') })),
     ];
@@ -101,13 +110,15 @@ export default function CommandPalette(props: CommandPaletteProps) {
       return { group, entry: { id: `product:${hit.id}`, kind: 'record', label: name, href: `/menu?product=${hit.id}`, hint: t('palette.kind.product') },
         content: <><bdi>{name}</bdi> <span className="cp-sub num">{money(hit.priceMinor, hit.currency as 'EGP', locale)}</span></> };
     }
-  }, [mode, branchEntries, pages, actions, records, query, t, locale]);
+  }, [mode, branchEntries, pages, actions, records, query, t, locale, pageActions, pageGroup]);
 
   useEffect(() => { setActive(0); }, [query, mode]);
   useEffect(() => { list.current?.querySelector<HTMLElement>(`[data-index="${active}"]`)?.scrollIntoView?.({ block: 'nearest' }); }, [active]);
 
   const choose = (row: Row | undefined) => {
     if (!row) return;
+    // A page action runs once the palette has closed and handed the focus back (it may move the focus itself).
+    if (row.run) { const run = row.run; onClose(); setTimeout(run, 30); return; }
     const e = row.entry;
     if (e.kind === 'branch') { onBranch(e.branchId ?? null); onClose(); return; }
     if (e.action === 'branches') { setMode('branches'); setQuery(''); return; }
@@ -170,6 +181,8 @@ export default function CommandPalette(props: CommandPaletteProps) {
 export function ShortcutsSheet({ open, onClose, visibleHrefs }: { open: boolean; onClose(): void; visibleHrefs: Set<string> }) {
   const { t } = useT();
   const go = GO_SHORTCUTS.filter((s) => visibleHrefs.has(s.item.href));
+  const page = usePageCommandsSnapshot();
+  const pageKeys = page?.commands.filter((c) => c.key) ?? [];
   return (
     <Sheet open={open} onClose={onClose} title={t('shortcuts.title')} description={t('shortcuts.note')} size="sm" labels={{ close: t('action.close') }}>
       <h3 className="cp-sheet-h">{t('shortcuts.general')}</h3>
@@ -177,6 +190,12 @@ export function ShortcutsSheet({ open, onClose, visibleHrefs }: { open: boolean;
         <div><dt><Kbd keys={['⌘', 'K']} /> <span className="cp-or">{t('shortcuts.or')}</span> <Kbd keys={['Ctrl', 'K']} /></dt><dd>{t('shortcuts.palette')}</dd></div>
         <div><dt><Kbd>?</Kbd></dt><dd>{t('shortcuts.help')}</dd></div>
       </dl>
+      {page && pageKeys.length > 0 && <>
+        <h3 className="cp-sheet-h">{t('shortcuts.onPage', { page: page.title })}</h3>
+        <dl className="cp-keys">
+          {pageKeys.map((c) => <div key={c.id}><dt><Kbd>{c.key}</Kbd></dt><dd>{c.label}</dd></div>)}
+        </dl>
+      </>}
       {go.length > 0 && <>
         <h3 className="cp-sheet-h">{t('shortcuts.goTo')}</h3>
         <dl className="cp-keys">

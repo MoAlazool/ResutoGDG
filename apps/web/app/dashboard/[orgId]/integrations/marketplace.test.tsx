@@ -48,7 +48,7 @@ describe.each(['en', 'ar'] as const)('marketplace rendering (%s)', (lang) => {
 
   it('Embedded Signup links to the Inbox stepper; API keys lead with the form; guided cards link out', () => {
     const wa = options(lang, card('whatsapp_cloud'), items[1]!);
-    expect(wa).toContain('href="/dashboard/org-1/inbox?connect=whatsapp"');
+    expect(wa).toContain('href="/dashboard/org-1/settings/messaging?connect=whatsapp"');
     expect(wa).not.toMatch(/Continue with|المتابعة عبر/);
     const keys = options(lang, card('stripe'), items[2]!);
     expect(keys).not.toContain('<details><summary>' + (lang === 'en' ? 'Advanced' : 'متقدم'));

@@ -30,6 +30,7 @@ export const PALETTE_KEYWORDS: Record<string, string> = {
   '/mcp/new': 'new connection key',
   '/integrations': 'integrations apps connect providers',
   '/settings': 'settings restaurant profile branches',
+  '/settings/messaging': 'messaging channels templates whatsapp messenger instagram',
   '/team': 'team members staff roles invite',
   '/billing': 'billing plan subscription upgrade',
   '/data': 'data import export csv',
