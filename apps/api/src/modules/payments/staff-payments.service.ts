@@ -39,7 +39,7 @@ export class StaffPaymentsService {
     private readonly refunds: RefundsService,
   ) {}
 
-  async list(ctx: TenantContext, q: { status?: string; method?: string; provider?: string; branchId?: string; orderId?: string; from?: string; to?: string; limit: number; cursor?: string }) {
+  async list(ctx: TenantContext, q: { status?: string; method?: string; provider?: string; branchId?: string; orderId?: string; from?: string; to?: string; mode?: 'test' | 'live'; limit: number; cursor?: string }) {
     if (q.branchId) ctx.assertBranch(q.branchId);
     return this.db.scoped(ctx, async (tx) => {
       const cursor = q.cursor ? decodeCursor(q.cursor) : null;
@@ -50,9 +50,10 @@ export class StaffPaymentsService {
             and ($5::uuid is null or p.branch_id = $5) and ($6::uuid is null or p.order_id = $6 or exists (select 1 from payment_allocations a where a.payment_id = p.id and a.order_id = $6))
             and ($7::date is null or p.created_at >= $7::date) and ($8::date is null or p.created_at < $8::date + 1)
             and ($9::timestamptz is null or (p.created_at, p.id) < ($9::timestamptz, $10::uuid))
+            and ($12::boolean is null or p.is_test = $12)
           order by p.created_at desc, p.id desc limit $11`,
         [ctx.orgId, q.status ?? null, q.method ?? null, q.provider ?? null, q.branchId ?? null, q.orderId ?? null, q.from ?? null, q.to ?? null,
-          cursor?.at ?? null, cursor?.id ?? null, q.limit]);
+          cursor?.at ?? null, cursor?.id ?? null, q.limit, q.mode ? q.mode === 'test' : null]);
       const items = rows.map((r) => ({ ...toPayment(r), orderNumbers: r.order_numbers }));
       const last = rows[rows.length - 1];
       return { items, nextCursor: rows.length === q.limit && last ? encodeCursor(last.created_at, last.id) : null };

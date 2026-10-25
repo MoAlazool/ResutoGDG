@@ -92,6 +92,8 @@ export const listPaymentsQuery = z.object({
   orderId: uuid.optional(),
   from: isoDate.optional(),
   to: isoDate.optional(),
+  /** 21-MONEY: only test (sandbox) or only live payments; omitted = both. */
+  mode: z.enum(['test', 'live']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().max(200).optional(),
 });
