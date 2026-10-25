@@ -1,4 +1,4 @@
-// Database gate for 21-STUDIO 20261026100001_studio_sections_discounts: the new website section kinds are accepted
+// Database gate for 21-STUDIO 20261026100002_studio_sections_discounts: the new website section kinds are accepted
 // (and nothing else), products.compare_at_price_minor is positive or null, change_ops takes product.discount.set, and
 // both tables stay tenant-isolated for the new data (a member or tenant session of B never reads or edits A's sections
 // or discounts, even with a forged org). Own disposable database (<TEST_DATABASE_URL>_ws21studio).
