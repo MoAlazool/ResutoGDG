@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 // language) and block the page. Use useConfirm / usePrompt / Modal from @resuto/ui. The allowlist names screens
 // owned by other workstreams that still use them; remove entries as they migrate, never add new ones.
 const ROOTS = ['apps/web/app', 'apps/web/components'];
-const ALLOW = new Set([
-  'apps/web/app/dashboard/[orgId]/integrations/page.tsx', // integrations workstream (revoke confirm)
+const ALLOW = new Set<string>([
+  // 21-INT moved the integrations revoke confirm to useConfirm; the list is empty.
 ]);
 const repo = join(__dirname, '..', '..', '..');
 /** Always native: called on a global object. */
