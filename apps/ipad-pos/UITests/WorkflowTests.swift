@@ -40,7 +40,8 @@ final class WorkflowTests: XCTestCase {
     private func assertOrderState(_ app: XCUIApplication,id: String,label: String,file: StaticString = #filePath,line: UInt = #line) {
         let state = app.staticTexts.matching(identifier:id).firstMatch
         for _ in 0..<6 {
-            if state.exists && state.isHittable { break }
+            // This is a semantic status assertion, not an interaction. Static text may have no AX activation point.
+            if state.exists { break }
             app.collectionViews.allElementsBoundByIndex.last?.swipeDown()
         }
         XCTAssertTrue(state.waitForExistence(timeout:15),file:file,line:line)
