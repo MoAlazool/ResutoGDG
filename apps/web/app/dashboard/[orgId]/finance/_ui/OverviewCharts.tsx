@@ -8,7 +8,7 @@ import { alignDays, fillDays, type DateRange } from './period';
 
 const minorToMajor = (n: number) => n / 100;
 
-export function NetByDayTrend({ current, previous, rows, previousRows, format }: {
+export function NetByDayChart({ current, previous, rows, previousRows, format }: {
   current: DateRange; previous: DateRange | null; rows: Array<{ date: string; netMinor: number }>; previousRows: Array<{ date: string; netMinor: number }> | null;
   format: (minor: number) => string;
 }) {
@@ -25,7 +25,7 @@ export function NetByDayTrend({ current, previous, rows, previousRows, format }:
   return days.length <= 31 ? <BarChart {...props} /> : <LineChart {...props} />;
 }
 
-export function NetByMonthTrend({ months, format }: { months: Array<{ month: string; netRevenueMinor: number }>; format: (minor: number) => string }) {
+export function NetByMonthChart({ months, format }: { months: Array<{ month: string; netRevenueMinor: number }>; format: (minor: number) => string }) {
   const { t, locale } = useT();
   const label = dateTimeFormat(locale, { month: 'short', year: '2-digit', timeZone: 'UTC' });
   return (
