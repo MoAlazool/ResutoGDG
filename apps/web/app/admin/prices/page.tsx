@@ -35,11 +35,11 @@ export default function AdminPricesPage() {
   if (!can('billing:read')) return <ListPage header={header}><Notice tone="warn">{s.billingHidden}</Notice></ListPage>;
 
   const moduleName = (k: string) => (k in MODULE_INFO ? pick(locale, MODULE_INFO[k as ModuleKey].name, MODULE_INFO[k as ModuleKey].nameAr) : k);
-  const columns = (label: (k: string) => string): ColumnV2<AdminPriceRow>[] => {
+  const columns = (header: string, label: (k: string) => string): ColumnV2<AdminPriceRow>[] => {
     const future = (r: AdminPriceRow) => Date.parse(r.validFrom) > Date.now();
     const muted = (r: AdminPriceRow) => !r.current && !future(r);
     return [
-      { key: 'k', header: s.priceKey, rowHeader: true, sort: (a, b) => label(a.key).localeCompare(label(b.key), locale),
+      { key: 'k', header, rowHeader: true, sort: (a, b) => label(a.key).localeCompare(label(b.key), locale),
         render: (r) => <span className={muted(r) ? 'admin-muted' : undefined}>{label(r.key)}</span> },
       { key: 'i', header: s.interval, render: (r) => (r.interval === 'year' ? s.year : s.month) },
       { key: 'a', header: fill(s.amount, { currency }), align: 'end', sort: (a, b) => a.amountMinor - b.amountMinor,
@@ -62,16 +62,16 @@ export default function AdminPricesPage() {
       {prices.error && !prices.data ? (
         <ErrorState locale={locale} error={{ status: prices.error.status, code: prices.error.code, message: prices.error.message, requestId: prices.error.requestId }} onRetry={prices.reload} />
       ) : (
-        <div className="admin-panels" aria-busy={!prices.data || prices.pending || undefined}>
+        <div className="admin-stack" aria-busy={!prices.data || prices.pending || undefined}>
           <Panel title={s.planKind}>
             {prices.data
-              ? <DataTableV2 label={`${s.planKind} · ${countryLabel(s, country)}`} locale={locale} rows={prices.data.plans} rowKey={(r) => r.id} columns={columns((k) => planLabel(s, k))}
+              ? <DataTableV2 label={`${s.planKind} · ${countryLabel(s, country)}`} locale={locale} rows={prices.data.plans} rowKey={(r) => r.id} columns={columns(s.planKind, (k) => planLabel(s, k))}
                 busy={prices.pending} empty={<EmptyState title={s.noPrices} />} />
               : <SkeletonTable rows={5} cols={4} />}
           </Panel>
           <Panel title={s.moduleKind}>
             {prices.data
-              ? <DataTableV2 label={`${s.moduleKind} · ${countryLabel(s, country)}`} locale={locale} rows={prices.data.modules} rowKey={(r) => r.id} columns={columns(moduleName)}
+              ? <DataTableV2 label={`${s.moduleKind} · ${countryLabel(s, country)}`} locale={locale} rows={prices.data.modules} rowKey={(r) => r.id} columns={columns(s.moduleKind, moduleName)}
                 busy={prices.pending} empty={<EmptyState title={s.noPrices} />} />
               : <SkeletonTable rows={5} cols={4} />}
           </Panel>

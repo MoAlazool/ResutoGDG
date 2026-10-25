@@ -52,3 +52,11 @@
 .admin-price-tabs { margin-block-end: var(--space-4); }
 .admin-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--space-4); align-items: start; }
 .admin-panels > .panel + .panel { margin-block-start: 0; }
+
+/* An empty table inside a panel is a quiet line, not a second card inside the card. */
+.admin-ws .panel .rui-dt > .card { border: 0; border-radius: 0; box-shadow: none; padding: 0; background: transparent; }
+.admin-ws .panel .rui-dt > .card > .empty { padding: var(--space-6) var(--space-4); }
+.admin-ws .panel .rui-dt > .card > .empty strong { font-size: var(--t-md); font-weight: var(--fw-medium); color: var(--text-muted); }
+
+/* The country switch keeps its own width. */
+.admin-stack > .rui-seg { justify-self: start; }
