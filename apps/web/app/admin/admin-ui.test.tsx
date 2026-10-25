@@ -217,3 +217,23 @@ describe('provider apps', () => {
     v.unmount();
   });
 });
+
+describe('area loading and error states', () => {
+  it('the detail placeholder has a main column and an inspector; the console error goes back to /admin', async () => {
+    const { AreaSkeleton } = await import('@/components/shell/AreaSkeleton');
+    const { AreaError } = await import('@/components/shell/AreaError');
+    const sk = mount(inLocale('en', <AreaSkeleton template="detail" />));
+    expect($(sk.host, '[data-template="detail"]').getAttribute('aria-busy')).toBe('true');
+    expect(sk.host.querySelector('.area-sk-detail .area-sk-main')).not.toBeNull();
+    expect(sk.host.querySelector('.area-sk-detail .area-sk-end')).not.toBeNull();
+    sk.unmount();
+    for (const locale of ['en', 'ar'] as const) {
+      const v = mount(inLocale(locale, <AreaError error={Object.assign(new Error('boom'), { digest: 'd1' })} reset={() => undefined} area="admin" homeHref="/admin" />), locale);
+      const home = $$<HTMLAnchorElement>(v.host, 'a.btn').at(-1)!;
+      expect(home.getAttribute('href')).toBe('/admin');
+      expect($(v.host, '[role="alert"]').getAttribute('data-area')).toBe('admin');
+      if (locale === 'ar') expect(home.textContent).toMatch(/[؀-ۿ]/);
+      v.unmount();
+    }
+  });
+});
