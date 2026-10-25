@@ -20,6 +20,14 @@ export const INSIGHTS_PATHS: Record<InsightsSection, string> = {
   research: '/intelligence/research', routes: '/intelligence/routes',
 };
 
+/**
+ * The analytics views served by the one dynamic route /analytics/[section] (each view's code loads on demand, so a
+ * view ships only its own panel and charts, and the area adds one route, not eight).
+ */
+export const ANALYTICS_VIEWS = ['sales', 'menu', 'customers', 'ratings', 'marketing', 'operations', 'sustainability', 'roi'] as const satisfies readonly InsightsSection[];
+export type AnalyticsView = (typeof ANALYTICS_VIEWS)[number];
+export const isAnalyticsView = (v: string | undefined | null): v is AnalyticsView => !!v && (ANALYTICS_VIEWS as readonly string[]).includes(v);
+
 /** Views whose figures depend on the period (the toolbar shows the period and comparison there). */
 export const PERIOD_SECTIONS: readonly InsightsSection[] = ['overview', 'sales', 'menu', 'customers', 'ratings', 'marketing', 'operations', 'sustainability'];
 /** Views that compare the period with another one (the others ignore `compare`). */

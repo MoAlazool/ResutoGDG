@@ -29,6 +29,7 @@ vi.mock('@/lib/use-api', () => ({
 }));
 
 const { InsightsShell, useInsights } = await import('./InsightsShell');
+const { PeriodControls } = await import('./PeriodControls');
 const { ReportControls } = await import('./ReportControls');
 
 const ORG: OrgInfo = {
@@ -60,7 +61,7 @@ afterEach(() => { document.body.innerHTML = ''; });
 describe('Insights shell', () => {
   it('one SectionNav for analytics and intelligence; its links keep the period and comparison', async () => {
     at('period=7d&compare=last_year');
-    const v = render('en', <InsightsShell section="sales"><Probe /></InsightsShell>);
+    const v = render('en', <InsightsShell section="sales" toolbar={<PeriodControls />}><Probe /></InsightsShell>);
     await act(async () => {});
     const links = $$(v.host, 'nav.section-nav a');
     expect(links.map((a) => a.textContent)).toEqual(['Overview', 'Sales', 'Menu performance', 'Customers', 'Ratings', 'Marketing', 'Operations',
@@ -77,7 +78,7 @@ describe('Insights shell', () => {
 
   it('changing the period or comparison rewrites the URL (defaults left out)', async () => {
     at('period=7d');
-    const v = render('en', <InsightsShell section="sales"><Probe /></InsightsShell>);
+    const v = render('en', <InsightsShell section="sales" toolbar={<PeriodControls />}><Probe /></InsightsShell>);
     await act(async () => {});
     const select = $<HTMLSelectElement>(v.host, 'select');
     act(() => { select.value = '30d'; select.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -89,7 +90,7 @@ describe('Insights shell', () => {
 
   it('a link\'s branch selects that branch in the shell once, then leaves the URL', async () => {
     at(`period=today&branch=${MAADI}`);
-    let v = render('en', <InsightsShell section="sales"><Probe /></InsightsShell>);
+    let v = render('en', <InsightsShell section="sales" toolbar={<PeriodControls />}><Probe /></InsightsShell>);
     await act(async () => {});
     expect(shell.set).toHaveBeenCalledWith(MAADI);
     expect(nav.replace).toHaveBeenCalledWith('/dashboard/o1/analytics/sales?period=today', { scroll: false });
@@ -97,13 +98,13 @@ describe('Insights shell', () => {
     // "All branches" on an analytics view; a branch that does not exist is ignored (and still removed from the URL).
     shell = { branchId: ZAMALEK, all: false, set: vi.fn() };
     at('branch=all');
-    v = render('en', <InsightsShell section="sales"><Probe /></InsightsShell>);
+    v = render('en', <InsightsShell section="sales" toolbar={<PeriodControls />}><Probe /></InsightsShell>);
     await act(async () => {});
     expect(shell.set).toHaveBeenCalledWith(null);
     v.unmount();
     shell = { branchId: ZAMALEK, all: false, set: vi.fn() };
     at('branch=0f0e0d0c-0b0a-4908-8706-0504030201ff');
-    v = render('en', <InsightsShell section="sales"><Probe /></InsightsShell>);
+    v = render('en', <InsightsShell section="sales" toolbar={<PeriodControls />}><Probe /></InsightsShell>);
     await act(async () => {});
     expect(shell.set).not.toHaveBeenCalled();
     expect(nav.replace).toHaveBeenCalled();

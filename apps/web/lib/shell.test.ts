@@ -6,6 +6,7 @@ import { connectionState, reportConnection, resetConnection, subscribeConnection
 import { activeItem, ALL_AREAS, AREAS, homePath, isFreeShell, itemPath, lockedItems, NAV, navForBranch, SETTINGS_AREA, visibleAreas } from './nav';
 import type { OrgInfo } from './org-context';
 import { actionEntries, pageEntries } from './palette-entries';
+import { isAnalyticsView } from './insights';
 import { GO_SHORTCUTS } from './shortcuts';
 import {
   dropShellSnapshot, readAllBranches, readShellSnapshot, SNAPSHOT_MAX_AGE_MS, withPreferredBranch, writeAllBranches, writeShellSnapshot,
@@ -146,6 +147,9 @@ describe('seven-area navigation (21-SHELL)', () => {
     const viaParent: Record<string, string> = {
       '/customers/[customerId]': '/customers', '/payments/[paymentId]': '/payments', '/mcp/clients/[clientId]': '/mcp', '/mcp/authorize': '/mcp',
       '/approvals/[changeSetId]': '/approvals',
+      // 21-INSIGHTS: the analytics views (/analytics/sales …) share one dynamic route, reached from the Analytics item's
+      // SectionNav and listed in the palette by their own paths.
+      '/analytics/[section]': '/analytics',
     };
     const missing: string[] = [];
     for (const route of dashboardRoutes()) {
@@ -163,7 +167,10 @@ describe('seven-area navigation (21-SHELL)', () => {
   });
 
   it('every navigation and palette link points at a real route', () => {
-    const routes = new Set(dashboardRoutes());
+    const files = dashboardRoutes();
+    // The analytics views are the known sections of /analytics/[section] (21-INSIGHTS ANALYTICS_VIEWS), nothing else.
+    expect(files).toContain('/analytics/[section]');
+    const routes = { has: (l: string) => files.includes(l) || (l.startsWith('/analytics/') && isAnalyticsView(l.slice('/analytics/'.length))) };
     const areas = visibleAreas({ role: 'owner', modules: ALL_ON, plan: 'pro', branch: TABLES });
     const links = [...paths(areas), ...pageEntries(areas, 'owner', t, { explore: true }).map((e) => itemPath(e.href!)),
       ...actionEntries({ role: 'owner', hrefs: new Set(areas.flatMap((a) => a.items.map((i) => i.href))), multiBranch: true }, t).filter((e) => e.href).map((e) => itemPath(e.href!))];

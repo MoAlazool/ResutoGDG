@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { PERIOD_PRESETS, COMPARES } from '../app/dashboard/[orgId]/_home/model';
 import { REPORT_SECTIONS } from './contracts-reports';
 import {
-  addDays, apiCompare, branchParam, drillDownHref, INSIGHTS_PATHS, insightsHref, insightsRedirects, LEGACY_ANALYTICS_TABS, legacyAnalyticsTarget,
+  ANALYTICS_VIEWS, isAnalyticsView, addDays, apiCompare, branchParam, drillDownHref, INSIGHTS_PATHS, insightsHref, insightsRedirects, LEGACY_ANALYTICS_TABS, legacyAnalyticsTarget,
   localToday, periodRange, readView, reportHref, validRange, viewParams,
 } from './insights';
 import { activeSection, INSIGHTS_SECTIONS } from './sections';
@@ -19,7 +19,16 @@ const ORG_DIR = join(__dirname, '..', 'app', 'dashboard', '[orgId]');
 
 describe('Insights views', () => {
   it('every view has a real route, and the SectionNav lists every route', () => {
-    for (const path of Object.values(INSIGHTS_PATHS)) expect(existsSync(join(ORG_DIR, path, 'page.tsx')), path).toBe(true);
+    // The analytics views share the dynamic route /analytics/[section] (ANALYTICS_VIEWS); the others have their own.
+    for (const [section, path] of Object.entries(INSIGHTS_PATHS)) {
+      const own = existsSync(join(ORG_DIR, path, 'page.tsx'));
+      const dynamicView = path.startsWith('/analytics/') && isAnalyticsView(section) && existsSync(join(ORG_DIR, 'analytics', '[section]', 'page.tsx'));
+      expect(own || dynamicView, path).toBe(true);
+      if (path.startsWith('/analytics/')) expect(path).toBe(`/analytics/${section}`);
+    }
+    expect([...ANALYTICS_VIEWS].sort()).toEqual(Object.entries(INSIGHTS_PATHS).filter(([, p]) => p.startsWith('/analytics/')).map(([k]) => k).sort());
+    expect(isAnalyticsView('overview')).toBe(false);
+    expect(isAnalyticsView('nope')).toBe(false);
     expect(INSIGHTS_SECTIONS.map((s) => s.href).sort()).toEqual(Object.values(INSIGHTS_PATHS).sort());
     // The section a route belongs to is the longest prefix (sales, not the overview).
     expect(activeSection(INSIGHTS_SECTIONS, '/analytics/sales')?.href).toBe('/analytics/sales');

@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import type { AnalyticsMeta, RatingsSummary, RevenueTotals } from '@resuto/contracts';
 import { BarList, provenanceFromMetaKind, StatV2 } from '@resuto/ui';
 import { InsightsShell, useInsights } from '@/components/insights/InsightsShell';
+import { PeriodControls } from '@/components/insights/PeriodControls';
 import { SavedReportsList } from '@/components/insights/SavedReportsList';
 import { LoadError, MetaPanel, qs, useFormat } from '@/components/charts/insights';
 import s from '@/components/insights/insights.module.css';
@@ -94,5 +95,5 @@ export default function AnalyticsOverviewPage() {
   // Fallback for an old ?tab= link that reached the page without the server redirect.
   const legacy = legacyAnalyticsTarget(params.toString());
   useEffect(() => { if (legacy) router.replace(`/dashboard/${org.id}${legacy}`); }, [legacy, org.id, router]);
-  return <InsightsShell section="overview">{legacy ? null : <Overview />}</InsightsShell>;
+  return <InsightsShell section="overview" toolbar={<PeriodControls />}>{legacy ? null : <Overview />}</InsightsShell>;
 }
