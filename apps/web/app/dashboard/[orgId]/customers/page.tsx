@@ -1,9 +1,10 @@
 'use client';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { CustomerSummary } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, useAction, Email, Phone, UserText } from '@resuto/ui';
+import { Badge, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, Tabs, useAction, Email, Phone, UserText } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { LoadError, qs, useFormat, InsightsPage } from '@/components/charts/insights';
 import { API_URL, ApiRequestError } from '@/lib/api';
@@ -24,11 +25,41 @@ const fromUrl = (sp: URLSearchParams): Filters => {
   return out;
 };
 
+// 21-CRM: the segment builder (Customers › Segments) loads only when that view is opened.
+const SegmentsView = dynamic(() => import('@/components/crm/SegmentBuilder').then((m) => m.SegmentsView),
+  { ssr: false, loading: () => <div className="card"><Skeleton lines={6} /></div> });
+
+type View = 'list' | 'segments';
+
 export default function CustomersPage() {
-  return <Suspense fallback={<div className="card"><Skeleton lines={6} /></div>}><Customers /></Suspense>;
+  return <Suspense fallback={<div className="card"><Skeleton lines={6} /></div>}><CustomersRoot /></Suspense>;
 }
 
-function Customers() {
+/** Customers › list (default) or › Segments (?view=segments; roles that can read Marketing). */
+function CustomersRoot() {
+  const { t } = useT();
+  const { can } = useOrg();
+  const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const view: View = search.get('view') === 'segments' && can('marketing:read') ? 'segments' : 'list';
+  const tabs = can('marketing:read') ? (
+    <Tabs<View> label={t('nav.customers')} value={view} onChange={(k) => router.replace(k === 'segments' ? `${pathname}?view=segments` : pathname, { scroll: false })}
+      tabs={[{ key: 'list', label: t('crm.view.list') }, { key: 'segments', label: t('crm.view.segments') }]} />
+  ) : null;
+  if (view === 'segments') {
+    return (
+      <ModuleGate module="core" permission="customers:read"><InsightsPage>
+        <PageHeader overline={t('nav.customers')} title={t('crm.seg.title')} subtitle={t('crm.seg.subtitle')} />
+        {tabs}
+        <SegmentsView />
+      </InsightsPage></ModuleGate>
+    );
+  }
+  return <Customers tabs={tabs} />;
+}
+
+function Customers({ tabs }: { tabs: ReactNode }) {
   const { t, locale } = useT();
   const { org, can } = useOrg();
   // The branch comes from the shell's branch switcher (21-SHELL single branch context; "All branches" supported).
@@ -83,6 +114,7 @@ function Customers() {
         actions={can('customers:export') ? (
           <button className="btn" disabled={exportCsv.pending} onClick={async () => setTruncated(!!(await exportCsv.run()))}>⇩ {t('insights.customers.export')}</button>
         ) : undefined} />
+      {tabs}
       {exportCsv.error && <Notice tone="danger">{exportCsv.error}</Notice>}
       {truncated && <Notice tone="warn">{t('insights.customers.truncated')}</Notice>}
       {can('customers:export') && <p className="fine">{t('insights.customers.exportNote')}</p>}

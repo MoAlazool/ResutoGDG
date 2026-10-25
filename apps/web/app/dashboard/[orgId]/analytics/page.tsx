@@ -1,6 +1,7 @@
 'use client';
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
-import { PageHeader, Tabs } from '@resuto/ui';
+import { PageHeader, Skeleton, Tabs } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { PeriodPicker, presetPeriod, type Period, InsightsPage } from '@/components/charts/insights';
 import { useUrlParam } from '@/components/ops/use-url-state';
@@ -10,8 +11,13 @@ import { CustomersPanel, MarketingPanel, OperationsPanel, ProductsPanel, SalesPa
 import { RatingsPanel } from './_parts/ratings';
 import { RoiCalculator } from './_parts/roi';
 
-type Tab = 'sales' | 'products' | 'customers' | 'guests' | 'marketing' | 'operations' | 'sustainability' | 'roi';
-const TABS: Tab[] = ['sales', 'products', 'customers', 'guests', 'marketing', 'operations', 'sustainability', 'roi'];
+// 21-CRM: the growth funnel and retention views load with their tab, so the rest of Insights does not carry them.
+const loading = () => <div className="card"><Skeleton lines={6} /></div>;
+const FunnelPanel = dynamic(() => import('@/components/crm/FunnelPanels').then((m) => m.FunnelPanel), { ssr: false, loading });
+const RetentionPanel = dynamic(() => import('@/components/crm/FunnelPanels').then((m) => m.RetentionPanel), { ssr: false, loading });
+
+type Tab = 'sales' | 'products' | 'customers' | 'funnel' | 'retention' | 'guests' | 'marketing' | 'operations' | 'sustainability' | 'roi';
+const TABS: Tab[] = ['sales', 'products', 'customers', 'funnel', 'retention', 'guests', 'marketing', 'operations', 'sustainability', 'roi'];
 
 export default function AnalyticsPage() {
   const { t } = useT();
@@ -32,6 +38,8 @@ export default function AnalyticsPage() {
       {tab === 'sales' && <SalesPanel {...props} />}
       {tab === 'products' && <ProductsPanel {...props} />}
       {tab === 'customers' && <CustomersPanel {...props} />}
+      {tab === 'funnel' && <FunnelPanel {...props} />}
+      {tab === 'retention' && <RetentionPanel {...props} />}
       {tab === 'guests' && <RatingsPanel {...props} />}
       {tab === 'marketing' && <MarketingPanel {...props} />}
       {tab === 'operations' && <OperationsPanel {...props} />}
