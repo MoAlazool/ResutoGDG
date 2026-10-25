@@ -1,12 +1,18 @@
 # Verification and measurable acceptance
 
-`TEST_MATRIX.md` maps the 18 simulator scenarios to their actual assertions and lists remaining workflow, accessibility, staging and physical-device coverage.
+`TEST_MATRIX.md` maps the 21 simulator scenarios to their actual assertions and lists remaining workflow, accessibility, staging and physical-device coverage.
 
 ## Latest executed native result
 
-[Run 40189594156](https://github.com/MoAlazool/ResutoGDG/actions/runs/40189594156) passed at `05096ad4f7dff6853bba40c2eb6f07c4249f795c`: **107 portable core tests, all 18 iPad simulator UI cases, Debug build and Release build**, Xcode 16.4 / Swift 6.1.2. The refund assertion correction passed. Evidence: `evidence/native-ci-05096ad.json`, Actions result bundle/artifact `12598420196`.
+[Run 40210274577](https://github.com/MoAlazool/ResutoGDG/actions/runs/40210274577) passed at `42263eb48c343d8894d1e847beebfce878850b54`: **107 portable core tests, all 21 iPad simulator UI cases, Debug build and Release build**, Xcode 16.4 / Swift 6.1.2, iPad Pro 11-inch M4 / iOS 18.5. Evidence: `evidence/native-ci-42263eb.json`, artifact `12605304878` (SHA-256 `c1c51e861e7ccf07b6032d5a1384a57b6a812f0a826d8cd528abb10ee0044663`).
 
-Simulator launch mean: 2.569 s (2.694942, 2.549974, 2.461813). This is not the authenticated-ready real-iPad target or proof that the <=2 s acceptance target is met. Full performance/visual/accessibility and physical hardware acceptance remain open. Synthetic native success is not authenticated staging verification.
+All 19 final full CoreSimulator frames were inspected. The final Arabic sheets place cancellation, content and recap correctly; localized allergen labels and Western money digits are checked by real UI assertions. The compact cart remains reachable at accessibility text sizes. These checks are not full VoiceOver/contrast/dark-appearance or physical-device certification. Selected native screenshots and before/after comparisons are in `UX_GALLERY.md`; no generated mockup or retouched UI is used. Raw frames are retained in Actions; upright copies use quarter-turn normalization only.
+
+Latest simulator launch mean: **3.298 s**, samples 3.716393, 3.506971, 2.670940; relative standard deviation 13.694%. Earlier `106010a` measured 2.311 s with 22.590% RSD. These variable first-frame simulator samples do **not** establish an improvement or meet the <=2 s real-device authenticated-ready acceptance target. That performance gate remains open.
+
+Earlier major UI source `106010a` passed [40201606143](https://github.com/MoAlazool/ResutoGDG/actions/runs/40201606143), 107 core + 21 UI. Its screenshot review exposed an Arabic sheet inheritance defect subsequently fixed and verified in the final run. Shared CI [40201606026](https://github.com/MoAlazool/ResutoGDG/actions/runs/40201606026) also passed; the latest shared run is tracked separately from native acceptance.
+
+Baseline visual evidence: [40200247954](https://github.com/MoAlazool/ResutoGDG/actions/runs/40200247954) at `8e4c175`, 107 core + both visual scenarios pass, 19 full native frames. Capture-only revisions preserve the earlier application UI. Initial capture failure and later cancelled/superseded runs are not counted as complete suite passes.
 
 ## Executed in this environment
 
@@ -106,3 +112,7 @@ Landscape PNG artifact review limitation: screenshots from run 40188215710 have 
 Shared CI run 40189594097 at `05096ad`: browser suite passes all 70 cases. The database/API/web job failed in restricted-runtime API tests: `apps/api/test/connect.test.ts:364`, WhatsApp sender expected `{retried:1,sent:0}` but observed `{retried:1,sent:3}` (916 passed, 1 failed, 1 skipped). A job-only rerun was requested. This is a shared messaging test/dependency for Claude; no shared API, test, database or workflow file was changed. Evidence: `evidence/shared-api-ci-05096ad.json`. Do not describe the entire shared CI run as green while this remains unresolved.
 
 Shared CI retry resolution: job `121160347693` passed (restricted runtime 917 passed / 1 skipped; normal runtime 914 passed / 4 skipped), followed by MCP/web checks and build. Overall run `40189594097` is green at `05096ad`; the browser suite has 70 passes. The original sender assertion remains recorded as an intermittent shared-test follow-up for Claude, with no shared implementation/test/schema change. Later documentation-only commits preserve the tested application source; native evidence identifies the exact `05096ad` execution rather than claiming a deployment or physical-device result.
+
+## Shared CI at the final native source
+
+[Run 40210274579](https://github.com/MoAlazool/ResutoGDG/actions/runs/40210274579) at `42263eb` is green: browser 70 passed, API 914 passed / 4 skipped, restricted runtime API 917 passed / 1 skipped, web 445 passed / 20 skipped, plus database/security/build and visual parity checks. These are disposable CI services, not authenticated staging. Exact results are recorded in `evidence/shared-ci-42263eb.json`.

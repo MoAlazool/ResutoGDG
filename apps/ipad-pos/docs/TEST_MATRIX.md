@@ -2,9 +2,9 @@
 
 All simulator workflows use the explicit DEBUG-only synthetic transport and visible NOT-STAGING banner. They exercise real SwiftUI, Keychain and encrypted files. They do not establish deployed API, web/KDS, provider or physical-device acceptance. The exact run/commit/result belongs in `VERIFICATION.md` and the evidence JSON; the table below describes assertions, not a production certification.
 
-Latest complete native execution: run **40189594156**, source **`05096ad`**, **107 core + 18/18 simulator UI tests passed**. Staging/device/visual limitations below remain.
+Latest complete native execution: run **40210274577**, source **`42263eb`**, **107 core + 21/21 simulator UI tests passed**. Final Arabic direction/copy fixes and frame-position assertions passed; all 19 full native frames were inspected. Staging/device/visual limitations below remain.
 
-## Simulator scenarios (18)
+## Simulator scenarios (21)
 
 | Workflow | Assertions |
 |---|---|
@@ -26,6 +26,9 @@ Latest complete native execution: run **40189594156**, source **`05096ad`**, **1
 | Lost cash response | Explicit recovery uses the same persisted key/amount and confirms server state |
 | Paired staff session | Dual credentials, read-only shadow snapshots and local device forgetting preserve staff sign-in |
 | Host restrictions | POS, KDS and financial controls are unavailable to the host role |
+| Accessibility-size compact cart | Portrait order bar opens cart sheet; explicit server-review action remains reachable and confirmation enabled |
+| Native English visual flow | Full simulator frames for sign-in, workspace, menu, modifiers, cart/review, orders, cash unpaid/paid states, kitchen, floor, local recovery and device settings; synthetic server only |
+| Native Arabic visual flow | Full Arabic sign-in/workspace/order-entry captures; follow-up adds sheet cancellation/recap position assertions, recognized allergen localization and Western money digits |
 
 ## Portable core (107 tests)
 

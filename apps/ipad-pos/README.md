@@ -30,6 +30,8 @@ Drafts are saved locally first. Open **Sync**, review a refreshed menu, then con
 
 Implementation and native documents stay in `apps/ipad-pos/`; the only outside file is `.github/workflows/ipad-pos.yml`. No shared API/DB/web changes. All work starts from `feature/ipad-pos`; any review PR must explicitly target `feature/ipad-pos`. Claude owns shared backend changes; [API_DEPENDENCIES.md](API_DEPENDENCIES.md) records proposed contracts without calling invented routes.
 
+- [Native UX audit and improvements](docs/UX_REVIEW.md)
+- [Before/after native screenshots](docs/UX_GALLERY.md)
 - [Architecture and execution plan](docs/ARCHITECTURE.md)
 - [Security review](docs/SECURITY.md)
 - [Hardware matrix](docs/HARDWARE.md)

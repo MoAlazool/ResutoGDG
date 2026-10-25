@@ -1,0 +1,52 @@
+{
+  "sourceCommit": "42263eb48c343d8894d1e847beebfce878850b54",
+  "runId": 40210274577,
+  "jobId": 121220150110,
+  "artifactId": 12605304878,
+  "artifactSHA256": "c1c51e861e7ccf07b6032d5a1384a57b6a812f0a826d8cd528abb10ee0044663",
+  "conclusion": "success",
+  "coreTests": 107,
+  "uiTests": 21,
+  "debugBuild": "passed",
+  "releaseBuild": "passed",
+  "toolchain": "Xcode 16.4 / Swift 6.1.2",
+  "simulator": "iPad Pro 11-inch M4 / iOS 18.5",
+  "synthetic": true,
+  "stagingVerified": false,
+  "physicalDeviceVerified": false,
+  "captureCount": 19,
+  "fullFramePixels": [
+    2420,
+    1668
+  ],
+  "inspection": "All 19 full native frames inspected; Arabic customization and recap are RTL, recognized allergen text localized and Western money digits preserved. Scrollable content continues beyond the viewport normally.",
+  "launchSeconds": [
+    3.716393,
+    3.506971,
+    2.67094
+  ],
+  "launchMeanSeconds": 3.298,
+  "launchRelativeStandardDeviationPercent": 13.694,
+  "launchNote": "Unpaired synthetic first-frame simulator benchmark; not authenticated ready-to-order latency. <=2s physical-device acceptance remains unmet/unverified.",
+  "images": {
+    "01-sign-in-ar.png": "7c23709c9d46a48848f517bd3e98dd3de805dd1d8a3943afe1e5c906d215033d",
+    "01-sign-in-en.png": "7443f30ca6d764e6b1f71c09bd87e791961444b006c9f4ae21c86c3302707b87",
+    "02-workspace-ar.png": "b1ff58d78aad1c48bdebcbd2eeae1c3470b19349b5c364984a2fccb758b28a47",
+    "02-workspace-en.png": "eb3ea0c1ae3c481f73f6b737c3b248a6de78978ab250e4544184a16900e5c475",
+    "03-menu-ar.png": "2adf3a022945cf2554618efd050e9396df1225b8373589a74804444569550427",
+    "03-menu-en.png": "34dcd01360453418de6a7b5cc170220b5d3dabec950b524e35bc04274fa38f4e",
+    "04-customization-ar.png": "72624526687cc092e059bbe4f71330b052090f45b755e98e020f3cd8fa160f81",
+    "04-customization-en.png": "9fdc101a95b938639702db40f5351a4792af0ef84b20538cd7b697c60b92a948",
+    "05-cart-ar.png": "9ba8f1ffbbc5e0f9f46d4108a2254c3b978ccf0e51bfbc0d85502c4b16398433",
+    "05-cart-en.png": "1d7bd58aa81937742e20af7783308358b6da030a3c762a55e0fe4368a73d5ca4",
+    "06-review-ar.png": "8733f1fdc2ad3e459f4ce716eb8e823b47918fb9931c85672192ce2e5a5f2b85",
+    "06-review-en.png": "028eee324015e5c02ba92a847a7d958f0b7511b87a48c51baf1a4d9fd74b785c",
+    "07-orders-en.png": "878780e58b0554aecb03d0f12dfd7095cf7e33a521f8dc007c7e3d0b932796fb",
+    "08-checkout-en.png": "48f7d6e288c3b77718bcfbd266baf391416694d71d4594abdc747ffa7599fe2b",
+    "09-paid-en.png": "e997635e004a8eb14ca17768629170562e6666f498ef0a64306efd6bc0dc3b17",
+    "10-kitchen-en.png": "b31475de4660a336189eaec9b3531e3b643386093ba7af4469b4dbd48ad76584",
+    "11-floor-en.png": "32526df541c0ba0c82647f06d237cffb7e1c20ff2fa7231d4f4a8720e7a05513",
+    "12-local-draft-en.png": "26983b228e800da8470dcb3339e310f434862a990b82600223bcba46ca5e70c2",
+    "13-device-settings-en.png": "2a1050058fc94f84091393c0ff0bf52504800a50cbc0618091a15da98f2c463c"
+  }
+}

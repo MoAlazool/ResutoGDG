@@ -2,6 +2,12 @@
 
 The native track has a functional source implementation and a review PR; it is not a completed production POS. The exact checklist is `../STATUS.md`. Review PR: https://github.com/MoAlazool/ResutoGDG/pull/3, base `feature/ipad-pos`, head `codex/ipad-pos-native-client`. The local working branch remains `feature/ipad-pos`; its commits are pushed only to the isolated review head. No remote target/Claude/main branch is updated or merged.
 
+## Latest UX track
+
+Native screenshot audit, a shared visual system, adaptive ordering/cart, explicit modifier choices and clearer checkout/KDS/floor/sync/device states are implemented. `UX_REVIEW.md` explains the changes and remaining acceptance; `UX_GALLERY.md` contains native before/after evidence. Run 40210274577 at `42263eb` passed 107 core + 21 UI tests and both Apple builds, including the final Arabic presentation/copy corrections. All 19 full native frames were inspected; see `VERIFICATION.md` for the exact evidence. No authenticated staging or real-device claim follows from those fixtures.
+
+A read-only refresh at 16:02 UTC found all six POS tables absent and Render still on `5c359d5`. Claude `48f5eeb` retains the pinned integration contracts; the current wider staging rollout includes eleven pending migrations. Use `STAGING_READINESS_20261025.md` for the exact migration/QA owner handoff.
+
 ## Delivered code
 
 SwiftUI iPad application, deterministic checked-in Xcode project, portable Swift package, generated permission hints, typed verified REST contracts, Supabase auth, secure storage, scoped drafts/outbox, original-key financial recovery, server-backed catalogue/order/floor/KDS/customer/reservation flows, cash/refund requests, operational receipts and conservative hardware adapters. English/Arabic UI and Western digits are implemented; visual/device acceptance is outstanding. All authoritative records and business operations remain in Resuto's existing backend.
@@ -37,3 +43,7 @@ Supply authorized staging staff accounts/project public config through approved 
 Native run 40189594156 is green at `05096ad`: 107 core tests, 18/18 iPad simulator workflows and Debug/Release builds on Xcode 16.4. `evidence/native-ci-05096ad.json` records the exact execution. `TEST_MATRIX.md` lists covered assertions and remaining internal work. The simulator launch mean is 2.569 s; device performance and full visual/accessibility acceptance are not established.
 
 POS 0.2.0 pairing, separate Keychain credentials, staff/device permission intersection and encrypted foreground read-only shadows are wired in Settings. Device order/payment writes remain gated on deployed QA shadow/lifecycle acceptance; legacy operations preserve their endpoint/key. Scoped identity leases, late-read cancellation, mutation cache invalidation, conditional ETags, order selection/version checks, accessible table lists and manual-required refund UI are implemented/tested. Staging remains build `5c359d5` with no POS tables or dedicated Native QA restaurant; no approved staff credential source was available. Native/App/DB/production ownership boundaries remain unchanged. PR #3 remains Draft with base `feature/ipad-pos`.
+
+## Shared CI at the final native source
+
+[Run 40210274579](https://github.com/MoAlazool/ResutoGDG/actions/runs/40210274579) at `42263eb` is green: browser 70 passed, API 914 passed / 4 skipped, restricted runtime API 917 passed / 1 skipped, web 445 passed / 20 skipped, plus database/security/build and visual parity checks. These are disposable CI services, not authenticated staging. Exact results are recorded in `evidence/shared-ci-42263eb.json`.

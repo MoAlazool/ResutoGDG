@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "106010afcccdc787e59c5ffcc9f1c78d197516bc",
+  "runId": 40201606143,
+  "jobId": 121193768346,
+  "artifactId": 12603195509,
+  "artifactSHA256": "53f8c38b0593d8ee1d2403d6ad8da4ae17993b3e1d2d872de62d4903c35d9fc8",
+  "conclusion": "success",
+  "coreTests": 107,
+  "uiTests": 21,
+  "debugBuild": "passed",
+  "releaseBuild": "passed",
+  "toolchain": "Xcode 16.4 / Swift 6.1.2",
+  "simulator": "iPad Pro 11-inch M4 / iOS 18.5",
+  "synthetic": true,
+  "stagingVerified": false,
+  "physicalDeviceVerified": false,
+  "captureCount": 19,
+  "inspection": "Menu/cart/checkout hierarchy improved. Arabic sheet direction needs explicit propagation; fixed next revision, pending verification.",
+  "launchSeconds": [
+    2.899715,
+    2.401009,
+    1.630855
+  ],
+  "launchMeanSeconds": 2.311,
+  "launchNote": "Unpaired synthetic first-frame simulator benchmark; high variability (22.590% RSD), not real-device ready-to-order acceptance."
+}

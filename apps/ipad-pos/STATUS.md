@@ -4,16 +4,16 @@
 
 ## Current native UX refinement
 
-Fresh native screenshot audit and implemented SwiftUI refinements are documented in [`docs/UX_REVIEW.md`](docs/UX_REVIEW.md). Ordering now uses a compact sidebar, adaptive catalogue/cart, explicit modifier requirements, clear send-versus-save actions and a fuller submission recap. Checkout, kitchen, floor, sync and device state hierarchy are also refined. Local core tests (107), localization parity, route contracts and simulator-transport checks pass. **These UI changes require a new successful Xcode run and final screenshot inspection; the older green run below does not verify them.**
+Fresh native screenshot audit and implemented SwiftUI refinements are documented in [`docs/UX_REVIEW.md`](docs/UX_REVIEW.md). Ordering now uses a compact sidebar, adaptive catalogue/cart, explicit modifier requirements, clear send-versus-save actions and a fuller submission recap. Checkout, kitchen, floor, sync and device state hierarchy are also refined. Local core tests (107), localization parity, route contracts and simulator-transport checks pass. **The major UX changes and final RTL/copy follow-ups passed Xcode and all 21 UI tests at `42263eb`; the 19 final frames were inspected.**
 
-Latest completed native run: [40189594156](https://github.com/MoAlazool/ResutoGDG/actions/runs/40189594156) at `05096ad` is **green: 107 core tests, all 18 simulator UI tests, Debug and Release builds**, Xcode 16.4 / Swift 6.1.2. These are synthetic simulator workflows using real Keychain/encrypted client files. Authenticated staging and physical-device verification remain pending. Detailed coverage and remaining internal work are in `docs/TEST_MATRIX.md`.
+Latest completed native run: [40210274577](https://github.com/MoAlazool/ResutoGDG/actions/runs/40210274577) at `42263eb48c343d8894d1e847beebfce878850b54` is **green: 107 core tests, all 21 simulator UI tests, Debug and Release builds**, Xcode 16.4 / Swift 6.1.2. All 19 full native captures were inspected, including the corrected Arabic sheets. These synthetic workflows exercise real Keychain/encrypted client files; they do not verify authenticated staging or physical devices. [Before/after gallery](docs/UX_GALLERY.md); [coverage map](docs/TEST_MATRIX.md).
 
 Legend: Implemented = functional source exists; Tested = executed automated evidence; Staging = actual authorized deployed workflow; Device = actual physical verification. “No” is not an inferred pass.
 
 | Area | Implemented | Tested | Verified on Staging | Verified on Real Device | Blocked / remaining |
 |---|---|---|---|---|---|
 | Swift portable core | Yes | 107 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
-| Native SwiftUI app/project | Yes | Xcode 16.4 Debug/Release + 18/18 UI at `05096ad` | No | No | Authenticated staging, full visual/accessibility and physical acceptance remain |
+| Native SwiftUI app/project | Yes | Xcode 16.4 Debug/Release + 21/21 UI at `42263eb` | No | No | Authenticated staging, full visual/accessibility and physical acceptance remain |
 | Supabase auth/refresh/Keychain | Yes | Core refresh/logout and synthetic sign-in UI with real Keychain pass | No | No | Dedicated QA staff account; real-device Keychain checks |
 | Restaurant/branch/role scoping | Yes | Core permission and queue isolation tests | No | No | Public unauthenticated 401 only; authenticated cross-tenant/branch negatives pending |
 | Menu, images, search, category, modifiers | Yes | Core constraints/fixtures | No | No | 1000-product/60-line core benchmark passes; real catalogue/device acceptance pending |
@@ -27,8 +27,8 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 | Refund request + manual same-key recovery | Yes | Synthetic manual-required refund UI passes; not provider settlement | No | No | Provider/manual completion and lost-refund-response acceptance |
 | Encrypted offline draft/cache/outbox | Yes | Core restart/isolation/lease tests; cart and ambiguous-order force-close UI pass | No | No | Reboot/locked-storage and real reconnect/crash acceptance |
 | AirPrint and LAN raster adapter | Yes, experimental LAN path | Core print-queue tests | N/A | No | Model certification, paper/status/reconnect/Arabic tests |
-| Arabic/English, RTL, Western digits | Yes | Core/parity + Arabic entry/rotation/labels/accessibility-size floor UI pass | No | No | Full visual/contrast/VoiceOver audit; exported PNG framing limitation |
-| Xcode/macOS Actions workflow | Yes | Run 40189594156 green at `05096ad` | N/A | N/A | Signing/distribution and actual device validation remain separate |
+| Arabic/English, RTL, Western digits | Yes | Core/parity + Arabic entry/rotation/labels/accessibility-size floor UI pass | No | No | Full visual/contrast/VoiceOver audit; VoiceOver, dark appearance and complete real-device acceptance |
+| Xcode/macOS Actions workflow | Yes | Run 40210274577 green at `42263eb` | N/A | N/A | Signing/distribution and actual device validation remain separate |
 | Paired device / staff permission intersection | Pairing Settings + read-only event shadows; write adapter gated | Core dual-credential/context/revocation tests + pairing/shadow/forget UI pass | No | No | POS 0.2.0 deployment, actual pairing and full service-day shadow acceptance |
 | Native delivery entry/customer lookup/reservations workspace | Yes: delivery addresses, customer lookup/selection, daily reservations/check-in | No | No | No | Customer/reservation workflow acceptance and reservation creation/editing UI remain |
 | Existing order line amendments/table move/merge | No | No | No | No | Shared backend contracts missing |
@@ -40,13 +40,13 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 
 Read-only staging health and unauthenticated security probes passed on 2026-10-24, including the native Swift URLSession probe. GitHub, Supabase, Render and Vercel connectors are callable and were inspected read-only. Public staging Supabase configuration is verified. No approved staff credentials/dedicated QA restaurant were found; see `docs/STAGING.md` for exact setup and the guarded authenticated lifecycle probe. Its write path has not been run.
 
-New simulator-only contract scenarios cover sign-in/branch selection, ordering/KDS/status/cash/receipt queue, Arabic rotation, encrypted cart relaunch, sold-out controls, dine-in, role denial, EN/AR accessibility descriptions, and lost order/cash responses. They exercise real Keychain/AES adapters with synthetic transport and visible NOT-STAGING labels. All 18 scenarios pass at `05096ad`; no authenticated staging or physical-device claim follows from fixtures.
+New simulator-only contract scenarios cover sign-in/branch selection, ordering/KDS/status/cash/receipt queue, Arabic rotation, encrypted cart relaunch, sold-out controls, dine-in, role denial, EN/AR accessibility descriptions, and lost order/cash responses. They exercise real Keychain/AES adapters with synthetic transport and visible NOT-STAGING labels. All 21 scenarios pass at `42263eb`; no authenticated staging or physical-device claim follows from fixtures.
 
 See `API_DEPENDENCIES.md`, `docs/VERIFICATION.md`, `docs/SECURITY.md`, `docs/HARDWARE.md`, `docs/RELEASE.md`. Do not describe the complete product mission as finished based on these source files or a simulator build alone.
 
 ## POS API 0.2.0 preparation
 
-Claude source `69ec75e` implements draft POS 0.2.0, including staff-on-device and permanent by-client-ID lookup. New native compatibility code covers separate device/staff credentials, context/permission intersection, typed POS DTOs, permanent-ID quote approval/reconciliation, a durable ordered event journal and read-only shadow snapshots. **Pairing and read-only shadow synchronization are wired in Settings; device order/payment cutover remains gated.** Existing staff flows and encrypted queues remain intact; no automatic migration of previously attempted orders. 107 core tests pass locally; current Xcode CI must pass at the new adapter revision. See `docs/POS_API_MIGRATION.md` for implemented versus pending wiring and final backend gates.
+Claude source `69ec75e` implements draft POS 0.2.0, including staff-on-device and permanent by-client-ID lookup. New native compatibility code covers separate device/staff credentials, context/permission intersection, typed POS DTOs, permanent-ID quote approval/reconciliation, a durable ordered event journal and read-only shadow snapshots. **Pairing and read-only shadow synchronization are wired in Settings; device order/payment cutover remains gated.** Existing staff flows and encrypted queues remain intact; no automatic migration of previously attempted orders. 107 core tests pass locally; the latest native Xcode run passes all 21 UI cases. See `docs/POS_API_MIGRATION.md` for implemented versus pending wiring and final backend gates.
 
 Additional independent hardening: approved staging-origin validation before credentials leave the app; periodic signed-image cursor refresh without a menu event; Arabic decimal separator handling; branch-local business dates; localized errors/roles/kitchen times/order search; duplicate-localization-key crash prevention; receipt language isolation and explicit non-fiscal/test labels. Portable core Debug/Release and synthetic-transport checks pass locally. Latest Apple build/UI results must be recorded against the exact source revision.
 
@@ -67,3 +67,7 @@ Run 40188215710 at `e6feb5a`: 107 core tests, Debug/Release builds, **17/18 UI s
 Native source and simulator checks pass at `05096ad`; evidence: `docs/evidence/native-ci-05096ad.json`. This does not complete the product mission. Required next gates remain: POS 0.2.0 staging deployment and dedicated QA setup; full native/Web Orders/KDS/payment/inventory/analytics lifecycle; device-write cutover after shadow acceptance; additional native workflow coverage/implementation listed in `TEST_MATRIX.md`; full visual/accessibility/performance acceptance; printer/provider/fiscal validation; signing/release prerequisites. Keep PR #3 Draft and targeting `feature/ipad-pos`.
 
 Shared platform CI run `40189594097` is green after retrying the restricted-runtime API job. Browser: 70 passed; restricted API: 917 passed / 1 skipped. The initial shared messaging assertion is retained for Claude's follow-up; no shared source was changed. Final evidence updates are documentation only and preserve application code tested at `05096ad`.
+
+## Shared CI at the final native source
+
+[Run 40210274579](https://github.com/MoAlazool/ResutoGDG/actions/runs/40210274579) at `42263eb` is green: browser 70 passed, API 914 passed / 4 skipped, restricted runtime API 917 passed / 1 skipped, web 445 passed / 20 skipped, plus database/security/build and visual parity checks. These are disposable CI services, not authenticated staging. Exact results are recorded in `docs/evidence/shared-ci-42263eb.json`.

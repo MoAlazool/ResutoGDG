@@ -1,17 +1,19 @@
 # POS 0.2.0 staging readiness — read-only review
 
-Reviewed 25 October 2026 UTC. **Not deployed or authenticated end-to-end verified.** No shared source, database, infrastructure, production or Claude branch changes were made. This is the native track's handoff for Claude and the staging owner.
+Refreshed 25 October 2026 at 16:02 UTC. **Not deployed or authenticated end-to-end verified.** No shared source, database, infrastructure, production or Claude branch changes were made. This is the native track's handoff for Claude and the staging owner.
+
+Evidence: `evidence/staging-readiness-ux-review.json`. Earlier review at `806a4c2` found nine pending migrations; the refreshed branch adds preferences and onboarding. Counts below are scoped metadata observations, not credential discovery or authenticated acceptance.
 
 ## Observed staging state
 
-- Claude branch reviewed at `806a4c266ff31cadc3320be6ca6736eae92fb197`; targeted POS integration/compatibility documentation and implementation remain compatible with the pinned `69ec75e` native draft adapter.
-- Supabase staging project `skvnznyfxpxfuzvuipju`: last applied migration `20261023040002_counter_legacy_revoke`; the four POS tables and dedicated native QA restaurant are absent. Existing restricted runtime roles are present.
+- Claude branch reviewed at `48f5eeba38649cee4ea447b4a0982a803f71434d`; targeted POS integration/compatibility documentation and implementation remain compatible with the pinned `69ec75e` native draft adapter.
+- Supabase staging project `skvnznyfxpxfuzvuipju`: last applied migration `20261023040002_counter_legacy_revoke`; all six POS tables are absent and a name-filtered native/iPad QA organization count is zero (a differently named approved QA tenant would require owner identification). Existing restricted runtime roles are present.
 - Render API service `srv-dbaa8hqjnfac73ev3kjg`: live deployment `dep-dbebvru7bikc73fulm2g`, build `5c359d5`. Public health returns staging/sandbox. Cold starts can time out; a later healthy response does not verify authenticated operations.
 - No approved owner/staff credentials are available in this execution environment. There is no callable connector for approved Supabase Auth user creation. Connected infrastructure access is not staff authorization.
 
 ## Rollout scope to review before deployment
 
-Claude's current `start-api` path applies **all nine** pending migrations, not just the two POS changes:
+Claude's current `start-api` path applies **all eleven** pending migrations, not just the two POS changes:
 
 1. `20261024210001_pos_devices_feed`
 2. `20261025100000_change_sets`
@@ -20,8 +22,10 @@ Claude's current `start-api` path applies **all nine** pending migrations, not j
 5. `20261025200000_mcp_groups_sessions`
 6. `20261025210001_pos_require_staff`
 7. `20261025300001_inbox_workspace`
-8. `20261025410001_platform_provider_apps`
-9. `20261025410002_channel_routing`
+8. `20261025400001_user_preferences`
+9. `20261025410001_platform_provider_apps`
+10. `20261025410002_channel_routing`
+11. `20261026100001_onboarding_wizard`
 
 Pin the approved backend revision, review backup/rollback and run disposable-database migration/RLS/POS staff-flow checks before the staging owner deploys through the existing schema-owner `MIGRATION_DATABASE_URL` entrypoint. Do not reset the database, elevate the API role, bypass Auth or deploy the branch tip under the assumption that only POS schema changes will run. Production remains outside this rollout.
 
