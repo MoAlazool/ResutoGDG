@@ -12,8 +12,11 @@ import { SessionProvider } from '@/lib/session';
  */
 export async function StaffProviders({ children, requireAuth = true, scope = 'staff' }: {
   children: ReactNode; requireAuth?: boolean;
-  /** 'auth' for the sign-in, sign-up, onboarding and invitation pages: their copy only, not every module's. */
-  scope?: 'staff' | 'auth';
+  /**
+   * 'auth' for the sign-in, sign-up and invitation pages, 'onboarding' for the wizard: their copy only, not every
+   * module's.
+   */
+  scope?: 'staff' | 'auth' | 'onboarding';
 }) {
   const locale = await getLocale();
   return (

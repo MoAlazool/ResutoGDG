@@ -221,7 +221,9 @@ export interface PublicStorefrontLink {
 /** `GET /v1/public/sites/:slug/storefronts/:storefront`: branding only; the menu comes from the branch's live web menu. */
 export interface PublicStorefront {
   slug: string;
-  org: { slug: string; name: string; nameAr: string | null; currency: string; demo: boolean };
+  org: { slug: string; name: string; nameAr: string | null; currency: string; demo: boolean;
+    /** Links shown as icons in the storefront footer (21-ONB); only valid https links on each network's hosts. */
+    socialLinks?: SocialLinks };
   branch: {
     id: string; code: string; name: string; nameAr: string | null; city: string | null;
     /** The branch's neighbourhood (delivery label), English and Arabic; null when the branch has none (PAR-02). */

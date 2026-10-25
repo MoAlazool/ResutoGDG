@@ -10,6 +10,8 @@ export * from './events';
 export * from './platform';
 export * from './social-links';
 export * from './slugs';
+export * from './onboarding';
+export * from './onboarding-api';
 export * from './billing';
 export * from './admin';
 export * from './catalog';

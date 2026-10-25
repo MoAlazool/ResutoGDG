@@ -91,9 +91,10 @@ export function previewRows(
       seenNames.add(normalized);
     }
     if (!knownCategories.has(category.toLowerCase())) newCategories.add(category);
-    const defaultAvailable = source === 'csv';
-    const available = r.available ?? defaultAvailable;
-    if (source !== 'csv') warnings.push('Review price and allergens before publishing');
+    // A spreadsheet (CSV, or .xlsx converted to CSV in the browser) is the owner's own list: available unless it says not.
+    const spreadsheet = source === 'csv' || source === 'xlsx';
+    const available = r.available ?? spreadsheet;
+    if (!spreadsheet) warnings.push('Review price and allergens before publishing');
     if (!available) warnings.push('Imported as unavailable');
     return {
       row: index + 1, action: match ? 'update' : 'create', productId: match?.id ?? null, errors, warnings,

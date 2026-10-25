@@ -155,9 +155,14 @@ services and imply no partnership; trademarks belong to their owners. Review eac
 |---|---|---|
 | Meta, Facebook, Instagram, Messenger, WhatsApp, TikTok, Stripe, Odoo, Google Maps, Gemini, Resend, Vercel | `<id>.svg` | Simple Icons 16.35.0 (CC0 path data), in the brand colour Simple Icons lists |
 | Snapchat | `snapchat.svg` | Simple Icons ghost mark in black (Snap yellow is unreadable on light surfaces) |
+| X | `x.svg` | Simple Icons X mark in black (21-ONB social links) |
+| Website (social links) | `../social/website.svg` | Lucide `globe` path data (ISC), not a logo |
 | Foodics | `foodics.svg` | The official Foodics wordmark already vendored for the landing page (`legacy/ASSET_SOURCES.md`) |
 | Paymob | `/landing/logo-paymob.png` | The official Paymob PNG already served by the landing page |
 | Moyasar, Wafeq, Qoyod, ZATCA, ETA, Twilio | none | **Need official artwork.** Drawn as a neutral monogram until it is added (`needsOfficialAsset`) |
+
+Guest pages show a restaurant's social links with `components/guest/SocialIcons.tsx` (the view-only menu `/m`, the
+site `/r` and storefronts): these marks on a light 44 px chip, the network's name as the accessible label.
 
 To add an official asset: put the file in `public/brand/providers/`, set `src`, `aspect` and `source` in
 `PROVIDER_LOGOS`, and record the source here. Do not draw or approximate a logo.

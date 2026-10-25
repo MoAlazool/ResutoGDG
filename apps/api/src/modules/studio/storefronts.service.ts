@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PublicStorefront, StorefrontView, UpsertStorefront } from '@resuto/contracts';
+import { socialLinksOf, type PublicStorefront, type StorefrontView, type UpsertStorefront } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, DomainError, invalid, notFound } from '../../common/errors/domain-error';
@@ -71,9 +71,9 @@ export class StorefrontsService {
       `select id from organizations where slug = $1 and status in ('onboarding', 'active')`, [orgSlug]));
     if (!org) throw storefrontNotFound();
     const pending = await this.db.withTenant(org.id, async (tx) => {
-      const r = await tx.maybeOne<Row & { org_slug: string; org_name: string; org_name_ar: string | null; currency: string; demo: boolean;
+      const r = await tx.maybeOne<Row & { social_links: unknown; org_slug: string; org_name: string; org_name_ar: string | null; currency: string; demo: boolean;
         code: string; name: string; name_ar: string | null; city: string | null; district: string | null; district_ar: string | null; accepts_pickup: boolean; accepts_delivery: boolean; opening_hours: unknown; timezone: string }>(
-        `select s.*, o.slug as org_slug, o.name as org_name, o.name_ar as org_name_ar, o.currency,
+        `select s.*, o.slug as org_slug, o.name as org_name, o.name_ar as org_name_ar, o.currency, o.social_links,
                 coalesce((o.onboarding->>'demo')::boolean, false) as demo,
                 b.code, b.name, b.name_ar, b.city, b.district, b.district_ar, b.accepts_pickup, b.accepts_delivery, b.opening_hours, coalesce(b.timezone, o.timezone) as timezone
            from branch_storefronts s join branches b on b.id = s.branch_id join organizations o on o.id = s.org_id
@@ -88,7 +88,7 @@ export class StorefrontsService {
       const order = `/order/${r.org_slug}?branch=${encodeURIComponent(r.code)}`;
       return { urls, assemble: (): PublicStorefront => ({
         slug: r.slug,
-        org: { slug: r.org_slug, name: r.org_name, nameAr: r.org_name_ar, currency: r.currency, demo: r.demo },
+        org: { slug: r.org_slug, name: r.org_name, nameAr: r.org_name_ar, currency: r.currency, demo: r.demo, socialLinks: socialLinksOf(r.social_links) },
         branch: { id: r.branch_id, code: r.code, name: r.name, nameAr: r.name_ar, city: r.city, district: r.district, districtAr: r.district_ar, acceptsPickup: r.accepts_pickup, acceptsDelivery: r.accepts_delivery, openingHours: r.opening_hours, timezone: r.timezone },
         brand: {
           name: r.brand_name, nameAr: r.brand_name_ar, tagline: r.tagline ?? {},

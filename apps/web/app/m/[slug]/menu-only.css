@@ -1,10 +1,2 @@
-/* View-only digital menu (21-ONB): the restaurant's social links under the menu. Tokens only (packages/ui tokens.css). */
-.gx-social { margin-block: 40px 8px; }
-.gx-social h2 { font-size: 15px; margin: 0 0 12px; }
-.gx-social ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
-.gx-social a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px 0 6px; border-radius: 999px;
-  background: var(--card); border: 1px solid var(--line-soft); font-size: 13px; font-weight: 600; }
-.gx-social a:hover { box-shadow: var(--shadow-chip); }
-.gx-social a:focus-visible { outline: 2px solid var(--leaf-text); outline-offset: 2px; }
-.gx-social-mark { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--gx-sage-2);
-  color: var(--leaf-text); font-size: 11px; font-weight: 800; letter-spacing: 0; }
+/* View-only digital menu (21-ONB): the social links under the menu use components/guest/social-icons.css. */
+.gx-menu-only .gx-social { margin-block: 40px 8px; }

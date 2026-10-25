@@ -180,3 +180,8 @@
 .site-branch.has-storefront h3{color:var(--sf-primary);font-weight:800}
 .site-branch-tagline{font-weight:600}
 .site-storefront-cta{color:var(--sf-primary)}
+/* 21-ONB: social link icons above the footer (components/guest/social-icons.css draws the icons). */
+.site-social-row{max-width:1260px;margin-inline:auto;padding-inline:40px}
+.site-social-row:empty{display:none}
+@media(max-width:768px){.site-social-row{padding-inline:22px}}
+@media(max-width:430px){.site-social-row{padding-inline:16px}}

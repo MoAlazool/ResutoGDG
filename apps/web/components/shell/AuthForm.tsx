@@ -8,6 +8,7 @@ import { LanguageToggle, useT } from '@/lib/i18n/client';
 import { authErrorCode, authErrorText } from '@/lib/auth-errors';
 import { MAX_PASSWORD, MIN_PASSWORD } from '@/lib/auth/password-policy';
 import { homePath } from '@/lib/home-path';
+import { withWizardResume } from '@/lib/onboarding/resume';
 import { safeNext } from '@/lib/safe-next';
 import { AUTH_MODE, GOOGLE_AUTH, useSession } from '@/lib/session';
 import { MfaStep } from '@/app/(auth)/_ui/MfaStep';
@@ -48,8 +49,10 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   useEffect(() => {
     if (routed.current || pending || !session.ready || !session.token || !session.me) return;
     routed.current = true;
-    router.replace(destinationFor(session.me, next));
-  }, [session.ready, session.token, session.me, pending, next, router]);
+    const me = session.me;
+    void withWizardResume(me, destinationFor(me, next), !!safeNext(next), () => session.call('/onboarding/progress'))
+      .then((to) => router.replace(to));
+  }, [session.ready, session.token, session.me, pending, next, router, session]);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,7 +74,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       }
       const me = await session.refreshMe();
       routed.current = true;
-      router.push(destinationFor(me, next));
+      // An owner who left the onboarding wizard half way continues there (21-ONB).
+      router.push(await withWizardResume(me, destinationFor(me, next), !!safeNext(next), () => session.call('/onboarding/progress')));
     } catch (err) {
       setError(authErrorText(err, t));
       if (authErrorCode(err) === 'email_not_confirmed') setUnconfirmed(String(f.get('email') ?? '').trim());
