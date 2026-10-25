@@ -27,6 +27,28 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 No existing route changed (checked with `scripts/openapi/additive.mjs` against the previous document).
 
+### Added — Free QR menu onboarding, increment 2: the wizard (21-ONB)
+
+- `GET /v1/onboarding/progress` and `PUT /v1/onboarding/progress` (signed-in people, personal: no restaurant in the
+  path): the onboarding wizard's saved state `{ step, completed, orgId, draft, completedAt, updatedAt }` for the nine
+  steps `account, restaurant, address, brand, menu, details, social, publish, qr`. `completed` only grows; `draft`
+  (name, nameAr, country, serviceMode, slug, menuMethod) is strict; `orgId` must be a restaurant the caller is an
+  active member of (`403`); restaurant steps and `done: true` need one (`422 onboarding_org_required`);
+  `restart: true` starts a new wizard. Stored in `onboarding_progress` (RLS: only its owner).
+- studio_basic inside core (plan §6.2/§7: logo, colours, theme presets, social links on every plan):
+  `GET /v1/o/:orgId/brand` (`studio:read`), `PUT /v1/o/:orgId/brand` (`studio:write`; strict body `presetId`,
+  `primaryColor`, `accentColor`, `backgroundColor`, `logoMediaId`), `GET /v1/o/:orgId/brand/presets`
+  (`studio:read`; six presets, each a full website theme and storefront theme), `POST /v1/o/:orgId/brand/logo`
+  (`studio:write`, multipart `file`, image up to 5 MB, becomes the site logo) and `POST /v1/o/:orgId/brand/publish`
+  (`studio:publish`, `{ key }`, idempotent: the Studio's website publish, a new revision). These need only the
+  `core` module; every `/v1/o/:orgId/studio/...` route still needs `studio` (402 `module_not_entitled` on Free).
+- Response field: `org.socialLinks` on `GET /v1/public/sites/:slug/storefronts/:storefront`.
+- Request value: menu import `source` accepts `xlsx` (a spreadsheet converted to CSV in the browser); like `csv`,
+  its dishes are available unless the sheet says otherwise.
+- Error codes: `onboarding_org_required`, `unknown_theme_preset`.
+
+No existing route was removed or made stricter (checked with `scripts/openapi/additive.mjs` against `04c07c7`).
+
 ### Added — Free QR menu onboarding, increment 1 (21-ONB)
 
 - `GET /v1/orgs/slug-availability?slug=` (signed-in people): `{ slug, available, reason }` with `reason`
