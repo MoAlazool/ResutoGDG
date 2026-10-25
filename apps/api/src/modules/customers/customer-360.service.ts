@@ -10,6 +10,7 @@ import { branchScope, int, iso } from '../analytics/scope';
 import { NOTE_SELECT, noteView, tagView, tagsByConversation } from '../connect/inbox.service';
 import { windowState } from '../connect/messaging.service';
 import { CustomersService } from './customers.service';
+import { parseStoredFirstTouch, storedTouchVisible } from './first-touch';
 
 /** Orders that count towards customer value (as in customers.service.ts and the customer_stats read model). */
 const COUNTED = `o.status not in ('cancelled', 'awaiting_payment')`;
@@ -23,7 +24,9 @@ const MESSAGING = new Set(['whatsapp', 'messenger', 'instagram']);
 const UTM_KEYS = `array['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']`;
 
 const utmOf = (u: Record<string, unknown> | null | undefined) => {
-  const s = (k: string) => (typeof u?.[k] === 'string' && (u[k] as string).length ? (u[k] as string).slice(0, 100) : null);
+  // Orders and their events carry utm_* keys; tracked link clicks carry the link's own { source, medium, ... }.
+  const one = (k: string) => (typeof u?.[k] === 'string' && (u[k] as string).length ? (u[k] as string).slice(0, 100) : null);
+  const s = (k: string) => one(k) ?? one(k.replace(/^utm_/, ''));
   return { source: s('utm_source'), medium: s('utm_medium'), campaign: s('utm_campaign'), content: s('utm_content'), term: s('utm_term') };
 };
 
@@ -139,9 +142,12 @@ export class Customer360Service {
     const channelNames = new Set<string>();
     for (const i of identities) if (CONTACT_KINDS.has(i.kind)) channelNames.add(i.kind === 'facebook' ? 'messenger' : i.kind);
     for (const k of windows.keys()) channelNames.add(k);
+    // 21-CRM consent rule: messaging the restaurant never grants marketing consent. Without an explicit opt-in
+    // (customer_consent_events), a channel is for service replies only.
     const channels = [...channelNames].sort().map((channel) => ({
       channel, scope: 'customer' as const, ...marketing,
       serviceWindow: withConversations && MESSAGING.has(channel) ? (windows.has(channel) ? windowState(windows.get(channel)) : { open: false, closesAt: null }) : null,
+      contactBasis: marketing.granted ? 'marketing_consent' as const : 'service_replies_only' as const,
     }));
 
     const spend = int(c.spend_minor);
@@ -171,7 +177,7 @@ export class Customer360Service {
         perChannel: false, marketing, channels,
         history: consentHistory.map((e) => ({ id: e.id, purpose: e.purpose, granted: e.granted, source: e.source, actor: e.actor, occurredAt: iso(e.occurred_at)! })),
       },
-      acquisition: { firstTouch: await this.firstTouch(tx, ctx, id, scope, firstConversation) },
+      acquisition: { firstTouch: await this.firstTouch(tx, ctx, id, scope, firstConversation, c.first_touch, withConversations) },
       recentOrders: recentOrders.map((o) => ({ id: o.id, number: o.number, branchId: o.branch_id, channel: o.channel, fulfillment: o.fulfillment,
         status: o.status, paymentStatus: o.payment_status, totalMinor: int(o.total_minor), placedAt: iso(o.placed_at)! })),
       reservations: reservations.map((r) => ({ id: r.id, code: r.code, branchId: r.branch_id, startsAt: iso(r.starts_at)!, partySize: r.party_size,
@@ -187,7 +193,10 @@ export class Customer360Service {
   }
 
   /**
-   * First touch, from recorded attribution when there is any, in this order of evidence:
+   * First touch. The stored one (customers.first_touch, 21-CRM: set once at the first identified interaction, never
+   * overwritten) is the source of truth whenever the caller may see it (see first-touch.ts). Otherwise (none stored
+   * yet, or it rests on another branch or on a conversation the caller cannot read) it is derived here,
+   * from recorded attribution when there is any, in this order of evidence:
    *   1. the earliest attribution event of the customer that carries UTM values or a campaign (order placed/paid,
    *      reservation, page view...; campaign messages sent to an existing customer are not acquisition), or a tracked
    *      link click with the same tracking session as one of the customer's orders (clicks carry no customer id);
@@ -196,43 +205,52 @@ export class Customer360Service {
    * Orders and their events outside a branch-scoped caller's branches are not used.
    */
   private async firstTouch(tx: Tx, ctx: TenantContext, id: string, scope: string[] | null,
-    firstConversation: { created_at: Date; channel_kind: string } | null): Promise<Customer360['acquisition']['firstTouch']> {
+    firstConversation: { created_at: Date; channel_kind: string } | null, storedValue: unknown, withConversations: boolean,
+  ): Promise<Customer360['acquisition']['firstTouch']> {
+    const stored = parseStoredFirstTouch(storedValue);
+    if (stored && storedTouchVisible(stored, scope, { conversations: withConversations })) {
+      const campaign = stored.campaignId
+        ? await tx.maybeOne<{ name: string }>(`select name from campaigns where id = $1 and org_id = $2`, [stored.campaignId, ctx.orgId]) : null;
+      return { basis: stored.basis, inferred: stored.inferred, occurredAt: stored.occurredAt, channel: stored.channel, utm: stored.utm,
+        campaignId: stored.campaignId, campaignName: campaign?.name ?? null, orderId: stored.orderId, linkId: stored.linkId, stored: true };
+    }
     const touch = await tx.maybeOne<{ kind: string; occurred_at: Date; utm: Record<string, unknown>; campaign_id: string | null; order_id: string | null;
-      campaign_name: string | null; channel: string | null; basis: AcquisitionBasis }>(
+      campaign_name: string | null; channel: string | null; basis: AcquisitionBasis; link_id: string | null }>(
       `with own_orders as (
          select o.id, o.attribution, o.campaign_id, o.placed_at, o.channel from orders o
           where o.customer_id = $1 and o.org_id = $2 and ($3::uuid[] is null or o.branch_id = any($3))),
        sessions as (
-         select distinct o.attribution->>'session_key' as k from own_orders o where coalesce(o.attribution->>'session_key', '') <> ''
+         select distinct coalesce(nullif(o.attribution->>'session_key', ''), o.attribution->>'sessionKey') as k from own_orders o
+          where coalesce(nullif(o.attribution->>'session_key', ''), o.attribution->>'sessionKey', '') <> ''
          union
          select distinct e.session_key from attribution_events e where e.customer_id = $1 and e.org_id = $2 and coalesce(e.session_key, '') <> ''
             and (e.order_id is null or e.order_id in (select id from own_orders))),
        candidates as (
-         select e.kind, e.occurred_at, e.utm, e.campaign_id, e.order_id, 'attribution_event'::text as basis, e.id as seq
+         select e.kind, e.occurred_at, e.utm, e.campaign_id, e.order_id, 'attribution_event'::text as basis, e.id as seq, null::uuid as link_id
            from attribution_events e
-          where e.customer_id = $1 and e.org_id = $2 and e.kind not in ('message_sent', 'message_read')
+          where e.customer_id = $1 and e.org_id = $2 and e.kind not in ('message_sent', 'message_read', 'page_view', 'qr_scan', 'add_to_cart', 'checkout_started')
             and (e.utm ?| ${UTM_KEYS} or e.campaign_id is not null)
             and (e.order_id is null or e.order_id in (select id from own_orders))
          union all
-         select e.kind, e.occurred_at, e.utm, e.campaign_id, null, 'tracked_link_click', e.id
+         select e.kind, e.occurred_at, e.utm, e.campaign_id, null, 'tracked_link_click', e.id, e.link_id
            from attribution_events e
           where e.org_id = $2 and e.kind = 'link_click' and e.session_key in (select k from sessions)
          union all
-         select 'order_placed', o.placed_at, o.attribution, o.campaign_id, o.id, 'order_attribution', 9223372036854775807 -- an event at the same time wins
+         select 'order_placed', o.placed_at, o.attribution, o.campaign_id, o.id, 'order_attribution', 9223372036854775807, null -- an event at the same time wins
            from own_orders o
           where o.attribution ?| ${UTM_KEYS} or o.campaign_id is not null)
-       select x.kind, x.occurred_at, x.utm, x.campaign_id, x.order_id, x.basis, cp.name as campaign_name,
+       select x.kind, x.occurred_at, x.utm, x.campaign_id, x.order_id, x.basis, x.link_id, cp.name as campaign_name,
               (select o.channel::text from own_orders o where o.id = x.order_id) as channel
          from candidates x left join campaigns cp on cp.id = x.campaign_id and cp.org_id = $2
         order by x.occurred_at, x.seq limit 1`, [id, ctx.orgId, scope]);
     if (touch) {
       return { basis: touch.basis, inferred: false, occurredAt: iso(touch.occurred_at), channel: touch.channel, utm: utmOf(touch.utm),
-        campaignId: touch.campaign_id, campaignName: touch.campaign_name, orderId: touch.order_id };
+        campaignId: touch.campaign_id, campaignName: touch.campaign_name, orderId: touch.order_id, linkId: touch.link_id, stored: false };
     }
     const firstOrder = await tx.maybeOne<{ id: string; channel: string; placed_at: Date }>(
       `select o.id, o.channel::text as channel, o.placed_at from orders o where o.customer_id = $1 and o.org_id = $2 and ($3::uuid[] is null or o.branch_id = any($3))
         order by o.placed_at, o.id limit 1`, [id, ctx.orgId, scope]);
-    const empty = { utm: utmOf(null), campaignId: null, campaignName: null };
+    const empty = { utm: utmOf(null), campaignId: null, campaignName: null, linkId: null, stored: false };
     if (firstOrder && (!firstConversation || new Date(firstOrder.placed_at) <= new Date(firstConversation.created_at))) {
       return { basis: 'first_order_channel', inferred: true, occurredAt: iso(firstOrder.placed_at), channel: firstOrder.channel, orderId: firstOrder.id, ...empty };
     }
