@@ -180,3 +180,48 @@
 .site-branch.has-storefront h3{color:var(--sf-primary);font-weight:800}
 .site-branch-tagline{font-weight:600}
 .site-storefront-cta{color:var(--sf-primary)}
+
+/* ---------- 21-STUDIO: section layout from the inspector, new section kinds ---------- */
+.site-block[data-spacing=compact]>section{padding-block:24px}
+.site-block[data-spacing=roomy]>section{padding-block:120px}
+.site-block[data-align=center]>section,.site-block[data-align=center] .site-section-head{text-align:center;justify-content:center}
+.site-block[data-align=center] .site-ctas{justify-content:center}
+.site-block[data-tone=muted]{background:color-mix(in srgb,var(--site-primary) 6%,white)}
+.site-block[data-tone=accent]{background:color-mix(in srgb,var(--site-accent) 16%,white)}
+.site-block[data-tone=contrast]{background:var(--site-primary)}
+.site-block[data-tone=contrast] :is(h2,h3,p,strong,summary,a,li,s){color:white}
+.site-block[data-columns="2"] .dish-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.site-block[data-columns="4"] .dish-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.site-block[data-columns] .site-menu-group{break-inside:avoid}
+.site-block[data-columns="2"] .site-full-menu,.site-block[data-columns="3"] .site-full-menu,.site-block[data-columns="4"] .site-full-menu{columns:2 320px;column-gap:48px}
+@media(max-width:768px){.site-block[data-columns="4"] .dish-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.site-badge{display:inline-block;padding:4px 12px;border-radius:99px;background:var(--site-accent);color:var(--site-primary);font-size:12px;font-weight:700;line-height:1.5}
+.site-badge-float{position:absolute;inset-block-start:12px;inset-inline-start:12px;z-index:1}
+.site-offer{position:relative}
+.site-offer-price{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0}
+.site-offer-price s,.site-menu-price s{color:color-mix(in srgb,currentColor 55%,transparent);font-size:13px}
+.site-promo-chip{margin:14px 0;font-size:14px}
+.site-promo-chip code{font:700 14px/1 ui-monospace,monospace;padding:3px 8px;border-radius:6px;background:color-mix(in srgb,var(--site-primary) 10%,white)}
+.site-promo{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:32px;align-items:center;max-width:1260px;margin:24px auto;padding:36px 40px;border-radius:22px;
+  background:color-mix(in srgb,var(--site-accent) 22%,white)}
+.site-promo:not(:has(img)){grid-template-columns:minmax(0,1fr)}
+.site-promo h2{font:400 38px/1.15 Georgia,'Plex Arabic',serif;margin:12px 0;color:var(--site-primary)}
+[dir=rtl] .site-promo h2{font-family:var(--font-body-ar);font-weight:700}
+.site-promo p{margin:0 0 12px;font-size:16px;line-height:1.7}
+.site-promo img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px}
+.site-promo .button{margin-block-start:8px}
+.site-social-list{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:12px}
+.site-social-list a{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:8px 16px;border-radius:99px;background:white;box-shadow:0 2px 12px color-mix(in srgb,var(--site-primary) 8%,transparent);font-weight:600}
+.site-social-list a:hover{text-decoration:underline}
+.site-social-mark{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--site-primary);color:white;font-size:11px;font-weight:800}
+.site-faq-list{display:grid;gap:12px;max-width:860px}
+.site-faq-item{background:white;border-radius:14px;padding:4px 20px}
+.site-faq-item summary{cursor:pointer;padding-block:16px;font-weight:600;font-size:16px;min-height:44px}
+.site-faq-item p{margin:0 0 16px;line-height:1.7;white-space:pre-line}
+.site-menu-group{margin-block:28px}
+.site-menu-group h3{font-size:20px;margin:0 0 10px;padding-block-end:8px;border-block-end:1px solid color-mix(in srgb,var(--site-primary) 18%,transparent)}
+.site-menu-list{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.site-menu-list li{display:flex;justify-content:space-between;gap:20px;align-items:baseline}
+.site-menu-list p{margin:4px 0 0;font-size:13px;line-height:1.6;color:color-mix(in srgb,currentColor 70%,transparent)}
+.site-menu-price{display:flex;flex-direction:column;align-items:flex-end;white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:768px){.site-promo{grid-template-columns:minmax(0,1fr);margin-inline:16px;padding:28px 22px}.site-promo h2{font-size:30px}}

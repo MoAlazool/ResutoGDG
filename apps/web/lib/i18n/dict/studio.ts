@@ -3,8 +3,8 @@
 import { studioFloorAr, studioFloorEn } from '../../../components/floor/strings';
 
 const kinds = {
-  en: { hero: 'Hero', about: 'About', menu_highlights: 'Menu highlights', gallery: 'Gallery', reservations: 'Reservations', ordering: 'Online ordering', location: 'Location', hours: 'Opening hours', testimonials: 'Guest words', contact: 'Contact', custom: 'Custom block' },
-  ar: { hero: 'الواجهة الرئيسية', about: 'من نحن', menu_highlights: 'أطباق مميزة', gallery: 'معرض الصور', reservations: 'الحجوزات', ordering: 'الطلب أونلاين', location: 'الموقع', hours: 'مواعيد العمل', testimonials: 'كلمات الضيوف', contact: 'تواصل معنا', custom: 'قسم مخصص' },
+  en: { hero: 'Hero', about: 'About', menu_highlights: 'Menu highlights', gallery: 'Gallery', reservations: 'Reservations', ordering: 'Online ordering', location: 'Location', hours: 'Opening hours', testimonials: 'Guest words', contact: 'Contact', custom: 'Custom block', promo_banner: 'Promo banner', offers: 'Offers', social: 'Social links', faq: 'Questions and answers', menu_full: 'Full menu' },
+  ar: { hero: 'الواجهة الرئيسية', about: 'من نحن', menu_highlights: 'أطباق مميزة', gallery: 'معرض الصور', reservations: 'الحجوزات', ordering: 'الطلب أونلاين', location: 'الموقع', hours: 'مواعيد العمل', testimonials: 'كلمات الضيوف', contact: 'تواصل معنا', custom: 'قسم مخصص', promo_banner: 'شريط ترويجي', offers: 'العروض', social: 'روابط التواصل', faq: 'أسئلة وأجوبة', menu_full: 'القائمة الكاملة' },
 };
 const days = {
   en: { sun: 'Sunday', mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday' },
