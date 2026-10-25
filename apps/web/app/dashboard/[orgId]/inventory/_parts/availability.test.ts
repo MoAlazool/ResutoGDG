@@ -63,13 +63,13 @@ describe('dish availability (PAR-08)', () => {
   });
 });
 
-describe('inventory and settings open like legacy (PAR-08)', () => {
-  it('inventory opens on dish availability, with the stock module in the following tabs', () => {
-    expect(DEFAULT_INVENTORY_TAB).toBe('availability');
-    expect(INVENTORY_TABS[0]).toBe('availability');
-    expect(visibleInventoryTabs(true)).toEqual(['availability', 'levels', 'movement', 'stocktake', 'items', 'recipes', 'alerts', 'waste', 'history']);
-    // Without inventory:write, recording movements and counts is hidden; availability still comes first.
-    expect(visibleInventoryTabs(false)).toEqual(['availability', 'levels', 'items', 'recipes', 'alerts', 'waste', 'history']);
+describe('inventory and settings open order (PAR-08, 21-OPS)', () => {
+  it('inventory opens on stock levels (low stock first, plan §5); dish availability is the next tab, the stocktake a sheet', () => {
+    expect(DEFAULT_INVENTORY_TAB).toBe('levels');
+    expect(INVENTORY_TABS[0]).toBe('levels');
+    expect(visibleInventoryTabs(true)).toEqual(['levels', 'availability', 'movement', 'items', 'recipes', 'alerts', 'waste', 'history']);
+    // Without inventory:write, recording movements is hidden (and the stocktake action with it).
+    expect(visibleInventoryTabs(false)).toEqual(['levels', 'availability', 'items', 'recipes', 'alerts', 'waste', 'history']);
   });
 
   it('settings opens on the service model; profile and the launch checklist follow', () => {

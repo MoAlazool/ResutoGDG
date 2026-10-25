@@ -26,40 +26,6 @@ function useInv() {
 function Loading() { return <div className="card"><Skeleton lines={5} /></div>; }
 
 // ---------------------------------------------------------------------------
-// Levels
-// ---------------------------------------------------------------------------
-export function LevelsTab({ onRecord }: { onRecord?: () => void }) {
-  const { t, locale } = useT();
-  const f = useFormat();
-  const branchName = useBranchName();
-  const { base } = useInv();
-  const { branchId } = useBranchScope({ allowAll: true }); // the shell's branch switcher (21-SHELL)
-  const [onlyLow, setOnlyLow] = useState(false);
-  const { data, error, loading, reload } = useApi<{ items: StockLevelView[] }>(`${base}/levels${qs({ branchId })}`);
-  const rows = (data?.items ?? []).filter((l) => !onlyLow || l.low);
-  return (
-    <Section title={t('insights.inventory.tab.levels')} actions={<>
-      <label className="check"><input type="checkbox" checked={onlyLow} onChange={(e) => setOnlyLow(e.target.checked)} /> {t('insights.inventory.onlyLow')}</label>
-      {onRecord && <button className="btn btn-sm btn-primary" onClick={onRecord}>{t('insights.inventory.record')}</button>}
-    </>}>
-      <LoadError error={error} retry={reload} />
-      {loading && !data ? <Skeleton lines={5} /> : (
-        <DataTable rows={rows} rowKey={(l) => `${l.branchId}:${l.itemId}`} empty={<EmptyState title={t('insights.inventory.noItems')}>{t('insights.inventory.noItemsHint')}</EmptyState>} columns={[
-          { key: 'item', header: t('insights.inventory.item'), render: (l) => pick(locale, l.name, l.nameAr) },
-          { key: 'branch', header: t('insights.branch.label'), render: (l) => branchName(l.branchId) },
-          { key: 'qty', header: t('insights.inventory.onHand'), align: 'end', render: (l) => <span className="num">{f.num(l.quantity)} {unitLabel(t, l.unit)}</span> },
-          { key: 'reorder', header: t('insights.inventory.reorderLevel'), align: 'end', render: (l) => <span className="num">{l.reorderLevel ? `${f.num(l.reorderLevel)} ${unitLabel(t, l.unit)}` : '—'}</span> },
-          { key: 'value', header: t('insights.inventory.value'), align: 'end', render: (l) => <span className="num">{f.money(l.valueMinor)}</span> },
-          { key: 'status', header: t('insights.inventory.status'), render: (l) => l.quantity < 0 ? <Badge tone="danger">{t('insights.inventory.negative')}</Badge>
-            : l.low ? <Badge tone="warn">{t('insights.inventory.low')}</Badge> : <Badge tone="ok">✓ {t('insights.inventory.ok')}</Badge> },
-          { key: 'counted', header: t('insights.inventory.lastCounted'), render: (l) => <span className="fine">{l.lastCountedAt ? dateTime(l.lastCountedAt, locale) : t('insights.inventory.never')}</span> },
-        ]} />
-      )}
-    </Section>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Record a movement
 // ---------------------------------------------------------------------------
 type Kind = 'purchase' | 'waste' | 'adjustment' | 'transfer' | 'count';
@@ -152,7 +118,7 @@ export function MovementTab() {
               {WASTE_REASONS.map((r) => <option key={r} value={r}>{t(`insights.waste.${r}`)}</option>)}
             </SelectField>
           )}
-          <TextareaField label={t('insights.movement.note')} maxLength={300} value={form.note} onChange={set('note')} style={{ minHeight: 60 }} />
+          <TextareaField label={t('insights.movement.note')} maxLength={300} value={form.note} onChange={set('note')} className="textarea inv-note" />
           {action.error && <Notice tone="danger">{action.error}</Notice>}
           <button className="btn btn-primary" disabled={action.pending || !form.itemId || !form.quantity}>{action.pending ? t('state.loading') : t('insights.movement.save')}</button>
         </form>
@@ -333,7 +299,7 @@ export function RecipesTab() {
       <Section title={t('insights.inventory.tab.recipes')}>
         <DataTable rows={list.data.items} rowKey={(r) => r.productId} onRowClick={(r) => { setProductId(r.productId); setRows(null); }}
           empty={<EmptyState title={t('insights.recipes.noProducts')} />} columns={[
-            { key: 'name', header: t('insights.products.product'), render: (r) => <strong style={{ fontWeight: r.productId === productId ? 750 : 500 }}>{pick(locale, r.name, r.nameAr)}</strong> },
+            { key: 'name', header: t('insights.products.product'), render: (r) => <strong className="inv-product" data-current={r.productId === productId || undefined}>{pick(locale, r.name, r.nameAr)}</strong> },
             { key: 'n', header: t('insights.recipes.ingredients'), align: 'end', render: (r) => r.components || <span className="fine">{t('insights.recipes.none')}</span> },
             { key: 'cost', header: t('insights.recipes.recipeCost'), align: 'end', render: (r) => <span className="num">{r.recipeCostMinor === null ? '—' : f.money(r.recipeCostMinor)}</span> },
             { key: 'price', header: t('insights.recipes.price'), align: 'end', render: (r) => <span className="num">{f.money(r.priceMinor)}</span> },
@@ -354,14 +320,14 @@ export function RecipesTab() {
               const it = itemById.get(r.itemId);
               return (
                 <div key={i} className="row gap-8 items-end">
-                  <label className="field" style={{ flex: '2 1 160px', margin: 0 }}><span>{t('insights.inventory.item')}</span>
+                  <label className="field inv-line-item"><span>{t('insights.inventory.item')}</span>
                     <select className="select" value={r.itemId} disabled={!writable} onChange={(e) => update(i, { itemId: e.target.value })}>
                       <option value="">—</option>
                       {(items.data?.items ?? []).map((x) => <option key={x.id} value={x.id}>{pick(locale, x.name, x.nameAr)}</option>)}
                     </select></label>
-                  <label className="field" style={{ flex: '1 1 80px', margin: 0 }}><span>{t('insights.movement.quantity')}</span>
+                  <label className="field inv-line-qty"><span>{t('insights.movement.quantity')}</span>
                     <input className="input" type="number" min={0} step="0.001" value={r.quantity} disabled={!writable} onChange={(e) => update(i, { quantity: e.target.value })} /></label>
-                  <label className="field" style={{ flex: '0 1 90px', margin: 0 }}><span>{t('insights.inventory.unit')}</span>
+                  <label className="field inv-line-unit"><span>{t('insights.inventory.unit')}</span>
                     <select className="select" value={r.unit} disabled={!writable} onChange={(e) => update(i, { unit: e.target.value as InventoryUnit })}>
                       {(it ? INVENTORY_UNITS.filter((u) => unitsCompatible(u, it.unit)) : INVENTORY_UNITS).map((u) => <option key={u} value={u}>{unitLabel(t, u)}</option>)}
                     </select></label>
@@ -494,7 +460,7 @@ export function HistoryTab() {
   const reasons = ['purchase', 'sale', 'waste', 'adjustment', 'transfer_in', 'transfer_out', 'count', 'return'];
   return (
     <Section title={t('insights.inventory.tab.history')} actions={<>
-      <select className="select" style={{ width: 'auto', minHeight: 38 }} value={reason} aria-label={t('insights.movement.reason')} onChange={(e) => { setReason(e.target.value); setMore(null); }}>
+      <select className="select inv-reason" value={reason} aria-label={t('insights.movement.reason')} onChange={(e) => { setReason(e.target.value); setMore(null); }}>
         <option value="">{t('insights.movement.allKinds')}</option>
         {reasons.map((r) => <option key={r} value={r}>{t(`insights.reason.${r}`)}</option>)}
       </select>
@@ -506,7 +472,7 @@ export function HistoryTab() {
           { key: 'item', header: t('insights.inventory.item'), render: (m) => m.itemName },
           { key: 'branch', header: t('insights.branch.label'), render: (m) => branchName(m.branchId) },
           { key: 'kind', header: t('insights.movement.reason'), render: (m) => <>{t(`insights.reason.${m.reason}`)}{m.wasteReason && <span className="fine"> · {t(`insights.waste.${m.wasteReason}`)}</span>}</> },
-          { key: 'qty', header: t('insights.movement.quantity'), align: 'end', render: (m) => <span className="num" style={{ color: m.quantityDelta < 0 ? 'var(--danger)' : 'var(--ok)' }}>{m.quantityDelta > 0 ? '+' : ''}{f.num(m.quantityDelta)} {unitLabel(t, m.unit)}</span> },
+          { key: 'qty', header: t('insights.movement.quantity'), align: 'end', render: (m) => <span className="num inv-delta" data-tone={m.quantityDelta < 0 ? 'danger' : 'ok'}>{m.quantityDelta > 0 ? '+' : ''}{f.num(m.quantityDelta)} {unitLabel(t, m.unit)}</span> },
           { key: 'note', header: t('insights.movement.note'), render: (m) => <span className="fine">{m.note ?? (m.referenceType === 'order' ? t('insights.inventory.fromOrder') : '')}</span> },
         ]} />
       )}

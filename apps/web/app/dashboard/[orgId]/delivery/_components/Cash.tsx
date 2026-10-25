@@ -64,7 +64,7 @@ export function Cash() {
           {profile.loading && !profile.data ? <Skeleton lines={4} /> : (
             <div className="stack">
               {jobs.map((j) => (
-                <label key={j.id} className="check" style={{ justifyContent: 'space-between', display: 'flex' }}>
+                <label key={j.id} className="check dispatch-cash-row">
                   <span><input type="checkbox" checked={selected.has(j.id)} onChange={(e) => {
                     const next = new Set(selected);
                     if (e.target.checked) next.add(j.id); else next.delete(j.id);

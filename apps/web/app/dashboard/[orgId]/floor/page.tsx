@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { lazy, Suspense } from 'react';
 import { EmptyState, PageHeading, Tabs, ToastProvider } from '@resuto/ui';
 import { ActiveVisits } from '@/components/ops/ActiveVisits';
+import { FrontOfHouseNav } from '@/components/ops/FrontOfHouseNav';
 import { VenueQrCard } from '@/components/ops/ServiceMode';
 import { StudioPending } from '@/components/floor/StudioPending';
 import { LiveFloor } from '@/components/floor/LiveFloor';
@@ -54,6 +55,7 @@ function FloorPageInner() {
     <>
       {/* The Studio is a full-screen editor with its own "Back to service" link: the tab bar it covers is not rendered, so
           keyboard and screen-reader users cannot land on controls hidden behind it. */}
+      {tab !== 'studio' && <FrontOfHouseNav />}
       {tab !== 'studio' && (
         <div className="spread floor-tabs">
           <Tabs tabs={tabs} value={tab} onChange={(k) => router.replace(href(k), { scroll: false })} label={t('nav.floor')} />

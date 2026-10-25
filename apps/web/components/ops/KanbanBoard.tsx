@@ -2,15 +2,17 @@
 // Kanban board with pointer drag-and-drop, ported from the legacy kitchen board (legacy/public/kitchen-dnd.js):
 // an 8 px threshold before a drag starts, every lane painted as a valid or invalid drop while dragging, forward-only
 // moves decided by `pathTo` (the server validates each step again), and live polling paused while dragging. Buttons on
-// the cards stay the keyboard and screen-reader route; dragging is an accelerator, never the only way.
+// the cards and the board's keys stay the keyboard and screen-reader route; dragging is an accelerator, never the only
+// way. The lanes are the design system's BoardPage (21-OPS): one named region per stage with its count.
 import { useEffect, useRef, type ReactNode } from 'react';
+import { BoardPage, type BoardLane, type PageHeaderProps } from '@resuto/ui';
 import { setDragging } from '@/lib/live-pause';
 
-export interface KanbanLane<K extends string> { key: K; title: ReactNode; dot: string; count: number; children: ReactNode; empty?: ReactNode }
+export interface KanbanLane<K extends string> { key: K; title: string; tone?: BoardLane['tone']; count: number; children: ReactNode; empty?: ReactNode }
 
 const THRESHOLD = 8;
 
-export function KanbanBoard<K extends string>({ lanes, pathTo, onMove, onRefused, label, className }: {
+export function KanbanBoard<K extends string>({ lanes, pathTo, onMove, onRefused, label, className, header, toolbar, footer }: {
   lanes: Array<KanbanLane<K>>;
   /** Steps that move card `id` to `lane`, or null when that lane is not a valid next step. */
   pathTo: (id: string, lane: K) => string[] | null;
@@ -19,6 +21,9 @@ export function KanbanBoard<K extends string>({ lanes, pathTo, onMove, onRefused
   onRefused?: (id: string, lane: K) => void;
   label?: string;
   className?: string;
+  header?: PageHeaderProps | ReactNode;
+  toolbar?: ReactNode;
+  footer?: ReactNode;
 }) {
   const board = useRef<HTMLDivElement>(null);
   const handlers = useRef({ pathTo, onMove, onRefused });
@@ -35,7 +40,7 @@ export function KanbanBoard<K extends string>({ lanes, pathTo, onMove, onRefused
     const down = (ev: PointerEvent) => {
       const target = ev.target as HTMLElement;
       const card = target.closest<HTMLElement>('[data-card]');
-      if (!card || ev.button !== 0 || target.closest('button, a, input, select, textarea')) return;
+      if (!card || ev.button !== 0 || target.closest('button, a, input, select, textarea, label')) return;
       drag = { card, id: card.dataset.card!, from: card.closest<HTMLElement>('[data-lane]')?.dataset.lane ?? '', x: ev.clientX, y: ev.clientY, pointerId: ev.pointerId, moved: false };
     };
     const move = (ev: PointerEvent) => {
@@ -94,13 +99,10 @@ export function KanbanBoard<K extends string>({ lanes, pathTo, onMove, onRefused
   }, []);
 
   return (
-    <div className={['kanban', className].filter(Boolean).join(' ')} ref={board} aria-label={label} data-lanes={lanes.length}>
-      {lanes.map((lane) => (
-        <section key={lane.key} className="kanban-lane" data-lane={lane.key} style={{ ['--dot' as string]: lane.dot }} aria-label={typeof lane.title === 'string' ? lane.title : undefined}>
-          <header className="kanban-head"><i aria-hidden="true" /><span>{lane.title}</span><span className="kanban-count num">{lane.count}</span></header>
-          <div className="kanban-cards">{lane.count ? lane.children : <div className="kanban-empty">{lane.empty}</div>}</div>
-        </section>
-      ))}
-    </div>
+    <BoardPage className={['kanban-board', className].filter(Boolean).join(' ')} boardRef={board} label={label} header={header} toolbar={toolbar} footer={footer}
+      lanes={lanes.map((lane) => ({
+        key: lane.key, title: lane.title, label: lane.title, tone: lane.tone, count: lane.count,
+        children: lane.count ? lane.children : <div className="kanban-empty">{lane.empty}</div>,
+      }))} />
   );
 }

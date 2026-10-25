@@ -5,24 +5,28 @@
 // idempotency key per intent, so a double click or a retry after a timeout never records it twice.
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import type { StockLevelView } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, TextareaField } from '@resuto/ui';
-import { LoadError, Section, useFormat } from '@/components/charts/insights';
+import { Badge, DataTable, EmptyState, Field, Modal, Notice, Sheet, Skeleton, TextareaField } from '@resuto/ui';
+import { LoadError, useFormat } from '@/components/charts/insights';
 import { newIdempotencyKey } from '@/lib/api';
 import { pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchScope, useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { unitLabel } from '@/lib/vocab';
 import { varianceOf } from './stocktake-math';
 
-export function StocktakeTab() {
+/**
+ * The stocktake in a sheet (21-OPS; was a tab with its own branch select): it counts the shell's branch (with "All
+ * branches" chosen, the last single branch, named in the sheet's description).
+ */
+export function StocktakeSheet({ onClose, onSaved }: { onClose: () => void; onSaved?: () => void }) {
   const { t, locale } = useT();
-  const { org, branchId: shellBranch } = useOrg();
+  const { org } = useOrg();
   const { call } = useSession();
   const f = useFormat();
-  const branches = org.branches.filter((b) => b.isActive);
-  const [branchId, setBranchId] = useState(branches.some((b) => b.id === shellBranch) ? shellBranch! : branches[0]?.id ?? '');
+  const { branchId } = useBranchScope();
+  const branch = org.branches.find((b) => b.id === branchId);
   const levels = useApi<{ items: StockLevelView[] }>(branchId ? `/o/${org.id}/inventory/levels?branchId=${branchId}` : null);
   const [counts, setCounts] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
@@ -47,16 +51,13 @@ export function StocktakeTab() {
       setCounts({});
       key.current = newIdempotencyKey(); // the next stocktake is a new intent
       await levels.reload();
+      onSaved?.();
     } catch (err) { setError((err as Error).message); } // same key on retry: the server returns the first result
     finally { setPending(false); }
   };
 
   return (
-    <Section title={t('ops.stock.title')} actions={branches.length > 1 ? (
-      <SelectField label={t('insights.branch.label')} value={branchId} onChange={(e) => { setBranchId(e.target.value); setCounts({}); setDone(null); key.current = newIdempotencyKey(); }}>
-        {branches.map((b) => <option key={b.id} value={b.id}>{pick(locale, b.name, b.nameAr)}</option>)}
-      </SelectField>
-    ) : undefined}>
+    <Sheet open onClose={onClose} size="lg" title={t('ops.stock.title')} description={branch ? pick(locale, branch.name, branch.nameAr) : undefined}>
       <p className="fine mbs-0">{t('ops.stock.hint')}</p>
       <LoadError error={levels.error} retry={levels.reload} />
       {done && <Notice tone="ok">{t('ops.stock.saved', { n: done.lines, value: f.money(done.varianceValueMinor) })}</Notice>}
@@ -83,7 +84,7 @@ export function StocktakeTab() {
           </div>
         </form>
       )}
-    </Section>
+    </Sheet>
   );
 }
 

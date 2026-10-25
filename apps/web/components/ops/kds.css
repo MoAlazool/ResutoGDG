@@ -1,0 +1,58 @@
+/* Ticket board chrome (Orders board and kitchen display). The lanes are the design system's BoardPage and the ticket
+   cards live in components/ops/ops.css; this file keeps the toolbar row and the full-screen kitchen display, which is
+   read from about 2 m away on a wall tablet (plan §2 principle 6): large type, high-contrast status colours from the
+   tokens, 44 px or larger targets. Tokens only; no motion beyond what the global reduced-motion rule switches off. */
+.kds { display: grid; gap: 14px; }
+.kds-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kds-bar .kds-live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.kds-bar .kds-live::before { content: ''; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--live); }
+.kds-bar .kds-live[data-stale='true']::before { background: var(--danger); }
+.kds-bar > .notice { flex-basis: 100%; }
+
+/* ---------- Full-screen kitchen display ---------- */
+.kds-full { min-block-size: 100dvh; background: var(--surface-3); padding: 16px clamp(12px, 2vw, 28px); }
+.kds-full-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-block-end: 14px; }
+.kds-full-head h1 { margin: 0; font-size: var(--fs-3xl); }
+.kds-full-head .row { gap: 8px; }
+.kds-full-head .select { inline-size: auto; min-block-size: 44px; }
+.kds-full-head .btn { min-block-size: 44px; }
+.kds-full .station-picker { margin-block-end: 12px; }
+.kds-full .station-picker .btn { min-block-size: 44px; padding-inline: 16px; }
+.kds-full .kds-bar .btn { min-block-size: 44px; }
+.kds-full .kds-bar .kds-live, .kds-full .kds-bar .fine { font-size: var(--fs-lg); }
+.kds-full .kanban-board .rui-board { grid-auto-columns: minmax(200px, 1fr); }
+.kds-full .rui-lane-head h2 { font-size: var(--fs-xl); }
+.kds-full .rui-lane-count { font-size: var(--fs-lg); padding: 2px 12px; }
+.kds-full .kanban-board .rui-lane .rui-lane-head { border-block-start-width: 6px; }
+
+/* Cards: the order number and its age are the largest text on the screen; the band at the card's top edge carries the
+   lane colour, turning amber then red as the ticket waits (15 / 25 minutes, components/ops/elapsed.ts). */
+.kds-full .ticket { padding: 14px 16px; border-width: 2px; border-block-start-width: 8px; border-block-start-color: var(--ticket-tone, var(--border-strong)); }
+.kds-full .rui-lane[data-lane='new'] .ticket { --ticket-tone: var(--info-fg); }
+.kds-full .rui-lane[data-lane='preparing'] .ticket { --ticket-tone: var(--warn-fg); }
+.kds-full .rui-lane[data-lane='ready'] .ticket { --ticket-tone: var(--ok-fg); }
+.kds-full .ticket.is-late { --ticket-tone: var(--warn-fg); border-color: var(--warn-fg); }
+.kds-full .ticket.is-very-late { --ticket-tone: var(--danger-fg); border-color: var(--danger-fg); background: var(--danger-bg); }
+.kds-full .ticket-top strong { font-size: var(--fs-4xl); line-height: 1.1; color: var(--text-strong); }
+.kds-full .ticket-age { font-size: var(--fs-lg); color: var(--text-secondary); }
+.kds-full .ticket-elapsed { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--text-strong); }
+.kds-full .ticket.is-late .ticket-elapsed { color: var(--warn-fg); }
+.kds-full .ticket.is-very-late .ticket-elapsed { color: var(--danger-fg); }
+.kds-full .ticket-source { font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--text-strong); }
+.kds-full .ticket-source span { font-size: var(--fs-md); color: var(--text-secondary); }
+.kds-full .ticket-line { font-size: var(--fs-xl); min-block-size: 48px; align-items: center; }
+.kds-full .ticket-line b { block-size: 32px; min-inline-size: 32px; font-size: var(--fs-lg); }
+.kds-full .ticket-line small { font-size: var(--fs-md); color: var(--text-secondary); }
+.kds-full .ticket-note { font-size: var(--fs-lg); color: var(--warn-fg); }
+.kds-full .ticket-actions .btn { min-block-size: 52px; font-size: var(--fs-lg); }
+.kds-full .ticket-actions .btn-ghost.btn-sm { min-block-size: 44px; font-size: var(--fs-md); }
+.kds-full .ticket:focus-visible, .kds-full .ticket[data-focused]:focus { outline-width: 4px; outline-offset: 3px; }
+.kds-full .board-keys { font-size: var(--fs-md); }
+.kds-keys { font-size: var(--fs-md); color: var(--text-secondary); }
+.kds-keys summary { cursor: pointer; min-block-size: 44px; display: inline-flex; align-items: center; }
+.kds-keys ul { margin: 4px 0 12px; padding-inline-start: 20px; display: grid; gap: 4px; }
+@media (max-width: 700px) {
+  .kds-full .ticket-top strong { font-size: var(--fs-3xl); }
+  .kds-full .board-keys { display: none; }
+}
+.kds-loading { inline-size: 320px; }

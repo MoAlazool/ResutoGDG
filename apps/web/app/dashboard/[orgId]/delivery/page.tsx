@@ -4,49 +4,44 @@ import { PageHeader, Skeleton, Tabs } from '@resuto/ui';
 import { useUrlParam } from '@/components/ops/use-url-state';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchScope } from '@/lib/org-context';
 import { Board } from './_components/Board';
 import { Cash } from './_components/Cash';
-import { DispatchMap } from './_components/DispatchMap';
 import { Drivers } from './_components/Drivers';
 import { Zones } from './_components/Zones';
+import './delivery.css';
 
-type Tab = 'board' | 'map' | 'drivers' | 'cash' | 'zones';
+type Tab = 'board' | 'drivers' | 'cash' | 'zones';
+const TABS: readonly Tab[] = ['board', 'drivers', 'cash', 'zones'];
 
-/** ResutoDriver dispatch: live board, driver roster and COD cash settlement. */
+/** ResutoDriver dispatch: the live map and board, driver roster, COD cash settlement and delivery zones. */
 export default function DeliveryPage() {
-  return <Suspense fallback={<Skeleton lines={6} />}><Delivery /></Suspense>;
+  return <ModuleGate module="driver" permission="delivery:dispatch"><Suspense fallback={<Skeleton lines={6} />}><Delivery /></Suspense></ModuleGate>;
 }
 
-/** Tab and branch filter live in the URL (PCL-20), so a reload keeps the dispatcher's view. */
+/**
+ * The tab lives in the URL (PCL-20), so a reload keeps the dispatcher's view; the former "map" tab is now beside the
+ * board (21-OPS), and ?tab=map still opens it. The branch is the shell's one branch context (21-SHELL), including
+ * "All branches"; the page has no branch select of its own.
+ */
 function Delivery() {
-  const { t, locale } = useT();
-  const { org } = useOrg();
-  const [tab, setTab] = useUrlParam<Tab>('tab', 'board', ['board', 'drivers', 'cash']);
-  const [branchParam, setBranchId] = useUrlParam<string>('branch', '');
-  const branchId = org.branches.some((b) => b.id === branchParam) ? branchParam : '';
-  const branches = org.branches.filter((b) => b.isActive);
+  const { t } = useT();
+  const [raw, setTab] = useUrlParam<Tab | 'map'>('tab', 'board', [...TABS, 'map']);
+  const tab: Tab = raw === 'map' ? 'board' : raw;
+  const { branchId } = useBranchScope({ allowAll: true });
   return (
-    <ModuleGate module="driver" permission="delivery:dispatch">
-      <PageHeader title={t('driver.dispatch.title')} subtitle={t('driver.dispatch.subtitle')}
-        actions={branches.length > 1 ? (
-          <select className="select" style={{ minWidth: 180 }} value={branchId} onChange={(e) => setBranchId(e.target.value)} aria-label={t('driver.dispatch.branch')}>
-            <option value="">{t('driver.dispatch.allBranches')}</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{locale === 'ar' && b.nameAr ? b.nameAr : b.name}</option>)}
-          </select>
-        ) : undefined} />
-      <Tabs<Tab> value={tab} onChange={setTab} tabs={[
+    <>
+      <PageHeader title={t('driver.dispatch.title')} subtitle={t('driver.dispatch.subtitle')} />
+      <Tabs<Tab> value={tab} onChange={setTab} label={t('driver.dispatch.title')} tabs={[
         { key: 'board', label: t('driver.dispatch.tab.board') },
-        { key: 'map', label: t('dispatchMap.tab') },
         { key: 'drivers', label: t('driver.dispatch.tab.drivers') },
         { key: 'cash', label: t('driver.dispatch.tab.cash') },
         { key: 'zones', label: t('zones.tab') },
       ]} />
-      {tab === 'board' && <Board branchId={branchId} />}
+      {tab === 'board' && <Board key={branchId} branchId={branchId} />}
       {tab === 'drivers' && <Drivers />}
       {tab === 'cash' && <Cash />}
-      {tab === 'map' && <DispatchMap branchId={branchId} />}
       {tab === 'zones' && <Zones key={branchId} branchId={branchId} />}
-    </ModuleGate>
+    </>
   );
 }

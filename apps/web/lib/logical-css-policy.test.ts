@@ -15,6 +15,11 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/_home',
   // 21-STUDIO: the Studio workspace and its canvas document.
   'apps/web/app/dashboard/[orgId]/website', 'apps/web/app/studio-canvas',
+  // 21-OPS: the Orders board and list, the shared ticket board and kitchen display.
+  'apps/web/app/dashboard/[orgId]/orders', 'apps/web/components/ops', 'apps/web/app/kitchen', 'apps/web/app/dashboard/[orgId]/kitchen',
+  'apps/web/app/dashboard/[orgId]/floor', 'apps/web/app/dashboard/[orgId]/host', 'apps/web/app/dashboard/[orgId]/reservations',
+  'apps/web/components/floor/LiveFloor.tsx', 'apps/web/components/floor/WalkInSheet.tsx', 'apps/web/components/floor/areas.ts',
+  'apps/web/app/dashboard/[orgId]/delivery', 'apps/web/app/dashboard/[orgId]/inventory',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

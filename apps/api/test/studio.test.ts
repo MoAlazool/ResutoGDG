@@ -143,7 +143,9 @@ describe('publishing and the public website', () => {
     expect(pubSite.body.menuHighlights[0]).toMatchObject({ priceMinor: 18500, currency: 'EGP' });
     expect(pubSite.body.branches[0]).toMatchObject({ name: 'Main branch', acceptsDelivery: true });
     expect(pubSite.body.links).toEqual({ reserve: `/reserve/${tenant.slug}`, order: `/order/${tenant.slug}`, site: `/r/${tenant.slug}` });
-    const raw = JSON.stringify(pubSite.body);
+    // The random test slug is expected in the answer and can itself contain "qr" (or "cost"), so it is removed before
+    // the text check; everything else in the body is still checked.
+    const raw = JSON.stringify(pubSite.body).split(tenant.slug).join('');
     for (const leak of ['cost', 'qr', menu.qrToken, 'internal', 'stock', tenant.owner.email]) expect(raw.toLowerCase()).not.toContain(leak.toLowerCase());
 
     // Draft edits stay private until the next publish.

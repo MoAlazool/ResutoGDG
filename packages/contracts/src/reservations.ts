@@ -8,14 +8,7 @@ import { TABLE_FEATURES } from './floor';
 
 export const reservationsContractsVersion = 2 as const;
 
-/** Legacy rules (server.js): 5-minute hold, check-in −15/+30 minutes, bookings up to 180 days ahead. */
-export const RESERVATION_RULES = {
-  holdMinutes: 5,
-  depositWindowMinutes: 15,
-  checkInBeforeMinutes: 15,
-  checkInAfterMinutes: 30,
-  maxDaysAhead: 180,
-} as const;
+export { RESERVATION_RULES } from './reservation-rules';
 
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'HH:MM');
 

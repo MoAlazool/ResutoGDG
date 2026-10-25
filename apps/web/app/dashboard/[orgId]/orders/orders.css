@@ -1,0 +1,5 @@
+/* Orders (21-OPS): the board is components/ops (ops.css, kds.css); this file holds the list and sheet details. */
+.orders-page .page-header .heading-actions { align-items: center; }
+.requests-skel { display: block; inline-size: 220px; block-size: 30px; }
+.order-sheet-actions { gap: var(--space-2); flex-wrap: wrap; }
+.order-sheet .ops-line { font-variant-numeric: tabular-nums; }

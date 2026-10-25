@@ -19,3 +19,4 @@ export * from './onboarding';
 export * from './csv';
 export * from './studio-templates';
 export * from './studio-sections';
+export * from './reservation-rules';
