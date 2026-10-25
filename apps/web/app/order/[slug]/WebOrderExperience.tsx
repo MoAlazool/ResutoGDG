@@ -14,6 +14,7 @@ import { GuestDock } from '@/components/guest/dock';
 import { MenuSkeleton } from '@/components/guest/skeleton';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart, type Cart } from '@/components/guest/menu';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
+import { useFunnel } from '@/lib/funnel-beacon';
 import { MetaPixel, metaOrderPlaced, metaTrack } from '@/lib/tracking/MetaPixel';
 import { AREA_ERRORS, NO_CHOICE, ServiceAreaFields, useServiceArea, type AreaChoice } from './ServiceArea';
 
@@ -36,16 +37,19 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
   const [product, setProduct] = useState<PublicMenuProduct | null>(null);
   const [sheet, setSheet] = useState<'cart' | 'checkout' | 'assistant' | null>(null);
   const baseCart = useCart(`resuto.webcart.${slug}`);
+  // First-party funnel counts (21-CRM, lib/funnel-beacon.ts): page view, add to cart, checkout started.
+  const funnel = useFunnel('order', slug, { branchId: menu?.branch.id });
   // Meta Pixel (INT-20): every add on the website is an AddToCart; a no-op unless the guest agreed to ad measurement.
   const cart: Cart = {
     ...baseCart,
     add: (productId, quantity, modifiers, notes) => {
       baseCart.add(productId, quantity, modifiers, notes);
+      funnel.added();
       metaTrack(slug, 'AddToCart', { content_ids: [productId], content_type: 'product' });
     },
     addMany: (lines) => {
       baseCart.addMany(lines);
-      if (lines.length) metaTrack(slug, 'AddToCart', { content_ids: lines.map((l) => l.productId), content_type: 'product' });
+      if (lines.length) { funnel.added(); metaTrack(slug, 'AddToCart', { content_ids: lines.map((l) => l.productId), content_type: 'product' }); }
     },
   };
   const products = useMemo(() => productIndex(menu), [menu]);
@@ -98,7 +102,7 @@ export function WebOrderExperience({ slug, branchCode, initialMenu }: { slug: st
       {sheet === 'cart' && (
         <CartSheet cart={cart} products={products} currency={currency} onClose={() => setSheet(null)} suggestions={suggestions}
           onSuggest={(id) => { cart.add(id, 1); toast.show(t('core.guest.addedConfirm')); }}
-          footer={<button type="button" className="gx-btn is-primary is-block" disabled={!cart.count || !canOrder} onClick={() => { metaTrack(slug, 'InitiateCheckout'); setSheet('checkout'); }}>{t('core.web.checkout')}</button>} />
+          footer={<button type="button" className="gx-btn is-primary is-block" disabled={!cart.count || !canOrder} onClick={() => { funnel.checkout(); metaTrack(slug, 'InitiateCheckout'); setSheet('checkout'); }}>{t('core.web.checkout')}</button>} />
       )}
       {sheet === 'assistant' && menu && (
         <AssistantSheet endpoint={`/public/order/${encodeURIComponent(slug)}/assistant`} extra={{ branch: menu.branch.code }} currency={currency} products={products} onClose={() => setSheet(null)}

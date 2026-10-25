@@ -9,6 +9,7 @@ import { ConsumerFooter, ConsumerHeader, Cover } from '@/components/guest/shell'
 import { MenuSkeleton } from '@/components/guest/skeleton';
 import { SocialIcons } from '@/components/guest/SocialIcons';
 import { api, ApiRequestError } from '@/lib/api';
+import { useFunnel } from '@/lib/funnel-beacon';
 import { pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import './menu-only.css';
@@ -28,6 +29,8 @@ export function MenuOnlyExperience({ slug, branchCode, initialMenu }: { slug: st
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<PublicMenuProduct | null>(null);
   const first = useRef(true);
+  // First-party funnel page view (21-CRM). The menu QR link carries no marker, so it counts as a visit, not a QR scan.
+  useFunnel('m', slug, { branchId: menu?.branch.id });
 
   // Server-rendered for the requested branch; another branch (or a slow or failed server read) loads here.
   useEffect(() => {

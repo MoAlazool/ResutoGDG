@@ -6,6 +6,7 @@ import type { PublicMenu, PublicStorefront } from '@resuto/contracts';
 import { langAlternates } from '@/components/landing/legacy-routes';
 import { getT } from '@/lib/i18n/server';
 import { APP_ORIGIN, SERVER_API_URL } from '../_components/load-site';
+import { FunnelView } from '@/components/guest/FunnelView';
 import { Storefront, type StorefrontMenu } from './Storefront';
 import './storefront.css';
 
@@ -58,5 +59,10 @@ export default async function StorefrontPage({ params }: Params) {
   const [{ locale }, menu, h] = await Promise.all([getT(), loadMenu(sf), headers()]);
   // On the restaurant's own domain the site is "/", not /r/<slug> (middleware.ts rewrites host-relative paths).
   const onCustomHost = !!h.get('x-resuto-site-host');
-  return <Storefront sf={sf} initialMenu={menu} locale={locale} siteHref={onCustomHost ? '/' : sf.links.site} />;
+  return (
+    <>
+      <FunnelView surface="r" slug={sf.org.slug} branchId={sf.branch.id} />
+      <Storefront sf={sf} initialMenu={menu} locale={locale} siteHref={onCustomHost ? '/' : sf.links.site} />
+    </>
+  );
 }

@@ -19,6 +19,7 @@ import { billStage } from '@/components/guest/bill-state';
 import { CartSheet, useSuggestions } from '@/components/guest/cart';
 import { useVisitLive } from '@/components/guest/live';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart } from '@/components/guest/menu';
+import { trackedCart, useFunnel } from '@/lib/funnel-beacon';
 import { RatingSheet } from '@/components/guest/rating';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 import { StatusOrder } from '@/components/guest/tracker';
@@ -43,10 +44,15 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
   const [asking, setAsking] = useState(false);
   const toast = useToast();
-  const cart = useCart(`resuto.cart.counter.${code}`);
+  const baseCart = useCart(`resuto.cart.counter.${code}`);
   const products = useMemo(() => productIndex(menu), [menu]);
   const currency = menu?.org.currency ?? venue?.org.currency ?? visit?.currency ?? 'EGP';
   const org = menu?.org ?? venue?.org ?? null;
+  // First-party funnel counts (21-CRM): this page only opens from the venue's printed QR code, so it is a QR scan.
+  const funnel = useFunnel('v', org?.slug, { branchId: menu?.branch.id ?? visit?.branchId, qr: true });
+  const cart = trackedCart(baseCart, funnel.added);
+  // The cart sheet is this page's checkout (review, then Confirm order).
+  const openCart = () => { if (cart.count) funnel.checkout(); setSheet('cart'); };
   const branch = venue?.branch ?? (menu ? { name: menu.branch.name, nameAr: menu.branch.nameAr } : null);
 
   /** Keeps the session's visit (after a rejoin or the first order); a session without one clears what the phone held. */
@@ -227,7 +233,7 @@ export function CounterExperience({ code, venue, initialMenu }: { code: string; 
 
       <div className={`gx-dock${cart.count ? ' has-items' : ''}`}>
         {ordering && <button type="button" className="gx-btn" onClick={openBill}>{t('core.guest.viewBill')}{due > 0 ? <> · <bdi>{money(due, currency, locale)}</bdi></> : null}</button>}
-        <button type="button" className="gx-btn is-primary" onClick={() => setSheet('cart')} aria-label={`${t('core.guest.viewCart')} (${t('core.guest.itemsInCart', { n: cart.count })})`}>{t('core.guest.viewCart')}</button>
+        <button type="button" className="gx-btn is-primary" onClick={openCart} aria-label={`${t('core.guest.viewCart')} (${t('core.guest.itemsInCart', { n: cart.count })})`}>{t('core.guest.viewCart')}</button>
         {live.reconnecting && <span className="gx-live" role="status">● {t('core.guest.reconnecting')}</span>}
         <strong><bdi>{money(estimate(cart, products), currency, locale)}</bdi></strong>
         <span className="gx-count" aria-hidden>{cart.count}</span>
