@@ -10,45 +10,8 @@ export const studioContractsVersion = 2 as const;
 export const WEBSITE_TEMPLATES = ['olive', 'smash', 'minimal'] as const;
 export type WebsiteTemplate = (typeof WEBSITE_TEMPLATES)[number];
 
-export const SECTION_KINDS = [
-  'hero', 'about', 'menu_highlights', 'gallery', 'reservations', 'ordering', 'location', 'hours', 'testimonials', 'contact', 'custom',
-  // 21-STUDIO: a promotional banner, offers (dishes with their discount badges), social links, questions and answers, the
-  // whole menu as text.
-  'promo_banner', 'offers', 'social', 'faq', 'menu_full',
-] as const;
-export type SectionKind = (typeof SECTION_KINDS)[number];
-
-/**
- * Content fields each 21-STUDIO section kind accepts (the older kinds keep accepting every field, as before). Copy
- * fields (eyebrow, headline, body, ctaLabel) and `layout` are open to all of them.
- */
-export const SECTION_KIND_FIELDS: Partial<Record<SectionKind, readonly string[]>> = {
-  promo_banner: ['mediaId', 'promotionCode', 'badge'],
-  offers: ['productIds', 'promotionCode', 'badge'],
-  social: [],
-  faq: ['items'],
-  menu_full: ['categoryIds'],
-};
-const COPY_FIELDS = ['eyebrow', 'headline', 'body', 'ctaLabel', 'layout'];
-
-/** Why a section's content does not fit its kind (empty when it does). Shared by the API and the editor. */
-export function sectionContentIssues(kind: string, content: Record<string, unknown>): Array<{ path: string; message: string }> {
-  const allowed = SECTION_KIND_FIELDS[kind as SectionKind];
-  if (!allowed) return [];
-  const issues: Array<{ path: string; message: string }> = [];
-  for (const [key, value] of Object.entries(content)) {
-    if (value === undefined || COPY_FIELDS.includes(key) || allowed.includes(key)) continue;
-    issues.push({ path: `content.${key}`, message: `A ${kind} section has no ${key}` });
-  }
-  if (kind === 'faq') {
-    const items = (content.items ?? []) as Array<{ title?: { en?: string; ar?: string }; body?: { en?: string; ar?: string } }>;
-    items.forEach((item, i) => {
-      if (!item.title?.en && !item.title?.ar) issues.push({ path: `content.items.${i}.title`, message: 'Write the question in English or Arabic' });
-      if (!item.body?.en && !item.body?.ar) issues.push({ path: `content.items.${i}.body`, message: 'Write the answer in English or Arabic' });
-    });
-  }
-  return issues;
-}
+import { SECTION_ALIGNS, SECTION_KINDS, SECTION_SPACINGS, SECTION_TONES, sectionContentIssues, type SectionKind } from './studio-sections';
+export { SECTION_ALIGNS, SECTION_KIND_FIELDS, SECTION_KINDS, SECTION_SPACINGS, SECTION_TONES, sectionContentIssues, type SectionKind } from './studio-sections';
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #173f36');
 
@@ -83,10 +46,7 @@ export const updateWebsite = z.object({
 }).strict();
 export type UpdateWebsite = z.infer<typeof updateWebsite>;
 
-/** Section-level layout from the inspector: alignment, vertical spacing, surface tone and grid columns. */
-export const SECTION_ALIGNS = ['start', 'center'] as const;
-export const SECTION_SPACINGS = ['compact', 'normal', 'roomy'] as const;
-export const SECTION_TONES = ['default', 'muted', 'accent', 'contrast'] as const;
+/** Section-level layout from the inspector (lists in ./studio-sections.ts). */
 export const sectionLayout = z.object({
   align: z.enum(SECTION_ALIGNS).optional(),
   spacing: z.enum(SECTION_SPACINGS).optional(),

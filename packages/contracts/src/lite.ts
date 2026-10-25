@@ -16,3 +16,4 @@ export * from './slugs';
 export * from './marketplace';
 export * from './whatsapp-onboarding';
 export * from './studio-templates';
+export * from './studio-sections';
