@@ -7,6 +7,3 @@ export function sanitizeQrSvg(svg: string): string | null {
   if (/<script|on[a-z]+\s*=|javascript:|<foreignObject|<iframe|xlink:href\s*=\s*["']?(?!#)/i.test(body)) return null;
   return body;
 }
-
-/** Only the API's own PNG data URL is offered for download (never another scheme). */
-export const isPngDataUrl = (v: string) => /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(v);

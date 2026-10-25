@@ -2,7 +2,7 @@
 // The Free QR-menu onboarding wizard (21-ONB increment 2, plan §6.2): nine steps from the signup to a printed menu QR,
 // saved on the server after every step (GET/PUT /v1/onboarding/progress), so it resumes on any device. The restaurant
 // is created on the Free plan at the address step; nothing here offers ordering, payments or other paid features
-// (they appear only in "Explore Resuto" from the last step). Steps after the first two load on demand.
+// (they appear only in "Explore Resuto" from the last step). The restaurant's steps load on demand, as one chunk.
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -17,16 +17,12 @@ import { WizardContext, errorText, type WizardOrg, type WizardValue } from './wi
 import '../onboarding.css';
 
 const loading = () => <div className="onb-step-loading" aria-hidden="true" />;
-const BrandStep = dynamic(() => import('./steps/BrandStep').then((m) => m.BrandStep), { loading });
-const MenuStep = dynamic(() => import('./steps/MenuStep').then((m) => m.MenuStep), { loading });
-const DetailsStep = dynamic(() => import('./steps/DetailsStep').then((m) => m.DetailsStep), { loading });
-const SocialStep = dynamic(() => import('./steps/SocialStep').then((m) => m.SocialStep), { loading });
-const PublishStep = dynamic(() => import('./steps/PublishStep').then((m) => m.PublishStep), { loading });
-const QrStep = dynamic(() => import('./steps/QrStep').then((m) => m.QrStep), { loading });
+const RestaurantSteps = dynamic(() => import('./steps/RestaurantSteps').then((m) => m.RestaurantSteps), { loading });
 
 const STEP_VIEW: Record<Exclude<OnboardingStep, 'account'>, () => ReactNode> = {
-  restaurant: () => <RestaurantStep />, address: () => <AddressStep />, brand: () => <BrandStep />, menu: () => <MenuStep />,
-  details: () => <DetailsStep />, social: () => <SocialStep />, publish: () => <PublishStep />, qr: () => <QrStep />,
+  restaurant: () => <RestaurantStep />, address: () => <AddressStep />, brand: () => <RestaurantSteps step="brand" />,
+  menu: () => <RestaurantSteps step="menu" />, details: () => <RestaurantSteps step="details" />, social: () => <RestaurantSteps step="social" />,
+  publish: () => <RestaurantSteps step="publish" />, qr: () => <RestaurantSteps step="qr" />,
 };
 
 export function Wizard() {

@@ -8,9 +8,12 @@ import type { BrandView, MenuQr } from '@resuto/contracts';
 import { MENU_QR_POSTERS, type MenuQrPoster } from '@resuto/contracts/lite';
 import { useT } from '@/lib/i18n/client';
 import { pick } from '@/lib/pick';
-import { isPngDataUrl, sanitizeQrSvg } from '@/lib/qr-svg';
+import { sanitizeQrSvg } from '@/lib/qr-svg';
 import { StepFrame } from '../StepFrame';
 import { errorText, useWizard } from '../wizard-context';
+
+/** Only the API's own PNG data URL is offered for download (never another scheme). */
+const isPngDataUrl = (v: string) => /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(v);
 
 /** Saves `href` (a blob or data: URL) as `name`. */
 function save(href: string, name: string) {
