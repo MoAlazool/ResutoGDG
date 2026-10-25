@@ -8,7 +8,7 @@
 //   derived touch when the stored one rests on another branch.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inbound, sandboxChannel } from './growth-helpers';
-import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, unique, type SeededMenu, type TestApp, type TestTenant } from './helpers';
+import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, testDb, unique, type SeededMenu, type TestApp, type TestTenant } from './helpers';
 import { addBranch, placeOrder } from './insights-fixtures';
 
 let t: TestApp;
@@ -151,7 +151,4 @@ describe('customers.first_touch', () => {
   });
 });
 
-async function testDbClient() {
-  const { testDb } = await import('./helpers');
-  return testDb().connect();
-}
+const testDbClient = () => testDb().connect();
