@@ -38,6 +38,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   const nav: Array<{ href: string; label: string; glyph: NavGlyphName }> = [
     { href: '/admin', label: s.tenants, glyph: 'tenants' }, { href: '/admin/prices', label: s.prices, glyph: 'prices' }, { href: '/admin/operations', label: s.operations, glyph: 'operations' },
+    { href: '/admin/providers', label: s.providers, glyph: 'integrations' },
   ];
   const me = session.me;
   return (
