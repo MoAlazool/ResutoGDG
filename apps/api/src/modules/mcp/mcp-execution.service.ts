@@ -1,8 +1,9 @@
 import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import {
-  CHANGE_OPS, MCP_OP_TOOLS, MCP_TOOLS, ROLE_PERMISSIONS, type ChangeOpGroup, type ChangeOpType, type ChangePolicyMode, type ChangeSetToolOutput,
+  CHANGE_OPS, MCP_OP_TOOLS, MCP_TOOLS, ROLE_PERMISSIONS, type ChangeOpGroup, type ChangeOpType, type ChangePolicyMode,
   type ChangeSetView, type McpToolDescriptor, type McpToolName, type Role,
 } from '@resuto/contracts';
+import type { ChangeSetToolOutput } from '@resuto/contracts/mcp-tools';
 import { z } from 'zod';
 import { TenantContext } from '../../common/auth/context';
 import { fingerprint } from '../../common/crypto/hash';

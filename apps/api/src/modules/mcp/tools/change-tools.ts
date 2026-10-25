@@ -4,7 +4,8 @@
 // set by the restaurant's approval policy made stricter by the connection's overrides: applied at once, waiting for a
 // person (approval_required, poll get_approval_status) or refused (change_blocked). There is no free text that becomes
 // code or SQL: every parameter is typed by the contracts.
-import { MCP_CHANGE_CONTROLS, type ChangeOpType } from '@resuto/contracts';
+import type { ChangeOpType } from '@resuto/contracts';
+import { MCP_CHANGE_CONTROLS } from '@resuto/contracts/mcp-tools';
 import { notFound } from '../../../common/errors/domain-error';
 import { iso } from '../mcp.util';
 import { defineTool, type McpChangeProposal, type McpTool } from './types';

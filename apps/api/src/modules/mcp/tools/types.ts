@@ -1,6 +1,5 @@
-import {
-  MCP_TOOLS, mcpToolInputs, mcpToolOutputs, type ChangeOpType, type FinancePeriod, type McpToolMeta, type McpToolName, type ProfitAndLoss,
-} from '@resuto/contracts';
+import { MCP_TOOLS, type ChangeOpType, type FinancePeriod, type McpToolMeta, type McpToolName, type ProfitAndLoss } from '@resuto/contracts';
+import { mcpToolInputs, mcpToolOutputs } from '@resuto/contracts/mcp-tools';
 import type { ZodType } from 'zod';
 import type { TenantContext } from '../../../common/auth/context';
 import type { Tx } from '../../../common/db/db.service';

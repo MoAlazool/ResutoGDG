@@ -1,7 +1,8 @@
 // FT-17 read tools: menu (ids for update_product_availability), finance P&L (the finance module's own computation),
 // payments (read-only, masked), delivery status, and query_data: a bounded, schema-based query compiled from fixed SQL
 // fragments. No input string ever becomes SQL text; values are bound parameters.
-import { ORDER_STATUSES, QUERY_DATASETS, untrusted, type QueryDataset } from '@resuto/contracts';
+import { ORDER_STATUSES, untrusted } from '@resuto/contracts';
+import { QUERY_DATASETS, type QueryDataset } from '@resuto/contracts/mcp-tools';
 import { DomainError } from '../../../common/errors/domain-error';
 import type { Tx } from '../../../common/db/db.service';
 import type { TenantContext } from '../../../common/auth/context';
