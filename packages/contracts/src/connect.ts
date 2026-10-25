@@ -78,6 +78,13 @@ export const CONVERSATION_STATUSES = ['bot', 'open', 'handoff', 'closed'] as con
 export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
 
 const connectBoolQuery = z.enum(['true', 'false']).transform((v) => v === 'true');
+/**
+ * 21-INBOX increment 2: workspace views the other filters cannot express. `ordering`: an ordering session is in
+ * progress (not completed, cancelled or expired). `leads`: the contact has no counted order yet (confirmed and not
+ * cancelled, in the caller's branch scope), or no customer profile at all.
+ */
+export const INBOX_VIEWS = ['leads', 'ordering'] as const;
+export type InboxView = (typeof INBOX_VIEWS)[number];
 export const inboxConversationFilters = pagination.extend({
   status: z.enum(CONVERSATION_STATUSES).optional(),
   unread: connectBoolQuery.optional(),
@@ -86,6 +93,7 @@ export const inboxConversationFilters = pagination.extend({
   q: z.string().trim().max(80).optional(),
   /** 21-INBOX: conversations carrying this tag (conversation_tags). */
   tagId: uuid.optional(),
+  view: z.enum(INBOX_VIEWS).optional(),
 });
 export type InboxConversationFilters = z.infer<typeof inboxConversationFilters>;
 

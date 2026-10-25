@@ -6,8 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MessagingService } from '../src/modules/connect/messaging.service';
 import { ProviderHttp } from '../src/modules/integrations/provider-http';
 import { inbound, sandboxChannel, scriptedFetch } from './growth-helpers';
-import { addMember, auth, bootTestApp, createTenant, sql, type TestApp, type TestTenant, type TestUser } from './helpers';
-import { addBranch } from './insights-fixtures';
+import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
+import { addBranch, placeOrder } from './insights-fixtures';
 
 let t: TestApp;
 let tenant: TestTenant;
@@ -312,5 +312,64 @@ describe('saved replies', () => {
     expect((await t.http.patch(`${conn(tenant)}/saved-replies/${own.body.id}`).set(auth(mainManager)).send({ branchId: null })).status).toBe(403);
     expect((await t.http.patch(`${conn(tenant)}/saved-replies/${own.body.id}`).set(auth(mainManager)).send({ branchId: north })).status).toBe(403);
     expect((await t.http.patch(`${conn(tenant)}/saved-replies/${own.body.id}`).set(auth(mainManager)).send({ title: 'Main parking (front)' })).status).toBe(200);
+  });
+});
+
+describe('workspace views (increment 2): leads and ordering', () => {
+  let menu: SeededMenu;
+  const list = (u: TestUser, query: string, o: TestTenant = tenant) => t.http.get(`${conn(o)}/conversations?limit=200&${query}`).set(auth(u));
+  const ids = (res: { body: { items: Array<{ id: string }> } }) => res.body.items.map((c) => c.id);
+  const item = (res: { body: { items: any[] } }, id: string) => res.body.items.find((c) => c.id === id);
+  beforeAll(async () => { menu = await seedMenu(tenant); });
+
+  it('ordering lists conversations with a live ordering session, and each item names its step', async () => {
+    const ordering = await inbound(t, tenant, channelId, nextPhone(), { text: 'order', name: 'Salma' });
+    const chatting = await inbound(t, tenant, channelId, nextPhone(), { text: 'Do you open on Friday?' });
+    const res = await list(tenant.owner, 'view=ordering');
+    expect(res.status).toBe(200);
+    expect(ids(res)).toContain(ordering.conversationId);
+    expect(ids(res)).not.toContain(chatting.conversationId);
+    expect(item(res, ordering.conversationId).orderingStep).toEqual(expect.any(String));
+    expect(['completed', 'cancelled', 'expired']).not.toContain(item(res, ordering.conversationId).orderingStep);
+    expect(item(await list(tenant.owner, ''), chatting.conversationId)).toMatchObject({ orderingStep: null, branchId: null });
+    // A cancelled session leaves the view.
+    await t.http.post(`${conn(tenant)}/conversations/${ordering.conversationId}/ordering/cancel`).set(auth(tenant.owner)).expect(200);
+    expect(ids(await list(tenant.owner, 'view=ordering'))).not.toContain(ordering.conversationId);
+    expect(item(await list(tenant.owner, ''), ordering.conversationId).orderingStep).toBeNull();
+  });
+
+  it('leads are contacts without a counted order in the caller\'s branch scope; an order makes them a customer', async () => {
+    const phone = nextPhone();
+    const { conversationId } = await inbound(t, tenant, channelId, phone, { text: 'Price of the family meal?', name: 'Karim' });
+    let res = await list(tenant.owner, 'view=leads');
+    expect(ids(res)).toContain(conversationId);
+    expect(item(res, conversationId).lead).toBe(true);
+    await placeOrder(t, tenant, { branchId: north, channel: 'web', fulfillment: 'pickup', lines: [{ productId: menu.products.fries, quantity: 1 }], customer: { phone } });
+    res = await list(tenant.owner, 'view=leads');
+    expect(ids(res)).not.toContain(conversationId);
+    expect(item(await list(tenant.owner, ''), conversationId).lead).toBe(false);
+    // The order was at North: for a manager of the main branch the contact has not ordered yet (their branches only).
+    const scoped = await list(mainManager, 'view=leads');
+    expect(scoped.status).toBe(200);
+    expect(ids(scoped)).toContain(conversationId);
+    // A cancelled order does not count.
+    await sql(`update orders set status = 'cancelled' where customer_id = (select customer_id from conversations where id = $1)`, [conversationId]);
+    expect(ids(await list(tenant.owner, 'view=leads'))).toContain(conversationId);
+  });
+
+  it('refuse roles without connect:read, other restaurants and unknown views; branch scope still applies', async () => {
+    const { conversationId: northConv } = await inbound(t, tenant, northChannelId, nextPhone(), { text: 'order' });
+    expect((await list(waiter, 'view=leads')).status).toBe(403);
+    expect((await list(waiter, 'view=ordering')).status).toBe(403);
+    expect((await list(other.owner, 'view=ordering')).status).toBe(404); // not a member of this restaurant
+    const own = await list(other.owner, 'view=ordering', other);
+    expect(own.status).toBe(200);
+    expect(ids(own)).not.toContain(northConv);
+    expect((await list(tenant.owner, 'view=vip')).status).toBe(400);
+    expect((await list(tenant.owner, 'view=')).status).toBe(400);
+    // North's ordering conversation is invisible to a manager of the main branch, in every view.
+    expect(ids(await list(tenant.owner, 'view=ordering'))).toContain(northConv);
+    for (const q of ['view=ordering', 'view=leads', '']) expect(ids(await list(mainManager, q))).not.toContain(northConv);
+    expect(item(await list(tenant.owner, ''), northConv).branchId).toBe(north);
   });
 });
