@@ -18,7 +18,7 @@ Operational changes use existing ETags and foreground polling (5 seconds in this
 
 ## P0 baseline gap: staff quote and conditional creation
 
-**Draft resolution:** Claude’s `/pos/orders/quote` and expected total/line consent address this on device routes; activate after 0.2.0 staff-on-device finalization and native staging acceptance. The proposal below is historical context for the staff-route gap, not a request for a parallel quote design.
+**Draft resolution:** Claude’s `/pos/orders/quote` and expected total/line consent address this on device routes; activate after 0.2.0 staging deployment and native acceptance. The proposal below is historical context for the staff-route gap, not a request for a parallel quote design.
 
 **Missing in the staff baseline:** `staffOrderRequest` has neither `expectedTotalMinor` nor a quote/version token. Public guest/web quoting does not authorize a staff POS to reuse guest identity or public visit tokens. Creation can reprice between menu review and submission.
 
@@ -76,7 +76,7 @@ Use Claude's `docs/api/IPAD_INTEGRATION.md` migration sequence: (1) merged/deplo
 
 Finalization needed from Claude:
 
-1. Deploy and verify 0.2.0's staff header authentication, `device.requireStaff`, effective permissions and staff attribution alongside device ID; publish exact `staff` response and refresh/error cases. Confirm a missing/expired staff token never acts as device role, and cross-tenant/branch lookup is denied without disclosure.
+1. Deploy and verify 0.2.0's staff header authentication, `device.requireStaff`, effective permissions and staff attribution alongside device ID; native decoding now uses the finalized `staff: {id,email,role}` and top-level/session `requireStaff` fields. Verify a missing/expired staff token never acts as device role, and cross-tenant/branch lookup is denied without disclosure.
 2. Deploy and verify permanent `GET /pos/orders/by-client-id/{clientOrderId}` semantics and accepted/processing/404 response. Native keeps the same UUID and payload on ambiguous retries; legacy in-flight orders retain their original endpoint/key and six-day stop. Do not migrate an ambiguous legacy operation to `/pos/orders`.
 3. Clarify POS submit's additive support for existing staff promotion codes, customer IDs and delivery addresses. Current adapter rejects those conversions; existing supported workflows continue on staff routes. An unimplemented field must not silently disappear.
 4. Define print-claim recovery when physical completion exceeds 60 s or TCP/AirPrint output is ambiguous; the native client will not automatically mark a socket handoff as printed.

@@ -1,309 +1,342 @@
-Another instance of SwiftPM is already running using '/workspace/ResutoGDG/apps/ipad-pos/.build', waiting until that process has finished execution...[0/1] Planning build
+[0/1] Planning build
 Building for debugging...
 [0/5] Write sources
 [2/5] Write swift-version--1255A8ECADF5D0A.txt
-[4/8] Compiling ResutoCore POSShadowSync.swift
-[5/8] Compiling ResutoCore POSEventJournal.swift
-[6/8] Emitting module ResutoCore
-[7/10] Write Objects.LinkFileList
-[8/12] Linking ResutoStagingProbe
-[10/12] Emitting module ResutoCoreTests
-[11/12] Compiling ResutoCoreTests POSCompatibilityTests.swift
-[12/19] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageDiscoveredTests.derived/all-discovered-tests.swift
-[13/20] Write sources
-[14/20] Wrapping AST for ResutoCoreTests for debugging
-[16/23] Compiling ResutoPOSPackageDiscoveredTests all-discovered-tests.swift
-[17/23] Compiling ResutoPOSPackageDiscoveredTests ResutoCoreTests.swift
-[18/23] Emitting module ResutoPOSPackageDiscoveredTests
-[19/24] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageTests.derived/runner.swift
-[20/25] Write sources
-[21/25] Wrapping AST for ResutoPOSPackageDiscoveredTests for debugging
-[23/27] Compiling ResutoPOSPackageTests runner.swift
-[24/27] Emitting module ResutoPOSPackageTests
-[25/27] Write Objects.LinkFileList
-[26/27] Linking ResutoPOSPackageTests.xctest
-Build complete! (3.81s)
-Test Suite 'All tests' started at 2026-10-25 01:16:27.878
-Test Suite 'debug.xctest' started at 2026-10-25 01:16:27.879
-Test Suite 'ApprovedEnvironmentTests' started at 2026-10-25 01:16:27.879
-Test Case 'ApprovedEnvironmentTests.testArbitraryAPIOrAuthHostCannotReceiveCredentials' started at 2026-10-25 01:16:27.879
+[4/7] Compiling ResutoCore Domain.swift
+[5/7] Emitting module ResutoCore
+[6/17] Wrapping AST for ResutoCore for debugging
+[8/21] Emitting module ResutoStagingProbe
+[9/21] Write Objects.LinkFileList
+[10/21] Linking ResutoStagingProbe
+[12/21] Emitting module ResutoCoreTests
+[13/21] Compiling ResutoCoreTests CoreTests.swift
+[14/21] Compiling ResutoCoreTests POSCompatibilityTests.swift
+[15/22] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageDiscoveredTests.derived/all-discovered-tests.swift
+[16/23] Write sources
+[17/23] Wrapping AST for ResutoCoreTests for debugging
+[19/26] Compiling ResutoPOSPackageDiscoveredTests all-discovered-tests.swift
+[20/26] Emitting module ResutoPOSPackageDiscoveredTests
+[21/26] Compiling ResutoPOSPackageDiscoveredTests ResutoCoreTests.swift
+[22/27] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/debug/ResutoPOSPackageTests.derived/runner.swift
+[23/28] Write sources
+[24/28] Wrapping AST for ResutoPOSPackageDiscoveredTests for debugging
+[26/30] Emitting module ResutoPOSPackageTests
+[27/30] Compiling ResutoPOSPackageTests runner.swift
+[28/30] Write Objects.LinkFileList
+[29/30] Linking ResutoPOSPackageTests.xctest
+Build complete! (4.17s)
+Test Suite 'All tests' started at 2026-10-25 10:53:38.849
+Test Suite 'debug.xctest' started at 2026-10-25 10:53:38.850
+Test Suite 'ApprovedEnvironmentTests' started at 2026-10-25 10:53:38.850
+Test Case 'ApprovedEnvironmentTests.testArbitraryAPIOrAuthHostCannotReceiveCredentials' started at 2026-10-25 10:53:38.850
 Test Case 'ApprovedEnvironmentTests.testArbitraryAPIOrAuthHostCannotReceiveCredentials' passed (0.001 seconds)
-Test Case 'ApprovedEnvironmentTests.testUserInfoQueryFragmentAndUnexpectedPortAreRejected' started at 2026-10-25 01:16:27.879
-Test Case 'ApprovedEnvironmentTests.testUserInfoQueryFragmentAndUnexpectedPortAreRejected' passed (0.101 seconds)
-Test Case 'ApprovedEnvironmentTests.testVerifiedStagingPairIsAccepted' started at 2026-10-25 01:16:27.980
+Test Case 'ApprovedEnvironmentTests.testUserInfoQueryFragmentAndUnexpectedPortAreRejected' started at 2026-10-25 10:53:38.851
+Test Case 'ApprovedEnvironmentTests.testUserInfoQueryFragmentAndUnexpectedPortAreRejected' passed (0.0 seconds)
+Test Case 'ApprovedEnvironmentTests.testVerifiedStagingPairIsAccepted' started at 2026-10-25 10:53:38.851
 Test Case 'ApprovedEnvironmentTests.testVerifiedStagingPairIsAccepted' passed (0.0 seconds)
-Test Suite 'ApprovedEnvironmentTests' passed at 2026-10-25 01:16:27.980
-	 Executed 3 tests, with 0 failures (0 unexpected) in 0.101 (0.101) seconds
-Test Suite 'ArabicAmountEntryTests' started at 2026-10-25 01:16:27.980
-Test Case 'ArabicAmountEntryTests.testArabicKeyboardDecimalSeparatorUsesExactMinorUnits' started at 2026-10-25 01:16:27.980
-Test Case 'ArabicAmountEntryTests.testArabicKeyboardDecimalSeparatorUsesExactMinorUnits' passed (0.002 seconds)
-Test Suite 'ArabicAmountEntryTests' passed at 2026-10-25 01:16:27.983
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'AuthenticationRaceTests' started at 2026-10-25 01:16:27.983
-Test Case 'AuthenticationRaceTests.testLateRefreshCannotRestoreSignedOutSession' started at 2026-10-25 01:16:27.983
-Test Case 'AuthenticationRaceTests.testLateRefreshCannotRestoreSignedOutSession' passed (0.002 seconds)
-Test Suite 'AuthenticationRaceTests' passed at 2026-10-25 01:16:27.984
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'BusinessDateTests' started at 2026-10-25 01:16:27.984
-Test Case 'BusinessDateTests.testBranchBusinessDayAndWesternDigitsOverrideRestaurantTimezone' started at 2026-10-25 01:16:27.985
-Test Case 'BusinessDateTests.testBranchBusinessDayAndWesternDigitsOverrideRestaurantTimezone' passed (0.003 seconds)
-Test Suite 'BusinessDateTests' passed at 2026-10-25 01:16:27.987
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
-Test Suite 'CaptureAtomicityTests' started at 2026-10-25 01:16:27.987
-Test Case 'CaptureAtomicityTests.testCapturedIDCannotBeReusedWithDifferentPayloadOrTenant' started at 2026-10-25 01:16:27.987
-Test Case 'CaptureAtomicityTests.testCapturedIDCannotBeReusedWithDifferentPayloadOrTenant' passed (0.001 seconds)
-Test Case 'CaptureAtomicityTests.testCrashBeforeCartClearCannotCreateSecondOperation' started at 2026-10-25 01:16:27.988
-Test Case 'CaptureAtomicityTests.testCrashBeforeCartClearCannotCreateSecondOperation' passed (0.002 seconds)
-Test Suite 'CaptureAtomicityTests' passed at 2026-10-25 01:16:27.990
-	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
-Test Suite 'CatalogueScaleTests' started at 2026-10-25 01:16:27.990
-Test Case 'CatalogueScaleTests.testArabicCombiningNotesMatchBackendUTF16Limit' started at 2026-10-25 01:16:27.990
-Test Case 'CatalogueScaleTests.testArabicCombiningNotesMatchBackendUTF16Limit' passed (0.0 seconds)
-Test Case 'CatalogueScaleTests.testLargeCatalogueAndSixtyLineEstimate' started at 2026-10-25 01:16:27.991
-/workspace/ResutoGDG/apps/ipad-pos/Tests/ResutoCoreTests/CoreTests.swift:275: Test Case 'CatalogueScaleTests.testLargeCatalogueAndSixtyLineEstimate' measured [Time, seconds] average: 0.008, relative standard deviation: 0.833%, values: [0.008232, 0.008179, 0.008153, 0.008129, 0.008142, 0.008242, 0.008189, 0.008086, 0.008308, 0.008107], performanceMetricID:org.swift.XCTPerformanceMetric_WallClockTime, maxPercentRelativeStandardDeviation: 10.000%, maxStandardDeviation: 0.100
-Test Case 'CatalogueScaleTests.testLargeCatalogueAndSixtyLineEstimate' passed (0.181 seconds)
-Test Case 'CatalogueScaleTests.testModifierOverflowIsRejectedWithoutTrapping' started at 2026-10-25 01:16:28.172
-Test Case 'CatalogueScaleTests.testModifierOverflowIsRejectedWithoutTrapping' passed (0.001 seconds)
-Test Suite 'CatalogueScaleTests' passed at 2026-10-25 01:16:28.173
-	 Executed 3 tests, with 0 failures (0 unexpected) in 0.182 (0.182) seconds
-Test Suite 'DomainTests' started at 2026-10-25 01:16:28.173
-Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' started at 2026-10-25 01:16:28.173
-Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' passed (0.0 seconds)
-Test Case 'DomainTests.testDeliveryCannotBeInventedWithoutAddressFlow' started at 2026-10-25 01:16:28.173
-Test Case 'DomainTests.testDeliveryCannotBeInventedWithoutAddressFlow' passed (0.0 seconds)
-Test Case 'DomainTests.testDineInNeedsTable' started at 2026-10-25 01:16:28.174
-Test Case 'DomainTests.testDineInNeedsTable' passed (0.0 seconds)
-Test Case 'DomainTests.testDuplicateModifierRejected' started at 2026-10-25 01:16:28.174
-Test Case 'DomainTests.testDuplicateModifierRejected' passed (0.0 seconds)
-Test Case 'DomainTests.testForeignModifierRejected' started at 2026-10-25 01:16:28.174
-Test Case 'DomainTests.testForeignModifierRejected' passed (0.0 seconds)
-Test Case 'DomainTests.testLifecycleRespectsFulfillment' started at 2026-10-25 01:16:28.174
-Test Case 'DomainTests.testLifecycleRespectsFulfillment' passed (0.0 seconds)
-Test Case 'DomainTests.testMembershipBranchIsolation' started at 2026-10-25 01:16:28.174
-Test Case 'DomainTests.testMembershipBranchIsolation' passed (0.0 seconds)
-Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' started at 2026-10-25 01:16:28.175
-Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' passed (0.0 seconds)
-Test Case 'DomainTests.testPermissionsFailClosed' started at 2026-10-25 01:16:28.175
-Test Case 'DomainTests.testPermissionsFailClosed' passed (0.0 seconds)
-Test Case 'DomainTests.testQuantityBounds' started at 2026-10-25 01:16:28.175
-Test Case 'DomainTests.testQuantityBounds' passed (0.001 seconds)
-Test Case 'DomainTests.testRequestUsesSupportedStaffChannel' started at 2026-10-25 01:16:28.176
-Test Case 'DomainTests.testRequestUsesSupportedStaffChannel' passed (0.0 seconds)
-Test Case 'DomainTests.testRequiredModifierCannotBeOmitted' started at 2026-10-25 01:16:28.176
-Test Case 'DomainTests.testRequiredModifierCannotBeOmitted' passed (0.0 seconds)
-Test Case 'DomainTests.testResponseContracts' started at 2026-10-25 01:16:28.176
-Test Case 'DomainTests.testResponseContracts' passed (0.001 seconds)
-Test Case 'DomainTests.testSplitPreservesEveryMinorUnit' started at 2026-10-25 01:16:28.177
-Test Case 'DomainTests.testSplitPreservesEveryMinorUnit' passed (0.103 seconds)
-Test Case 'DomainTests.testUnavailableProductRejected' started at 2026-10-25 01:16:28.280
-Test Case 'DomainTests.testUnavailableProductRejected' passed (0.001 seconds)
-Test Case 'DomainTests.testWesternMoneyAndArabicInput' started at 2026-10-25 01:16:28.281
-Test Case 'DomainTests.testWesternMoneyAndArabicInput' passed (0.0 seconds)
-Test Suite 'DomainTests' passed at 2026-10-25 01:16:28.281
-	 Executed 16 tests, with 0 failures (0 unexpected) in 0.108 (0.108) seconds
-Test Suite 'ExtendedCatalogueTests' started at 2026-10-25 01:16:28.281
-Test Case 'ExtendedCatalogueTests.testDeliveryWithAddressUsesSupportedStaffContract' started at 2026-10-25 01:16:28.281
-Test Case 'ExtendedCatalogueTests.testDeliveryWithAddressUsesSupportedStaffContract' passed (0.0 seconds)
-Test Case 'ExtendedCatalogueTests.testInactiveCategoryIsNotOrderable' started at 2026-10-25 01:16:28.282
-Test Case 'ExtendedCatalogueTests.testInactiveCategoryIsNotOrderable' passed (0.0 seconds)
-Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' started at 2026-10-25 01:16:28.282
-Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' passed (0.001 seconds)
-Test Suite 'ExtendedCatalogueTests' passed at 2026-10-25 01:16:28.283
+Test Suite 'ApprovedEnvironmentTests' passed at 2026-10-25 10:53:38.851
 	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
-Test Suite 'FailurePresentationTests' started at 2026-10-25 01:16:28.283
-Test Case 'FailurePresentationTests.testAuthorizationAndDeviceFailuresHaveDistinctRecovery' started at 2026-10-25 01:16:28.283
-Test Case 'FailurePresentationTests.testAuthorizationAndDeviceFailuresHaveDistinctRecovery' passed (0.0 seconds)
-Test Case 'FailurePresentationTests.testBackendMessageCannotLeakIntoLocalizedUIKey' started at 2026-10-25 01:16:28.283
-Test Case 'FailurePresentationTests.testBackendMessageCannotLeakIntoLocalizedUIKey' passed (0.0 seconds)
-Test Case 'FailurePresentationTests.testTransportAndVersionConflictsUseRecoveryKeys' started at 2026-10-25 01:16:28.283
-Test Case 'FailurePresentationTests.testTransportAndVersionConflictsUseRecoveryKeys' passed (0.0 seconds)
-Test Suite 'FailurePresentationTests' passed at 2026-10-25 01:16:28.283
-	 Executed 3 tests, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
-Test Suite 'InitialSessionTests' started at 2026-10-25 01:16:28.283
-Test Case 'InitialSessionTests.testEmptyKeychainDoesNotEstablishASessionOrContactServer' started at 2026-10-25 01:16:28.283
-Test Case 'InitialSessionTests.testEmptyKeychainDoesNotEstablishASessionOrContactServer' passed (0.0 seconds)
-Test Suite 'InitialSessionTests' passed at 2026-10-25 01:16:28.283
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
-Test Suite 'NetworkTests' started at 2026-10-25 01:16:28.283
-Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' started at 2026-10-25 01:16:28.283
-Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' passed (0.001 seconds)
-Test Case 'NetworkTests.testETag304ReusesDecodedBody' started at 2026-10-25 01:16:28.284
-Test Case 'NetworkTests.testETag304ReusesDecodedBody' passed (0.0 seconds)
-Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' started at 2026-10-25 01:16:28.284
-Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' passed (0.0 seconds)
-Test Case 'NetworkTests.testHTTPSRequired' started at 2026-10-25 01:16:28.285
-Test Case 'NetworkTests.testHTTPSRequired' passed (0.0 seconds)
-Test Case 'NetworkTests.testMutationNeverAutomaticallyRetries' started at 2026-10-25 01:16:28.285
-Test Case 'NetworkTests.testMutationNeverAutomaticallyRetries' passed (0.0 seconds)
-Test Case 'NetworkTests.testRefreshSingleFlight' started at 2026-10-25 01:16:28.285
-Test Case 'NetworkTests.testRefreshSingleFlight' passed (0.0 seconds)
-Test Suite 'NetworkTests' passed at 2026-10-25 01:16:28.286
-	 Executed 6 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'POS020ContractTests' started at 2026-10-25 01:16:28.286
-Test Case 'POS020ContractTests.testDeviceBindingMetadataDoesNotExposeToken' started at 2026-10-25 01:16:28.286
-Test Case 'POS020ContractTests.testDeviceBindingMetadataDoesNotExposeToken' passed (0.001 seconds)
-Test Case 'POS020ContractTests.testImplemented020SessionRequiresTopLevelPolicyField' started at 2026-10-25 01:16:28.287
-Test Case 'POS020ContractTests.testImplemented020SessionRequiresTopLevelPolicyField' passed (0.001 seconds)
-Test Case 'POS020ContractTests.testTopLevelRequireStaffMustMatchRequiredDevicePolicy' started at 2026-10-25 01:16:28.287
-Test Case 'POS020ContractTests.testTopLevelRequireStaffMustMatchRequiredDevicePolicy' passed (0.0 seconds)
-Test Suite 'POS020ContractTests' passed at 2026-10-25 01:16:28.288
-	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'POSCancellationTests' started at 2026-10-25 01:16:28.288
-Test Case 'POSCancellationTests.testCancelledResyncNeverAcknowledgesFeedWatermark' started at 2026-10-25 01:16:28.288
-Test Case 'POSCancellationTests.testCancelledResyncNeverAcknowledgesFeedWatermark' passed (0.0 seconds)
-Test Case 'POSCancellationTests.testExpiredPairingCodeHasSpecificRecoveryInsteadOfStaffLogout' started at 2026-10-25 01:16:28.288
-Test Case 'POSCancellationTests.testExpiredPairingCodeHasSpecificRecoveryInsteadOfStaffLogout' passed (0.0 seconds)
-Test Suite 'POSCancellationTests' passed at 2026-10-25 01:16:28.288
-	 Executed 2 tests, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
-Test Suite 'POSCredentialTests' started at 2026-10-25 01:16:28.288
-Test Case 'POSCredentialTests.testDeniedStaffKeepsDeviceAndDoesNotDowngradeToDeviceOnly' started at 2026-10-25 01:16:28.288
-Test Case 'POSCredentialTests.testDeniedStaffKeepsDeviceAndDoesNotDowngradeToDeviceOnly' passed (0.001 seconds)
-Test Case 'POSCredentialTests.testDeviceCannotEscapePOSRouteFamily' started at 2026-10-25 01:16:28.289
-Test Case 'POSCredentialTests.testDeviceCannotEscapePOSRouteFamily' passed (0.0 seconds)
-Test Case 'POSCredentialTests.testDraft01MissingStaffWrongTenantAndWrongBranchFailClosed' started at 2026-10-25 01:16:28.289
-Test Case 'POSCredentialTests.testDraft01MissingStaffWrongTenantAndWrongBranchFailClosed' passed (0.001 seconds)
-Test Case 'POSCredentialTests.testEffectivePermissionsAreIntersectionOfStaffDeviceAndServer' started at 2026-10-25 01:16:28.290
-Test Case 'POSCredentialTests.testEffectivePermissionsAreIntersectionOfStaffDeviceAndServer' passed (0.001 seconds)
-Test Case 'POSCredentialTests.testMutation401IsNeverAutomaticallyReplayed' started at 2026-10-25 01:16:28.291
-Test Case 'POSCredentialTests.testMutation401IsNeverAutomaticallyReplayed' passed (0.001 seconds)
-Test Case 'POSCredentialTests.testPOSHeadersNeverReplaceStaffRouteAuthorization' started at 2026-10-25 01:16:28.291
-Test Case 'POSCredentialTests.testPOSHeadersNeverReplaceStaffRouteAuthorization' passed (0.001 seconds)
-Test Case 'POSCredentialTests.testPairExchangeHasNoStaffOrOldDeviceCredential' started at 2026-10-25 01:16:28.292
-Test Case 'POSCredentialTests.testPairExchangeHasNoStaffOrOldDeviceCredential' passed (0.001 seconds)
-Test Case 'POSCredentialTests.testPairStorageRejects01OtherBranchAndMalformedToken' started at 2026-10-25 01:16:28.293
-Test Case 'POSCredentialTests.testPairStorageRejects01OtherBranchAndMalformedToken' passed (0.0 seconds)
-Test Case 'POSCredentialTests.testRevokedDeviceDeletesOnlyDeviceCredential' started at 2026-10-25 01:16:28.293
-Test Case 'POSCredentialTests.testRevokedDeviceDeletesOnlyDeviceCredential' passed (0.0 seconds)
-Test Case 'POSCredentialTests.testStaffLogoutRetainsPairingAcrossStaffSwitch' started at 2026-10-25 01:16:28.294
-Test Case 'POSCredentialTests.testStaffLogoutRetainsPairingAcrossStaffSwitch' passed (0.0 seconds)
-Test Case 'POSCredentialTests.testStaffReadRefreshPreservesDeviceHeader' started at 2026-10-25 01:16:28.294
-Test Case 'POSCredentialTests.testStaffReadRefreshPreservesDeviceHeader' passed (0.001 seconds)
-Test Suite 'POSCredentialTests' passed at 2026-10-25 01:16:28.295
-	 Executed 11 tests, with 0 failures (0 unexpected) in 0.007 (0.007) seconds
-Test Suite 'POSEventTests' started at 2026-10-25 01:16:28.295
-Test Case 'POSEventTests.testAnotherTenantOrReplacementDeviceCannotReadCheckpoint' started at 2026-10-25 01:16:28.295
-Test Case 'POSEventTests.testAnotherTenantOrReplacementDeviceCannotReadCheckpoint' passed (0.0 seconds)
-Test Case 'POSEventTests.testDuplicateAndUnknownEventsAreSafeWithoutSkippingSequence' started at 2026-10-25 01:16:28.295
-Test Case 'POSEventTests.testDuplicateAndUnknownEventsAreSafeWithoutSkippingSequence' passed (0.001 seconds)
-Test Case 'POSEventTests.testFailedProjectionRefreshDoesNotAcknowledgeEvents' started at 2026-10-25 01:16:28.296
-Test Case 'POSEventTests.testFailedProjectionRefreshDoesNotAcknowledgeEvents' passed (0.0 seconds)
-Test Case 'POSEventTests.testFeedCheckpointDiskFailureKeepsPriorPosition' started at 2026-10-25 01:16:28.296
-Test Case 'POSEventTests.testFeedCheckpointDiskFailureKeepsPriorPosition' passed (0.0 seconds)
-Test Case 'POSEventTests.testGapEpochResetAndCursorJumpNeverAdvanceOrRefresh' started at 2026-10-25 01:16:28.297
-Test Case 'POSEventTests.testGapEpochResetAndCursorJumpNeverAdvanceOrRefresh' passed (0.001 seconds)
-Test Case 'POSEventTests.testWebKDSAndPaymentsInvalidateSameProjectionsAndSurviveRestart' started at 2026-10-25 01:16:28.297
-Test Case 'POSEventTests.testWebKDSAndPaymentsInvalidateSameProjectionsAndSurviveRestart' passed (0.0 seconds)
-Test Suite 'POSEventTests' passed at 2026-10-25 01:16:28.298
-	 Executed 6 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
-Test Suite 'POSImageWindowTests' started at 2026-10-25 01:16:28.298
-Test Case 'POSImageWindowTests.testExpiredMenuImageWindowRefreshesWithoutBusinessEvent' started at 2026-10-25 01:16:28.298
-Test Case 'POSImageWindowTests.testExpiredMenuImageWindowRefreshesWithoutBusinessEvent' passed (0.003 seconds)
-Test Suite 'POSImageWindowTests' passed at 2026-10-25 01:16:28.301
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
-Test Suite 'POSOrderAdapterTests' started at 2026-10-25 01:16:28.301
-Test Case 'POSOrderAdapterTests.testAmbiguousSubmissionReconcilesWithoutSecondPost' started at 2026-10-25 01:16:28.301
-Test Case 'POSOrderAdapterTests.testAmbiguousSubmissionReconcilesWithoutSecondPost' passed (0.002 seconds)
-Test Case 'POSOrderAdapterTests.testLegacyOperationRetainsExistingSenderAndNoPOSCalls' started at 2026-10-25 01:16:28.302
-Test Case 'POSOrderAdapterTests.testLegacyOperationRetainsExistingSenderAndNoPOSCalls' passed (0.001 seconds)
-Test Case 'POSOrderAdapterTests.testPriceConflictDetailsRemainTypedAndDoNotFallBackOrRetry' started at 2026-10-25 01:16:28.303
-Test Case 'POSOrderAdapterTests.testPriceConflictDetailsRemainTypedAndDoNotFallBackOrRetry' passed (0.001 seconds)
-Test Case 'POSOrderAdapterTests.testProcessingLookupDoesNotReplayMutationOrFallBackToStaffRoute' started at 2026-10-25 01:16:28.304
-Test Case 'POSOrderAdapterTests.testProcessingLookupDoesNotReplayMutationOrFallBackToStaffRoute' passed (0.001 seconds)
-Test Case 'POSOrderAdapterTests.testUnknownConflictCannotChangeApprovedQuoteOrIdentity' started at 2026-10-25 01:16:28.305
-Test Case 'POSOrderAdapterTests.testUnknownConflictCannotChangeApprovedQuoteOrIdentity' passed (0.001 seconds)
-Test Suite 'POSOrderAdapterTests' passed at 2026-10-25 01:16:28.306
-	 Executed 5 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
-Test Suite 'POSQuoteQueueTests' started at 2026-10-25 01:16:28.306
-Test Case 'POSQuoteQueueTests.testPermanentPOSIdentitySurvivesLongOfflinePeriodAndRestart' started at 2026-10-25 01:16:28.306
-Test Case 'POSQuoteQueueTests.testPermanentPOSIdentitySurvivesLongOfflinePeriodAndRestart' passed (0.001 seconds)
-Test Case 'POSQuoteQueueTests.testPreviouslyAttemptedLegacyOrderCannotSwitchRouteFamilies' started at 2026-10-25 01:16:28.307
-Test Case 'POSQuoteQueueTests.testPreviouslyAttemptedLegacyOrderCannotSwitchRouteFamilies' passed (0.001 seconds)
-Test Case 'POSQuoteQueueTests.testQuotedBodyUsesExactServerTotalsAndStableClientID' started at 2026-10-25 01:16:28.307
-Test Case 'POSQuoteQueueTests.testQuotedBodyUsesExactServerTotalsAndStableClientID' passed (0.0 seconds)
-Test Case 'POSQuoteQueueTests.testUnsupportedStaffFieldsAreNotSilentlyDropped' started at 2026-10-25 01:16:28.308
-Test Case 'POSQuoteQueueTests.testUnsupportedStaffFieldsAreNotSilentlyDropped' passed (0.0 seconds)
-Test Suite 'POSQuoteQueueTests' passed at 2026-10-25 01:16:28.308
-	 Executed 4 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'POSShadowSyncTests' started at 2026-10-25 01:16:28.308
-Test Case 'POSShadowSyncTests.testLostProjectionFileForcesSnapshotsEvenWithExistingFeedCursor' started at 2026-10-25 01:16:28.308
-Test Case 'POSShadowSyncTests.testLostProjectionFileForcesSnapshotsEvenWithExistingFeedCursor' passed (0.001 seconds)
-Test Case 'POSShadowSyncTests.testReadOnlyShadowStartsWithSnapshotsAndReplaysWebEvents' started at 2026-10-25 01:16:28.309
-Test Case 'POSShadowSyncTests.testReadOnlyShadowStartsWithSnapshotsAndReplaysWebEvents' passed (0.002 seconds)
-Test Suite 'POSShadowSyncTests' passed at 2026-10-25 01:16:28.311
-	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
-Test Suite 'PerformanceTests' started at 2026-10-25 01:16:28.311
-Test Case 'PerformanceTests.testMenuPriceValidationPerformance' started at 2026-10-25 01:16:28.311
-/workspace/ResutoGDG/apps/ipad-pos/Tests/ResutoCoreTests/CoreTests.swift:175: Test Case 'PerformanceTests.testMenuPriceValidationPerformance' measured [Time, seconds] average: 0.008, relative standard deviation: 0.887%, values: [0.007988, 0.007793, 0.007755, 0.007777, 0.007793, 0.007782, 0.007887, 0.007865, 0.007805, 0.007834], performanceMetricID:org.swift.XCTPerformanceMetric_WallClockTime, maxPercentRelativeStandardDeviation: 10.000%, maxStandardDeviation: 0.100
-Test Case 'PerformanceTests.testMenuPriceValidationPerformance' passed (0.079 seconds)
-Test Suite 'PerformanceTests' passed at 2026-10-25 01:16:28.390
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.079 (0.079) seconds
-Test Suite 'PrinterTests' started at 2026-10-25 01:16:28.390
-Test Case 'PrinterTests.testAmbiguousPrintRequiresExplicitReprint' started at 2026-10-25 01:16:28.390
-Test Case 'PrinterTests.testAmbiguousPrintRequiresExplicitReprint' passed (0.001 seconds)
-Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' started at 2026-10-25 01:16:28.391
-Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' passed (0.001 seconds)
-Test Case 'PrinterTests.testPrintQueueSurvivesRestart' started at 2026-10-25 01:16:28.392
-Test Case 'PrinterTests.testPrintQueueSurvivesRestart' passed (0.0 seconds)
-Test Case 'PrinterTests.testReceiptContainsServerTotalsNotLocalEstimate' started at 2026-10-25 01:16:28.392
-Test Case 'PrinterTests.testReceiptContainsServerTotalsNotLocalEstimate' passed (0.0 seconds)
-Test Suite 'PrinterTests' passed at 2026-10-25 01:16:28.393
-	 Executed 4 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
-Test Suite 'ReplayClockTests' started at 2026-10-25 01:16:28.393
-Test Case 'ReplayClockTests.testClockRollbackRequiresAttentionWithoutNetworkReplay' started at 2026-10-25 01:16:28.393
-Test Case 'ReplayClockTests.testClockRollbackRequiresAttentionWithoutNetworkReplay' passed (0.0 seconds)
-Test Case 'ReplayClockTests.testReplayWindowRejectsRollbackAndRetentionBoundary' started at 2026-10-25 01:16:28.393
-Test Case 'ReplayClockTests.testReplayWindowRejectsRollbackAndRetentionBoundary' passed (0.0 seconds)
-Test Suite 'ReplayClockTests' passed at 2026-10-25 01:16:28.393
-	 Executed 2 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
-Test Suite 'SessionScopeTests' started at 2026-10-25 01:16:28.393
-Test Case 'SessionScopeTests.testNativeLogoutRevokesOnlyItsOwnSession' started at 2026-10-25 01:16:28.393
-Test Case 'SessionScopeTests.testNativeLogoutRevokesOnlyItsOwnSession' passed (0.0 seconds)
-Test Suite 'SessionScopeTests' passed at 2026-10-25 01:16:28.394
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
-Test Suite 'StagingReceiptTests' started at 2026-10-25 01:16:28.394
-Test Case 'StagingReceiptTests.testUnpaidStagingReceiptIsMarkedTestWithoutClaimingPayment' started at 2026-10-25 01:16:28.394
-Test Case 'StagingReceiptTests.testUnpaidStagingReceiptIsMarkedTestWithoutClaimingPayment' passed (0.0 seconds)
-Test Suite 'StagingReceiptTests' passed at 2026-10-25 01:16:28.394
-	 Executed 1 test, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
-Test Suite 'StorageIdentityTests' started at 2026-10-25 01:16:28.394
-Test Case 'StorageIdentityTests.testFieldBoundariesAndTenantsCannotCollide' started at 2026-10-25 01:16:28.394
-Test Case 'StorageIdentityTests.testFieldBoundariesAndTenantsCannotCollide' passed (0.0 seconds)
-Test Case 'StorageIdentityTests.testScopeIdentityIsCanonicalAcrossRelaunches' started at 2026-10-25 01:16:28.394
-Test Case 'StorageIdentityTests.testScopeIdentityIsCanonicalAcrossRelaunches' passed (0.101 seconds)
-Test Suite 'StorageIdentityTests' passed at 2026-10-25 01:16:28.494
-	 Executed 2 tests, with 0 failures (0 unexpected) in 0.101 (0.101) seconds
-Test Suite 'SynchronizationTests' started at 2026-10-25 01:16:28.495
-Test Case 'SynchronizationTests.testApprovalAndAcknowledgementPersist' started at 2026-10-25 01:16:28.495
-Test Case 'SynchronizationTests.testApprovalAndAcknowledgementPersist' passed (0.001 seconds)
-Test Case 'SynchronizationTests.testConcurrentDrainDoesNotDuplicate' started at 2026-10-25 01:16:28.495
-Test Case 'SynchronizationTests.testConcurrentDrainDoesNotDuplicate' passed (0.001 seconds)
-Test Case 'SynchronizationTests.testCorruptStorageDoesNotSilentlyReset' started at 2026-10-25 01:16:28.496
-Test Case 'SynchronizationTests.testCorruptStorageDoesNotSilentlyReset' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testCrossTenantAndCrossUserCannotReplay' started at 2026-10-25 01:16:28.496
-Test Case 'SynchronizationTests.testCrossTenantAndCrossUserCannotReplay' passed (0.001 seconds)
-Test Case 'SynchronizationTests.testExpiryPreventsReplayAfterServerRetention' started at 2026-10-25 01:16:28.497
-Test Case 'SynchronizationTests.testExpiryPreventsReplayAfterServerRetention' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testFailedPersistenceNeverQueuesOrSends' started at 2026-10-25 01:16:28.497
-Test Case 'SynchronizationTests.testFailedPersistenceNeverQueuesOrSends' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testLocalDraftDoesNotSendUntilApproved' started at 2026-10-25 01:16:28.498
-Test Case 'SynchronizationTests.testLocalDraftDoesNotSendUntilApproved' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testLostResponseRetainsIdentityAndPayload' started at 2026-10-25 01:16:28.498
-Test Case 'SynchronizationTests.testLostResponseRetainsIdentityAndPayload' passed (0.001 seconds)
-Test Case 'SynchronizationTests.testServerConflictNeedsAttentionAndDoesNotRetry' started at 2026-10-25 01:16:28.498
-Test Case 'SynchronizationTests.testServerConflictNeedsAttentionAndDoesNotRetry' passed (0.0 seconds)
-Test Case 'SynchronizationTests.testUnauthorizedCannotDrain' started at 2026-10-25 01:16:28.499
-Test Case 'SynchronizationTests.testUnauthorizedCannotDrain' passed (0.0 seconds)
-Test Suite 'SynchronizationTests' passed at 2026-10-25 01:16:28.499
-	 Executed 10 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
-Test Suite 'TimestampTests' started at 2026-10-25 01:16:28.499
-Test Case 'TimestampTests.testBackendFractionalISOTimeAndOffsets' started at 2026-10-25 01:16:28.499
-Test Case 'TimestampTests.testBackendFractionalISOTimeAndOffsets' passed (0.001 seconds)
-Test Suite 'TimestampTests' passed at 2026-10-25 01:16:28.500
+Test Suite 'ArabicAmountEntryTests' started at 2026-10-25 10:53:38.851
+Test Case 'ArabicAmountEntryTests.testArabicKeyboardDecimalSeparatorUsesExactMinorUnits' started at 2026-10-25 10:53:38.851
+Test Case 'ArabicAmountEntryTests.testArabicKeyboardDecimalSeparatorUsesExactMinorUnits' passed (0.002 seconds)
+Test Suite 'ArabicAmountEntryTests' passed at 2026-10-25 10:53:38.853
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'AuthenticationRaceTests' started at 2026-10-25 10:53:38.853
+Test Case 'AuthenticationRaceTests.testLateRefreshCannotRestoreSignedOutSession' started at 2026-10-25 10:53:38.853
+Test Case 'AuthenticationRaceTests.testLateRefreshCannotRestoreSignedOutSession' passed (0.001 seconds)
+Test Suite 'AuthenticationRaceTests' passed at 2026-10-25 10:53:38.855
 	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
-Test Suite 'debug.xctest' passed at 2026-10-25 01:16:28.500
-	 Executed 96 tests, with 0 failures (0 unexpected) in 0.62 (0.62) seconds
-Test Suite 'All tests' passed at 2026-10-25 01:16:28.501
-	 Executed 96 tests, with 0 failures (0 unexpected) in 0.62 (0.62) seconds
+Test Suite 'BusinessDateTests' started at 2026-10-25 10:53:38.855
+Test Case 'BusinessDateTests.testBranchBusinessDayAndWesternDigitsOverrideRestaurantTimezone' started at 2026-10-25 10:53:38.855
+Test Case 'BusinessDateTests.testBranchBusinessDayAndWesternDigitsOverrideRestaurantTimezone' passed (0.003 seconds)
+Test Suite 'BusinessDateTests' passed at 2026-10-25 10:53:38.858
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'CaptureAtomicityTests' started at 2026-10-25 10:53:38.858
+Test Case 'CaptureAtomicityTests.testCapturedIDCannotBeReusedWithDifferentPayloadOrTenant' started at 2026-10-25 10:53:38.858
+Test Case 'CaptureAtomicityTests.testCapturedIDCannotBeReusedWithDifferentPayloadOrTenant' passed (0.001 seconds)
+Test Case 'CaptureAtomicityTests.testCrashBeforeCartClearCannotCreateSecondOperation' started at 2026-10-25 10:53:38.859
+Test Case 'CaptureAtomicityTests.testCrashBeforeCartClearCannotCreateSecondOperation' passed (0.002 seconds)
+Test Suite 'CaptureAtomicityTests' passed at 2026-10-25 10:53:38.861
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'CatalogueScaleTests' started at 2026-10-25 10:53:38.861
+Test Case 'CatalogueScaleTests.testArabicCombiningNotesMatchBackendUTF16Limit' started at 2026-10-25 10:53:38.861
+Test Case 'CatalogueScaleTests.testArabicCombiningNotesMatchBackendUTF16Limit' passed (0.0 seconds)
+Test Case 'CatalogueScaleTests.testLargeCatalogueAndSixtyLineEstimate' started at 2026-10-25 10:53:38.861
+/workspace/ResutoGDG/apps/ipad-pos/Tests/ResutoCoreTests/CoreTests.swift:275: Test Case 'CatalogueScaleTests.testLargeCatalogueAndSixtyLineEstimate' measured [Time, seconds] average: 0.008, relative standard deviation: 2.476%, values: [0.008656, 0.008199, 0.008346, 0.008054, 0.008079, 0.008059, 0.008361, 0.008075, 0.008064, 0.008041], performanceMetricID:org.swift.XCTPerformanceMetric_WallClockTime, maxPercentRelativeStandardDeviation: 10.000%, maxStandardDeviation: 0.100
+Test Case 'CatalogueScaleTests.testLargeCatalogueAndSixtyLineEstimate' passed (0.181 seconds)
+Test Case 'CatalogueScaleTests.testModifierOverflowIsRejectedWithoutTrapping' started at 2026-10-25 10:53:39.042
+Test Case 'CatalogueScaleTests.testModifierOverflowIsRejectedWithoutTrapping' passed (0.001 seconds)
+Test Suite 'CatalogueScaleTests' passed at 2026-10-25 10:53:39.043
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.182 (0.182) seconds
+Test Suite 'DomainTests' started at 2026-10-25 10:53:39.043
+Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' started at 2026-10-25 10:53:39.043
+Test Case 'DomainTests.testBranchOverrideAndRequiredModifier' passed (0.0 seconds)
+Test Case 'DomainTests.testDeliveryCannotBeInventedWithoutAddressFlow' started at 2026-10-25 10:53:39.044
+Test Case 'DomainTests.testDeliveryCannotBeInventedWithoutAddressFlow' passed (0.0 seconds)
+Test Case 'DomainTests.testDineInNeedsTable' started at 2026-10-25 10:53:39.044
+Test Case 'DomainTests.testDineInNeedsTable' passed (0.0 seconds)
+Test Case 'DomainTests.testDuplicateModifierRejected' started at 2026-10-25 10:53:39.044
+Test Case 'DomainTests.testDuplicateModifierRejected' passed (0.0 seconds)
+Test Case 'DomainTests.testForeignModifierRejected' started at 2026-10-25 10:53:39.044
+Test Case 'DomainTests.testForeignModifierRejected' passed (0.0 seconds)
+Test Case 'DomainTests.testLifecycleRespectsFulfillment' started at 2026-10-25 10:53:39.044
+Test Case 'DomainTests.testLifecycleRespectsFulfillment' passed (0.0 seconds)
+Test Case 'DomainTests.testMembershipBranchIsolation' started at 2026-10-25 10:53:39.044
+Test Case 'DomainTests.testMembershipBranchIsolation' passed (0.001 seconds)
+Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' started at 2026-10-25 10:53:39.045
+Test Case 'DomainTests.testMoneyRejectsAmbiguousValues' passed (0.0 seconds)
+Test Case 'DomainTests.testPermissionsFailClosed' started at 2026-10-25 10:53:39.045
+Test Case 'DomainTests.testPermissionsFailClosed' passed (0.0 seconds)
+Test Case 'DomainTests.testQuantityBounds' started at 2026-10-25 10:53:39.046
+Test Case 'DomainTests.testQuantityBounds' passed (0.0 seconds)
+Test Case 'DomainTests.testRequestUsesSupportedStaffChannel' started at 2026-10-25 10:53:39.046
+Test Case 'DomainTests.testRequestUsesSupportedStaffChannel' passed (0.0 seconds)
+Test Case 'DomainTests.testRequiredModifierCannotBeOmitted' started at 2026-10-25 10:53:39.046
+Test Case 'DomainTests.testRequiredModifierCannotBeOmitted' passed (0.0 seconds)
+Test Case 'DomainTests.testResponseContracts' started at 2026-10-25 10:53:39.046
+Test Case 'DomainTests.testResponseContracts' passed (0.001 seconds)
+Test Case 'DomainTests.testSplitPreservesEveryMinorUnit' started at 2026-10-25 10:53:39.048
+Test Case 'DomainTests.testSplitPreservesEveryMinorUnit' passed (0.103 seconds)
+Test Case 'DomainTests.testUnavailableProductRejected' started at 2026-10-25 10:53:39.151
+Test Case 'DomainTests.testUnavailableProductRejected' passed (0.001 seconds)
+Test Case 'DomainTests.testWesternMoneyAndArabicInput' started at 2026-10-25 10:53:39.152
+Test Case 'DomainTests.testWesternMoneyAndArabicInput' passed (0.0 seconds)
+Test Suite 'DomainTests' passed at 2026-10-25 10:53:39.152
+	 Executed 16 tests, with 0 failures (0 unexpected) in 0.108 (0.108) seconds
+Test Suite 'ExtendedCatalogueTests' started at 2026-10-25 10:53:39.152
+Test Case 'ExtendedCatalogueTests.testDeliveryWithAddressUsesSupportedStaffContract' started at 2026-10-25 10:53:39.152
+Test Case 'ExtendedCatalogueTests.testDeliveryWithAddressUsesSupportedStaffContract' passed (0.0 seconds)
+Test Case 'ExtendedCatalogueTests.testInactiveCategoryIsNotOrderable' started at 2026-10-25 10:53:39.152
+Test Case 'ExtendedCatalogueTests.testInactiveCategoryIsNotOrderable' passed (0.0 seconds)
+Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' started at 2026-10-25 10:53:39.153
+Test Case 'ExtendedCatalogueTests.testOtherBranchMenuIsNotOrderable' passed (0.0 seconds)
+Test Suite 'ExtendedCatalogueTests' passed at 2026-10-25 10:53:39.153
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'FailurePresentationTests' started at 2026-10-25 10:53:39.153
+Test Case 'FailurePresentationTests.testAuthorizationAndDeviceFailuresHaveDistinctRecovery' started at 2026-10-25 10:53:39.153
+Test Case 'FailurePresentationTests.testAuthorizationAndDeviceFailuresHaveDistinctRecovery' passed (0.0 seconds)
+Test Case 'FailurePresentationTests.testBackendMessageCannotLeakIntoLocalizedUIKey' started at 2026-10-25 10:53:39.154
+Test Case 'FailurePresentationTests.testBackendMessageCannotLeakIntoLocalizedUIKey' passed (0.0 seconds)
+Test Case 'FailurePresentationTests.testTransportAndVersionConflictsUseRecoveryKeys' started at 2026-10-25 10:53:39.154
+Test Case 'FailurePresentationTests.testTransportAndVersionConflictsUseRecoveryKeys' passed (0.0 seconds)
+Test Suite 'FailurePresentationTests' passed at 2026-10-25 10:53:39.154
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'InitialSessionTests' started at 2026-10-25 10:53:39.154
+Test Case 'InitialSessionTests.testEmptyKeychainDoesNotEstablishASessionOrContactServer' started at 2026-10-25 10:53:39.154
+Test Case 'InitialSessionTests.testEmptyKeychainDoesNotEstablishASessionOrContactServer' passed (0.0 seconds)
+Test Suite 'InitialSessionTests' passed at 2026-10-25 10:53:39.154
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'NetworkTests' started at 2026-10-25 10:53:39.154
+Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' started at 2026-10-25 10:53:39.154
+Test Case 'NetworkTests.testAuthHeadersAndTypedDecoding' passed (0.0 seconds)
+Test Case 'NetworkTests.testETag304ReusesDecodedBody' started at 2026-10-25 10:53:39.155
+Test Case 'NetworkTests.testETag304ReusesDecodedBody' passed (0.001 seconds)
+Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' started at 2026-10-25 10:53:39.156
+Test Case 'NetworkTests.testErrorEnvelopeAndRequestID' passed (0.001 seconds)
+Test Case 'NetworkTests.testHTTPSRequired' started at 2026-10-25 10:53:39.156
+Test Case 'NetworkTests.testHTTPSRequired' passed (0.0 seconds)
+Test Case 'NetworkTests.testMutationNeverAutomaticallyRetries' started at 2026-10-25 10:53:39.156
+Test Case 'NetworkTests.testMutationNeverAutomaticallyRetries' passed (0.001 seconds)
+Test Case 'NetworkTests.testRefreshSingleFlight' started at 2026-10-25 10:53:39.157
+Test Case 'NetworkTests.testRefreshSingleFlight' passed (0.0 seconds)
+Test Suite 'NetworkTests' passed at 2026-10-25 10:53:39.157
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'OperationalAccessLeaseTests' started at 2026-10-25 10:53:39.157
+Test Case 'OperationalAccessLeaseTests.testAnotherTenantCannotReuseLease' started at 2026-10-25 10:53:39.157
+Test Case 'OperationalAccessLeaseTests.testAnotherTenantCannotReuseLease' passed (0.0 seconds)
+Test Case 'OperationalAccessLeaseTests.testClockRollbackOrRestartCannotExtendAuthorization' started at 2026-10-25 10:53:39.157
+Test Case 'OperationalAccessLeaseTests.testClockRollbackOrRestartCannotExtendAuthorization' passed (0.0 seconds)
+Test Case 'OperationalAccessLeaseTests.testLeaseExpiresWithoutSuccessfulIdentityRegardlessOfNetworkPath' started at 2026-10-25 10:53:39.158
+Test Case 'OperationalAccessLeaseTests.testLeaseExpiresWithoutSuccessfulIdentityRegardlessOfNetworkPath' passed (0.0 seconds)
+Test Suite 'OperationalAccessLeaseTests' passed at 2026-10-25 10:53:39.158
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'OrderDetailRefreshTests' started at 2026-10-25 10:53:39.158
+Test Case 'OrderDetailRefreshTests.testLatePollingCannotReopenDismissedDetailsOrRegressVersion' started at 2026-10-25 10:53:39.158
+Test Case 'OrderDetailRefreshTests.testLatePollingCannotReopenDismissedDetailsOrRegressVersion' passed (0.0 seconds)
+Test Suite 'OrderDetailRefreshTests' passed at 2026-10-25 10:53:39.158
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'POS020ContractTests' started at 2026-10-25 10:53:39.158
+Test Case 'POS020ContractTests.testDeviceBindingMetadataDoesNotExposeToken' started at 2026-10-25 10:53:39.158
+Test Case 'POS020ContractTests.testDeviceBindingMetadataDoesNotExposeToken' passed (0.001 seconds)
+Test Case 'POS020ContractTests.testImplemented020SessionRequiresTopLevelPolicyField' started at 2026-10-25 10:53:39.159
+Test Case 'POS020ContractTests.testImplemented020SessionRequiresTopLevelPolicyField' passed (0.0 seconds)
+Test Case 'POS020ContractTests.testTopLevelRequireStaffMustMatchRequiredDevicePolicy' started at 2026-10-25 10:53:39.159
+Test Case 'POS020ContractTests.testTopLevelRequireStaffMustMatchRequiredDevicePolicy' passed (0.001 seconds)
+Test Suite 'POS020ContractTests' passed at 2026-10-25 10:53:39.160
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'POSCancellationTests' started at 2026-10-25 10:53:39.160
+Test Case 'POSCancellationTests.testCancelledResyncNeverAcknowledgesFeedWatermark' started at 2026-10-25 10:53:39.160
+Test Case 'POSCancellationTests.testCancelledResyncNeverAcknowledgesFeedWatermark' passed (0.0 seconds)
+Test Case 'POSCancellationTests.testExpiredPairingCodeHasSpecificRecoveryInsteadOfStaffLogout' started at 2026-10-25 10:53:39.161
+Test Case 'POSCancellationTests.testExpiredPairingCodeHasSpecificRecoveryInsteadOfStaffLogout' passed (0.0 seconds)
+Test Suite 'POSCancellationTests' passed at 2026-10-25 10:53:39.161
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'POSCredentialTests' started at 2026-10-25 10:53:39.161
+Test Case 'POSCredentialTests.testDeniedStaffKeepsDeviceAndDoesNotDowngradeToDeviceOnly' started at 2026-10-25 10:53:39.161
+Test Case 'POSCredentialTests.testDeniedStaffKeepsDeviceAndDoesNotDowngradeToDeviceOnly' passed (0.001 seconds)
+Test Case 'POSCredentialTests.testDeviceCannotEscapePOSRouteFamily' started at 2026-10-25 10:53:39.161
+Test Case 'POSCredentialTests.testDeviceCannotEscapePOSRouteFamily' passed (0.0 seconds)
+Test Case 'POSCredentialTests.testDraft01MissingStaffWrongTenantAndWrongBranchFailClosed' started at 2026-10-25 10:53:39.162
+Test Case 'POSCredentialTests.testDraft01MissingStaffWrongTenantAndWrongBranchFailClosed' passed (0.001 seconds)
+Test Case 'POSCredentialTests.testEffectivePermissionsAreIntersectionOfStaffDeviceAndServer' started at 2026-10-25 10:53:39.162
+Test Case 'POSCredentialTests.testEffectivePermissionsAreIntersectionOfStaffDeviceAndServer' passed (0.0 seconds)
+Test Case 'POSCredentialTests.testMutation401IsNeverAutomaticallyReplayed' started at 2026-10-25 10:53:39.163
+Test Case 'POSCredentialTests.testMutation401IsNeverAutomaticallyReplayed' passed (0.001 seconds)
+Test Case 'POSCredentialTests.testPOSHeadersNeverReplaceStaffRouteAuthorization' started at 2026-10-25 10:53:39.164
+Test Case 'POSCredentialTests.testPOSHeadersNeverReplaceStaffRouteAuthorization' passed (0.001 seconds)
+Test Case 'POSCredentialTests.testPairExchangeHasNoStaffOrOldDeviceCredential' started at 2026-10-25 10:53:39.164
+Test Case 'POSCredentialTests.testPairExchangeHasNoStaffOrOldDeviceCredential' passed (0.001 seconds)
+Test Case 'POSCredentialTests.testPairStorageRejects01OtherBranchAndMalformedToken' started at 2026-10-25 10:53:39.165
+Test Case 'POSCredentialTests.testPairStorageRejects01OtherBranchAndMalformedToken' passed (0.0 seconds)
+Test Case 'POSCredentialTests.testRevokedDeviceDeletesOnlyDeviceCredential' started at 2026-10-25 10:53:39.165
+Test Case 'POSCredentialTests.testRevokedDeviceDeletesOnlyDeviceCredential' passed (0.0 seconds)
+Test Case 'POSCredentialTests.testStaffLogoutRetainsPairingAcrossStaffSwitch' started at 2026-10-25 10:53:39.166
+Test Case 'POSCredentialTests.testStaffLogoutRetainsPairingAcrossStaffSwitch' passed (0.0 seconds)
+Test Case 'POSCredentialTests.testStaffReadRefreshPreservesDeviceHeader' started at 2026-10-25 10:53:39.166
+Test Case 'POSCredentialTests.testStaffReadRefreshPreservesDeviceHeader' passed (0.001 seconds)
+Test Suite 'POSCredentialTests' passed at 2026-10-25 10:53:39.167
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.006 (0.006) seconds
+Test Suite 'POSEventTests' started at 2026-10-25 10:53:39.167
+Test Case 'POSEventTests.testAnotherTenantOrReplacementDeviceCannotReadCheckpoint' started at 2026-10-25 10:53:39.167
+Test Case 'POSEventTests.testAnotherTenantOrReplacementDeviceCannotReadCheckpoint' passed (0.0 seconds)
+Test Case 'POSEventTests.testDuplicateAndUnknownEventsAreSafeWithoutSkippingSequence' started at 2026-10-25 10:53:39.167
+Test Case 'POSEventTests.testDuplicateAndUnknownEventsAreSafeWithoutSkippingSequence' passed (0.001 seconds)
+Test Case 'POSEventTests.testFailedProjectionRefreshDoesNotAcknowledgeEvents' started at 2026-10-25 10:53:39.168
+Test Case 'POSEventTests.testFailedProjectionRefreshDoesNotAcknowledgeEvents' passed (0.0 seconds)
+Test Case 'POSEventTests.testFeedCheckpointDiskFailureKeepsPriorPosition' started at 2026-10-25 10:53:39.168
+Test Case 'POSEventTests.testFeedCheckpointDiskFailureKeepsPriorPosition' passed (0.0 seconds)
+Test Case 'POSEventTests.testGapEpochResetAndCursorJumpNeverAdvanceOrRefresh' started at 2026-10-25 10:53:39.169
+Test Case 'POSEventTests.testGapEpochResetAndCursorJumpNeverAdvanceOrRefresh' passed (0.0 seconds)
+Test Case 'POSEventTests.testWebKDSAndPaymentsInvalidateSameProjectionsAndSurviveRestart' started at 2026-10-25 10:53:39.169
+Test Case 'POSEventTests.testWebKDSAndPaymentsInvalidateSameProjectionsAndSurviveRestart' passed (0.0 seconds)
+Test Suite 'POSEventTests' passed at 2026-10-25 10:53:39.170
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'POSImageWindowTests' started at 2026-10-25 10:53:39.170
+Test Case 'POSImageWindowTests.testExpiredMenuImageWindowRefreshesWithoutBusinessEvent' started at 2026-10-25 10:53:39.170
+Test Case 'POSImageWindowTests.testExpiredMenuImageWindowRefreshesWithoutBusinessEvent' passed (0.003 seconds)
+Test Suite 'POSImageWindowTests' passed at 2026-10-25 10:53:39.172
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'POSOrderAdapterTests' started at 2026-10-25 10:53:39.172
+Test Case 'POSOrderAdapterTests.testAmbiguousSubmissionReconcilesWithoutSecondPost' started at 2026-10-25 10:53:39.172
+Test Case 'POSOrderAdapterTests.testAmbiguousSubmissionReconcilesWithoutSecondPost' passed (0.002 seconds)
+Test Case 'POSOrderAdapterTests.testLegacyOperationRetainsExistingSenderAndNoPOSCalls' started at 2026-10-25 10:53:39.174
+Test Case 'POSOrderAdapterTests.testLegacyOperationRetainsExistingSenderAndNoPOSCalls' passed (0.001 seconds)
+Test Case 'POSOrderAdapterTests.testPriceConflictDetailsRemainTypedAndDoNotFallBackOrRetry' started at 2026-10-25 10:53:39.175
+Test Case 'POSOrderAdapterTests.testPriceConflictDetailsRemainTypedAndDoNotFallBackOrRetry' passed (0.001 seconds)
+Test Case 'POSOrderAdapterTests.testProcessingLookupDoesNotReplayMutationOrFallBackToStaffRoute' started at 2026-10-25 10:53:39.176
+Test Case 'POSOrderAdapterTests.testProcessingLookupDoesNotReplayMutationOrFallBackToStaffRoute' passed (0.001 seconds)
+Test Case 'POSOrderAdapterTests.testReconciliationRejectsMismatchedOrderNumberWithoutPosting' started at 2026-10-25 10:53:39.177
+Test Case 'POSOrderAdapterTests.testReconciliationRejectsMismatchedOrderNumberWithoutPosting' passed (0.001 seconds)
+Test Case 'POSOrderAdapterTests.testSubmissionRejectsDifferentCurrencyEvenWithSameNumericTotal' started at 2026-10-25 10:53:39.178
+Test Case 'POSOrderAdapterTests.testSubmissionRejectsDifferentCurrencyEvenWithSameNumericTotal' passed (0.001 seconds)
+Test Case 'POSOrderAdapterTests.testUnknownConflictCannotChangeApprovedQuoteOrIdentity' started at 2026-10-25 10:53:39.179
+Test Case 'POSOrderAdapterTests.testUnknownConflictCannotChangeApprovedQuoteOrIdentity' passed (0.001 seconds)
+Test Suite 'POSOrderAdapterTests' passed at 2026-10-25 10:53:39.180
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.008 (0.008) seconds
+Test Suite 'POSQuoteQueueTests' started at 2026-10-25 10:53:39.180
+Test Case 'POSQuoteQueueTests.testPermanentPOSIdentitySurvivesLongOfflinePeriodAndRestart' started at 2026-10-25 10:53:39.180
+Test Case 'POSQuoteQueueTests.testPermanentPOSIdentitySurvivesLongOfflinePeriodAndRestart' passed (0.001 seconds)
+Test Case 'POSQuoteQueueTests.testPreviouslyAttemptedLegacyOrderCannotSwitchRouteFamilies' started at 2026-10-25 10:53:39.181
+Test Case 'POSQuoteQueueTests.testPreviouslyAttemptedLegacyOrderCannotSwitchRouteFamilies' passed (0.001 seconds)
+Test Case 'POSQuoteQueueTests.testQuotedBodyUsesExactServerTotalsAndStableClientID' started at 2026-10-25 10:53:39.181
+Test Case 'POSQuoteQueueTests.testQuotedBodyUsesExactServerTotalsAndStableClientID' passed (0.0 seconds)
+Test Case 'POSQuoteQueueTests.testUnsupportedStaffFieldsAreNotSilentlyDropped' started at 2026-10-25 10:53:39.182
+Test Case 'POSQuoteQueueTests.testUnsupportedStaffFieldsAreNotSilentlyDropped' passed (0.0 seconds)
+Test Suite 'POSQuoteQueueTests' passed at 2026-10-25 10:53:39.182
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'POSShadowSyncTests' started at 2026-10-25 10:53:39.182
+Test Case 'POSShadowSyncTests.testLostProjectionFileForcesSnapshotsEvenWithExistingFeedCursor' started at 2026-10-25 10:53:39.182
+Test Case 'POSShadowSyncTests.testLostProjectionFileForcesSnapshotsEvenWithExistingFeedCursor' passed (0.001 seconds)
+Test Case 'POSShadowSyncTests.testPermissionNarrowingDiscardsProtectedSnapshotsWithoutFeedEvent' started at 2026-10-25 10:53:39.183
+Test Case 'POSShadowSyncTests.testPermissionNarrowingDiscardsProtectedSnapshotsWithoutFeedEvent' passed (0.001 seconds)
+Test Case 'POSShadowSyncTests.testReadOnlyShadowStartsWithSnapshotsAndReplaysWebEvents' started at 2026-10-25 10:53:39.185
+Test Case 'POSShadowSyncTests.testReadOnlyShadowStartsWithSnapshotsAndReplaysWebEvents' passed (0.002 seconds)
+Test Suite 'POSShadowSyncTests' passed at 2026-10-25 10:53:39.186
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.004 (0.004) seconds
+Test Suite 'PerformanceTests' started at 2026-10-25 10:53:39.186
+Test Case 'PerformanceTests.testMenuPriceValidationPerformance' started at 2026-10-25 10:53:39.186
+/workspace/ResutoGDG/apps/ipad-pos/Tests/ResutoCoreTests/CoreTests.swift:175: Test Case 'PerformanceTests.testMenuPriceValidationPerformance' measured [Time, seconds] average: 0.008, relative standard deviation: 1.149%, values: [0.007735, 0.007717, 0.007712, 0.007985, 0.007710, 0.007695, 0.007695, 0.007706, 0.007703, 0.007794], performanceMetricID:org.swift.XCTPerformanceMetric_WallClockTime, maxPercentRelativeStandardDeviation: 10.000%, maxStandardDeviation: 0.100
+Test Case 'PerformanceTests.testMenuPriceValidationPerformance' passed (0.078 seconds)
+Test Suite 'PerformanceTests' passed at 2026-10-25 10:53:39.264
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.078 (0.078) seconds
+Test Suite 'PermissionPerformanceTests' started at 2026-10-25 10:53:39.264
+Test Case 'PermissionPerformanceTests.testRepeatedPermissionHintsUseCachedRoleSets' started at 2026-10-25 10:53:39.264
+/workspace/ResutoGDG/apps/ipad-pos/Tests/ResutoCoreTests/POSCompatibilityTests.swift:459: Test Case 'PermissionPerformanceTests.testRepeatedPermissionHintsUseCachedRoleSets' measured [Time, seconds] average: 0.003, relative standard deviation: 1.966%, values: [0.003236, 0.003266, 0.003236, 0.003176, 0.003179, 0.003182, 0.003137, 0.003147, 0.003160, 0.003339], performanceMetricID:org.swift.XCTPerformanceMetric_WallClockTime, maxPercentRelativeStandardDeviation: 10.000%, maxStandardDeviation: 0.100
+Test Case 'PermissionPerformanceTests.testRepeatedPermissionHintsUseCachedRoleSets' passed (0.032 seconds)
+Test Suite 'PermissionPerformanceTests' passed at 2026-10-25 10:53:39.297
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.032 (0.032) seconds
+Test Suite 'PrinterTests' started at 2026-10-25 10:53:39.297
+Test Case 'PrinterTests.testAmbiguousPrintRequiresExplicitReprint' started at 2026-10-25 10:53:39.297
+Test Case 'PrinterTests.testAmbiguousPrintRequiresExplicitReprint' passed (0.001 seconds)
+Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' started at 2026-10-25 10:53:39.298
+Test Case 'PrinterTests.testInterruptedPrintIsUncertainAfterRestart' passed (0.0 seconds)
+Test Case 'PrinterTests.testPrintQueueSurvivesRestart' started at 2026-10-25 10:53:39.298
+Test Case 'PrinterTests.testPrintQueueSurvivesRestart' passed (0.0 seconds)
+Test Case 'PrinterTests.testReceiptContainsServerTotalsNotLocalEstimate' started at 2026-10-25 10:53:39.298
+Test Case 'PrinterTests.testReceiptContainsServerTotalsNotLocalEstimate' passed (0.0 seconds)
+Test Suite 'PrinterTests' passed at 2026-10-25 10:53:39.299
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'ReplayClockTests' started at 2026-10-25 10:53:39.299
+Test Case 'ReplayClockTests.testClockRollbackRequiresAttentionWithoutNetworkReplay' started at 2026-10-25 10:53:39.299
+Test Case 'ReplayClockTests.testClockRollbackRequiresAttentionWithoutNetworkReplay' passed (0.001 seconds)
+Test Case 'ReplayClockTests.testReplayWindowRejectsRollbackAndRetentionBoundary' started at 2026-10-25 10:53:39.299
+Test Case 'ReplayClockTests.testReplayWindowRejectsRollbackAndRetentionBoundary' passed (0.0 seconds)
+Test Suite 'ReplayClockTests' passed at 2026-10-25 10:53:39.300
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'ScopedCacheRaceTests' started at 2026-10-25 10:53:39.300
+Test Case 'ScopedCacheRaceTests.testLateReadCannotRestoreCacheAfterScopeInvalidation' started at 2026-10-25 10:53:39.300
+Test Case 'ScopedCacheRaceTests.testLateReadCannotRestoreCacheAfterScopeInvalidation' passed (0.001 seconds)
+Test Suite 'ScopedCacheRaceTests' passed at 2026-10-25 10:53:39.300
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'SessionScopeTests' started at 2026-10-25 10:53:39.300
+Test Case 'SessionScopeTests.testNativeLogoutRevokesOnlyItsOwnSession' started at 2026-10-25 10:53:39.300
+Test Case 'SessionScopeTests.testNativeLogoutRevokesOnlyItsOwnSession' passed (0.0 seconds)
+Test Suite 'SessionScopeTests' passed at 2026-10-25 10:53:39.300
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'StagingReceiptTests' started at 2026-10-25 10:53:39.300
+Test Case 'StagingReceiptTests.testUnpaidStagingReceiptIsMarkedTestWithoutClaimingPayment' started at 2026-10-25 10:53:39.300
+Test Case 'StagingReceiptTests.testUnpaidStagingReceiptIsMarkedTestWithoutClaimingPayment' passed (0.0 seconds)
+Test Suite 'StagingReceiptTests' passed at 2026-10-25 10:53:39.301
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'StorageIdentityTests' started at 2026-10-25 10:53:39.301
+Test Case 'StorageIdentityTests.testFieldBoundariesAndTenantsCannotCollide' started at 2026-10-25 10:53:39.301
+Test Case 'StorageIdentityTests.testFieldBoundariesAndTenantsCannotCollide' passed (0.0 seconds)
+Test Case 'StorageIdentityTests.testScopeIdentityIsCanonicalAcrossRelaunches' started at 2026-10-25 10:53:39.301
+Test Case 'StorageIdentityTests.testScopeIdentityIsCanonicalAcrossRelaunches' passed (0.0 seconds)
+Test Suite 'StorageIdentityTests' passed at 2026-10-25 10:53:39.301
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.0 (0.0) seconds
+Test Suite 'SynchronizationTests' started at 2026-10-25 10:53:39.301
+Test Case 'SynchronizationTests.testApprovalAndAcknowledgementPersist' started at 2026-10-25 10:53:39.301
+Test Case 'SynchronizationTests.testApprovalAndAcknowledgementPersist' passed (0.001 seconds)
+Test Case 'SynchronizationTests.testConcurrentDrainDoesNotDuplicate' started at 2026-10-25 10:53:39.302
+Test Case 'SynchronizationTests.testConcurrentDrainDoesNotDuplicate' passed (0.0 seconds)
+Test Case 'SynchronizationTests.testCorruptStorageDoesNotSilentlyReset' started at 2026-10-25 10:53:39.302
+Test Case 'SynchronizationTests.testCorruptStorageDoesNotSilentlyReset' passed (0.0 seconds)
+Test Case 'SynchronizationTests.testCrossTenantAndCrossUserCannotReplay' started at 2026-10-25 10:53:39.302
+Test Case 'SynchronizationTests.testCrossTenantAndCrossUserCannotReplay' passed (0.001 seconds)
+Test Case 'SynchronizationTests.testExpiryPreventsReplayAfterServerRetention' started at 2026-10-25 10:53:39.303
+Test Case 'SynchronizationTests.testExpiryPreventsReplayAfterServerRetention' passed (0.0 seconds)
+Test Case 'SynchronizationTests.testFailedPersistenceNeverQueuesOrSends' started at 2026-10-25 10:53:39.303
+Test Case 'SynchronizationTests.testFailedPersistenceNeverQueuesOrSends' passed (0.0 seconds)
+Test Case 'SynchronizationTests.testLocalDraftDoesNotSendUntilApproved' started at 2026-10-25 10:53:39.303
+Test Case 'SynchronizationTests.testLocalDraftDoesNotSendUntilApproved' passed (0.0 seconds)
+Test Case 'SynchronizationTests.testLostResponseRetainsIdentityAndPayload' started at 2026-10-25 10:53:39.304
+Test Case 'SynchronizationTests.testLostResponseRetainsIdentityAndPayload' passed (0.001 seconds)
+Test Case 'SynchronizationTests.testServerConflictNeedsAttentionAndDoesNotRetry' started at 2026-10-25 10:53:39.304
+Test Case 'SynchronizationTests.testServerConflictNeedsAttentionAndDoesNotRetry' passed (0.0 seconds)
+Test Case 'SynchronizationTests.testUnauthorizedCannotDrain' started at 2026-10-25 10:53:39.305
+Test Case 'SynchronizationTests.testUnauthorizedCannotDrain' passed (0.0 seconds)
+Test Suite 'SynchronizationTests' passed at 2026-10-25 10:53:39.305
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.004 (0.004) seconds
+Test Suite 'TimestampTests' started at 2026-10-25 10:53:39.305
+Test Case 'TimestampTests.testBackendFractionalISOTimeAndOffsets' started at 2026-10-25 10:53:39.305
+Test Case 'TimestampTests.testBackendFractionalISOTimeAndOffsets' passed (0.001 seconds)
+Test Suite 'TimestampTests' passed at 2026-10-25 10:53:39.306
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'debug.xctest' passed at 2026-10-25 10:53:39.306
+	 Executed 105 tests, with 0 failures (0 unexpected) in 0.454 (0.454) seconds
+Test Suite 'All tests' passed at 2026-10-25 10:53:39.306
+	 Executed 105 tests, with 0 failures (0 unexpected) in 0.454 (0.454) seconds
 ◇ Test run started.
 ↳ Testing Library Version: 6.0.3 (18c42c19cac3faf)
 ✔ Test run with 0 tests passed after 0.001 seconds.
