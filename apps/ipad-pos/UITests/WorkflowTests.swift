@@ -43,9 +43,10 @@ final class WorkflowTests: XCTestCase {
         XCTAssertTrue(state.waitForExistence(timeout:15),file:file,line:line)
         expectation(for:NSPredicate(format:"label == %@",label),evaluatedWith:state); waitForExpectations(timeout:15)
     }
-    private func launch(reset: Bool = true, arabic: Bool = false, role: String = "manager", scenario: String = "normal") throws -> XCUIApplication {
+    private func launch(reset: Bool = true, arabic: Bool = false, role: String = "manager", scenario: String = "normal", accessibilityText: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--resuto-ui-testing"] + (reset ? ["--resuto-ui-reset"] : []) + ["-AppleLanguages", arabic ? "(ar)" : "(en)"]
+        if accessibilityText { app.launchArguments += ["-UIPreferredContentSizeCategoryName","UICTContentSizeCategoryAccessibilityXXXL"] }
         app.launchEnvironment["RESUTO_UI_ROLE"] = role
         app.launchEnvironment["RESUTO_UI_SCENARIO"] = scenario
         let fixtureURL = Bundle(for: WorkflowTests.self).url(forResource: "menu", withExtension: "json", subdirectory: "Fixtures")!
@@ -81,6 +82,21 @@ final class WorkflowTests: XCTestCase {
         XCTAssertNotNil(reveal(app,"Waiting to print"))
         attach(app,"simulated-order-payment-receipt")
     }
+    func testRefundRequestNeedsManualCompletionAndDoesNotReversePaidState() throws {
+        let app = try launch()
+        tap(app,"product." + product); tap(app,"product.add"); tap(app,"cart.review"); tap(app,"cart.confirm")
+        tap(app,"nav.orders"); tap(app,"order." + order)
+        tap(app,"checkout.reviewCash"); tap(app,"checkout.confirmCash")
+        assertOrderState(app,id:"order.paymentState",label:"Paid")
+        tap(app,"refund.open.payment")
+        let amount = app.textFields["refund.amount"]; XCTAssertTrue(amount.waitForExistence(timeout:10)); amount.tap(); amount.typeText("1.00")
+        let reason = app.textFields["refund.reason"]; reason.tap(); reason.typeText("Customer request")
+        tap(app,"refund.review"); tap(app,"refund.confirm")
+        let state = reveal(app,"refund.state")
+        XCTAssertEqual(state?.label,"Refund: Manual completion required")
+        assertOrderState(app,id:"order.paymentState",label:"Paid")
+        attach(app,"simulated-refund-manual-pending")
+    }
     func testArabicOrderEntryAndRotation() throws {
         let app = try launch(arabic: true)
         XCTAssertTrue(app.staticTexts["نقطة البيع"].waitForExistence(timeout: 15))
@@ -109,6 +125,24 @@ final class WorkflowTests: XCTestCase {
         expectation(for:NSPredicate(format:"enabled == false"),evaluatedWith:app.buttons["product." + product]); waitForExpectations(timeout:15)
         tap(app,"nav.availability"); tap(app,"availability." + product); tap(app,"nav.pos")
         XCTAssertTrue(element(app,"product." + product).isEnabled)
+    }
+    func testFloorListSelectionPreservesDineInContext() throws {
+        let app = try launch()
+        tap(app,"nav.floor"); tap(app,"floor.mode")
+        XCTAssertTrue(element(app,"floor.list").exists)
+        tap(app,"table.table"); tap(app,"floor.order")
+        XCTAssertTrue(app.staticTexts["T1"].waitForExistence(timeout:10))
+        attach(app,"simulated-floor-list")
+    }
+    func testArabicAccessibilityTextUsesTableList() throws {
+        let app = try launch(arabic:true,accessibilityText:true)
+        tap(app,"nav.floor")
+        XCTAssertFalse(app.buttons["floor.mode"].exists,"Accessibility text uses a list without scaled map labels")
+        let table = app.buttons["table.table"]
+        XCTAssertTrue(table.waitForExistence(timeout:15)); XCTAssertTrue(table.isHittable)
+        tap(app,"table.table")
+        XCTAssertTrue(app.buttons["floor.order"].waitForExistence(timeout:10))
+        attach(app,"simulated-arabic-accessibility-floor")
     }
     func testDineInTableSelectionAndOrderSubmission() throws {
         let app = try launch()

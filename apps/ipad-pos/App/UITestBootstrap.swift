@@ -152,6 +152,16 @@ actor ScenarioTransport: HTTPTransport {
             if scenario == "lost-cash-response", !droppedCashResponse { droppedCashResponse = true; throw URLError(.networkConnectionLost) }
             return try response(result)
         }
+        if path == "/v1/o/org/payments/payment/refunds", request.httpMethod == "POST" {
+            guard Permissions.can(role,"payments:refund") else { return try failure(403,"forbidden") }
+            guard let key = body["key"] as? String, let amount = body["amountMinor"] as? Int, amount > 0,
+                  let payment = (order?["payments"] as? [[String:Any]])?.first,
+                  amount <= (payment["amountMinor"] as? Int ?? 0) else { return try failure(409,"not_refundable") }
+            if let replay = acceptedByKey[key] { return try response(replay) }
+            // Request acceptance does not change settled payment/refunded amounts.
+            let result: [String:Any] = ["id":"refund","status":"manual_required"]
+            acceptedByKey[key] = result; try persistServer(); return try response(result,status:201)
+        }
         if path.hasPrefix("/v1/o/org/orders/"), let order { return try response(order) }
         if path == "/v1/o/org/reservations" { return try response(["date":"2026-10-24","items":[]]) }
         return try failure(404,"not_found")

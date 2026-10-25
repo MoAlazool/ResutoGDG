@@ -4,6 +4,8 @@ struct FloorView: View {
     @EnvironmentObject var m: POSModel
     @EnvironmentObject var l: Language
     let onSelect: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var listMode = false
     @State private var selected: FloorTable?
     var body: some View {
         Group {
@@ -13,7 +15,26 @@ struct FloorView: View {
                 if tables.isEmpty { EmptyState(key: "empty_floor", symbol: "table.furniture") }
                 else {
                     VStack(alignment: .leading) {
-                        HStack { Label(l.text("available"), systemImage: "circle"); Label(l.text("occupied"), systemImage: "circle.fill"); Spacer(); Text("\(tables.count) · \(l.text("table"))").monospacedDigit() }.font(.subheadline).foregroundStyle(.secondary).padding()
+                        HStack {
+                            Text("\(tables.count) · \(l.text("table"))").monospacedDigit()
+                            Spacer()
+                            if !typeSize.isAccessibilitySize {
+                                Button(l.text(listMode ? "floor_map" : "floor_list"),systemImage:listMode ? "map" : "list.bullet") { listMode.toggle() }
+                                    .frame(minHeight:44).accessibilityIdentifier("floor.mode")
+                            }
+                        }.font(.subheadline).padding(.horizontal)
+                        if listMode || typeSize.isAccessibilitySize {
+                            List(tables.sorted { $0.label.localizedStandardCompare($1.label) == .orderedAscending }) { table in
+                                Button { selected = table } label: {
+                                    VStack(alignment:.leading,spacing:8) {
+                                        Text(l.text("table") + " " + table.label).font(.headline)
+                                        Text("\(l.text(table.visit == nil ? table.status : "occupied")) · \(table.capacity) \(l.text("seats"))").foregroundStyle(.secondary)
+                                        if let visit = table.visit { Text(l.text("due") + " " + Money.text(visit.dueMinor,currency:m.restaurant?.currency ?? "")) }
+                                    }.frame(maxWidth:.infinity,alignment:.leading).padding(.vertical,8)
+                                }.foregroundStyle(.primary).accessibilityIdentifier("table." + table.id)
+                                    .accessibilityHint(l.text("table_details_hint"))
+                            }.accessibilityIdentifier("floor.list")
+                        } else {
                         GeometryReader { geometry in
                             let scale = min(geometry.size.width / max(layout.width, 1), geometry.size.height / max(layout.height, 1))
                             ZStack(alignment: .topLeading) {
@@ -22,13 +43,13 @@ struct FloorView: View {
                                     .frame(width: layout.background.width * scale, height: layout.background.height * scale)
                                     .opacity(layout.background.opacity)
                                     .position(x: (layout.background.x + layout.background.width / 2) * scale, y: (layout.background.y + layout.background.height / 2) * scale)
-                                    .allowsHitTesting(false)
+                                    .allowsHitTesting(false).accessibilityHidden(true)
                                 ForEach((layout.zones + layout.objects).filter { $0.hidden != true }) { element in
                                     RoundedRectangle(cornerRadius: element.type == "plant" ? 40 : 5)
                                         .fill(Color(floorHex: element.color).opacity(element.type == "zone" ? 0.12 : 0.25))
                                         .overlay { Text(element.label).font(.caption).lineLimit(1).padding(4) }
                                         .frame(width: max(1, element.width * scale), height: max(1, element.height * scale))
-                                        .rotationEffect(.degrees(element.rotation)).position(x: element.x * scale, y: element.y * scale).allowsHitTesting(false)
+                                        .rotationEffect(.degrees(element.rotation)).position(x: element.x * scale, y: element.y * scale).allowsHitTesting(false).accessibilityHidden(true)
                                 }
                                 ForEach(tables) { table in
                                     Button { selected = table } label: {
@@ -37,10 +58,11 @@ struct FloorView: View {
                                             .background(table.visit == nil ? Design.accent.opacity(0.10) : Design.accent.opacity(0.28), in: RoundedRectangle(cornerRadius: table.shape == "round" ? 60 : 12))
                                             .overlay { RoundedRectangle(cornerRadius: 12).stroke(table.status == "cleaning" ? .orange : Design.accent.opacity(0.3), lineWidth: 2) }
                                     }.buttonStyle(.plain).accessibilityIdentifier("table." + table.id).rotationEffect(.degrees(table.rotation)).position(x: table.cx * scale, y: table.cy * scale)
-                                        .accessibilityLabel("\(l.text("table")) \(table.label), \(l.text(table.visit == nil ? table.status : "occupied")), \(table.capacity)")
+                                        .accessibilityLabel("\(l.text("table")) \(table.label), \(l.text(table.visit == nil ? table.status : "occupied")), \(table.capacity) \(l.text("seats"))").accessibilityHint(l.text("table_details_hint"))
                                 }
                             }.environment(\.layoutDirection, .leftToRight)
                         }.padding()
+                        }
                     }
                 }
             } else { EmptyState(key: "empty_floor", symbol: "table.furniture") }
@@ -218,11 +240,11 @@ struct OrderView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack { Text(l.text(payment.method)); Spacer(); Text(l.text(payment.status)); if payment.isTest { Text(l.text("test")).foregroundStyle(.orange) } }
                             if m.can("payments:refund"), payment.amountMinor > payment.refundedMinor {
-                                Button(l.text("request_refund"), role: .destructive) { refundPayment = payment }.disabled(!m.reachable)
+                                Button(l.text("request_refund"), role: .destructive) { refundPayment = payment }.disabled(!m.reachable).accessibilityIdentifier("refund.open." + payment.id)
                             }
                         }
                     }
-                    if let status = m.refundStatus { Text("\(l.text("refund")): \(l.text(status))").foregroundStyle(.secondary) }
+                    if let status = m.refundStatus { Text("\(l.text("refund")): \(l.text(status))").foregroundStyle(.secondary).accessibilityIdentifier("refund.state") }
                 }
                 if m.can("orders:cancel"), current.status != "cancelled" {
                     Section(l.text("cancel_order")) {
@@ -256,13 +278,13 @@ struct RefundView: View {
         NavigationStack {
             Form {
                 Text(l.text("refund_notice"))
-                TextField(l.text("amount"), text: $amount).keyboardType(.decimalPad)
-                TextField(l.text("reason"), text: $reason)
-                Button(l.text("request_refund"), role: .destructive) { confirm = true }
+                TextField(l.text("amount"), text: $amount).keyboardType(.decimalPad).environment(\.layoutDirection,.leftToRight).accessibilityIdentifier("refund.amount")
+                TextField(l.text("reason"), text: $reason).accessibilityIdentifier("refund.reason")
+                Button(l.text("request_refund"), role: .destructive) { confirm = true }.accessibilityIdentifier("refund.review")
                     .disabled(!m.reachable || reason.trimmingCharacters(in: .whitespaces).isEmpty || reason.utf16.count > 300 || (Money.parse(amount) ?? 0) <= 0 || (Money.parse(amount) ?? Int64.max) > payment.amountMinor - payment.refundedMinor)
             }.navigationTitle(l.text("refund")).toolbar { Button(l.text("cancel")) { dismiss() } }
                 .confirmationDialog(l.text("request_refund"), isPresented: $confirm) {
-                    Button(l.text("request_refund"), role: .destructive) { Task { await m.perform { guard let value = Money.parse(amount) else { return }; try await m.refund(payment: payment, amount: value, reason: reason, orderId: order.id); dismiss() } } }
+                    Button(l.text("request_refund"), role: .destructive) { Task { await m.perform { guard let value = Money.parse(amount) else { return }; try await m.refund(payment: payment, amount: value, reason: reason, orderId: order.id); dismiss() } } }.accessibilityIdentifier("refund.confirm")
                 }
         }
     }
