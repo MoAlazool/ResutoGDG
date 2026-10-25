@@ -14,6 +14,7 @@ import { DateTimeInput, NavGlyph, Notice, PageHeader, SegmentedControl, Skeleton
 import '@/components/ops/ops.css';
 import { LoadError, MetaPanel, qs, useFormat } from '@/components/charts/insights';
 import { withParams } from '@/components/ops/use-url-state';
+import { drillDownHref, type InsightsSection } from '@/lib/insights';
 import { useT } from '@/lib/i18n/client';
 import { useBranchScope, useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
@@ -122,16 +123,19 @@ export default function OverviewPage() {
   const body: Record<OverviewSectionId, () => ReactNode> = {
     now: () => (data ? <RightNow data={data} orgId={org.id} slug={org.slug} timeZone={org.timezone} floorBranchId={floorBranch?.id ?? null} mode={mode}
       canFloor={can('floor:read')} canEditFloor={can('floor:write')} /> : <SkeletonStats count={4} />),
-    performance: () => (period ? <Performance period={period} hourlyToday={hourlyToday} ratings={ratings.data} /> : <SkeletonStats count={5} />),
+    performance: () => (period ? <Performance period={period} hourlyToday={hourlyToday} ratings={ratings.data} drill={drill} /> : <SkeletonStats count={5} />),
     attention: () => (attention.data ? <Attention data={attention.data} orgId={org.id} timeZone={org.timezone} />
       : attention.error ? <LoadError error={attention.error} retry={attention.reload} /> : <SkeletonStats count={2} />),
-    customers: () => (period ? <Customers period={period} /> : <SkeletonStats count={4} />),
+    customers: () => (period ? <Customers period={period} drill={drill} /> : <SkeletonStats count={4} />),
     actions: () => <NextActions orgId={org.id} branchId={branchId || null} access={access} />,
   };
   const notes: Partial<Record<OverviewSectionId, ReactNode>> = {
     performance: period?.comparison ? t('home.perf.vs', { from: f.date(period.comparison.from), to: f.date(period.comparison.to) }) : null,
   };
   const usesPeriod = sections.includes('performance') || sections.includes('customers');
+  // Drill-down (21-INSIGHTS): each Performance and Customers widget opens its Insights view with this period,
+  // comparison and branch.
+  const drill = (section: InsightsSection) => `/dashboard/${org.id}${drillDownHref(section, { preset, compare, from: range.from, to: range.to, branchId })}`;
 
   return (
     <div className={s.page}>
