@@ -77,8 +77,9 @@ export class TrackingLinksService {
     const sessionKey = newToken(12);
     await this.db.withTenant(link.org_id, async (tx) => {
       await tx.query(`update tracking_links set click_count = click_count + 1 where id = $1`, [link.id]);
-      await tx.query(`insert into attribution_events(org_id, kind, campaign_id, session_key, utm) values ($1, 'link_click', $2, $3, $4)`,
-        [link.org_id, link.campaign_id, sessionKey, link.utm ?? {}]);
+      // 21-CRM: the link id goes with the click, so a customer's stored first touch can name the link.
+      await tx.query(`insert into attribution_events(org_id, kind, campaign_id, session_key, utm, link_id) values ($1, 'link_click', $2, $3, $4, $5)`,
+        [link.org_id, link.campaign_id, sessionKey, link.utm ?? {}, link.id]);
     }, 'tracking-link');
     return { destination: destinationWithParams(link.destination_path, link.utm ?? {}, link.campaign_id, sessionKey), campaignId: link.campaign_id };
   }

@@ -18,6 +18,7 @@ import { GuestDock } from '@/components/guest/dock';
 import { MenuSkeleton } from '@/components/guest/skeleton';
 import { useVisitLive } from '@/components/guest/live';
 import { estimate, MenuBrowser, productIndex, ProductSheet, useCart } from '@/components/guest/menu';
+import { trackedCart, useFunnel } from '@/lib/funnel-beacon';
 import { RatingSheet } from '@/components/guest/rating';
 import { ConsumerFooter, ConsumerHeader, Cover, MoneyRow, Sheet, useToast } from '@/components/guest/shell';
 import { StatusOrder, statusHeadline } from '@/components/guest/tracker';
@@ -40,10 +41,15 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
   const [bill, setBill] = useState<BillView | null>(null);
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
   const toast = useToast();
-  const cart = useCart(`resuto.cart.${qr}`);
+  const baseCart = useCart(`resuto.cart.${qr}`);
   const products = useMemo(() => productIndex(menu), [menu]);
   const currency = menu?.org.currency ?? table?.org.currency ?? visit?.currency ?? 'EGP';
   const org = menu?.org ?? table?.org ?? null;
+  // First-party funnel counts (21-CRM): this page only opens from a table's printed QR code, so it is a QR scan.
+  const funnel = useFunnel('t', org?.slug, { branchId: menu?.branch.id ?? visit?.branchId, qr: true });
+  const cart = trackedCart(baseCart, funnel.added);
+  // The cart sheet is this page's checkout (review, then Confirm order).
+  const openCart = () => { if (cart.count) funnel.checkout(); setSheet('cart'); };
 
   const join = useCallback(async () => {
     setPhase('joining');
@@ -196,7 +202,7 @@ export function TableExperience({ qr, table, initialMenu }: { qr: string; table:
       )}
       <ConsumerFooter org={org} />
 
-      <GuestDock count={cart.count} total={money(estimate(cart, products), currency, locale)} onCart={() => setSheet('cart')}
+      <GuestDock count={cart.count} total={money(estimate(cart, products), currency, locale)} onCart={openCart}
         bill={ordering ? { due: due > 0 ? money(due, currency, locale) : null, onOpen: openBill } : null}
         status={live.reconnecting ? <span className="gx-live" role="status">● {t('core.guest.reconnecting')}</span> : null} />
 

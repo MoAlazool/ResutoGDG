@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import type { Tx } from '../../common/db/db.service';
 import { invalid, notFound } from '../../common/errors/domain-error';
+import { parseStoredFirstTouch } from '../customers/first-touch';
 import { InventoryService } from '../inventory/inventory.service';
 import { branchScope, int, iso } from './scope';
 
@@ -17,7 +18,7 @@ type Period = { from: string; to: string; branchId?: string };
  * cancelled: awaiting_payment orders are not sales yet, cancelled orders are not
  * revenue. Params: $1 org, $2 branch scope (uuid[] | null), $3 from, $4 to.
  */
-const SCOPED = `scoped as (
+export const SCOPED = `scoped as (
   select o.*, (o.placed_at at time zone coalesce(b.timezone, org.timezone)) as local_ts,
          o.status not in ('cancelled', 'awaiting_payment') as counted
     from orders o join branches b on b.id = o.branch_id join organizations org on org.id = o.org_id
@@ -132,7 +133,7 @@ function lastYear(date: string): string {
  * Each identified customer's first counted order (within the branches in scope), with its local date. Params: $1 org,
  * $2 branch scope. Shared by the customers report and the overview period.
  */
-const FIRST_ORDERS = `firsts as (
+export const FIRST_ORDERS = `firsts as (
       select distinct on (o.customer_id) o.customer_id, o.id as order_id, o.channel::text as channel, o.attribution, o.campaign_id, o.placed_at,
              (o.placed_at at time zone coalesce(b.timezone, org.timezone))::date as first_day
         from orders o join branches b on b.id = o.branch_id join organizations org on org.id = o.org_id
@@ -150,6 +151,8 @@ const SOURCE_CHANNELS: Array<[RegExp, AcquisitionChannel]> = [
 /** First-order channel → acquisition channel when there is no recorded attribution (inferred). */
 const ORDER_CHANNEL: Record<string, AcquisitionChannel> = {
   qr: 'qr', web: 'website', whatsapp: 'whatsapp', staff: 'in_venue', pos: 'in_venue', phone: 'phone', mcp: 'assistant',
+  // Messenger and Instagram orders and conversations (21-CRM: a stored first touch can be the first conversation).
+  messenger: 'facebook', instagram: 'instagram',
 };
 
 /** Acquisition channel of a new customer from their first-touch evidence (see AnalyticsService.periodAcquisition). */
@@ -169,7 +172,8 @@ export function acquisitionChannel(r: { basis: string; utm: Record<string, unkno
 export class AnalyticsService {
   constructor(private readonly inventory: InventoryService) {}
 
-  private async context(tx: Tx, ctx: TenantContext, branchId?: string) {
+  /** Branch scope and timezone of a report (shared with the funnel reports, funnels.service.ts). */
+  async context(tx: Tx, ctx: TenantContext, branchId?: string) {
     const scope = branchScope(ctx, branchId);
     const org = await tx.one<{ timezone: string; currency: string }>(`select timezone, currency from organizations where id = $1`, [ctx.orgId]);
     let tz = org.timezone;
@@ -181,7 +185,7 @@ export class AnalyticsService {
     return { scope, tz, currency: org.currency, orgTimezone: org.timezone };
   }
 
-  private meta(tz: string, method: string, dataCoverage: AnalyticsMeta['dataCoverage'], assumptions: AnalyticsMeta['assumptions'] = [], kind: AnalyticsMeta['kind'] = 'measured'): AnalyticsMeta {
+  meta(tz: string, method: string, dataCoverage: AnalyticsMeta['dataCoverage'], assumptions: AnalyticsMeta['assumptions'] = [], kind: AnalyticsMeta['kind'] = 'measured'): AnalyticsMeta {
     return { method, assumptions, dataCoverage, kind, timezone: tz, generatedAt: new Date().toISOString() };
   }
 
@@ -665,15 +669,23 @@ export class AnalyticsService {
     const prev = cmp ? await kpisOf(cmp.from, cmp.to) : null;
     const params = [ctx.orgId, scope, p.from, p.to];
 
-    // Acquisition: each new customer's first touch (as in Customer 360): the earliest of their own attribution events
-    // with UTM values or a campaign up to their first order, a tracked link click in the first order's tracking
-    // session, or the first order's stored attribution; otherwise the first order's channel (inferred).
-    const touches = await tx.query<{ channel: string; basis: string; utm: Record<string, unknown> | null; campaign: boolean; sandbox: boolean }>(
+    // Acquisition: each new customer's first touch. The stored one (customers.first_touch, 21-CRM: set once at the first
+    // identified interaction) is the source of truth when it rests on a branch in scope (or on none); otherwise it is
+    // derived as in Customer 360: the earliest of their own attribution events with UTM values or a campaign up to
+    // their first order, a tracked link click in the first order's tracking session, or the first order's stored
+    // attribution; otherwise the first order's channel (inferred).
+    const touches = await tx.query<{ channel: string; basis: string; utm: Record<string, unknown> | null; campaign: boolean; sandbox: boolean;
+      stored: unknown; stored_campaign: boolean; stored_sandbox: boolean }>(
       `with ${FIRST_ORDERS}
-       , newc as (select * from firsts where first_day between $3::date and $4::date)
+       , newc as (
+           select f.*, cu.first_touch as stored,
+                  (cu.first_touch is not null and ($2::uuid[] is null or coalesce(cu.first_touch->>'branchId', '') = ''
+                     or (case when cu.first_touch->>'branchId' ~ '^[0-9a-f-]{36}$' then (cu.first_touch->>'branchId')::uuid end) = any($2::uuid[]))) as stored_ok
+             from firsts f join customers cu on cu.id = f.customer_id
+            where f.first_day between $3::date and $4::date)
        , touch as (
            select distinct on (n.customer_id) n.customer_id, x.utm, x.campaign_id, x.basis
-             from newc n cross join lateral (
+             from (select * from newc where not stored_ok) n cross join lateral (
                select e.utm, e.campaign_id, 'attribution_event'::text as basis, e.occurred_at, e.id as seq from attribution_events e
                 where e.org_id = $1 and e.customer_id = n.customer_id and e.kind not in ('message_sent', 'message_read')
                   and (e.utm ?| ${UTM_KEYS} or e.campaign_id is not null) and e.occurred_at <= n.placed_at + interval '1 minute'
@@ -687,14 +699,26 @@ export class AnalyticsService {
                 where n.attribution ?| ${UTM_KEYS} or n.campaign_id is not null
              ) x order by n.customer_id, x.occurred_at, x.seq)
        select n.channel, coalesce(t.basis, 'first_order_channel') as basis, t.utm,
-              (cp.id is not null and not cp.is_sandbox) as campaign, coalesce(cp.is_sandbox, false) as sandbox
-         from newc n left join touch t using (customer_id) left join campaigns cp on cp.id = t.campaign_id and cp.org_id = $1`, params);
+              (cp.id is not null and not cp.is_sandbox) as campaign, coalesce(cp.is_sandbox, false) as sandbox,
+              case when n.stored_ok then n.stored end as stored,
+              (scp.id is not null and not scp.is_sandbox) as stored_campaign, coalesce(scp.is_sandbox, false) as stored_sandbox
+         from newc n left join touch t using (customer_id) left join campaigns cp on cp.id = t.campaign_id and cp.org_id = $1
+         left join campaigns scp on n.stored_ok and scp.org_id = $1
+               and scp.id::text = (case when n.stored->>'campaignId' ~ '^[0-9a-f-]{36}$' then n.stored->>'campaignId' end)`, params);
     const byChannel = new Map<AcquisitionChannel, { customers: number; attributed: number; inferred: number }>();
     let sandboxTouches = 0;
-    for (const t of touches) {
+    let storedTouches = 0;
+    for (const touchRow of touches) {
+      const stored = parseStoredFirstTouch(touchRow.stored);
+      if (stored) storedTouches++;
+      const t = stored ? {
+        // An inferred stored touch names the first order's or the first conversation's channel.
+        channel: stored.inferred ? stored.channel ?? touchRow.channel : touchRow.channel, basis: stored.basis,
+        utm: { utm_source: stored.utm.source, utm_campaign: stored.utm.campaign }, campaign: touchRow.stored_campaign, sandbox: touchRow.stored_sandbox,
+      } : touchRow;
       // A touch from a sandbox campaign is test data: the customer is counted by their first order's channel instead.
       if (t.sandbox) sandboxTouches++;
-      const a = acquisitionChannel(t.sandbox ? { ...t, basis: 'first_order_channel' } : t);
+      const a = acquisitionChannel(t.sandbox ? { ...t, channel: touchRow.channel, basis: 'first_order_channel' } : t);
       const row = byChannel.get(a.channel) ?? { customers: 0, attributed: 0, inferred: 0 };
       row.customers++;
       if (a.attributed) row.attributed++; else row.inferred++;
@@ -756,7 +780,7 @@ export class AnalyticsService {
       },
       meta: this.meta(tz, `${REVENUE_METHOD} The period is compared with ${p.compare === 'last_year' ? 'the same local dates one year earlier' : p.compare === 'none' ? 'nothing' : 'the same number of days just before it'}. Repeat rate = identified customers with 2+ counted orders in the period ÷ identified customers; new = first counted order ever (in the branches in scope) falls in the period. Acquisition counts the period's new customers by first touch: recorded attribution (UTM values or a campaign on their own attribution events up to their first order, a tracked link click in the first order's session, or the first order's stored attribution) is attributed; without it the first order's channel is used and counted as inferred. Campaign conversion = attributed counted orders ÷ tracked link clicks in the period; sandbox campaigns are excluded.`, {
         countedOrders: k.orders, ordersWithoutCustomer: cur.c.anonymous_orders, newCustomers: touches.length,
-        acquisitionInferred: inferred, sandboxCampaignTouches: sandboxTouches,
+        acquisitionInferred: inferred, sandboxCampaignTouches: sandboxTouches, acquisitionStoredFirstTouch: storedTouches,
         campaignClicksIncluded: clicksIncluded, perBranchTimezones: scope === null || scope.length > 1,
       }, [], inferred > 0 ? 'mixed' : 'measured'),
     };

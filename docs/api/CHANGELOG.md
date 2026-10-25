@@ -7,6 +7,30 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — CRM, growth and funnels (21-CRM)
+
+- `POST /v1/public/funnel/beacon` (public, 204): one first-party funnel event from a guest page, sent as a
+  `text/plain` JSON body (`navigator.sendBeacon`) or JSON: `{ e: page_view | qr_scan | add_to_cart | checkout_started,
+  s: r | m | order | t | v | reserve, o: <restaurant slug>, b?: <branch id>, sid: <random tab id> }` (strict; at most
+  512 bytes). `qr_scan` only from `t`/`v`, cart events only from `order`/`t`/`v`. `400 validation_failed` stores
+  nothing; `429 rate_limited` per client address (600/min, before the body is read) and per tab id (30/min); an
+  unknown restaurant or an unsampled page view (1 in 4 tab sessions report page views) is dropped with the same 204.
+  Stores no IP address, user agent, URL or customer; only a per-restaurant hash of the tab id
+  (`docs/security/FUNNEL_BEACONS.md`).
+- `GET /v1/o/:orgId/analytics/funnel` (`analytics:read`; `from`, `to`, `branchId`): `steps` visits → QR scans →
+  messages → leads → orders → repeat and `cart` (add to cart, checkout started), each `{ key, value, unit, source,
+  completeness: complete | partial | estimate | unavailable, notes, measured }`, plus `beaconsSince` and `meta`.
+- `GET /v1/o/:orgId/analytics/retention` (`analytics:read`): monthly `cohorts` (as in `analytics/customers`) and
+  `repeatCurve { asOf, newCustomers, points[{ day, eligible, repeated, pct }] }` for days 0–90.
+- `GET /v1/o/:orgId/customers/:id/360`: `acquisition.firstTouch` gains `linkId` and `stored` (read from the new
+  `customers.first_touch`, set once at the first identified interaction and never overwritten; derived as before
+  when none is stored or the caller may not see it); `consent.channels[]` gains `contactBasis`
+  (`marketing_consent | service_replies_only`: messaging the restaurant is never marketing consent).
+- `GET /v1/o/:orgId/analytics/overview` (with a period): acquisition reads the stored first touch;
+  `meta.dataCoverage.acquisitionStoredFirstTouch` counts how many new customers it covered. Messenger and Instagram
+  first orders/conversations now count as `facebook` / `instagram` instead of `other_source`.
+- Tracked link clicks record their link (`attribution_events.link_id`).
+
 ### Added — Resuto Studio canvas workspace, section kinds, dish discounts, AI editing (21-STUDIO)
 
 - Website sections: `kind` gains `promo_banner`, `offers`, `social`, `faq` and `menu_full`; section `content` gains

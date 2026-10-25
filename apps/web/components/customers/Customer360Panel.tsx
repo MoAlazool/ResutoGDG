@@ -120,7 +120,9 @@ export default function Customer360Panel({ customerId, omit = [], level = 3, cur
           {c.consent.channels.length > 0 && (
             <ul className="c360-list">
               {c.consent.channels.map((ch) => (
-                <li key={ch.channel}>{tk('insights.c360.ch', ch.channel)}
+                <li key={ch.channel} data-contact-basis={ch.contactBasis}>{tk('insights.c360.ch', ch.channel)}
+                  {/* 21-CRM: messaging the restaurant is not marketing consent; without an opt-in it is service replies only. */}
+                  {ch.contactBasis === 'service_replies_only' && <span className="c360-sub"> · {t('crm.consent.serviceOnly')}</span>}
                   {ch.serviceWindow && <span className="c360-sub"> · {ch.serviceWindow.open
                     ? t('insights.c360.windowOpen', { until: dateTime(ch.serviceWindow.closesAt, locale, tz) }) : t('insights.c360.windowClosed')}</span>}</li>
               ))}

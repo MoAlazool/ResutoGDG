@@ -35,9 +35,9 @@ const c360 = (over: Partial<Customer360> = {}): Customer360 => ({
     lastOrderAt: '2026-10-24T10:00:00Z', cadence: { basis: 'counted_orders', ordersLast30Days: 4, ordersLast90Days: 12, daysSinceLastOrder: 1, medianDaysBetweenOrders: 4.5, sampleSize: 12 } },
   topItems: [{ productId: 'p1', name: 'Fries', nameAr: 'بطاطس', quantity: 14, orderCount: 9 }],
   consent: { perChannel: false, marketing: { granted: true, source: 'staff_verbal', at: '2026-10-01T10:00:00Z' },
-    channels: [{ channel: 'whatsapp', scope: 'customer', granted: true, source: 'staff_verbal', at: '2026-10-01T10:00:00Z', serviceWindow: { open: false, closesAt: null } }], history: [] },
+    channels: [{ channel: 'whatsapp', scope: 'customer', granted: true, source: 'staff_verbal', at: '2026-10-01T10:00:00Z', serviceWindow: { open: false, closesAt: null }, contactBasis: 'marketing_consent' }], history: [] },
   acquisition: { firstTouch: { basis: 'first_order_channel', inferred: true, occurredAt: '2026-09-01T10:00:00Z', channel: 'web',
-    utm: { source: null, medium: null, campaign: null, content: null, term: null }, campaignId: null, campaignName: null, orderId: 'o9' } },
+    utm: { source: null, medium: null, campaign: null, content: null, term: null }, campaignId: null, campaignName: null, orderId: 'o9', linkId: null, stored: true } },
   recentOrders: [{ id: 'o9', number: '1042', branchId: 'b1', channel: 'web', fulfillment: 'pickup', status: 'ready', paymentStatus: 'paid', totalMinor: 25_000, placedAt: '2026-10-24T10:00:00Z' }],
   reservations: [],
   loyalty: null,
@@ -95,6 +95,25 @@ describe('Customer 360 panel', () => {
     expect(v.host.textContent).toContain('مستنتج');
     expect(v.host.textContent).not.toMatch(EASTERN_DIGITS);
     v.unmount();
+  });
+
+  it('says a messaging contact without marketing consent is for service replies only (21-CRM), in both languages', () => {
+    const channels = [{ channel: 'whatsapp', scope: 'customer' as const, granted: false, source: null, at: null, serviceWindow: { open: true, closesAt: '2026-10-25T20:00:00Z' },
+      contactBasis: 'service_replies_only' as const }];
+    fixture.value = c360({ consent: { perChannel: false, marketing: { granted: false, source: null, at: null }, channels, history: [] } });
+    const en = mount(wrap('en', <Customer360Panel customerId="cu1" />));
+    const li = $(en.host, '[data-section="consent"] li[data-contact-basis]');
+    expect(li.getAttribute('data-contact-basis')).toBe('service_replies_only');
+    expect(li.textContent).toContain('Contact allowed for service replies only');
+    en.unmount();
+    const ar = mount(wrap('ar', <Customer360Panel customerId="cu1" />), 'ar');
+    expect($(ar.host, '[data-section="consent"]').textContent).toContain('التواصل مسموح لردود الخدمة فقط');
+    ar.unmount();
+    // With consent the label is not shown.
+    fixture.value = c360();
+    const ok = mount(wrap('en', <Customer360Panel customerId="cu1" />));
+    expect($(ok.host, '[data-section="consent"]').textContent).not.toContain('service replies only');
+    ok.unmount();
   });
 
   it('shows a skeleton while loading', () => {

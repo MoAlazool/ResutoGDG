@@ -20,6 +20,9 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/floor', 'apps/web/app/dashboard/[orgId]/host', 'apps/web/app/dashboard/[orgId]/reservations',
   'apps/web/components/floor/LiveFloor.tsx', 'apps/web/components/floor/WalkInSheet.tsx', 'apps/web/components/floor/areas.ts',
   'apps/web/app/dashboard/[orgId]/delivery', 'apps/web/app/dashboard/[orgId]/inventory',
+  // 21-CRM: the funnel, retention and segment views, the Customers page, the Insights page shell and the guest beacon.
+  'apps/web/components/crm', 'apps/web/app/dashboard/[orgId]/customers', 'apps/web/app/dashboard/[orgId]/analytics/page.tsx',
+  'apps/web/lib/funnel-beacon.ts', 'apps/web/components/guest/FunnelView.tsx',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

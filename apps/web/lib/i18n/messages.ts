@@ -9,6 +9,7 @@ import { common } from './dict/common';
 import { compliance } from './dict/compliance';
 import { connect } from './dict/connect';
 import { core } from './dict/core';
+import { crm } from './dict/crm';
 import { counter } from './dict/counter';
 import { deliveryGuest } from './dict/delivery-guest';
 import { deliveryStaff } from './dict/delivery-staff';
@@ -39,7 +40,7 @@ import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, home, platform, connect, marketing, pay, driver, studio, studioAi, studioWorkspace, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, opsBoard, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
+const PARTS = [common, core, insights, home, crm, platform, connect, marketing, pay, driver, studio, studioAi, studioWorkspace, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, opsBoard, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {

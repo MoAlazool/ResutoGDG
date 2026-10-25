@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { langAlternates } from '@/components/landing/legacy-routes';
 import { getT } from '@/lib/i18n/server';
+import { FunnelView } from '@/components/guest/FunnelView';
 import { MetaPixel } from '@/lib/tracking/MetaPixel';
 import { canonicalUrl, loadSite } from './_components/load-site';
 import { SiteView } from './_components/SiteView';
@@ -44,6 +45,7 @@ export default async function RestaurantSite({ params }: Params) {
       {siteJsonLd(site, canonicalUrl(site), locale).map((ld, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(ld) }} />)}
       <a className="sr-only" href="#main">{t('studio.site.skip')}</a>
       <MetaPixel slug={slug} />
+      <FunnelView surface="r" slug={slug} />
       <SiteView site={site} locale={locale} t={t} hostLinks={onCustomHost ? { home: '/', order: '/order', reserve: '/reserve' } : undefined} />
     </>
   );
