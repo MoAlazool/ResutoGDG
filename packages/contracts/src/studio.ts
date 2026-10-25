@@ -221,7 +221,9 @@ export interface PublicStorefrontLink {
 /** `GET /v1/public/sites/:slug/storefronts/:storefront`: branding only; the menu comes from the branch's live web menu. */
 export interface PublicStorefront {
   slug: string;
-  org: { slug: string; name: string; nameAr: string | null; currency: string; demo: boolean };
+  org: { slug: string; name: string; nameAr: string | null; currency: string; demo: boolean;
+    /** Links shown as icons in the storefront footer (21-ONB); only valid https links on each network's hosts. */
+    socialLinks?: SocialLinks };
   branch: {
     id: string; code: string; name: string; nameAr: string | null; city: string | null;
     /** The branch's neighbourhood (delivery label), English and Arabic; null when the branch has none (PAR-02). */
@@ -271,3 +273,45 @@ export interface PublicSite {
   /** Published branch storefronts (a branch trading under its own brand), linked from the site. */
   storefronts: PublicStorefrontLink[];
 }
+
+// --- studio_basic: logo, colours, theme presets (21-ONB increment 2) --------------
+/**
+ * PUT /v1/o/:orgId/brand: the part of the site's look every plan may change (STUDIO_BASIC_FEATURES). Strict: hero
+ * images, taglines, SEO, sections, fonts and templates outside a preset are Studio-only and refused here.
+ * `presetId` applies a theme preset (its colours, font and template); colours sent with it override the preset's.
+ * `presetId: null` keeps the colours and forgets the preset.
+ */
+export const updateBrand = z.object({
+  presetId: z.string().regex(/^[a-z][a-z0-9_]{1,39}$/).nullable().optional(),
+  primaryColor: hex.optional(),
+  accentColor: hex.optional(),
+  backgroundColor: hex.optional(),
+  logoMediaId: uuid.nullable().optional(),
+}).strict();
+export type UpdateBrand = z.infer<typeof updateBrand>;
+
+/** POST /v1/o/:orgId/brand/publish: publishes the restaurant site as a new revision (the Studio publish, idempotent). */
+export const publishBrand = z.object({ key: idempotencyKey }).strict();
+
+/** A theme preset: a complete website theme and storefront theme for one kind of restaurant. */
+export interface ThemePreset {
+  id: string;
+  name: LocalizedText;
+  description: LocalizedText;
+  template: WebsiteTemplate;
+  websiteTheme: { primaryColor: string; accentColor: string; backgroundColor: string; font: 'manrope' | 'editorial' };
+  storefrontTheme: { primaryColor: string; accentColor: string; inkColor: string; paperColor: string };
+}
+
+/** GET/PUT /v1/o/:orgId/brand. `scope` says whether the restaurant has the full Studio or only studio_basic. */
+export interface BrandView {
+  presetId: string | null;
+  template: WebsiteTemplate;
+  theme: { primaryColor: string; accentColor: string; backgroundColor: string; font: 'manrope' | 'editorial'; logoMediaId: string | null };
+  logoUrl: string | null;
+  website: { status: 'draft' | 'published'; publishedRevision: number; publishedAt: string | null; hasUnpublishedChanges: boolean };
+  links: { site: string; menu: string };
+  scope: 'studio_basic' | 'studio';
+}
+
+export interface BrandPublishResult { revision: number; publishedAt: string; links: { site: string; menu: string } }
