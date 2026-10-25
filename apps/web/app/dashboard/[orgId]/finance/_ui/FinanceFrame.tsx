@@ -1,6 +1,6 @@
 'use client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { isoDateIn } from '@resuto/contracts/lite';
 import { Field, PageHeader, SelectField } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
@@ -61,7 +61,14 @@ export function FinanceFrame({ children, actions, compare = true }: { children: 
   const [custom, setCustom] = useState<PeriodPreset | null>(null);
   const [draft, setDraft] = useState<DateRange>({ from: period.from, to: period.to });
   const shownPreset = custom ?? preset;
-  const go = (r: DateRange, mode: CompareMode) => router.push(`${pathname}?${new URLSearchParams({ from: r.from, to: r.to, ...(mode !== 'previous_period' ? { compare: mode } : {}) })}`);
+  // The latest choice, so a comparison picked right after a period builds on it rather than on a URL not yet updated.
+  const latest = useRef({ from: period.from, to: period.to, compare: period.compare });
+  useEffect(() => { latest.current = { from: period.from, to: period.to, compare: period.compare }; }, [period.from, period.to, period.compare]);
+  const go = (r: Partial<DateRange>, mode?: CompareMode) => {
+    const next = { ...latest.current, ...r, ...(mode ? { compare: mode } : {}) };
+    latest.current = next;
+    router.push(`${pathname}?${new URLSearchParams({ from: next.from, to: next.to, ...(next.compare !== 'previous_period' ? { compare: next.compare } : {}) })}`);
+  };
   const keep = new URLSearchParams({ from: period.from, to: period.to, ...(period.compare !== 'previous_period' ? { compare: period.compare } : {}) }).toString();
   const d = (x: string) => date(`${x}T12:00:00Z`, locale, 'UTC');
   const summary = period.previous && compare
@@ -73,14 +80,14 @@ export function FinanceFrame({ children, actions, compare = true }: { children: 
       <SectionNav sections={FINANCE_SECTIONS} label={t('finance.title')} query={keep} />
       <form className={`card ${styles.picker}`} onSubmit={(e) => {
         e.preventDefault();
-        if (validPeriod(draft)) { setCustom(null); go(draft, period.compare); }
+        if (validPeriod(draft)) { setCustom(null); go(draft); }
       }}>
         <div className={styles.pickerRow}>
           <SelectField label={t('finance.period.label')} value={shownPreset} onChange={(e) => {
             const p = e.target.value as PeriodPreset;
             if (p === 'custom') { setCustom('custom'); setDraft({ from: period.from, to: period.to }); return; }
             setCustom(null);
-            go(presetRange(p, today), period.compare);
+            go(presetRange(p, today));
           }}>
             {PERIOD_PRESETS.map((p) => <option key={p} value={p}>{t(`finance.preset.${p}`)}</option>)}
           </SelectField>
@@ -92,7 +99,7 @@ export function FinanceFrame({ children, actions, compare = true }: { children: 
             </>
           )}
           {compare && (
-            <SelectField label={t('finance.compare.label')} value={period.compare} onChange={(e) => go(period, e.target.value as CompareMode)}>
+            <SelectField label={t('finance.compare.label')} value={period.compare} onChange={(e) => go({}, e.target.value as CompareMode)}>
               {COMPARE_MODES.map((m) => <option key={m} value={m}>{t(`finance.compare.${m}`)}</option>)}
             </SelectField>
           )}
