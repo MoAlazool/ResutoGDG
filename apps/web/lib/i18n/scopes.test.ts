@@ -80,8 +80,8 @@ describe('message scopes', () => {
     expect(missing).toEqual([]);
   });
 
-  it('sign-in, sign-up, onboarding and invitation pages get only the auth scope, and it covers what they use', () => {
-    const AUTH_ROOTS = ['app/(auth)', 'app/onboarding', 'app/invite'];
+  it('sign-in, sign-up and invitation pages get only the auth scope, and it covers what they use', () => {
+    const AUTH_ROOTS = ['app/(auth)', 'app/invite'];
     const authFiles = routeFiles(AUTH_ROOTS, STAFF_DIRS.filter((d) => !AUTH_ROOTS.includes(d)));
     expect(authFiles.some((f) => f.endsWith('AuthForm.tsx'))).toBe(true);
     const ok = (k: string) => inScope(k, 'guest') || inScope(k, 'auth');
@@ -95,12 +95,38 @@ describe('message scopes', () => {
       const a = messagesFor(locale, 'auth');
       const s = messagesFor(locale, 'staff');
       expect(Object.keys(a).every((k) => k in s)).toBe(true);
-      // The point of the scope: the entry pages' HTML does not carry every module's copy.
+      // The point of the scope: the entry pages' HTML does not carry every module's copy (nor the wizard's).
       expect(JSON.stringify(a).length).toBeLessThan(JSON.stringify(s).length / 10);
+      expect(Object.keys(a).some((k) => k.startsWith('onb.'))).toBe(false);
     }
-    for (const l of ['app/(auth)/layout.tsx', 'app/onboarding/layout.tsx', 'app/invite/layout.tsx']) {
+    for (const l of ['app/(auth)/layout.tsx', 'app/invite/layout.tsx']) {
       expect(readFileSync(join(WEB, l), 'utf8')).toMatch(/<StaffProviders[^>]*scope="auth"/);
     }
+  });
+
+  it('the onboarding wizard gets the auth copy plus its own (onboarding scope), and it covers what the wizard uses', () => {
+    const ROOTS = ['app/onboarding'];
+    const files = routeFiles(ROOTS, STAFF_DIRS.filter((d) => !ROOTS.includes(d)));
+    expect(files.some((f) => f.includes('/onboarding/'))).toBe(true);
+    const ok = (k: string) => inScope(k, 'guest') || inScope(k, 'onboarding');
+    const missing: string[] = [];
+    for (const u of usedKeys(files)) {
+      if (u.key && u.key in en && !ok(u.key)) missing.push(`${u.file}: ${u.key}`);
+      if (u.prefix) for (const k of Object.keys(en).filter((x) => x.startsWith(u.prefix!))) if (!ok(k)) missing.push(`${u.file}: ${u.prefix}* (${k})`);
+    }
+    expect(missing).toEqual([]);
+    for (const locale of ['en', 'ar'] as const) {
+      const o = messagesFor(locale, 'onboarding');
+      const s = messagesFor(locale, 'staff');
+      expect(Object.keys(o).every((k) => k in s)).toBe(true);
+      expect(Object.keys(messagesFor(locale, 'auth')).every((k) => k in o)).toBe(true);
+      expect(JSON.stringify(o).length).toBeLessThan(JSON.stringify(s).length / 5);
+    }
+    // Every wizard key exists in both languages.
+    const ar = dictionaries.ar;
+    expect(Object.keys(en).filter((k) => k.startsWith('onb.') && !(k in ar))).toEqual([]);
+    expect(Object.keys(ar).filter((k) => k.startsWith('onb.') && !(k in en))).toEqual([]);
+    expect(readFileSync(join(WEB, 'app/onboarding/layout.tsx'), 'utf8')).toMatch(/<StaffProviders[^>]*scope="onboarding"/);
   });
 
   it('guest and staff scopes are disjoint and together cover every key except the landing copy', () => {

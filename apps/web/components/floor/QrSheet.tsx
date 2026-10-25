@@ -2,20 +2,15 @@
 // Table QR print sheet (legacy Settings → QR print sheet). The QR endpoint is the
 // only place table QR URLs appear (MODULE_CONTRACTS.md §8).
 import { EmptyState, Notice, Skeleton } from '@resuto/ui';
+import { sanitizeQrSvg } from '@/lib/qr-svg';
 import { useApi } from '@/lib/use-api';
 import { useFloorLabels } from './use-floor-labels';
 import './floor.css';
 
 interface QrItem { tableId: string; label: string; url: string; svg: string }
 
-/** Keeps only the <svg> element of a server-rendered QR code (no scripts, handlers or foreign markup). */
-export function sanitizeQrSvg(svg: string): string | null {
-  const m = /^\s*(?:<\?xml[^>]*>\s*)?(<svg[\s\S]*<\/svg>)\s*$/i.exec(svg);
-  if (!m) return null;
-  const body = m[1]!;
-  if (/<script|on[a-z]+\s*=|javascript:|<foreignObject|<iframe|xlink:href\s*=\s*["']?(?!#)/i.test(body)) return null;
-  return body;
-}
+// Re-exported for the screens that import it from here (ServiceMode, MenuQrCard, LiveFloor).
+export { sanitizeQrSvg };
 
 export function QrSheet({ orgId, branchId, branchName, restaurantName }: { orgId: string; branchId: string; branchName: string; restaurantName: string }) {
   const { t } = useFloorLabels();

@@ -13,6 +13,7 @@ const NOT_A_COUNT = new Set([
   'connect.order.optional', 'connect.int.pos.preview', 'pay.receipt.splitPaid', 'pay.split.share', 'pay.split.unit', 'driver.order',
   'driver.dispatch.jobTitle', 'studio.floor.conflictRevision', 'studio.floor.selectedCount', 'studio.website.published', 'studio.publish.done',
   'studio.history.restoreTitle', 'studio.history.restored', 'mcp.form.maxCallsHint',
+  'onb.progress', 'onb.sheet.row',
 ]);
 
 const placeholders = (m: string) => [...m.matchAll(/\{(\w+)(?:\s*,\s*plural\s*,)?/g)].map((x) => x[1]!);

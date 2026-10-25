@@ -24,6 +24,7 @@ import { marketing } from './dict/marketing';
 import { loyalty } from './dict/loyalty';
 import { mcp } from './dict/mcp';
 import { notifications } from './dict/notifications';
+import { onboarding } from './dict/onboarding';
 import { ops } from './dict/ops';
 import { pay } from './dict/pay';
 import { platform } from './dict/platform';
@@ -34,7 +35,7 @@ import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 
-const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff, counter, shell];
+const PARTS = [common, core, insights, platform, connect, marketing, pay, driver, studio, studioAi, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, vocab, allergens, guest, ops, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {
@@ -76,12 +77,15 @@ const LANDING = /^platform\.lp\./;
  * document, so these entry pages must not carry it. lib/i18n/scopes.test.ts checks their keys are covered.
  */
 export const AUTH_SCOPE: RegExp[] = [/^auth\./, /^role\./]; // role names: the account page lists memberships (CR-05)
-export type MessageScope = 'guest' | 'staff' | 'auth';
+/** The onboarding wizard (21-ONB): the auth copy plus its own (onb.*), never every module's. */
+export const ONBOARDING_SCOPE: RegExp[] = [...AUTH_SCOPE, /^onb\./];
+export type MessageScope = 'guest' | 'staff' | 'auth' | 'onboarding';
 export const inScope = (key: string, scope: MessageScope) => {
   if (LANDING.test(key)) return false;
   const guest = GUEST_SCOPE.some((r) => r.test(key));
   if (scope === 'guest') return guest;
   if (scope === 'auth') return !guest && AUTH_SCOPE.some((r) => r.test(key));
+  if (scope === 'onboarding') return !guest && ONBOARDING_SCOPE.some((r) => r.test(key));
   return !guest;
 };
 
