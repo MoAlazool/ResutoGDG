@@ -71,8 +71,8 @@ private struct Evidence: Codable {
             let selections = menu.modifierGroups.filter { product.modifierGroupIds.contains($0.id) && $0.isActive }.flatMap { group in group.options.filter(\.isAvailable).prefix(group.minSelect).map { ModifierSelection(groupId: group.id, optionId: $0.id) } }
             let payload = StaffOrder(branchId: branch, fulfillment: "pickup", lines: [CartLine(productId: product.id, quantity: 1, modifiers: selections)], notes: "Native QA synthetic staging lifecycle")
             _ = try CartRules.estimate(payload, menu: menu)
-            let formatter = DateFormatter(); formatter.locale = Locale(identifier:"en_US_POSIX"); formatter.timeZone = TimeZone(identifier: restaurant.timezone); formatter.dateFormat = "yyyy-MM-dd"
-            let date = formatter.string(from: Date()), period = ["branchId":branch,"from":date,"to":date]
+            let date = BusinessDate.day(Date(),branch:restaurant.branches.first(where: { $0.id == branch })?.timezone,restaurant:restaurant.timezone)
+            let period = ["branchId":branch,"from":date,"to":date]
             let before: Analytics = try await api.get("o/\(org)/analytics/summary", query: period)
             let operation = UUID().uuidString
             evidence.operationId = operation

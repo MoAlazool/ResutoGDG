@@ -286,3 +286,27 @@ final class POSShadowSyncTests: XCTestCase {
         XCTAssertNotNil(snapshot.menu); XCTAssertEqual(requests.filter { $0.url?.path == "/v1/pos/sync/orders" }.count,1)
     }
 }
+final class FailurePresentationTests: XCTestCase {
+    func testBackendMessageCannotLeakIntoLocalizedUIKey() {
+        let presentation = FailurePresentation(APIError(status:409,code:"pos_price_changed",message:"Untrusted arbitrary customer data",requestId:"safe-request"))
+        XCTAssertEqual(presentation.key,"price_changed"); XCTAssertEqual(presentation.requestId,"safe-request")
+        XCTAssertFalse(presentation.key.contains("customer"))
+    }
+    func testAuthorizationAndDeviceFailuresHaveDistinctRecovery() {
+        XCTAssertEqual(FailurePresentation(APIError(status:401,code:"unauthorized",message:"English only")).key,"session_expired")
+        XCTAssertEqual(FailurePresentation(APIError(status:401,code:"device_revoked",message:"English only")).key,"pos_pairing_required")
+        XCTAssertEqual(FailurePresentation(APIError(status:403,code:"pos_staff_not_allowed",message:"English only")).key,"permission_denied")
+    }
+    func testTransportAndVersionConflictsUseRecoveryKeys() {
+        XCTAssertEqual(FailurePresentation(URLError(.networkConnectionLost)).key,"connection_interrupted")
+        XCTAssertEqual(FailurePresentation(APIError(status:409,code:"stale_order",message:"English only")).key,"order_changed")
+    }
+}
+final class BusinessDateTests: XCTestCase {
+    func testBranchBusinessDayAndWesternDigitsOverrideRestaurantTimezone() throws {
+        let date = try XCTUnwrap(ServerDate.parse("2026-10-24T22:30:00Z"))
+        XCTAssertEqual(BusinessDate.day(date,branch:"Africa/Cairo",restaurant:"America/New_York"),"2026-10-25")
+        XCTAssertEqual(BusinessDate.day(date,branch:nil,restaurant:"America/New_York"),"2026-10-24")
+        XCTAssertEqual(BusinessDate.timezone(branch:"invalid",restaurant:nil),.gmt)
+    }
+}

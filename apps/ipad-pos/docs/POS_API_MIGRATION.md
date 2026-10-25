@@ -22,7 +22,7 @@ The new portable adapters compile in the native app/package and have synthetic c
 
 Revoked/expired device credentials are deleted without clearing the staff session. Staff logout preserves pairing. A valid staff user denied on this device never falls back to device-only requests. Re-pairing to another branch cannot expose the previous branch's checkpoints or queued orders.
 
-`APIError.details` preserves reviewed structured price/unavailability/resync information. Error codes select behavior. Existing staff error mapping remains compatible.
+`APIError.details` preserves reviewed structured price/unavailability/resync information. `FailurePresentation` selects bilingual recovery keys and separate support references without rendering arbitrary backend messages. Error codes select behavior. Existing staff error mapping remains compatible.
 
 ## Preserved limitations
 

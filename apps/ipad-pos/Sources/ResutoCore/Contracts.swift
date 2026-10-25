@@ -17,7 +17,7 @@ public struct Me: Codable, Sendable {
     public let memberships: [Membership]
 }
 public struct Branch: Codable, Identifiable, Sendable {
-    public let id: String; public let name: String; public let nameAr: String?; public let isActive: Bool
+    public let id: String; public let name: String; public let nameAr: String?; public let isActive: Bool; public let timezone: String?
     public let acceptsDineIn: Bool; public let acceptsPickup: Bool; public let acceptsDelivery: Bool
 }
 public struct Restaurant: Codable, Sendable {

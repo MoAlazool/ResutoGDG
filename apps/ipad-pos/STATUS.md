@@ -6,7 +6,7 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 
 | Area | Implemented | Tested | Verified on Staging | Verified on Real Device | Blocked / remaining |
 |---|---|---|---|---|---|
-| Swift portable core | Yes | 80 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
+| Swift portable core | Yes | 84 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
 | Native SwiftUI app/project | Yes | Xcode 16.4 + 46 core/4 UI passed at `481c191`; expanded workflow CI pending | No | No | Authenticated screens and physical-device acceptance remain |
 | Supabase auth/refresh/Keychain | Yes | Core transport/refresh/session-local logout tests | No | No | Dedicated QA staff account; real-device Keychain checks |
 | Restaurant/branch/role scoping | Yes | Core permission and queue isolation tests | Unauthenticated access rejects 401 | No | Authenticated cross-tenant/branch negative cases |
@@ -40,4 +40,4 @@ See `API_DEPENDENCIES.md`, `docs/VERIFICATION.md`, `docs/SECURITY.md`, `docs/HAR
 
 ## POS API 0.2.0 preparation
 
-Claude source `1a05443` has draft 0.1.0 and a proposed/in-progress 0.2.0 integration path. New native compatibility code covers separate device/staff credentials, context/permission intersection, typed POS DTOs, permanent-ID quote approval/reconciliation, a durable ordered event journal and read-only shadow snapshots. **Not activated in live SwiftUI routing.** Existing staff flows and encrypted queues remain intact; no automatic migration of previously attempted orders. 80 core tests pass locally; current Xcode CI must pass at the new adapter revision. See `docs/POS_API_MIGRATION.md` for implemented versus pending wiring and final backend gates.
+Claude source `1a05443` has draft 0.1.0 and a proposed/in-progress 0.2.0 integration path. New native compatibility code covers separate device/staff credentials, context/permission intersection, typed POS DTOs, permanent-ID quote approval/reconciliation, a durable ordered event journal and read-only shadow snapshots. **Not activated in live SwiftUI routing.** Existing staff flows and encrypted queues remain intact; no automatic migration of previously attempted orders. 84 core tests pass locally; current Xcode CI must pass at the new adapter revision. See `docs/POS_API_MIGRATION.md` for implemented versus pending wiring and final backend gates.

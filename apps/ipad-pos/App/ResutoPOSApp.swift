@@ -46,7 +46,7 @@ struct RootView: View {
         VStack(spacing: 0) {
             if m.simulatedUITest { Text("SIMULATED UI TEST — NOT STAGING").font(.caption.bold()).padding(6).accessibilityIdentifier("simulatedTestBanner") }
             if let error = m.error {
-                HStack { Image(systemName: "exclamationmark.triangle.fill"); Text(l.text(error)).textSelection(.enabled); Spacer(); Button { m.error = nil } label: { Image(systemName: "xmark") }.accessibilityLabel(l.text("close")) }
+                HStack { Image(systemName: "exclamationmark.triangle.fill"); VStack(alignment:.leading,spacing:4) { Text(l.failureText(error)); if let request = m.errorRequestId { Text(l.text("support_reference") + ": " + request).font(.caption.monospaced()).environment(\.layoutDirection,.leftToRight) } }.textSelection(.enabled); Spacer(); Button { m.error = nil; m.errorRequestId = nil } label: { Image(systemName: "xmark") }.accessibilityLabel(l.text("close")) }
                     .padding().foregroundStyle(.primary).background(.orange.opacity(0.18)).accessibilityIdentifier("errorBanner")
             }
             if let notice = m.notice {
@@ -121,7 +121,7 @@ struct WorkspaceSelection: View {
                 Section(l.text("choose_restaurant")) {
                     ForEach(m.me?.memberships ?? []) { member in
                         Button { Task { await m.perform { try await m.choose(member) } } } label: {
-                            HStack { Label(member.orgName, systemImage: "building.2"); Spacer(); Text(member.role).foregroundStyle(.secondary); if member.id == m.membership?.id { Image(systemName: "checkmark.circle.fill") } }.frame(minHeight: 48)
+                            HStack { Label(member.orgName, systemImage: "building.2"); Spacer(); Text(l.text("role_" + member.role)).foregroundStyle(.secondary); if member.id == m.membership?.id { Image(systemName: "checkmark.circle.fill") } }.frame(minHeight: 48)
                         }.accessibilityIdentifier("restaurant." + member.id)
                     }
                 }

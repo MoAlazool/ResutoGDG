@@ -12,7 +12,7 @@ struct CustomerPicker: View {
         NavigationStack {
             List {
                 if loading { ProgressView() }
-                if let issue { Text(l.text(issue)).foregroundStyle(.orange) }
+                if let issue { Text(l.failureText(issue)).foregroundStyle(.orange) }
                 if results.isEmpty && !loading { EmptyState(key: "empty_customers", symbol: "person.crop.circle.badge.questionmark") }
                 ForEach(results) { customer in
                     Button {
@@ -29,7 +29,7 @@ struct CustomerPicker: View {
                     do {
                         try await Task.sleep(for: .milliseconds(300)); loading = true; defer { loading = false }
                         let values = try await m.customers(query: query); try Task.checkCancellation(); results = values
-                    } catch is CancellationError { } catch { issue = error.localizedDescription }
+                    } catch is CancellationError { } catch { issue = FailurePresentation(error).key }
                 }
         }
     }
@@ -43,7 +43,7 @@ struct ReservationsView: View {
     var body: some View {
         List {
             DatePicker(l.text("date"), selection: $date, displayedComponents: .date)
-                .environment(\.timeZone, TimeZone(identifier: m.restaurant?.timezone ?? "UTC") ?? .gmt)
+                .environment(\.timeZone, BusinessDate.timezone(branch:m.branch?.timezone,restaurant:m.restaurant?.timezone))
             if m.reservations.isEmpty { EmptyState(key: "empty_reservations", symbol: "calendar") }
             ForEach(m.reservations) { reservation in
                 VStack(alignment: .leading, spacing: 10) {
@@ -55,7 +55,8 @@ struct ReservationsView: View {
                     }
                 }.padding(.vertical, 10)
             }
-        }.task(id: date) { await m.perform { try await m.loadReservations(date: date) } }
+        }.environment(\.timeZone,BusinessDate.timezone(branch:m.branch?.timezone,restaurant:m.restaurant?.timezone))
+            .task(id: date) { await m.perform { try await m.loadReservations(date: date) } }
             .sheet(item: $selected) { reservation in
                 NavigationStack {
                     Form {

@@ -88,7 +88,7 @@ struct OrdersView: View {
                         }.foregroundStyle(.primary).disabled(!m.reachable).accessibilityIdentifier("order." + order.id)
                     }
                     if history && m.nextCursor != nil { Button(l.text("more")) { Task { await m.perform { try await m.moreOrders() } } } }
-                }.searchable(text: $query, prompt: l.text("search_menu"))
+                }.searchable(text: $query, prompt: l.text("search_orders"))
                     .task { if history { await m.perform { try await m.loadHistory(reset: true) } } }
             }
         }
@@ -105,7 +105,7 @@ struct KitchenView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 280, maximum: 400))], spacing: 20) {
                     ForEach(m.tickets) { ticket in
                         VStack(alignment: .leading, spacing: 14) {
-                            HStack { Text("#\(ticket.number)").font(.title2.bold()); Spacer(); Text("\(ticket.ageSeconds / 60)m").monospacedDigit() }
+                            HStack { Text("#\(ticket.number)").font(.title2.bold()); Spacer(); Text("\(max(0,ticket.ageSeconds) / 60) \(l.text("minutes_short"))").monospacedDigit().accessibilityLabel("\(max(0,ticket.ageSeconds) / 60) \(l.text("minutes"))") }
                             Text(ticket.tableLabel ?? l.text(ticket.fulfillment)).foregroundStyle(.secondary)
                             Text(l.text(ticket.status)).font(.headline).foregroundStyle(Design.accent)
                             Divider()
@@ -139,7 +139,7 @@ struct SyncView: View {
                         .font(.headline).foregroundStyle(operation.state == .attention ? .orange : Design.accent).accessibilityIdentifier("sync.state." + operation.state.rawValue)
                     Text(operation.serverNumber.map { "#\($0)" } ?? String(operation.id.uuidString.prefix(8))).font(.subheadline.monospaced())
                     Text(operation.createdAt, style: .date).font(.caption)
-                    if let issue = operation.issue { Text(l.text(issue)).foregroundStyle(.secondary) }
+                    if let issue = operation.issue { Text(l.failureText(FailurePresentation.key(code:issue))).foregroundStyle(.secondary) }
                     HStack {
                         if operation.state == .local {
                             Button(l.text("review_send")) { Task { await m.perform { try await m.prepareReview(operation); reviewing = operation } } }.disabled(!m.reachable)

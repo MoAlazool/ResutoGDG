@@ -27,6 +27,7 @@ import CryptoKit
     @Published var reservations: [ReservationRecord] = []
     @Published var promotion = ""
     @Published var error: String?
+    @Published var errorRequestId: String?
     @Published var notice: String?
     @Published var busy = false
     @Published var reachable = true
@@ -82,11 +83,12 @@ import CryptoKit
         monitor.start(queue: DispatchQueue(label: "resuto.connectivity"))
     }
     func perform(_ operation: @MainActor () async throws -> Void) async {
-        guard !busy else { return }; busy = true; error = nil; defer { busy = false }
+        guard !busy else { return }; busy = true; error = nil; errorRequestId = nil; defer { busy = false }
         do { try await operation() } catch { handle(error) }
     }
     func handle(_ failure: Error) {
-        error = (failure as? LocalizedError)?.errorDescription ?? failure.localizedDescription
+        let presentation = FailurePresentation(failure)
+        error = presentation.key; errorRequestId = presentation.requestId
         if let api = failure as? APIError, [401, 403].contains(api.status) {
             // No continuing access to stale tenant data after revocation or membership removal.
             locked = true; menu = nil; layout = nil; live = nil; orders = []; tickets = []; detail = nil
@@ -198,8 +200,8 @@ import CryptoKit
     }
     func loadReservations(date: Date) async throws {
         guard reachable, can("reservations:read"), let scope, let api else { throw RuleError.invalid("online_required") }
-        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = TimeZone(identifier: restaurant?.timezone ?? "UTC"); formatter.dateFormat = "yyyy-MM-dd"
-        let day: ReservationDay = try await api.get("o/\(scope.orgId)/reservations", query: ["branchId": scope.branchId, "date": formatter.string(from: date)])
+        let dayString = BusinessDate.day(date,branch:branch?.timezone,restaurant:restaurant?.timezone)
+        let day: ReservationDay = try await api.get("o/\(scope.orgId)/reservations", query: ["branchId": scope.branchId, "date": dayString])
         reservations = day.items.filter { $0.branchId == scope.branchId }
     }
     func reservationCheckIn(_ reservation: ReservationRecord, tableId: String) async throws {

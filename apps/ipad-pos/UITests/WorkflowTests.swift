@@ -13,18 +13,22 @@ final class WorkflowTests: XCTestCase {
         if toggle.exists { return toggle }
         return app.descendants(matching:.any).matching(identifier:id).firstMatch
     }
-    private func tap(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) {
+    @discardableResult private func reveal(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement? {
         var target = element(app,id)
         if !target.waitForExistence(timeout:2) {
             // SwiftUI Form lazily exposes rows. Scroll the frontmost form rather than assuming all rows exist.
             for _ in 0..<8 {
-                guard let form = app.collectionViews.allElementsBoundByIndex.last else { break }
+                let forms = app.collectionViews.allElementsBoundByIndex
+                guard let form = id.hasPrefix("nav.") ? forms.first : forms.last else { break }
                 form.swipeUp(); target = element(app,id)
                 if target.waitForExistence(timeout:1) { break }
             }
         }
-        guard target.waitForExistence(timeout:10) else { XCTFail("Missing \(id)\n\(app.debugDescription)",file:file,line:line); return }
-        target.tap()
+        guard target.waitForExistence(timeout:10) else { XCTFail("Missing \(id)\n\(app.debugDescription)",file:file,line:line); return nil }
+        return target
+    }
+    private func tap(_ app: XCUIApplication, _ id: String,file: StaticString = #filePath,line: UInt = #line) {
+        reveal(app,id,file:file,line:line)?.tap()
     }
     private func assertOrderState(_ app: XCUIApplication,id: String,label: String,file: StaticString = #filePath,line: UInt = #line) {
         let state = app.staticTexts.matching(identifier:id).firstMatch
@@ -33,7 +37,7 @@ final class WorkflowTests: XCTestCase {
             app.collectionViews.allElementsBoundByIndex.last?.swipeDown()
         }
         XCTAssertTrue(state.waitForExistence(timeout:15),file:file,line:line)
-        XCTAssertEqual(state.label,label,file:file,line:line)
+        expectation(for:NSPredicate(format:"label == %@",label),evaluatedWith:state); waitForExpectations(timeout:15)
     }
     private func launch(reset: Bool = true, arabic: Bool = false, role: String = "manager", scenario: String = "normal") throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -67,7 +71,7 @@ final class WorkflowTests: XCTestCase {
         tap(app,"checkout.reviewCash"); tap(app,"checkout.confirmCash")
         assertOrderState(app,id:"order.paymentState",label:"Paid")
         tap(app,"receipt.enqueue"); tap(app,"order.done"); tap(app,"nav.settings")
-        XCTAssertTrue(app.staticTexts["Waiting to print"].waitForExistence(timeout: 15))
+        XCTAssertNotNil(reveal(app,"Waiting to print"))
         attach(app,"simulated-order-payment-receipt")
     }
     func testArabicOrderEntryAndRotation() throws {
@@ -131,7 +135,7 @@ final class WorkflowTests: XCTestCase {
         tap(app,"nav.orders"); tap(app,"order." + order)
         tap(app,"checkout.reviewCash"); tap(app,"checkout.confirmCash"); tap(app,"order.done")
         tap(app,"nav.settings")
-        XCTAssertTrue(element(app,"financial.retry").waitForExistence(timeout:15),"Ambiguous cash must retain its original intent")
+        XCTAssertNotNil(reveal(app,"financial.retry"),"Ambiguous cash must retain its original intent")
         tap(app,"financial.retry"); tap(app,"financial.confirmRetry")
         let cleared = NSPredicate(format:"exists == false")
         expectation(for:cleared,evaluatedWith:element(app,"financial.retry")); waitForExpectations(timeout:15)
@@ -139,7 +143,7 @@ final class WorkflowTests: XCTestCase {
         assertOrderState(app,id:"order.paymentState",label:"Paid")
         attach(app,"simulated-cash-same-key-reconciled")
     }
-    func testHostCannotEnterOrdersOrPayments() throws {
+    func testHostCannotEnterPOSKitchenOrPayments() throws {
         let app = try launch(role: "host")
         XCTAssertFalse(element(app,"nav.pos").exists)
         XCTAssertFalse(element(app,"nav.kitchen").exists)

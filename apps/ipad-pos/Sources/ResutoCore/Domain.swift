@@ -88,3 +88,14 @@ public enum ServerDate {
         return formatter.date(from: value)
     }
 }
+
+public enum BusinessDate {
+    public static func timezone(branch: String?, restaurant: String?) -> TimeZone {
+        branch.flatMap(TimeZone.init(identifier:)) ?? restaurant.flatMap(TimeZone.init(identifier:)) ?? .gmt
+    }
+    public static func day(_ date: Date, branch: String?, restaurant: String?) -> String {
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier:"en_US_POSIX")
+        formatter.calendar = Calendar(identifier:.gregorian); formatter.timeZone = timezone(branch:branch,restaurant:restaurant)
+        formatter.dateFormat = "yyyy-MM-dd"; return formatter.string(from:date)
+    }
+}

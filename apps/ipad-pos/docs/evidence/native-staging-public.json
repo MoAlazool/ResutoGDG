@@ -9,6 +9,6 @@
     "native_URLSession_staging_health",
     "unauthenticated_identity_401"
   ],
-  "observedAt" : "2026-10-24T20:41:55Z",
+  "observedAt" : "2026-10-24T23:59:00Z",
   "scope" : "Native Swift API client; browser and physical-device verification are separate"
 }
