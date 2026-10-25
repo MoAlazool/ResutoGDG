@@ -1,6 +1,6 @@
 /* Plan & billing (21-MONEY). Semantic tokens and logical properties only (lib/logical-css-policy.test.ts). */
 .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: var(--space-4); align-items: start; }
-.pair > :global(.card) { margin-block-start: 0; }
+.pair > :global(.card):not(:first-child) { margin-block-start: 0; }
 .planName { margin: 0; font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--text-strong); }
 .facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: 0; font-size: var(--fs-md); }
 .facts dd { margin: 0; }
