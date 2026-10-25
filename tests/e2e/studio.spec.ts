@@ -14,19 +14,21 @@ test('edit in ResutoStudio → publish → /r/<slug> renders the new revision', 
   await page.goto(`/dashboard/${tenant.orgId}/website`);
   await expect(page.getByRole('heading', { level: 1, name: 'Website' })).toBeVisible();
   await expect(page.getByText('Live · revision 1')).toBeVisible();
-  // The live preview shows the draft.
-  await expect(page.locator('.ws-preview .restaurant-editorial h1')).toHaveText('Good food. Long conversations.');
+  // The canvas (a sandboxed frame) shows the draft.
+  const canvas = page.frameLocator('iframe.ws-frame');
+  await expect(canvas.locator('.restaurant-editorial h1')).toHaveText('Good food. Long conversations.');
 
-  // Edit the hero headline in both languages.
-  await page.locator('.ws-sections li').filter({ hasText: 'Good food. Long conversations.' }).getByRole('button', { name: 'Edit' }).click();
-  const drawer = page.locator('dialog.rui-drawer[open]');
-  await expect(drawer).toBeVisible();
-  const headline = drawer.locator('fieldset').filter({ hasText: 'Headline' });
+  // Select the hero (navigator) and edit its headline in both languages in the inspector.
+  await page.locator('.ws-sections li').filter({ hasText: 'Good food. Long conversations.' }).locator('.ws-list-pick').click();
+  const inspector = page.locator('.ws-inspector');
+  const headline = inspector.locator('fieldset.ws-loc').filter({ hasText: 'Headline' });
   await headline.getByLabel('English').fill('Seasonal plates in Zamalek.');
   await headline.getByLabel('Arabic').fill('أطباق موسمية في الزمالك.');
-  await drawer.getByRole('button', { name: 'Save' }).click();
-  await expect(page.locator('.ws-preview .restaurant-editorial h1')).toHaveText('Seasonal plates in Zamalek.');
+  await expect(page.getByRole('status').filter({ hasText: 'Unsaved changes' })).toBeVisible();
+  await inspector.getByRole('button', { name: 'Apply' }).click();
+  await expect(canvas.locator('.restaurant-editorial h1')).toHaveText('Seasonal plates in Zamalek.');
   await expect(page.getByText('Unpublished changes')).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
 
   // Draft changes stay private until publishing.
   await expect((await request.get(`/r/${tenant.slug}`)).ok()).toBeTruthy();
@@ -112,14 +114,17 @@ test('Studio editor manages media, domains and labelled AI creative', async ({ p
   await seedMenu(tenant);
   await signIn(page, tenant.owner);
   await page.goto(`/dashboard/${tenant.orgId}/website`);
-  await page.getByRole('tab', { name: 'Domains' }).click();
+  // Domains live in the site inspector (the navigation's Domains item opens it with ?tab=domains).
+  await page.locator('.ws-inspector').getByRole('radio', { name: 'Site' }).click();
+  await page.locator('.ws-inspector').getByRole('tab', { name: 'Domains' }).click();
   await page.getByLabel('Domain').fill(`www.${tenant.slug}.example.com`);
   await page.getByRole('button', { name: 'Add domain' }).click();
   await expect(page.getByText('Waiting for DNS record')).toBeVisible();
   await expect(page.locator('.ws-dns code').first()).toHaveText(`_resuto-verify.www.${tenant.slug}.example.com`);
   await expect(page.getByText('Manual setup (no hosting API configured)')).toBeVisible();
 
-  await page.getByRole('tab', { name: 'AI creative' }).click();
+  await page.locator('.ws-inspector').getByRole('radio', { name: 'AI' }).click();
+  await page.getByRole('tab', { name: 'Copy drafts' }).click();
   await page.getByLabel('Brief').fill('Weekend brunch is back from 10 am');
   await page.getByRole('button', { name: 'Generate drafts' }).click();
   await expect(page.getByText('Template · no AI').first()).toBeVisible();
@@ -136,6 +141,8 @@ test('Studio pages have no serious accessibility violations', async ({ page, req
   await signIn(page, tenant.owner);
   await page.goto(`/dashboard/${tenant.orgId}/website`);
   await expect(page.locator('.ws-sections li').first()).toBeVisible();
-  const editor = await new AxeBuilder({ page }).exclude('.ws-preview').disableRules(['color-contrast']).analyze();
+  await expect(page.frameLocator('iframe.ws-frame').locator('.site-root')).toBeVisible();
+  // The canvas frame renders the public site, checked above; the editor around it is checked here.
+  const editor = await new AxeBuilder({ page }).exclude('.ws-stage').disableRules(['color-contrast']).analyze();
   expect(editor.violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? '')).map((v) => `${v.id}: ${v.nodes[0]?.target.join(' ')}`)).toEqual([]);
 });
