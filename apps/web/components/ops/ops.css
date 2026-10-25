@@ -4,31 +4,24 @@
  * from the design tokens (packages/ui/src/tokens.css); shades are color-mix() of tokens, never new hex literals.
  */
 
-/* ---------- Kanban board (legacy kitchen board + kitchen-dnd.js) ---------- */
-.kanban { display: grid; grid-template-columns: repeat(var(--lanes, 5), minmax(0, 1fr)); gap: 18px; align-items: start; }
-.kanban[data-lanes='3'] { --lanes: 3; }
-.kanban[data-lanes='4'] { --lanes: 4; }
-.kanban[data-lanes='5'] { --lanes: 5; }
-.kanban-lane { background: color-mix(in srgb, var(--leaf-bg) 70%, var(--canvas)); border-radius: var(--radius-sm, 8px); padding: 14px;
-  min-height: 350px; transition: background .15s, box-shadow .15s, opacity .15s; }
-.kanban-lane.drop-ok { background: color-mix(in srgb, var(--herb) 14%, var(--card)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--herb) 55%, var(--card)); }
-.kanban-lane.drop-no { opacity: .5; }
-.kanban-lane.is-over { background: color-mix(in srgb, var(--herb) 24%, var(--card)); box-shadow: inset 0 0 0 3px var(--herb); }
-.kanban-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); margin: 3px 0 18px; }
-.kanban-head i { width: 8px; height: 8px; border-radius: 50%; background: var(--dot, var(--sky)); flex: none; }
-.kanban-count { margin-inline-start: auto; font-size: 11px; color: var(--faint); }
-.kanban-cards { display: grid; gap: 12px; }
-.kanban-empty { text-align: center; font-size: 12px; color: var(--faint); padding: 50px 0; }
+/* ---------- Kanban board (legacy kitchen board + kitchen-dnd.js) on the design system's BoardPage (21-OPS) ---------- */
+.kanban-board .rui-board { grid-auto-columns: minmax(220px, 1fr); align-items: start; }
+.kanban-board .rui-lane { min-block-size: 350px; transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out); }
+.kanban-board .rui-lane.drop-ok { background: color-mix(in srgb, var(--ok-fg) 10%, var(--surface-1)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ok-fg) 55%, var(--surface-1)); }
+.kanban-board .rui-lane.drop-no { opacity: .5; }
+.kanban-board .rui-lane.is-over { background: color-mix(in srgb, var(--ok-fg) 18%, var(--surface-1)); box-shadow: inset 0 0 0 3px var(--ok-fg); }
+.kanban-empty { text-align: center; font-size: var(--fs-xs); color: var(--text-muted); padding: 50px 0; }
 [data-card] { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 [data-card]:active { cursor: grabbing; }
-[data-card].is-dragging { pointer-events: none; position: relative; z-index: 50; box-shadow: var(--shadow-float); opacity: .96; }
+[data-card].is-dragging { pointer-events: none; position: relative; z-index: 50; box-shadow: var(--elevation-2); opacity: .96; }
 .board-hint { font-size: 12px; color: var(--faint); margin: -6px 0 14px; }
-@media (max-width: 1200px) { .kanban { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.board-keys { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.board-bulk { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-1) var(--space-2); border-radius: var(--radius-2);
+  background: var(--surface-selected); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 @media (max-width: 700px) {
-  .kanban { grid-template-columns: 1fr; }
-  .kanban-lane { min-height: 0; }
+  .kanban-board .rui-lane { min-block-size: 0; }
   .kanban-empty { padding: 18px 0; }
-  .board-hint { display: none; }
+  .board-hint, .board-keys { display: none; }
 }
 
 /* ---------- Service requests (legacy .request / .quiet) ---------- */
@@ -68,6 +61,10 @@ button.ticket-line:hover { background: var(--nav-hover); }
 .ticket-actions .btn { width: 100%; }
 .ticket-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ticket.is-done { opacity: .85; }
+.ticket:focus-visible, .ticket[data-focused]:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
+.ticket.is-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ticket-top .ticket-select { inline-size: 20px; block-size: 20px; margin: 0; accent-color: var(--accent); }
+.ticket-number { margin-inline-end: auto; }
 
 /* ---------- Small shared bits ---------- */
 .ops-link { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: start; }

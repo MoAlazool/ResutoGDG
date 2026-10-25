@@ -6,7 +6,7 @@ import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { kitchenDisplayPath } from '@/lib/home-path';
 import { useOrg } from '@/lib/org-context';
-import { KitchenBoard, StationPicker } from '../../../kitchen/[orgId]/_kds/KitchenBoard';
+import { TicketBoard as KitchenBoard, StationPicker } from '@/components/ops/TicketBoard';
 
 /** Kitchen display inside the workspace (legacy "Kitchen display" tab); the branch is the one chosen in the shell. */
 export default function KitchenPage() {

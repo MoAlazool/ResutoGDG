@@ -9,7 +9,7 @@ import { kitchenDisplayPath } from '@/lib/home-path';
 import { LanguageToggle, useT } from '@/lib/i18n/client';
 import type { OrgInfo } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
-import { KitchenBoard, StationPicker } from './_kds/KitchenBoard';
+import { TicketBoard as KitchenBoard, StationPicker } from '@/components/ops/TicketBoard';
 
 /**
  * Full-screen kitchen display for wall tablets (no dashboard chrome): the kitchen team's home. Staff who also have the
