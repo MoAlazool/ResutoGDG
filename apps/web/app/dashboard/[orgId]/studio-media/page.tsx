@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { PHOTO_ASPECTS, type PhotoJobView, type StudioAiCapabilities } from '@resuto/contracts';
-import { Badge, EmptyState, Notice, PageHeader, SkeletonCards, ToastProvider, useToast } from '@resuto/ui';
+import { Badge, DetailPage, EmptyState, Notice, SkeletonCards, ToastProvider, useToast } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime, num } from '@/lib/format';
@@ -44,9 +44,8 @@ function FoodPhotos() {
   }, [selected]);
 
   return (
-    <>
-      <PageHeader overline={t('nav.website')} title={t('studio.ai.photo.title')} subtitle={t('studio.ai.photo.subtitle')}
-        actions={<Link className="btn" href={`/dashboard/${org.id}/website`}>{t('studio.ai.photo.toWebsite')}</Link>} />
+    <DetailPage header={{ eyebrow: t('nav.website'), title: t('studio.ai.photo.title'), subtitle: t('studio.ai.photo.subtitle'),
+      actions: <Link className="btn" href={`/dashboard/${org.id}/website`}>{t('studio.ai.photo.toWebsite')}</Link> }}>
       <div className="sm-modes">
         <Notice tone="ok"><strong>{t('studio.ai.photo.modeDeterministic')}</strong> {t('studio.ai.photo.modeDeterministicBody')}</Notice>
         <Notice tone="info"><span className="row gap-8"><Badge tone="neutral">{t('studio.ai.photo.notConfigured')}</Badge><strong>{t('studio.ai.photo.modeGenerative')}</strong></span>
@@ -80,7 +79,7 @@ function FoodPhotos() {
             : <div className="card"><EmptyState title={t('studio.ai.photo.pick')}>{t('studio.ai.photo.subtitle')}</EmptyState></div>}
         </div>
       </div>
-    </>
+    </DetailPage>
   );
 }
 
@@ -129,7 +128,7 @@ function UploadCard({ onCreated }: { onCreated: (j: PhotoJobView) => Promise<voi
         </select></label>
       <details>
         <summary className="fine cursor-pointer">{t('studio.ai.photo.adjust')}</summary>
-        <div className="stack" style={{ marginTop: 8 }}>
+        <div className="stack sm-adjust">
           <Slider label={t('studio.ai.photo.exposure')} min={-1} max={1} value={p.exposure} onChange={(v) => setP({ ...p, exposure: v })} />
           <Slider label={t('studio.ai.photo.contrast')} min={0} max={1} value={p.contrast} onChange={(v) => setP({ ...p, contrast: v })} />
           <Slider label={t('studio.ai.photo.sharpen')} min={0} max={1} value={p.sharpen} onChange={(v) => setP({ ...p, sharpen: v })} />
@@ -184,14 +183,14 @@ function ReviewCard({ job, canWrite, onChanged }: { job: PhotoJobView; canWrite:
         {canWrite && <button type="button" className="btn btn-sm" onClick={() => void act(() => call(`/o/${org.id}/studio/photos/${job.id}/retry`, { body: {} }), t('studio.ai.photo.retried'))}>{t('action.retry')}</button>}</Notice>}
       {job.output ? (
         <div className="stack gap-6">
-          <div className="sm-compare" style={{ ['--split' as string]: `${split}%` }}>
+          <div className="sm-compare" data-split={split}>
             <img src={job.original.url} alt={t('studio.ai.photo.before')} className="sm-before" />
             <img src={job.output.url} alt={t('studio.ai.photo.after')} className="sm-after" />
             <span className="sm-label sm-label-before">{t('studio.ai.photo.before')}</span>
             <span className="sm-label sm-label-after">{t('studio.ai.photo.after')}</span>
           </div>
           <label className="field"><span>{t('studio.ai.photo.compare')}</span>
-            <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(Number(e.target.value))} /></label>
+            <input type="range" min={0} max={100} step={5} value={split} onChange={(e) => setSplit(Number(e.target.value))} /></label>
           <p className="fine m-0">
             {t('studio.ai.photo.sizes', { before: `${num(job.original.width ?? 0, locale)}×${num(job.original.height ?? 0, locale)}`, after: `${num(job.output.width ?? 0, locale)}×${num(job.output.height ?? 0, locale)}` })}
             {' · '}<bdi dir="ltr">{job.output.formats.map((f) => `${f.format.toUpperCase()} ${f.width}w`).join(' · ')}</bdi>

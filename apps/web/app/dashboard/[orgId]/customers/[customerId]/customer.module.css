@@ -1,0 +1,4 @@
+/* Customer profile (21-MIGRATE): page classes that replace the former inline styles. Logical properties only. */
+.back { display: inline-flex; align-items: center; gap: 6px; }
+.notes { margin: 0; white-space: pre-wrap; }
+.history { gap: 6px; margin: 0; padding-inline-start: 18px; }

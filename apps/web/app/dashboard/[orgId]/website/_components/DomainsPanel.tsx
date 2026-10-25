@@ -1,7 +1,8 @@
 'use client';
 import { useState, type FormEvent } from 'react';
 import type { CustomDomainView } from '@resuto/contracts';
-import { Badge, EmptyState, Notice, Skeleton, useConfirm, useToast, type Tone } from '@resuto/ui';
+import { Badge, EmptyState, Icon, Notice, Skeleton, useConfirm, useToast, type Tone } from '@resuto/ui';
+import { CheckIcon } from '@/components/icons/glyphs';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useApi } from '@/lib/use-api';
@@ -17,7 +18,7 @@ function CopyValue({ value, label }: { value: string; label: string }) {
       <code dir="ltr">{value}</code>
       <button type="button" className="btn btn-ghost btn-sm" aria-label={`${t('studio.domains.copy')} ${label}`}
         onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard blocked */ } }}>
-        {copied ? '✓' : t('studio.domains.copy')}
+        {copied ? <Icon icon={CheckIcon} size={16} label={t('studio.domains.copied')} /> : t('studio.domains.copy')}
       </button>
     </span>
   );
@@ -64,9 +65,9 @@ export function DomainsPanel({ orgId, canManage }: { orgId: string; canManage: b
         </p>
       )}
       {canManage && (
-        <form className="row" onSubmit={add} style={{ marginBlock: 12 }}>
+        <form className="row ws-domain-form" onSubmit={add}>
           <label className="sr-only" htmlFor="ws-domain">{t('studio.domains.hostname')}</label>
-          <input id="ws-domain" className="input" style={{ flex: 1, minWidth: 200 }} dir="ltr" placeholder="www.example.com" value={hostname}
+          <input id="ws-domain" className="input ws-domain-input" dir="ltr" placeholder="www.example.com" value={hostname}
             onChange={(e) => setHostname(e.target.value)} pattern="([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}" required />
           <button className="btn btn-primary" disabled={busy === 'add'}>{t('studio.domains.add')}</button>
         </form>

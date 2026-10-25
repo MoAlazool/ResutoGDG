@@ -62,7 +62,7 @@ export function CreativePanel({ orgId, canWrite }: { orgId: string; canWrite: bo
           <h2>{t('studio.creative.title')}</h2>
           <p className="fine">{t('studio.creative.hint')}</p>
           {caps.data && (
-            <div style={{ marginBlock: 12 }}><Notice tone="info">
+            <div className="ws-creative-mode"><Notice tone="info">
               {caps.data.copyGeneration.mode === 'template' ? t('studio.creative.modeTemplate')
                 : t(caps.data.copyGeneration.keySource === 'restaurant' ? 'studio.creative.modeModelRestaurant' : 'studio.creative.modeModelResuto',
                   { model: caps.data.copyGeneration.model ?? '' })}
@@ -104,7 +104,7 @@ export function CreativePanel({ orgId, canWrite }: { orgId: string; canWrite: bo
       <section className="card">
         <div className="spread">
           <h2 className="m-0">{t('studio.creative.library')}</h2>
-          <select className="select" style={{ width: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label={t('studio.creative.filter')}>
+          <select className="select ws-select-auto" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label={t('studio.creative.filter')}>
             {FILTERS.map((f) => <option key={f} value={f}>{t(`studio.creative.status.${f}`)}</option>)}
           </select>
         </div>
@@ -184,7 +184,7 @@ function Applications({ c, orgId, products, sections }: CardProps) {
     return { text: t('studio.creative.usedCampaign'), href: `/dashboard/${orgId}/marketing` };
   };
   return (
-    <ul className="fine" style={{ margin: 0, paddingInlineStart: 18 }}>
+    <ul className="fine ws-applications">
       {c.applications.map((a) => {
         const l = label(a.target, a.targetId);
         return <li key={a.key}><Link href={l.href}>{l.text}</Link>{' · '}{dateTime(a.appliedAt, locale)}</li>;
@@ -230,7 +230,7 @@ function ApplyBox({ c, orgId, products, sections, onApplied }: CardProps) {
   };
 
   return (
-    <div className="stack" style={{ gap: 8, borderBlockStart: '1px solid var(--line-soft)', paddingBlockStart: 10 }}>
+    <div className="stack ws-creative-use">
       <strong>{t('studio.creative.use')}</strong>
       {c.output.variants.length > 1 && (
         <div className="row gap-12 wrap" role="radiogroup" aria-label={t('studio.creative.useVersion')}>

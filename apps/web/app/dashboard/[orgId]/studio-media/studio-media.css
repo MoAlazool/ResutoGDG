@@ -12,6 +12,29 @@
 .sm-tile img,.sm-ph{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;background:var(--surface-warm);display:block}
 .sm-compare{position:relative;width:100%;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:var(--surface-warm);border:1px solid var(--line-soft)}
 .sm-compare img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.sm-compare{--split:50%}
+/* The before/after split moves in 5 % steps (data-split), so no inline style carries it. */
+.sm-compare[data-split='0']{--split:0%}
+.sm-compare[data-split='5']{--split:5%}
+.sm-compare[data-split='10']{--split:10%}
+.sm-compare[data-split='15']{--split:15%}
+.sm-compare[data-split='20']{--split:20%}
+.sm-compare[data-split='25']{--split:25%}
+.sm-compare[data-split='30']{--split:30%}
+.sm-compare[data-split='35']{--split:35%}
+.sm-compare[data-split='40']{--split:40%}
+.sm-compare[data-split='45']{--split:45%}
+.sm-compare[data-split='50']{--split:50%}
+.sm-compare[data-split='55']{--split:55%}
+.sm-compare[data-split='60']{--split:60%}
+.sm-compare[data-split='65']{--split:65%}
+.sm-compare[data-split='70']{--split:70%}
+.sm-compare[data-split='75']{--split:75%}
+.sm-compare[data-split='80']{--split:80%}
+.sm-compare[data-split='85']{--split:85%}
+.sm-compare[data-split='90']{--split:90%}
+.sm-compare[data-split='95']{--split:95%}
+.sm-compare[data-split='100']{--split:100%}
 .sm-compare .sm-after{clip-path:inset(0 0 0 var(--split))}
 [dir=rtl] .sm-compare .sm-after{clip-path:inset(0 var(--split) 0 0)}
 .sm-label{position:absolute;top:8px;padding:2px 8px;border-radius:999px;background:var(--card);font-size:12px;font-weight:650}
@@ -19,3 +42,5 @@
 .sm-label-after{inset-inline-end:8px}
 .sm-single{width:100%;border-radius:12px;border:1px solid var(--line-soft)}
 .sm-ops{margin:6px 0 0;padding-inline-start:18px;display:grid;gap:4px;word-break:break-word}
+
+.sm-adjust{margin-block-start:8px}

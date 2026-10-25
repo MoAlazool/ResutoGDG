@@ -86,3 +86,10 @@
 @media (max-width:1100px){.ws-studio .rui-workspace[data-start][data-end]{grid-template-columns:minmax(220px,260px) minmax(0,1fr)}}
 @media (max-width:700px){.ws-studio .rui-workspace{block-size:auto}.ws-stage{block-size:70dvh}.ws-toolbar-end{margin-inline-start:0}}
 @media (prefers-reduced-motion:reduce){.ws-frame{transition:none}}
+/* Creative library and custom domains panels (21-MIGRATE: former inline styles) */
+.ws-creative-mode{margin-block:12px}
+.select.ws-select-auto{inline-size:auto}
+.ws-applications{margin:0;padding-inline-start:18px}
+.ws-creative-use{gap:8px;border-block-start:1px solid var(--border-subtle);padding-block-start:10px}
+.ws-domain-form{margin-block:12px}
+.ws-domain-input{flex:1;min-inline-size:200px}
