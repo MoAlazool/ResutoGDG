@@ -1,5 +1,7 @@
 # Verification and measurable acceptance
 
+`TEST_MATRIX.md` maps the 18 simulator scenarios to their actual assertions and lists remaining workflow, accessibility, staging and physical-device coverage.
+
 ## Executed in this environment
 
 Swift 6.0.3 on Linux compiles `ResutoCore` and `ResutoStagingProbe`; 107 XCTest tests pass locally. `scripts/check_contracts.py` validates the 23 route/method combinations used by the native client/probe against repository OpenAPI, supported staff channel, retry horizon and resource plists. `swiftc -frontend -parse App/*.swift` checks syntax only; it is not an Apple SDK typecheck.
@@ -90,3 +92,5 @@ Run 40150009851 at `812439b`: 96 core tests and Debug/Release builds passed, **1
 Claude branch was re-fetched at `04c07c7` on 2026-10-25; there is no change to the reviewed POS contracts, implementations or integration documents relative to the pinned `69ec75e` revision. No shared branch or deployment was changed.
 
 Follow-up source review found initial workspace selection depended on a permission lease still loading during branch entry. Initial navigation now uses membership hints; operational actions keep the scoped lease and server guard. Mutation completion/failure invalidates older in-flight reads, and an unrelated uncached identity response no longer discards menu ETags. Two deterministic networking tests cover those cache cases (107 portable tests total). The d8c07ce CI run was superseded during UI execution; its 105 core tests and Release build passed, but its full 18-case UI result is not a pass. The corrected revision requires a complete native rerun.
+
+Run 40188215710 at `e6feb5a` passed 107 core tests, Debug/Release builds and **17/18 simulator UI cases**. All previous startup/dismissal cases passed, as did Arabic accessibility-size floor selection and English table-list selection. The manual-refund case reached the manual-required UI and failed in the final helper's `isHittable` query on noninteractive `order.paymentState` text (invalid AX activation point). The helper now waits on semantic existence/label instead of requesting a tap point for static text. The next complete 18-case run must verify that correction.
