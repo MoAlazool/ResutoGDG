@@ -59,10 +59,18 @@ export const MCP_SECTIONS: SectionLink[] = [
   { href: '/approvals', label: 'mcp.tab.inbox', permission: 'changes:read' },
 ];
 
-/** Settings: the restaurant (org:manage) and Messaging, which holds the Inbox's channels and templates (21-INBOX). */
+/**
+ * The Settings cluster: the restaurant (org:manage), Messaging, which holds the Inbox's channels and templates
+ * (21-INBOX), and the pages of the sidebar's Settings group (21-MONEY: one SettingsPage template for team, plan &
+ * billing, data and the audit log; same permissions as their navigation items in lib/nav.ts SETTINGS_AREA).
+ */
 export const SETTINGS_SECTIONS: SectionLink[] = [
   { href: '/settings', label: 'nav.settings', permission: 'org:manage' },
   { href: '/settings/messaging', label: 'nav.messaging', permission: 'connect:read', module: 'connect' },
+  { href: '/team', label: 'nav.teamRoles', permission: 'members:manage' },
+  { href: '/billing', label: 'nav.billing', permission: 'billing:manage' },
+  { href: '/data', label: 'nav.dataImportExport', anyPermission: ['menu:write', 'customers:export', 'finance:read'] },
+  { href: '/audit', label: 'nav.audit', permission: 'audit:read' },
 ];
 
 /**

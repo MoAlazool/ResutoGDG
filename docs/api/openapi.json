@@ -28731,6 +28731,18 @@
           },
           {
             "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "orderId",
             "required": false,
             "schema": {

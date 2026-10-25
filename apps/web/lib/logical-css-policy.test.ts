@@ -27,6 +27,10 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/menu', 'apps/web/app/dashboard/[orgId]/menu-import',
   // 21-INSIGHTS: the Insights area (analytics and intelligence views, its shell and saved reports).
   'apps/web/app/dashboard/[orgId]/analytics', 'apps/web/app/dashboard/[orgId]/intelligence', 'apps/web/components/insights',
+  // 21-MONEY: the Settings cluster (SettingsPage template) and the Money area.
+  'apps/web/app/dashboard/[orgId]/settings', 'apps/web/app/dashboard/[orgId]/team', 'apps/web/app/dashboard/[orgId]/billing',
+  'apps/web/app/dashboard/[orgId]/data', 'apps/web/app/dashboard/[orgId]/audit', 'apps/web/components/settings',
+  'apps/web/app/dashboard/[orgId]/finance', 'apps/web/app/dashboard/[orgId]/payments', 'apps/web/app/dashboard/[orgId]/compliance',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

@@ -1,19 +1,18 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { assignableRoles, type Role, INTL_LOCALE } from '@resuto/contracts';
-import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Code, Email, Phone, UserText } from '@resuto/ui';
+import type { Role } from '@resuto/contracts';
+import { assignableRoles, INTL_LOCALE } from '@resuto/contracts/lite';
+import { Badge, Card, DataTableV2, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Code, Email, Phone, UserText } from '@resuto/ui';
 import '@/components/ops/ops.css';
 import { ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { SettingsShell } from '@/components/settings/SettingsShell';
 import { ROLE_LABELS, TEAM_STRINGS } from './strings';
-
-/** Lets wide tables scroll inside the page instead of widening it on phones. */
-const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
-
+import styles from './team.module.css';
 
 interface Member { id: string; userId: string; role: Role; branchIds: string[] | null; status: string; fullName: string | null; email: string | null }
 interface Invitation { id: string; email: string | null; phone: string | null; role: Role; branchIds: string[] | null; expiresAt: string }
@@ -27,7 +26,7 @@ function BranchPicker({ value, onChange, branches, s, locale }: {
   return (
     <fieldset className="ops-fieldset">
       <legend>{s.branches}</legend>
-      <div className="row" style={{ gap: 14 }}>
+      <div className={styles.scope}>
         <label className="check"><input type="radio" checked={value === null} onChange={() => onChange(null)} /> {s.allBranches}</label>
         <label className="check"><input type="radio" checked={value !== null} onChange={() => onChange(branches[0] ? [branches[0].id] : [])} /> {s.someBranches}</label>
       </div>
@@ -122,9 +121,8 @@ export default function TeamPage() {
   const members = (team.data?.members ?? []).filter((m) => m.status !== 'removed');
 
   return (
-    <div style={FIT}>
-      <PageHeader title={s.title} subtitle={s.subtitle} />
-      {assignable.length === 0 ? <div className="mbe-16"><Notice tone="warn">{s.cannotAssign}</Notice></div> : (
+    <SettingsShell header={{ title: s.title, subtitle: s.subtitle }}>
+      {assignable.length === 0 ? <Notice tone="warn">{s.cannotAssign}</Notice> : (
         <Card title={s.invite}>
           <form onSubmit={invite} ref={inviteForm}>
             <div className="form-row">
@@ -147,7 +145,7 @@ export default function TeamPage() {
                 <div className="stack gap-8">
                   <span>{s.linkReady.replace('{who}', link.who).replace('{date}', day(link.expiresAt, locale))}</span>
                   <div className="row gap-8">
-                    <input className="input" readOnly value={link.url} dir="ltr" onFocus={(e) => e.target.select()} style={{ flex: '1 1 260px', minWidth: 0 }} aria-label="Invitation link" />
+                    <input className={`input ${styles.link}`} readOnly value={link.url} dir="ltr" onFocus={(e) => e.target.select()} aria-label={s.linkLabel} />
                     <button type="button" className="btn btn-sm" onClick={async () => { await navigator.clipboard?.writeText(link.url).catch(() => undefined); setCopied(true); }}>
                       {copied ? s.copied : s.copy}
                     </button>
@@ -164,19 +162,19 @@ export default function TeamPage() {
           <>
             <Card title={s.members}>
               {rowError && <div className="mbe-12"><Notice tone="danger">{rowError}</Notice></div>}
-              <DataTable rows={members} rowKey={(m) => m.id} columns={[
+              <DataTableV2 label={s.members} rows={members} rowKey={(m) => m.id} columns={[
                 { key: 'name', header: s.name, render: (m) => (
                   <div><strong>{m.fullName ? <UserText>{m.fullName}</UserText> : m.email ? <Email value={m.email} /> : <Code>{m.userId.slice(0, 8)}</Code>}</strong>
                     {m.userId === session.me?.user.id && <> <Badge tone="info">{s.you}</Badge></>}
                     {m.email && m.fullName && <div className="fine"><Email value={m.email} /></div>}</div>) },
                 { key: 'role', header: s.role, render: (m) => editable(m) ? (
-                  <select className="select" style={{ minHeight: 34, padding: '4px 8px', width: 'auto' }} value={m.role} aria-label={s.role}
+                  <select className={`select ${styles.roleSelect}`} value={m.role} aria-label={s.role}
                     onChange={(e) => void patch(m, { role: e.target.value })}>
                     {assignable.map((r) => <option key={r} value={r}>{roles[r]}</option>)}
                   </select>) : roles[m.role] },
                 { key: 'branches', header: s.branches, render: (m) => (
                   <span>{scopeLabel(m.branchIds)}{editable(m) && org.branches.length > 1 && (
-                    <> <button className="btn btn-ghost btn-sm" onClick={() => { setEditing(m); setEditScope(m.branchIds); }}>✎</button></>)}</span>) },
+                    <> <button className="btn btn-ghost btn-sm" aria-label={s.editBranchesAction} onClick={() => { setEditing(m); setEditScope(m.branchIds); }}>✎</button></>)}</span>) },
                 { key: 'status', header: s.status, render: (m) => <Badge tone={m.status === 'active' ? 'ok' : 'warn'}>{s[`st_${m.status}` as keyof typeof s] ?? m.status}</Badge> },
                 { key: 'actions', header: s.actions, align: 'end', render: (m) => editable(m) ? (
                   <div className="row justify-end gap-6">
@@ -187,7 +185,7 @@ export default function TeamPage() {
             </Card>
             <Card title={s.pending}>
               {team.data.invitations.length ? (
-                <DataTable rows={team.data.invitations} rowKey={(i) => i.id} columns={[
+                <DataTableV2 label={s.pending} rows={team.data.invitations} rowKey={(i) => i.id} columns={[
                   { key: 'who', header: s.name, render: (i) => i.email ? <Email value={i.email} /> : <Phone value={i.phone} /> },
                   { key: 'role', header: s.role, render: (i) => roles[i.role] },
                   { key: 'branches', header: s.branches, render: (i) => scopeLabel(i.branchIds) },
@@ -208,6 +206,6 @@ export default function TeamPage() {
         footer={<><button className="btn" onClick={() => setRemoving(null)}>{s.cancel}</button><button className="btn btn-danger" onClick={() => removing && void remove(removing)}>{s.remove}</button></>}>
         <p>{s.removeConfirm.replace('{name}', removing?.fullName || removing?.email || '')}</p>
       </Modal>
-    </div>
+    </SettingsShell>
   );
 }

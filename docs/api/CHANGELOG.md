@@ -57,6 +57,12 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
   same local dates one year earlier) besides `previous` and `none`, so a drill-down from the overview keeps its
   comparison.
 
+### Added — payments list test/live filter (21-MONEY)
+
+- `GET /v1/o/:orgId/payments` takes an optional `mode` (`test | live`): only sandbox (test) payments or only live
+  ones; omitted lists both as before. It combines with the other filters and keeps the cursor. Same permission
+  (`payments:read`, module `pay`); an unknown value is `400 validation_failed`.
+
 ### Added — Resuto Studio canvas workspace, section kinds, dish discounts, AI editing (21-STUDIO)
 
 - Website sections: `kind` gains `promo_banner`, `offers`, `social`, `faq` and `menu_full`; section `content` gains

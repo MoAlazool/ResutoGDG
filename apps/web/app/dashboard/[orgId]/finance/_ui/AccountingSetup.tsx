@@ -6,6 +6,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import styles from './finance.module.css';
 import { useMoney, usePeriod } from './FinanceFrame';
 
 /** DF-04: the accounting policy that decides which source each cost comes from (never both). */
@@ -34,7 +35,7 @@ export function PolicyCard({ onSaved }: { onSaved?: () => void }) {
       {state.data?.source === 'derived' && <Notice tone="warn">{t('finance.policy.derived')}</Notice>}
       {state.data?.source === 'default' && <p className="fine">{t('finance.policy.notChosen')}</p>}
       <form onSubmit={save.run} className="stack gap-12">
-        <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
+        <fieldset className={styles.fieldset}>
           <legend className="fine">{t('finance.policy.cogs')}</legend>
           {(['item_cost', 'purchases'] as const).map((m) => (
             <label key={m} className="check items-start">
@@ -43,7 +44,7 @@ export function PolicyCard({ onSaved }: { onSaved?: () => void }) {
             </label>
           ))}
         </fieldset>
-        <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
+        <fieldset className={styles.fieldset}>
           <legend className="fine">{t('finance.policy.fees')}</legend>
           {(['provider_reports', 'expenses'] as const).map((m) => (
             <label key={m} className="check items-start">
@@ -97,7 +98,7 @@ export function AccountMapping() {
       {saved && <Notice tone="ok">{t('finance.map.saved')}</Notice>}
       {map.data && (
         <form onSubmit={save.run}>
-          <div className="grid grid-2" style={{ gap: '0 12px' }}>
+          <div className={styles.mapping}>
             {roles.map((r) => (
               <Field key={r} label={<>{t(`finance.role.${r}`)} {needed.has(r) && !draft[r] && <Badge tone="warn">{t('finance.map.required')}</Badge>}</> as any}
                 dir="ltr" value={draft[r] ?? ''} disabled={!can('finance:write')} maxLength={64}

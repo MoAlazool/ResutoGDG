@@ -1,24 +1,20 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
-import { parseMajor, type ServiceMode, type SetupChecklist } from '@resuto/contracts';
-import { Badge, Card, DataTable, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs } from '@resuto/ui';
+import type { ServiceMode, SetupChecklist } from '@resuto/contracts';
+import { formatNumber, parseMajor } from '@resuto/contracts/lite';
+import { Badge, Card, DataTable, Field, Modal, Notice, SelectField, Skeleton, Tabs } from '@resuto/ui';
 import { ServiceModeCards, VenueQrCard } from '@/components/ops/ServiceMode';
-import { SectionNav } from '@/components/shell/SectionNav';
 import '@/components/ops/ops.css';
 import { ApiRequestError } from '@/lib/api';
 import { money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { formatNumber } from '@resuto/contracts';
 import { useOrg } from '@/lib/org-context';
-import { SETTINGS_SECTIONS } from '@/lib/sections';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import { SettingsShell } from '@/components/settings/SettingsShell';
+import styles from './settings.module.css';
 import { SETTINGS_STRINGS } from './strings';
-
-/** Lets wide tables scroll inside the page instead of widening it on phones. */
-const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
-
 
 interface Branch {
   id: string; code: string; name: string; nameAr: string | null; address: string | null; city: string | null; district?: string | null; districtAr?: string | null;
@@ -53,9 +49,10 @@ export default function SettingsPage() {
       taxRegistrationNumber: d.taxRegistrationNumber ?? '', commercialRegistration: d.commercialRegistration ?? '' });
   }, [detail.data]);
 
-  if (!can('org:manage')) return <><PageHeader title={s.title} /><Notice tone="warn">{s.noAccess}</Notice></>;
-  if (detail.error) return <><PageHeader title={s.title} /><Notice tone="danger">{s.loadError} <button className="btn btn-sm" onClick={() => void detail.reload()}>{s.retry}</button></Notice></>;
-  if (!detail.data) return <><PageHeader title={s.title} subtitle={s.subtitle} /><Card><Skeleton lines={6} /></Card></>;
+  const header = { title: s.title, subtitle: s.subtitle };
+  if (!can('org:manage')) return <SettingsShell header={{ title: s.title }}><Notice tone="warn">{s.noAccess}</Notice></SettingsShell>;
+  if (detail.error) return <SettingsShell header={{ title: s.title }}><Notice tone="danger">{s.loadError} <button className="btn btn-sm" onClick={() => void detail.reload()}>{s.retry}</button></Notice></SettingsShell>;
+  if (!detail.data) return <SettingsShell header={header}><Card><Skeleton lines={6} /></Card></SettingsShell>;
   const d = detail.data;
   const set = (k: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -82,10 +79,8 @@ export default function SettingsPage() {
   const mb = activeBranches.find((b) => b.id === modeBranch) ?? activeBranches[0];
   const refreshAll = async () => { await Promise.all([detail.reload(), reloadShell(), setup.reload()]); };
   return (
-    <div style={FIT}>
-      <PageHeader title={s.title} subtitle={s.subtitle} />
-      {/* Settings › Messaging (21-INBOX): the Inbox's channels and templates. */}
-      <SectionNav sections={SETTINGS_SECTIONS} label={t('nav.group.settings')} />
+    // Settings › Messaging (21-INBOX), team, billing, data and the audit log are the template's other sections.
+    <SettingsShell header={header}>
       {/* The service model comes first, as in legacy settings; profile and the launch checklist follow (PAR-08). */}
       {mb && (
         <Card title={t('ops.mode.title')}>
@@ -98,7 +93,6 @@ export default function SettingsPage() {
           {mb.serviceMode === 'counter' && <VenueQrCard orgId={org.id} branchId={mb.id} canRotate={can('floor:write')} />}
         </Card>
       )}
-      <div className="grid grid-2 mbe-16">
         <Card title={s.profile}>
           <form onSubmit={saveProfile}>
             <div className="form-row">
@@ -123,8 +117,6 @@ export default function SettingsPage() {
             <button className="btn btn-primary" disabled={saving}>{saving ? s.saving : s.save}</button>
           </form>
         </Card>
-
-        {/* breaks the global .card + .card margin inside grids */}<span hidden />
         <Card title={s.checklist} actions={setup.data ? <Badge tone={setup.data.launched ? 'ok' : 'info'}><span className="num">{formatNumber(doneCount, locale)}/{formatNumber(steps.length, locale)}</span></Badge> : undefined}>
           <p className="fine mbs-0">{t('ops.setup.checklistSub')}</p>
           {setup.error && <Notice tone="danger">{setup.error.message}</Notice>}
@@ -141,7 +133,6 @@ export default function SettingsPage() {
           )}
           <Link className="btn btn-sm btn-primary" href={`/dashboard/${org.id}/setup`}>✦ {t('ops.setup.link')}</Link>
         </Card>
-      </div>
 
       {mb && <PolicyCard key={`policy:${mb.id}`} branch={mb} currency={d.currency} canEdit={can('branches:manage')} onSaved={refreshAll} />}
 
@@ -159,7 +150,7 @@ export default function SettingsPage() {
       </Card>
       {editing && <BranchModal branch={editing === 'new' ? null : editing} currency={d.currency} s={s} onClose={() => setEditing(null)}
         onSaved={async () => { setEditing(null); await Promise.all([detail.reload(), reloadShell()]); }} />}
-    </div>
+    </SettingsShell>
   );
 }
 
@@ -221,7 +212,7 @@ function BranchModal({ branch, currency, s, onClose, onSaved }: {
           <Field label={s.district} hint={s.districtHint} maxLength={80} {...text('district')} />
           <Field label={s.districtAr} dir="rtl" maxLength={80} {...text('districtAr')} />
         </div>
-        <div className="row" style={{ gap: 14, marginBlockEnd: 14 }}>
+        <div className={styles.flags}>
           {flag('acceptsDineIn', s.dineIn)}{flag('acceptsPickup', s.pickup)}{flag('acceptsDelivery', s.delivery)}{flag('acceptsReservations', s.reservations)}
         </div>
         <div className="form-row">
@@ -271,7 +262,7 @@ function PolicyCard({ branch, currency, canEdit, onSaved }: { branch: Branch; cu
     <Card title={t('ops.policy.title')}>
       <p className="fine mbs-0">{t('ops.policy.subtitle')}</p>
       <form onSubmit={submit}>
-        <fieldset disabled={!canEdit || pending} style={{ border: 0, padding: 0, margin: 0 }}>
+        <fieldset disabled={!canEdit || pending} className={styles.fieldset}>
           {tables && branch.acceptsReservations ? (
             <div className="form-row">
               <Field label={t('ops.policy.duration')} name="duration" type="number" min={15} max={600} required defaultValue={branch.reservationDurationMin ?? 90} />
@@ -279,7 +270,7 @@ function PolicyCard({ branch, currency, canEdit, onSaved }: { branch: Branch; cu
               <Field label={t('ops.policy.deposit', { currency })} name="deposit" inputMode="decimal" pattern="\d+(\.\d{1,2})?" dir="ltr" defaultValue={major(branch.reservationDepositMinor ?? 0)} hint={t('ops.policy.depositHint')} />
             </div>
           ) : <p className="fine">{t('ops.policy.reservationsOff')}</p>}
-          <div className="row" style={{ gap: 18, marginBlockEnd: 14 }}>
+          <div className={styles.flags}>
             <label className="check"><input type="checkbox" name="pickup" defaultChecked={branch.acceptsPickup} /> {t('ops.policy.enablePickup')}</label>
             <label className="check"><input type="checkbox" name="delivery" defaultChecked={branch.acceptsDelivery} /> {t('ops.policy.enableDelivery')}</label>
           </div>

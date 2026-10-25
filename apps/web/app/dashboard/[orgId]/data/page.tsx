@@ -3,8 +3,9 @@
 // leads to every import and export, each shown only to roles that may use it (the API enforces the same rules).
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { EmptyState, PageHeading } from '@resuto/ui';
+import { EmptyState } from '@resuto/ui';
 import '@/components/ops/ops.css';
+import { SettingsShell } from '@/components/settings/SettingsShell';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -33,12 +34,13 @@ export default function DataPage() {
   );
   return (
     <ModuleGate module="core">
-      <PageHeading title={t('ops.data.title')} subtitle={t('ops.data.subtitle')} />
-      {visible.length === 0 && <section className="panel"><EmptyState title={t('state.locked')}>{t('ops.data.none')}</EmptyState></section>}
-      <h2 className="overline">{t('ops.data.in')}</h2>
-      <div className="data-grid">{visible.filter((e) => ['menuIn', 'pos'].includes(e.key)).map(card)}</div>
-      <h2 className="overline data-out">{t('ops.data.out')}</h2>
-      <div className="data-grid">{visible.filter((e) => !['menuIn', 'pos'].includes(e.key)).map(card)}</div>
+      <SettingsShell header={{ title: t('ops.data.title'), subtitle: t('ops.data.subtitle') }}>
+        {visible.length === 0 && <section className="panel"><EmptyState title={t('state.locked')}>{t('ops.data.none')}</EmptyState></section>}
+        <h2 className="overline">{t('ops.data.in')}</h2>
+        <div className="data-grid">{visible.filter((e) => ['menuIn', 'pos'].includes(e.key)).map(card)}</div>
+        <h2 className="overline data-out">{t('ops.data.out')}</h2>
+        <div className="data-grid">{visible.filter((e) => !['menuIn', 'pos'].includes(e.key)).map(card)}</div>
+      </SettingsShell>
     </ModuleGate>
   );
 }

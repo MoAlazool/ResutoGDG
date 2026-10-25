@@ -504,6 +504,46 @@ describe('staff payments, refunds and permissions', () => {
     expect((await t.http.get('/v1/public/payments/visit/bill').set('X-Visit-Token', visitToken)).status).toBe(402);
   });
 
+  it('filters the payment list by test or live mode (21-MONEY) without widening who can read it', async () => {
+    const live = await placeOrder([{ productId: menu.products.soda, quantity: 1 }]);
+    const cash = await t.http.post(`/v1/o/${tenant.orgId}/payments/collect`).set(auth(cashier)).send({ orderId: live.id, method: 'cash', amountMinor: 2500, key: key() });
+    expect(cash.status, JSON.stringify(cash.body)).toBe(201);
+    expect(cash.body.isTest).toBe(false);
+    const online = await placeOrder([{ productId: menu.products.fries, quantity: 1 }]);
+    const session = await createSession({ purpose: 'order', orderId: online.id, channel: 'web' });
+    await payViaSandbox(session.token);
+    const [sbx] = await sql(`select id, is_test from payments where checkout_session_id = $1 and status = 'succeeded'`, [session.id]);
+    expect(sbx.is_test).toBe(true);
+
+    const url = `/v1/o/${tenant.orgId}/payments`;
+    const page = async (q: string, u: TestUser = accountant) => {
+      const r = await t.http.get(`${url}?limit=200${q}`).set(auth(u));
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+      return r.body.items as Array<{ id: string; isTest: boolean }>;
+    };
+    const tests = await page('&mode=test');
+    expect(tests.length).toBeGreaterThan(0);
+    expect(tests.every((p) => p.isTest)).toBe(true);
+    expect(tests.map((p) => p.id)).toContain(sbx.id);
+    const lives = await page('&mode=live');
+    expect(lives.every((p) => !p.isTest)).toBe(true);
+    expect(lives.map((p) => p.id)).toContain(cash.body.id);
+    expect(lives.map((p) => p.id)).not.toContain(sbx.id);
+    expect((await page('')).length).toBe(tests.length + lives.length);
+    // Combines with the other filters.
+    expect((await page('&mode=live&method=cash')).every((p) => !p.isTest)).toBe(true);
+
+    expect((await t.http.get(`${url}?mode=sandbox`).set(auth(accountant))).status).toBe(400);
+    // Negative authorization: the filter changes nothing about access.
+    expect((await t.http.get(`${url}?mode=test`).set(auth(waiter))).status).toBe(403);
+    expect((await t.http.get(`${url}?mode=test`)).status).toBe(401);
+    const other = await createTenant(t, { country: 'EG' });
+    expect((await t.http.get(`${url}?mode=test`).set(auth(other.owner))).status).toBe(404); // not a member: the org is not disclosed
+    const theirs = await t.http.get(`/v1/o/${other.orgId}/payments?mode=test`).set(auth(other.owner));
+    expect(theirs.status).toBe(200);
+    expect(theirs.body.items.map((p: { id: string }) => p.id)).not.toContain(sbx.id);
+  });
+
   it('creates, lists and cancels staff payment links', async () => {
     const order = await placeOrder([{ productId: menu.products.fries, quantity: 1 }]);
     const res = await t.http.post(`/v1/o/${tenant.orgId}/payments/links`).set(auth(tenant.owner))

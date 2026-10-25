@@ -34,7 +34,8 @@ export function QrImage({ payload, size = 132, className }: { payload: string | 
     QRCode.toDataURL(payload, { errorCorrectionLevel: 'M', margin: 1, width: size * 2 }).then((u) => { if (alive) setSrc(u); }).catch(() => setSrc(null));
     return () => { alive = false; };
   }, [payload, size]);
-  return src ? <img className={className} src={src} width={size} height={size} alt="QR" /> : <div style={{ width: size, height: size }} className="skeleton" />;
+  // The placeholder takes the image's size from `className` (compliance.module.css .qr).
+  return src ? <img className={className} src={src} width={size} height={size} alt="QR" /> : <div className={['skeleton', className].filter(Boolean).join(' ')} aria-hidden="true" />;
 }
 
 /** Prints one element in a new window that reuses this page's stylesheets. */
@@ -63,7 +64,7 @@ function Invoice({ view, innerRef }: { view: PrintView; innerRef: React.Ref<HTML
         </div>
         <QrImage payload={view.qr.payload} className={s.qr} />
       </div>
-      <div className="row fine" style={{ gap: 14 }}>
+      <div className={`fine ${s.docsMeta}`}>
         <span>{t('compliance.doc.number')}: <strong dir="ltr">{view.number}</strong></span>
         <span>{t('compliance.doc.issued')}: {dateTime(view.issuedAt, locale)}</span>
         {view.orderNumber && <span>{t('compliance.doc.order')}: <OrderRef n={view.orderNumber} /></span>}
@@ -134,10 +135,10 @@ function DocumentModal({ id, onClose, onChanged }: { id: string; onClose(): void
           <div>
             <strong>{t('compliance.doc.submissions')}</strong>
             {(subs.data?.items ?? []).map((x) => (
-              <div key={x.id} className="spread fine" style={{ borderBlockEnd: '1px solid var(--line-soft)', paddingBlock: 6 }}>
+              <div key={x.id} className={`fine ${s.submission}`}>
                 <span><OrderRef n={x.attempt} /> · {t(`compliance.mode.${x.mode}`)} · {x.environment}</span>
                 <span><Badge tone={x.status === 'rejected' ? 'danger' : 'info'}>{t(`compliance.subStatus.${x.status}`)}</Badge> {dateTime(x.submittedAt, locale)}</span>
-                {x.response?.localValidation?.problems?.length ? <span style={{ width: '100%', color: 'var(--danger)' }}>{x.response.localValidation.problems.join('; ')}</span> : null}
+                {x.response?.localValidation?.problems?.length ? <span className={s.problems}>{x.response.localValidation.problems.join('; ')}</span> : null}
               </div>
             ))}
           </div>

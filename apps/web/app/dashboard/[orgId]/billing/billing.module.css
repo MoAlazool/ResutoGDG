@@ -1,0 +1,69 @@
+/* Plan & billing (21-MONEY). Semantic tokens and logical properties only (lib/logical-css-policy.test.ts). */
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: var(--space-4); align-items: start; }
+.pair > :global(.card):not(:first-child) { margin-block-start: 0; }
+.planName { margin: 0; font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--text-strong); }
+.facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2) var(--space-4); margin: 0; font-size: var(--fs-md); }
+.facts dd { margin: 0; }
+
+/* Usage meters */
+.meters { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
+.meterHead { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; font-size: var(--fs-sm); }
+.meterValue { color: var(--text-muted); }
+.meter {
+  display: block; inline-size: 100%; block-size: 8px; margin-block-start: var(--space-2); border: 0; border-radius: var(--radius-full);
+  background: var(--surface-3); color: var(--ok); overflow: hidden; appearance: none;
+}
+.meter::-webkit-progress-bar { background: var(--surface-3); border-radius: var(--radius-full); }
+.meter::-webkit-progress-value { background: currentColor; border-radius: var(--radius-full); }
+.meter::-moz-progress-bar { background: currentColor; border-radius: var(--radius-full); }
+.meter[data-state='warn'] { color: var(--warn); }
+.meter[data-state='danger'] { color: var(--danger); }
+.meterNote { margin: var(--space-1) 0 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.meterNote[data-state='danger'] { color: var(--danger-fg); }
+
+/* Modules the plan includes */
+.modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.module { display: grid; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface-1); }
+.moduleHead { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.moduleDesc { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* Locked modules: LockedFeature previews in a grid, shorter than on Explore */
+.locked { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: var(--space-4); }
+.locked :global(.rui-locked) { min-block-size: 300px; }
+.preview { display: grid; gap: var(--space-3); padding: var(--space-4); }
+.previewTabs { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* Plan picker */
+.interval { margin-block-end: var(--space-4); }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: var(--space-3); }
+.plan {
+  display: grid; gap: var(--space-1); align-content: start; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-2);
+  background: var(--surface-1); color: var(--text); font: inherit; text-align: start; cursor: pointer;
+}
+.plan:hover { background: var(--surface-hover); }
+.plan[aria-checked='true'] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.planPrice { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--text-strong); }
+.addonsTitle { margin-block: var(--space-5) var(--space-3); }
+.addons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.addon { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-2); }
+.addonIncluded { background: var(--surface-2); }
+.apply { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-block-start: var(--space-5); }
+
+/* Plan catalogue matrix */
+.matrix { margin-block-start: var(--space-6); }
+/* The visually hidden cell text is absolutely positioned: keep it inside the scrolling table, not the page. */
+.matrix :global(.table-wrap) { position: relative; }
+.matrix th[data-current] { color: var(--accent-soft-fg); }
+.matrix td[data-in] { color: var(--ok-fg); font-weight: var(--fw-semibold); }
+.matrixGroup th { padding-block-start: var(--space-4); color: var(--text-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; }
+
+/* History */
+.history { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); }
+.history li { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+
+/* Costs */
+.costMonth { margin-block: var(--space-2) var(--space-2); }
+.costPlatform td { font-weight: var(--fw-semibold); }
+.costLine td:first-child { padding-inline-start: var(--space-7); }
+.costNote { padding-block-start: var(--space-3); }
+.notes { margin: 0; padding-inline-start: var(--space-5); }

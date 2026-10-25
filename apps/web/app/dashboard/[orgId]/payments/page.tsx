@@ -1,88 +1,166 @@
 'use client';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useState } from 'react';
-import { Badge, Card, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction, useConfirm } from '@resuto/ui';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import {
+  Badge, Card, DataTable, DataTableV2, EmptyState, Field, FilterBar, ListPage, Notice, SelectField, Sheet, Skeleton, Tabs, TextareaField, useAction, useConfirm,
+  useCursorPagination, type FilterChip,
+} from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { dateTime, money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useOrg } from '@/lib/org-context';
+import { useBranchScope, useOrg } from '@/lib/org-context';
+import { usePageCommands } from '@/lib/page-commands';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { paymentProviderLabel, reconSourceLabel, reconStatusLabel } from '@/lib/vocab';
+import { activeFilters, datesValid, filtersFromParams, filtersToParams, NO_FILTERS, PAYMENT_METHODS, PAYMENT_STATUSES, paymentsQuery, type FilterKey, type PaymentFilters } from './filters';
+import styles from './payments.module.css';
 import { alertRefundMessageKey, statusTone } from './tone';
 
-type Tab = 'payments' | 'links' | 'refunds' | 'reconciliation' | 'cash' | 'alerts';
+// The payment inspector (detail, refund history, refund form) loads when a payment is opened.
+const PaymentSheet = dynamic(() => import('./_ui/PaymentSheet').then((m) => m.PaymentSheet), { ssr: false });
 
-export default function PaymentsPage() {
+type Tab = 'payments' | 'links' | 'refunds' | 'reconciliation' | 'cash' | 'alerts';
+const TABS: Tab[] = ['payments', 'links', 'refunds', 'reconciliation', 'cash', 'alerts'];
+
+interface PaymentRow { id: string; amountMinor: number; currency: string; method: string; provider: string; status: string; isTest: boolean; capturedAt: string | null; createdAt: string; orderNumbers: string | null }
+
+function PaymentsPage() {
   const { t } = useT();
-  const { org, can } = useOrg();
-  const [tab, setTab] = useState<Tab>('payments');
+  const { org, can, hasModule } = useOrg();
+  const params = useSearchParams();
+  const asked = params.get('tab') as Tab | null;
+  const [tab, setTab] = useState<Tab>(asked && TABS.includes(asked) ? asked : 'payments');
   const [collect, setCollect] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
-  const branchId = org.branches[0]?.id;
-  const config = useApi<any>(branchId && can('payments:read') ? `/o/${org.id}/payments/config?branchId=${branchId}` : null);
+  const [open, setOpen] = useState<string | null>(null);
+  const { branchId: scoped } = useBranchScope({ allowAll: true });
+  const configBranch = scoped || org.branches.find((b) => b.isActive)?.id || org.branches[0]?.id;
+  // Only with the module: the page's hooks run before ModuleGate decides, and a locked module answers 402.
+  const config = useApi<any>(configBranch && hasModule('pay') && can('payments:read') ? `/o/${org.id}/payments/config?branchId=${configBranch}` : null);
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: 'payments', label: t('pay.dash.tab.payments') }, { key: 'links', label: t('pay.dash.tab.links') }, { key: 'refunds', label: t('pay.dash.tab.refunds') },
     ...(can('payments:reconcile') ? [{ key: 'reconciliation' as Tab, label: t('pay.dash.tab.reconciliation') }, { key: 'cash' as Tab, label: t('pay.dash.tab.cash') }] : []),
     { key: 'alerts', label: t('pay.dash.tab.alerts') },
   ];
+  // ⌘K: the page's own actions (21-SHELL page-command registry).
+  usePageCommands({ title: t('pay.dash.title'), commands: [
+    { id: 'collect', label: t('pay.dash.collect'), keywords: 'record cash payment collect take', enabled: hasModule('pay') && can('payments:collect'), run: () => setCollect(true) },
+    { id: 'link', label: t('pay.dash.newLink'), keywords: 'new payment link send pay', enabled: hasModule('pay') && can('payments:collect'), run: () => setLinkOpen(true) },
+  ] });
   return (
     <ModuleGate module="pay">
-      <PageHeader title={t('pay.dash.title')} subtitle={t('pay.dash.subtitle')} actions={<>
+      <ListPage header={{ title: t('pay.dash.title'), subtitle: t('pay.dash.subtitle'), actions: <>
         {can('payments:collect') && <button className="btn" onClick={() => setLinkOpen(true)}>{t('pay.dash.newLink')}</button>}
         {can('payments:collect') && <button className="btn btn-primary" onClick={() => setCollect(true)}>{t('pay.dash.collect')}</button>}
-      </>} />
-      {config.data?.mode === 'sandbox' && <div style={{ marginBottom: 16 }}><Notice tone="warn"><Badge tone="sandbox">{t('state.sandbox')}</Badge> {t('pay.dash.mode.sandbox')}</Notice></div>}
-      {can('payments:read') ? (
-        <>
-          <Tabs<Tab> tabs={tabs} value={tab} onChange={setTab} />
-          {tab === 'payments' && <PaymentsList />}
-          {tab === 'links' && <LinksList />}
-          {tab === 'refunds' && <RefundsList />}
-          {tab === 'reconciliation' && <Reconciliation providers={(config.data?.providers ?? []).map((p: any) => p.id)} />}
-          {tab === 'cash' && <CashCount />}
-          {tab === 'alerts' && <Alerts />}
-        </>
-      ) : <Card><EmptyState title={t('state.locked')}>payments:read</EmptyState></Card>}
+      </> }}>
+        {config.data?.mode === 'sandbox' && <div className={styles.notice}><Notice tone="warn"><Badge tone="sandbox">{t('state.sandbox')}</Badge> {t('pay.dash.mode.sandbox')}</Notice></div>}
+        {can('payments:read') ? (
+          <>
+            <Tabs<Tab> tabs={tabs} value={tab} onChange={setTab} />
+            {tab === 'payments' && <PaymentsList branchId={scoped} onOpen={setOpen} />}
+            {tab === 'links' && <LinksList />}
+            {tab === 'refunds' && <RefundsList onOpen={setOpen} />}
+            {tab === 'reconciliation' && <Reconciliation providers={(config.data?.providers ?? []).map((p: any) => p.id)} />}
+            {tab === 'cash' && <CashCount />}
+            {tab === 'alerts' && <Alerts />}
+          </>
+        ) : <Card><EmptyState title={t('state.locked')}>payments:read</EmptyState></Card>}
+      </ListPage>
       <CollectModal open={collect} onClose={() => setCollect(false)} />
       <LinkModal open={linkOpen} onClose={() => setLinkOpen(false)} />
+      {open && <PaymentSheet paymentId={open} onClose={() => setOpen(null)} onChanged={() => undefined} />}
     </ModuleGate>
   );
 }
 
-function PaymentsList() {
+export default function PaymentsRoute() {
+  return <Suspense fallback={<Skeleton lines={6} />}><PaymentsPage /></Suspense>;
+}
+
+/**
+ * The payment list: FilterBar (status, method, test or live, dates; kept in the URL, removable chips), DataTableV2 with
+ * cursor pages, and the payment sheet on a row. The shell's branch (or all branches) scopes it.
+ */
+function PaymentsList({ branchId, onOpen }: { branchId: string; onOpen: (id: string) => void }) {
   const { t, locale } = useT();
   const { org } = useOrg();
-  const [status, setStatus] = useState('');
-  const [method, setMethod] = useState('');
-  const [cursor, setCursor] = useState<string | null>(null);
-  const qs = new URLSearchParams({ limit: '50', ...(status ? { status } : {}), ...(method ? { method } : {}), ...(cursor ? { cursor } : {}) });
-  const { data, error, loading } = useApi<{ items: any[]; nextCursor: string | null }>(`/o/${org.id}/payments?${qs}`);
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  // The filters live in the URL; the list follows a local copy so quick successive changes build on each other
+  // instead of on a URL that has not updated yet. A URL changed from outside (back, a shared link) wins.
+  const fromUrl = filtersFromParams(params);
+  const urlKey = filtersToParams(fromUrl);
+  const [f, setF] = useState<PaymentFilters>(fromUrl);
+  const latest = useRef(f);
+  const written = useRef(urlKey);
+  useEffect(() => {
+    if (urlKey === written.current) return;
+    written.current = urlKey;
+    const next = filtersFromParams(new URLSearchParams(urlKey));
+    latest.current = next;
+    setF(next);
+    setDates({ from: next.from, to: next.to });
+  }, [urlKey]);
+  const [dates, setDates] = useState<Pick<PaymentFilters, 'from' | 'to'>>({ from: f.from, to: f.to });
+  const pager = useCursorPagination([filtersToParams(f), branchId]);
+  const { data, error, loading, pending } = useApi<{ items: PaymentRow[]; nextCursor: string | null }>(`/o/${org.id}/payments?${paymentsQuery(f, { branchId, cursor: pager.cursor })}`);
+  const set = (next: Partial<PaymentFilters>) => {
+    const merged = { ...latest.current, ...next };
+    const q = filtersToParams(merged);
+    latest.current = merged;
+    written.current = q;
+    setF(merged);
+    router.replace(`${pathname}${q ? `?${q}` : ''}`, { scroll: false });
+  };
+  const label: Record<FilterKey, string> = { status: t('pay.dash.filterStatus'), method: t('pay.dash.filterMethod'), mode: t('pay.dash.filterMode'), from: t('pay.dash.filterFrom'), to: t('pay.dash.filterTo') };
+  const value = (k: FilterKey) => k === 'status' ? t(`pay.payment.status.${f.status}`) : k === 'method' ? t(`pay.method.${f.method}`)
+    : k === 'mode' ? (f.mode === 'test' ? t('pay.dash.modeTest') : t('pay.dash.modeLive')) : f[k];
+  const chips: FilterChip[] = activeFilters(f).map((k) => ({ key: k, label: `${label[k]}: ${value(k)}`, onRemove: () => { if (k === 'from' || k === 'to') setDates((d) => ({ ...d, [k]: '' })); set({ [k]: '' }); } }));
+  const datesOk = datesValid(dates);
   return (
     <div className="stack">
-      <div className="form-row" style={{ maxWidth: 520 }}>
-        <SelectField label={t('pay.dash.filterStatus')} value={status} onChange={(e) => { setStatus(e.target.value); setCursor(null); }}>
-          <option value="">{t('pay.dash.all')}</option>
-          {['succeeded', 'pending', 'failed', 'partially_refunded', 'refunded', 'cancelled', 'expired'].map((s) => <option key={s} value={s}>{t(`pay.payment.status.${s}`)}</option>)}
-        </SelectField>
-        <SelectField label={t('pay.dash.filterMethod')} value={method} onChange={(e) => { setMethod(e.target.value); setCursor(null); }}>
-          <option value="">{t('pay.dash.all')}</option>
-          {['cash', 'card', 'wallet', 'cod', 'instapay', 'bank_transfer', 'deposit_credit'].map((m) => <option key={m} value={m}>{t(`pay.method.${m}`)}</option>)}
-        </SelectField>
-      </div>
+      <FilterBar chips={chips} onClearAll={chips.length ? () => { setDates({ from: '', to: '' }); set(NO_FILTERS); } : undefined}
+        filters={(
+          <div className={`${styles.filterDates} ${styles.filters}`} data-testid="payment-filters">
+            <SelectField label={t('pay.dash.filterStatus')} value={f.status} onChange={(e) => set({ status: e.target.value })}>
+              <option value="">{t('pay.dash.all')}</option>
+              {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{t(`pay.payment.status.${s}`)}</option>)}
+            </SelectField>
+            <SelectField label={t('pay.dash.filterMethod')} value={f.method} onChange={(e) => set({ method: e.target.value })}>
+              <option value="">{t('pay.dash.all')}</option>
+              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{t(`pay.method.${m}`)}</option>)}
+            </SelectField>
+            <SelectField label={t('pay.dash.filterMode')} value={f.mode} onChange={(e) => set({ mode: e.target.value as PaymentFilters['mode'] })}>
+              <option value="">{t('pay.dash.modeAll')}</option>
+              <option value="test">{t('pay.dash.modeTest')}</option>
+              <option value="live">{t('pay.dash.modeLive')}</option>
+            </SelectField>
+            <Field label={t('pay.dash.filterFrom')} type="date" value={dates.from} max={dates.to || undefined}
+              onChange={(e) => { const d = { ...dates, from: e.target.value }; setDates(d); if (datesValid(d)) set(d); }} />
+            <Field label={t('pay.dash.filterTo')} type="date" value={dates.to} min={dates.from || undefined}
+              onChange={(e) => { const d = { ...dates, to: e.target.value }; setDates(d); if (datesValid(d)) set(d); }} />
+          </div>
+        )} />
+      {!datesOk && <p className={styles.dateError} role="alert">{t('pay.dash.datesInvalid')}</p>}
       {error && <Notice tone="danger">{error.message}</Notice>}
       {loading && !data ? <Skeleton lines={6} /> : (
-        <DataTable rows={data?.items ?? []} rowKey={(r) => r.id} empty={<EmptyState title={t('pay.dash.empty')} />} columns={[
-          { key: 'when', header: t('pay.dash.col.when'), render: (r) => <Link href={`/dashboard/${org.id}/payments/${r.id}`}>{dateTime(r.capturedAt ?? r.createdAt, locale)}</Link> },
-          { key: 'amount', header: t('pay.dash.col.amount'), align: 'end', render: (r) => <span className="num" dir="ltr">{money(r.amountMinor, r.currency, locale)}</span> },
-          { key: 'method', header: t('pay.dash.col.method'), render: (r) => <>{t(`pay.method.${r.method}`)} {r.isTest && <Badge tone="sandbox">{t('pay.dash.test')}</Badge>}</> },
-          { key: 'provider', header: t('pay.dash.col.provider'), render: (r) => <bdi>{paymentProviderLabel(t, r.provider)}</bdi> },
-          { key: 'orders', header: t('pay.dash.col.orders'), render: (r) => r.orderNumbers ?? '—' },
-          { key: 'status', header: t('pay.dash.col.status'), render: (r) => <Badge tone={statusTone(r.status)}>{t(`pay.payment.status.${r.status}`)}</Badge> },
-        ]} />
+        <DataTableV2 label={t('pay.dash.table')} rows={data?.items ?? []} rowKey={(r) => r.id} busy={pending} empty={<EmptyState title={t('pay.dash.empty')} />}
+          onRowClick={(r) => onOpen(r.id)}
+          pagination={{ hasNext: !!data?.nextCursor, hasPrev: pager.hasPrev, onNext: () => pager.next(data?.nextCursor), onPrev: pager.prev }}
+          columns={[
+            { key: 'when', header: t('pay.dash.col.when'), rowHeader: true, render: (r) => <span className="num">{dateTime(r.capturedAt ?? r.createdAt, locale)}</span> },
+            { key: 'amount', header: t('pay.dash.col.amount'), align: 'end', render: (r) => <span className="num" dir="ltr">{money(r.amountMinor, r.currency, locale)}</span> },
+            { key: 'method', header: t('pay.dash.col.method'), render: (r) => <>{t(`pay.method.${r.method}`)} {r.isTest && <Badge tone="sandbox">{t('pay.dash.test')}</Badge>}</> },
+            { key: 'provider', header: t('pay.dash.col.provider'), render: (r) => <bdi>{paymentProviderLabel(t, r.provider)}</bdi> },
+            { key: 'orders', header: t('pay.dash.col.orders'), render: (r) => r.orderNumbers ?? '—' },
+            { key: 'status', header: t('pay.dash.col.status'), render: (r) => <Badge tone={statusTone(r.status)}>{t(`pay.payment.status.${r.status}`)}</Badge> },
+          ]} />
       )}
-      {data?.nextCursor && <button className="btn" onClick={() => setCursor(data.nextCursor)}>{t('pay.dash.loadMore')}</button>}
     </div>
   );
 }
@@ -112,7 +190,7 @@ function LinksList() {
   );
 }
 
-function RefundsList() {
+function RefundsList({ onOpen }: { onOpen: (paymentId: string) => void }) {
   const { t, locale } = useT();
   const { org } = useOrg();
   const { data, error, loading } = useApi<{ items: any[] }>(`/o/${org.id}/payments/refunds`);
@@ -120,12 +198,12 @@ function RefundsList() {
   return (
     <>
       {error && <Notice tone="danger">{error.message}</Notice>}
-      <DataTable rows={data?.items ?? []} rowKey={(r) => r.id} empty={<EmptyState title={t('pay.dash.emptyRefunds')} />} columns={[
-        { key: 'when', header: t('pay.dash.col.when'), render: (r) => <Link href={`/dashboard/${org.id}/payments/${r.paymentId}`}>{dateTime(r.createdAt, locale)}</Link> },
+      <DataTableV2 label={t('pay.dash.tab.refunds')} rows={data?.items ?? []} rowKey={(r) => r.id} empty={<EmptyState title={t('pay.dash.emptyRefunds')} />} onRowClick={(r) => onOpen(r.paymentId)} columns={[
+        { key: 'when', header: t('pay.dash.col.when'), rowHeader: true, render: (r) => <span className="num">{dateTime(r.createdAt, locale)}</span> },
         { key: 'amount', header: t('pay.dash.col.amount'), align: 'end', render: (r) => <span className="num" dir="ltr">{money(r.amountMinor, r.currency, locale)}</span> },
         { key: 'method', header: t('pay.dash.col.method'), render: (r) => t(`pay.method.${r.method}`) },
         { key: 'reason', header: t('pay.dash.col.reason'), render: (r) => r.reason },
-        { key: 'status', header: t('pay.dash.col.status'), render: (r) => <div className="stack" style={{ gap: 2 }}>
+        { key: 'status', header: t('pay.dash.col.status'), render: (r) => <div className={styles.refundNotes}>
           <Badge tone={r.outcomeUncertain ? 'warn' : statusTone(r.status)}>{t(`pay.refund.status.${r.status}`)}</Badge>
           {r.outcomeUncertain && <span className="fine">{t('pay.refund.uncertain')}</span>}
           {r.source && r.source !== 'resuto' && <span className="fine">{t(`pay.refund.source.${r.source}`)}</span>}</div> },
@@ -182,10 +260,10 @@ function Reconciliation({ providers }: { providers: string[] }) {
         )}
         {run.error && <Notice tone="danger">{run.error}</Notice>}
         <button className="btn btn-primary mbs-12" disabled={run.pending} onClick={() => run.run()}>{t('pay.recon.run')}</button>
-        <div className="stack" style={{ marginTop: 18 }}>
+        <div className={styles.runs}>
           {(runs.data?.items ?? []).length === 0 && <p className="fine">{t('pay.dash.emptyRuns')}</p>}
           {(runs.data?.items ?? []).map((r) => (
-            <button key={r.id} className="btn btn-ghost" style={{ justifyContent: 'space-between' }} onClick={() => open.run(r.id)}>
+            <button key={r.id} className={`btn btn-ghost ${styles.run}`} onClick={() => open.run(r.id)}>
               <span><bdi>{paymentProviderLabel(t, r.provider)}</bdi> · <bdi>{dateTime(r.createdAt, locale)}</bdi></span>
               <span><bdi dir="ltr">{r.totals.matched}/{r.totals.items}</bdi> {t('pay.recon.matched')}</span>
             </button>
@@ -254,7 +332,7 @@ function CashCount() {
           {expected.groups.map((g: any) => (
             <div key={key(g)} className="form-row items-end">
               <div><strong>{t(`pay.method.${g.method}`)}</strong><div className="fine">{g.staffName ?? g.driverName ?? '—'} · {g.payments}</div></div>
-              <div className="stat"><span>{t('pay.cash.expected')}</span><strong style={{ fontSize: 18 }} dir="ltr">{m(g.expectedMinor)}</strong></div>
+              <div className="stat"><span>{t('pay.cash.expected')}</span><strong className={styles.statValue} dir="ltr">{m(g.expectedMinor)}</strong></div>
               <Field label={t('pay.cash.counted')} inputMode="decimal" dir="ltr" value={counts[key(g)] ?? ''} onChange={(e) => setCounts((c) => ({ ...c, [key(g)]: e.target.value }))} />
             </div>
           ))}
@@ -355,7 +433,7 @@ function CollectModal({ open, onClose }: { open: boolean; onClose: () => void })
   });
   const close = () => { setDone(false); setDue(null); setAmount(''); setId(''); onClose(); };
   return (
-    <Modal open={open} onClose={close} title={t('pay.collect.title')} footer={done ? <button className="btn btn-primary" onClick={close}>{t('action.close')}</button> : <>
+    <Sheet open={open} onClose={close} title={t('pay.collect.title')} size="sm" footer={done ? <button className="btn btn-primary" onClick={close}>{t('action.close')}</button> : <>
       <button className="btn btn-ghost" onClick={close}>{t('action.cancel')}</button>
       <button className="btn btn-primary" disabled={save.pending || !id || !amount} onClick={() => save.run()}>{t('pay.collect.save')}</button></>}>
       {done ? <Notice tone="ok">{t('pay.collect.done')}</Notice> : (
@@ -379,7 +457,7 @@ function CollectModal({ open, onClose }: { open: boolean; onClose: () => void })
           {(lookup.error || save.error) && <Notice tone="danger">{lookup.error ?? save.error}</Notice>}
         </>
       )}
-    </Modal>
+    </Sheet>
   );
 }
 
@@ -400,7 +478,7 @@ function LinkModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   });
   const close = () => { setUrl(null); setId(''); setAmount(''); onClose(); };
   return (
-    <Modal open={open} onClose={close} title={t('pay.link.title')} footer={url ? <button className="btn btn-primary" onClick={close}>{t('action.close')}</button> : <>
+    <Sheet open={open} onClose={close} title={t('pay.link.title')} size="sm" footer={url ? <button className="btn btn-primary" onClick={close}>{t('action.close')}</button> : <>
       <button className="btn btn-ghost" onClick={close}>{t('action.cancel')}</button>
       <button className="btn btn-primary" disabled={create.pending || !id} onClick={() => create.run()}>{t('action.create')}</button></>}>
       {url ? (
@@ -422,6 +500,6 @@ function LinkModal({ open, onClose }: { open: boolean; onClose: () => void }) {
           {create.error && <Notice tone="danger">{create.error}</Notice>}
         </>
       )}
-    </Modal>
+    </Sheet>
   );
 }

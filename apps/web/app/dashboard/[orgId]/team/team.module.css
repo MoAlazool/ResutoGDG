@@ -1,0 +1,4 @@
+/* Team & roles (21-MONEY: SettingsPage template). Logical properties only. */
+.scope { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.link { flex: 1 1 260px; min-inline-size: 0; }
+.roleSelect { inline-size: auto; min-block-size: 34px; padding: var(--space-1) var(--space-2); }

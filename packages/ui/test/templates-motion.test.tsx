@@ -51,6 +51,13 @@ describe('page templates', () => {
     const buttons = html(<SettingsPage navLabel="الأقسام" active="a" sections={[{ key: 'a', label: 'عام' }]}><form /></SettingsPage>, 'ar');
     expect(buttons).toContain('aria-current="true"');
   });
+
+  it('SettingsPage: renderLink draws the section links (client-side navigation)', () => {
+    const out = html(<SettingsPage navLabel="Settings" active="billing" sections={[{ key: 'team', label: 'Team', href: '/team' }, { key: 'billing', label: 'Plan & billing', href: '/billing' }]}
+      renderLink={(href, label, current) => <a href={href} data-router="" aria-current={current}>{label}</a>}><form /></SettingsPage>);
+    expect(out).toContain('<a href="/billing" data-router="" aria-current="page">Plan &amp; billing</a>');
+    expect(out).toContain('<a href="/team" data-router="">Team</a>');
+  });
 });
 
 describe('motion', () => {

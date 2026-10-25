@@ -13,3 +13,11 @@ export const alertRefundMessageKey = (status: string | null | undefined): { key:
   status === 'succeeded' ? { key: 'pay.alert.refundSent', tone: 'ok' }
     : status === 'pending' ? { key: 'pay.alert.refundPending', tone: 'warn' }
       : { key: 'pay.alert.refundFailed', tone: 'danger' };
+
+/**
+ * Timeline tone of a refund (21-MONEY). An outcome the provider has not confirmed is a warning whatever its stored
+ * status, so an unconfirmed refund never looks done; pending and manual refunds stay warnings until they complete.
+ */
+export const refundTone = (r: { status: string; outcomeUncertain?: boolean }): 'ok' | 'warn' | 'danger' | 'neutral' =>
+  r.outcomeUncertain ? 'warn' : r.status === 'succeeded' ? 'ok' : r.status === 'failed' ? 'danger'
+    : r.status === 'pending' || r.status === 'manual_required' ? 'warn' : 'neutral';

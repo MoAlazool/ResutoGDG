@@ -1,0 +1,3 @@
+/* Restaurant settings (21-MONEY: SettingsPage template). Logical properties only. */
+.flags { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-block-end: var(--space-4); }
+.fieldset { min-inline-size: 0; margin: 0; padding: 0; border: 0; }

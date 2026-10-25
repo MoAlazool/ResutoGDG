@@ -104,7 +104,7 @@ defaults chosen by the page language (`UiLocaleProvider`, set by the web app's `
 | `StatV2`, `ProvenanceBadge`, `provenanceFromMetaKind` | `stat.tsx` | KPI tiles | Value, unit, delta, sparkline, provenance; `href` + `linkAs` (Next `Link`) for a drill-down tile |
 | `EmptyState` (+ `icon`, `secondary`) | `base.tsx` | Empty lists and sections | Old markup unchanged without the new props |
 | `LockedFeature` | `locked-feature.tsx` | Modules outside the plan | Inert preview, benefits, upgrade action |
-| `ListPage`, `DetailPage`, `WorkspacePage`, `BoardPage`, `SettingsPage` | `templates.tsx` | Page layouts | Regions only; content stays in the page. `BoardPage` lanes carry `data-lane` and take `boardRef`, `label`, `footer` (21-OPS: drag and drop on the Orders board and kitchen display, `components/ops/KanbanBoard`) |
+| `ListPage`, `DetailPage`, `WorkspacePage`, `BoardPage`, `SettingsPage` | `templates.tsx` | Page layouts | Regions only; content stays in the page. `BoardPage` lanes carry `data-lane` and take `boardRef`, `label`, `footer` (21-OPS: drag and drop on the Orders board and kitchen display, `components/ops/KanbanBoard`). `SettingsPage` takes `renderLink` for client-side section links; the web app wraps it as `components/settings/SettingsShell` with `SETTINGS_SECTIONS` (21-MONEY: settings, messaging, team, billing, data, audit) |
 | Chart kit | `charts/` | All charts | See §5 |
 | `Loadable` (+ `fade`) | `states.tsx` | Skeleton → content | Opt-in 120 ms fade |
 | `withViewTransition`, `prefersReducedMotion`, `staggerStyle` | `motion.ts` | Route and pane changes | See §6 |

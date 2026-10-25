@@ -12,6 +12,7 @@ const en = {
   limitHit: 'Your plan’s staff limit is reached.', upgrade: 'See plans', cannotAssign: 'Your role cannot invite or change members.',
   editBranches: 'Branches', save: 'Save', cancel: 'Cancel', loadError: 'Could not load the team.', retry: 'Retry',
   driverHint: 'Drivers use the Resuto Driver web app and do not count towards staff limits.',
+  linkLabel: 'Invitation link', editBranchesAction: 'Change branches',
 };
 type S = typeof en;
 const ar: S = {
@@ -25,6 +26,7 @@ const ar: S = {
   limitHit: 'تم بلوغ حد الموظفين في خطتك.', upgrade: 'عرض الخطط', cannotAssign: 'دورك لا يسمح بدعوة الأعضاء أو تعديلهم.',
   editBranches: 'الفروع', save: 'حفظ', cancel: 'إلغاء', loadError: 'تعذّر تحميل الفريق.', retry: 'إعادة المحاولة',
   driverHint: 'يستخدم السائقون تطبيق ريسوتو للسائق على الويب ولا يُحتسبون ضمن حد الموظفين.',
+  linkLabel: 'رابط الدعوة', editBranchesAction: 'تغيير الفروع',
 };
 export const TEAM_STRINGS = { en, ar };
 
