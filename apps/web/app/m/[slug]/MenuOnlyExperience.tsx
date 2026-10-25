@@ -2,12 +2,12 @@
 // The view-only digital menu (21-ONB): the consumer shell and menu browser of the ordering pages with ordering turned
 // off. There is no cart, no dock, no assistant, no checkout and no table or visit session: nothing here can place an
 // order. Dish details (photo, description, allergens, options) open in the same sheet, read-only.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PublicMenu, PublicMenuProduct } from '@resuto/contracts';
-import { SOCIAL_NETWORKS, socialLinksOf, type SocialNetwork } from '@resuto/contracts/lite';
 import { MenuBrowser, ProductSheet, type Cart } from '@/components/guest/menu';
 import { ConsumerFooter, ConsumerHeader, Cover } from '@/components/guest/shell';
 import { MenuSkeleton } from '@/components/guest/skeleton';
+import { SocialIcons } from '@/components/guest/SocialIcons';
 import { api, ApiRequestError } from '@/lib/api';
 import { pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
@@ -20,11 +20,6 @@ const NO_CART: Cart = {
   lines: () => [],
 };
 const noop = () => {};
-
-/** Short marks for the link pills (the network's name is the link text; these are decorative). */
-const MARK: Record<SocialNetwork, string> = {
-  instagram: 'IG', facebook: 'f', tiktok: 'TT', x: 'X', snapchat: 'SC', whatsapp: 'WA', google_maps: '⌖', website: '⌂',
-};
 
 export function MenuOnlyExperience({ slug, branchCode, initialMenu }: { slug: string; branchCode?: string; initialMenu: PublicMenu | null }) {
   const { t, locale } = useT();
@@ -46,9 +41,6 @@ export function MenuOnlyExperience({ slug, branchCode, initialMenu }: { slug: st
 
   const org = menu?.org ?? null;
   const b = menu?.branch ?? null;
-  // Checked again here (the API already validates): only https links on each network's own hosts become links.
-  const links = useMemo(() => socialLinksOf(org?.socialLinks), [org]);
-  const networks = SOCIAL_NETWORKS.filter((n) => links[n]);
   // The header links to the restaurant's site only through its slug; a menu-only restaurant may have none, so omit it.
   const shellOrg = org ? { name: org.name, nameAr: org.nameAr } : null;
 
@@ -72,21 +64,8 @@ export function MenuOnlyExperience({ slug, branchCode, initialMenu }: { slug: st
             <MenuBrowser menu={menu} cart={NO_CART} onOpen={setProduct} ordering={false} />
           </>
         ) : !error && <><p className="gx-fine" role="status">{t('core.guest.shell.loading')}</p><MenuSkeleton /></>}
-        {networks.length > 0 && (
-          <nav className="gx-social" aria-label={t('core.guest.social.title')}>
-            <h2>{t('core.guest.social.title')}</h2>
-            <ul>
-              {networks.map((n) => (
-                <li key={n}>
-                  <a href={links[n]} target="_blank" rel="noopener noreferrer nofollow" aria-label={t('core.guest.social.open', { network: t(`core.guest.social.${n}`) })}>
-                    <span className="gx-social-mark" aria-hidden>{MARK[n]}</span>
-                    <span>{t(`core.guest.social.${n}`)}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
+        {/* Icons with the network's name; only https links on each network's own hosts (checked again inside). */}
+        <SocialIcons links={org?.socialLinks} t={t} className="gx-social" withNames />
       </main>
       <ConsumerFooter org={shellOrg} />
       {product && menu && (

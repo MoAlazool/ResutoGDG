@@ -7,6 +7,7 @@
 import { formatMoney, normalizeNumericInput, type Currency, type PublicMenu, type PublicMenuProduct, type PublicStorefront } from '@resuto/contracts';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { SocialIcons } from '@/components/guest/SocialIcons';
 import { DishImage } from '@/components/public/DishImage';
 import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
 import { DISH_SIZES, dishSrcSet, fixedSizes } from '@/lib/dish-image';
@@ -191,6 +192,8 @@ export function Storefront({ sf, initialMenu, locale, siteHref }: { sf: PublicSt
           );
         })}
 
+        {/* 21-ONB: the restaurant's social links as icons (only valid https links on each network's own hosts). */}
+        <SocialIcons links={sf.org.socialLinks} t={t} className="sf-social" />
         {sf.org.demo && <p className="sf-foot-note">{t('studio.site.sf.demoNote', { name: brandName })}</p>}
       </main>
 

@@ -206,3 +206,6 @@
  .sf-row{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){.sf-card,.sf-art img,.sf-btn,.sf-dock-inner{transition:none}}
+/* 21-ONB: social link icons under the menu. */
+.sf-social{margin-block:56px 0;text-align:center}
+.sf-social ul{justify-content:center}

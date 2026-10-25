@@ -4,6 +4,7 @@
 // lighter "minimal" variant, all driven by published Studio data.
 import type { CSSProperties, ReactNode } from 'react';
 import type { PublicSite, PublicSiteSection } from '@resuto/contracts';
+import { SocialIcons } from '@/components/guest/SocialIcons';
 import { DishImage as PublicDishImage } from '@/components/public/DishImage';
 import { DISH_SIZES, dishSrcSet } from '@/lib/dish-image';
 import { LanguageToggle } from '@/lib/i18n/client';
@@ -73,6 +74,9 @@ export function SiteView({ site, locale, t, preview = false, hostLinks }: {
 function Footer({ ctx, className }: { ctx: Ctx; className: string }) {
   const { site, locale, t } = ctx;
   return (
+    <>
+    {/* 21-ONB: the restaurant's social links as icons above the footer (only valid https links on each network). */}
+    <div className="site-social-row"><SocialIcons links={site.org.socialLinks} t={t} className="site-social" /></div>
     <footer className={className}>
       {/* The demo tenant is labelled as the legacy page was: an example restaurant with illustrated (AI-generated) dishes. */}
       {site.org.demo
@@ -80,6 +84,7 @@ function Footer({ ctx, className }: { ctx: Ctx; className: string }) {
         : <span>© <bdi>{new Date().getFullYear()}</bdi> {pickName(locale, site.org.name, site.org.nameAr)}{site.branches[0]?.city ? ` · ${site.branches[0].city}` : ''}</span>}
       <a href="/">{t('studio.site.poweredBy')}</a>
     </footer>
+    </>
   );
 }
 
