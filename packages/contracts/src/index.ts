@@ -46,3 +46,4 @@ export * from './inbox';
 export * from './marketplace';
 export * from './whatsapp-onboarding';
 export * from './provider-apps';
+export * from './funnels';

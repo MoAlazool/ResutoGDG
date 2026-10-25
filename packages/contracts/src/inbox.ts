@@ -160,7 +160,12 @@ export interface Customer360 {
     perChannel: false;
     marketing: { granted: boolean; source: string | null; at: string | null };
     channels: Array<{ channel: string; scope: 'customer'; granted: boolean; source: string | null; at: string | null;
-      serviceWindow: { open: boolean; closesAt: string | null } | null }>;
+      serviceWindow: { open: boolean; closesAt: string | null } | null;
+      /**
+       * 21-CRM: what contact the channel allows. Messaging the restaurant (a WhatsApp chat, a Messenger or Instagram
+       * message) never grants marketing consent: without an explicit opt-in the contact is for service replies only.
+       */
+      contactBasis: 'marketing_consent' | 'service_replies_only' }>;
     history: Array<{ id: string; purpose: string; granted: boolean; source: string; actor: string | null; occurredAt: string }>;
   };
   acquisition: {
@@ -168,6 +173,10 @@ export interface Customer360 {
       basis: AcquisitionBasis; inferred: boolean; occurredAt: string | null; channel: string | null;
       utm: { source: string | null; medium: string | null; campaign: string | null; content: string | null; term: string | null };
       campaignId: string | null; campaignName: string | null; orderId: string | null;
+      /** 21-CRM: the tracked link of a tracked_link_click touch (null for clicks recorded before links were stored). */
+      linkId: string | null;
+      /** 21-CRM: true when read from the customer's stored first touch (customers.first_touch, set once). */
+      stored: boolean;
     };
   };
   recentOrders: Array<{ id: string; number: string; branchId: string; channel: string; fulfillment: string; status: string;
