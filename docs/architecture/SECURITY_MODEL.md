@@ -119,9 +119,15 @@ start with `AUTH_DEV_MODE` in production.
 
 ## Known gaps (tracked in docs/OPEN_BLOCKERS.md)
 
+The current, itemised list is the 2.1 threat model, `docs/security/THREAT_MODEL_2.1.md` (§12 accepted risks needing
+the owner's sign-off, §13 owner prerequisites). In short (refreshed 2026-10-25, phase 1D):
+
 - Supabase Auth itself has not been exercised locally (no Docker); the JWT contract is
   tested with the dev issuer using the same claims.
-- Rate limiting is per-process (see above); the delivery-code counter is the only one in the database.
-- Guest/reservation tokens still derive from the first `CREDENTIALS_KEYS` entry (rotation
-  invalidates sent links); a separate versioned key ring is a follow-up for the orders module.
+- MFA is opt-in for everyone, owners included: sensitive routes step up only users who enrolled a factor.
+- Rate limits are shared across instances only with `RATE_LIMIT_STORE=postgres`; when that store is unreachable they
+  fall back to per-instance counting (fail open to local counting).
+- Staging still connects as the database owner until `DATABASE_URL` is switched to `resuto_api` (owner step O-3).
+- Password rules run in the browser; no CAPTCHA (owner prerequisite O-2).
+- The session token lives in `localStorage` (nonce CSP is the mitigation); CSP `img-src` allows any HTTPS host.
 - No external penetration test has been performed.
