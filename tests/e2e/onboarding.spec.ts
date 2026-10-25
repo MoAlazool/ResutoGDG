@@ -34,6 +34,8 @@ test('sign up → create restaurant → dashboard', async ({ page }) => {
   const nav = workspaceNav(page);
   await expect(nav).toBeVisible();
   await expect(nav).toContainText(name);
+  // The Studio lives in the Menu & Store area (21-SHELL): open the area, then the page.
+  await nav.getByRole('button', { name: 'Menu & Store' }).click();
   await nav.locator('a[href$="/website"]').click();
   await expect(page.getByRole('heading', { level: 1, name: 'Website' })).toBeVisible();
   await expect(page.getByText('Not published yet')).toBeVisible();
