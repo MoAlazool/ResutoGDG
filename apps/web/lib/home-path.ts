@@ -6,17 +6,19 @@ import { can, ROLES } from '@resuto/contracts/lite';
  * full-screen kitchen display, drivers on the driver app, the front desk on the live floor (its front-desk screen
  * when that route exists), cashiers on orders, waiters on the floor, everyone with analytics on the overview.
  */
-/** Query that keeps the dedicated full-screen kitchen display for staff who also have the workspace (PAR-05). */
+/**
+ * Older links to the kitchen display carried this query (PAR-05, when managers saw the display inside the workspace);
+ * it is still accepted and changes nothing.
+ */
 export const KDS_FULL_PARAM = 'display=full';
 
 /**
- * Where the kitchen display opens (gallery PAR-05). Legacy showed managers the KDS inside the staff workspace, with a
- * full-screen option; only the kitchen team lived on the dedicated wall screen. Anyone whose home is the workspace
- * gets the in-shell display unless they asked for full screen.
+ * Where the kitchen display opens (21-OPS, plan §5 "one route"): the full-screen display at /kitchen/[orgId] for
+ * everyone, opened from the dashboard's Kitchen link as well as being the kitchen team's home. `full` keeps the
+ * older ?display=full query on the link.
  */
-export function kitchenDisplayPath(role: Role | string, orgId: string, opts: { full?: boolean } = {}): string {
-  if (opts.full || homePath(role, orgId) === `/kitchen/${orgId}`) return `/kitchen/${orgId}${opts.full ? `?${KDS_FULL_PARAM}` : ''}`;
-  return `/dashboard/${orgId}/kitchen`;
+export function kitchenDisplayPath(_role: Role | string, orgId: string, opts: { full?: boolean } = {}): string {
+  return `/kitchen/${orgId}${opts.full ? `?${KDS_FULL_PARAM}` : ''}`;
 }
 
 export function homePath(role: Role | string, orgId: string): string {

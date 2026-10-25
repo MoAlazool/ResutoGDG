@@ -84,12 +84,13 @@ describe('role-aware landing (VS-05)', () => {
     expect(homePath('something-new', 'o1')).toBe('/dashboard/o1');
   });
 
-  it('opens the kitchen display inside the workspace for managers, full screen for the kitchen team (PAR-05)', async () => {
+  it('opens the one kitchen display route for every role that runs the kitchen (21-OPS, plan §5)', async () => {
     const { kitchenDisplayPath } = await import('./home-path');
-    expect(kitchenDisplayPath('owner', 'o1')).toBe('/dashboard/o1/kitchen');
-    expect(kitchenDisplayPath('manager', 'o1')).toBe('/dashboard/o1/kitchen');
+    // The dashboard's Kitchen link opens the full-screen display; there is no second, in-workspace copy any more.
+    expect(kitchenDisplayPath('owner', 'o1')).toBe('/kitchen/o1');
+    expect(kitchenDisplayPath('manager', 'o1')).toBe('/kitchen/o1');
     expect(kitchenDisplayPath('kitchen', 'o1')).toBe('/kitchen/o1');
-    // The workspace's "Full screen" button keeps the dedicated wall screen for anyone.
+    // Older links with ?display=full keep working.
     expect(kitchenDisplayPath('manager', 'o1', { full: true })).toBe('/kitchen/o1?display=full');
     expect(kitchenDisplayPath('kitchen', 'o1', { full: true })).toBe('/kitchen/o1?display=full');
   });

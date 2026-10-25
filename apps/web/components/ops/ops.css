@@ -5,7 +5,8 @@
  */
 
 /* ---------- Kanban board (legacy kitchen board + kitchen-dnd.js) on the design system's BoardPage (21-OPS) ---------- */
-.kanban-board .rui-board { grid-auto-columns: minmax(220px, 1fr); align-items: start; }
+.kanban-board .rui-board { grid-auto-columns: minmax(176px, 1fr); align-items: start; }
+.kanban-board .rui-lane:not([data-tone]) .rui-lane-head { border-block-start: 3px solid transparent; }
 .kanban-board .rui-lane { min-block-size: 350px; transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out); }
 .kanban-board .rui-lane.drop-ok { background: color-mix(in srgb, var(--ok-fg) 10%, var(--surface-1)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ok-fg) 55%, var(--surface-1)); }
 .kanban-board .rui-lane.drop-no { opacity: .5; }

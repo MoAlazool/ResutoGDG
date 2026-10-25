@@ -20,10 +20,10 @@
 .kds-full .station-picker .btn { min-block-size: 44px; padding-inline: 16px; }
 .kds-full .kds-bar .btn { min-block-size: 44px; }
 .kds-full .kds-bar .kds-live, .kds-full .kds-bar .fine { font-size: var(--fs-lg); }
-.kds-full .kanban-board .rui-board { grid-auto-columns: minmax(240px, 1fr); }
+.kds-full .kanban-board .rui-board { grid-auto-columns: minmax(200px, 1fr); }
 .kds-full .rui-lane-head h2 { font-size: var(--fs-xl); }
 .kds-full .rui-lane-count { font-size: var(--fs-lg); padding: 2px 12px; }
-.kds-full .rui-lane[data-tone] .rui-lane-head { border-block-start-width: 6px; }
+.kds-full .kanban-board .rui-lane .rui-lane-head { border-block-start-width: 6px; }
 
 /* Cards: the order number and its age are the largest text on the screen; the band at the card's top edge carries the
    lane colour, turning amber then red as the ticket waits (15 / 25 minutes, components/ops/elapsed.ts). */
@@ -55,3 +55,4 @@
   .kds-full .ticket-top strong { font-size: var(--fs-3xl); }
   .kds-full .board-keys { display: none; }
 }
+.kds-loading { inline-size: 320px; }

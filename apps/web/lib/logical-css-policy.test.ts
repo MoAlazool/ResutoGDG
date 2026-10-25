@@ -12,7 +12,7 @@ const ROOTS = [
   // 21-INBOX increment 2: the Inbox workspace, the Customer 360 panel and Settings › Messaging.
   'apps/web/app/dashboard/[orgId]/inbox', 'apps/web/components/customers', 'apps/web/app/dashboard/[orgId]/settings/messaging',
   // 21-OPS: the Orders board and list, the shared ticket board and kitchen display.
-  'apps/web/app/dashboard/[orgId]/orders', 'apps/web/components/ops',
+  'apps/web/app/dashboard/[orgId]/orders', 'apps/web/components/ops', 'apps/web/app/kitchen', 'apps/web/app/dashboard/[orgId]/kitchen',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');
