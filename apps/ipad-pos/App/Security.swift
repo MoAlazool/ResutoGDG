@@ -60,6 +60,14 @@ struct Configuration: Codable, Equatable {
             guard url.scheme == "https", url.host != nil, url.user == nil, url.password == nil, url.query == nil, url.fragment == nil else { throw RuleError.invalid("https_required") }
         }
         guard apiURL.path == "/v1", supabaseURL.path.isEmpty || supabaseURL.path == "/" else { throw RuleError.invalid("invalid_configuration") }
+        var simulatedTest = false
+#if DEBUG && targetEnvironment(simulator)
+        simulatedTest = ProcessInfo.processInfo.arguments.contains("--resuto-ui-testing") &&
+            ProcessInfo.processInfo.environment["RESUTO_UI_FIXTURES"] != nil &&
+            apiURL.absoluteString == "https://api.uitest.invalid/v1" && supabaseURL.absoluteString == "https://auth.uitest.invalid" &&
+            publicKey == "sb_publishable_ui_test_only"
+#endif
+        guard simulatedTest || ApprovedEnvironment.contains(api:apiURL,auth:supabaseURL) else { throw RuleError.invalid("unapproved_environment") }
         if !publicKey.hasPrefix("sb_publishable_") {
             let parts = publicKey.split(separator: ".")
             guard parts.count == 3 else { throw RuleError.invalid("publishable_key_required") }

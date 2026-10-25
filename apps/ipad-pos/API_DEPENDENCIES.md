@@ -16,9 +16,11 @@ Staff creation accepts channel `staff` or `phone`, **not `pos`**, despite `pos` 
 
 Operational changes use existing ETags and foreground polling (5 seconds in this client). KDS provides a `since` cursor, but there is no supported native push subscription. The app currently requests the full feed with ETag revalidation. Kitchen status is shown only from server responses. Creation acknowledgement means server acceptance, not proof that every asynchronous effect was processed.
 
-## P0: atomic staff quote and conditional creation
+## P0 baseline gap: staff quote and conditional creation
 
-**Missing:** `staffOrderRequest` has neither `expectedTotalMinor` nor a quote/version token. Public guest/web quoting does not authorize a staff POS to reuse guest identity or public visit tokens. Creation can reprice between menu review and submission.
+**Draft resolution:** Claude’s `/pos/orders/quote` and expected total/line consent address this on device routes; activate after 0.2.0 staff-on-device finalization and native staging acceptance. The proposal below is historical context for the staff-route gap, not a request for a parallel quote design.
+
+**Missing in the staff baseline:** `staffOrderRequest` has neither `expectedTotalMinor` nor a quote/version token. Public guest/web quoting does not authorize a staff POS to reuse guest identity or public visit tokens. Creation can reprice between menu review and submission.
 
 **Proposed** `POST /v1/o/{orgId}/orders/quote` (`orders:write`): input `StaffOrderRequest`; output `{quoteId: UUID, expiresAt: ISO8601, currency, subtotalMinor, discountMinor, serviceChargeMinor, deliveryFeeMinor, taxMinor, taxInclusive, totalMinor, lines: [{productId, productVersion, quantity, unitPriceMinor, modifiersTotalMinor, lineTotalMinor}], branchRevision}`. Bind quote to org, branch, authenticated actor, immutable payload fingerprint and relevant pricing revisions. Extend creation with `quoteId` and `expectedTotalMinor`; consume/check transactionally and return 409 `price_changed` with a new quote when stale. Never accept client tax arithmetic.
 
@@ -26,17 +28,21 @@ Contract acceptance: price/modifier/promotion/tax/availability change after quot
 
 **Client behavior now:** item estimates are labelled estimates; local orders require fresh-menu review; server totals are shown after acceptance. Full price-consent guarantees remain blocked. Do not market offline draft capture as offline committed ordering.
 
-## P0: durable operation reconciliation and bounded deduplication
+## P0 baseline gap: durable operation reconciliation
 
-Existing idempotency rows expire after seven days. Native retries use the original key and immutable payload; replay stops before that horizon. A replacement key could duplicate an already accepted order after an ambiguous result.
+**Draft resolution:** permanent POS `clientOrderId` rows exist in Claude’s 0.1.0 source; the 0.2.0 `by-client-id` lookup is still being implemented. Use that agreed route rather than the historical generic operation proposal below.
+
+Existing staff idempotency rows expire after seven days. Native retries use the original key and immutable payload; replay stops before that horizon. A replacement key could duplicate an already accepted order after an ambiguous result.
 
 **Proposed** `GET /v1/o/{orgId}/operations/{clientOperationId}` (`orders:read`, actor/branch scoped): `{state: "unknown"|"processing"|"accepted"|"rejected", orderId?:UUID, payloadHash?:string, acceptedAt?:ISO8601, failure?:{code,details}}`. Persist a unique `(org_id, client_operation_id)` association on the authoritative order independently of short-lived HTTP replay rows. Creation accepts the same `clientOperationId`; immutable payload mismatch is 409. Unknown must not imply safe creation until retention/uniqueness semantics are explicit.
 
 Acceptance: lost response + restart + retry after 8/30 days cannot create a second order or kitchen ticket; another org/actor cannot enumerate operation state. Client currently marks expired/semantic rejection as attention and never automatically assigns a new operation ID.
 
-## P0: device authorization and remote revocation
+## P0 baseline gap: device authorization and remote revocation
 
-No native device registration/attestation/PIN staff-switch contract is present. Do not simulate registration with local UUIDs.
+**Draft resolution:** one-use pairing codes and hashed bearer device credentials now exist in Claude’s draft 0.1.0. `requireStaff`, staff headers/intersection and attribution are awaiting 0.2.0. The proposed public-key/App Attest enrollment below is optional future policy, not an additional route request.
+
+No device contract is deployed in the inspected staging environment; attestation/PIN staff-switch contracts remain absent. Do not simulate registration with local UUIDs.
 
 **Proposed** owner/manager enrollment challenge → `POST /v1/o/{orgId}/pos/devices/enroll` with `{challenge, publicKey, displayName, branchId, attestation?}` → `{deviceId, status, policy:{offlineDraftTTLSeconds, allowedBranchIds}, credentialExpiry}`. Add list/revoke endpoints with `members:manage` or a dedicated permission. Device credential supplements user authentication; it must not replace employee permissions. Validate App Attest server-side where adopted. Log enrollment, reassignment, sensitive actions and revocation without raw keys. Native offline unlock policy must define lease expiry and device/user revocation exposure.
 

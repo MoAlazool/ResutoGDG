@@ -3,11 +3,11 @@ public struct Receipt: Codable, Sendable {
     public let orderId: String; public let number: String; public let restaurant: String; public let currency: String
     public let lines: [String]; public let subtotal: Int64; public let discount: Int64; public let tax: Int64; public let service: Int64; public let delivery: Int64
     public let total: Int64; public let due: Int64; public let paymentStatus: String; public let isTest: Bool
-    public init(order: OrderDetail, restaurant: String, arabic: Bool) {
+    public init(order: OrderDetail, restaurant: String, arabic: Bool, testEnvironment: Bool = false) {
         orderId = order.id; number = order.number; self.restaurant = restaurant; currency = order.currency
         lines = order.lines.map { "\($0.quantity) × \(arabic ? ($0.nameAr ?? $0.name) : $0.name) — \(Money.text($0.lineTotalMinor, currency: order.currency))" }
         subtotal = order.subtotalMinor; discount = order.discountMinor; tax = order.taxMinor; service = order.serviceChargeMinor; delivery = order.deliveryFeeMinor
-        total = order.totalMinor; due = order.dueMinor; paymentStatus = order.paymentStatus; isTest = order.payments.contains { $0.isTest }
+        total = order.totalMinor; due = order.dueMinor; paymentStatus = order.paymentStatus; isTest = testEnvironment || order.payments.contains { $0.isTest }
     }
 }
 public enum PrintState: String, Codable, Sendable { case waiting, sending, handedToPrinter, uncertain, failed }

@@ -5,12 +5,12 @@ import Network
 @MainActor enum ReceiptRenderer {
     static func image(_ receipt: Receipt, width: Int, arabic: Bool) -> UIImage {
         let money = { (amount: Int64) in Money.text(amount, currency: receipt.currency) }
-        let l = Language(); l.arabic = arabic
+        let translated: (String) -> String = { Language.text($0,arabic:arabic) }
         let rows = [arabic ? "ملخص الطلب" : "ORDER SUMMARY", receipt.restaurant, "#\(receipt.number)"] + receipt.lines + [
-            "\(l.text("subtotal")): \(money(receipt.subtotal))", "\(l.text("discount")): \(money(receipt.discount))",
-            "\(l.text("tax")): \(money(receipt.tax))", "\(l.text("service")): \(money(receipt.service))", "\(l.text("delivery")): \(money(receipt.delivery))",
-            "\(l.text("total")): \(money(receipt.total))", "\(l.text("due")): \(money(receipt.due))", l.text(receipt.paymentStatus)
-        ] + (receipt.isTest ? [l.text("test")] : [])
+            "\(translated("subtotal")): \(money(receipt.subtotal))", "\(translated("discount")): \(money(receipt.discount))",
+            "\(translated("tax")): \(money(receipt.tax))", "\(translated("service")): \(money(receipt.service))", "\(translated("delivery")): \(money(receipt.delivery))",
+            "\(translated("total")): \(money(receipt.total))", "\(translated("due")): \(money(receipt.due))", translated(receipt.paymentStatus), translated("operational_receipt")
+        ] + (receipt.isTest ? [translated("test")] : [])
         let paragraph = NSMutableParagraphStyle(); paragraph.alignment = arabic ? .right : .left; paragraph.baseWritingDirection = arabic ? .rightToLeft : .leftToRight; paragraph.lineSpacing = 8
         let text = NSAttributedString(string: rows.joined(separator: "\n"), attributes: [.font: UIFont.systemFont(ofSize: 24, weight: .medium), .foregroundColor: UIColor.black, .paragraphStyle: paragraph])
         let contentWidth = CGFloat(width - 32)

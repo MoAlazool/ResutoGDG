@@ -1,0 +1,112 @@
+[0/1] Planning build
+Building for production...
+[0/5] Write sources
+[2/5] Write swift-version--1255A8ECADF5D0A.txt
+[4/6] Compiling ResutoCore ApprovedEnvironment.swift
+[5/11] Compiling ResutoStagingProbe Probe.swift
+[5/12] Write Objects.LinkFileList
+[6/12] Linking ResutoStagingProbe
+[8/12] Compiling ResutoCoreTests CoreTests.swift
+[8/12] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/release/ResutoPOSPackageDiscoveredTests.derived/all-discovered-tests.swift
+[9/13] Write sources
+[11/14] Compiling ResutoPOSPackageDiscoveredTests ResutoCoreTests.swift
+[11/14] /workspace/ResutoGDG/apps/ipad-pos/.build/x86_64-unknown-linux-gnu/release/ResutoPOSPackageTests.derived/runner.swift
+[12/15] Write sources
+[14/16] Compiling ResutoPOSPackageTests runner.swift
+[14/16] Write Objects.LinkFileList
+[15/16] Linking ResutoPOSPackageTests.xctest
+Build complete! (17.34s)
+[1/91] Testing ResutoCoreTests.ApprovedEnvironmentTests/testArbitraryAPIOrAuthHostCannotReceiveCredentials
+[2/91] Testing ResutoCoreTests.ApprovedEnvironmentTests/testUserInfoQueryFragmentAndUnexpectedPortAreRejected
+[3/91] Testing ResutoCoreTests.ApprovedEnvironmentTests/testVerifiedStagingPairIsAccepted
+[4/91] Testing ResutoCoreTests.AuthenticationRaceTests/testLateRefreshCannotRestoreSignedOutSession
+[5/91] Testing ResutoCoreTests.ArabicAmountEntryTests/testArabicKeyboardDecimalSeparatorUsesExactMinorUnits
+[6/91] Testing ResutoCoreTests.CaptureAtomicityTests/testCrashBeforeCartClearCannotCreateSecondOperation
+[7/91] Testing ResutoCoreTests.CatalogueScaleTests/testModifierOverflowIsRejectedWithoutTrapping
+[8/91] Testing ResutoCoreTests.DomainTests/testBranchOverrideAndRequiredModifier
+[9/91] Testing ResutoCoreTests.DomainTests/testDeliveryCannotBeInventedWithoutAddressFlow
+[10/91] Testing ResutoCoreTests.DomainTests/testDineInNeedsTable
+[11/91] Testing ResutoCoreTests.DomainTests/testDuplicateModifierRejected
+[12/91] Testing ResutoCoreTests.DomainTests/testForeignModifierRejected
+[13/91] Testing ResutoCoreTests.DomainTests/testLifecycleRespectsFulfillment
+[14/91] Testing ResutoCoreTests.DomainTests/testMembershipBranchIsolation
+[15/91] Testing ResutoCoreTests.BusinessDateTests/testBranchBusinessDayAndWesternDigitsOverrideRestaurantTimezone
+[16/91] Testing ResutoCoreTests.CatalogueScaleTests/testLargeCatalogueAndSixtyLineEstimate
+[17/91] Testing ResutoCoreTests.CatalogueScaleTests/testArabicCombiningNotesMatchBackendUTF16Limit
+[18/91] Testing ResutoCoreTests.CaptureAtomicityTests/testCapturedIDCannotBeReusedWithDifferentPayloadOrTenant
+[19/91] Testing ResutoCoreTests.DomainTests/testMoneyRejectsAmbiguousValues
+[20/91] Testing ResutoCoreTests.DomainTests/testRequestUsesSupportedStaffChannel
+[21/91] Testing ResutoCoreTests.DomainTests/testQuantityBounds
+[22/91] Testing ResutoCoreTests.DomainTests/testRequiredModifierCannotBeOmitted
+[23/91] Testing ResutoCoreTests.DomainTests/testPermissionsFailClosed
+[24/91] Testing ResutoCoreTests.DomainTests/testResponseContracts
+[25/91] Testing ResutoCoreTests.DomainTests/testUnavailableProductRejected
+[26/91] Testing ResutoCoreTests.DomainTests/testWesternMoneyAndArabicInput
+[27/91] Testing ResutoCoreTests.DomainTests/testSplitPreservesEveryMinorUnit
+[28/91] Testing ResutoCoreTests.ExtendedCatalogueTests/testDeliveryWithAddressUsesSupportedStaffContract
+[29/91] Testing ResutoCoreTests.ExtendedCatalogueTests/testInactiveCategoryIsNotOrderable
+[30/91] Testing ResutoCoreTests.FailurePresentationTests/testTransportAndVersionConflictsUseRecoveryKeys
+[31/91] Testing ResutoCoreTests.FailurePresentationTests/testAuthorizationAndDeviceFailuresHaveDistinctRecovery
+[32/91] Testing ResutoCoreTests.FailurePresentationTests/testBackendMessageCannotLeakIntoLocalizedUIKey
+[33/91] Testing ResutoCoreTests.ExtendedCatalogueTests/testOtherBranchMenuIsNotOrderable
+[34/91] Testing ResutoCoreTests.InitialSessionTests/testEmptyKeychainDoesNotEstablishASessionOrContactServer
+[35/91] Testing ResutoCoreTests.NetworkTests/testAuthHeadersAndTypedDecoding
+[36/91] Testing ResutoCoreTests.NetworkTests/testErrorEnvelopeAndRequestID
+[37/91] Testing ResutoCoreTests.NetworkTests/testHTTPSRequired
+[38/91] Testing ResutoCoreTests.NetworkTests/testETag304ReusesDecodedBody
+[39/91] Testing ResutoCoreTests.NetworkTests/testMutationNeverAutomaticallyRetries
+[40/91] Testing ResutoCoreTests.NetworkTests/testRefreshSingleFlight
+[41/91] Testing ResutoCoreTests.POSCredentialTests/testDraft01MissingStaffWrongTenantAndWrongBranchFailClosed
+[42/91] Testing ResutoCoreTests.POSCredentialTests/testDeviceCannotEscapePOSRouteFamily
+[43/91] Testing ResutoCoreTests.POSCredentialTests/testDeniedStaffKeepsDeviceAndDoesNotDowngradeToDeviceOnly
+[44/91] Testing ResutoCoreTests.POSCredentialTests/testEffectivePermissionsAreIntersectionOfStaffDeviceAndServer
+[45/91] Testing ResutoCoreTests.POSCredentialTests/testPairStorageRejects01OtherBranchAndMalformedToken
+[46/91] Testing ResutoCoreTests.POSCredentialTests/testPairExchangeHasNoStaffOrOldDeviceCredential
+[47/91] Testing ResutoCoreTests.POSCredentialTests/testMutation401IsNeverAutomaticallyReplayed
+[48/91] Testing ResutoCoreTests.POSCredentialTests/testPOSHeadersNeverReplaceStaffRouteAuthorization
+[49/91] Testing ResutoCoreTests.POSCredentialTests/testRevokedDeviceDeletesOnlyDeviceCredential
+[50/91] Testing ResutoCoreTests.POSEventTests/testAnotherTenantOrReplacementDeviceCannotReadCheckpoint
+[51/91] Testing ResutoCoreTests.POSCredentialTests/testStaffLogoutRetainsPairingAcrossStaffSwitch
+[52/91] Testing ResutoCoreTests.POSCredentialTests/testStaffReadRefreshPreservesDeviceHeader
+[53/91] Testing ResutoCoreTests.POSEventTests/testFailedProjectionRefreshDoesNotAcknowledgeEvents
+[54/91] Testing ResutoCoreTests.POSEventTests/testDuplicateAndUnknownEventsAreSafeWithoutSkippingSequence
+[55/91] Testing ResutoCoreTests.POSEventTests/testWebKDSAndPaymentsInvalidateSameProjectionsAndSurviveRestart
+[56/91] Testing ResutoCoreTests.POSEventTests/testFeedCheckpointDiskFailureKeepsPriorPosition
+[57/91] Testing ResutoCoreTests.POSEventTests/testGapEpochResetAndCursorJumpNeverAdvanceOrRefresh
+[58/91] Testing ResutoCoreTests.POSOrderAdapterTests/testAmbiguousSubmissionReconcilesWithoutSecondPost
+[59/91] Testing ResutoCoreTests.POSImageWindowTests/testExpiredMenuImageWindowRefreshesWithoutBusinessEvent
+[60/91] Testing ResutoCoreTests.POSOrderAdapterTests/testLegacyOperationRetainsExistingSenderAndNoPOSCalls
+[61/91] Testing ResutoCoreTests.POSOrderAdapterTests/testPriceConflictDetailsRemainTypedAndDoNotFallBackOrRetry
+[62/91] Testing ResutoCoreTests.POSOrderAdapterTests/testProcessingLookupDoesNotReplayMutationOrFallBackToStaffRoute
+[63/91] Testing ResutoCoreTests.POSQuoteQueueTests/testPermanentPOSIdentitySurvivesLongOfflinePeriodAndRestart
+[64/91] Testing ResutoCoreTests.POSOrderAdapterTests/testUnknownConflictCannotChangeApprovedQuoteOrIdentity
+[65/91] Testing ResutoCoreTests.POSQuoteQueueTests/testPreviouslyAttemptedLegacyOrderCannotSwitchRouteFamilies
+[66/91] Testing ResutoCoreTests.POSQuoteQueueTests/testUnsupportedStaffFieldsAreNotSilentlyDropped
+[67/91] Testing ResutoCoreTests.POSQuoteQueueTests/testQuotedBodyUsesExactServerTotalsAndStableClientID
+[68/91] Testing ResutoCoreTests.POSShadowSyncTests/testLostProjectionFileForcesSnapshotsEvenWithExistingFeedCursor
+[69/91] Testing ResutoCoreTests.POSShadowSyncTests/testReadOnlyShadowStartsWithSnapshotsAndReplaysWebEvents
+[70/91] Testing ResutoCoreTests.PrinterTests/testInterruptedPrintIsUncertainAfterRestart
+[71/91] Testing ResutoCoreTests.PrinterTests/testAmbiguousPrintRequiresExplicitReprint
+[72/91] Testing ResutoCoreTests.PrinterTests/testReceiptContainsServerTotalsNotLocalEstimate
+[73/91] Testing ResutoCoreTests.PerformanceTests/testMenuPriceValidationPerformance
+[74/91] Testing ResutoCoreTests.PrinterTests/testPrintQueueSurvivesRestart
+[75/91] Testing ResutoCoreTests.ReplayClockTests/testClockRollbackRequiresAttentionWithoutNetworkReplay
+[76/91] Testing ResutoCoreTests.ReplayClockTests/testReplayWindowRejectsRollbackAndRetentionBoundary
+[77/91] Testing ResutoCoreTests.StagingReceiptTests/testUnpaidStagingReceiptIsMarkedTestWithoutClaimingPayment
+[78/91] Testing ResutoCoreTests.SessionScopeTests/testNativeLogoutRevokesOnlyItsOwnSession
+[79/91] Testing ResutoCoreTests.StorageIdentityTests/testFieldBoundariesAndTenantsCannotCollide
+[80/91] Testing ResutoCoreTests.SynchronizationTests/testApprovalAndAcknowledgementPersist
+[81/91] Testing ResutoCoreTests.StorageIdentityTests/testScopeIdentityIsCanonicalAcrossRelaunches
+[82/91] Testing ResutoCoreTests.SynchronizationTests/testConcurrentDrainDoesNotDuplicate
+[83/91] Testing ResutoCoreTests.SynchronizationTests/testCrossTenantAndCrossUserCannotReplay
+[84/91] Testing ResutoCoreTests.SynchronizationTests/testCorruptStorageDoesNotSilentlyReset
+[85/91] Testing ResutoCoreTests.SynchronizationTests/testExpiryPreventsReplayAfterServerRetention
+[86/91] Testing ResutoCoreTests.SynchronizationTests/testFailedPersistenceNeverQueuesOrSends
+[87/91] Testing ResutoCoreTests.SynchronizationTests/testLocalDraftDoesNotSendUntilApproved
+[88/91] Testing ResutoCoreTests.SynchronizationTests/testServerConflictNeedsAttentionAndDoesNotRetry
+[89/91] Testing ResutoCoreTests.SynchronizationTests/testLostResponseRetainsIdentityAndPayload
+[90/91] Testing ResutoCoreTests.SynchronizationTests/testUnauthorizedCannotDrain
+[91/91] Testing ResutoCoreTests.TimestampTests/testBackendFractionalISOTimeAndOffsets
+◇ Test run started.
+↳ Testing Library Version: 6.0.3 (18c42c19cac3faf)
+✔ Test run with 0 tests passed after 0.001 seconds.

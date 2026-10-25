@@ -51,7 +51,7 @@ struct SettingsView: View {
                     }.padding(.vertical, 8)
                 }
             }
-        }.confirmationDialog(l.text("financial_retry_notice"), isPresented: $financialRecovery, titleVisibility: .visible) {
+        }.accessibilityIdentifier("settings.form").confirmationDialog(l.text("financial_retry_notice"), isPresented: $financialRecovery, titleVisibility: .visible) {
             Button(l.text("retry_same_financial")) { Task { await m.perform { try await m.recoverFinancial() } } }.accessibilityIdentifier("financial.confirmRetry")
         }.confirmationDialog(l.text("print_confirmation"), isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }), titleVisibility: .visible) {
             if let job = confirm { Button(l.text("reprint")) { printNow(job, reprint: true); confirm = nil } }

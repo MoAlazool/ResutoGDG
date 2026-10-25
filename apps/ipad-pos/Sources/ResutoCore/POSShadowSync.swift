@@ -4,6 +4,7 @@ import Foundation
 public actor POSShadowSync {
     public struct Snapshot: Codable, Sendable {
         public let scope: Scope; public let deviceId: String
+        public var menuRefreshedAt: Date?
         public var menu: POSMenuSync?; public var floor: POSFloorSync?; public var orders: [POSOrder] = []
         public var ordersCursor: String?; public var ordersTruncated = false
     }
@@ -27,6 +28,11 @@ public actor POSShadowSync {
         if await journal.position() == nil || snapshot.ordersCursor == nil ||
             (session.can("menu:read",membership:membership) && snapshot.menu == nil) ||
             (session.can("floor:read",membership:membership) && snapshot.floor == nil) { try await reset(position:session.feed,session:session) }
+        if session.can("menu:read",membership:membership), snapshot.menu != nil,
+           snapshot.menuRefreshedAt.map({ Date().timeIntervalSince($0) < 0 || Date().timeIntervalSince($0) >= 1800 }) ?? true {
+            // Signed image URLs expire even if no menu event occurs. Revalidate the windowed cursor periodically.
+            try await refresh([.menu],session:session,full:false)
+        }
         guard let position = await journal.position() else { throw RuleError.invalid("resync_required") }
         do {
             let page: POSEventPage = try await client.get("events",query:["after":String(position.lastSeq),"epoch":position.epoch,"wait":String(wait)])
@@ -51,6 +57,7 @@ public actor POSShadowSync {
             if !response.unchanged {
                 guard response.categories != nil, response.currency != nil else { throw RuleError.invalid("invalid_response") }; updated.menu = response
             } else if updated.menu == nil { throw RuleError.invalid("resync_required") }
+            updated.menuRefreshedAt = Date()
         }
         if values.contains(.floor), session.can("floor:read",membership:membership) {
             let response: POSFloorSync = try await client.get("sync/floor",query:updated.floor.map { ["since":$0.cursor] } ?? [:])

@@ -4,7 +4,7 @@
 
 Tokens and encryption keys use Keychain generic passwords with `WhenUnlockedThisDeviceOnly`. No passwords persist. Supabase project public publishable/anon keys are configuration, never service-role keys; configuration rejects non-anon JWTs. No development issuer, MCP impersonation, embedded production credentials, bypass headers, pin-only identity or local admin override.
 
-API/Supabase require HTTPS, no URL credentials/query/fragments; API root is `/v1`. URLSession is ephemeral with no shared cookie/disk response cache. Redirects are refused, normal platform certificate validation is retained, and no custom trust bypass is installed. A refresh is shared by concurrent reads. Logout invalidates in-flight refresh generation so a late response cannot restore a signed-out identity. Supabase logout uses `scope=local`, preserving other clients' sessions.
+API/Supabase require HTTPS, no URL credentials/query/fragments; API root is `/v1`. Editable native connection settings are restricted to the reviewed staging API/Auth origin pair, preventing credential forwarding to arbitrary hosts. Production/additional origin pairs require a reviewed app build; no production environment has been enabled. URLSession is ephemeral with no shared cookie/disk response cache. Redirects are refused, normal platform certificate validation is retained, and no custom trust bypass is installed. A refresh is shared by concurrent reads. Logout invalidates in-flight refresh generation so a late response cannot restore a signed-out identity. Supabase logout uses `scope=local`, preserving other clients' sessions.
 
 Local data is AES-256-GCM authenticated, atomically replaced, completely file-protected and excluded from backup. Filenames and Keychain namespaces derive from environment and user/tenant/branch context, not customer identifiers. Cached DTOs omit product costs and customer contacts. Pending order notes may contain sensitive staff-entered information, hence encrypted persistence and no plaintext diagnostics. Losing the encryption key is not silently treated as an empty queue. Corrupt data fails visibly.
 
@@ -24,7 +24,7 @@ Logs contain no tokens, email, customer details, payment references or HTTP body
 
 ## Simulator test isolation
 
-Synthetic transport compiles only for DEBUG simulator builds and requires an explicit launch flag plus fixtures supplied by XCTest. It targets reserved `.invalid` hosts, is visibly labelled NOT-STAGING, does not enter Release/device builds and does not replace Keychain/encrypted storage. Test reset removes only its environment-scoped files/session. CI ad hoc signing grants simulator test Keychain access; a release must use the owner's authorized team/profile, not the `RESUTOTEST.` CI prefix.
+Synthetic transport compiles only for DEBUG simulator builds and requires an explicit launch flag plus fixtures supplied by XCTest. It targets reserved `.invalid` hosts, is visibly labelled NOT-STAGING, does not enter Release/device builds and does not replace Keychain/encrypted storage. Test reset removes only its environment-scoped client files/session and the separate synthetic server fixture file. The server fixture survives a test relaunch so lost-acknowledgement tests can verify the same server-generated ID; it is not shipped in Release/device builds. CI ad hoc signing grants simulator test Keychain access; a release must use the owner's authorized team/profile, not the `RESUTOTEST.` CI prefix.
 
 ## Negative test evidence
 

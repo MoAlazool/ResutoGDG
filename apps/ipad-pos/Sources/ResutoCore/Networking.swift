@@ -39,6 +39,7 @@ public actor AuthService {
             expiry = Date(timeIntervalSince1970: session?.expires_at ?? 0)
         }
     }
+    public func hasSession() -> Bool { session != nil }
     public func signIn(email: String, password: String) async throws {
         revision = UUID(); let identity = revision
         refreshTask?.cancel(); refreshTask = nil

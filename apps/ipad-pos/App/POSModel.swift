@@ -102,7 +102,7 @@ import CryptoKit
         let auth = try AuthService(url: configuration.supabaseURL, publicKey: configuration.publicKey, transport: transport, secrets: KeychainStore(namespace: configuration.namespace))
         self.auth = auth; api = try APIClient(base: configuration.apiURL, auth: auth, transport: transport)
     }
-    func restore() async { guard configuration != nil else { return }; await perform { try connect(); try await loadIdentity() } }
+    func restore() async { guard configuration != nil else { return }; await perform { try connect(); guard await auth?.hasSession() == true else { return }; try await loadIdentity() } }
     func signIn(email: String, password: String) async throws { try connect(); try await auth!.signIn(email: email, password: password); try await loadIdentity() }
     func loadIdentity() async throws {
         let identity: Me = try await api!.get("me"); me = identity; locked = false
@@ -337,7 +337,7 @@ import CryptoKit
     }
     func enqueueReceipt(_ order: OrderDetail, arabic: Bool) async throws {
         guard let prints else { return }
-        _ = try await prints.enqueue(Receipt(order: order, restaurant: restaurant?.name ?? "Resuto", arabic: arabic)); printJobs = await prints.list()
+        _ = try await prints.enqueue(Receipt(order: order, restaurant: restaurant?.name ?? "Resuto", arabic: arabic, testEnvironment: configuration.map { ApprovedEnvironment.isStaging(api:$0.apiURL,auth:$0.supabaseURL) } ?? false)); printJobs = await prints.list()
     }
     func printJob(_ job: PrintJob, printer: any ReceiptPrinter, reprint: Bool) async throws {
         guard let prints else { return }

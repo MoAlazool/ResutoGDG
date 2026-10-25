@@ -6,7 +6,7 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 
 | Area | Implemented | Tested | Verified on Staging | Verified on Real Device | Blocked / remaining |
 |---|---|---|---|---|---|
-| Swift portable core | Yes | 84 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
+| Swift portable core | Yes | 91 XCTest tests pass on Swift 6.0.3 Linux | No | No | Apple build tracked separately |
 | Native SwiftUI app/project | Yes | Xcode 16.4 + 46 core/4 UI passed at `481c191`; expanded workflow CI pending | No | No | Authenticated screens and physical-device acceptance remain |
 | Supabase auth/refresh/Keychain | Yes | Core transport/refresh/session-local logout tests | No | No | Dedicated QA staff account; real-device Keychain checks |
 | Restaurant/branch/role scoping | Yes | Core permission and queue isolation tests | Unauthenticated access rejects 401 | No | Authenticated cross-tenant/branch negative cases |
@@ -34,10 +34,12 @@ Legend: Implemented = functional source exists; Tested = executed automated evid
 
 Read-only staging health and unauthenticated security probes passed on 2026-10-24, including the native Swift URLSession probe. GitHub, Supabase, Render and Vercel connectors are callable and were inspected read-only. Public staging Supabase configuration is verified. No approved staff credentials/dedicated QA restaurant were found; see `docs/STAGING.md` for exact setup and the guarded authenticated lifecycle probe. Its write path has not been run.
 
-New simulator-only contract scenarios cover sign-in/branch selection, ordering/KDS/status/cash/receipt queue, Arabic rotation, encrypted cart relaunch, sold-out controls, dine-in, role denial, EN/AR accessibility descriptions, and lost order/cash responses. They exercise real Keychain/AES adapters with synthetic transport and visible NOT-STAGING labels. Expanded macOS workflow results are pending; no authenticated staging or physical-device claim follows from fixtures.
+New simulator-only contract scenarios cover sign-in/branch selection, ordering/KDS/status/cash/receipt queue, Arabic rotation, encrypted cart relaunch, sold-out controls, dine-in, role denial, EN/AR accessibility descriptions, and lost order/cash responses. They exercise real Keychain/AES adapters with synthetic transport and visible NOT-STAGING labels. Expanded 14-case macOS workflow results are pending; no authenticated staging or physical-device claim follows from fixtures.
 
 See `API_DEPENDENCIES.md`, `docs/VERIFICATION.md`, `docs/SECURITY.md`, `docs/HARDWARE.md`, `docs/RELEASE.md`. Do not describe the complete product mission as finished based on these source files or a simulator build alone.
 
 ## POS API 0.2.0 preparation
 
-Claude source `1a05443` has draft 0.1.0 and a proposed/in-progress 0.2.0 integration path. New native compatibility code covers separate device/staff credentials, context/permission intersection, typed POS DTOs, permanent-ID quote approval/reconciliation, a durable ordered event journal and read-only shadow snapshots. **Not activated in live SwiftUI routing.** Existing staff flows and encrypted queues remain intact; no automatic migration of previously attempted orders. 84 core tests pass locally; current Xcode CI must pass at the new adapter revision. See `docs/POS_API_MIGRATION.md` for implemented versus pending wiring and final backend gates.
+Claude source `1a05443` has draft 0.1.0 and a proposed/in-progress 0.2.0 integration path. New native compatibility code covers separate device/staff credentials, context/permission intersection, typed POS DTOs, permanent-ID quote approval/reconciliation, a durable ordered event journal and read-only shadow snapshots. **Not activated in live SwiftUI routing.** Existing staff flows and encrypted queues remain intact; no automatic migration of previously attempted orders. 91 core tests pass locally; current Xcode CI must pass at the new adapter revision. See `docs/POS_API_MIGRATION.md` for implemented versus pending wiring and final backend gates.
+
+Additional independent hardening: approved staging-origin validation before credentials leave the app; periodic signed-image cursor refresh without a menu event; Arabic decimal separator handling; branch-local business dates; localized errors/roles/kitchen times/order search; duplicate-localization-key crash prevention; receipt language isolation and explicit non-fiscal/test labels. Portable core Debug/Release and synthetic-transport checks pass locally. Latest Apple build/UI results must be recorded against the exact source revision.

@@ -7,6 +7,7 @@ final class WorkflowTests: XCTestCase {
     private let order = "33333333-3333-4333-8333-333333333333"
     override func setUp() { super.setUp(); continueAfterFailure = false }
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        if id == "nav.settings", app.buttons["workspace.settings"].exists { return app.buttons["workspace.settings"] }
         let button = app.buttons.matching(identifier:id).firstMatch
         if button.exists { return button }
         let toggle = app.switches.matching(identifier:id).firstMatch
@@ -15,20 +16,23 @@ final class WorkflowTests: XCTestCase {
     }
     @discardableResult private func reveal(_ app: XCUIApplication, _ id: String, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement? {
         var target = element(app,id)
-        if !target.waitForExistence(timeout:2) {
+        if !target.exists && !target.waitForExistence(timeout:2) {
             // SwiftUI Form lazily exposes rows. Scroll the frontmost form rather than assuming all rows exist.
             for _ in 0..<8 {
                 let forms = app.collectionViews.allElementsBoundByIndex
-                guard let form = id.hasPrefix("nav.") ? forms.first : forms.last else { break }
+                let identified = app.collectionViews.matching(identifier:id.hasPrefix("nav.") ? "workspace.sidebar" : "settings.form").firstMatch
+                guard let form = identified.exists ? identified : (id.hasPrefix("nav.") ? forms.first : forms.last) else { break }
                 form.swipeUp(); target = element(app,id)
-                if target.waitForExistence(timeout:1) { break }
+                if target.exists || target.waitForExistence(timeout:1) { break }
             }
         }
-        guard target.waitForExistence(timeout:10) else { XCTFail("Missing \(id)\n\(app.debugDescription)",file:file,line:line); return nil }
+        guard target.exists || target.waitForExistence(timeout:10) else { XCTFail("Missing \(id)\n\(app.debugDescription)",file:file,line:line); return nil }
         return target
     }
     private func tap(_ app: XCUIApplication, _ id: String,file: StaticString = #filePath,line: UInt = #line) {
-        reveal(app,id,file:file,line:line)?.tap()
+        guard let target = reveal(app,id,file:file,line:line) else { return }
+        if !target.isEnabled { expectation(for:NSPredicate(format:"enabled == true"),evaluatedWith:target); waitForExpectations(timeout:20) }
+        target.tap()
     }
     private func assertOrderState(_ app: XCUIApplication,id: String,label: String,file: StaticString = #filePath,line: UInt = #line) {
         let state = app.staticTexts.matching(identifier:id).firstMatch
@@ -54,8 +58,11 @@ final class WorkflowTests: XCTestCase {
         XCUIDevice.shared.orientation = .landscapeLeft; app.launch()
         XCTAssertTrue(element(app, "simulatedTestBanner").waitForExistence(timeout: 15))
         if reset {
-            let email = app.textFields["email"]; XCTAssertTrue(email.waitForExistence(timeout: 15)); email.tap(); email.typeText("staff@resuto.test")
-            let password = app.secureTextFields["password"]; password.tap(); password.typeText("UITestOnly000!")
+            let email = app.textFields["email"]; XCTAssertTrue(email.waitForExistence(timeout: 15))
+            if !email.isEnabled { expectation(for:NSPredicate(format:"enabled == true"),evaluatedWith:email); waitForExpectations(timeout:15) }
+            email.tap(); email.typeText("staff@resuto.test")
+            let password = app.secureTextFields["password"]; password.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout:10)); password.tap(); password.typeText("UITestOnly000!")
             tap(app,"signIn")
         }
         tap(app,"restaurant.org"); tap(app,"branch." + branch)

@@ -310,3 +310,61 @@ final class BusinessDateTests: XCTestCase {
         XCTAssertEqual(BusinessDate.timezone(branch:"invalid",restaurant:nil),.gmt)
     }
 }
+final class ApprovedEnvironmentTests: XCTestCase {
+    private let api = URL(string:"https://resuto-2-staging-api.onrender.com/v1")!
+    private let auth = URL(string:"https://skvnznyfxpxfuzvuipju.supabase.co")!
+    func testVerifiedStagingPairIsAccepted() { XCTAssertTrue(ApprovedEnvironment.contains(api:api,auth:auth)) }
+    func testArbitraryAPIOrAuthHostCannotReceiveCredentials() {
+        XCTAssertFalse(ApprovedEnvironment.contains(api:URL(string:"https://other.example/v1")!,auth:auth))
+        XCTAssertFalse(ApprovedEnvironment.contains(api:api,auth:URL(string:"https://other.example")!))
+    }
+    func testUserInfoQueryFragmentAndUnexpectedPortAreRejected() {
+        for url in ["https://user:password@resuto-2-staging-api.onrender.com/v1","https://resuto-2-staging-api.onrender.com/v1?redirect=other","https://resuto-2-staging-api.onrender.com:8443/v1","https://resuto-2-staging-api.onrender.com/v1#other"] {
+            XCTAssertFalse(ApprovedEnvironment.contains(api:URL(string:url)!,auth:auth))
+        }
+    }
+}
+final class POSImageWindowTests: XCTestCase {
+    func testExpiredMenuImageWindowRefreshesWithoutBusinessEvent() async throws {
+        let emptyPage = try JSONEncoder().encode(page([],head:0,next:0))
+        let (client,transport,_,_,_) = try await setup([
+            jsonResult(sessionJSON()),jsonResult(["cursor":"menu-1","unchanged":false,"currency":"EGP","categories":[],"stations":[]]),
+            jsonResult(["cursor":"floor-1","unchanged":false,"layout":["revision":1],"tables":[]]),
+            jsonResult(["cursor":"orders-0","mode":"full","orders":[],"hasMore":false]),HTTPResult(data:emptyPage,status:200),
+            jsonResult(sessionJSON()),jsonResult(["cursor":"menu-2","unchanged":false,"currency":"EGP","categories":[],"stations":[]]),HTTPResult(data:emptyPage,status:200)])
+        let journal = try POSEventJournal(scope:scope(),deviceId:"device",storage:MemoryStore()), storage = MemoryStore()
+        let first = try POSShadowSync(client:client,membership:member(),deviceId:"device",journal:journal,storage:storage)
+        try await first.poll(wait:0)
+        var saved = try JSONSerialization.jsonObject(with:XCTUnwrap(storage.read())) as! [String:Any]
+        saved["menuRefreshedAt"] = 0 // Expired local timestamp, no new menu.changed event.
+        try storage.write(JSONSerialization.data(withJSONObject:saved))
+        let restarted = try POSShadowSync(client:client,membership:member(),deviceId:"device",journal:journal,storage:storage)
+        try await restarted.poll(wait:0)
+        let snapshot = await restarted.current(), requests = await transport.requests
+        XCTAssertEqual(snapshot.menu?.cursor,"menu-2")
+        XCTAssertEqual(requests.filter { $0.url?.path == "/v1/pos/sync/menu" }.count,2)
+        XCTAssertTrue(requests.contains { $0.url?.query == "since=menu-1" })
+    }
+}
+final class StagingReceiptTests: XCTestCase {
+    func testUnpaidStagingReceiptIsMarkedTestWithoutClaimingPayment() throws {
+        let order: OrderDetail = try decode("detail")
+        let receipt = Receipt(order:order,restaurant:"QA",arabic:true,testEnvironment:true)
+        XCTAssertTrue(receipt.isTest); XCTAssertEqual(receipt.paymentStatus,"unpaid")
+        XCTAssertEqual(receipt.due,order.dueMinor); XCTAssertEqual(receipt.total,order.totalMinor)
+    }
+}
+final class ArabicAmountEntryTests: XCTestCase {
+    func testArabicKeyboardDecimalSeparatorUsesExactMinorUnits() {
+        XCTAssertEqual(Money.parse("١٠٫٥٠"),1050); XCTAssertEqual(Money.parse("0٫09"),9)
+        XCTAssertNil(Money.parse("1٫2٫3")); XCTAssertNil(Money.parse("1٬23"))
+    }
+}
+final class InitialSessionTests: XCTestCase {
+    func testEmptyKeychainDoesNotEstablishASessionOrContactServer() async throws {
+        let transport = ScriptedTransport([])
+        let auth = try AuthService(url:URL(string:"https://auth.example")!,publicKey:"public",transport:transport,secrets:MemoryStore())
+        let present = await auth.hasSession(); XCTAssertFalse(present)
+        let requests = await transport.requests; XCTAssertTrue(requests.isEmpty)
+    }
+}

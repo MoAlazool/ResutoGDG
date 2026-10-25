@@ -3,9 +3,12 @@ import SwiftUI
 @MainActor final class Language: ObservableObject {
     @Published var arabic = (UserDefaults.standard.object(forKey: "arabic") == nil ? Locale.preferredLanguages.first?.hasPrefix("ar") == true : UserDefaults.standard.bool(forKey: "arabic")) { didSet { UserDefaults.standard.set(arabic, forKey: "arabic") } }
     func name(_ en: String, _ ar: String?) -> String { arabic ? (ar?.isEmpty == false ? ar! : en) : en }
-    func text(_ key: String) -> String { arabic ? (Self.ar[key] ?? key) : (Self.en[key] ?? key.replacingOccurrences(of: "_", with: " ").capitalized) }
+    func text(_ key: String) -> String { Self.text(key,arabic:arabic) }
+    static func text(_ key: String,arabic: Bool) -> String { arabic ? (Self.ar[key] ?? key) : (Self.en[key] ?? key.replacingOccurrences(of: "_", with: " ").capitalized) }
     func failureText(_ key: String) -> String { text(Self.en[key] == nil ? "request_failed" : key) }
     static let en: [String: String] = [
+        "operational_receipt":"Operational summary — not a tax invoice",
+        "unapproved_environment":"Use your organization’s approved Resuto connection. Contact your administrator.",
         "mark_sold_out":"Mark sold out", "restore_availability":"Restore availability",
         "minutes_short":"min", "minutes":"minutes", "search_orders":"Search order number", "role_owner":"Owner", "role_admin":"Administrator", "role_manager":"Manager", "role_cashier":"Cashier", "role_waiter":"Server", "role_kitchen":"Kitchen staff", "role_host":"Host", "role_marketing":"Marketing", "role_accountant":"Accountant", "role_driver":"Driver",
         "price_changed":"Prices changed. Review the current server quote before sending.", "order_changed":"This order changed on another device. Refresh and review it.", "pos_pairing_required":"This iPad must be paired again by an authorized manager.", "support_reference":"Support reference",
@@ -129,7 +132,7 @@ import SwiftUI
         "placed": "Placed",
         "pos": "Point of sale",
         "preparing": "Preparing",
-        
+
         "price_review": "Review refreshed items and prices",
         "print": "Print",
         "print_confirmation": "Check that this order summary was not already printed before reprinting.",
@@ -207,6 +210,8 @@ import SwiftUI
         "welcome_detail": "One workspace for every service.",
     ]
     static let ar: [String: String] = [
+        "operational_receipt":"ملخص تشغيلي — ليس فاتورة ضريبية",
+        "unapproved_environment":"استخدم اتصال ريسوتو المعتمد لمؤسستك. تواصل مع المسؤول.",
         "mark_sold_out":"تعيين كنافد مؤقتاً", "restore_availability":"إعادة الإتاحة",
         "minutes_short":"د", "minutes":"دقيقة", "search_orders":"ابحث برقم الطلب", "role_owner":"المالك", "role_admin":"مسؤول", "role_manager":"مدير", "role_cashier":"أمين الصندوق", "role_waiter":"موظف خدمة", "role_kitchen":"موظف المطبخ", "role_host":"موظف الاستقبال", "role_marketing":"التسويق", "role_accountant":"محاسب", "role_driver":"سائق",
         "price_changed":"تغيرت الأسعار. راجع تسعير الخادم الحالي قبل الإرسال.", "order_changed":"تغير هذا الطلب على جهاز آخر. حدّث البيانات وراجعه.", "pos_pairing_required":"يجب إعادة ربط هذا الآيباد بواسطة مدير مخوّل.", "support_reference":"مرجع الدعم",

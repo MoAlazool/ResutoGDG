@@ -29,6 +29,7 @@ jobs:
           python3 apps/ipad-pos/scripts/generate_project.py
           python3 apps/ipad-pos/scripts/check_contracts.py
           python3 apps/ipad-pos/scripts/check_pos_contracts.py
+          python3 apps/ipad-pos/scripts/check_ui_transport.py
           git diff --exit-code -- apps/ipad-pos
       - name: Test portable core
         working-directory: apps/ipad-pos

@@ -50,7 +50,7 @@ public enum Money {
         return "\(minor < 0 ? "-" : "")\(magnitude / 100).\(String(format: "%02llu", magnitude % 100)) \(currency)"
     }
     public static func parse(_ value: String) -> Int64? {
-        let normalized = western(value).trimmingCharacters(in: .whitespaces)
+        let normalized = western(value).replacingOccurrences(of:"٫",with:".").trimmingCharacters(in: .whitespaces)
         guard normalized.range(of: "^[0-9]{1,11}(\\.[0-9]{1,2})?$", options: .regularExpression) != nil else { return nil }
         let parts = normalized.split(separator: ".")
         guard let whole = Int64(parts[0]) else { return nil }

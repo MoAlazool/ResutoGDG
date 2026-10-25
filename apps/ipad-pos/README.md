@@ -10,13 +10,15 @@ Open `ResutoPOS.xcodeproj` with Xcode 16+ and select an installed iPad simulator
 python3 apps/ipad-pos/scripts/generate_permissions.py
 python3 apps/ipad-pos/scripts/generate_project.py
 python3 apps/ipad-pos/scripts/check_contracts.py
+python3 apps/ipad-pos/scripts/check_pos_contracts.py
+python3 apps/ipad-pos/scripts/check_ui_transport.py
 swift test --package-path apps/ipad-pos
 xcodebuild -project apps/ipad-pos/ResutoPOS.xcodeproj -scheme ResutoPOS -destination 'platform=iOS Simulator,id=<installed-UDID>' CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual AppIdentifierPrefix=RESUTOTEST. test
 ```
 
 Project generation is deterministic Python with no third-party module requirements. `Sources/ResutoCore` is compiled into the application target and also exposed as a standalone testable Swift package. UI tests include launch/rotation/startup metrics and explicit simulator-only contract scenarios for sign-in, POS/KDS/checkout, encrypted draft relaunch, role restrictions, availability, dine-in and bilingual accessibility. Their transport is synthetic and visibly labelled; real Keychain and encrypted persistence remain in use. This is not authenticated staging evidence. Simulator tests use ad hoc signing and Keychain entitlements; release signing requires the owner's Apple team.
 
-At launch choose **Configure connection**, supply your authorized API URL ending `/v1`, Supabase project origin and public publishable/anon key. The staging API default is `https://resuto-2-staging-api.onrender.com/v1`; Supabase staging origin/public key have been verified through read-only connector access; obtain the public configuration through the approved project settings. See [staging setup](docs/STAGING.md) for dedicated test staff prerequisites. Never use service-role keys. Then sign in with a real staff account and select an authorized restaurant/branch. The app does not create users, bypass web deployment protection, or use demo tokens.
+At launch choose **Configure connection**, supply the approved staging API URL ending `/v1`, its verified Supabase origin and public publishable/anon key. Connection validation accepts the reviewed staging origin pair; adding another environment requires a reviewed app build. The staging API default is `https://resuto-2-staging-api.onrender.com/v1`; Supabase staging origin/public key have been verified through read-only connector access; obtain the public configuration through the approved project settings. See [staging setup](docs/STAGING.md) for dedicated test staff prerequisites. Never use service-role keys. Then sign in with a real staff account and select an authorized restaurant/branch. The app does not create users, bypass web deployment protection, or use demo tokens.
 
 ## Implemented paths
 
@@ -33,3 +35,9 @@ Implementation and native documents stay in `apps/ipad-pos/`; the only outside f
 - [Hardware matrix](docs/HARDWARE.md)
 - [Verification and acceptance](docs/VERIFICATION.md)
 - [Release owner actions](docs/RELEASE.md)
+
+## New compatibility and reliability checks
+
+`docs/POS_API_MIGRATION.md` describes the inactive, typed POS 0.2.0 compatibility adapters and finalization gates. Existing staff flows remain the working route family. The suite now has 91 portable tests plus 14 simulator UI scenarios; check `STATUS.md` and the exact CI head for executed Apple evidence. A separate portable check executes the simulator's synthetic server transport, including persistent original-order replay across process restarts; it never contacts staging. Localization checks reject duplicate keys as well as missing translations.
+
+Operational printouts explicitly state they are not tax invoices; staging summaries are marked test even before payment. Receipt language rendering does not change the staff UI preference. Arabic decimal input and branch-local reservation dates are covered by portable tests.

@@ -58,7 +58,7 @@ struct RootView: View {
                 Button(l.text("sign_out")) { Task { await m.signOut() } }.buttonStyle(.borderedProminent).padding()
             } else if m.branch == nil { WorkspaceSelection() }
             else { WorkspaceView() }
-        }.background(Design.canvas)
+        }.background(Design.canvas).disabled(m.busy)
             .overlay { if m.busy { ProgressView(l.text("loading")).padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16)).allowsHitTesting(true) } }
     }
 }
@@ -168,7 +168,7 @@ struct WorkspaceView: View {
                     Text("\(m.pending.filter { $0.state != .accepted }.count) · \(l.text("sync"))").monospacedDigit()
                     if let date = m.lastRefresh { Text(date, style: .time).font(.caption).foregroundStyle(.secondary) }
                 }
-            }.navigationTitle(l.text("app"))
+            }.navigationTitle(l.text("app")).accessibilityIdentifier("workspace.sidebar")
         } detail: {
             NavigationStack {
                 Group {
@@ -184,7 +184,9 @@ struct WorkspaceView: View {
                     case .settings: SettingsView()
                     }
                 }.navigationTitle(l.text((selected ?? .pos).rawValue)).navigationBarTitleDisplayMode(.inline)
-                    .toolbar { Button { Task { await m.perform { try await m.refresh() } } } label: { Label(l.text("refresh"), systemImage: "arrow.clockwise") }.disabled(!m.reachable).keyboardShortcut("r", modifiers: .command) }
+                    .toolbar { Button { Task { await m.perform { try await m.refresh() } } } label: { Label(l.text("refresh"), systemImage: "arrow.clockwise") }.disabled(!m.reachable).keyboardShortcut("r", modifiers: .command)
+                        Button { selected = .settings } label: { Label(l.text("settings"),systemImage:"gearshape") }.accessibilityIdentifier("workspace.settings")
+                    }
             }
         }.onAppear {
             if m.membership?.role == "kitchen" { selected = .kitchen }
