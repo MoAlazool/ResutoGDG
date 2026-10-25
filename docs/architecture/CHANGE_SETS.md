@@ -30,11 +30,25 @@ The proposer needs each op's permission and the restaurant its module.
 | `menu.item.update` | menu | local | name, Arabic name, descriptions, listed; version = `products.version` |
 | `menu.item.price.set` | prices | local | at most 10x up or down in one change |
 | `menu.item.availability.set` | menu | local | the 86 through MENU_AVAILABILITY_PORT |
+| `product.discount.set` | prices | local | 21-STUDIO: percent off one dish, 1–90 % (`0` ends it); the original price is kept in `products.compare_at_price_minor` and a second discount starts from it; version = `products.version`; the owner rule above `ownerAboveBps` applies; MCP needs `set_item_price` |
 | `promotion.create` | promotions | local | percent 1–90 %, fixed not above the minimum order or its cap, code free, branches in scope |
 | `website.section.add` / `.update` | website_drafts | local | draft only; content references must be this restaurant's |
 | `website.publish` | website_publish | local | runs after the set's other local ops; version = draft revision |
 | `campaign.send` | messages | effect | CAMPAIGN_SEND_PORT; irreversible (follow-up when the set is partial) |
 | `payment_link.create` | payments | effect | CHECKOUT_PORT; reversible (cancel the link); the URL is a deliverable, never stored |
+
+## Studio AI (21-STUDIO)
+
+`POST /v1/o/:orgId/studio/ai/proposals` (`studio:write`, `Idempotency-Key`) turns a request in plain words into one set
+with origin `studio_ai` and floor `approval`: it always waits for a person, whatever the auto policy of
+`website_drafts` says, and the planner never adds `website.publish` (publishing stays the owner's step). The planner is
+Resuto's rules (`apps/api/src/modules/studio/ai/studio-edit-planner.ts`, labelled `planner: 'resuto_rules'`, no model):
+it reads the section kind, an occasion, a percent and an offer code (Western or Arabic-Indic digits), the dishes picked
+beside the request or named in it, and produces `website.section.add` / `.update`, `product.discount.set` per dish, or
+`promotion.create` when a code is named. FAQ answers come from branch data only. The canvas renders the set before
+anyone decides through `GET /v1/o/:orgId/studio/website/preview/change-sets/:id` (section ops laid over the draft,
+discounts over the prices, new codes over the promotions; nothing written). Approving goes through the same
+`POST …/approve` (MFA step-up for users with a factor) and applies to the draft.
 
 ## State machine
 
