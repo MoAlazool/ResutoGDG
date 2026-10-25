@@ -1,7 +1,7 @@
 /* Resuto Studio workspace (21-STUDIO): toolbar, navigator, canvas and inspector. Semantic tokens and logical
    properties only (lib/logical-css-policy.test.ts covers this folder). The workspace grid is WorkspacePage (ds.css). */
 .ws-studio .rui-workspace{block-size:calc(100dvh - 190px);min-block-size:620px}
-.ws-studio .rui-workspace[data-start][data-end]{grid-template-columns:minmax(250px,290px) minmax(0,1fr) minmax(300px,360px)}
+.ws-studio .rui-workspace[data-start][data-end]{grid-template-columns:minmax(230px,270px) minmax(0,1fr) minmax(290px,340px)}
 .ws-studio[data-focus] .rui-workspace{grid-template-columns:minmax(0,1fr)}
 .ws-toolbar-end{margin-inline-start:auto}
 .ws-save{min-inline-size:72px}
@@ -9,6 +9,8 @@
 .ws-save[data-state=unsaved]{color:var(--warn-fg)}
 .ws-pane-pad{padding:var(--space-4)}
 .ws-nav,.ws-inspector{display:grid;gap:var(--space-3);align-content:start;padding:var(--space-3)}
+.ws-nav [role=tablist],.ws-inspector [role=tablist]{flex-wrap:wrap;gap:var(--space-1);margin-block-end:0}
+.ws-nav [role=tab]{padding-inline:var(--space-2)}
 .ws-h3{font-size:var(--fs-md);margin:var(--space-2) 0 0}
 .ws-grow{flex:1;min-inline-size:0}
 
@@ -21,16 +23,17 @@
 .ws-stage[data-device=phone] .ws-frame,.ws-stage[data-device=tablet] .ws-frame{box-shadow:var(--elevation-2);border-radius:var(--radius-3)}
 
 /* Lists in the navigator (pages, sections) */
-.ws-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--space-2)}
-.ws-list li{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);flex-wrap:wrap;padding:var(--space-2) var(--space-3);
+.ws-list{list-style:none;margin:0;padding:0;display:grid;gap:var(--space-2);inline-size:100%}
+.ws-list li{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-1);padding:var(--space-2) var(--space-3);
   border:1px solid var(--border-subtle);border-radius:var(--radius-2);background:var(--surface-1)}
 .ws-list li[data-current],.ws-list li[data-selected]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .ws-list li[data-hidden]{background:var(--surface-warm)}
 .ws-list-main{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;min-inline-size:0}
-.ws-list-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-inline-size:170px}
+.ws-list-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-inline-size:0;flex:1 1 100%}
+.ws-list-main code{overflow-wrap:anywhere}
 .ws-list-pick{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:start;flex:1}
 .ws-list-pick:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:var(--radius-1)}
-.ws-section-actions{gap:2px}
+.ws-section-actions{gap:2px;justify-content:flex-end}
 .ws-media-compact .ws-media-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2)}
 .ws-media-compact .spread{flex-wrap:wrap;gap:var(--space-2)}
 .ws-media-compact h2{font-size:var(--fs-md)}
