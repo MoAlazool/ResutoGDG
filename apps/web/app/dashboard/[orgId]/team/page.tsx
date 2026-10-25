@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { assignableRoles, type Role, INTL_LOCALE } from '@resuto/contracts';
+import type { Role } from '@resuto/contracts';
+import { assignableRoles, INTL_LOCALE } from '@resuto/contracts/lite';
 import { Badge, Card, DataTableV2, EmptyState, Field, Modal, Notice, SelectField, Skeleton, Code, Email, Phone, UserText } from '@resuto/ui';
 import '@/components/ops/ops.css';
 import { ApiRequestError } from '@/lib/api';

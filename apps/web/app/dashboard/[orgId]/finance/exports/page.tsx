@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useState } from 'react';
-import { EXPORT_KINDS } from '@resuto/contracts';
+import { EXPORT_KINDS } from '../_ui/kinds';
 import { Badge, Card, DataTable, DataTableV2, EmptyState, Notice, SelectField, Skeleton, useAction } from '@resuto/ui';
 import { API_URL, newIdempotencyKey } from '@/lib/api';
 import { date, dateTime } from '@/lib/format';
@@ -8,9 +8,14 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { AccountMapping, Payouts } from '../_ui/AccountingSetup';
+import dynamic from 'next/dynamic';
 import styles from '../_ui/finance.module.css';
 import { FinanceFrame, useMoney, usePeriod } from '../_ui/FinanceFrame';
+
+// Account mapping and payouts (FT-23) load after the export centre: they need the full contracts (journal roles).
+const setupLoading = () => <div className="card"><Skeleton lines={4} /></div>;
+const AccountMapping = dynamic(() => import('../_ui/AccountingSetup').then((m) => m.AccountMapping), { ssr: false, loading: setupLoading });
+const Payouts = dynamic(() => import('../_ui/AccountingSetup').then((m) => m.Payouts), { ssr: false, loading: setupLoading });
 
 interface ExportRow { id: string; kind: string; format: string; filename: string; rowCount: number; checksum: string; periodStart: string; periodEnd: string; branchId: string | null; createdAt: string }
 

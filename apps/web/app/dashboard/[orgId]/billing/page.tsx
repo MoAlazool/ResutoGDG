@@ -1,9 +1,8 @@
 'use client';
 import dynamic from 'next/dynamic';
 import { useState, type ReactNode } from 'react';
-import {
-  MODULE_INFO, MODULE_KEYS, formatNumber,
-  type EntitlementsView, type ModuleKey, type PublicPlansResponse, type SubscriptionView } from '@resuto/contracts';
+import type { EntitlementsView, ModuleKey, PublicPlansResponse, SubscriptionView } from '@resuto/contracts';
+import { formatNumber } from '@resuto/contracts/lite';
 import { Badge, Card, DataTable, EmptyState, LockedFeature, Notice, ProvenanceBadge, Skeleton, SkeletonBlock, type Tone } from '@resuto/ui';
 import { SettingsShell } from '@/components/settings/SettingsShell';
 import { dateTime, money } from '@/lib/format';
@@ -55,8 +54,10 @@ export default function BillingPage() {
     const p = catalogPlan(id);
     return p ? pick(p.name, p.nameAr) : id;
   };
-  const enabled = MODULE_KEYS.filter((k) => e.modules[k]?.enabled);
-  const locked = MODULE_KEYS.filter((k) => !e.modules[k]?.enabled);
+  // The entitlements view lists every module in the contracts' order (MODULE_KEYS); names come from the dictionary.
+  const keys = Object.keys(e.modules) as ModuleKey[];
+  const enabled = keys.filter((k) => e.modules[k]?.enabled);
+  const locked = keys.filter((k) => !e.modules[k]?.enabled);
 
   return (
     <SettingsShell header={header}>
@@ -93,7 +94,7 @@ export default function BillingPage() {
             return (
               <li key={k} className={styles.module} data-module={k}>
                 <div className={styles.moduleHead}>
-                  <strong>{pick(MODULE_INFO[k].name, MODULE_INFO[k].nameAr)}</strong>
+                  <strong><ModuleName k={k} /></strong>
                   <Badge tone={m.source === 'override' ? 'pay' : m.source === 'addon' ? 'info' : 'ok'}>{s[`src_${m.source}` as keyof BillingStrings]}</Badge>
                 </div>
                 {m.overrideExpiresAt && <p className={styles.moduleDesc}>{s.until.replace('{date}', day(m.overrideExpiresAt, locale))}</p>}
@@ -139,6 +140,8 @@ export default function BillingPage() {
   );
 }
 
+/** A module's product name ("Resuto Finance") in the page language (the Explore Resuto copy). */
+function ModuleName({ k }: { k: ModuleKey }) { const { t } = useT(); return <>{t(`explore.module.${k}.title`)}</>; }
 function InvoiceStatus({ status }: { status: string }) { const { t } = useT(); return <>{invoiceStatusLabel(t, status)}</>; }
 function EventLabel({ type }: { type: string }) { const { t } = useT(); return <>{subscriptionEventLabel(t, type)}</>; }
 

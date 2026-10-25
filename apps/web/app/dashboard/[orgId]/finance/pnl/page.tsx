@@ -6,10 +6,13 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
 import { financeWarningText } from '@/lib/finance-warnings';
-import { PolicyCard } from '../_ui/AccountingSetup';
+import dynamic from 'next/dynamic';
 import styles from '../_ui/finance.module.css';
 import { FinanceFrame, pct, useMoney, usePeriod } from '../_ui/FinanceFrame';
 import { profitProvenance } from '../_ui/provenance';
+
+// The accounting policy card loads after the statement (it needs the full contracts).
+const PolicyCard = dynamic(() => import('../_ui/AccountingSetup').then((m) => m.PolicyCard), { ssr: false, loading: () => <div className="card"><Skeleton lines={4} /></div> });
 
 function Pnl() {
   const { t } = useT();

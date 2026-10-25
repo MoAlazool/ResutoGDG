@@ -1,14 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
-import { parseMajor, type ServiceMode, type SetupChecklist } from '@resuto/contracts';
+import type { ServiceMode, SetupChecklist } from '@resuto/contracts';
+import { formatNumber, parseMajor } from '@resuto/contracts/lite';
 import { Badge, Card, DataTable, Field, Modal, Notice, SelectField, Skeleton, Tabs } from '@resuto/ui';
 import { ServiceModeCards, VenueQrCard } from '@/components/ops/ServiceMode';
 import '@/components/ops/ops.css';
 import { ApiRequestError } from '@/lib/api';
 import { money, pick } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { formatNumber } from '@resuto/contracts';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';

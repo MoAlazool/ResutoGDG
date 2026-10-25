@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useState } from 'react';
-import { EXPENSE_KINDS } from '@resuto/contracts';
+import { EXPENSE_KINDS } from '../_ui/kinds';
 import { Badge, DataTable, EmptyState, Field, Modal, Notice, SelectField, Skeleton, useAction, useConfirm } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';

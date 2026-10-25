@@ -1,5 +1,6 @@
 'use client';
-import { formatNumber, type CostsView, INTL_LOCALE } from '@resuto/contracts';
+import type { CostsView } from '@resuto/contracts';
+import { formatNumber, INTL_LOCALE } from '@resuto/contracts/lite';
 import { Badge, Card, Notice, Skeleton } from '@resuto/ui';
 import { money } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
