@@ -34,7 +34,7 @@ struct StatusBadge: View {
 struct PrimaryActionStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     @Environment(\.accessibilityReduceMotion) private var reducedMotion
-    func makeBody(configuration: Configuration) -> some View {
+    func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         configuration.label.font(.headline).frame(maxWidth: .infinity, minHeight: 52)
             .padding(.horizontal, 16).foregroundStyle(enabled ? Color(uiColor: .systemBackground) : .secondary)
             .background(enabled ? Design.accent : Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
