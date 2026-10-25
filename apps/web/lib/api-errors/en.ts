@@ -359,6 +359,7 @@ export const en: Record<string, string> = {
   share_paid: 'This share is already paid.',
   share_required: 'A bill share is required.',
   signup_exchange_failed: 'Meta did not accept the signup code (it is valid for 30 seconds). Start the WhatsApp signup again.',
+  slug_reserved: 'This web address is reserved. Choose another one.',
   slug_taken: 'This web address is already taken.',
   split_active: 'This bill is being split. Use your share link.',
   split_has_payments: 'Someone already paid or is paying a share; the split cannot be cancelled.',

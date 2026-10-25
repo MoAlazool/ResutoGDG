@@ -242,7 +242,10 @@ describe('plan changes', () => {
     const s = await sub(tenant.orgId);
     await lifecycle.run(new Date(new Date(s.current_period_end).getTime() + 1000), { orgIds: [tenant.orgId] });
     expect((await sub(tenant.orgId)).status).toBe('canceled');
-    expect(await entitlements.isEnabled(tenant.orgId, 'core')).toBe(false);
+    // 21-ONB: a canceled paid plan falls back to Free (core stays on), never to nothing; paid modules turn off.
+    expect(await entitlements.isEnabled(tenant.orgId, 'core')).toBe(true);
+    expect(await entitlements.isEnabled(tenant.orgId, 'pay')).toBe(false);
+    expect(await entitlements.isEnabled(tenant.orgId, 'mcp')).toBe(false);
 
     const free = await createTenant(t, { planId: 'free' });
     expect((await t.http.post(`/v1/o/${free.orgId}/billing/cancel`).set(auth(free.owner)).send({})).body.error.code).toBe('free_plan_cannot_cancel');
@@ -271,7 +274,16 @@ describe('subscription lifecycle job', () => {
     await sql(`update subscriptions set grace_until = now() - interval '1 minute' where id = $1`, [s1.id]);
     expect(await lifecycle.run(new Date(), { orgIds: [tenant.orgId] })).toMatchObject({ graceExpired: 1 });
     expect((await sub(tenant.orgId)).status).toBe('unpaid');
-    expect(await entitlements.isEnabled(tenant.orgId, 'core')).toBe(false);
+    // 21-ONB: the lapsed trial keeps the Free plan's modules (core) and loses the paid plan's.
+    expect(await entitlements.isEnabled(tenant.orgId, 'core')).toBe(true);
+    expect(await entitlements.isEnabled(tenant.orgId, 'marketing')).toBe(false);
+    expect(await entitlements.isEnabled(tenant.orgId, 'studio')).toBe(false);
+    const lapsed = await ents(tenant);
+    expect(lapsed.modules.core).toEqual({ enabled: true, source: 'plan' });
+    expect(lapsed.modules.marketing).toEqual({ enabled: false, source: 'none' });
+    // A paid-module route answers 402; a core route keeps working.
+    expect((await t.http.get(`/v1/o/${tenant.orgId}/marketing/campaigns`).set(auth(tenant.owner))).status).toBe(402);
+    expect((await t.http.get(`/v1/o/${tenant.orgId}/menu`).set(auth(tenant.owner))).status).toBe(200);
     const types = (await sql(`select event_type from subscription_events where org_id = $1 order by id`, [tenant.orgId])).map((r) => r.event_type);
     expect(types).toEqual(['created', 'trial_ended', 'period_rolled', 'grace_expired']);
 

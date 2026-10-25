@@ -192,7 +192,9 @@ test('issued fiscal documents are immutable', async () => {
 test('module entitlements follow plan, status, add-ons and overrides', async () => {
   const org = ids.A.org;
   const enabled = async (m) => (await pool.query(`select app.module_enabled($1, $2) as e`, [org, m])).rows[0].e;
-  assert.equal(await enabled('core'), false, 'no subscription → nothing');
+  // 21-ONB (20261025120001): without a live subscription the restaurant keeps the free plan's modules, never nothing.
+  assert.equal(await enabled('core'), true, 'no subscription → the free plan (core)');
+  assert.equal(await enabled('pay'), false, 'no subscription → no paid module');
   const [s] = (await pool.query(`insert into subscriptions(org_id, plan_id, status, country, currency, current_period_end)
      values ($1, 'starter', 'active', 'EG', 'EGP', now() + interval '30 days') returning id`, [org])).rows;
   assert.equal(await enabled('pay'), true);
@@ -201,6 +203,8 @@ test('module entitlements follow plan, status, add-ons and overrides', async () 
   assert.equal(await enabled('marketing'), true, 'add-on');
   await pool.query(`update subscriptions set status = 'past_due', grace_until = now() - interval '1 day' where id = $1`, [s.id]);
   assert.equal(await enabled('pay'), false, 'past due beyond grace');
+  assert.equal(await enabled('marketing'), false, 'past due beyond grace: the add-on is off too');
+  assert.equal(await enabled('core'), true, 'past due beyond grace: falls back to the free plan');
   await pool.query(`insert into entitlement_overrides(org_id, module, enabled, reason) values ($1, 'pay', true, 'support credit')`, [org]);
   assert.equal(await enabled('pay'), true, 'override');
 });

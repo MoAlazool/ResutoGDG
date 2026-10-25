@@ -170,6 +170,9 @@ const en: Record<string, string> = {
   'ops.admin.replayLater': 'A timed-out run may still be working, so nothing was replayed. Try again after {time}.',
   'ops.admin.job.succeeded': 'succeeded', 'ops.admin.job.running': 'running', 'ops.admin.job.failed': 'failed',
   'ops.integ.filter': 'Filter integrations', 'ops.integ.all': 'All items',
+  // Menu QR (21-ONB): the view-only digital menu, never an ordering QR
+  'ops.menuQr.title': 'Menu QR code', 'ops.menuQr.body': 'Guests scan it to see your menu, prices and what is available. It does not take orders.',
+  'ops.menuQr.png': 'Download PNG', 'ops.menuQr.svg': 'Download SVG', 'ops.menuQr.open': 'Open menu', 'ops.menuQr.code': 'Menu QR code for {name}',
 };
 
 const ar: Record<string, string> = {
@@ -327,6 +330,9 @@ const ar: Record<string, string> = {
   'ops.admin.replayLater': 'قد يكون تشغيل منتهي المهلة ما زال يعمل، لذلك لم يُعد تشغيل أي شيء. حاول مجددًا بعد {time}.',
   'ops.admin.job.succeeded': 'نجحت', 'ops.admin.job.running': 'قيد التشغيل', 'ops.admin.job.failed': 'فشلت',
   'ops.integ.filter': 'تصفية التكاملات', 'ops.integ.all': 'كل العناصر',
+  // Menu QR (21-ONB): the view-only digital menu, never an ordering QR
+  'ops.menuQr.title': 'رمز QR للقائمة', 'ops.menuQr.body': 'يمسحه الضيوف لرؤية قائمتك والأسعار والمتاح. لا يستقبل طلبات.',
+  'ops.menuQr.png': 'تحميل PNG', 'ops.menuQr.svg': 'تحميل SVG', 'ops.menuQr.open': 'فتح القائمة', 'ops.menuQr.code': 'رمز QR لقائمة {name}',
 };
 
 export const ops = { en, ar };

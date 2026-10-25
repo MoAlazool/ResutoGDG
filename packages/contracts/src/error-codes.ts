@@ -348,6 +348,7 @@ export const DOMAIN_ERROR_CODES = [
   'share_required',
   'shortcut_taken',
   'signup_exchange_failed',
+  'slug_reserved',
   'slug_taken',
   'split_active',
   'split_has_payments',

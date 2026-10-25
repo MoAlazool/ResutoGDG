@@ -5,6 +5,7 @@ import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from '
 import { parseMajor, type Category, type MenuEditorView, type MenuImportPreview, type ModifierGroup, type Product } from '@resuto/contracts';
 import { Badge, EmptyState, Field, Modal, Notice, PageHeading, SelectField, Skeleton, Tabs, TextareaField, initialOf, useConfirm, usePrompt } from '@resuto/ui';
 import { DishStatus, PortionsCell } from '@/components/ops/DishStatus';
+import { MenuQrCard } from '@/components/ops/MenuQrCard';
 import { branchState } from '@/components/ops/SoldOutDrawer';
 import '@/components/ops/ops.css';
 import { useUrlParam } from '@/components/ops/use-url-state';
@@ -142,6 +143,9 @@ function MenuPageInner() {
       ) : tab === 'categories' ? (
         <CategoriesTab categories={m.categories} products={m.products} onRun={(fn) => run(fn, 'categories')} />
       ) : tab === 'modifiers' ? <ModifiersTab menu={m} reload={() => menu.reload()} /> : <ImportTab onDone={() => menu.reload()} />}
+      {/* 21-ONB: the view-only menu QR (/m/<slug>) for the branch in view; ordering QRs stay on the floor pages. */}
+      {tab === 'items' && <MenuQrCard orgId={org.id} orgSlug={org.slug} restaurantName={pick(locale, org.name, org.nameAr)}
+        branchCode={org.branches.find((b) => b.id === branchId)?.code ?? null} />}
       {editing && m && <ProductModal menu={m} product={editing === 'new' ? null : editing} branchId={branchId} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void menu.reload(); }} />}
     </ModuleGate>
   );

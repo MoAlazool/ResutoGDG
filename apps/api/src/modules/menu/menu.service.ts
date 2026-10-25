@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   Category, MenuEditorView, MenuImportPreview, MenuImportRequest, ModifierGroup, Product, ProductInput, ProductUpdate, PublicBranch, PublicMenu,
 } from '@resuto/contracts';
+import { socialLinksOf } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound, badRequest } from '../../common/errors/domain-error';
@@ -49,7 +50,7 @@ export const PUBLIC_MENU_CACHE_CONTROL = 'public, max-age=15, s-maxage=30, stale
 /** For a public menu built while some image URLs could not be signed: nobody may keep it, so the next request rebuilds it. */
 export const PUBLIC_MENU_NO_STORE = 'no-store';
 /** Bump when the public menu response shape changes, so cached copies from an older build are not revalidated. */
-const PUBLIC_MENU_SHAPE = 3;
+const PUBLIC_MENU_SHAPE = 4;   // 4: org.socialLinks (21-ONB)
 
 /** Branch columns the public menu exposes (toPublicBranch) plus the lookup code (PCL-28: no select *). */
 export const PUBLIC_BRANCH_COLUMNS = `id, code, name, name_ar, accepts_dine_in, accepts_pickup, accepts_delivery, accepts_reservations, delivery_fee_minor,
@@ -663,7 +664,7 @@ export class MenuService {
    */
   async publicMenuFor(tx: Tx, orgId: string, branch: any, branches: any[] | undefined, urls: MediaUrls): Promise<PublicMenu> {
     const media = urls;
-    const org = await tx.one<any>('select name, name_ar, currency, slug from organizations where id = $1', [orgId]);
+    const org = await tx.one<any>('select name, name_ar, currency, slug, social_links from organizations where id = $1', [orgId]);
     const all = branches ?? await tx.query<any>(`select ${PUBLIC_BRANCH_COLUMNS} from branches where org_id = $1 and is_active order by created_at`, [orgId]);
     const categories = await tx.query<any>(
       `select c.id, c.name, c.name_ar from menu_categories c join menus m on m.id = c.menu_id
@@ -706,7 +707,7 @@ export class MenuService {
       if (items.length) result.push({ id: c.id, name: c.name, nameAr: c.name_ar, products: items });
     }
     return {
-      org: { name: org.name, nameAr: org.name_ar, currency: org.currency, slug: org.slug },
+      org: { name: org.name, nameAr: org.name_ar, currency: org.currency, slug: org.slug, socialLinks: socialLinksOf(org.social_links) },
       branch: toPublicBranch(branch), branches: all.map(toPublicBranch), categories: result,
     };
   }

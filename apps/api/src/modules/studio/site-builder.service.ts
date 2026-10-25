@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PublicSite, PublicSiteSection, PublicStorefrontLink, SectionKind } from '@resuto/contracts';
+import { socialLinksOf, type PublicSite, type PublicSiteSection, type PublicStorefrontLink, type SectionKind } from '@resuto/contracts';
 import type { Tx } from '../../common/db/db.service';
 import { MediaUrls, StorageService } from '../../common/storage/storage.service';
 import type { SiteDocument } from './studio.mappers';
@@ -40,7 +40,7 @@ export class SiteBuilderService {
    */
   async prepare(tx: Tx, orgId: string, doc: SiteDocument, meta: { revision: number; publishedAt: string | null; preview: boolean }): Promise<PendingSite> {
     const org = await tx.one<any>(
-      `select slug, name, name_ar, currency, country, default_locale, coalesce((onboarding->>'demo')::boolean, false) as demo
+      `select slug, name, name_ar, currency, country, default_locale, social_links, coalesce((onboarding->>'demo')::boolean, false) as demo
          from organizations where id = $1`, [orgId]);
     const sections = doc.sections.slice().sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -104,7 +104,8 @@ export class SiteBuilderService {
         revision: meta.revision,
         publishedAt: meta.publishedAt,
         preview: meta.preview,
-        org: { name: org.name, nameAr: org.name_ar, currency: org.currency, country: org.country, defaultLocale: org.default_locale, demo: org.demo === true },
+        org: { name: org.name, nameAr: org.name_ar, currency: org.currency, country: org.country, defaultLocale: org.default_locale, demo: org.demo === true,
+          socialLinks: socialLinksOf(org.social_links) },
         template: doc.template,
         theme: {
           primaryColor: doc.theme?.primaryColor ?? base.primaryColor,

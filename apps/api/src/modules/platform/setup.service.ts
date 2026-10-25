@@ -10,6 +10,19 @@ import { OFFERED_SQL, SOLD_OUT_SQL } from '../menu/availability';
 const REQUIRED: ReadonlySet<SetupStep> = new Set(['profile', 'branch', 'mode', 'menu', 'floor']);
 
 /**
+ * Required steps for a restaurant's plan and service model (21-ONB, plan §6.2). A Free QR-menu restaurant does not
+ * need a legal name, a floor plan or payments to publish its menu: those steps stay in the list as optional. The floor
+ * is required only where guests are seated at tables. Without a live subscription the restaurant is on Free
+ * (app.module_enabled falls back to the free plan), so it gets the Free requirements too.
+ */
+export function requiredSteps(planId: string, mode: ServiceMode): ReadonlySet<SetupStep> {
+  const free = planId === 'free';
+  return new Set([...REQUIRED].filter((s) => s !== 'floor' || (!free && mode === 'tables')));
+}
+/** Profile fields a plan requires before launch (the legal name is for invoices and fiscal documents on paid plans). */
+export const requiredProfileFields = (planId: string) => (planId === 'free' ? ['name'] : ['name', 'legalName']);
+
+/**
  * Guided setup (legacy /manager/setup, FT-13 / VS-17). Every step's completion is derived from the restaurant's data
  * on each read; nothing here can be ticked by hand. Choosing the service model is itself the data of the "mode" step,
  * and "launched" is the only explicit flag, refused until the required steps are done.
@@ -33,9 +46,17 @@ export class SetupService {
     if (wanted && !branch) throw notFound('Branch');
     const onboarding = (org.onboarding ?? {}) as Record<string, unknown>;
     const mode: ServiceMode = branch?.service_mode ?? 'tables';
-    const check = (step: SetupStep, done: boolean, detail: Record<string, unknown> = {}): SetupCheck => ({ step, done, required: REQUIRED.has(step), detail });
+    const sub = await tx.maybeOne<{ plan_id: string; live: boolean }>(
+      `select plan_id, (status in ('trialing', 'active') or (status = 'past_due' and grace_until is not null and grace_until > now())) as live
+         from subscriptions where org_id = $1 and status <> 'canceled'`, [ctx.orgId]);
+    const planId = sub?.live ? sub.plan_id : 'free';
+    const required = requiredSteps(planId, mode);
+    const check = (step: SetupStep, done: boolean, detail: Record<string, unknown> = {}): SetupCheck => ({ step, done, required: required.has(step), detail });
 
-    const missingProfile = [!org.name?.trim() && 'name', !org.legal_name?.trim() && 'legalName'].filter(Boolean);
+    const profileFields = requiredProfileFields(planId);
+    const blank = { name: !org.name?.trim(), legalName: !org.legal_name?.trim() } as const;
+    const missingProfile = profileFields.filter((f) => blank[f as keyof typeof blank]);
+    const optionalProfile = (['legalName'] as const).filter((f) => !profileFields.includes(f) && blank[f]);
     const branchMissing = !branch ? ['branch'] : [
       !(branch.address?.trim() || branch.city?.trim()) && 'address',
       !(Array.isArray(branch.opening_hours) && branch.opening_hours.length) && 'openingHours',
@@ -52,7 +73,7 @@ export class SetupService {
 
     const steps: SetupCheck[] = [
       check('welcome', true),
-      check('profile', missingProfile.length === 0, { missing: missingProfile, taxRegistration: !!org.tax_registration_number }),
+      check('profile', missingProfile.length === 0, { missing: missingProfile, optional: optionalProfile, taxRegistration: !!org.tax_registration_number }),
       check('branch', branchMissing.length === 0, { missing: branchMissing }),
       check('mode', !!onboarding.mode, { mode }),
       check('menu', products.orderable > 0, products),
@@ -63,7 +84,7 @@ export class SetupService {
     const ready = steps.filter((s) => s.required).every((s) => s.done);
     return {
       orgId: ctx.orgId, status: org.status, launched: !!onboarding.launched, launchedAt: typeof onboarding.launched === 'string' ? onboarding.launched : null,
-      ready, serviceMode: mode, branchId: branch?.id ?? null, steps: SETUP_STEPS.map((s) => steps.find((x) => x.step === s)!),
+      ready, serviceMode: mode, branchId: branch?.id ?? null, planId, steps: SETUP_STEPS.map((s) => steps.find((x) => x.step === s)!),
     };
   }
 
