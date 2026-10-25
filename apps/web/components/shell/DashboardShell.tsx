@@ -133,7 +133,10 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
   const orders = useApi<{ items: unknown[]; nextCursor: string | null }>(
     ordersAllowed && modules !== undefined ? `/o/${orgId}/orders?status=${ACTIVE_ORDER_STATUSES}&limit=100` : null, { pollMs: 30_000 });
   const openOrders = orders.data ? orders.data.items.length + (orders.data.nextCursor ? 1 : 0) : null;
-  const payAllowed = !!org && !!branchId && roleCan(org.role, 'payments:read') && modules !== undefined && (modules === null || modules.pay !== false);
+  // Only once the entitlements read has settled: the saved snapshot can predate a downgrade, and asking a dropped
+  // module for its config answers 402.
+  const entSettled = entQ.data !== undefined || !!entQ.error;
+  const payAllowed = !!org && !!branchId && roleCan(org.role, 'payments:read') && entSettled && modules !== undefined && (modules === null || modules.pay !== false);
   const payConfig = useApi<{ mode: string }>(payAllowed ? `/o/${orgId}/payments/config?branchId=${branchId}` : null, { staleMs: 5 * MINUTE });
 
   // Shell chrome state: sidebar collapsed (persisted), command palette, cheat sheet, phone drawer.
