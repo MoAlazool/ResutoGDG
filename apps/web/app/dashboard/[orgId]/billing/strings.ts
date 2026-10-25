@@ -34,6 +34,18 @@ const en = {
   note_messaging_rate_card_not_known: 'Meta charges WhatsApp template messages by its own rate card for each country and category, so Resuto shows the count, not a price.',
   note_ai_included_in_plan: 'AI requests are part of your Resuto plan (see usage above) and are not billed separately.',
   note_sandbox_excluded: 'Test payments, sandbox messages and sandbox ad reports are excluded.',
+  // 21-MONEY: what the plan includes, locked modules, usage meters and the plan catalogue matrix.
+  includedTitle: 'What your plan includes', includedBody: 'Modules that are on for this restaurant now, and why.',
+  lockedTitle: 'Not in your plan', lockedBody: 'Previews of what each module adds. Nothing is switched off on your screens: these modules are outside your plan and appear here and in Explore Resuto.',
+  lockedIn: 'In {plan}', lockedNoPlan: 'Not in a standard plan', comparePlans: 'Compare plans', explore: 'Explore Resuto', askOwner: 'Ask the restaurant owner to change the plan.',
+  usageBody: 'Live counts for the current billing period, against the limits of your plan.', usageBodyFrom: 'Live counts since {date}, against the limits of your plan.',
+  meterOf: '{used} of {limit}', meterNoLimit: '{used} · no limit in this plan', meterNone: 'Not included in this plan', meterLeft: '{n} left', meterAt: 'Limit reached', meterOver: '{n} over the limit',
+  provenance: 'From your records',
+  matrixTitle: 'What each plan includes', matrixBody: 'From Resuto\u2019s current plan catalogue: modules and limits as they apply today.', matrixModule: 'Module', matrixLimits: 'Limits',
+  matrixIncluded: 'Included', matrixNotIncluded: 'Not included', matrixCurrent: 'Your plan', noLimit: 'No limit',
+  limit_branches: 'Branches', limit_staff: 'Staff accounts', limit_orders_per_month: 'Orders per month', limit_ai_requests_per_month: 'AI requests per month', limit_mcp_calls_per_month: 'AI connection calls per month',
+  unchanged: 'Choose another plan, billing interval or add-on to see the new fee.', includedIn: 'Included in {plan}', cancelHint: 'Cancelling keeps your plan until the end of the period.',
+  details: 'Details', invoiceStatus: 'Status',
 };
 type S = typeof en;
 const ar: S = {
@@ -71,6 +83,17 @@ const ar: S = {
   note_messaging_rate_card_not_known: 'تحتسب ميتا رسائل قوالب واتساب وفق جدول أسعارها لكل دولة وفئة، لذا تعرض ريسوتو العدد وليس السعر.',
   note_ai_included_in_plan: 'طلبات الذكاء الاصطناعي جزء من خطة ريسوتو (انظر الاستخدام أعلاه) ولا تُحتسب منفصلة.',
   note_sandbox_excluded: 'المدفوعات التجريبية ورسائل وتقارير الإعلانات التجريبية مستبعدة.',
+  includedTitle: 'ما تتضمنه خطتك', includedBody: 'الوحدات المفعّلة لهذا المطعم الآن وسبب تفعيلها.',
+  lockedTitle: 'خارج خطتك', lockedBody: 'معاينات لما تضيفه كل وحدة. لا يوجد شيء معطّل في شاشاتك: هذه الوحدات خارج خطتك وتظهر هنا وفي «اكتشف ريسوتو».',
+  lockedIn: 'ضمن {plan}', lockedNoPlan: 'غير مضمّنة في خطة قياسية', comparePlans: 'قارن الخطط', explore: 'اكتشف ريسوتو', askOwner: 'اطلب من مالك المطعم تغيير الخطة.',
+  usageBody: 'أعداد مباشرة لفترة الفوترة الحالية مقارنة بحدود خطتك.', usageBodyFrom: 'أعداد مباشرة منذ {date} مقارنة بحدود خطتك.',
+  meterOf: '{used} من {limit}', meterNoLimit: '{used} · بلا حد في هذه الخطة', meterNone: 'غير مضمّن في هذه الخطة', meterLeft: 'متبقٍ {n}', meterAt: 'تم بلوغ الحد', meterOver: 'تجاوز الحد بـ {n}',
+  provenance: 'من سجلاتك',
+  matrixTitle: 'ما تتضمنه كل خطة', matrixBody: 'من كتالوج خطط ريسوتو الحالي: الوحدات والحدود كما تُطبّق اليوم.', matrixModule: 'الوحدة', matrixLimits: 'الحدود',
+  matrixIncluded: 'مضمّنة', matrixNotIncluded: 'غير مضمّنة', matrixCurrent: 'خطتك', noLimit: 'بلا حد',
+  limit_branches: 'الفروع', limit_staff: 'حسابات الموظفين', limit_orders_per_month: 'الطلبات شهريًا', limit_ai_requests_per_month: 'طلبات الذكاء الاصطناعي شهريًا', limit_mcp_calls_per_month: 'استدعاءات اتصالات الذكاء الاصطناعي شهريًا',
+  unchanged: 'اختر خطة أو فترة فوترة أو إضافة أخرى لعرض الرسوم الجديدة.', includedIn: 'ضمن {plan}', cancelHint: 'الإلغاء يُبقي خطتك حتى نهاية الفترة.',
+  details: 'التفاصيل', invoiceStatus: 'الحالة',
 };
 export const BILLING_STRINGS = { en, ar };
 export type BillingStrings = S;
