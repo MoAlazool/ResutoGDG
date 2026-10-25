@@ -11,7 +11,7 @@ import { useApi } from '@/lib/use-api';
 import { AdminIcon } from '../admin-icons';
 import { useAdmin } from '../AdminShell';
 import { opsTiles, type OpsTile } from '../console';
-import { fill } from '../strings';
+import { fill } from '../text';
 import { opsStatusLabel, replayFailure } from './replay';
 
 type Handling = AdminOperations['eventHandlings']['recent'][number];

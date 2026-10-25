@@ -86,13 +86,20 @@ const LANDING = /^platform\.lp\./;
 export const AUTH_SCOPE: RegExp[] = [/^auth\./, /^role\./]; // role names: the account page lists memberships (CR-05)
 /** The onboarding wizard (21-ONB): the auth copy plus its own (onb.*), never every module's. */
 export const ONBOARDING_SCOPE: RegExp[] = [...AUTH_SCOPE, /^onb\./];
-export type MessageScope = 'guest' | 'staff' | 'auth' | 'onboarding';
+/**
+ * The operator console (/admin, 21-ADMIN): the auth copy (session errors), the shell's (account menu, area errors) and
+ * the operations replay copy; the console's own strings come from app/admin/strings.ts through its server layout.
+ * Like the auth and onboarding scopes, a subset of the staff scope.
+ */
+export const ADMIN_SCOPE: RegExp[] = [...AUTH_SCOPE, /^shell\./, /^ops\.admin\./];
+export type MessageScope = 'guest' | 'staff' | 'auth' | 'onboarding' | 'admin';
 export const inScope = (key: string, scope: MessageScope) => {
   if (LANDING.test(key)) return false;
   const guest = GUEST_SCOPE.some((r) => r.test(key));
   if (scope === 'guest') return guest;
   if (scope === 'auth') return !guest && AUTH_SCOPE.some((r) => r.test(key));
   if (scope === 'onboarding') return !guest && ONBOARDING_SCOPE.some((r) => r.test(key));
+  if (scope === 'admin') return !guest && ADMIN_SCOPE.some((r) => r.test(key));
   return !guest;
 };
 

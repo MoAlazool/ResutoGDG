@@ -2,7 +2,8 @@
 // operations summary and the provider readiness view. Pure functions, unit tested in console.test.ts (EN and AR).
 import type { AdminOperations, AdminProviderAppView, PlatformAppProvider, PlatformRole } from '@resuto/contracts';
 import type { ProviderId, Tone } from '@resuto/ui';
-import { fill, pickString, type AdminStrings } from './strings';
+import type { AdminStrings } from './strings';
+import { fill, pickString } from './text';
 
 export type AdminNavKey = 'tenants' | 'prices' | 'operations' | 'providers';
 export const ADMIN_NAV: ReadonlyArray<{ key: AdminNavKey; href: string }> = [

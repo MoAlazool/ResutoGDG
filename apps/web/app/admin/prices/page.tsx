@@ -9,7 +9,7 @@ import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { useAdmin } from '../AdminShell';
 import { PLAN_IDS, countryLabel, planLabel } from '../console';
-import { fill } from '../strings';
+import { fill } from '../text';
 
 type Country = 'EG' | 'SA';
 type Kind = 'plan' | 'module';

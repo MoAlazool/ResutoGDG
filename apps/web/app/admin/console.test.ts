@@ -5,7 +5,8 @@ import {
   ADMIN_NAV, PROVIDER_APP_LOGO, activeAdminNav, byDate, checklistLabel, countryLabel, opsTiles, planLabel, readiness, roleLabel,
   statusLabel, subscriptionLabel, tenantFilterChips, tenantsQuery,
 } from './console';
-import { ADMIN_STRINGS, fill, pickString } from './strings';
+import { ADMIN_STRINGS } from './strings';
+import { fill, pickString } from './text';
 
 // 21-ADMIN operator console logic, in English and Arabic: navigation, the restaurants list query and chips, labels for
 // codes, the operations tiles and the provider readiness summary (never "verified" without a recorded run).

@@ -45,6 +45,7 @@ vi.mock('@/lib/session', () => {
 });
 
 const { AdminShell } = await import('./AdminShell');
+const { ADMIN_STRINGS } = await import('./strings');
 const { default: TenantsPage } = await import('./page');
 const { default: ProvidersPage } = await import('./providers/page');
 
@@ -55,7 +56,7 @@ const inLocale = (locale: 'en' | 'ar', node: ReactNode) => (
 const flush = () => act(async () => { for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0)); });
 const render = async (locale: 'en' | 'ar', node: ReactNode) => {
   h.scope = `u${++scopeN}`; // a fresh query-cache partition per test
-  const v = mount(inLocale(locale, <AdminShell>{node}</AdminShell>), locale);
+  const v = mount(inLocale(locale, <AdminShell strings={ADMIN_STRINGS[locale]}>{node}</AdminShell>), locale);
   await flush();
   return v;
 };

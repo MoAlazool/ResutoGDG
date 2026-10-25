@@ -1,5 +1,6 @@
 // Operator console strings, English and Arabic (owner: Agent A; 21-INT providers; 21-ADMIN redesign). Every key exists in
-// both languages (strings.test.ts).
+// both languages (console.test.ts). Server-only in the app: app/admin/layout.tsx passes the active language's strings to
+// the client shell, so the console's JavaScript carries neither dictionary (client modules import only the type).
 const en = {
   console: 'Resuto admin', tenants: 'Restaurants', prices: 'Prices', operations: 'Operations', signOut: 'Sign out', role: 'Role: {role}',
   onlyAdmins: 'Platform administrators only.', backToApp: 'Back to Resuto',
@@ -142,8 +143,3 @@ const ar: S = {
 export const ADMIN_STRINGS = { en, ar };
 export type AdminStrings = S;
 
-/** Fills {name} placeholders. */
-export const fill = (text: string, vars: Record<string, string | number>) =>
-  Object.entries(vars).reduce((a, [k, v]) => a.replaceAll(`{${k}}`, String(v)), text);
-/** A dynamic key's string (statuses, plans, checklist items), or `fallback` (the raw code) when there is none. */
-export const pickString = (s: AdminStrings, key: string, fallback = key) => (s as unknown as Record<string, string>)[key] ?? fallback;

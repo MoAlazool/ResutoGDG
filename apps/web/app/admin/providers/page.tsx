@@ -15,7 +15,7 @@ import { useApi } from '@/lib/use-api';
 import { AdminIcon } from '../admin-icons';
 import { useAdmin } from '../AdminShell';
 import { PROVIDER_APP_LOGO, SOURCE_TONE, checklistLabel, readiness } from '../console';
-import { fill, pickString } from '../strings';
+import { fill, pickString } from '../text';
 import st from './providers.module.css';
 
 /** PROVIDER_APP_REVIEW_STATUSES (kept local: a runtime import would add the console's schemas to the shared contracts chunk). */

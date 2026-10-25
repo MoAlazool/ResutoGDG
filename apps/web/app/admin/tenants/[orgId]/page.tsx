@@ -16,7 +16,7 @@ import { useApi } from '@/lib/use-api';
 import { AdminIcon } from '../../admin-icons';
 import { useAdmin } from '../../AdminShell';
 import { countryLabel, planLabel, statusLabel, subscriptionLabel } from '../../console';
-import { fill } from '../../strings';
+import { fill } from '../../text';
 import { ORG_TONE, SUB_TONE } from '../../tones';
 
 type Detail = AdminTenantDetail;

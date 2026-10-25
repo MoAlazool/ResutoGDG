@@ -11,7 +11,8 @@ import { LanguageToggle, setLocale, useT } from '@/lib/i18n/client';
 import { useSession } from '@/lib/session';
 import { AdminIcon } from './admin-icons';
 import { ADMIN_NAV, activeAdminNav, roleLabel } from './console';
-import { ADMIN_STRINGS, fill, type AdminStrings } from './strings';
+import type { AdminStrings } from './strings';
+import { fill } from './text';
 import '@/components/shell/shell.css';
 import './admin.css';
 
@@ -35,11 +36,11 @@ type Gate = { state: 'checking' } | { state: 'ok'; role: PlatformRole } | { stat
  * Operator console shell (21-ADMIN): the staff shell's conventions (sidebar with icons, collapsible; account menu;
  * EN/AR; skip link; a bottom tab bar on phones) for Resuto's platform staff. The API enforces every role check; the
  * console only hides what a role cannot do. A signed-in member without a platform role (403/404 from /admin/me) is
- * told so; any other failure to check is an error with Retry, not a refusal.
+ * told so; any other failure to check is an error with Retry, not a refusal. `strings` is the console's copy in the page
+ * language, from the server layout.
  */
-export function AdminShell({ children }: { children: ReactNode }) {
+export function AdminShell({ strings: s, children }: { strings: AdminStrings; children: ReactNode }) {
   const { locale, t } = useT();
-  const s = ADMIN_STRINGS[locale];
   const session = useSession();
   const router = useRouter();
   const pathname = usePathname();

@@ -14,7 +14,7 @@ import {
   COUNTRIES, PLAN_IDS, TENANT_STATUSES, byDate, countryLabel, planLabel, statusLabel, subscriptionLabel, tenantFilterChips, tenantsQuery,
   type TenantFilters,
 } from './console';
-import { fill } from './strings';
+import { fill } from './text';
 import { ORG_TONE, SUB_TONE } from './tones';
 
 const ANY = '';
