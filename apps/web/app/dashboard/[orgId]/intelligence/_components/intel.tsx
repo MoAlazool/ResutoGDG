@@ -1,7 +1,7 @@
 'use client';
 // Shared pieces of the intelligence views of the Insights area (21-INSIGHTS: the header and sub-navigation moved to
 // components/insights/InsightsShell, which replaced IntelShell).
-import { INTL_LOCALE } from '@resuto/contracts';
+import { INTL_LOCALE } from '@resuto/contracts/lite';
 import Link from 'next/link';
 import { EmptyState, Notice } from '@resuto/ui';
 import type { ApiRequestError } from '@/lib/api';

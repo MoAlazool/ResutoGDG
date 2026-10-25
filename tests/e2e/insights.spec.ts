@@ -145,6 +145,9 @@ test('the former Analytics tabs and the intelligence customers screen still open
     await expect(page).toHaveURL(new RegExp(`${base()}/analytics/customers`));
     await page.goto(`${base()}/intelligence/forecast`);
     await expect(nav.getByRole('link', { name: 'التوقعات' })).toHaveAttribute('aria-current', 'page');
+    // An unknown analytics view opens the overview.
+    await page.goto(`${base()}/analytics/nope`);
+    await expect(page).toHaveURL(new RegExp(`${base()}/analytics$`));
   } finally {
     await context.close();
   }

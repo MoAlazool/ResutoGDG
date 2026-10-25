@@ -2,12 +2,18 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import type { AnalyticsMeta, RevenueTotals } from '@resuto/contracts';
-import { Badge, BarList, DataTable, EmptyState, Heatmap, LineChart, Notice, Skeleton, Stat } from '@resuto/ui';
+import dynamic from 'next/dynamic';
+import { Badge, BarList, DataTable, EmptyState, Notice, Skeleton, Stat } from '@resuto/ui';
 import { Delta, LoadError, MetaPanel, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
 import a from './analytics.module.css';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
+
+// The sales view's line chart and heatmap load on demand (their own chunk): the figures above them render first.
+const chartLoading = () => <div className="skeleton" aria-hidden="true" />;
+const LineChart = dynamic(() => import('./sales-charts').then((m) => m.LineChart), { ssr: false, loading: chartLoading });
+const Heatmap = dynamic(() => import('./sales-charts').then((m) => m.Heatmap), { ssr: false, loading: chartLoading });
 
 /** `compare` (sales only): the analytics API's comparison, from the Insights toolbar (default: the days just before). */
 export interface PanelProps { period: Period; branchId: string; compare?: 'previous' | 'last_year' | 'none' }

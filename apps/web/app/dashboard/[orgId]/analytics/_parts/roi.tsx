@@ -1,6 +1,7 @@
 'use client';
 import { useState, type FormEvent } from 'react';
-import { parseMajor, type AnalyticsMeta, type Currency } from '@resuto/contracts';
+import type { AnalyticsMeta, Currency } from '@resuto/contracts';
+import { parseMajor } from '@resuto/contracts/lite';
 import { Badge, Field, Notice, SelectField, Stat, useAction } from '@resuto/ui';
 import { MetaPanel, Section, useFormat } from '@/components/charts/insights';
 import a from './analytics.module.css';
