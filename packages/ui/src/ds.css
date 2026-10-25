@@ -298,7 +298,7 @@ a.rui-stat:hover { border-color: var(--border-strong); }
 }
 .rui-settings-nav :is(a, button):hover { background: var(--surface-hover); color: var(--text); }
 .rui-settings-nav [aria-current] { background: var(--surface-selected); color: var(--accent-soft-fg); font-weight: var(--fw-semibold); }
-.rui-settings-body { display: grid; gap: var(--space-4); min-inline-size: 0; max-inline-size: 760px; }
+.rui-settings-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); min-inline-size: 0; max-inline-size: 760px; }
 /* The body spaces its sections with its gap: the global `.card + .card` margin would double it. */
 .rui-settings-body > .card:not(:first-child) { margin-block-start: 0; }
 @media (max-width: 1100px) {

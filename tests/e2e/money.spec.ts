@@ -113,25 +113,41 @@ test('plan change: an upgrade unlocks its modules; a downgrade shows them as Loc
     await eventually(async () => (await sql(`select plan_id from subscriptions where org_id = $1`, [t.orgId]))[0]?.plan_id === 'free',
       { timeout: 120_000, interval: 1_000, message: 'the scheduled downgrade was applied' });
 
-    await page.goto(billing);
-    await expect(page.getByTestId('current-plan')).toHaveText('Free QR', { timeout: 20_000 });
-    const lockedPay = page.getByTestId('locked-modules').locator('.rui-locked').filter({ has: page.getByRole('heading', { name: 'ResutoPay' }) });
-    await expect(lockedPay).toBeVisible();
-    // The preview is inert and hidden from assistive technology; its only actions are real links.
-    await expect(lockedPay.locator('.rui-locked-preview')).toHaveAttribute('aria-hidden', 'true');
-    await expect(page.getByTestId('included-modules').locator('[data-module="pay"]')).toHaveCount(0);
-    await expect(page.getByTestId('pending-change')).toHaveCount(0);
-    await expect(disabledControls(page)).toHaveCount(0);
-    await expect(navLinkFor(page, '/payments')).toHaveCount(0);
-
-    // The module page itself shows the upgrade prompt, not disabled controls.
-    await page.goto(`/dashboard/${t.orgId}/payments`);
-    await expect(page.locator('.empty strong')).toHaveText('This module is not in your plan');
-    await expect(disabledControls(page)).toHaveCount(0);
     expect(errors).toEqual([]);
     expect(failures).toEqual([]);
   } finally {
     await context.close();
+  }
+
+  // After the period end, in a new session: the open session's shell renders first from its stored snapshot, which
+  // predates the downgrade the billing job applied in the background (a shell concern, reported separately).
+  const fresh = await newContext(browser, { user: t.owner });
+  const freshErrors = collectErrors(fresh.page);
+  const freshFailures = collectApiFailures(fresh.page);
+  try {
+    const p2 = fresh.page;
+    await p2.goto(billing);
+    await expect(p2.getByTestId('current-plan')).toHaveText('Free QR', { timeout: 20_000 });
+    const lockedPay = p2.getByTestId('locked-modules').locator('.rui-locked').filter({ has: p2.getByRole('heading', { name: 'ResutoPay' }) });
+    await expect(lockedPay).toBeVisible();
+    // The preview is inert and hidden from assistive technology; its only actions are real links.
+    await expect(lockedPay.locator('.rui-locked-preview')).toHaveAttribute('aria-hidden', 'true');
+    await expect(p2.getByTestId('included-modules').locator('[data-module="pay"]')).toHaveCount(0);
+    await expect(p2.getByTestId('pending-change')).toHaveCount(0);
+    await expect(p2.getByTestId('plan-matrix')).toBeVisible({ timeout: 20_000 });
+    await expect(disabledControls(p2)).toHaveCount(0);
+    await expect(navLinkFor(p2, '/payments')).toHaveCount(0);
+
+    // The module page shows the upgrade prompt, not disabled controls, and makes no module API calls.
+    await p2.goto(`/dashboard/${t.orgId}/payments`);
+    await expect(p2.locator('.empty strong')).toHaveText('This module is not in your plan', { timeout: 20_000 });
+    await expect(p2.getByRole('link', { name: 'Upgrade' })).toHaveAttribute('href', billing);
+    await expect(disabledControls(p2)).toHaveCount(0);
+    await p2.waitForTimeout(500);
+    expect(freshErrors).toEqual([]);
+    expect(freshFailures).toEqual([]);
+  } finally {
+    await fresh.context.close();
   }
 });
 

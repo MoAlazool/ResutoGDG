@@ -51,6 +51,8 @@
 
 /* Plan catalogue matrix */
 .matrix { margin-block-start: var(--space-6); }
+/* The visually hidden cell text is absolutely positioned: keep it inside the scrolling table, not the page. */
+.matrix :global(.table-wrap) { position: relative; }
 .matrix th[data-current] { color: var(--accent-soft-fg); }
 .matrix td[data-in] { color: var(--ok-fg); font-weight: var(--fw-semibold); }
 .matrixGroup th { padding-block-start: var(--space-4); color: var(--text-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .04em; }
