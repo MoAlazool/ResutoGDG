@@ -1,6 +1,6 @@
 import * as providers from '@resuto/integrations';
 import type { ProviderDescriptor } from '@resuto/integrations';
-import type { ProviderCatalogEntry } from '@resuto/contracts';
+import { marketplaceCategory, permissionGaps, type ConnectionPermissions, type ConnectMethod, type ProviderCatalogEntry } from '@resuto/contracts';
 
 /**
  * Provider catalogue: every descriptor exported by @resuto/integrations through a
@@ -36,11 +36,44 @@ function load(): Map<string, CatalogAdapter> {
   return (cache = map);
 }
 
+/**
+ * A descriptor's connect method (21-INT). Every catalogue descriptor declares one (packages/integrations
+ * marketplace.test.ts); the fallback only covers descriptors added later without it, and never offers OAuth.
+ */
+export const connectMethodOf = (d: ProviderDescriptor): ConnectMethod => d.connectMethod ?? (d.readiness === 'simulated' ? 'platform_managed' : 'api_key');
+
 export function catalogEntries(): ProviderCatalogEntry[] {
   return [...load().values()].map(({ descriptor: d }) => ({
     id: d.id, name: d.name, category: d.category, countries: d.countries, authType: d.authType, readiness: d.readiness,
     activation: d.activation, docsUrl: d.docsUrl ?? null, capabilities: d.capabilities, sandboxOnly: d.readiness === 'simulated',
+    connectMethod: connectMethodOf(d), marketplaceCategory: marketplaceCategory(d.category),
+    requiredScopes: d.requiredScopes ?? {}, reviewRequirements: d.reviewRequirements ?? [],
   })).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+}
+
+/** Config key holding the chosen ad account / advertiser (or, for Messenger / Instagram, the Facebook Page) per provider. */
+export const ACCOUNT_CONFIG_KEY: Record<string, string> = {
+  meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId',
+  // INT-24: a Foodics token belongs to one business; its reference is confirmed by the owner and routes menu webhooks.
+  foodics: 'businessReference',
+};
+
+/** Meta connections whose granted permissions Resuto can read back with GET /me/permissions (a user or system user token). */
+export function permissionsCheckable(provider: string, config: Record<string, unknown>): boolean {
+  if (provider === 'meta_ads' || provider === 'whatsapp_cloud') return true;
+  // A pasted Page token has no person behind it; the Login user token (OAuth) does.
+  return provider === 'meta_pages' && config.tokenSource === 'platform_app';
+}
+
+/**
+ * Granted scopes (integration_connections.scopes, read back from the provider) against the scopes each capability
+ * needs. Snapchat, TikTok and RFC 6749 providers report them in the token response; Meta through /me/permissions.
+ */
+export function connectionPermissions(provider: string, scopes: string[] | null | undefined, config: Record<string, unknown> = {}): ConnectionPermissions {
+  const d = adapterFor(provider)?.descriptor;
+  const checkable = permissionsCheckable(provider, config);
+  const gaps = permissionGaps(d?.requiredScopes, scopes ?? []);
+  return { ...gaps, checkable, source: checkable ? 'permissions_api' : gaps.checked ? 'token_response' : null };
 }
 
 export function adapterFor(provider: string): CatalogAdapter | null {

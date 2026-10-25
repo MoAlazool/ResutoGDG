@@ -107,6 +107,14 @@ export class IntegrationsController {
     return this.connections.healthCheck(ctx, id);
   }
 
+  /** 21-INT: reads back the permissions the provider granted (Meta /me/permissions) and compares them per capability. */
+  @HttpCode(200)
+  @Post('o/:orgId/integrations/connections/:id/permissions')
+  @RequirePermission('integrations:manage')
+  checkPermissions(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.connections.checkPermissions(ctx, id);
+  }
+
   @HttpCode(200)
   @Post('o/:orgId/integrations/connections/:id/sync')
   @RequirePermission('integrations:manage')

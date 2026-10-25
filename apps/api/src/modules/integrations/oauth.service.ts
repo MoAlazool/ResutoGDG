@@ -10,18 +10,13 @@ import { DbService } from '../../common/db/db.service';
 import { DomainError, conflict, invalid } from '../../common/errors/domain-error';
 import { AuditService } from '../../common/platform/audit.service';
 import { ENV, type Env } from '../../config/env';
-import { credentialsHint } from './catalog';
+import { ACCOUNT_CONFIG_KEY, credentialsHint } from './catalog';
 import { credentialsAad, IntegrationConnectionsService, redactedError } from './connections.service';
 import { metaPlatform } from './meta-platform';
 import { foodicsOAuthEnv, OAUTH_APP_ENV, oauthApp } from './oauth-apps';
 import { ProviderHttp } from './provider-http';
 
-/** Config key holding the chosen ad account / advertiser (or, for Messenger / Instagram, the Facebook Page) per provider. */
-export const ACCOUNT_CONFIG_KEY: Record<string, string> = {
-  meta_ads: 'adAccountId', tiktok_ads: 'advertiserId', snapchat_ads: 'adAccountId', meta_pages: 'pageId',
-  // INT-24: a Foodics token belongs to one business; its reference is confirmed by the owner and routes menu webhooks.
-  foodics: 'businessReference',
-};
+export { ACCOUNT_CONFIG_KEY };
 
 /**
  * What the bound-state OAuth flow needs from a provider: the ads adapters, the Facebook Page connection (INT-21) and
@@ -168,14 +163,17 @@ export class IntegrationOAuthService {
       const dropped = pages ? [key, 'instagramAccountId'] : [key];
       const connId = (await tx.one<{ id: string }>(
         `insert into integration_connections(org_id, provider, category, auth_type, environment, status, credentials_encrypted, credentials_hint, config,
-            connected_by, connected_at)
-         values ($1, $2, $8, 'oauth', $9, 'pending', $3, $4, $5, $6, now())
+            connected_by, connected_at, scopes)
+         values ($1, $2, $8, 'oauth', $9, 'pending', $3, $4, $5, $6, now(), $10)
          on conflict (org_id, provider, coalesce(branch_id, '00000000-0000-0000-0000-000000000000'::uuid))
          do update set credentials_encrypted = excluded.credentials_encrypted, credentials_hint = excluded.credentials_hint, status = 'pending', enabled = true,
            environment = excluded.environment,
            config = (integration_connections.config - $7::text[]) || excluded.config, connected_by = excluded.connected_by, connected_at = now(), last_error = null,
-           account_identity = '{}'::jsonb, health = '{}'::jsonb
-         returning id`, [ctx.orgId, provider, sealed, credentialsHint(creds), cfg, ctx.userId, dropped, adapter.descriptor.category, row.environment ?? 'live'])).id;
+           account_identity = '{}'::jsonb, health = '{}'::jsonb, scopes = excluded.scopes
+         returning id`, [ctx.orgId, provider, sealed, credentialsHint(creds), cfg, ctx.userId, dropped, adapter.descriptor.category, row.environment ?? 'live',
+           // 21-INT: the scopes the provider reported in the token response (Snapchat, TikTok, RFC 6749); Meta is read back
+           // separately (POST …/permissions) so the code exchange makes exactly the calls it always made.
+           tokens.grantedScopes ?? []])).id;
       await tx.query(`update integration_oauth_states set connection_id = $2 where state_hash = $1`, [sha256(input.state), connId]);
       await this.connections.log(tx, ctx.orgId, connId, 'info', 'OAuth authorisation completed', { accounts: choices.length, tokenKind: config.tokenKind,
         expiresAt: config.tokenExpiresAt });

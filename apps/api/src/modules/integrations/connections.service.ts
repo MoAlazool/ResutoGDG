@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, MAX_LIST_LIMIT, type CreateIntegrationConnection, type IntegrationConnectionView, type IntegrationSourceOfTruth,
-  type UpdateIntegrationConnection,
+  DEFAULT_INTEGRATION_SOURCE_OF_TRUTH, MAX_LIST_LIMIT, marketplaceStatus, type CreateIntegrationConnection, type IntegrationConnectionView, type IntegrationSourceOfTruth,
+  type MarketplaceConnectionFacts, type ProviderMarketplaceState, type UpdateIntegrationConnection,
 } from '@resuto/contracts';
-import { ProviderError, type AdapterContext } from '@resuto/integrations';
+import { metaGrantedPermissions, ProviderError, type AdapterContext } from '@resuto/integrations';
 import type { TenantContext } from '../../common/auth/context';
 import { ENV, type Env } from '../../config/env';
 import { Scheduled } from '../../common/events/events';
@@ -12,7 +12,8 @@ import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError, conflict, invalid, notFound } from '../../common/errors/domain-error';
 import { branchScope, idKeyset, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
-import { adapterFor, catalogEntries, credentialsHint, fieldsFor, webhookFor } from './catalog';
+import { ACCOUNT_CONFIG_KEY, adapterFor, catalogEntries, connectionPermissions, connectMethodOf, credentialsHint, fieldsFor, permissionsCheckable, webhookFor } from './catalog';
+import { providerReviewFor } from './platform-apps';
 import { providerReadiness, type VerificationRow } from './readiness';
 import { ProviderHttp } from './provider-http';
 import { platformProofSecret } from './meta-platform';
@@ -86,6 +87,13 @@ export interface LoadedConnection {
 
 const iso = (v: Date | string | null) => (v ? new Date(v).toISOString() : null);
 
+const LIVE_ORDER = ['blocked_by_provider', 'implementation_incomplete', 'pending_external_verification', 'official_test_verified', 'live_verified'];
+/** The weakest live readiness across a provider's implemented capabilities (what the provider offers this tenant). */
+function weakestLive(states: string[]): string | null {
+  const implemented = states.filter((s) => s !== 'implementation_incomplete');
+  return (implemented.length ? implemented : states).sort((a, b) => LIVE_ORDER.indexOf(a) - LIVE_ORDER.indexOf(b))[0] ?? null;
+}
+
 export function toView(r: any): IntegrationConnectionView {
   return {
     id: r.id, provider: r.provider, category: r.category, branchId: r.branch_id, authType: r.auth_type, environment: r.environment,
@@ -94,7 +102,35 @@ export function toView(r: any): IntegrationConnectionView {
     health: r.health ?? {}, lastHealthCheckAt: iso(r.last_health_check_at), lastError: r.last_error,
     readiness: adapterFor(r.provider)?.descriptor.readiness ?? null, connectedAt: iso(r.connected_at),
     createdAt: iso(r.created_at)!, updatedAt: iso(r.updated_at)!,
+    grantedScopes: r.scopes ?? [],
   };
+}
+
+/** What the marketplace chip needs from one connection row (21-INT). */
+export function marketplaceFacts(r: { provider: string; status: string; enabled: boolean; environment: 'sandbox' | 'live'; config: Record<string, unknown> | null;
+  scopes?: string[] | null; auth_type?: string }): MarketplaceConnectionFacts {
+  const config = r.config ?? {};
+  const key = ACCOUNT_CONFIG_KEY[r.provider];
+  return {
+    status: r.status as MarketplaceConnectionFacts['status'], enabled: r.enabled, environment: r.environment,
+    tokenSource: typeof config.tokenSource === 'string' ? config.tokenSource : null,
+    // Refreshable tokens (Snapchat, 1 hour) are renewed by the server; only tokens that need the owner count.
+    tokenExpiresAt: typeof config.tokenExpiresAt === 'string' && !adapterFor(r.provider)?.refreshAccessToken ? config.tokenExpiresAt : null,
+    needsAccountSelection: !!key && r.auth_type === 'oauth' && r.status !== 'revoked' && !config[key],
+    missingPermissions: connectionPermissions(r.provider, r.scopes, config).missing.length,
+  };
+}
+
+/** The marketplace chip for one connection row (the catalogue uses the tenant's leading connection per provider). */
+export function connectionMarketplace(r: any, readinessSummary: string | null): ProviderMarketplaceState {
+  const d = adapterFor(r.provider)?.descriptor;
+  const providerReview = providerReviewFor(r.provider);
+  const { status, reasons } = marketplaceStatus({
+    simulated: d?.readiness === 'simulated', readinessSummary: d?.readiness === 'simulated' ? null : readinessSummary,
+    connectMethod: d ? connectMethodOf(d) : 'api_key', reviewRequirements: d?.reviewRequirements, providerReview: providerReview ?? undefined,
+    connection: marketplaceFacts(r),
+  });
+  return { status, reasons, connectionId: r.id ?? null, providerReview };
 }
 
 /** Diagnostics and activation details for one connection (INT-17, CR-09): exact webhook URL and events, last success/webhook, account. */
@@ -103,6 +139,8 @@ export function diagnostics(r: any, apiOrigin: string) {
     webhook: webhookFor(r.provider, r.id, apiOrigin, r.config ?? {}),
     lastSuccessAt: iso(r.last_success_at), lastFailureAt: iso(r.last_failure_at), lastWebhookAt: iso(r.last_webhook_at),
     account: r.account_identity && Object.keys(r.account_identity).length ? r.account_identity : null,
+    // 21-INT: granted vs. required scopes ("needs permission X"); the card's chip is in the catalogue (marketplace).
+    permissions: connectionPermissions(r.provider, r.scopes, r.config ?? {}),
   };
 }
 
@@ -128,22 +166,70 @@ export class IntegrationConnectionsService {
    * the adapters, the tenant's connections and country, and recorded acceptance results (integration_verifications).
    */
   async catalog(ctx: TenantContext) {
-    const { country, connected } = await this.db.scoped(ctx, async (tx) => ({
-      country: (await tx.one<{ country: string }>('select country from organizations where id = $1', [ctx.orgId])).country,
-      connected: new Set((await tx.query<{ provider: string }>(`select distinct provider from integration_connections where org_id = $1 and status <> 'revoked'`, [ctx.orgId])).map((r) => r.provider)),
-    }));
+    const { country, connected, leading } = await this.db.scoped(ctx, async (tx) => {
+      // 21-INT: the connection each card describes — a live one before a revoked one, the org-level one before a branch's.
+      const rows = await tx.query<any>(`select distinct on (provider) id, provider, status, enabled, environment, config, scopes, auth_type
+          from integration_connections where org_id = $1
+         order by provider, (status <> 'revoked') desc, (branch_id is null) desc, updated_at desc`, [ctx.orgId]);
+      return {
+        country: (await tx.one<{ country: string }>('select country from organizations where id = $1', [ctx.orgId])).country,
+        connected: new Set(rows.filter((r) => r.status !== 'revoked').map((r) => r.provider as string)),
+        leading: new Map(rows.map((r) => [r.provider as string, r])),
+      };
+    });
     const verifications = await this.db.withPlatform((tx) => tx.query<VerificationRow>(
       `select provider, capability, environment, status, ran_at, commit_sha from integration_verifications where status = 'passed'`));
     return catalogEntries().map((e) => {
       const adapter = adapterFor(e.id)!;
+      const readinessDetail = providerReadiness(adapter, { country, configured: connected.has(e.id), verifications });
+      const row = leading.get(e.id);
+      // The chip uses what the provider offers this tenant (the summary itself reads 'not_configured' until connected).
+      const weakest = readinessDetail ? weakestLive(readinessDetail.capabilities.map((c) => c.live)) : null;
+      const marketplace: ProviderMarketplaceState = row ? connectionMarketplace(row, weakest) : {
+        ...marketplaceStatus({ simulated: adapter.descriptor.readiness === 'simulated', readinessSummary: weakest, connectMethod: connectMethodOf(adapter.descriptor),
+          reviewRequirements: adapter.descriptor.reviewRequirements, connection: null }),
+        connectionId: null, providerReview: providerReviewFor(e.id),
+      };
       return {
         ...e,
         fields: fieldsFor(e.id),
         activationKeys: e.activation.map((_, i) => `intg.activation.${e.id}.${i + 1}`),
         webhookEvents: adapter.setup?.webhookEvents ?? [],
-        readinessDetail: providerReadiness(adapter, { country, configured: connected.has(e.id), verifications }),
+        readinessDetail,
+        marketplace,
       };
     });
+  }
+
+  /**
+   * 21-INT permission verification: reads the permissions the provider granted to this connection's token (Meta:
+   * GET /me/permissions) and stores them, so the connection sheet can say "needs permission X". Providers that report
+   * scopes in the token response (Snapchat, TikTok, RFC 6749) are refreshed by reconnecting; others cannot be checked.
+   */
+  async checkPermissions(ctx: TenantContext, id: string) {
+    const view = await this.get(ctx, id);
+    if (view.status === 'revoked') throw conflict('connection_revoked', 'This connection was revoked');
+    if (!permissionsCheckable(view.provider, view.config)) {
+      throw invalid('permissions_not_checkable', 'This provider does not let Resuto read the granted permissions for this connection. Reconnect to refresh them.');
+    }
+    this.assertNotRateLimited(await this.rateLimit(ctx.orgId, id));
+    const conn = await this.load(ctx.orgId, { id });
+    const token = conn.provider === 'meta_pages' ? conn.adapter.credentials.userAccessToken : conn.adapter.credentials.accessToken;
+    if (!token) throw invalid('permissions_not_checkable', 'This connection has no token to check. Reconnect it.');
+    let granted: string[];
+    try {
+      granted = await metaGrantedPermissions(conn.provider, conn.adapter, token, conn.adapter.credentials.appSecret || null);
+    } catch (e) {
+      if (e instanceof ProviderError && e.status === 429) await this.markRateLimited(ctx.orgId, id, e.retryAfterMs);
+      throw new DomainError('provider_error', 'The provider did not answer the permission check. Try again later.', 502, { provider: redactedError(e) });
+    }
+    return this.db.withTenant(ctx.orgId, async (tx) => {
+      await tx.query(`update integration_connections set scopes = $2 where id = $1`, [id, granted]);
+      const perms = connectionPermissions(conn.provider, granted, conn.config);
+      await this.log(tx, ctx.orgId, id, perms.missing.length ? 'warn' : 'info', perms.missing.length ? 'Permission check: permissions missing' : 'Permission check passed',
+        { granted, missing: perms.missing });
+      return this.view(await tx.one(`select ${SAFE_COLUMNS} from integration_connections where id = $1`, [id]));
+    }, `${ctx.actorType}:${ctx.actorId}`);
   }
 
   /** Connection view plus diagnostics (webhook URL, last success/webhook, account identity). */
