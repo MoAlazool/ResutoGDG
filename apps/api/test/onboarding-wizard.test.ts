@@ -262,5 +262,7 @@ describe('social links on the storefront, xlsx imports', () => {
     expect(preview.status).toBe(200);
     expect(preview.body).toMatchObject({ source: 'xlsx', summary: { total: 2, errors: 0, create: 2 } });
     expect(preview.body.rows[1].item.priceMinor).toBe(4550);
+    // Like a CSV, a spreadsheet's dishes are available unless the sheet says otherwise, with no AI-draft warning.
+    expect(preview.body.rows.map((r: any) => [r.item.available, r.warnings])).toEqual([[true, []], [true, []]]);
   });
 });

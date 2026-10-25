@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_ONBOARDING, mergeCompleted, nextStep, ONBOARDING_STEPS, ORG_ONBOARDING_STEPS, previousStep, resumeStep } from './onboarding';
-import { onboardingProgressInput } from './platform';
-import { updateBrand } from './studio';
+import { onboardingProgressInput, updateBrand } from './onboarding-api';
 
 describe('onboarding wizard steps (21-ONB)', () => {
   it('has the nine plan steps in order; the restaurant exists from the brand step on', () => {

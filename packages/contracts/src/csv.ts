@@ -21,7 +21,7 @@ export function parseCsv(input: string): Array<Record<string, string>> {
   if (quoted) throw new RangeError('CSV has an unclosed quoted field.');
   row.push(value);
   if (row.some((x) => x.trim())) rows.push(row);
-  const columns = (rows.shift() ?? []).map((x) => x.replace(/^﻿/, '').trim());
+  const columns = (rows.shift() ?? []).map((x) => x.replace(/^\uFEFF/, '').trim());
   if (new Set(columns).size !== columns.length) throw new RangeError('Duplicate CSV columns.');
   return rows.map((r, i) => {
     if (r.length !== columns.length) throw new RangeError(`Incorrect column count at row ${i + 2}`);

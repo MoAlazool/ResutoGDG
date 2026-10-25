@@ -3,7 +3,6 @@ import { countryCode, locale, optionalPhone, optionalText, phoneE164, slug, text
 import { memberRole } from './common';
 import { checkSocialLink, SOCIAL_LINK_MAX_LENGTH, type SocialLinkProblem, type SocialLinks, type SocialNetwork } from './social-links';
 import type { SlugProblem } from './slugs';
-import { ONBOARDING_SERVICE_TYPES, ONBOARDING_STEPS } from './onboarding';
 
 export const branchInput = z.object({
   code: z.string().regex(/^[a-z0-9-]{1,40}$/).optional(),
@@ -155,30 +154,3 @@ export interface MenuQr {
   /** data:image/png;base64,… (1024 px), for download. */
   png: string;
 }
-
-// --- Onboarding wizard progress (21-ONB increment 2) ------------------------------
-const onboardingStep = z.enum(ONBOARDING_STEPS);
-/** Answers kept before the restaurant exists; strict and small (the progress row holds no menu or customer data). */
-export const onboardingDraft = z.object({
-  name: z.string().trim().max(120).optional(),
-  nameAr: z.string().trim().max(120).optional(),
-  country: countryCode.optional(),
-  serviceMode: z.enum(ONBOARDING_SERVICE_TYPES).optional(),
-  slug: z.string().trim().toLowerCase().max(60).optional(),
-  menuMethod: z.enum(['manual', 'spreadsheet', 'assisted']).optional(),
-}).strict();
-/**
- * PUT /v1/onboarding/progress: saves the wizard after a step. `completed` is merged into the steps already finished
- * (never removed); `draft` replaces the draft; `orgId` links the restaurant created at the address step (only one the
- * caller is a member of); `done` marks the wizard finished; `restart` starts a new wizard (another restaurant): the
- * finished steps and the link to the previous restaurant are dropped first.
- */
-export const onboardingProgressInput = z.object({
-  step: onboardingStep,
-  completed: z.array(onboardingStep).max(ONBOARDING_STEPS.length).default([]),
-  orgId: uuid.nullable().optional(),
-  draft: onboardingDraft.optional(),
-  done: z.boolean().optional(),
-  restart: z.boolean().optional(),
-}).strict();
-export type OnboardingProgressInput = z.infer<typeof onboardingProgressInput>;
