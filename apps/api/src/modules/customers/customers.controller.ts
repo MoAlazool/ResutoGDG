@@ -6,11 +6,12 @@ import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, Tenant } from '../../common/auth/decorators';
 import { DbService } from '../../common/db/db.service';
 import { zod } from '../../common/http/zod.pipe';
+import { Customer360Service } from './customer-360.service';
 import { CustomersService } from './customers.service';
 
 @Controller('o/:orgId/customers')
 export class CustomersController {
-  constructor(private readonly db: DbService, private readonly customers: CustomersService) {}
+  constructor(private readonly db: DbService, private readonly customers: CustomersService, private readonly c360: Customer360Service) {}
 
   @Get()
   @RequirePermission('customers:read')
@@ -36,6 +37,17 @@ export class CustomersController {
   @RequirePermission('customers:read')
   get(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.db.scoped(ctx, (tx) => this.customers.get(tx, ctx, id));
+  }
+
+  /**
+   * Customer 360 (21-INBOX): stats, cadence, favourite items, identities, consent, first touch, recent orders and
+   * reservations, loyalty, conversations, tags and notes in one bounded read. Conversation data needs connect:read
+   * (and the Connect module), loyalty the Marketing module; `sections` says what was left out and why.
+   */
+  @Get(':id/360')
+  @RequirePermission('customers:read')
+  get360(@Tenant() ctx: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.db.scoped(ctx, (tx) => this.c360.get(tx, ctx, id));
   }
 
   @Patch(':id')

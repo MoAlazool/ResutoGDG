@@ -437,4 +437,9 @@ export const ar: Record<string, string> = {
   print_job_completed: 'طُبعت هذه المهمة من قبل.',
   print_job_not_claimed: 'استلم مهمة الطباعة قبل إنهائها.',
   resync_required: 'يجب أن يعيد الجهاز مزامنة بياناته.',
+  reply_body_required: 'اكتب الرد بالعربية أو الإنجليزية أو بكلتيهما.',
+  saved_reply_limit_reached: 'وصل المطعم إلى الحد الأقصى للردود المحفوظة. احذف ردًا لإضافة آخر.',
+  shortcut_taken: 'يستخدم رد محفوظ آخر هذا الاختصار. اختر اختصارًا مختلفًا.',
+  tag_limit_reached: 'وصلت إلى الحد الأقصى للوسوم. أزل وسمًا أولًا.',
+  tag_name_taken: 'يوجد وسم بهذا الاسم بالفعل.',
 };

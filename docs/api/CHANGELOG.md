@@ -7,6 +7,26 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — Inbox workspace and Customer 360, increment 1 (21-INBOX)
+
+- Internal notes: `POST /v1/o/:orgId/connect/conversations/:id/notes` (`connect:reply`, idempotent by `key`) and
+  `GET /v1/o/:orgId/connect/conversations/:id/notes` (`connect:read`). Notes are staff-only (`messages.kind = 'note'`,
+  direction `internal`): never sent, never queued, not in the customer thread, and they leave the unread count, the
+  last message and the 24-hour window unchanged. `GET .../conversations/:id` gains `notes` (latest 50) and `tags`;
+  its `messages` never include notes.
+- Conversation tags: `GET|POST /v1/o/:orgId/connect/tags`, `PATCH|DELETE /v1/o/:orgId/connect/tags/:tagId`
+  (`connect:read` to list, `connect:manage` to change), `PUT|DELETE /v1/o/:orgId/connect/conversations/:id/tags/:tagId`
+  (`connect:reply`, idempotent). `GET .../connect/conversations` accepts `tagId` and each item gains `tags`.
+- Saved replies: `GET|POST /v1/o/:orgId/connect/saved-replies`, `PATCH|DELETE /v1/o/:orgId/connect/saved-replies/:replyId`
+  (`connect:read` to list, `connect:manage` to change; organization-wide or per branch, optional `/` shortcut).
+- Customer 360: `GET /v1/o/:orgId/customers/:id/360` (`customers:read`; conversation parts need `connect:read` and the
+  Connect module, loyalty the Marketing module, reported in `sections`). Contract: `Customer360` in
+  `packages/contracts/src/inbox.ts`.
+- Error codes: `reply_body_required`, `saved_reply_limit_reached`, `shortcut_taken`, `tag_limit_reached`,
+  `tag_name_taken`.
+
+No existing route changed (checked with `scripts/openapi/additive.mjs` against the previous document).
+
 ### Added — POS device API, contract 0.1.0 (21-POSAPI, draft)
 
 For the native iPad POS app (`feature/ipad-pos`). Every route and event is listed with its status in
