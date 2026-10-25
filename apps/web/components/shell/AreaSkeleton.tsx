@@ -1,7 +1,7 @@
 import { SkeletonBlock, SkeletonTable, StatsStripSkeleton } from '@resuto/ui';
 
 /** The page templates of plan §4 (packages/ui templates.tsx), as loading placeholders with the same regions. */
-export type AreaTemplate = 'dashboard' | 'list' | 'board' | 'workspace' | 'settings';
+export type AreaTemplate = 'dashboard' | 'list' | 'detail' | 'board' | 'workspace' | 'settings';
 
 const Header = () => (
   <div className="page-header area-sk-header">
@@ -32,6 +32,15 @@ export function AreaSkeleton({ template }: { template: AreaTemplate }) {
         <div className="area-sk-filters"><SkeletonBlock width={220} height={36} radius={8} /><SkeletonBlock width={140} height={36} radius={8} /></div>
         <div className="panel area-sk-panel"><SkeletonTable rows={8} cols={5} /></div>
       </>}
+      {template === 'detail' && (
+        <div className="area-sk-detail">
+          <div className="area-sk-main">
+            <StatsStripSkeleton count={3} />
+            <div className="panel area-sk-panel"><SkeletonBlock width="35%" height={16} /><SkeletonTable rows={4} cols={4} /></div>
+          </div>
+          <div className="panel area-sk-panel area-sk-end"><SkeletonBlock width="50%" height={16} /><SkeletonBlock height={140} radius={8} /></div>
+        </div>
+      )}
       {template === 'board' && (
         <div className="area-sk-lanes">
           {[0, 1, 2, 3].map((i) => (

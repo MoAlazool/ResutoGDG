@@ -27,6 +27,8 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/menu', 'apps/web/app/dashboard/[orgId]/menu-import',
   // 21-INSIGHTS: the Insights area (analytics and intelligence views, its shell and saved reports).
   'apps/web/app/dashboard/[orgId]/analytics', 'apps/web/app/dashboard/[orgId]/intelligence', 'apps/web/components/insights',
+  // 21-ADMIN: the operator console (shell, restaurants, operations, prices, provider apps).
+  'apps/web/app/admin',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

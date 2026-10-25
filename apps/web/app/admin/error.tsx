@@ -1,7 +1,7 @@
 'use client';
-import { ErrorView } from '@/components/shell/ErrorView';
+import { AreaError } from '@/components/shell/AreaError';
 
-/** Branded, localised error state for the admin area (retry re-renders; chunk load failures reload once). */
-export default function AreaError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return <ErrorView error={error} reset={reset} variant="inline" homeHref="/admin" />;
+/** Operator console (Restaurants): the screen failed to render; the console shell and its navigation stay usable (21-ADMIN). */
+export default function AdminError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  return <AreaError error={error} reset={reset} area="admin" homeHref="/admin" />;
 }

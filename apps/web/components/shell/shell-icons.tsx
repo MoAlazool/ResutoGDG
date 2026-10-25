@@ -10,7 +10,8 @@ import type { ShellIconName } from '@/lib/nav';
 // Regenerate a definition from lucide-react/dist/esm/icons/<name>.mjs (drop the `key` attributes).
 
 type Props = SVGProps<SVGSVGElement> & { size?: number | string; strokeWidth?: number | string };
-function svgIcon(displayName: string, children: ReactNode): LucideIcon {
+/** A Lucide icon from its element tree (no Lucide runtime); also used by the operator console (app/admin/admin-icons.tsx). */
+export function svgIcon(displayName: string, children: ReactNode): LucideIcon {
   const C = ({ size = 24, strokeWidth = 2, ...rest }: Props) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" {...rest}>{children}</svg>
@@ -34,7 +35,7 @@ const Store = svgIcon('Store', <><path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1
 const Users = svgIcon('Users', <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M16 3.128a4 4 0 0 1 0 7.744" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><circle cx="9" cy="7" r="4" /></>);
 const Wallet = svgIcon('Wallet', <><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" /><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" /></>);
 
-const AREA_ICONS: Partial<Record<ShellIconName, LucideIcon>> = {
+export const AREA_ICONS: Partial<Record<ShellIconName, LucideIcon>> = {
   home: House, operations: Activity, store: Store, customers: Users, money: Wallet, insights: ChartLine, apps: Blocks,
   settings: Settings, explore: Compass,
 };
