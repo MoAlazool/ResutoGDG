@@ -1,6 +1,6 @@
 // Overview command centre (21-HOME, plan §6.1): section ids, the per-user layout preference and the attention kinds.
-// zod-free (exported from '@resuto/contracts/lite' too), so the staff overview can use the helpers without the
-// schema library; the request schemas live in ./home.ts.
+// Zod-free, so the staff overview imports this module directly (apps/web/lib/contracts-home.ts) without the schema
+// library; it is not in '@resuto/contracts/lite', which is one shared module on every route. Request schemas: ./home.ts.
 import type { ModuleKey } from './modules';
 import type { Permission } from './permissions';
 

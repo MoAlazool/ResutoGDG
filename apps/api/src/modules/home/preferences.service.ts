@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   defaultOverviewPreferences, normaliseOverviewPreferences, type OverviewPreferencesInput, type OverviewPreferencesResponse,
-} from '@resuto/contracts';
+} from '@resuto/contracts/home';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService } from '../../common/db/db.service';
 import { forbidden } from '../../common/errors/domain-error';

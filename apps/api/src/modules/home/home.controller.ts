@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Put, Query } from '@nestjs/common';
-import { attentionQuery, overviewPreferencesInput, type OverviewPreferencesInput } from '@resuto/contracts';
+import { attentionQuery, overviewPreferencesInput, type OverviewPreferencesInput } from '@resuto/contracts/home';
 import type { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { Tenant } from '../../common/auth/decorators';

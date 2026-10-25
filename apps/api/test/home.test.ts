@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ATTENTION_KINDS, OVERVIEW_SECTIONS } from '@resuto/contracts';
+import { ATTENTION_KINDS, OVERVIEW_SECTIONS } from '@resuto/contracts/home';
 import { DbService } from '../src/common/db/db.service';
 import { RateLimiter } from '../src/common/http/rate-limiter';
 import { PREFERENCES_PER_MINUTE } from '../src/modules/home/home.controller';

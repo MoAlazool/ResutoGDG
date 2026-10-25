@@ -1,5 +1,8 @@
 // Overview command centre (21-HOME, plan §6.1): request schemas and response shapes of the overview period, the
 // attention aggregator and the per-user overview preferences. Zod-free helpers and constants: ./home-sections.ts.
+// Subpath export '@resuto/contracts/home' (not in the main entry): the web resolves the main entry to one shared,
+// scope-hoisted module on most staff routes, and only the overview uses these, importing the zod-free part from
+// source (apps/web/lib/contracts-home.ts) and the rest as types.
 import { z } from 'zod';
 import type { AnalyticsMeta } from './analytics';
 import { MAX_ANALYTICS_DAYS } from './analytics';

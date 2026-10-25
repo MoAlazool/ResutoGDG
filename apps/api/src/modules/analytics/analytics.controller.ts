@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
-import { analyticsPeriodQuery, overviewQuery, paperIndicatorQuery, roiInput, type OverviewQuery } from '@resuto/contracts';
+import { analyticsPeriodQuery, paperIndicatorQuery, roiInput } from '@resuto/contracts';
+import { overviewQuery, type OverviewQuery } from '@resuto/contracts/home';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, Tenant } from '../../common/auth/decorators';

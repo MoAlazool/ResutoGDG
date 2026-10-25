@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ATTENTION_ACCESS, ATTENTION_KINDS, ATTENTION_RULES, type AttentionItem, type AttentionKind, type AttentionResponse, type AttentionSample,
   type AttentionSeverity,
-} from '@resuto/contracts';
+} from '@resuto/contracts/home';
 import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { notFound } from '../../common/errors/domain-error';

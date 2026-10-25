@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { AcquisitionChannel, AnalyticsMeta, AnalyticsPeriodQuery, OverviewCompare, OverviewPeriod, OverviewPeriodKpis, RevenueTotals, RoiInput } from '@resuto/contracts';
+import type { AnalyticsMeta, AnalyticsPeriodQuery, RevenueTotals, RoiInput } from '@resuto/contracts';
+import type { AcquisitionChannel, OverviewCompare, OverviewPeriod, OverviewPeriodKpis } from '@resuto/contracts/home';
 import type { paperIndicatorQuery } from '@resuto/contracts';
 import { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';

@@ -11,7 +11,8 @@
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
     "./lite": { "types": "./dist/lite.d.ts", "default": "./dist/lite.js" },
     "./openapi": { "types": "./dist/openapi.d.ts", "default": "./dist/openapi.js" },
-    "./mcp-tools": { "types": "./dist/mcp-tools.d.ts", "default": "./dist/mcp-tools.js" }
+    "./mcp-tools": { "types": "./dist/mcp-tools.d.ts", "default": "./dist/mcp-tools.js" },
+    "./home": { "types": "./dist/home.d.ts", "default": "./dist/home.js" }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

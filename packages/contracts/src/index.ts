@@ -40,4 +40,3 @@ export * from './studio-ai';
 export * from './changes';
 export * from './pos';
 export * from './inbox';
-export * from './home';
