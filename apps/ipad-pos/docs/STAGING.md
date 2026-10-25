@@ -45,3 +45,9 @@ The write path checkpoints operation and payment keys before their network calls
 Outputs explicitly separate API read-model checks from browser/physical-device checks. Do not label synthetic SwiftUI fixtures or public-only probes as authenticated staging success. Use `VERIFICATION.md` for multi-client, failure, tenant, hardware and release acceptance beyond this narrow happy-path probe.
 
 For the later 0.2.0 shadow phase, an authorized manager must create a one-use code for the exact QA branch and waiter/cashier/kitchen acting role with **`requireStaff: true`**. No device-only fallback is accepted by the native adapter. At the latest read-only check the staging POS tables were still absent and health still reported build `5c359d5`; deploy/merge belongs to Claude and the platform owner. Native pairing UI and encrypted foreground shadows are implemented; real pairing and service-day comparison await that deployment and approved QA accounts.
+
+## Resumed read-only check — 2026-10-25
+
+The real Swift URLSession public probe passed at `2026-10-25T11:04:54Z`: staging health and unauthenticated `/me` 401. The API still serves `5c359d5`; Supabase metadata still lacks the four POS device/submission/event/print-job tables. A SELECT for the dedicated `Resuto Native QA` restaurant returned false. Evidence: `evidence/native-staging-public-20261025.json` and `evidence/staging-read-only-20261025.json`.
+
+The resumed runtime reports no secret bindings or outbound identities. The GitHub integration cannot list repository secret metadata (403); this does not establish whether an approved repository secret exists. No credential value was requested, logged or committed. The approved dedicated identity/setup in the checklist remains required; no production accounts, database writes, deployments or protection changes were used to work around it.
