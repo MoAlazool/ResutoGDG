@@ -26,15 +26,16 @@ final class VisualReviewTests: XCTestCase {
         XCTAssertTrue(element(app,"simulatedTestBanner").exists)
         let idle=NSPredicate { _,_ in !app.progressIndicators.firstMatch.exists }
         expectation(for:idle,evaluatedWith:nil);waitForExpectations(timeout:15)
-        let directory=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0]
+        let directory=FileManager.default.urls(for:.documentDirectory,in:.userDomainMask)[0].appendingPathComponent("ResutoVisualRequests")
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true)
         let sequence=UUID().uuidString
-        let data=try JSONSerialization.data(withJSONObject:["sequence":sequence,"name":name])
-        try data.write(to:directory.appendingPathComponent("resuto-visual-request.json"),options:.atomic)
-        let ack=directory.appendingPathComponent("resuto-visual-ack.json")
+        let data=try JSONSerialization.data(withJSONObject:["sequence":sequence,"name":name,"landscape":app.frame.width > app.frame.height,"requestedAt":Date().timeIntervalSince1970] as [String:Any])
+        try data.write(to:directory.appendingPathComponent(sequence+".json"),options:.atomic)
+        let ack=directory.appendingPathComponent(sequence+".ack.json")
         expectation(for:NSPredicate { _,_ in
             guard let bytes=try? Data(contentsOf:ack),let value=try? JSONSerialization.jsonObject(with:bytes) as? [String:String] else { return false }
             return value["sequence"] == sequence
-        },evaluatedWith:nil);waitForExpectations(timeout:25)
+        },evaluatedWith:nil);waitForExpectations(timeout:60)
         let attachment=XCTAttachment(screenshot:app.screenshot());attachment.name=name+"-XCTest-diagnostic";attachment.lifetime = .keepAlways;add(attachment)
     }
     private func launch(arabic: Bool) throws -> XCUIApplication {
@@ -81,7 +82,10 @@ final class VisualReviewTests: XCTestCase {
         tap(app,"nav.orders");XCTAssertTrue(app.buttons["order."+order].waitForExistence(timeout:15));try capture(app,"07-orders-en")
         tap(app,"order."+order);try capture(app,"08-checkout-en")
         tap(app,"checkout.reviewCash");tap(app,"checkout.confirmCash")
-        expectation(for:NSPredicate(format:"label == 'Paid'"),evaluatedWith:app.staticTexts["order.paymentState"]);waitForExpectations(timeout:15)
+        let paid=app.staticTexts["order.paymentState"]
+        for _ in 0..<6 { if paid.exists { break };app.collectionViews.allElementsBoundByIndex.last?.swipeDown() }
+        XCTAssertTrue(paid.waitForExistence(timeout:15))
+        expectation(for:NSPredicate(format:"label == 'Paid'"),evaluatedWith:paid);waitForExpectations(timeout:15)
         try capture(app,"09-paid-en");tap(app,"order.done")
         tap(app,"nav.kitchen");try capture(app,"10-kitchen-en")
         tap(app,"nav.floor");try capture(app,"11-floor-en")
