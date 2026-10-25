@@ -6,10 +6,13 @@ import type { TenantContext } from '../../common/auth/context';
 import { DbService, type Tx } from '../../common/db/db.service';
 import { conflict, notFound } from '../../common/errors/domain-error';
 import { cursorAt, keyset, pageOf } from '../../common/http/pagination';
-import { deviceBranch } from './pos-feed.service';
+import { deviceBranch, deviceId } from './pos-feed.service';
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
 const JOB_COLUMNS = 'j.id, j.kind, j.status, j.order_id, j.station, j.claimed_by, j.claimed_at, j.attempts, j.completed_at, j.error, j.created_at';
+
+/** Who asked for a receipt: the device, plus the staff member signed in on it (contract 0.2.0). */
+const requestedBy = (ctx: TenantContext) => (ctx.actorType === 'user' ? `device:${deviceId(ctx)} user:${ctx.actorId}` : `device:${deviceId(ctx)}`);
 
 const toJob = (r: any): PosPrintJob => ({
   id: r.id, kind: r.kind, status: r.status, orderId: r.order_id, station: r.station, claimedBy: r.claimed_by, claimedAt: iso(r.claimed_at),
@@ -57,7 +60,7 @@ export class PosPrintService {
       let r = await tx.maybeOne<any>(
         `insert into pos_print_jobs as j (org_id, branch_id, kind, order_id, client_request_id, requested_by)
          values ($1, $2, 'receipt', $3, $4, $5) on conflict (org_id, client_request_id) do nothing returning ${JOB_COLUMNS}`,
-        [ctx.orgId, branchId, orderId, clientRequestId, `device:${ctx.actorId}`]);
+        [ctx.orgId, branchId, orderId, clientRequestId, requestedBy(ctx)]);
       if (!r) {
         r = await tx.one<any>(`select ${JOB_COLUMNS}, j.branch_id from pos_print_jobs j where j.org_id = $1 and j.client_request_id = $2`, [ctx.orgId, clientRequestId]);
         if (r.order_id !== orderId || r.branch_id !== branchId || r.kind !== 'receipt') {
@@ -75,7 +78,7 @@ export class PosPrintService {
         `update pos_print_jobs j set status = 'claimed', claimed_by = $3, claimed_at = now(), attempts = attempts + 1, error = null
           where j.id = $1 and j.branch_id = $2
             and (j.status in ('pending', 'failed') or (j.status = 'claimed' and (j.claimed_by = $3 or j.claimed_at < now() - make_interval(secs => $4))))
-          returning ${JOB_COLUMNS}`, [id, branchId, ctx.actorId, PRINT_JOB_CLAIM_SECONDS]);
+          returning ${JOB_COLUMNS}`, [id, branchId, deviceId(ctx), PRINT_JOB_CLAIM_SECONDS]);
       if (!r) {
         const cur = await tx.maybeOne<any>('select status, claimed_by from pos_print_jobs where id = $1 and branch_id = $2', [id, branchId]);
         if (!cur) throw notFound('Print job');
@@ -93,7 +96,7 @@ export class PosPrintService {
       const r = await tx.maybeOne<any>(
         `update pos_print_jobs j set status = $4, completed_at = now(), error = $5
           where j.id = $1 and j.branch_id = $2 and j.status = 'claimed' and j.claimed_by = $3 returning ${JOB_COLUMNS}`,
-        [id, branchId, ctx.actorId, status, status === 'failed' ? error?.trim() || 'failed' : null]);
+        [id, branchId, deviceId(ctx), status, status === 'failed' ? error?.trim() || 'failed' : null]);
       if (!r) {
         if (!(await tx.maybeOne('select 1 from pos_print_jobs where id = $1 and branch_id = $2', [id, branchId]))) throw notFound('Print job');
         throw conflict('print_job_not_claimed', 'Claim the job before completing it.');

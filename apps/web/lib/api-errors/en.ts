@@ -436,6 +436,8 @@ export const en: Record<string, string> = {
   pos_device_required: 'This action is only available on a paired POS device.',
   pos_items_unavailable: 'Some items cannot be sold right now.',
   pos_price_changed: 'Prices changed since the menu was last synced. Review the order.',
+  pos_staff_not_allowed: 'This staff member cannot use this device.',
+  pos_staff_required: 'Sign a staff member in on this device to continue.',
   print_job_claimed: 'Another device is printing this job.',
   print_job_completed: 'This job was already printed.',
   print_job_not_claimed: 'Claim the print job before completing it.',

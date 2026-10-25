@@ -434,6 +434,8 @@ export const ar: Record<string, string> = {
   pos_device_required: 'هذا الإجراء متاح فقط على جهاز نقاط بيع مرتبط.',
   pos_items_unavailable: 'بعض الأصناف غير متاحة للبيع الآن.',
   pos_price_changed: 'تغيّرت الأسعار منذ آخر مزامنة للقائمة. راجع الطلب.',
+  pos_staff_not_allowed: 'لا يمكن لهذا الموظف استخدام هذا الجهاز.',
+  pos_staff_required: 'سجّل دخول أحد الموظفين على هذا الجهاز للمتابعة.',
   print_job_claimed: 'جهاز آخر يطبع هذه المهمة.',
   print_job_completed: 'طُبعت هذه المهمة من قبل.',
   print_job_not_claimed: 'استلم مهمة الطباعة قبل إنهائها.',

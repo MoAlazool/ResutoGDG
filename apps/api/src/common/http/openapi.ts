@@ -4,7 +4,8 @@ import { RouteParamtypes } from '@nestjs/common/enums/route-paramtypes.enum';
 import { ModulesContainer } from '@nestjs/core';
 import { baseComponents, jsonSchemaOf, type JsonSchema, type OpenApiDoc, type OpenApiOperation, type SchemaDefs } from '@resuto/contracts/openapi';
 import { z } from 'zod';
-import { IS_PUBLIC, MODULE, PERMISSION, PLATFORM_ROLE, POS_DEVICE } from '../auth/decorators';
+import { POS_STAFF_HEADER } from '@resuto/contracts';
+import { IS_PUBLIC, MODULE, PERMISSION, PLATFORM_ROLE, POS_DEVICE, POS_STAFF_OPTIONAL } from '../auth/decorators';
 import { ZodPipe } from './zod.pipe';
 
 /**
@@ -157,6 +158,16 @@ export class OpenApiService {
         parameters.push({ name: m[1]!, in: 'path', required: true, schema: m[1] === 'orgId' ? { type: 'string', format: 'uuid' } : { type: 'string' } });
       }
     }
+    // POS contract 0.2.0: every device route takes an optional staff session next to the device credential.
+    const posDevice = Reflect.getMetadata(POS_DEVICE, ctrl) === true;
+    if (posDevice) {
+      parameters.push({ name: POS_STAFF_HEADER, in: 'header', required: false, schema: { type: 'string' },
+        description: meta<boolean>(POS_STAFF_OPTIONAL)
+          ? 'Optional staff session on this device (`Bearer <staff access token>`): the answer then names the staff member and their effective '
+            + 'permissions. Never required here, also on a device paired with requireStaff.'
+          : 'Optional staff session on this device (`Bearer <staff access token>`, POS contract 0.2.0): the request acts as that staff member, '
+            + 'whose role is bounded by the device\'s acting role. Required on a device paired with requireStaff (401 pos_staff_required).' });
+    }
     // Stable order: path, query, header; then by name.
     const rank: Record<string, number> = { path: 0, query: 1, header: 2 };
     parameters.sort((a, b) => (rank[a.in]! - rank[b.in]!) || a.name.localeCompare(b.name));
@@ -180,8 +191,9 @@ export class OpenApiService {
         : { required: true, content: { 'application/json': { schema: body } } };
     }
     if (isPublic) op.security = [];
-    // 21-POSAPI: device routes take the device credential (rpos_...), never a staff token.
-    if (Reflect.getMetadata(POS_DEVICE, ctrl) === true) op.security = [{ posDeviceAuth: [] }];
+    // 21-POSAPI: device routes take the device credential (rpos_...), never a staff token as Authorization; contract
+    // 0.2.0 adds the optional staff session (posStaffAuth) next to it.
+    if (posDevice) op.security = [{ posDeviceAuth: [] }, { posDeviceAuth: [], posStaffAuth: [] }];
     const permissions = meta<string[]>(PERMISSION);
     if (permissions?.length) op['x-resuto-permissions'] = permissions;
     const module = meta<string>(MODULE);

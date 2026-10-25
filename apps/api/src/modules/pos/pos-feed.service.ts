@@ -8,11 +8,20 @@ import { DbService, type Tx } from '../../common/db/db.service';
 import { DomainError } from '../../common/errors/domain-error';
 import { Scheduled } from '../../common/events/events';
 
-/** The branch a device context is scoped to (the guard builds device contexts with exactly one branch). */
+/**
+ * The branch a device context is scoped to. The guard builds device contexts, and staff sessions on a device
+ * (contract 0.2.0), with exactly one branch and the device id.
+ */
 export function deviceBranch(ctx: TenantContext): string {
-  const b = ctx.actorType === 'device' ? ctx.branchIds?.[0] : undefined;
+  const b = ctx.deviceId && ctx.branchIds?.length === 1 ? ctx.branchIds[0] : undefined;
   if (!b) throw new Error('POS route without a device context');
   return b;
+}
+
+/** The device a POS request came through (the actor may be a staff member signed in on it). */
+export function deviceId(ctx: TenantContext): string {
+  if (!ctx.deviceId) throw new Error('POS route without a device context');
+  return ctx.deviceId;
 }
 
 export const resyncRequired = (reason: PosResyncDetails['reason'], pos: PosFeedPosition) =>

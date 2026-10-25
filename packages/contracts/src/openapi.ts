@@ -83,6 +83,10 @@ export function baseComponents() {
       bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Supabase Auth access token (staff), or an MCP key on /mcp routes.' },
       posDeviceAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'rpos_ device credential',
         description: 'Paired POS device credential (POST /v1/pos/pair). Accepted only on the POS device routes (/v1/pos/...).' },
+      posStaffAuth: { type: 'apiKey', in: 'header', name: 'X-Resuto-Staff-Authorization',
+        description: 'POS contract 0.2.0: a staff session on a paired device, `Bearer <Supabase access token>`, sent together with the device '
+          + 'credential. The request acts as that staff member (active membership of the device\'s restaurant and branch), with their role '
+          + 'bounded by the device\'s acting role.' },
     },
   };
 }
@@ -132,7 +136,7 @@ export interface OpenApiDoc {
 }
 export interface OpenApiOperation {
   operationId?: string;
-  parameters?: Array<{ name: string; in: string; required?: boolean; schema?: JsonSchema }>;
+  parameters?: Array<{ name: string; in: string; required?: boolean; schema?: JsonSchema; description?: string }>;
   responses?: Record<string, { $ref?: string; content?: Record<string, { schema?: JsonSchema }> }>;
   [k: string]: unknown;
 }

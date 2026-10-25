@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  POS_CONTRACT_VERSION, POS_DEVICE_TOKEN_PREFIX, POS_PAIRING_CODE_ALPHABET, POS_PAIRING_CODE_LENGTH, ROLE_PERMISSIONS,
+  POS_CONTRACT_VERSION, POS_DEVICE_TOKEN_PREFIX, POS_PAIRING_CODE_ALPHABET, POS_PAIRING_CODE_LENGTH,
   type CreatePosPairingRequest, type Page, type PosDevicePaired, type PosDeviceSummary, type PosPairingCreated, type PosPairRequest, type PosSession,
 } from '@resuto/contracts';
 import { randomBytes, randomInt } from 'node:crypto';
@@ -12,18 +12,19 @@ import { DbService } from '../../common/db/db.service';
 import { DomainError, conflict, notFound } from '../../common/errors/domain-error';
 import { branchScope, cursorAt, keyset, pageOf } from '../../common/http/pagination';
 import { AuditService } from '../../common/platform/audit.service';
-import { deviceBranch, PosFeedService } from './pos-feed.service';
+import { deviceBranch, deviceId, PosFeedService } from './pos-feed.service';
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
 
 // Never select token_hash or code_hash: sessions cannot read them (column grants) and they never leave the database.
 const DEVICE_COLUMNS = `d.id, d.branch_id, d.name, d.acting_role, d.token_prefix, d.status, d.platform, d.app_version, d.model, d.paired_at,
-  d.expires_at, d.last_seen_at, d.revoked_at, d.revoke_reason`;
+  d.expires_at, d.last_seen_at, d.revoked_at, d.revoke_reason, d.require_staff`;
 
 export const toDevice = (r: any): PosDeviceSummary => ({
   id: r.id, branchId: r.branch_id, name: r.name, actingRole: r.acting_role, tokenPrefix: r.token_prefix, status: r.status,
   expired: !!r.expires_at && new Date(r.expires_at) <= new Date(), platform: r.platform, appVersion: r.app_version, model: r.model,
   pairedAt: iso(r.paired_at)!, expiresAt: iso(r.expires_at), lastSeenAt: iso(r.last_seen_at), revokedAt: iso(r.revoked_at), revokeReason: r.revoke_reason,
+  requireStaff: r.require_staff === true,
 });
 
 /** `rpos_<43 url-safe chars>` (256 bits). Only its sha256 and a display prefix are stored. */
@@ -66,12 +67,14 @@ export class PosDevicesService {
       if (!branch) throw notFound('Branch');
       if (!branch.is_active) throw conflict('branch_unavailable', 'This branch is not active.');
       const row = await tx.one<{ id: string; expires_at: Date }>(
-        `insert into pos_device_pairings(org_id, branch_id, name, acting_role, code_hash, device_ttl_days, created_by, expires_at)
-         values ($1, $2, $3, $4, $5, $6, $7, now() + make_interval(mins => $8)) returning id, expires_at`,
-        [ctx.orgId, input.branchId, input.name, input.actingRole, code.hash, input.deviceTtlDays, ctx.userId, input.expiresInMinutes]);
+        `insert into pos_device_pairings(org_id, branch_id, name, acting_role, code_hash, device_ttl_days, created_by, expires_at, require_staff)
+         values ($1, $2, $3, $4, $5, $6, $7, now() + make_interval(mins => $8), $9) returning id, expires_at`,
+        [ctx.orgId, input.branchId, input.name, input.actingRole, code.hash, input.deviceTtlDays, ctx.userId, input.expiresInMinutes, input.requireStaff]);
       await this.audit.record(tx, ctx, { action: 'pos.pairing.created', entityType: 'pos_device_pairing', entityId: row.id, branchId: input.branchId,
-        metadata: { name: input.name, actingRole: input.actingRole, expiresInMinutes: input.expiresInMinutes, deviceTtlDays: input.deviceTtlDays } });
-      return { id: row.id, branchId: input.branchId, actingRole: input.actingRole, name: input.name, code: code.display, expiresAt: iso(row.expires_at)! };
+        metadata: { name: input.name, actingRole: input.actingRole, expiresInMinutes: input.expiresInMinutes, deviceTtlDays: input.deviceTtlDays,
+          requireStaff: input.requireStaff } });
+      return { id: row.id, branchId: input.branchId, actingRole: input.actingRole, name: input.name, code: code.display, expiresAt: iso(row.expires_at)!,
+        requireStaff: input.requireStaff };
     });
   }
 
@@ -90,17 +93,19 @@ export class PosDevicesService {
       // Single use under concurrency: only the first transaction consumes the code.
       const p = await tx.maybeOne<any>(
         `update pos_device_pairings set consumed_at = now() where id = $1 and consumed_at is null and expires_at > now()
-         returning id, branch_id, name, acting_role, device_ttl_days, created_by`, [found.id]);
+         returning id, branch_id, name, acting_role, device_ttl_days, created_by, require_staff`, [found.id]);
       if (!p) throw pairingInvalid();
       const d = await tx.one<any>(
-        `insert into pos_devices as d (org_id, branch_id, name, acting_role, token_prefix, token_hash, platform, app_version, model, pairing_id, created_by, expires_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now() + make_interval(days => $12)) returning ${DEVICE_COLUMNS}`,
+        `insert into pos_devices as d (org_id, branch_id, name, acting_role, token_prefix, token_hash, platform, app_version, model, pairing_id, created_by, expires_at,
+                                       require_staff)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now() + make_interval(days => $12), $13) returning ${DEVICE_COLUMNS}`,
         [found.org_id, p.branch_id, p.name, p.acting_role, t.prefix, t.hash, input.platform, input.appVersion ?? null, input.model ?? null, p.id,
-          p.created_by, p.device_ttl_days]);
+          p.created_by, p.device_ttl_days, p.require_staff]);
       await tx.query('update pos_device_pairings set device_id = $2 where id = $1', [p.id, d.id]);
-      const ctx = new TenantContext(found.org_id, d.acting_role, [d.branch_id], null, 'device', d.id, 'api');
+      const ctx = new TenantContext(found.org_id, d.acting_role, [d.branch_id], null, 'device', d.id, 'api', { deviceId: d.id });
       await this.audit.record(tx, ctx, { action: 'pos.device.paired', entityType: 'pos_device', entityId: d.id, branchId: d.branch_id,
-        metadata: { pairingId: p.id, name: d.name, actingRole: d.acting_role, tokenPrefix: d.token_prefix, platform: d.platform, appVersion: d.app_version } });
+        metadata: { pairingId: p.id, name: d.name, actingRole: d.acting_role, tokenPrefix: d.token_prefix, platform: d.platform, appVersion: d.app_version,
+          requireStaff: d.require_staff } });
       return { token: t.token, device: toDevice(d), orgId: found.org_id, contractVersion: POS_CONTRACT_VERSION };
     }, 'pos:pair');
   }
@@ -142,11 +147,14 @@ export class PosDevicesService {
     });
   }
 
-  /** The device's own view: who it is, where, what it may do, and where the feed stands. */
-  async session(ctx: TenantContext): Promise<PosSession> {
+  /**
+   * The device's own view: who it is, where, what it may do, and where the feed stands. With a staff session
+   * (contract 0.2.0) it also names the staff member, and `permissions` are the staff role's within the acting role's.
+   */
+  async session(ctx: TenantContext, staff?: { userId: string; email: string | null; role: string }): Promise<PosSession> {
     const branchId = deviceBranch(ctx);
     return this.db.scoped(ctx, async (tx) => {
-      const d = await tx.one<any>(`select ${DEVICE_COLUMNS} from pos_devices d where d.id = $1`, [ctx.actorId]);
+      const d = await tx.one<any>(`select ${DEVICE_COLUMNS} from pos_devices d where d.id = $1`, [deviceId(ctx)]);
       const o = await tx.one<any>('select id, name, name_ar, currency, country, timezone from organizations where id = $1', [ctx.orgId]);
       const b = await tx.one<any>(
         `select id, code, name, name_ar, coalesce(timezone, $2) as timezone, service_mode, accepts_dine_in, accepts_pickup, accepts_delivery
@@ -156,10 +164,12 @@ export class PosDevicesService {
         org: { id: o.id, name: o.name, nameAr: o.name_ar, currency: o.currency, country: o.country, timezone: o.timezone },
         branch: { id: b.id, code: b.code, name: b.name, nameAr: b.name_ar, timezone: b.timezone, serviceMode: b.service_mode,
           acceptsDineIn: b.accepts_dine_in, acceptsPickup: b.accepts_pickup, acceptsDelivery: b.accepts_delivery },
-        permissions: [...ROLE_PERMISSIONS[ctx.role]],
+        permissions: ctx.permissions,
         feed: await this.feed.position(tx, branchId),
         serverTime: new Date().toISOString(),
         contractVersion: POS_CONTRACT_VERSION,
+        requireStaff: d.require_staff === true,
+        staff: staff ? { id: staff.userId, email: staff.email, role: staff.role } : null,
       };
     });
   }

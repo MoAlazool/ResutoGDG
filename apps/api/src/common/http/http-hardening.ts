@@ -6,7 +6,8 @@ import { forwardableRoute, forwardedClientIp } from './client-forwarding';
 import { acceptRequestId, requestContext } from './request-context';
 
 /** Request headers that change who the caller is; every response varies on them (PCL-04). */
-export const CREDENTIAL_HEADERS = ['Authorization', 'X-Visit-Token', 'X-Reservation-Token'];
+// X-Resuto-Staff-Authorization: a staff session on a paired POS device (POS contract 0.2.0).
+export const CREDENTIAL_HEADERS = ['Authorization', 'X-Visit-Token', 'X-Reservation-Token', 'X-Resuto-Staff-Authorization'];
 
 /**
  * Express `trust proxy` from TRUST_PROXY (audit PS-13): "false"/"0" (API reached directly), a hop count, or a
@@ -68,7 +69,8 @@ export function hardeningMiddleware(env: Pick<Env, 'NODE_ENV'> & Partial<Pick<En
         requestId: req.id ?? '', method: req.method, route: routeOf(req), status: res.statusCode,
         ms: Number((process.hrtime.bigint() - started) / 1_000_000n),
         orgId: r.tenant?.orgId ?? null,
-        actor: p ? (p.kind === 'mcp' ? `mcp:${p.clientId}` : p.kind === 'device' ? `device:${p.deviceId}` : `user:${p.userId}`) : null,
+        actor: p ? (p.kind === 'mcp' ? `mcp:${p.clientId}`
+          : p.kind === 'device' ? `device:${p.deviceId}${p.staff ? ` user:${p.staff.userId}` : ''}` : `user:${p.userId}`) : null,
         ip: req.ip ?? null,
       });
     });

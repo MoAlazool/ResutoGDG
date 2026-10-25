@@ -183,3 +183,29 @@ test('pairing codes and credentials keep their shape and scope', async () => {
   assert.equal(f.prosecdef, true);
   assert.ok((f.proconfig ?? []).some((c) => /^search_path=public, ?pg_temp$/.test(c)));
 });
+
+test('requireStaff (contract 0.2.0): defaults to false and is readable by sessions; hashes stay unreadable', async () => {
+  const [d] = await q('select require_staff from pos_devices where id = $1', [ids.A.device]);
+  assert.equal(d.require_staff, false, 'existing and new devices default to the 0.1.0 behaviour');
+  const [p] = await q('select require_staff from pos_device_pairings where org_id = $1 limit 1', [ids.A.org]);
+  assert.equal(p.require_staff, false);
+  for (const role of ['resuto_member', 'resuto_tenant']) {
+    const who = role === 'resuto_member' ? { user: ids.A.user, org: ids.A.org } : { org: ids.A.org };
+    const devices = await as(role, who, (c) => c.query('select id, require_staff from pos_devices'));
+    assert.deepEqual(devices.rows, [{ id: ids.A.device, require_staff: false }], `${role} reads require_staff of its own devices only`);
+    const pairings = await as(role, who, (c) => c.query('select require_staff from pos_device_pairings'));
+    assert.ok(pairings.rowCount > 0);
+    // The new column grant does not widen the table: whole-row reads and the hashes stay denied.
+    await assert.rejects(as(role, who, (c) => c.query('select * from pos_devices')), /permission denied/);
+    await assert.rejects(as(role, who, (c) => c.query('select token_hash from pos_devices')), /permission denied/);
+    await assert.rejects(as(role, who, (c) => c.query('select code_hash from pos_device_pairings')), /permission denied/);
+    // Another tenant's flag is invisible, like every other column.
+    const forged = await as(role, role === 'resuto_member' ? { user: ids.A.user, org: ids.B.org } : { org: ids.B.org },
+      (c) => c.query('select require_staff from pos_devices where id = $1', [ids.A.device]));
+    assert.equal(forged.rowCount, 0);
+  }
+  // The platform role (the access guard) reads it with the credential lookup.
+  const found = await as('resuto_platform', {}, (c) => c.query('select id, require_staff from pos_devices where token_hash = $1', [sha('token-A')]));
+  assert.deepEqual(found.rows, [{ id: ids.A.device, require_staff: false }]);
+  await assert.rejects(q('update pos_devices set require_staff = null where id = $1', [ids.A.device]), /null/);
+});

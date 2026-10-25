@@ -1,14 +1,14 @@
 import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { ENV, type Env } from '../../config/env';
 import { Reflector } from '@nestjs/core';
-import { MCP_TOOLS, POS_DEVICE_TOKEN_PREFIX, type McpToolName, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
+import { MCP_TOOLS, POS_DEVICE_TOKEN_PREFIX, POS_STAFF_HEADER, type McpToolName, type ModuleKey, type Permission, type Role } from '@resuto/contracts';
 import { sha256 } from '../crypto/hash';
 import { DbService } from '../db/db.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { DomainError, forbidden } from '../errors/domain-error';
 import { RateLimiter } from '../http/rate-limiter';
-import { TenantContext, type AuthPrincipal, type ResutoRequest } from './context';
-import { IS_PUBLIC, MCP_RUNTIME, MODULE, PERMISSION, PLATFORM_ROLE, POS_DEVICE } from './decorators';
+import { TenantContext, type AuthPosDevice, type AuthPrincipal, type ResutoRequest } from './context';
+import { IS_PUBLIC, MCP_RUNTIME, MODULE, PERMISSION, PLATFORM_ROLE, POS_DEVICE, POS_STAFF_OPTIONAL } from './decorators';
 import { JwtService } from './jwt.service';
 
 const unauthorized = () => new DomainError('unauthorized', 'Sign in to continue', 401);
@@ -68,7 +68,7 @@ export class AccessGuard implements CanActivate {
     if (principal.kind === 'device') {
       if (!posRoute) throw new DomainError('pos_device_only', 'POS device credentials can only call the POS device API', 403);
       this.limiter.hit(`pos:${principal.deviceId}`, POS_DEVICE_RATE_PER_MIN);
-      req.tenant = new TenantContext(principal.orgId, principal.role, [principal.branchId], null, 'device', principal.deviceId, 'api');
+      req.tenant = await this.deviceTenant(req, principal, meta<boolean>(POS_STAFF_OPTIONAL) === true);
       for (const p of meta<Permission[]>(PERMISSION) ?? []) req.tenant.require(p);
       return true;
     }
@@ -105,10 +105,43 @@ export class AccessGuard implements CanActivate {
     return true;
   }
 
-  private bearer(req: ResutoRequest): string | null {
-    const h = req.headers['authorization'];
+  private bearer(req: ResutoRequest, header = 'authorization'): string | null {
+    const h = req.headers[header];
     const value = Array.isArray(h) ? h[0] : h;
     return value?.startsWith('Bearer ') ? value.slice(7).trim() || null : null;
+  }
+
+  /**
+   * The tenant of a POS device request. Without a staff session it is the device itself (0.1.0): its org, branch and
+   * acting role. With `X-Resuto-Staff-Authorization: Bearer <staff access token>` (contract 0.2.0) it is that staff
+   * member — who must hold an active membership of the device's restaurant whose branch scope includes the device's
+   * branch — with their own role bounded by the device's acting role (TenantContext ceilingRole), inside the device's
+   * branch, the device id kept apart. A device paired with requireStaff needs the staff session on every route except
+   * those marked PosStaffOptional (the session).
+   */
+  private async deviceTenant(req: ResutoRequest, device: AuthPosDevice, staffOptional: boolean): Promise<TenantContext> {
+    const header = req.headers[POS_STAFF_HEADER.toLowerCase()];
+    if (header === undefined) {
+      if (device.requireStaff && !staffOptional) {
+        throw new DomainError('pos_staff_required', 'Sign a staff member in on this device to continue', 401);
+      }
+      return new TenantContext(device.orgId, device.role, [device.branchId], null, 'device', device.deviceId, 'api', { deviceId: device.deviceId });
+    }
+    const token = this.bearer(req, POS_STAFF_HEADER.toLowerCase());
+    // Only a staff access token: never a device credential or an MCP key in this header.
+    if (!token || isMcpToken(token) || isDeviceToken(token)) throw unauthorized();
+    const user = await this.verifyUser(token);
+    if (user.kind !== 'user') throw unauthorized();
+    // Same restaurant only, active membership, branch scope that includes the device's branch. Another restaurant's
+    // staff gets the same answer as a member without access to this branch: nothing about other tenants is revealed.
+    const m = await this.db.withPlatform((tx) => tx.maybeOne<{ role: Role }>(
+      `select m.role from memberships m join organizations o on o.id = m.org_id
+        where m.org_id = $1 and m.user_id = $2 and m.status = 'active' and o.status not in ('closed', 'suspended')
+          and (m.branch_ids is null or $3::uuid = any(m.branch_ids))`, [device.orgId, user.userId, device.branchId]), 'pos:staff-auth');
+    if (!m) throw new DomainError('pos_staff_not_allowed', 'This staff member cannot use this device', 403);
+    device.staff = { userId: user.userId, email: user.email, role: m.role };
+    return new TenantContext(device.orgId, m.role, [device.branchId], user.userId, 'user', user.userId, 'api',
+      { ceilingRole: device.role, deviceId: device.deviceId });
   }
 
   private async verifyUser(token: string): Promise<AuthPrincipal> {
@@ -143,7 +176,7 @@ export class AccessGuard implements CanActivate {
     if (!DEVICE_TOKEN.test(token)) throw unauthorized();
     const d = await this.db.withPlatform(async (tx) => {
       const row = await tx.maybeOne<any>(
-        `select d.id, d.org_id, d.branch_id, d.acting_role, d.status, (d.expires_at is not null and d.expires_at <= now()) as expired,
+        `select d.id, d.org_id, d.branch_id, d.acting_role, d.require_staff, d.status, (d.expires_at is not null and d.expires_at <= now()) as expired,
                 (d.last_seen_at is null or d.last_seen_at < now() - interval '60 seconds') as stale,
                 (o.status in ('closed', 'suspended') or not b.is_active) as unavailable
            from pos_devices d join organizations o on o.id = d.org_id join branches b on b.id = d.branch_id
@@ -156,7 +189,7 @@ export class AccessGuard implements CanActivate {
     if (!d || d.unavailable) throw unauthorized();
     if (d.status !== 'active') throw new DomainError('device_revoked', 'This device was unpaired. Pair it again to continue.', 401);
     if (d.expired) throw new DomainError('device_expired', 'This device credential has expired. Pair the device again.', 401);
-    return { kind: 'device', deviceId: d.id, orgId: d.org_id, branchId: d.branch_id, role: d.acting_role as Role };
+    return { kind: 'device', deviceId: d.id, orgId: d.org_id, branchId: d.branch_id, role: d.acting_role as Role, requireStaff: d.require_staff === true };
   }
 
   /**

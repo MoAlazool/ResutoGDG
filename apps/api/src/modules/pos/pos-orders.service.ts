@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type {
-  OrderStatus, PosOrder, PosOrderSubmit, PosQuote, PosQuoteRequest, PosOrderSubmitted, PosPaymentRequest, PosPriceConflictDetails, PosRepricedLine, PosUnavailableDetails,
+  OrderStatus, PosOrder, PosOrderByClientId, PosOrderSubmit, PosQuote, PosQuoteRequest, PosOrderSubmitted, PosPaymentRequest, PosPriceConflictDetails, PosRepricedLine, PosUnavailableDetails,
 } from '@resuto/contracts';
 import type { TenantContext } from '../../common/auth/context';
 import { fingerprint } from '../../common/crypto/hash';
@@ -11,8 +11,14 @@ import { PricingService } from '../kernel/pricing.service';
 import { KitchenService } from '../kitchen/kitchen.service';
 import { IN_STOCK_SQL, OFFERED_SQL, SOLD_OUT_SQL } from '../menu/availability';
 import { OrdersService } from '../orders/orders.service';
-import { deviceBranch } from './pos-feed.service';
+import { deviceBranch, deviceId } from './pos-feed.service';
 import { PosSyncService } from './pos-sync.service';
+
+/**
+ * The advisory lock a submit holds for its whole transaction: a reader that cannot share it knows a submit with this
+ * client order id is in flight on this branch (its pos_order_submissions row is not visible before it commits).
+ */
+const submissionLock = (orgId: string, branchId: string, clientOrderId: string) => `pos_order_submission:${orgId}:${branchId}:${clientOrderId}`;
 
 /**
  * Orders from POS devices (21-POSAPI). Prices and availability are server-authoritative: the device says what it
@@ -40,10 +46,11 @@ export class PosOrdersService {
     const branchId = deviceBranch(ctx);
     const hash = fingerprint(body);
     return this.db.scoped(ctx, async (tx) => {
+      await tx.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [submissionLock(ctx.orgId, branchId, body.clientOrderId)]);
       const claimed = await tx.maybeOne(
         `insert into pos_order_submissions(org_id, client_order_id, branch_id, device_id, request_hash, taken_at)
          values ($1, $2, $3, $4, $5, $6) on conflict (org_id, client_order_id) do nothing returning client_order_id`,
-        [ctx.orgId, body.clientOrderId, branchId, ctx.actorId, hash, body.takenAt ?? null]);
+        [ctx.orgId, body.clientOrderId, branchId, deviceId(ctx), hash, body.takenAt ?? null]);
       if (!claimed) {
         // A concurrent first submit holds the row until it commits; this waits for it, then replays its answer.
         const prior = await tx.one<{ branch_id: string; request_hash: string; response: PosOrderSubmitted | null }>(
@@ -93,6 +100,28 @@ export class PosOrdersService {
       await this.audit.record(tx, ctx, { action: 'pos.order.submitted', entityType: 'order', entityId: placed.id, branchId,
         metadata: { clientOrderId: body.clientOrderId, totalMinor: placed.totalMinor, repriced: !!repriced, takenAt: body.takenAt ?? null } });
       return { replayed: false, result };
+    });
+  }
+
+  /**
+   * Durable reconciliation (contract 0.2.0): what became of a submit whose answer the device did not get. Submissions
+   * are kept as long as their order (no retention job deletes them), so a device can always ask; a client order id of
+   * another branch or restaurant is 404, like one never accepted.
+   */
+  async byClientId(ctx: TenantContext, clientOrderId: string): Promise<PosOrderByClientId> {
+    const branchId = deviceBranch(ctx);
+    return this.db.scoped(ctx, async (tx) => {
+      const row = await tx.maybeOne<{ branch_id: string; order_id: string | null; response: PosOrderSubmitted | null }>(
+        'select branch_id, order_id, response from pos_order_submissions where org_id = $1 and client_order_id = $2', [ctx.orgId, clientOrderId]);
+      if (row) {
+        if (row.branch_id !== branchId) throw notFound('Order');
+        if (row.response && row.order_id) return { state: 'accepted', orderId: row.order_id, number: row.response.order.number, response: row.response };
+        return { state: 'processing' };
+      }
+      const { free } = await tx.one<{ free: boolean }>('select pg_try_advisory_xact_lock_shared(hashtextextended($1, 0)) as free',
+        [submissionLock(ctx.orgId, branchId, clientOrderId)]);
+      if (!free) return { state: 'processing' };
+      throw notFound('Order');
     });
   }
 

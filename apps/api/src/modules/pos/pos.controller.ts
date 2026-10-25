@@ -7,8 +7,8 @@ import {
 } from '@resuto/contracts';
 import type { Response } from 'express';
 import { z } from 'zod';
-import type { ResutoRequest, TenantContext } from '../../common/auth/context';
-import { PosDevice, Public, RequirePermission, Tenant } from '../../common/auth/decorators';
+import type { AuthPrincipal, ResutoRequest, TenantContext } from '../../common/auth/context';
+import { PosDevice, PosStaffOptional, Principal, Public, RequirePermission, Tenant } from '../../common/auth/decorators';
 import { RateLimiter } from '../../common/http/rate-limiter';
 import { zod } from '../../common/http/zod.pipe';
 import { PosDevicesService } from './pos-devices.service';
@@ -79,9 +79,11 @@ export class PosDeviceController {
     private readonly print: PosPrintService,
   ) {}
 
+  /** Answers without a staff session even on a requireStaff device (contract 0.2.0), so the app can show sign-in. */
   @Get('session')
-  session(@Tenant() ctx: TenantContext) {
-    return this.devices.session(ctx);
+  @PosStaffOptional()
+  session(@Tenant() ctx: TenantContext, @Principal() principal: AuthPrincipal) {
+    return this.devices.session(ctx, principal.kind === 'device' ? principal.staff : undefined);
   }
 
   /** Ordered per-branch events after `after`; `wait` long-polls. 409 resync_required when the cursor cannot be resumed. */
@@ -124,6 +126,16 @@ export class PosDeviceController {
     const out = await this.orders.submit(ctx, body);
     if (out.replayed) res.setHeader('Idempotent-Replayed', 'true');
     return out.result;
+  }
+
+  /**
+   * Durable reconciliation (contract 0.2.0): accepted (with the original submit response), processing, or 404 when
+   * never accepted (resubmit with the same clientOrderId).
+   */
+  @Get('orders/by-client-id/:clientOrderId')
+  @RequirePermission('orders:read')
+  byClientId(@Tenant() ctx: TenantContext, @Param('clientOrderId', uuidPipe) clientOrderId: string) {
+    return this.orders.byClientId(ctx, clientOrderId);
   }
 
   @Get('orders/:id')
