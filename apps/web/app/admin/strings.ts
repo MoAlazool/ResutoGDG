@@ -1,4 +1,6 @@
-// Platform admin console strings (owner: Agent A).
+// Operator console strings, English and Arabic (owner: Agent A; 21-INT providers; 21-ADMIN redesign). Every key exists in
+// both languages (console.test.ts). Server-only in the app: app/admin/layout.tsx passes the active language's strings to
+// the client shell, so the console's JavaScript carries neither dictionary (client modules import only the type).
 const en = {
   console: 'Resuto admin', tenants: 'Restaurants', prices: 'Prices', operations: 'Operations', signOut: 'Sign out', role: 'Role: {role}',
   onlyAdmins: 'Platform administrators only.', backToApp: 'Back to Resuto',
@@ -39,6 +41,35 @@ const en = {
   blockers: 'Open blockers (docs/OPEN_BLOCKERS.md): {list}', fallbackTitle: 'Environment fallback', varSet: 'set', varUnset: 'not set',
   serves: 'Serves: {list}', saveApp: 'Save', deleteApp: 'Delete this record', deleteConfirm: 'Delete the console record for {name}? The environment variables apply again.',
   saved: 'Saved. Secrets are stored sealed.', copy: 'Copy', copied: 'Copied',
+  // 21-ADMIN operator console (plan §5 "Admin", §6.3)
+  operatorConsole: 'Operator console', pr_superadmin: 'Superadmin', pr_support: 'Support', pr_finance: 'Finance',
+  deniedBody: 'This account has no platform role. A superadmin can add one.', meFailed: 'Could not confirm your platform role.',
+  openApp: 'Open the restaurant workspace',
+  tenantsSub: 'Every restaurant on Resuto, newest first. Open one for its plan, modules and recent activity.',
+  restaurant: 'Restaurant', colMembers: 'Members', colOrders: 'Orders (30 d)',
+  sortNote: 'Sorting a column orders the restaurants on this page; pages follow the newest-first order.',
+  pageOf: 'Page {n} · {count} shown', chipSearch: 'Search: {v}', chipStatus: 'Status: {v}', chipPlan: 'Plan: {v}', chipCountry: 'Country: {v}',
+  ctry_EG: 'Egypt', ctry_SA: 'Saudi Arabia',
+  plan_free: 'Free', plan_starter: 'Starter', plan_growth: 'Growth', plan_pro: 'Pro', plan_custom: 'Custom', noPlan: 'No plan',
+  sub_active: 'Active', sub_trialing: 'Trial', sub_past_due: 'Past due', sub_unpaid: 'Unpaid', sub_canceled: 'Canceled',
+  tenantMissing: 'This restaurant does not exist or was removed.', identifiers: 'Identifiers', idLabel: 'Restaurant id', slugLabel: 'Link name',
+  timezone: 'Time zone', figures: 'Restaurant figures', modOn: 'On', modOff: 'Off', grantOpen: 'Grant or block',
+  brActive: 'Active', brInactive: 'Inactive', city: 'City', code: 'Code', noBranches: 'No branches.',
+  provider: 'Provider', environment: 'Environment', health: 'Last health check',
+  when: 'When', actor: 'Actor', action: 'Action', entity: 'Record', noAudit: 'No activity yet.',
+  suspendedDone: 'Restaurant suspended.', reactivatedDone: 'Restaurant reactivated.', grantedDone: 'Saved.', revokedDone: 'Override revoked.',
+  revokeTitle: 'Revoke the override for {module}',
+  opsSub: 'Event delivery, webhooks and scheduled jobs across all restaurants. Refreshes every 30 seconds.',
+  statOutbox: 'Unpublished events', statHandlers: 'Failing handler runs', statWebhooks: 'Failing webhooks', statJobs: 'Failed jobs',
+  outboxHint: 'Oldest {time} · {n} retrying', handlersHint: '{failed} failed · {dead} dead · {stuck} stuck',
+  webhooksHint: '{failed} failed · {rejected} rejected', jobsHint: 'Of {n} recent runs',
+  provenanceNote: 'Live: counted from the platform’s own records when the page loaded.', generatedAt: 'Generated {time}',
+  event: 'Event', error: 'Error', updated: 'Updated', attempts: 'Attempts', received: 'Received', started: 'Started', result: 'Result',
+  metric: 'Metric', quantity: 'Quantity',
+  starts: 'Starts', noPrices: 'No prices yet.',
+  priceSheetSub: 'The new price applies from its start time; earlier prices stay in the history.',
+  readyOf: '{done} of {total} ready', chkDone: 'Done', chkTodo: 'To do', lastSaved: 'Last saved {time}', formTitle: 'App credentials',
+  secretsNote: 'Write-only: a saved secret is never shown again, only whether it is set and its last four characters.',
 };
 type S = typeof en;
 const ar: S = {
@@ -80,6 +111,35 @@ const ar: S = {
   blockers: 'العوائق المفتوحة (docs/OPEN_BLOCKERS.md): {list}', fallbackTitle: 'الاحتياطي من متغيرات البيئة', varSet: 'مُعدّ', varUnset: 'غير مُعدّ',
   serves: 'يخدم: {list}', saveApp: 'حفظ', deleteApp: 'حذف هذا السجل', deleteConfirm: 'حذف سجل اللوحة لـ {name}؟ ستُستخدم متغيرات البيئة مجددًا.',
   saved: 'تم الحفظ. الأسرار محفوظة مختومة.', copy: 'نسخ', copied: 'تم النسخ',
+  operatorConsole: 'لوحة المشغّل', pr_superadmin: 'مسؤول أعلى', pr_support: 'الدعم', pr_finance: 'المالية',
+  deniedBody: 'لا يملك هذا الحساب دورًا في المنصة. يمكن لمسؤول أعلى إضافته.', meFailed: 'تعذّر التحقق من دورك في المنصة.',
+  openApp: 'فتح مساحة عمل المطعم',
+  tenantsSub: 'كل المطاعم على ريسوتو، الأحدث أولًا. افتح أي مطعم لرؤية خطته ووحداته وآخر نشاطه.',
+  restaurant: 'المطعم', colMembers: 'الأعضاء', colOrders: 'الطلبات (30 يومًا)',
+  sortNote: 'ترتيب عمود يرتّب مطاعم هذه الصفحة؛ وتتبع الصفحات ترتيب الأحدث أولًا.',
+  pageOf: 'الصفحة {n} · {count} معروضة', chipSearch: 'البحث: {v}', chipStatus: 'الحالة: {v}', chipPlan: 'الخطة: {v}', chipCountry: 'الدولة: {v}',
+  ctry_EG: 'مصر', ctry_SA: 'السعودية',
+  plan_free: 'المجانية', plan_starter: 'المبتدئة', plan_growth: 'النمو', plan_pro: 'الاحترافية', plan_custom: 'المخصّصة', noPlan: 'بلا خطة',
+  sub_active: 'نشط', sub_trialing: 'تجربة', sub_past_due: 'متأخر السداد', sub_unpaid: 'غير مدفوع', sub_canceled: 'ملغى',
+  tenantMissing: 'هذا المطعم غير موجود أو أُزيل.', identifiers: 'المعرّفات', idLabel: 'معرّف المطعم', slugLabel: 'اسم الرابط',
+  timezone: 'المنطقة الزمنية', figures: 'أرقام المطعم', modOn: 'مفعّلة', modOff: 'غير مفعّلة', grantOpen: 'منح أو حظر',
+  brActive: 'نشط', brInactive: 'غير نشط', city: 'المدينة', code: 'الرمز', noBranches: 'لا توجد فروع.',
+  provider: 'المزوّد', environment: 'البيئة', health: 'آخر فحص للصحة',
+  when: 'الوقت', actor: 'الجهة', action: 'الإجراء', entity: 'السجل', noAudit: 'لا يوجد نشاط بعد.',
+  suspendedDone: 'تم إيقاف المطعم.', reactivatedDone: 'تمت إعادة تفعيل المطعم.', grantedDone: 'تم الحفظ.', revokedDone: 'تم سحب الاستثناء.',
+  revokeTitle: 'سحب الاستثناء لوحدة {module}',
+  opsSub: 'تسليم الأحداث والويب هوك والمهام المجدولة لكل المطاعم. يتحدّث كل 30 ثانية.',
+  statOutbox: 'أحداث غير منشورة', statHandlers: 'تشغيلات معالجات فاشلة', statWebhooks: 'ويب هوك فاشلة', statJobs: 'مهام فاشلة',
+  outboxHint: 'الأقدم {time} · {n} قيد الإعادة', handlersHint: '{failed} فاشلة · {dead} متوقفة · {stuck} عالقة',
+  webhooksHint: '{failed} فاشلة · {rejected} مرفوضة', jobsHint: 'من {n} تشغيلات حديثة',
+  provenanceNote: 'مباشر: محسوب من سجلات المنصة نفسها عند تحميل الصفحة.', generatedAt: 'أُنشئ {time}',
+  event: 'الحدث', error: 'الخطأ', updated: 'آخر تحديث', attempts: 'المحاولات', received: 'الاستلام', started: 'البدء', result: 'النتيجة',
+  metric: 'المقياس', quantity: 'الكمية',
+  starts: 'يبدأ', noPrices: 'لا توجد أسعار بعد.',
+  priceSheetSub: 'يسري السعر الجديد من وقت بدايته، وتبقى الأسعار السابقة في السجل.',
+  readyOf: '{done} من {total} جاهزة', chkDone: 'مكتمل', chkTodo: 'مطلوب', lastSaved: 'آخر حفظ {time}', formTitle: 'بيانات اعتماد التطبيق',
+  secretsNote: 'للكتابة فقط: لا يُعرض السر المحفوظ مجددًا، بل فقط إن كان مُعدًّا وآخر أربعة أحرف منه.',
 };
 export const ADMIN_STRINGS = { en, ar };
 export type AdminStrings = S;
+

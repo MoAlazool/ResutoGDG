@@ -1,20 +1,29 @@
 'use client';
-import { INTL_LOCALE } from '@resuto/contracts';
 import Link from 'next/link';
-import type { AdminOperations } from '@resuto/contracts';
 import { useState } from 'react';
-import { Badge, Card, DataTable, EmptyState, Notice, PageHeader, Skeleton, Stat, usePrompt } from '@resuto/ui';
+import { INTL_LOCALE, type AdminOperations } from '@resuto/contracts';
+import { Badge, DataTableV2, EmptyState, ErrorState, Freshness, ListPage, Notice, Panel, StatV2, usePrompt, type ColumnV2 } from '@resuto/ui';
+import { AreaSkeleton } from '@/components/shell/AreaSkeleton';
 import { useSession } from '@/lib/session';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useApi } from '@/lib/use-api';
+import { AdminIcon } from '../admin-icons';
 import { useAdmin } from '../AdminShell';
+import { opsTiles, type OpsTile } from '../console';
+import { fill } from '../text';
 import { opsStatusLabel, replayFailure } from './replay';
 
-/** Lets wide tables scroll inside the page instead of widening it on phones. */
-const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
+type Handling = AdminOperations['eventHandlings']['recent'][number];
+type Webhook = AdminOperations['webhooks']['recent'][number];
+type Job = AdminOperations['jobs'][number];
+type Usage = AdminOperations['usage30d'][number];
 
-
+/**
+ * Operations (21-ADMIN): the platform's delivery health. Four StatV2 tiles marked Live (counted from the platform's
+ * own tables when the page loaded, polled every 30 s), then the failing handler runs (superadmins replay them with a
+ * recorded reason), failing webhooks, scheduled jobs and 30-day usage.
+ */
 export default function AdminOperationsPage() {
   const { locale, t } = useT();
   const { s, role } = useAdmin();
@@ -36,65 +45,99 @@ export default function AdminOperationsPage() {
       await ops.reload();
     } catch (e) { setFlash(replayFailure(e, t, locale)); } finally { setReplaying(null); }
   };
-  if (ops.error) return <Notice tone="danger">{s.loadError} <button className="btn btn-sm" onClick={() => void ops.reload()}>{s.retry}</button></Notice>;
-  if (!ops.data) return <Card><Skeleton lines={8} /></Card>;
+
+  const header = {
+    title: s.opsTitle,
+    subtitle: s.opsSub,
+    actions: (
+      <div className="admin-ops-head">
+        <Freshness locale={locale} refreshing={ops.refreshing} updatedAt={ops.updatedAt} />
+        <button type="button" className="btn btn-sm" onClick={() => void ops.reload()} disabled={ops.refreshing} aria-busy={ops.refreshing || undefined}>
+          <AdminIcon name="refresh" size={16} /> {s.refresh}
+        </button>
+      </div>
+    ),
+  };
+  if (ops.error && !ops.data) {
+    return <ListPage header={header}><ErrorState locale={locale} error={{ status: ops.error.status, code: ops.error.code, message: ops.error.message, requestId: ops.error.requestId }} onRetry={ops.reload} /></ListPage>;
+  }
+  if (!ops.data) return <AreaSkeleton template="dashboard" />;
   const d = ops.data;
-  const tenant = (id: string | null) => (id ? <Link href={`/admin/tenants/${id}`}>{id.slice(0, 8)}</Link> : '—');
+  const tenant = (id: string | null) => (id ? <Link href={`/admin/tenants/${id}`} className="admin-code" dir="ltr">{id.slice(0, 8)}</Link> : '—');
+  const nf = new Intl.NumberFormat(locale === 'ar' ? INTL_LOCALE.ar : 'en');
+
+  const tiles: Record<OpsTile['key'], { label: string; hint?: string }> = {
+    outbox: { label: s.statOutbox, hint: d.outbox.oldestUnpublishedAt ? fill(s.outboxHint, { time: dateTime(d.outbox.oldestUnpublishedAt, locale), n: d.outbox.retrying }) : s.allGood },
+    handlers: { label: s.statHandlers, hint: fill(s.handlersHint, { failed: d.eventHandlings.failed, dead: d.eventHandlings.dead, stuck: d.eventHandlings.stuck ?? 0 }) },
+    webhooks: { label: s.statWebhooks, hint: fill(s.webhooksHint, { failed: d.webhooks.failed, rejected: d.webhooks.rejected }) },
+    jobs: { label: s.statJobs, hint: fill(s.jobsHint, { n: d.jobs.length }) },
+  };
+
+  const handlerCols: ColumnV2<Handling>[] = [
+    { key: 'h', header: s.handlers, rowHeader: true, render: (r) => <span className="admin-code" dir="ltr">{r.handler}</span> },
+    { key: 'e', header: s.event, render: (r) => <span className="admin-code" dir="ltr">{r.eventType}</span> },
+    { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'dead' || r.status === 'running' ? 'danger' : 'warn'}>{opsStatusLabel(r.status, s, t, 'handler')} · <bdi className="num">{r.attempts}</bdi></Badge> },
+    { key: 't', header: s.tenants, render: (r) => tenant(r.orgId) },
+    { key: 'x', header: s.error, render: (r) => <span className="admin-error-text" dir="auto">{r.lastError}</span> },
+    { key: 'u', header: s.updated, sort: (a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt), render: (r) => <span className="num">{dateTime(r.updatedAt, locale)}</span> },
+    ...(canReplay ? [{ key: 'r', header: t('ops.admin.replay'), align: 'end' as const, render: (r: Handling) => (
+      <button type="button" className="btn btn-sm" disabled={replaying !== null} aria-busy={replaying === `${r.eventId}:${r.handler}` || undefined}
+        onClick={() => void replay(r.eventId, r.handler)}>{t('ops.admin.replay')}</button>) }] : []),
+  ];
+  const webhookCols: ColumnV2<Webhook>[] = [
+    { key: 'p', header: s.provider, rowHeader: true, render: (r) => <span className="admin-code" dir="ltr">{r.provider}</span> },
+    { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'rejected' ? 'danger' : 'warn'}>{opsStatusLabel(r.status, s, t, 'webhook')} · <bdi className="num">{r.attempts}</bdi></Badge> },
+    { key: 't', header: s.tenants, render: (r) => tenant(r.orgId) },
+    { key: 'x', header: s.error, render: (r) => <span className="admin-error-text" dir="auto">{r.error}</span> },
+    { key: 'u', header: s.received, sort: (a, b) => Date.parse(a.receivedAt) - Date.parse(b.receivedAt), render: (r) => <span className="num">{dateTime(r.receivedAt, locale)}</span> },
+  ];
+  const jobCols: ColumnV2<Job>[] = [
+    { key: 'j', header: s.jobs, rowHeader: true, render: (j) => <span className="admin-code" dir="ltr">{j.job}</span> },
+    { key: 's', header: s.status, render: (j) => <Badge tone={j.status === 'succeeded' ? 'ok' : j.status === 'failed' ? 'danger' : 'info'}>{opsStatusLabel(j.status, s, t, 'job')}</Badge> },
+    { key: 't', header: s.started, sort: (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt), render: (j) => <span className="num">{dateTime(j.startedAt, locale)}</span> },
+    { key: 'e', header: s.result, render: (j) => (j.error
+      ? <span className="admin-error-text" dir="auto">{j.error}</span>
+      : <span className="admin-code fine" dir="ltr">{JSON.stringify(j.stats)}</span>) },
+  ];
+  const usageCols: ColumnV2<Usage>[] = [
+    { key: 'm', header: s.metric, rowHeader: true, sort: (a, b) => a.metric.localeCompare(b.metric), render: (u) => <span className="admin-code" dir="ltr">{u.metric}</span> },
+    { key: 'q', header: s.quantity, align: 'end', sort: (a, b) => a.quantity - b.quantity, render: (u) => <span className="num">{nf.format(u.quantity)}</span> },
+    { key: 't', header: s.tenants, align: 'end', sort: (a, b) => a.tenants - b.tenants, render: (u) => <span className="num">{nf.format(u.tenants)}</span> },
+  ];
 
   return (
-    <div style={FIT}>
+    <ListPage header={{ ...header, subtitle: <>{s.opsSub} <span className="num">{fill(s.generatedAt, { time: dateTime(d.generatedAt, locale) })}</span></> }}
+      filters={
+        <div className="admin-stack">
+          <div className="rui-stat-grid" role="group" aria-label={s.opsTitle}>
+            {opsTiles(d).map((tile) => (
+              <div key={tile.key} className="admin-tile" data-tone={tile.tone} data-tile={tile.key}>
+                <StatV2 locale={locale} label={tiles[tile.key].label} value={tile.value} provenance="live" hint={tiles[tile.key].hint} />
+              </div>
+            ))}
+          </div>
+          <p className="admin-note">{s.provenanceNote}</p>
+        </div>
+      }>
       {promptDialog}
-      <PageHeader title={s.opsTitle} subtitle={dateTime(d.generatedAt, locale)} actions={<button className="btn btn-sm" onClick={() => void ops.reload()}>{s.refresh}</button>} />
-      <div className="grid grid-4" style={{ marginBlockEnd: 16 }}>
-        <Stat label={`${s.outbox} · ${s.unpublished}`} value={d.outbox.unpublished} hint={d.outbox.oldestUnpublishedAt ? `${s.oldest}: ${dateTime(d.outbox.oldestUnpublishedAt, locale)} · ${s.retrying}: ${d.outbox.retrying}` : undefined}
-          tone={d.outbox.retrying ? 'warn' : undefined} />
-        <div><Stat label={`${s.handlers} · ${s.failed} / ${s.dead} / ${t('ops.admin.stuck')}`} value={`${d.eventHandlings.failed} / ${d.eventHandlings.dead} / ${d.eventHandlings.stuck ?? 0}`}
-          tone={d.eventHandlings.dead || d.eventHandlings.stuck ? 'danger' : d.eventHandlings.failed ? 'warn' : 'ok'}
-          hint={d.eventHandlings.failed + d.eventHandlings.dead + (d.eventHandlings.stuck ?? 0) === 0 ? s.allGood : d.eventHandlings.stuck ? t('ops.admin.stuckHint') : undefined} /></div>
-        <div><Stat label={`${s.webhooks} · ${s.failed} / ${s.rejected}`} value={`${d.webhooks.failed} / ${d.webhooks.rejected}`} tone={d.webhooks.failed ? 'warn' : undefined} /></div>
-        <div><Stat label={s.jobs} value={d.jobs.filter((j) => j.status === 'failed').length} hint={`${s.failed} · ${d.jobs.length}`} tone={d.jobs.some((j) => j.status === 'failed') ? 'danger' : 'ok'} /></div>
+      <div className="admin-stack">
+        {flash && <Notice tone={flash.tone}>{flash.text}</Notice>}
+        <Panel title={`${s.handlers} — ${s.failed} / ${s.dead} / ${t('ops.admin.stuck')}`} note={!canReplay && d.eventHandlings.recent.length > 0 ? t('ops.admin.replayRole') : undefined}>
+          <DataTableV2 label={s.handlers} locale={locale} rows={d.eventHandlings.recent} rowKey={(r) => `${r.eventId}:${r.handler}`} columns={handlerCols}
+            empty={<EmptyState title={s.allGood} />} />
+        </Panel>
+        <Panel title={`${s.webhooks} — ${s.failed} / ${s.rejected}`}>
+          <DataTableV2 label={s.webhooks} locale={locale} rows={d.webhooks.recent} rowKey={(r) => r.id} columns={webhookCols} empty={<EmptyState title={s.allGood} />} />
+        </Panel>
+        <div className="admin-panels">
+          <Panel title={s.jobs}>
+            <DataTableV2 label={s.jobs} locale={locale} rows={d.jobs} rowKey={(j) => String(j.id)} columns={jobCols} empty={<EmptyState title={s.none} />} />
+          </Panel>
+          <Panel title={s.usage}>
+            <DataTableV2 label={s.usage} locale={locale} rows={d.usage30d} rowKey={(u) => u.metric} columns={usageCols} empty={<EmptyState title={s.none} />} />
+          </Panel>
+        </div>
       </div>
-      {flash && <div style={{ marginBlockEnd: 12 }}><Notice tone={flash.tone}>{flash.text}</Notice></div>}
-      <Card title={`${s.handlers} — ${s.failed} / ${s.dead} / ${t('ops.admin.stuck')}`}>
-        {d.eventHandlings.recent.length ? <DataTable rows={d.eventHandlings.recent} rowKey={(r) => `${r.eventId}:${r.handler}`} columns={[
-          { key: 'h', header: s.handlers, render: (r) => <code>{r.handler}</code> },
-          { key: 'e', header: '', render: (r) => r.eventType },
-          { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'dead' || r.status === 'running' ? 'danger' : 'warn'}>{opsStatusLabel(r.status, s, t, 'handler')} · <bdi className="num">{r.attempts}</bdi></Badge> },
-          { key: 't', header: s.tenants, render: (r) => tenant(r.orgId) },
-          { key: 'x', header: '', render: (r) => <span className="fine">{r.lastError}</span> },
-          { key: 'u', header: '', render: (r) => <span className="num">{dateTime(r.updatedAt, locale)}</span> },
-          ...(canReplay ? [{ key: 'r', header: '', align: 'end' as const, render: (r: AdminOperations['eventHandlings']['recent'][number]) => (
-            <button type="button" className="btn btn-sm" disabled={replaying !== null} aria-busy={replaying === `${r.eventId}:${r.handler}` || undefined}
-              onClick={() => void replay(r.eventId, r.handler)}>{t('ops.admin.replay')}</button>) }] : []),
-        ]} /> : <EmptyState title={s.allGood} />}
-        {!canReplay && d.eventHandlings.recent.length > 0 && <p className="fine">{t('ops.admin.replayRole')}</p>}
-      </Card>
-      <Card title={`${s.webhooks} — ${s.failed} / ${s.rejected}`}>
-        {d.webhooks.recent.length ? <DataTable rows={d.webhooks.recent} rowKey={(r) => r.id} columns={[
-          { key: 'p', header: s.webhooks, render: (r) => r.provider },
-          { key: 's', header: s.status, render: (r) => <Badge tone={r.status === 'rejected' ? 'danger' : 'warn'}>{opsStatusLabel(r.status, s, t, 'webhook')} · <bdi className="num">{r.attempts}</bdi></Badge> },
-          { key: 't', header: s.tenants, render: (r) => tenant(r.orgId) },
-          { key: 'x', header: '', render: (r) => <span className="fine">{r.error}</span> },
-          { key: 'u', header: '', render: (r) => <span className="num">{dateTime(r.receivedAt, locale)}</span> },
-        ]} /> : <EmptyState title={s.allGood} />}
-      </Card>
-      <div className="grid grid-2" style={{ marginBlockStart: 16 }}>
-        <Card title={s.jobs}>
-          {d.jobs.length ? <DataTable rows={d.jobs} rowKey={(j) => String(j.id)} columns={[
-            { key: 'j', header: s.jobs, render: (j) => <code>{j.job}</code> },
-            { key: 's', header: s.status, render: (j) => <Badge tone={j.status === 'succeeded' ? 'ok' : j.status === 'failed' ? 'danger' : 'info'}>{opsStatusLabel(j.status, s, t, 'job')}</Badge> },
-            { key: 't', header: '', render: (j) => <span className="num">{dateTime(j.startedAt, locale)}</span> },
-            { key: 'e', header: '', render: (j) => <span className="fine">{j.error ?? JSON.stringify(j.stats)}</span> },
-          ]} /> : <EmptyState title={s.none} />}
-        </Card>
-        <Card title={s.usage}>
-          {d.usage30d.length ? <DataTable rows={d.usage30d} rowKey={(u) => u.metric} columns={[
-            { key: 'm', header: s.usage, render: (u) => u.metric },
-            { key: 'q', header: '', align: 'end', render: (u) => <span className="num">{u.quantity.toLocaleString(locale === 'ar' ? INTL_LOCALE.ar : 'en')}</span> },
-            { key: 't', header: '', align: 'end', render: (u) => <span className="fine">{u.tenants} {s.tenantsCol}</span> },
-          ]} /> : <EmptyState title={s.none} />}
-        </Card>
-      </div>
-    </div>
+    </ListPage>
   );
 }

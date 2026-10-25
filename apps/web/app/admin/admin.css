@@ -1,0 +1,62 @@
+/* Operator console (21-ADMIN): the shell's admin specifics and the console pages. Logical properties and semantic
+   tokens only (apps/web/lib/logical-css-policy.test.ts covers app/admin). The shell layout itself (.ws, .ws-sidebar,
+   .ws-topbar, .ws-tabbar …) comes from app/globals.css and components/shell/shell.css. */
+
+/* Shell */
+.admin-nav { margin-block-start: var(--space-2); }
+.admin-nav-link .rui-icon { flex-shrink: 0; }
+.ws[data-collapsed] .admin-nav-link { justify-content: center; padding-inline: 0; }
+.admin-phone-account { display: none; }
+.admin-avatar-btn { border: 0; cursor: pointer; font: inherit; }
+.admin-gate { display: grid; gap: var(--space-4); inline-size: min(720px, 100%); }
+.admin-denied { display: grid; gap: var(--space-3); }
+.admin-denied h1 { margin: var(--space-4) 0 0; font-size: var(--t-lg); }
+.admin-denied p { margin: 0; }
+@media (max-width: 700px) {
+  .admin-phone-account { display: inline-flex; }
+}
+
+/* Shared page pieces */
+.admin-back { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-muted); text-decoration: none; }
+.admin-back:hover { color: var(--text); }
+.admin-sub { color: var(--text-muted); }
+.admin-fine-ltr { unicode-bidi: isolate; }
+.admin-stack { display: grid; gap: var(--space-4); min-inline-size: 0; }
+.admin-row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.admin-note { margin: 0; color: var(--text-muted); font-size: var(--t-sm); }
+.admin-muted { color: var(--text-subtle); }
+.admin-error-text { color: var(--danger-fg); font-size: var(--t-sm); overflow-wrap: anywhere; }
+.admin-code { font-family: var(--font-mono); font-size: var(--t-sm); overflow-wrap: anywhere; }
+.admin-form { display: grid; gap: var(--space-3); }
+.admin-form-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; }
+
+/* Tenants list */
+.admin-tenant-name { display: grid; gap: 2px; }
+.admin-tenant-name strong { color: var(--text); }
+
+/* Tenant detail */
+.admin-modules { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.admin-module { display: inline-flex; align-items: center; gap: var(--space-1); padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--radius-pill); font-size: var(--t-sm); color: var(--text-muted); }
+.admin-module[data-on] { border-color: var(--ok-bg); background: var(--ok-bg); color: var(--ok-fg); }
+.admin-invoices { margin: 0; padding-inline-start: var(--space-4); display: grid; gap: 2px; }
+
+/* Operations: tile tone (StatV2 has none of its own) */
+.admin-tile { display: grid; }
+.admin-tile > .rui-stat { block-size: 100%; }
+.admin-tile[data-tone='warn'] .rui-stat-value { color: var(--warn-fg); }
+.admin-tile[data-tone='danger'] .rui-stat-value { color: var(--danger-fg); }
+.admin-tile[data-tone='danger'] > .rui-stat { border-color: var(--danger-bg); }
+.admin-ops-head { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+
+/* Prices */
+.admin-price-tabs { margin-block-end: var(--space-4); }
+.admin-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--space-4); align-items: start; }
+.admin-panels > .panel + .panel { margin-block-start: 0; }
+
+/* An empty table inside a panel is a quiet line, not a second card inside the card. */
+.admin-ws .panel .rui-dt > .card { border: 0; border-radius: 0; box-shadow: none; padding: 0; background: transparent; }
+.admin-ws .panel .rui-dt > .card > .empty { padding: var(--space-6) var(--space-4); }
+.admin-ws .panel .rui-dt > .card > .empty strong { font-size: var(--t-md); font-weight: var(--fw-medium); color: var(--text-muted); }
+
+/* The country switch keeps its own width. */
+.admin-stack > .rui-seg { justify-self: start; }

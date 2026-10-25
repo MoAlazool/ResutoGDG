@@ -1,94 +1,106 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import type { AdminTenantRow, Page } from '@resuto/contracts';
-import { Badge, Card, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton } from '@resuto/ui';
+import { Badge, DataTableV2, EmptyState, ErrorState, FilterBar, ListPage, SelectField, SkeletonTable, useCursorPagination, type ColumnV2 } from '@resuto/ui';
+import { AreaSkeleton } from '@/components/shell/AreaSkeleton';
+import { useUrlParam } from '@/components/ops/use-url-state';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { useSession } from '@/lib/session';
+import { pick } from '@/lib/pick';
+import { useApi } from '@/lib/use-api';
 import { useAdmin } from './AdminShell';
+import {
+  COUNTRIES, PLAN_IDS, TENANT_STATUSES, byDate, countryLabel, planLabel, statusLabel, subscriptionLabel, tenantFilterChips, tenantsQuery,
+  type TenantFilters,
+} from './console';
+import { fill } from './text';
 import { ORG_TONE, SUB_TONE } from './tones';
 
-/** Lets wide tables scroll inside the page instead of widening it on phones. */
-const FIT = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' } as const;
+const ANY = '';
 
-
+/** Restaurants (21-ADMIN): ListPage with the filter bar (in the URL), DataTableV2 (row links, sortable page) and keyset pages. */
 export default function AdminTenantsPage() {
+  return <Suspense fallback={<AreaSkeleton template="list" />}><TenantsList /></Suspense>;
+}
+
+function TenantsList() {
   const { locale } = useT();
   const { s } = useAdmin();
-  const { call } = useSession();
-  const [q, setQ] = useState('');
-  const [debounced, setDebounced] = useState('');
-  const [status, setStatus] = useState('');
-  const [plan, setPlan] = useState('');
-  const [country, setCountry] = useState('');
-  const [rows, setRows] = useState<AdminTenantRow[] | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [q, setQ] = useUrlParam<string>('q', ANY);
+  const [status, setStatus] = useUrlParam<string>('status', ANY, [ANY, ...TENANT_STATUSES]);
+  const [plan, setPlan] = useUrlParam<string>('plan', ANY, [ANY, ...PLAN_IDS]);
+  const [country, setCountry] = useUrlParam<string>('country', ANY, [ANY, ...COUNTRIES]);
+  const filters: TenantFilters = { q, status, plan, country };
+  const pager = useCursorPagination([q, status, plan, country]);
+  const list = useApi<Page<AdminTenantRow>>(`/admin/tenants?${tenantsQuery(filters, pager.cursor)}`);
+  const setters: Record<keyof TenantFilters, (v: string) => void> = { q: setQ, status: setStatus, plan: setPlan, country: setCountry };
+  const chips = tenantFilterChips(s, filters).map((c) => ({ key: c.key, label: c.text, text: c.text, onRemove: () => setters[c.key](ANY) }));
+  const name = (r: AdminTenantRow) => pick(locale, r.name, r.nameAr);
 
-  useEffect(() => { const t = setTimeout(() => setDebounced(q.trim()), 250); return () => clearTimeout(t); }, [q]);
-  const load = useCallback(async (after: string | null) => {
-    setLoading(true); setError(false);
-    try {
-      const p = new URLSearchParams({ limit: '50' });
-      if (debounced) p.set('q', debounced);
-      if (status) p.set('status', status);
-      if (plan) p.set('plan', plan);
-      if (country) p.set('country', country);
-      if (after) p.set('cursor', after);
-      const r = await call<Page<AdminTenantRow>>(`/admin/tenants?${p}`);
-      setRows((prev) => (after ? [...(prev ?? []), ...r.items] : r.items));
-      setCursor(r.nextCursor);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [call, debounced, status, plan, country]);
-  useEffect(() => { void load(null); }, [load]);
+  const columns: ColumnV2<AdminTenantRow>[] = [
+    { key: 'name', header: s.restaurant, rowHeader: true, hideable: false, sort: (a, b) => name(a).localeCompare(name(b), locale),
+      render: (r) => (
+        <span className="admin-tenant-name">
+          <strong><bdi>{name(r)}</bdi></strong>
+          <span className="fine" dir="ltr">{r.slug} · {r.country}</span>
+        </span>
+      ) },
+    { key: 'status', header: s.status, sort: (a, b) => statusLabel(s, a.status).localeCompare(statusLabel(s, b.status), locale),
+      render: (r) => <Badge tone={ORG_TONE[r.status]}>{statusLabel(s, r.status)}</Badge> },
+    { key: 'plan', header: s.plan, sort: (a, b) => planLabel(s, a.planId).localeCompare(planLabel(s, b.planId), locale),
+      render: (r) => (
+        <span className="admin-row">
+          <span>{planLabel(s, r.planId)}</span>
+          {r.subscriptionStatus && <Badge tone={SUB_TONE[r.subscriptionStatus]}>{subscriptionLabel(s, r.subscriptionStatus)}</Badge>}
+        </span>
+      ) },
+    { key: 'branches', header: s.branches, align: 'end', sort: (a, b) => a.counts.branches - b.counts.branches, render: (r) => <span className="num">{r.counts.branches}</span> },
+    { key: 'members', header: s.colMembers, align: 'end', sort: (a, b) => a.counts.members - b.counts.members, render: (r) => <span className="num">{r.counts.members}</span> },
+    { key: 'orders', header: s.colOrders, align: 'end', sort: (a, b) => a.counts.orders30d - b.counts.orders30d, render: (r) => <span className="num">{r.counts.orders30d}</span> },
+    { key: 'lastOrder', header: s.lastOrder, sort: (a, b) => byDate(a.lastOrderAt, b.lastOrderAt), render: (r) => <span className="num">{dateTime(r.lastOrderAt, locale)}</span> },
+    { key: 'created', header: s.created, sort: (a, b) => byDate(a.createdAt, b.createdAt), render: (r) => <span className="num">{dateTime(r.createdAt, locale)}</span> },
+  ];
 
+  const rows = list.data?.items ?? [];
   return (
-    <div style={FIT}>
-      <PageHeader title={s.tenants} />
-      <Card>
-        <div className="form-row">
-          <Field label={s.search} value={q} onChange={(e) => setQ(e.target.value)} type="search" />
-          <SelectField label={s.status} value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">{s.any}</option>
-            {(['onboarding', 'active', 'suspended', 'closed'] as const).map((x) => <option key={x} value={x}>{s[`st_${x}`]}</option>)}
-          </SelectField>
-          <SelectField label={s.plan} value={plan} onChange={(e) => setPlan(e.target.value)}>
-            <option value="">{s.any}</option>
-            {['free', 'starter', 'growth', 'pro', 'custom'].map((x) => <option key={x} value={x}>{x}</option>)}
-          </SelectField>
-          <SelectField label={s.country} value={country} onChange={(e) => setCountry(e.target.value)}>
-            <option value="">{s.any}</option><option value="EG">EG</option><option value="SA">SA</option>
-          </SelectField>
-        </div>
-      </Card>
-      {error && <Notice tone="danger">{s.loadError} <button className="btn btn-sm" onClick={() => void load(null)}>{s.retry}</button></Notice>}
-      {!rows ? <Card><Skeleton lines={6} /></Card> : !rows.length ? <Card><EmptyState title={s.noTenants} /></Card> : (
-        <div className="table-wrap" style={{ marginBlockStart: 16 }}>
-          <table className="data">
-            <thead><tr><th>{s.tenants}</th><th>{s.status}</th><th>{s.subscription}</th><th>{s.counts}</th><th>{s.lastOrder}</th><th>{s.created}</th></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td><Link href={`/admin/tenants/${r.id}`}><strong>{locale === 'ar' && r.nameAr ? r.nameAr : r.name}</strong></Link>
-                    <div className="fine" dir="ltr">{r.slug} · {r.country}</div></td>
-                  <td><Badge tone={ORG_TONE[r.status]}>{s[`st_${r.status}` as keyof typeof s] ?? r.status}</Badge></td>
-                  <td>{r.planId ?? '—'} {r.subscriptionStatus && <Badge tone={SUB_TONE[r.subscriptionStatus]}>{r.subscriptionStatus}</Badge>}</td>
-                  <td className="num">{r.counts.branches} · {r.counts.members} · {r.counts.orders30d}</td>
-                  <td className="num">{dateTime(r.lastOrderAt, locale)}</td>
-                  <td className="num">{dateTime(r.createdAt, locale)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <ListPage header={{ title: s.tenants, subtitle: s.tenantsSub }}
+      filters={
+        <FilterBar locale={locale}
+          search={{ value: q, onChange: setQ, label: s.search, placeholder: s.search, debounceMs: 250 }}
+          chips={chips} onClearAll={chips.length > 1 ? () => { setQ(ANY); setStatus(ANY); setPlan(ANY); setCountry(ANY); } : undefined}
+          filters={<>
+            <SelectField label={s.status} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value={ANY}>{s.any}</option>
+              {TENANT_STATUSES.map((x) => <option key={x} value={x}>{statusLabel(s, x)}</option>)}
+            </SelectField>
+            <SelectField label={s.plan} value={plan} onChange={(e) => setPlan(e.target.value)}>
+              <option value={ANY}>{s.any}</option>
+              {PLAN_IDS.map((x) => <option key={x} value={x}>{planLabel(s, x)}</option>)}
+            </SelectField>
+            <SelectField label={s.country} value={country} onChange={(e) => setCountry(e.target.value)}>
+              <option value={ANY}>{s.any}</option>
+              {COUNTRIES.map((x) => <option key={x} value={x}>{countryLabel(s, x)}</option>)}
+            </SelectField>
+          </>} />
+      }
+      footer={list.data && rows.length > 1 ? <p className="admin-note">{s.sortNote}</p> : undefined}>
+      {list.error && !list.data ? (
+        <ErrorState locale={locale} error={{ status: list.error.status, code: list.error.code, message: list.error.message, requestId: list.error.requestId }}
+          onRetry={list.reload} />
+      ) : !list.data ? (
+        <div className="panel"><SkeletonTable rows={8} cols={6} /></div>
+      ) : (
+        <DataTableV2 label={s.tenants} locale={locale} rows={rows} columns={columns} rowKey={(r) => r.id} busy={list.pending}
+          rowHref={(r) => `/admin/tenants/${r.id}`}
+          renderLink={(href, children, className) => <Link href={href} className={className}>{children}</Link>}
+          columnToggle densityToggle
+          empty={<EmptyState title={s.noTenants} />}
+          pagination={{
+            hasNext: !!list.data.nextCursor, hasPrev: pager.hasPrev, onNext: () => pager.next(list.data?.nextCursor), onPrev: pager.prev,
+            summary: fill(s.pageOf, { n: pager.page, count: rows.length }),
+          }} />
       )}
-      {cursor && <div className="row" style={{ justifyContent: 'center', marginBlockStart: 14 }}><button className="btn" disabled={loading} onClick={() => void load(cursor)}>{s.more}</button></div>}
-    </div>
+    </ListPage>
   );
 }

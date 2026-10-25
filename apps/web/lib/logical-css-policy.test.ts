@@ -31,6 +31,8 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/settings', 'apps/web/app/dashboard/[orgId]/team', 'apps/web/app/dashboard/[orgId]/billing',
   'apps/web/app/dashboard/[orgId]/data', 'apps/web/app/dashboard/[orgId]/audit', 'apps/web/components/settings',
   'apps/web/app/dashboard/[orgId]/finance', 'apps/web/app/dashboard/[orgId]/payments', 'apps/web/app/dashboard/[orgId]/compliance',
+  // 21-ADMIN: the operator console (shell, restaurants, operations, prices, provider apps).
+  'apps/web/app/admin',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

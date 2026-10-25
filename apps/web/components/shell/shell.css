@@ -140,7 +140,9 @@ button.ws-chip:hover { background: var(--surface-hover); }
 .area-sk-panes { display: grid; grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(220px, 320px); gap: var(--space-4); }
 .area-sk-settings { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--space-6); }
 .area-sk-nav { display: grid; gap: var(--space-2); align-content: start; }
-@media (max-width: 1100px) { .area-sk-panes { grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); } .area-sk-end { display: none; } }
+.area-sk-detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: var(--space-6); align-items: start; }
+.area-sk-main { display: grid; gap: var(--space-4); }
+@media (max-width: 1100px) { .area-sk-panes { grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); } .area-sk-detail { grid-template-columns: minmax(0, 1fr); } .area-sk-end { display: none; } }
 @media (max-width: 700px) {
   .area-sk-lanes { grid-template-columns: repeat(4, minmax(200px, 80vw)); }
   .area-sk-panes, .area-sk-settings { grid-template-columns: minmax(0, 1fr); }

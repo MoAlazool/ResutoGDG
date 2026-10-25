@@ -44,6 +44,24 @@ function routeFiles(roots: string[], stopDirs: string[]): string[] {
 }
 const guestFiles = () => routeFiles(GUEST_ROOTS, STAFF_DIRS);
 
+/** Like routeFiles, but follows only imports that exist at run time (`import type … from` carries no copy). */
+function runtimeRouteFiles(roots: string[], stopDirs: string[]): string[] {
+  const seen = new Set<string>();
+  const queue = roots.flatMap((r) => [...walk(join(WEB, r))]);
+  while (queue.length) {
+    const f = queue.pop()!;
+    const rel = relative(WEB, f);
+    if (seen.has(f) || rel.startsWith('lib/i18n/') || stopDirs.some((d) => rel.startsWith(d + '/'))) continue;
+    seen.add(f);
+    const src = readFileSync(f, 'utf8').replace(/^\s*(?:import|export)\s+type\s[^;]*?from\s*'[^']+';?/gm, '');
+    for (const m of src.matchAll(/(?:from|import)\s*\(?\s*'([^']+)'/g)) {
+      const r = resolveImport(f, m[1]!);
+      if (r) queue.push(r);
+    }
+  }
+  return [...seen];
+}
+
 /** Dictionary keys (literals) and key prefixes (`prefix.${…}` templates) a set of files can use. */
 function usedKeys(files: string[]): Array<{ file: string; key?: string; prefix?: string }> {
   const out: Array<{ file: string; key?: string; prefix?: string }> = [];
@@ -127,6 +145,28 @@ describe('message scopes', () => {
     expect(Object.keys(en).filter((k) => k.startsWith('onb.') && !(k in ar))).toEqual([]);
     expect(Object.keys(ar).filter((k) => k.startsWith('onb.') && !(k in en))).toEqual([]);
     expect(readFileSync(join(WEB, 'app/onboarding/layout.tsx'), 'utf8')).toMatch(/<StaffProviders[^>]*scope="onboarding"/);
+  });
+
+  it('the operator console gets the admin scope (a subset of staff), and it covers what the console uses', () => {
+    const ROOTS = ['app/admin'];
+    const files = runtimeRouteFiles(ROOTS, STAFF_DIRS.filter((d) => !ROOTS.includes(d)));
+    expect(files.some((f) => f.endsWith('AdminShell.tsx'))).toBe(true);
+    expect(files.some((f) => f.endsWith('AreaError.tsx'))).toBe(true);
+    const ok = (k: string) => inScope(k, 'guest') || inScope(k, 'admin');
+    const missing: string[] = [];
+    for (const u of usedKeys(files)) {
+      if (u.key && u.key in en && !ok(u.key)) missing.push(`${u.file}: ${u.key}`);
+      if (u.prefix) for (const k of Object.keys(en).filter((x) => x.startsWith(u.prefix!))) if (!ok(k)) missing.push(`${u.file}: ${u.prefix}* (${k})`);
+    }
+    expect(missing).toEqual([]);
+    for (const locale of ['en', 'ar'] as const) {
+      const a = messagesFor(locale, 'admin');
+      const s = messagesFor(locale, 'staff');
+      expect(Object.keys(a).every((k) => k in s)).toBe(true);
+      expect(Object.keys(a).some((k) => k.startsWith('ops.admin.'))).toBe(true);
+      expect(JSON.stringify(a).length).toBeLessThan(JSON.stringify(s).length / 5);
+    }
+    expect(readFileSync(join(WEB, 'app/admin/layout.tsx'), 'utf8')).toMatch(/<StaffProviders[^>]*scope="admin"/);
   });
 
   it('guest and staff scopes are disjoint and together cover every key except the landing copy', () => {
