@@ -7,6 +7,7 @@ import { ModuleGate } from '@/components/shell/ModuleGate';
 import { SectionNav } from '@/components/shell/SectionNav';
 import { MCP_SECTIONS } from '@/lib/sections';
 import type { ApiRequestError } from '@/lib/api';
+import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 
@@ -20,15 +21,17 @@ export interface McpClient {
   id: string; name: string; keyPrefix: string; actingRole: Role; branchIds: string[] | null; allowedTools: string[];
   rateLimitPerMin: number; status: 'active' | 'revoked'; expired: boolean; expiresAt: string | null; lastUsedAt: string | null;
   createdAt: string; revokedAt: string | null; calls24h?: number; pendingApprovals?: number;
+  authKind?: 'key' | 'oauth'; groups?: string[]; policyOverrides?: Record<string, string>;
 }
 
 export interface McpCall {
   id: string; clientId: string; clientName: string; keyPrefix: string; tool: string; outcome: string; via: string;
-  approvalId: string | null; durationMs: number | null; errorCode: string | null; error: string | null; createdAt: string;
+  approvalId: string | null; changeSetId?: string | null; durationMs: number | null; errorCode: string | null; error: string | null; createdAt: string;
 }
 
-type Tab = 'clients' | 'approvals' | 'calls' | 'connect';
-const MCP_TAB_HREF: Record<Tab, string> = { clients: '/mcp', approvals: '/mcp/approvals', calls: '/mcp/calls', connect: '/mcp/connect' };
+type Tab = 'clients' | 'approvals' | 'calls' | 'connect' | 'inbox';
+// 21-MCP: 'inbox' is the cross-feature approvals inbox (MCP, Studio AI, staff change sets) at /approvals.
+const MCP_TAB_HREF: Record<Tab, string> = { clients: '/mcp', approvals: '/mcp/approvals', calls: '/mcp/calls', connect: '/mcp/connect', inbox: '/approvals' };
 
 /** Page frame for every MCP screen: entitlement/permission gate, header and section tabs. */
 export function McpPage({ tab, permission = 'mcp:manage', actions, children }: { tab: Tab; permission?: Permission; actions?: ReactNode; children: ReactNode }) {
@@ -70,6 +73,17 @@ const OUTCOME_TONE: Record<string, Tone> = { ok: 'ok', approval_required: 'info'
 export function OutcomeBadge({ outcome }: { outcome: string }) {
   const { t } = useT();
   return <Badge tone={OUTCOME_TONE[outcome] ?? 'neutral'}>{t(`mcp.outcome.${outcome}`)}</Badge>;
+}
+
+/** 21-MCP: when a connection stops working (expired, in a few days, on a date, or never). */
+export function ExpiryBadge({ client, timezone }: { client: Pick<McpClient, 'expiresAt' | 'expired' | 'status'>; timezone: string }) {
+  const { t, locale } = useT();
+  if (client.status === 'revoked') return null;
+  if (client.expired) return <Badge tone="warn">{t('mcp.status.expired')}</Badge>;
+  if (!client.expiresAt) return <Badge tone="neutral">{t('mcp.expiry.none')}</Badge>;
+  const days = Math.ceil((new Date(client.expiresAt).getTime() - Date.now()) / 86_400_000);
+  if (days <= 7) return <Badge tone="warn">{t('mcp.expiry.soon', { n: Math.max(1, days) })}</Badge>;
+  return <Badge tone="info">{t('mcp.expiry.on', { date: dateTime(client.expiresAt, locale, timezone) })}</Badge>;
 }
 
 const APPROVAL_TONE: Record<string, Tone> = { pending: 'info', approved: 'ok', executed: 'ok', rejected: 'neutral', expired: 'warn', failed: 'danger', invalidated: 'warn' };

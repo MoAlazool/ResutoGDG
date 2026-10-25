@@ -1,5 +1,9 @@
 import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
-import { MCP_TOOLS, ROLE_PERMISSIONS, type ChangeOpType, type McpToolDescriptor, type McpToolName, type Role } from '@resuto/contracts';
+import {
+  CHANGE_OPS, MCP_OP_TOOLS, MCP_TOOLS, ROLE_PERMISSIONS, type ChangeOpGroup, type ChangeOpType, type ChangePolicyMode,
+  type ChangeSetView, type McpToolDescriptor, type McpToolName, type Role,
+} from '@resuto/contracts';
+import type { ChangeSetToolOutput } from '@resuto/contracts/mcp-tools';
 import { z } from 'zod';
 import { TenantContext } from '../../common/auth/context';
 import { fingerprint } from '../../common/crypto/hash';
@@ -12,10 +16,11 @@ import { AuditService } from '../../common/platform/audit.service';
 import { IdempotencyService } from '../../common/platform/idempotency.service';
 import { OutboxService } from '../../common/platform/outbox.service';
 import { CAMPAIGNS_PORT, CHECKOUT_PORT, SEGMENTS_PORT, type CampaignsPort, type CheckoutPort, type SegmentsPort } from '../kernel/ports';
-import { ChangesService, type ChangeSetRow, type StatusInfo } from '../changes/changes.service';
+import { PlanLimitsService } from '../billing/plan-limits.service';
+import { ChangesService, type ChangeSetRow, type ProposeOptions, type StatusInfo } from '../changes/changes.service';
 import { FinanceService } from '../finance/finance.service';
 import { CAMPAIGN_SEND_PORT, MENU_AVAILABILITY_PORT, type CampaignSendPort, type MenuAvailabilityPort } from './mcp.ports';
-import { APPROVAL_TTL_HOURS, iso, MAX_OUTPUT_BYTES } from './mcp.util';
+import { iso, MAX_OUTPUT_BYTES } from './mcp.util';
 import { MCP_TOOL_REGISTRY } from './tools/registry';
 import type { ApprovalPreview, McpPortSet, McpTool } from './tools/types';
 
@@ -66,6 +71,8 @@ export function clientContext(orgId: string, client: { id: string; acting_role: 
 export const MCP_TOOL_OPS: Partial<Record<McpToolName, (input: Record<string, any>) => { type: ChangeOpType; input: Record<string, unknown> }>> = {
   update_product_availability: (i) => ({ type: 'menu.item.availability.set',
     input: { productId: i.productId, branchId: i.branchId, available: i.available, ...(i.reason !== undefined ? { reason: i.reason } : {}) } }),
+  toggle_availability: (i) => ({ type: 'menu.item.availability.set',
+    input: { productId: i.productId, branchId: i.branchId, available: i.available, ...(i.reason !== undefined ? { reason: i.reason } : {}) } }),
   request_campaign_send: (i) => ({ type: 'campaign.send', input: { campaignId: i.campaignId, ...(i.scheduledAt ? { scheduledAt: i.scheduledAt } : {}) } }),
   create_payment_link: (i) => ({ type: 'payment_link.create', input: {
     ...(i.orderId ? { orderId: i.orderId } : {}), ...(i.amountMinor !== undefined ? { amountMinor: i.amountMinor } : {}), description: i.description,
@@ -92,6 +99,7 @@ export class McpExecutionService implements OnModuleInit {
     private readonly entitlements: EntitlementsService,
     private readonly limiter: RateLimiter,
     private readonly changes: ChangesService,
+    private readonly planLimits: PlanLimitsService,
     @Optional() @Inject(CHECKOUT_PORT) checkout?: CheckoutPort,
     @Optional() @Inject(SEGMENTS_PORT) segments?: SegmentsPort,
     @Optional() @Inject(CAMPAIGNS_PORT) campaigns?: CampaignsPort,
@@ -109,6 +117,9 @@ export class McpExecutionService implements OnModuleInit {
   onModuleInit() {
     this.changes.registerAdapter('mcp', {
       onStatus: (tx, cs, info) => this.onChangeSetStatus(tx, cs, info),
+      // Sets from the change tools (21-MCP) have no mcp_approvals projection: the engine decides them (with its MFA route).
+      ownsDecision: async (ctx, cs) => !!(await this.db.scoped(ctx, (tx) =>
+        tx.maybeOne('select 1 from mcp_approvals where org_id = $1 and change_set_id = $2', [ctx.orgId, cs.id]))),
       approve: async (userCtx, cs, body) => {
         userCtx.require('mcp:approve');
         const a = await this.approvalFor(userCtx, cs);
@@ -143,8 +154,10 @@ export class McpExecutionService implements OnModuleInit {
         name: tool.name, title: tool.meta.title, description: tool.description,
         inputSchema: jsonSchema(tool.input, 'input'), outputSchema: jsonSchema(tool.output, 'output'),
         annotations: {
-          title: tool.meta.title, readOnlyHint: tool.meta.readOnly, destructiveHint: tool.meta.sensitive,
-          idempotentHint: tool.meta.readOnly, openWorldHint: tool.name === 'request_campaign_send' || tool.name === 'create_payment_link',
+          title: tool.meta.title, readOnlyHint: tool.meta.readOnly, destructiveHint: tool.meta.sensitive || !!tool.meta.destructive,
+          // Change tools are idempotent per idempotencyKey (or their parameters when no key is given).
+          idempotentHint: tool.meta.readOnly || !!tool.meta.changeSet,
+          openWorldHint: tool.name === 'request_campaign_send' || tool.name === 'create_payment_link',
         },
         sensitive: tool.meta.sensitive,
       };
@@ -205,6 +218,8 @@ export class McpExecutionService implements OnModuleInit {
         throw forbidden(`The connection's role (${ctx.role}) cannot perform ${tool.meta.permission}`);
       }
       if (!(await this.entitlements.isEnabled(ctx.orgId, tool.meta.module))) throw paymentRequired(tool.meta.module);
+      // Monthly plan quota (plans.limits.mcp_calls_per_month; no limit configured = unlimited): 402 plan_limit_reached.
+      await this.db.scoped(ctx, (tx) => this.planLimits.assertMcpQuota(tx, ctx.orgId));
       this.limiter.hit(`mcp-tool:${caller.clientId}:${tool.name}`, tool.meta.ratePerMin);
       const parsed = tool.input.safeParse(rawInput ?? {});
       if (!parsed.success) {
@@ -216,6 +231,7 @@ export class McpExecutionService implements OnModuleInit {
       if (typeof input.branchId === 'string') ctx.assertBranch(input.branchId);
 
       if (tool.meta.sensitive) return await this.requestApproval(ctx, caller, tool, input, inputHash, started, via, auditCtx);
+      if (tool.changes) return await this.proposeChanges(ctx, caller, tool, input, inputHash, started, via, auditCtx);
 
       return await this.db.scoped(ctx, async (tx) => {
         let replayed = false;
@@ -267,13 +283,16 @@ export class McpExecutionService implements OnModuleInit {
       const replayed = !!approval;
       if (!approval) {
         const preview = await tool.preview!(tx, ctx, input);
-        const client = await tx.one<any>('select acting_role, branch_ids, allowed_tools from mcp_clients where id = $1', [caller.clientId]);
+        const client = await tx.one<any>('select acting_role, branch_ids, allowed_tools, policy_overrides from mcp_clients where id = $1', [caller.clientId]);
+        // The approval window comes from the restaurant's policy for the op's group (21-MCP; 24 hours unless set).
+        const toOp = MCP_TOOL_OPS[tool.name];
+        const ttl = toOp ? await this.changes.approvalWindowHours(tx, ctx.orgId, CHANGE_OPS[toOp(input).type].group) : 24;
         approval = await tx.one<any>(
           `insert into mcp_approvals(org_id, client_id, tool, input, input_hash, summary, expires_at, scope_snapshot, material_digest)
            values ($1, $2, $3, $4, $5, $6, now() + make_interval(hours => $7), $8, $9) returning id, summary, expires_at`,
-          [ctx.orgId, caller.clientId, tool.name, JSON.stringify(input), inputHash, preview.summary.slice(0, 500), APPROVAL_TTL_HOURS,
+          [ctx.orgId, caller.clientId, tool.name, JSON.stringify(input), inputHash, preview.summary.slice(0, 500), ttl,
             JSON.stringify(scopeSnapshot(client, tool.name)), previewDigest(preview)]);
-        const cs = await this.proposeFor(tx, ctx, caller.clientId, tool, input, approval.id, approval.summary, APPROVAL_TTL_HOURS);
+        const cs = await this.proposeFor(tx, ctx, caller.clientId, tool, input, approval.id, approval.summary, ttl, client.policy_overrides ?? {});
         await tx.query('update mcp_approvals set change_set_id = $2 where id = $1', [approval.id, cs]);
         await this.outbox.publish(tx, ctx.orgId, {
           type: 'mcp.approval_requested', aggregateType: 'mcp_approval', aggregateId: approval.id,
@@ -293,22 +312,99 @@ export class McpExecutionService implements OnModuleInit {
     });
   }
 
+  /**
+   * A change tool (21-MCP): the tool's typed ops proposed as one change set by this connection. A composite call can do
+   * no more than the connection's single-op tools; the connection's stricter overrides and the sensitive floor join the
+   * restaurant's policy; idempotent per (connection, key). `previewOnly` stores nothing.
+   */
+  private async proposeChanges(ctx: TenantContext, caller: McpCaller, tool: McpTool, input: Record<string, any>, inputHash: string,
+    started: number, via: CallVia, auditCtx: TenantContext) {
+    const proposal = tool.changes!(input);
+    for (const [i, op] of proposal.ops.entries()) {
+      const meta = CHANGE_OPS[op.type];
+      if (meta.kind === 'effect') {
+        throw new DomainError('op_not_supported', `ops.${i}: ${meta.title} is requested with its own tool (${MCP_OP_TOOLS[op.type].join(', ')}), not in a change set`, 422,
+          { op: i, type: op.type, tool: MCP_OP_TOOLS[op.type][0] });
+      }
+      const tools = MCP_OP_TOOLS[op.type];
+      if (!tools.some((t) => caller.allowedTools.includes(t))) {
+        throw new DomainError('tool_not_allowed', `ops.${i}: this connection is not allowed to ${meta.title.toLowerCase()} (needs ${tools.join(' or ')})`, 403,
+          { op: i, type: op.type, tools });
+      }
+    }
+    const client = await this.db.scoped(ctx, (tx) => tx.one<{ policy_overrides: Partial<Record<ChangeOpGroup, ChangePolicyMode>> | null }>(
+      'select policy_overrides from mcp_clients where id = $1', [caller.clientId]));
+    // Ops whose single-op tools are sensitive (availability) keep their approval floor inside a composite set too.
+    const sensitive = proposal.ops.some((op) => MCP_OP_TOOLS[op.type].every((t) => MCP_TOOLS[t].sensitive));
+    const opts: ProposeOptions = { floor: sensitive ? 'approval' : undefined, groupFloors: client.policy_overrides ?? {},
+      mcpClientId: caller.clientId, sourceTool: tool.name };
+    let output: ChangeSetToolOutput;
+    if (input.previewOnly) {
+      const pv = await this.changes.dryRun(ctx, { ops: proposal.ops }, opts);
+      output = {
+        status: 'preview', changeSetId: null, approvalId: null, title: proposal.title,
+        policy: { mode: pv.policy.mode, approvalsRequired: pv.policy.approvalsRequired, requiresOwner: pv.policy.requiresOwner },
+        ops: pv.ops.map((o) => ({ type: o.type, title: o.title, summary: o.summary, status: 'preview', changes: o.changes, result: null })),
+        expiresAt: null, error: null, replayed: false,
+        message: pv.policy.mode === 'auto'
+          ? 'Preview only: nothing was proposed. Without previewOnly this applies at once under the restaurant\'s policy.'
+          : `Preview only: nothing was proposed. Without previewOnly a team member must approve it${pv.policy.requiresOwner ? ' (the owner, for this discount)' : ''}.`,
+      };
+    } else {
+      const key = typeof input.idempotencyKey === 'string' ? input.idempotencyKey : `mcp:${tool.name}:${inputHash}`;
+      const view = await this.changes.propose(ctx, { origin: 'mcp', title: proposal.title, summary: proposal.summary ?? null, ops: proposal.ops, idempotencyKey: key }, opts);
+      output = this.changeOutput(view);
+    }
+    const checked = this.checkOutput(tool, output);
+    const failed = ['failed', 'invalidated'].includes(output.status);
+    const outcome = output.status === 'approval_required' ? 'approval_required' : failed ? 'error' : 'ok';
+    await this.db.scoped(ctx, (tx) => this.record(tx, ctx, auditCtx, { clientId: caller.clientId, tool: tool.name, inputHash, outcome, started, via,
+      outputBytes: checked.bytes, replayed: output.replayed, changeSetId: output.changeSetId,
+      ...(failed ? { errorCode: /^([a-z][a-z0-9_]*):/.exec(output.error ?? '')?.[1] ?? 'change_failed', error: output.error } : {}) }));
+    return { httpStatus: output.status === 'approval_required' ? 202 : 200, body: { status: output.status === 'approval_required' ? 'approval_required' as const : 'ok' as const,
+      tool: tool.name, output: checked.value, replayed: output.replayed } };
+  }
+
+  /** The client-facing answer of a change tool, from the engine's view of the set. */
+  private changeOutput(view: ChangeSetView): ChangeSetToolOutput {
+    const status = (view.status === 'pending_approval' || view.status === 'draft' || view.status === 'validated' ? 'approval_required' : view.status) as ChangeSetToolOutput['status'];
+    const owner = view.policy.requiresOwner ? ' The owner must be one of the approvers (the discount is above their threshold).' : '';
+    const message: Record<string, string> = {
+      approval_required: `A team member must approve this in Resuto (Approvals). Nothing has changed yet.${owner} Check progress with get_approval_status and the changeSetId.`,
+      applied: 'Applied under the restaurant\'s approval policy.',
+      approved: 'Approved; applying now. Check get_approval_status.',
+      applying: 'Applying now. Check get_approval_status.',
+      partially_applied: 'Partly applied: see each op\'s status. A team member follows up on what failed.',
+      failed: 'Nothing was changed: the change could not be applied.',
+      invalidated: 'Nothing was changed: the records changed after the proposal. Read them again and propose again.',
+      rejected: 'A team member rejected this request earlier (same idempotency key).',
+      expired: 'This request expired without a decision (same idempotency key). Propose again with a new key.',
+    };
+    return {
+      status, changeSetId: view.id, approvalId: view.id, title: view.title,
+      policy: { mode: view.policy.mode, approvalsRequired: view.policy.approvalsRequired, requiresOwner: view.policy.requiresOwner },
+      ops: view.ops.map((o) => ({ type: o.type, title: o.title, summary: o.summary, status: o.status, changes: o.changes, result: o.result ?? null })),
+      expiresAt: view.expiresAt, error: view.error ?? view.invalidatedReason ?? null, replayed: !!view.replayed, message: message[status] ?? message.applied!,
+    };
+  }
+
   /** Writes the call log row, the audit entry and the usage metric in the caller's transaction. */
   async record(tx: Tx, ctx: TenantContext, auditCtx: TenantContext, e: {
     clientId: string; tool: string; inputHash: string; outcome: string; started: number; via: CallVia;
     approvalId?: string | null; outputBytes?: number | null; errorCode?: string | null; error?: string | null; replayed?: boolean;
-    extra?: Record<string, unknown>;
+    changeSetId?: string | null; extra?: Record<string, unknown>;
   }) {
     const duration = Math.max(0, Date.now() - e.started);
     await tx.query(
-      `insert into mcp_tool_calls(org_id, client_id, tool, input_hash, outcome, approval_id, duration_ms, error, error_code, via, output_bytes)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      `insert into mcp_tool_calls(org_id, client_id, tool, input_hash, outcome, approval_id, duration_ms, error, error_code, via, output_bytes, change_set_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [ctx.orgId, e.clientId, e.tool.slice(0, 80), e.inputHash, e.outcome, e.approvalId ?? null, duration, e.error?.slice(0, 500) ?? null,
-        e.errorCode ?? null, e.via, e.outputBytes ?? null]);
+        e.errorCode ?? null, e.via, e.outputBytes ?? null, e.changeSetId ?? null]);
     await this.audit.record(tx, auditCtx, {
       action: 'mcp.tool_call', entityType: 'mcp_tool', entityId: e.tool.slice(0, 80),
       metadata: { clientId: e.clientId, outcome: e.outcome, via: e.via, inputHash: e.inputHash, durationMs: duration,
-        ...(e.approvalId ? { approvalId: e.approvalId } : {}), ...(e.errorCode ? { errorCode: e.errorCode } : {}),
+        ...(e.approvalId ? { approvalId: e.approvalId } : {}), ...(e.changeSetId ? { changeSetId: e.changeSetId } : {}),
+        ...(e.errorCode ? { errorCode: e.errorCode } : {}),
         ...(e.replayed ? { replayed: true } : {}), ...(e.extra ?? {}) },
     });
     if (e.outcome === 'ok' || e.outcome === 'approval_required') {
@@ -489,18 +585,19 @@ export class McpExecutionService implements OnModuleInit {
 
   /** The change set of one sensitive request, in the request's transaction. */
   private async proposeFor(tx: Tx, ctx: TenantContext, clientId: string, tool: McpTool, input: Record<string, any>, approvalId: string,
-    summary: string, ttlHours: number): Promise<string> {
+    summary: string, ttlHours: number, overrides: Partial<Record<ChangeOpGroup, ChangePolicyMode>> = {}): Promise<string> {
     const toOp = MCP_TOOL_OPS[tool.name];
     if (!toOp) throw new DomainError('module_unavailable', `${tool.meta.title} has no change-set operation`, 503);
     const cs = await this.changes.proposeTx(tx, ctx,
       { origin: 'mcp', title: summary.slice(0, 200) || tool.meta.title, ops: [toOp(input)], idempotencyKey: `mcp_approval:${approvalId}` },
-      { floor: 'approval', ttlHours, mcpClientId: clientId, notify: false });
+      { floor: 'approval', groupFloors: overrides, ttlHours, mcpClientId: clientId, sourceTool: tool.name, notify: false });
     return cs.id;
   }
 
   private async linkChangeSet(tx: Tx, clientCtx: TenantContext, r: any, tool: McpTool): Promise<string> {
     const hoursLeft = Math.max(1, Math.ceil((new Date(r.expires_at).getTime() - Date.now()) / 3_600_000));
-    const id = await this.proposeFor(tx, clientCtx, r.client_id, tool, tool.input.parse(r.input) as Record<string, any>, r.id, r.summary, hoursLeft);
+    const id = await this.proposeFor(tx, clientCtx, r.client_id, tool, tool.input.parse(r.input) as Record<string, any>, r.id, r.summary, hoursLeft,
+      r.policy_overrides ?? {});
     await tx.query('update mcp_approvals set change_set_id = $2 where id = $1', [r.id, id]);
     return id;
   }
@@ -521,7 +618,8 @@ export class McpExecutionService implements OnModuleInit {
     const a = await tx.maybeOne<any>(
       `select a.id, a.tool, a.client_id, a.input_hash, a.status, c.acting_role, c.branch_ids
          from mcp_approvals a join mcp_clients c on c.id = a.client_id where a.change_set_id = $1 for update of a`, [cs.id]);
-    if (!a || !['pending', 'approved'].includes(a.status)) return;
+    if (!a) return this.onChangeToolStatus(tx, cs, info);
+    if (!['pending', 'approved'].includes(a.status)) return;
     const sys = TenantContext.system(cs.org_id, 'changes.engine');
     const clientCtx = clientContext(cs.org_id, { id: a.client_id, acting_role: a.acting_role, branch_ids: a.branch_ids });
     const started = cs.apply_started_at ? new Date(cs.apply_started_at).getTime() : Date.now();
@@ -558,10 +656,29 @@ export class McpExecutionService implements OnModuleInit {
     await this.audit.record(tx, sys, { action: 'mcp.approval.rejected', entityType: 'mcp_approval', entityId: a.id, metadata: { tool: a.tool, changeSetId: cs.id } });
   }
 
+  /**
+   * A change tool's set (no mcp_approvals row) that a person approved has now settled: the connection's activity
+   * timeline gets the execution (via 'approval'), like approved sensitive requests. Sets applied by policy at once are
+   * logged by the call itself.
+   */
+  private async onChangeToolStatus(tx: Tx, cs: ChangeSetRow, info: StatusInfo) {
+    if (!cs.mcp_client_id || !cs.decided_by || !['applied', 'partially_applied', 'failed'].includes(info.to)) return;
+    const c = await tx.maybeOne<{ acting_role: Role; branch_ids: string[] | null }>('select acting_role, branch_ids from mcp_clients where id = $1', [cs.mcp_client_id]);
+    if (!c) return;
+    const clientCtx = clientContext(cs.org_id, { id: cs.mcp_client_id, acting_role: c.acting_role, branch_ids: c.branch_ids });
+    const started = cs.apply_started_at ? new Date(cs.apply_started_at).getTime() : Date.now();
+    const ok = info.to === 'applied';
+    const error = ok ? null : String(cs.error ?? info.reason ?? 'The change failed').slice(0, 1000);
+    await this.record(tx, clientCtx, clientCtx, { clientId: cs.mcp_client_id, tool: cs.source_tool ?? 'propose_changes', inputHash: cs.request_hash ?? '',
+      outcome: ok ? 'ok' : 'error', started, via: 'approval', changeSetId: cs.id,
+      ...(error ? { errorCode: /^([a-z][a-z0-9_]*):/.exec(error)?.[1] ?? 'change_failed', error } : {}),
+      extra: { approvedBy: cs.decided_by, status: info.to } });
+  }
+
   private async loadApproval(tx: Tx, orgId: string, id: string, lock: boolean) {
     const r = await tx.maybeOne<any>(
       `select a.*, c.name as client_name, c.key_prefix, c.acting_role, c.branch_ids, c.allowed_tools, c.status as client_status,
-              c.expires_at as client_expires_at
+              c.expires_at as client_expires_at, c.policy_overrides
          from mcp_approvals a join mcp_clients c on c.id = a.client_id
         where a.org_id = $1 and a.id = $2 ${lock ? 'for update of a' : ''}`, [orgId, id]);
     if (!r) throw notFound('Approval');

@@ -4,6 +4,12 @@
 // Placeholders: {retryAt} (a clock time). lib/api-errors/api-errors.test.ts checks every code has EN and AR text.
 export const en: Record<string, string> = {
   // Generic HTTP codes
+  no_tools: 'None of the chosen permissions can be used by this role in this restaurant. Choose other groups or tools.',
+  op_not_supported: 'This change has its own tool and cannot be part of a combined change.',
+  override_not_stricter: 'A connection can only make the restaurant’s approval policy stricter.',
+  session_not_found: 'This assistant session has ended. Reconnect the assistant.',
+  session_other_connection: 'This assistant session belongs to another connection.',
+  too_many_sessions: 'This connection has too many open sessions. Close some and try again.',
   validation_failed: 'Some details are not valid. Check the highlighted fields and try again.',
   invalid_json: 'The request could not be read. Reload the page and try again.',
   invalid_uuid: 'This link or record reference is not valid.',

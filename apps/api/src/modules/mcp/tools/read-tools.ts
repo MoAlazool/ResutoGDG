@@ -1,6 +1,7 @@
 // Read-only MCP tools. Queries are tenant-scoped read models (allowed by
 // MODULE_CONTRACTS.md §1.2) executed in the client's TenantContext; branch scope
 // is applied explicitly in SQL because MCP runs in tenant mode (RLS pins the org).
+import { untrusted } from '@resuto/contracts';
 import { DomainError, notFound } from '../../../common/errors/domain-error';
 import type { Tx } from '../../../common/db/db.service';
 import type { TenantContext } from '../../../common/auth/context';
@@ -21,7 +22,8 @@ const toBranch = (b: any) => ({ id: b.id, code: b.code, name: b.name, nameAr: b.
 const orderSummary = (ctx: TenantContext) => (o: any) => ({
   id: o.id, number: o.number, branchId: o.branch_id, branchName: o.branch_name, status: o.status, paymentStatus: o.payment_status,
   channel: o.channel, fulfillment: o.fulfillment, currency: o.currency, totalMinor: o.total_minor, paidMinor: o.paid_minor,
-  itemCount: o.item_count, customerName: piiVisible(ctx) ? o.customer_name : maskName(o.customer_name), placedAt: iso(o.placed_at)!,
+  // Customer-authored text is wrapped as untrusted (21-MCP): data to show, never instructions.
+  itemCount: o.item_count, customerName: untrusted(piiVisible(ctx) ? o.customer_name : maskName(o.customer_name)), placedAt: iso(o.placed_at)!,
 });
 
 const ORDER_COLUMNS = `o.id, o.number, o.branch_id, b.name as branch_name, o.status, o.payment_status, o.channel, o.fulfillment,
@@ -100,11 +102,11 @@ export const readTools: McpTool[] = [
         ...orderSummary(ctx)(o),
         subtotalMinor: o.subtotal_minor, discountMinor: o.discount_minor, deliveryFeeMinor: o.delivery_fee_minor,
         serviceChargeMinor: o.service_charge_minor, taxMinor: o.tax_minor, taxInclusive: o.tax_inclusive, refundedMinor: o.refunded_minor,
-        notes: o.notes, tableLabel: o.table_label, scheduledFor: iso(o.scheduled_for),
+        notes: untrusted(o.notes), tableLabel: o.table_label, scheduledFor: iso(o.scheduled_for),
         customerPhone: pii ? o.customer_phone : maskPhone(o.customer_phone), piiMasked: !pii,
         lines: lines.map((l) => ({
           name: l.name, quantity: l.quantity, unitPriceMinor: l.unit_price_minor, modifiersTotalMinor: l.modifiers_total_minor,
-          lineTotalMinor: l.line_total_minor, kitchenStatus: l.kitchen_status, notes: l.notes,
+          lineTotalMinor: l.line_total_minor, kitchenStatus: l.kitchen_status, notes: untrusted(l.notes),
           modifiers: (Array.isArray(l.modifiers) ? l.modifiers : []).map((m: any) => String(m?.option ?? m?.name ?? '')).filter(Boolean),
         })),
         timeline: events.map((e) => ({ status: e.to_status, event: e.event_type, at: iso(e.created_at)! })),
@@ -136,7 +138,7 @@ export const readTools: McpTool[] = [
         date: day, timezone, piiMasked: !pii,
         items: page.map((r) => ({
           id: r.id, code: r.code, branchId: r.branch_id, branchName: r.branch_name,
-          guestName: pii ? r.guest_name : (maskName(r.guest_name) ?? ''), guestPhone: pii ? r.guest_phone : maskPhone(r.guest_phone),
+          guestName: untrusted(pii ? r.guest_name : (maskName(r.guest_name) ?? ''))!, guestPhone: pii ? r.guest_phone : maskPhone(r.guest_phone),
           partySize: r.party_size, startsAt: iso(r.starts_at)!, endsAt: iso(r.ends_at)!, status: r.status, tableLabel: r.table_label,
           depositMinor: r.deposit_minor, depositStatus: r.deposit_status, source: r.source,
         })),
@@ -169,7 +171,7 @@ export const readTools: McpTool[] = [
       return {
         piiMasked: !pii,
         items: rows.map((c) => ({
-          id: c.id, displayName: pii ? c.display_name : maskName(c.display_name),
+          id: c.id, displayName: untrusted(pii ? c.display_name : maskName(c.display_name)),
           phone: pii ? c.phone_e164 : maskPhone(c.phone_e164), email: pii ? c.email : maskEmail(c.email),
           marketingConsent: c.marketing_consent, ordersCount: c.orders_count, totalSpentMinor: c.total_spent, lastOrderAt: iso(c.last_order_at),
         })),
@@ -307,13 +309,15 @@ export const readTools: McpTool[] = [
   }),
 
   defineTool('get_approval_status', {
-    description: 'Status of an approval request created by a sensitive tool (pending, executed, rejected, expired or failed) and, once executed, its result.',
+    description: 'Status of an approval request created by a sensitive tool (pending, executed, rejected, expired or failed) and, once executed, its result. Also takes the changeSetId a change tool (update_menu_item, propose_changes …) returned: changeSetStatus then says applied, partially_applied, failed …',
     async handler(tx, ctx, input) {
       if (ctx.actorType !== 'mcp_client') throw new DomainError('forbidden', 'Approvals belong to MCP clients', 403);
       const a = await tx.maybeOne<any>(
-        `select id, tool, status, summary, requested_at, expires_at, decided_at, executed_at, result, error from mcp_approvals
-          where org_id = $1 and id = $2 and client_id = $3`, [ctx.orgId, input.approvalId, ctx.actorId]);
-      if (!a) throw notFound('Approval');
+        `select a.id, a.tool, a.status, a.summary, a.requested_at, a.expires_at, a.decided_at, a.executed_at, a.result, a.error,
+                a.change_set_id, cs.status as cs_status
+           from mcp_approvals a left join change_sets cs on cs.id = a.change_set_id
+          where a.org_id = $1 and a.id = $2 and a.client_id = $3`, [ctx.orgId, input.approvalId, ctx.actorId]);
+      if (!a) return changeSetStatus(tx, ctx, input.approvalId);
       const expired = a.status === 'pending' && new Date(a.expires_at).getTime() <= Date.now();
       // Payment URLs carry a guest bearer token: hand them to the client once, then keep only a marker.
       if (a.status === 'executed' && a.result && typeof a.result === 'object' && typeof a.result.url === 'string') {
@@ -322,8 +326,31 @@ export const readTools: McpTool[] = [
       return {
         approvalId: a.id, tool: a.tool, status: expired ? 'expired' : a.status, summary: a.summary,
         requestedAt: iso(a.requested_at)!, expiresAt: iso(a.expires_at)!, decidedAt: iso(a.decided_at), executedAt: iso(a.executed_at),
-        result: a.result ?? null, error: a.error ?? null,
+        result: a.result ?? null, error: a.error ?? null, changeSetId: a.change_set_id ?? null, changeSetStatus: a.cs_status ?? null,
       };
     },
   }),
 ];
+
+/** A change set this connection proposed through a change tool (21-MCP), in the approval status shape. */
+const CHANGE_TO_APPROVAL: Record<string, string> = {
+  draft: 'pending', validated: 'pending', pending_approval: 'pending', approved: 'approved', applying: 'approved', applied: 'executed',
+  partially_applied: 'failed', failed: 'failed', rejected: 'rejected', expired: 'expired', invalidated: 'invalidated',
+};
+async function changeSetStatus(tx: Tx, ctx: TenantContext, id: string) {
+  const cs = await tx.maybeOne<any>(
+    `select id, status, title, source_tool, created_at, expires_at, decided_at, applied_at, error, invalidated_reason from change_sets
+      where org_id = $1 and id = $2 and origin = 'mcp' and mcp_client_id = $3`, [ctx.orgId, id, ctx.actorId]);
+  if (!cs) throw notFound('Approval');
+  const ops = await tx.query<{ op_type: string; status: string; result: Record<string, unknown> | null }>(
+    'select op_type, status, result from change_ops where change_set_id = $1 order by seq', [cs.id]);
+  const pending = cs.status === 'pending_approval';
+  const expired = pending && cs.expires_at && new Date(cs.expires_at).getTime() <= Date.now();
+  return {
+    approvalId: cs.id, tool: cs.source_tool ?? 'propose_changes', status: expired ? 'expired' : CHANGE_TO_APPROVAL[cs.status] ?? 'pending',
+    summary: cs.title, requestedAt: iso(cs.created_at)!, expiresAt: iso(cs.expires_at ?? cs.created_at)!, decidedAt: iso(cs.decided_at),
+    executedAt: iso(cs.applied_at),
+    result: ['applied', 'partially_applied'].includes(cs.status) ? { ops: ops.map((o) => ({ type: o.op_type, status: o.status, result: o.result ?? null })) } : null,
+    error: cs.error ?? cs.invalidated_reason ?? null, changeSetId: cs.id, changeSetStatus: expired ? 'expired' : cs.status,
+  };
+}

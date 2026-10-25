@@ -259,7 +259,7 @@ describe('tool execution', () => {
 
     const one = await call(t, c.key, a.orgId, 'get_order', { orderId: orderIds.main[0] });
     expect(one.status).toBe(200);
-    expect(one.body.output).toMatchObject({ totalMinor: 9000, itemCount: 2, customerName: 'Mona Adel', customerPhone: '+201001234567', piiMasked: false });
+    expect(one.body.output).toMatchObject({ totalMinor: 9000, itemCount: 2, customerName: { untrusted: true, text: 'Mona Adel' }, customerPhone: '+201001234567', piiMasked: false });
     expect(one.body.output.lines[0]).toMatchObject({ name: 'Fries', quantity: 2, lineTotalMinor: 9000 });
 
     const sum = await call(t, c.key, a.orgId, 'get_sales_summary', { from: today, to: today });
@@ -310,14 +310,14 @@ describe('tool execution', () => {
   it('masks customer PII unless the acting role may read customers', async () => {
     const manager = await createClient(t, a, { name: 'Manager bot', actingRole: 'manager' });
     const full = await call(t, manager.key, a.orgId, 'search_customers', { query: 'mona' });
-    expect(full.body.output).toMatchObject({ piiMasked: false, items: [{ displayName: 'Mona Adel', phone: '+201001234567', ordersCount: 1, totalSpentMinor: 9000 }] });
+    expect(full.body.output).toMatchObject({ piiMasked: false, items: [{ displayName: { untrusted: true, text: 'Mona Adel' }, phone: '+201001234567', ordersCount: 1, totalSpentMinor: 9000 }] });
     const accountant = await createClient(t, a, { name: 'Accountant bot', actingRole: 'accountant' });
     const masked = await call(t, accountant.key, a.orgId, 'search_customers', { query: '1234567' });
     expect(masked.body.output.piiMasked).toBe(true);
-    expect(masked.body.output.items[0]).toMatchObject({ displayName: 'Mona A.', phone: '+20••••••••67' });
+    expect(masked.body.output.items[0]).toMatchObject({ displayName: { untrusted: true, text: 'Mona A.' }, phone: '+20••••••••67' });
     expect(JSON.stringify(masked.body)).not.toContain('1001234567');
     const order = await call(t, accountant.key, a.orgId, 'get_order', { orderId: orderIds.main[0] });
-    expect(order.body.output).toMatchObject({ customerName: 'Mona A.', piiMasked: true });
+    expect(order.body.output).toMatchObject({ customerName: { untrusted: true, text: 'Mona A.' }, piiMasked: true });
     expect(order.body.output.customerPhone).not.toContain('1234567');
   });
 

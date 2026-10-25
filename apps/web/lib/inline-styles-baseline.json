@@ -47,7 +47,6 @@
   "apps/web/app/dashboard/[orgId]/mcp/calls/page.tsx": 2,
   "apps/web/app/dashboard/[orgId]/mcp/clients/[clientId]/page.tsx": 1,
   "apps/web/app/dashboard/[orgId]/mcp/connect/page.tsx": 4,
-  "apps/web/app/dashboard/[orgId]/mcp/new/page.tsx": 2,
   "apps/web/app/dashboard/[orgId]/menu/page.tsx": 5,
   "apps/web/app/dashboard/[orgId]/notifications/page.tsx": 4,
   "apps/web/app/dashboard/[orgId]/orders/page.tsx": 1,

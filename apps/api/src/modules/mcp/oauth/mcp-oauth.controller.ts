@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Req, Res } from '@nestjs/common';
-import { createMcpClient } from '@resuto/contracts';
+import { createMcpClientFields, hasGroupsOrTools } from '@resuto/contracts';
 import type { Response } from 'express';
 import { z } from 'zod';
 import type { AuthPrincipal, ResutoRequest, TenantContext } from '../../../common/auth/context';
@@ -10,7 +10,8 @@ import { RateLimiter } from '../../../common/http/rate-limiter';
 import { zod } from '../../../common/http/zod.pipe';
 import { McpOAuthService, OAuthError } from './mcp-oauth.service';
 
-const consentInput = createMcpClient.extend({ name: z.string().trim().min(1).max(80).optional() });
+const consentInput = createMcpClientFields.extend({ name: z.string().trim().min(1).max(80).optional() })
+  .refine(hasGroupsOrTools, { message: 'Choose at least one permission group or tool', path: ['groups'] });
 
 /** RFC 6749 §5.2 error body, never cached. */
 function oauthError(res: Response, e: unknown) {

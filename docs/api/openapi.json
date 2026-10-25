@@ -1581,6 +1581,110 @@
         ]
       }
     },
+    "/v1/mcp/sessions": {
+      "post": {
+        "operationId": "McpRuntime_openSession",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "clientName": {
+                    "maxLength": 120,
+                    "type": "string"
+                  },
+                  "idleMinutes": {
+                    "default": 30,
+                    "maximum": 1440,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "protocolVersion": {
+                    "maxLength": 40,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
+    "/v1/mcp/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "McpRuntime_closeSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "mcp"
+        ]
+      },
+      "get": {
+        "operationId": "McpRuntime_touchSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "mcp"
+        ]
+      }
+    },
     "/v1/mcp/whoami": {
       "get": {
         "operationId": "McpRuntime_whoami",
@@ -3452,7 +3556,8 @@
                 "website_drafts",
                 "website_publish",
                 "messages",
-                "payments"
+                "payments",
+                "operations"
               ],
               "type": "string"
             }
@@ -3505,6 +3610,11 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "ttlHours": {
+                    "maximum": 336,
+                    "minimum": 1,
+                    "type": "integer"
                   }
                 },
                 "required": [
@@ -4421,6 +4531,115 @@
                             },
                             "type": {
                               "const": "payment_link.create",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "branchId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "date": {
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "type": "string"
+                                },
+                                "durationMinutes": {
+                                  "maximum": 600,
+                                  "minimum": 15,
+                                  "type": "integer"
+                                },
+                                "guestName": {
+                                  "maxLength": 100,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "guestPhone": {
+                                  "pattern": "^\\+[1-9][0-9]{6,14}$",
+                                  "type": "string"
+                                },
+                                "notes": {
+                                  "maxLength": 500,
+                                  "type": "string"
+                                },
+                                "partySize": {
+                                  "maximum": 50,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "tableId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "time": {
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "branchId",
+                                "date",
+                                "time",
+                                "partySize",
+                                "guestName"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "reservation.create",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "input"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "input": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "orderId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "enum": [
+                                    "accepted",
+                                    "preparing",
+                                    "ready",
+                                    "served",
+                                    "picked_up",
+                                    "delivered"
+                                  ],
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "orderId",
+                                "status"
+                              ],
+                              "type": "object"
+                            },
+                            "type": {
+                              "const": "order.status.set",
                               "type": "string"
                             }
                           },
@@ -22438,6 +22657,16 @@
           },
           {
             "in": "query",
+            "name": "changeSetId",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "clientId",
             "required": false,
             "schema": {
@@ -22619,6 +22848,7 @@
                     "type": "string"
                   },
                   "allowedTools": {
+                    "default": [],
                     "items": {
                       "enum": [
                         "get_restaurant_profile",
@@ -22642,12 +22872,21 @@
                         "get_finance_summary",
                         "list_payments",
                         "list_delivery_jobs",
-                        "query_data"
+                        "query_data",
+                        "update_menu_item",
+                        "set_item_price",
+                        "toggle_availability",
+                        "create_promotion",
+                        "get_website_draft",
+                        "draft_website_change",
+                        "publish_website_revision",
+                        "create_reservation",
+                        "update_order_status",
+                        "propose_changes"
                       ],
                       "type": "string"
                     },
-                    "maxItems": 22,
-                    "minItems": 1,
+                    "maxItems": 32,
                     "type": "array"
                   },
                   "branchIds": {
@@ -22679,10 +22918,52 @@
                       }
                     ]
                   },
+                  "groups": {
+                    "items": {
+                      "enum": [
+                        "orders_analytics",
+                        "customers",
+                        "menu",
+                        "website_drafts",
+                        "website_publish",
+                        "promotions",
+                        "campaigns_prepare",
+                        "send_messages",
+                        "payment_links",
+                        "operations"
+                      ],
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "type": "array"
+                  },
                   "name": {
                     "maxLength": 80,
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "policyOverrides": {
+                    "additionalProperties": {
+                      "enum": [
+                        "approval",
+                        "blocked"
+                      ],
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "enum": [
+                        "menu",
+                        "prices",
+                        "promotions",
+                        "website_drafts",
+                        "website_publish",
+                        "messages",
+                        "payments",
+                        "operations"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "object"
                   },
                   "rateLimitPerMin": {
                     "default": 60,
@@ -22693,8 +22974,7 @@
                 },
                 "required": [
                   "name",
-                  "actingRole",
-                  "allowedTools"
+                  "actingRole"
                 ],
                 "type": "object"
               }
@@ -22830,11 +23110,21 @@
                         "get_finance_summary",
                         "list_payments",
                         "list_delivery_jobs",
-                        "query_data"
+                        "query_data",
+                        "update_menu_item",
+                        "set_item_price",
+                        "toggle_availability",
+                        "create_promotion",
+                        "get_website_draft",
+                        "draft_website_change",
+                        "publish_website_revision",
+                        "create_reservation",
+                        "update_order_status",
+                        "propose_changes"
                       ],
                       "type": "string"
                     },
-                    "maxItems": 22,
+                    "maxItems": 32,
                     "minItems": 1,
                     "type": "array"
                   },
@@ -22867,10 +23157,52 @@
                       }
                     ]
                   },
+                  "groups": {
+                    "items": {
+                      "enum": [
+                        "orders_analytics",
+                        "customers",
+                        "menu",
+                        "website_drafts",
+                        "website_publish",
+                        "promotions",
+                        "campaigns_prepare",
+                        "send_messages",
+                        "payment_links",
+                        "operations"
+                      ],
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "type": "array"
+                  },
                   "name": {
                     "maxLength": 80,
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "policyOverrides": {
+                    "additionalProperties": {
+                      "enum": [
+                        "approval",
+                        "blocked"
+                      ],
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "enum": [
+                        "menu",
+                        "prices",
+                        "promotions",
+                        "website_drafts",
+                        "website_publish",
+                        "messages",
+                        "payments",
+                        "operations"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "object"
                   },
                   "rateLimitPerMin": {
                     "maximum": 600,
@@ -23056,6 +23388,61 @@
         ]
       }
     },
+    "/v1/o/{orgId}/mcp/groups": {
+      "get": {
+        "operationId": "Mcp_groups",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "default": "manager",
+              "enum": [
+                "admin",
+                "manager",
+                "cashier",
+                "waiter",
+                "kitchen",
+                "host",
+                "marketing",
+                "accountant"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Success"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "tags": [
+          "mcp"
+        ],
+        "x-resuto-module": "mcp",
+        "x-resuto-permissions": [
+          "mcp:manage"
+        ]
+      }
+    },
     "/v1/o/{orgId}/mcp/oauth/requests/{requestId}/approve": {
       "post": {
         "operationId": "McpOAuthConsent_approve",
@@ -23097,6 +23484,7 @@
                     "type": "string"
                   },
                   "allowedTools": {
+                    "default": [],
                     "items": {
                       "enum": [
                         "get_restaurant_profile",
@@ -23120,12 +23508,21 @@
                         "get_finance_summary",
                         "list_payments",
                         "list_delivery_jobs",
-                        "query_data"
+                        "query_data",
+                        "update_menu_item",
+                        "set_item_price",
+                        "toggle_availability",
+                        "create_promotion",
+                        "get_website_draft",
+                        "draft_website_change",
+                        "publish_website_revision",
+                        "create_reservation",
+                        "update_order_status",
+                        "propose_changes"
                       ],
                       "type": "string"
                     },
-                    "maxItems": 22,
-                    "minItems": 1,
+                    "maxItems": 32,
                     "type": "array"
                   },
                   "branchIds": {
@@ -23157,10 +23554,52 @@
                       }
                     ]
                   },
+                  "groups": {
+                    "items": {
+                      "enum": [
+                        "orders_analytics",
+                        "customers",
+                        "menu",
+                        "website_drafts",
+                        "website_publish",
+                        "promotions",
+                        "campaigns_prepare",
+                        "send_messages",
+                        "payment_links",
+                        "operations"
+                      ],
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "type": "array"
+                  },
                   "name": {
                     "maxLength": 80,
                     "minLength": 1,
                     "type": "string"
+                  },
+                  "policyOverrides": {
+                    "additionalProperties": {
+                      "enum": [
+                        "approval",
+                        "blocked"
+                      ],
+                      "type": "string"
+                    },
+                    "propertyNames": {
+                      "enum": [
+                        "menu",
+                        "prices",
+                        "promotions",
+                        "website_drafts",
+                        "website_publish",
+                        "messages",
+                        "payments",
+                        "operations"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "object"
                   },
                   "rateLimitPerMin": {
                     "default": 60,
@@ -23170,8 +23609,7 @@
                   }
                 },
                 "required": [
-                  "actingRole",
-                  "allowedTools"
+                  "actingRole"
                 ],
                 "type": "object"
               }

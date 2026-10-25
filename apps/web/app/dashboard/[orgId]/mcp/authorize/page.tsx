@@ -1,13 +1,14 @@
 'use client';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
-import { assignableRoles, MCP_ACTING_ROLES, type Role } from '@resuto/contracts';
+import { Suspense, useMemo, useState } from 'react';
+import { assignableRoles, MCP_ACTING_ROLES, MCP_GROUPS, mcpToolsFor, type Role } from '@resuto/contracts';
 import { Badge, Card, KeyValueList, Notice, PageHeader, useAction } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
+import { clearOAuthDraft, readOAuthDraft } from '@/lib/mcp-wizard';
 import { useApi } from '@/lib/use-api';
 import { endOfDayIso, LoadState, ScopeForm, type CatalogTool, type ScopeValue } from '../_components/shared';
 
@@ -31,12 +32,16 @@ function Consent() {
   const [leaving, setLeaving] = useState<string | null>(null);
   const roles = assignableRoles(org.role).filter((r) => (MCP_ACTING_ROLES as readonly string[]).includes(r));
   const defaultRole: Role = roles.includes('manager') ? 'manager' : roles[0] ?? 'manager';
+  // 21-MCP: settings chosen in the connection wizard of this browser (groups, branches, stricter approval, expiry).
+  const draft = useMemo(() => readOAuthDraft(org.id), [org.id]);
+  const wizard = draft && roles.includes(draft.state.actingRole) ? draft.state : null;
 
   const approve = useAction(async (v: ScopeValue) => {
     const r = await session.call<{ redirectTo: string }>(`/o/${org.id}/mcp/oauth/requests/${request}/approve`, {
       body: { name: v.name, actingRole: v.actingRole, branchIds: v.branchIds, allowedTools: v.allowedTools, rateLimitPerMin: v.rateLimitPerMin,
-        expiresAt: endOfDayIso(v.expiresOn) },
+        expiresAt: endOfDayIso(v.expiresOn), ...(wizard ? { groups: wizard.groups, policyOverrides: wizard.overrides } : {}) },
     });
+    if (wizard) clearOAuthDraft(org.id);
     setLeaving(req.data?.redirectHost ?? '');
     window.location.assign(r.redirectTo);
   });
@@ -71,9 +76,18 @@ function Consent() {
               </Card>
               {leaving !== null ? <Notice tone="info">{t('mcp.oauth.leaving', { host: leaving })}</Notice> : (
                 <>
+                  {wizard && (
+                    <Notice tone="info">{t('mcp.wizard.oauthDraft', { groups: wizard.groups.map((g) => (locale === 'ar' ? MCP_GROUPS[g].titleAr : MCP_GROUPS[g].title))
+                      .join(locale === 'ar' ? '، ' : ', ') })}</Notice>
+                  )}
                   <ScopeForm
                     catalog={permitted}
-                    initial={{ name: d.clientName.slice(0, 80), actingRole: defaultRole, branchIds: null,
+                    initial={wizard ? {
+                      name: (wizard.name || d.clientName).slice(0, 80), actingRole: wizard.actingRole, branchIds: wizard.branchIds,
+                      allowedTools: mcpToolsFor(wizard.groups, wizard.actingRole, wizard.advancedTools)
+                        .filter((n) => permitted.some((x) => x.name === n && x.entitled)),
+                      rateLimitPerMin: wizard.rateLimitPerMin, expiresOn: wizard.expiresOn,
+                    } : { name: d.clientName.slice(0, 80), actingRole: defaultRole, branchIds: null,
                       allowedTools: permitted.filter((x) => x.readOnly && x.entitled).map((x) => x.name), rateLimitPerMin: 60, expiresOn: '' }}
                     submitLabel={t('mcp.oauth.allow')} pending={approve.pending} error={approve.error} onSubmit={(v) => void approve.run(v)} />
                   <div className="row justify-end">

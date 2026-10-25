@@ -7,11 +7,11 @@
 // API with the client's TenantContext (acting role, branch scope, allow-list);
 // there is no SQL tool and no database credential anywhere in the MCP path.
 import { z } from 'zod';
-import { isoDate, isoDateTime, optionalText, text, uuid } from './common';
+import { CHANGE_OP_GROUPS, type ChangeOpGroup, type ChangeOpType } from './changes';
+import { isoDateTime, optionalText, text, uuid } from './common';
 import type { ModuleKey } from './modules';
 import { memberRole } from './common';
-import type { Permission, Role } from './permissions';
-import { ORDER_STATUSES, RESERVATION_STATUSES } from './state-machines';
+import { ROLE_PERMISSIONS, type Permission, type Role } from './permissions';
 
 export const mcpContractsVersion = 1 as const;
 
@@ -32,6 +32,10 @@ export const MCP_TOOL_NAMES = [
   'get_approval_status',
   // FT-17: menu, finance, payments (read-only, masked), delivery status and a bounded schema-based query (no SQL).
   'list_menu', 'get_finance_summary', 'list_payments', 'list_delivery_jobs', 'query_data',
+  // 21-MCP: typed writes through change sets (the restaurant's approval policy decides: applied at once, approval, blocked).
+  'update_menu_item', 'set_item_price', 'toggle_availability', 'create_promotion',
+  'get_website_draft', 'draft_website_change', 'publish_website_revision',
+  'create_reservation', 'update_order_status', 'propose_changes',
 ] as const;
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
 export const mcpToolName = z.enum(MCP_TOOL_NAMES);
@@ -49,6 +53,13 @@ export interface McpToolMeta {
   readOnly: boolean;
   /** Per-tool, per-client limit (calls per minute), on top of the client limit. */
   ratePerMin: number;
+  /**
+   * 21-MCP: the tool proposes a change set. The restaurant's approval policy (change_policies, made stricter per
+   * connection) decides whether it applies at once, waits for a person or is refused; `previewOnly` shows the diff.
+   */
+  changeSet?: boolean;
+  /** Changes or removes existing data (MCP `destructiveHint`). */
+  destructive?: boolean;
 }
 
 /** Tool catalogue metadata shared by the API registry and the dashboard. */
@@ -75,6 +86,16 @@ export const MCP_TOOLS: Record<McpToolName, McpToolMeta> = {
   list_payments: { title: 'List payments (read-only)', titleAr: 'عرض المدفوعات (قراءة فقط)', permission: 'payments:read', module: 'pay', sensitive: false, readOnly: true, ratePerMin: 30 },
   list_delivery_jobs: { title: 'Delivery status', titleAr: 'حالة التوصيل', permission: 'delivery:dispatch', module: 'driver', sensitive: false, readOnly: true, ratePerMin: 60 },
   query_data: { title: 'Query restaurant data (bounded)', titleAr: 'استعلام بيانات المطعم (محدود)', permission: 'analytics:read', module: 'core', sensitive: false, readOnly: true, ratePerMin: 30 },
+  update_menu_item: { title: 'Edit a menu item', titleAr: 'تعديل صنف في القائمة', permission: 'menu:write', module: 'core', sensitive: false, readOnly: false, ratePerMin: 20, changeSet: true, destructive: true },
+  set_item_price: { title: 'Change a price', titleAr: 'تغيير سعر صنف', permission: 'menu:write', module: 'core', sensitive: false, readOnly: false, ratePerMin: 20, changeSet: true, destructive: true },
+  toggle_availability: { title: 'Toggle availability (alias)', titleAr: 'تبديل التوفر (اسم بديل)', permission: 'menu:availability', module: 'core', sensitive: true, readOnly: false, ratePerMin: 10 },
+  create_promotion: { title: 'Create an offer', titleAr: 'إنشاء عرض', permission: 'marketing:write', module: 'marketing', sensitive: false, readOnly: false, ratePerMin: 10, changeSet: true },
+  get_website_draft: { title: 'Website draft', titleAr: 'مسودة الموقع', permission: 'studio:read', module: 'studio', sensitive: false, readOnly: true, ratePerMin: 30 },
+  draft_website_change: { title: 'Add or edit a website section (draft)', titleAr: 'إضافة قسم أو تعديله في مسودة الموقع', permission: 'studio:write', module: 'studio', sensitive: false, readOnly: false, ratePerMin: 20, changeSet: true },
+  publish_website_revision: { title: 'Publish the website', titleAr: 'نشر الموقع', permission: 'studio:publish', module: 'studio', sensitive: false, readOnly: false, ratePerMin: 10, changeSet: true, destructive: true },
+  create_reservation: { title: 'Book a table', titleAr: 'حجز طاولة', permission: 'reservations:write', module: 'core', sensitive: false, readOnly: false, ratePerMin: 20, changeSet: true },
+  update_order_status: { title: 'Update an order status', titleAr: 'تحديث حالة طلب', permission: 'orders:status', module: 'core', sensitive: false, readOnly: false, ratePerMin: 30, changeSet: true, destructive: true },
+  propose_changes: { title: 'Propose several changes at once', titleAr: 'اقتراح عدة تغييرات معًا', permission: null, module: 'core', sensitive: false, readOnly: false, ratePerMin: 10, changeSet: true, destructive: true },
 };
 
 /** Roles an MCP client may act as. The owner role is never assignable. */
@@ -84,22 +105,226 @@ export const mcpActingRole = memberRole.extract(MCP_ACTING_ROLES);
 // ---------------------------------------------------------------------------
 // Client management (dashboard, mcp:manage)
 // ---------------------------------------------------------------------------
-export const createMcpClient = z.object({
+// ---------------------------------------------------------------------------
+// Permission groups (21-MCP, plan §6.6): what a person picks when connecting an assistant. Each group is a set of
+// tools; a connection's allow-list is the base tools plus its groups' tools that its acting role may use and the
+// restaurant is entitled to, plus any tools added one by one under "Advanced".
+// ---------------------------------------------------------------------------
+export const MCP_PERMISSION_GROUPS = [
+  'orders_analytics', 'customers', 'menu', 'website_drafts', 'website_publish', 'promotions', 'campaigns_prepare', 'send_messages',
+  'payment_links', 'operations',
+] as const;
+export type McpPermissionGroup = (typeof MCP_PERMISSION_GROUPS)[number];
+export const mcpPermissionGroup = z.enum(MCP_PERMISSION_GROUPS);
+
+/** Every connection gets these: who it is connected to, and the status of what it asked for. */
+export const MCP_BASE_TOOLS = ['get_restaurant_profile', 'list_branches', 'get_approval_status'] as const satisfies readonly McpToolName[];
+
+export interface McpGroupMeta {
+  title: string;
+  titleAr: string;
+  description: string;
+  descriptionAr: string;
+  tools: readonly McpToolName[];
+  /** The approval-policy groups (change_policies) that govern this group's changes; empty for read-only or draft groups. */
+  policyGroups: readonly ChangeOpGroup[];
+}
+
+export const MCP_GROUPS: Record<McpPermissionGroup, McpGroupMeta> = {
+  orders_analytics: {
+    title: 'Read orders and analytics', titleAr: 'قراءة الطلبات والتحليلات',
+    description: 'Orders, sales, top items, insights, finance and payment summaries. Read only.',
+    descriptionAr: 'الطلبات والمبيعات والأصناف الأكثر مبيعًا والرؤى وملخصات المالية والمدفوعات. قراءة فقط.',
+    tools: ['list_orders', 'get_order', 'get_sales_summary', 'list_top_items', 'list_insights', 'query_data', 'get_finance_summary', 'list_payments'],
+    policyGroups: [],
+  },
+  customers: {
+    title: 'Customers', titleAr: 'العملاء',
+    description: 'Search customers. Contact details are masked unless the acting role may read customers.',
+    descriptionAr: 'البحث عن العملاء. تُخفى بيانات التواصل ما لم يكن للدور صلاحية قراءة العملاء.',
+    tools: ['search_customers'], policyGroups: [],
+  },
+  menu: {
+    title: 'Menu', titleAr: 'القائمة',
+    description: 'Read the menu and stock, edit items, change prices and availability.',
+    descriptionAr: 'قراءة القائمة والمخزون، وتعديل الأصناف وتغيير الأسعار والتوفر.',
+    tools: ['list_menu', 'get_inventory_status', 'list_low_stock', 'update_menu_item', 'set_item_price', 'update_product_availability',
+      'toggle_availability', 'propose_changes'],
+    policyGroups: ['menu', 'prices'],
+  },
+  website_drafts: {
+    title: 'Website drafts', titleAr: 'مسودات الموقع',
+    description: 'Read the website draft and add or edit sections. Visitors see nothing until it is published.',
+    descriptionAr: 'قراءة مسودة الموقع وإضافة الأقسام أو تعديلها. لا يرى الزوار شيئًا قبل النشر.',
+    tools: ['get_website_draft', 'draft_website_change', 'propose_changes'], policyGroups: ['website_drafts'],
+  },
+  website_publish: {
+    title: 'Website publish', titleAr: 'نشر الموقع',
+    description: 'Publish the current website draft.',
+    descriptionAr: 'نشر مسودة الموقع الحالية.',
+    tools: ['get_website_draft', 'publish_website_revision', 'propose_changes'], policyGroups: ['website_publish'],
+  },
+  promotions: {
+    title: 'Promotions', titleAr: 'العروض',
+    description: 'Create offers (percent, fixed or free delivery). Large discounts need the owner.',
+    descriptionAr: 'إنشاء العروض (نسبة أو مبلغ ثابت أو توصيل مجاني). الخصومات الكبيرة تحتاج موافقة المالك.',
+    tools: ['create_promotion', 'propose_changes'], policyGroups: ['promotions'],
+  },
+  campaigns_prepare: {
+    title: 'Prepare campaigns', titleAr: 'تحضير الحملات',
+    description: 'Create customer segments and campaign drafts. Drafts never send.',
+    descriptionAr: 'إنشاء شرائح العملاء ومسودات الحملات. المسودات لا تُرسل أبدًا.',
+    tools: ['create_customer_segment', 'prepare_campaign_draft'], policyGroups: [],
+  },
+  send_messages: {
+    title: 'Send approved messages', titleAr: 'إرسال الرسائل المعتمدة',
+    description: 'Ask to send a campaign. A person always approves before anything is sent.',
+    descriptionAr: 'طلب إرسال حملة. يوافق شخص من الفريق دائمًا قبل إرسال أي شيء.',
+    tools: ['request_campaign_send'], policyGroups: ['messages'],
+  },
+  payment_links: {
+    title: 'Payment links', titleAr: 'روابط الدفع',
+    description: 'Ask to create a payment link. A person always approves first.',
+    descriptionAr: 'طلب إنشاء رابط دفع. يوافق شخص من الفريق دائمًا أولًا.',
+    tools: ['create_payment_link'], policyGroups: ['payments'],
+  },
+  operations: {
+    title: 'Operations', titleAr: 'التشغيل',
+    description: 'Reservations, delivery status, booking tables and moving orders through the kitchen flow (bound to the acting role).',
+    descriptionAr: 'الحجوزات وحالة التوصيل وحجز الطاولات ونقل الطلبات في مسار المطبخ (وفق الدور المختار).',
+    tools: ['list_reservations', 'list_delivery_jobs', 'list_orders', 'get_order', 'create_reservation', 'update_order_status'],
+    policyGroups: ['operations'],
+  },
+};
+
+/** The single-op tool(s) that allow an op inside propose_changes: a composite call never does more than its tools. */
+export const MCP_OP_TOOLS: Record<ChangeOpType, readonly McpToolName[]> = {
+  'menu.item.update': ['update_menu_item'],
+  'menu.item.price.set': ['set_item_price'],
+  'menu.item.availability.set': ['update_product_availability', 'toggle_availability'],
+  'promotion.create': ['create_promotion'],
+  'website.section.add': ['draft_website_change'],
+  'website.section.update': ['draft_website_change'],
+  'website.publish': ['publish_website_revision'],
+  'campaign.send': ['request_campaign_send'],
+  'payment_link.create': ['create_payment_link'],
+  'reservation.create': ['create_reservation'],
+  'order.status.set': ['update_order_status'],
+};
+
+export interface McpGroupAvailability {
+  group: McpPermissionGroup;
+  /** At least one of its own tools works for this role in this restaurant. */
+  available: boolean;
+  tools: McpToolName[];
+  blockedByRole: McpToolName[];
+  notEntitled: McpToolName[];
+}
+
+/** Which groups (and which of their tools) a connection acting as `role` can really use here. */
+export function mcpGroupAvailability(role: Role, entitled: (m: ModuleKey) => boolean = () => true): McpGroupAvailability[] {
+  return MCP_PERMISSION_GROUPS.map((group) => {
+    const tools: McpToolName[] = [];
+    const blockedByRole: McpToolName[] = [];
+    const notEntitled: McpToolName[] = [];
+    for (const tool of MCP_GROUPS[group].tools) {
+      const m = MCP_TOOLS[tool];
+      if (m.permission !== null && !ROLE_PERMISSIONS[role].includes(m.permission)) blockedByRole.push(tool);
+      else if (!entitled(m.module)) notEntitled.push(tool);
+      else tools.push(tool);
+    }
+    // propose_changes alone does nothing: a group counts when one of its own tools works.
+    return { group, available: tools.some((x) => x !== 'propose_changes'), tools, blockedByRole, notEntitled };
+  });
+}
+
+/** The allow-list: base tools + the usable tools of the groups + explicit ("Advanced") tools, in catalogue order. */
+export function mcpToolsFor(groups: readonly McpPermissionGroup[], role: Role, explicit: readonly McpToolName[] = [],
+  entitled: (m: ModuleKey) => boolean = () => true): McpToolName[] {
+  const out = new Set<McpToolName>(MCP_BASE_TOOLS);
+  const avail = new Map(mcpGroupAvailability(role, entitled).map((g) => [g.group, g]));
+  for (const g of groups) {
+    const a = avail.get(g);
+    if (a?.available) for (const tool of a.tools) out.add(tool);
+  }
+  for (const tool of explicit) out.add(tool);
+  return MCP_TOOL_NAMES.filter((n) => out.has(n));
+}
+
+/** Per-connection approval overrides: only ever stricter than the restaurant's policy (auto → approval → blocked). */
+export const MCP_OVERRIDE_MODES = ['approval', 'blocked'] as const;
+export const mcpPolicyOverrides = z.partialRecord(z.enum(CHANGE_OP_GROUPS), z.enum(MCP_OVERRIDE_MODES));
+export type McpPolicyOverrides = z.infer<typeof mcpPolicyOverrides>;
+
+// ---------------------------------------------------------------------------
+// Assistants and client compatibility (21-MCP). "Verified" is shown only for an assistant with a recorded live test;
+// none is recorded yet. The automated suites run the official MCP TypeScript SDK client only.
+// ---------------------------------------------------------------------------
+export const MCP_ASSISTANTS = ['claude', 'chatgpt', 'other'] as const;
+export type McpAssistant = (typeof MCP_ASSISTANTS)[number];
+
+export interface McpRecordedTest {
+  /** What was connected, e.g. "Claude.ai custom connector". */
+  client: string;
+  auth: 'oauth' | 'key';
+  /** A test against a deployed server with the real assistant (true) or an automated suite (false). Only live tests verify. */
+  live: boolean;
+  date: string;
+  evidence: string;
+}
+
+export interface McpAssistantMeta {
+  title: string;
+  titleAr: string;
+  /** How the assistant authenticates with Resuto, shown as is. */
+  auth: 'oauth' | 'key';
+  /** Live tests recorded for this assistant; none means "not verified". */
+  recordedTests: readonly McpRecordedTest[];
+}
+
+export const MCP_ASSISTANT_COMPAT: Record<McpAssistant, McpAssistantMeta> = {
+  claude: { title: 'Claude (custom connector)', titleAr: 'Claude (موصل مخصص)', auth: 'oauth', recordedTests: [] },
+  chatgpt: { title: 'ChatGPT (connector)', titleAr: 'ChatGPT (موصل)', auth: 'oauth', recordedTests: [] },
+  other: { title: 'Other assistant or developer', titleAr: 'مساعد آخر أو مطوّر', auth: 'key', recordedTests: [] },
+};
+
+/** Automated client suites run on every change. They exercise the protocol; they do not verify a third-party assistant. */
+export const MCP_AUTOMATED_CLIENT_TESTS: readonly McpRecordedTest[] = [
+  { client: 'Official MCP TypeScript SDK client (@modelcontextprotocol/sdk 1.32.1), Streamable HTTP with a connection key', auth: 'key',
+    live: false, date: '2026-10-24', evidence: 'apps/mcp-server/test/e2e.test.ts (incl. "change sets through MCP")' },
+  { client: 'Official MCP TypeScript SDK client (@modelcontextprotocol/sdk 1.32.1), OAuth 2.1 with PKCE', auth: 'oauth',
+    live: false, date: '2026-10-24', evidence: 'apps/mcp-server/test/oauth-e2e.test.ts (incl. the permission-group write approved through change sets)' },
+];
+
+export const isMcpAssistantVerified = (a: McpAssistant) => MCP_ASSISTANT_COMPAT[a].recordedTests.some((x) => x.live);
+
+/** The fields of a connection (also the OAuth consent body, which extends them); `createMcpClient` adds the rule. */
+export const createMcpClientFields = z.object({
   name: text(80),
   actingRole: mcpActingRole,
   /** null/omitted = every branch the creator can access. */
   branchIds: z.array(uuid).min(1).max(50).nullable().optional(),
-  allowedTools: z.array(mcpToolName).min(1).max(MCP_TOOL_NAMES.length),
+  /** 21-MCP: permission groups (the connection wizard). Their usable tools join the allow-list. */
+  groups: z.array(mcpPermissionGroup).max(MCP_PERMISSION_GROUPS.length).optional(),
+  /** Explicit tools ("Advanced"); at least one group or tool is required. */
+  allowedTools: z.array(mcpToolName).max(MCP_TOOL_NAMES.length).default([]),
+  /** Stricter approval for this connection only (never looser than the restaurant's policy). */
+  policyOverrides: mcpPolicyOverrides.optional(),
   rateLimitPerMin: z.number().int().min(1).max(600).default(60),
   expiresAt: isoDateTime.nullable().optional(),
 });
+export const hasGroupsOrTools = (v: { groups?: readonly string[] | undefined; allowedTools: readonly string[] }) =>
+  (v.groups?.length ?? 0) > 0 || v.allowedTools.length > 0;
+export const createMcpClient = createMcpClientFields.refine(hasGroupsOrTools, { message: 'Choose at least one permission group or tool', path: ['groups'] });
 export type CreateMcpClient = z.infer<typeof createMcpClient>;
 
 export const updateMcpClient = z.object({
   name: text(80).optional(),
   actingRole: mcpActingRole.optional(),
   branchIds: z.array(uuid).min(1).max(50).nullable().optional(),
+  groups: z.array(mcpPermissionGroup).max(MCP_PERMISSION_GROUPS.length).optional(),
   allowedTools: z.array(mcpToolName).min(1).max(MCP_TOOL_NAMES.length).optional(),
+  policyOverrides: mcpPolicyOverrides.optional(),
   rateLimitPerMin: z.number().int().min(1).max(600).optional(),
   expiresAt: isoDateTime.nullable().optional(),
 });
@@ -121,6 +346,10 @@ export interface McpClientSummary {
   /** 'key': an rmcp_ connection key; 'oauth': created by an admin's OAuth consent for an MCP client (FT-17). */
   authKind: 'key' | 'oauth';
   oauthClientId: string | null;
+  /** 21-MCP: the permission groups chosen for it (empty for connections made from a tool list). */
+  groups: McpPermissionGroup[];
+  /** Stricter approval for this connection (policy group → mode). */
+  policyOverrides: McpPolicyOverrides;
 }
 
 /** Returned once, on creation. The plaintext key is never retrievable again. */
@@ -141,8 +370,21 @@ export const mcpApprovalsQuery = z.object({
   cursor: z.string().min(1).max(500).optional(),
 });
 
+export const mcpGroupsQuery = z.object({ role: mcpActingRole.default('manager') });
+
+/** `GET /o/:orgId/mcp/groups`: what each permission group gives a connection acting as `role` here. */
+export interface McpGroupView extends McpGroupAvailability {
+  title: string;
+  titleAr: string;
+  description: string;
+  descriptionAr: string;
+  /** The approval policy of each change group in this permission group (from change_policies). */
+  policies: Array<{ group: ChangeOpGroup; mode: 'auto' | 'approval' | 'blocked'; approvers: 1 | 2; ownerAboveBps: number | null; ttlHours: number; isDefault: boolean }>;
+}
+
 export const mcpCallsQuery = z.object({
   clientId: uuid.optional(),
+  changeSetId: uuid.optional(),
   outcome: z.enum(['ok', 'denied', 'invalid_input', 'rate_limited', 'approval_required', 'error']).optional(),
   tool: z.string().max(60).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -152,301 +394,15 @@ export const mcpCallsQuery = z.object({
 export type McpCallOutcome = 'ok' | 'denied' | 'invalid_input' | 'rate_limited' | 'approval_required' | 'error';
 export type McpApprovalStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'executed' | 'failed' | 'invalidated';
 
-// ---------------------------------------------------------------------------
-// Bounded query (query_data): a fixed schema of datasets, measures, groupings and filters compiled by the API into
-// parameterised SQL from whitelisted fragments. There is no SQL text, column name or expression in the input.
-// ---------------------------------------------------------------------------
-const limit = (max: number, def: number) => z.number().int().min(1).max(max).default(def)
-  .describe(`Maximum number of results (1–${max}, default ${def})`);
-const cursor = z.string().max(300).optional().describe('Opaque cursor from a previous page (nextCursor)');
-const branchId = uuid.optional().describe('Restrict to one branch (id from list_branches)');
-const period = {
-  from: isoDate.describe('First day of the period (YYYY-MM-DD, restaurant local time)'),
-  to: isoDate.describe('Last day of the period, inclusive (YYYY-MM-DD, restaurant local time)'),
-};
+/**
+ * Prompt-injection safeguard (21-MCP, plan §6.6): text a customer wrote (names, order and line notes, address areas)
+ * travels as { untrusted: true, text } so an assistant can tell it apart from Resuto's own data (zod schema:
+ * `untrustedText` in '@resuto/contracts/mcp-tools').
+ */
+export interface UntrustedText { untrusted: true; text: string }
+export const untrusted = (text: string | null | undefined): UntrustedText | null =>
+  (text === null || text === undefined ? null : { untrusted: true, text });
 
-export const PAYMENT_ATTEMPT_STATUSES = ['pending', 'requires_action', 'authorized', 'succeeded', 'failed', 'cancelled', 'expired', 'refunded', 'partially_refunded'] as const;
-export const DELIVERY_JOB_STATUSES = ['unassigned', 'offered', 'assigned', 'accepted', 'picked_up', 'en_route', 'delivered', 'failed', 'cancelled'] as const;
-export const QUERY_DATASETS = {
-  orders: { measures: ['count', 'revenue_minor', 'avg_order_value_minor', 'discount_minor'], groupBy: ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'channel', 'fulfillment', 'status'], statuses: ORDER_STATUSES },
-  order_items: { measures: ['quantity', 'revenue_minor', 'count'], groupBy: ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'channel', 'fulfillment', 'product', 'category'], statuses: ORDER_STATUSES },
-  reservations: { measures: ['count', 'covers'], groupBy: ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'status', 'source'], statuses: RESERVATION_STATUSES },
-  payments: { measures: ['count', 'amount_minor', 'refunded_minor'], groupBy: ['day', 'week', 'month', 'weekday', 'branch', 'method', 'provider', 'status'], statuses: PAYMENT_ATTEMPT_STATUSES },
-} as const;
-export type QueryDataset = keyof typeof QUERY_DATASETS;
-export const QUERY_MEASURES = ['count', 'revenue_minor', 'avg_order_value_minor', 'discount_minor', 'quantity', 'covers', 'amount_minor', 'refunded_minor'] as const;
-export const QUERY_GROUPS = ['day', 'week', 'month', 'weekday', 'hour', 'branch', 'channel', 'fulfillment', 'status', 'product', 'category', 'source', 'method', 'provider'] as const;
-export const queryDataInput = z.object({
-  dataset: z.enum(Object.keys(QUERY_DATASETS) as [QueryDataset, ...QueryDataset[]])
-    .describe('orders: one row per order; order_items: sold lines; reservations; payments (needs payments:read)'),
-  measures: z.array(z.enum(QUERY_MEASURES)).min(1).max(3).describe('What to compute. Allowed per dataset: orders count/revenue_minor/avg_order_value_minor/discount_minor; order_items quantity/revenue_minor/count; reservations count/covers; payments count/amount_minor/refunded_minor'),
-  groupBy: z.array(z.enum(QUERY_GROUPS)).max(2).default([]).describe('Up to two groupings. Time groupings use the restaurant timezone.'),
-  from: isoDate.describe('First day (YYYY-MM-DD, restaurant local time)'),
-  to: isoDate.describe('Last day, inclusive (at most 366 days after from)'),
-  branchId,
-  status: z.array(z.string().max(40)).min(1).max(10).optional().describe('Only these statuses (dataset statuses). Default for orders/order_items: excludes cancelled and awaiting_payment; for payments: succeeded, refunded and partially_refunded.'),
-  includeTest: z.boolean().default(false).describe('payments: include sandbox (test) payments'),
-  sort: z.enum(['measure_desc', 'measure_asc', 'group_asc']).default('measure_desc'),
-  limit: limit(200, 50),
-}).superRefine((v, ctx) => {
-  const d = QUERY_DATASETS[v.dataset];
-  for (const m of v.measures) if (!(d.measures as readonly string[]).includes(m)) ctx.addIssue({ code: 'custom', path: ['measures'], message: `${m} is not available for ${v.dataset}` });
-  for (const g of v.groupBy) if (!(d.groupBy as readonly string[]).includes(g)) ctx.addIssue({ code: 'custom', path: ['groupBy'], message: `${g} is not available for ${v.dataset}` });
-  if (new Set(v.groupBy).size !== v.groupBy.length) ctx.addIssue({ code: 'custom', path: ['groupBy'], message: 'Each grouping once' });
-  if (new Set(v.measures).size !== v.measures.length) ctx.addIssue({ code: 'custom', path: ['measures'], message: 'Each measure once' });
-  for (const s of v.status ?? []) if (!(d.statuses as readonly string[]).includes(s)) ctx.addIssue({ code: 'custom', path: ['status'], message: `Unknown ${v.dataset} status: ${s.slice(0, 40)}` });
-});
-
-// ---------------------------------------------------------------------------
-// Tool inputs. Converted to JSON Schema for MCP `tools/list` by the API.
-// ---------------------------------------------------------------------------
-
-
-export const mcpToolInputs = {
-  get_restaurant_profile: z.object({}),
-  list_branches: z.object({}),
-  list_orders: z.object({
-    branchId,
-    status: z.array(z.enum(ORDER_STATUSES)).min(1).max(ORDER_STATUSES.length).optional().describe('Only these statuses'),
-    fulfillment: z.enum(['dine_in', 'pickup', 'delivery']).optional(),
-    from: isoDate.optional().describe('Placed on or after this day (YYYY-MM-DD, restaurant local time)'),
-    to: isoDate.optional().describe('Placed on or before this day (YYYY-MM-DD, restaurant local time)'),
-    limit: limit(100, 25),
-    cursor,
-  }),
-  get_order: z.object({ orderId: uuid.describe('Order id (from list_orders)') }),
-  list_reservations: z.object({
-    branchId,
-    date: isoDate.optional().describe('Single day (YYYY-MM-DD, restaurant local time). Defaults to today.'),
-    status: z.array(z.enum(RESERVATION_STATUSES)).min(1).max(RESERVATION_STATUSES.length).optional(),
-    limit: limit(100, 50),
-    cursor,
-  }),
-  search_customers: z.object({
-    query: z.string().trim().min(2).max(80).describe('Name, phone digits or email fragment (min 2 characters)'),
-    limit: limit(25, 10),
-  }),
-  get_sales_summary: z.object({ ...period, branchId }),
-  list_top_items: z.object({
-    ...period, branchId,
-    by: z.enum(['quantity', 'revenue']).default('quantity'),
-    limit: limit(50, 10),
-  }),
-  get_inventory_status: z.object({ branchId, limit: limit(200, 100) }),
-  list_low_stock: z.object({ branchId }),
-  list_insights: z.object({
-    branchId,
-    status: z.array(z.enum(['new', 'seen', 'dismissed', 'acted', 'resolved'])).min(1).max(5).optional().describe('Defaults to new and seen'),
-    severity: z.array(z.enum(['info', 'opportunity', 'warning', 'critical'])).min(1).max(4).optional(),
-    limit: limit(50, 20),
-  }),
-  create_customer_segment: z.object({
-    name: text(120),
-    description: z.string().trim().max(500).optional(),
-    definition: z.record(z.string(), z.unknown()).describe('Segment rule definition (validated by the Marketing module)'),
-  }),
-  prepare_campaign_draft: z.object({
-    name: text(120),
-    channel: z.enum(['whatsapp', 'sms', 'email', 'meta_ads', 'tiktok_ads', 'snapchat_ads', 'organic']),
-    objective: z.enum(['retention', 'reactivation', 'acquisition', 'upsell', 'awareness', 'reservations']).default('retention'),
-    segmentId: uuid.optional(),
-    message: z.string().trim().min(1).max(2000).describe('Message copy (drafts never send)'),
-    messageAr: z.string().trim().max(2000).optional(),
-  }),
-  request_campaign_send: z.object({
-    campaignId: uuid,
-    scheduledAt: isoDateTime.optional().describe('When to send (ISO 8601). Omit to send as soon as approved.'),
-  }),
-  create_payment_link: z.object({
-    orderId: uuid.optional().describe('Collect what is due on this order'),
-    amountMinor: z.number().int().positive().max(100_000_000).optional()
-      .describe('Amount in minor units (piastres/halalas). Required without orderId.'),
-    description: z.string().trim().min(1).max(200),
-    customerId: uuid.optional(),
-    expiresInMinutes: z.number().int().min(5).max(7 * 24 * 60).default(24 * 60),
-  }).refine((v) => v.orderId || v.amountMinor, { message: 'orderId or amountMinor is required', path: ['amountMinor'] }),
-  update_product_availability: z.object({
-    productId: uuid,
-    branchId: uuid,
-    available: z.boolean(),
-    reason: z.string().trim().max(200).optional(),
-  }),
-  get_approval_status: z.object({ approvalId: uuid }),
-  list_menu: z.object({
-    branchId: uuid.optional().describe('Show price and availability at this branch (id from list_branches). Without it, availability is reported per branch.'),
-    query: z.string().trim().min(1).max(80).optional().describe('Name fragment (English or Arabic)'),
-    category: z.string().trim().min(1).max(80).optional().describe('Exact category name'),
-    availableOnly: z.boolean().default(false),
-    limit: limit(200, 100),
-    cursor,
-  }),
-  get_finance_summary: z.object({ ...period, branchId }),
-  list_payments: z.object({
-    branchId,
-    from: isoDate.optional().describe('Created on or after this day (YYYY-MM-DD, restaurant local time)'),
-    to: isoDate.optional().describe('Created on or before this day (YYYY-MM-DD, restaurant local time)'),
-    status: z.array(z.enum(PAYMENT_ATTEMPT_STATUSES)).min(1).max(PAYMENT_ATTEMPT_STATUSES.length).optional(),
-    includeTest: z.boolean().default(false).describe('Include sandbox (test) payments'),
-    limit: limit(100, 25),
-    cursor,
-  }),
-  list_delivery_jobs: z.object({
-    branchId,
-    status: z.array(z.enum(DELIVERY_JOB_STATUSES)).min(1).max(DELIVERY_JOB_STATUSES.length).optional().describe('Defaults to active jobs (not delivered, failed or cancelled)'),
-    limit: limit(100, 25),
-    cursor,
-  }),
-  query_data: queryDataInput,
-} satisfies Record<McpToolName, z.ZodType>;
-
-export type McpToolInput<N extends McpToolName> = z.output<(typeof mcpToolInputs)[N]>;
-
-// ---------------------------------------------------------------------------
-// Tool outputs (MCP `outputSchema`; the API validates every result against it).
-// ---------------------------------------------------------------------------
-const money = z.number().int();
-const nullableString = z.string().nullable();
-const branchRef = z.object({ id: z.string(), code: z.string(), name: z.string(), nameAr: nullableString, isActive: z.boolean() });
-
-export const approvalRequestedOutput = z.object({
-  status: z.literal('approval_required'),
-  approvalId: z.string(),
-  summary: z.string(),
-  expiresAt: z.string(),
-  message: z.string(),
-});
-
-const orderSummary = z.object({
-  id: z.string(), number: z.string(), branchId: z.string(), branchName: z.string(),
-  status: z.string(), paymentStatus: z.string(), channel: z.string(), fulfillment: z.string(),
-  currency: z.string(), totalMinor: money, paidMinor: money, itemCount: z.number().int(),
-  customerName: nullableString, placedAt: z.string(),
-});
-
-export const mcpToolOutputs = {
-  get_restaurant_profile: z.object({
-    id: z.string(), name: z.string(), nameAr: nullableString, slug: z.string(), country: z.string(), currency: z.string(),
-    timezone: z.string(), defaultLocale: z.string(), status: z.string(), branchCount: z.number().int(),
-    actingRole: z.string(), branchScope: z.array(z.string()).nullable(),
-  }),
-  list_branches: z.object({ items: z.array(branchRef.extend({
-    city: nullableString, acceptsDineIn: z.boolean(), acceptsPickup: z.boolean(), acceptsDelivery: z.boolean(), acceptsReservations: z.boolean(),
-  })) }),
-  list_orders: z.object({ items: z.array(orderSummary), nextCursor: nullableString }),
-  get_order: orderSummary.extend({
-    subtotalMinor: money, discountMinor: money, deliveryFeeMinor: money, serviceChargeMinor: money, taxMinor: money,
-    taxInclusive: z.boolean(), refundedMinor: money, notes: nullableString, tableLabel: nullableString,
-    scheduledFor: nullableString, customerPhone: nullableString, piiMasked: z.boolean(),
-    lines: z.array(z.object({
-      name: z.string(), quantity: z.number().int(), unitPriceMinor: money, modifiersTotalMinor: money, lineTotalMinor: money,
-      modifiers: z.array(z.string()), kitchenStatus: z.string(), notes: nullableString,
-    })),
-    timeline: z.array(z.object({ status: nullableString, event: z.string(), at: z.string() })),
-  }),
-  list_reservations: z.object({
-    date: z.string(), timezone: z.string(),
-    items: z.array(z.object({
-      id: z.string(), code: z.string(), branchId: z.string(), branchName: z.string(), guestName: z.string(),
-      guestPhone: nullableString, partySize: z.number().int(), startsAt: z.string(), endsAt: z.string(), status: z.string(),
-      tableLabel: nullableString, depositMinor: money, depositStatus: z.string(), source: z.string(),
-    })),
-    nextCursor: nullableString, piiMasked: z.boolean(),
-  }),
-  search_customers: z.object({
-    piiMasked: z.boolean(),
-    items: z.array(z.object({
-      id: z.string(), displayName: nullableString, phone: nullableString, email: nullableString, marketingConsent: z.boolean(),
-      ordersCount: z.number().int(), totalSpentMinor: money, lastOrderAt: nullableString,
-    })),
-  }),
-  get_sales_summary: z.object({
-    currency: z.string(), from: z.string(), to: z.string(), timezone: z.string(), branchId: nullableString,
-    orders: z.number().int(), revenueMinor: money, averageOrderValueMinor: money, discountMinor: money,
-    paidMinor: money, refundedMinor: money, cancelledOrders: z.number().int(),
-    byFulfillment: z.array(z.object({ fulfillment: z.string(), orders: z.number().int(), revenueMinor: money })),
-    byChannel: z.array(z.object({ channel: z.string(), orders: z.number().int(), revenueMinor: money })),
-    method: z.literal('deterministic_sql'), definition: z.string(),
-  }),
-  list_top_items: z.object({
-    currency: z.string(), from: z.string(), to: z.string(), by: z.string(),
-    items: z.array(z.object({ productId: nullableString, name: z.string(), quantity: z.number().int(), revenueMinor: money, orders: z.number().int() })),
-  }),
-  get_inventory_status: z.object({
-    items: z.array(z.object({
-      itemId: z.string(), name: z.string(), unit: z.string(), branchId: z.string(), branchName: z.string(),
-      quantity: z.number(), reorderLevel: z.number(), low: z.boolean(),
-    })),
-    // available = offered here, not 86'd (sold out) and in stock; offered / soldOut say which rule failed (FT-02 / DF-01).
-    trackedProducts: z.array(z.object({
-      productId: z.string(), name: z.string(), branchId: z.string(), stockQty: z.number().int(),
-      offered: z.boolean(), soldOut: z.boolean(), available: z.boolean(),
-    })),
-  }),
-  list_low_stock: z.object({
-    items: z.array(z.object({
-      itemId: z.string(), name: z.string(), unit: z.string(), branchId: z.string(), branchName: z.string(),
-      quantity: z.number(), reorderLevel: z.number(), shortfall: z.number(),
-    })),
-    soldOutProducts: z.array(z.object({ productId: z.string(), name: z.string(), branchId: z.string() })),
-  }),
-  list_insights: z.object({
-    items: z.array(z.object({
-      id: z.string(), kind: z.string(), severity: z.string(), title: z.string(), body: z.string(), method: z.string(),
-      status: z.string(), branchId: nullableString, evidence: z.record(z.string(), z.unknown()), createdAt: z.string(),
-      templateKey: nullableString.optional().describe('Render title/body in the reader language with renderInsight(templateKey, params, locale)'),
-      params: z.record(z.string(), z.unknown()).nullable().optional(),
-    })),
-  }),
-  create_customer_segment: z.object({ segmentId: z.string(), memberCount: z.number().int(), status: z.literal('draft'), source: z.literal('mcp') }),
-  prepare_campaign_draft: z.object({ campaignId: z.string(), status: z.literal('draft'), source: z.literal('mcp'), message: z.string() }),
-  request_campaign_send: approvalRequestedOutput,
-  create_payment_link: approvalRequestedOutput,
-  update_product_availability: approvalRequestedOutput,
-  get_approval_status: z.object({
-    approvalId: z.string(), tool: z.string(), status: z.enum(['pending', 'approved', 'rejected', 'expired', 'executed', 'failed', 'invalidated']),
-    summary: z.string(), requestedAt: z.string(), expiresAt: z.string(), decidedAt: nullableString, executedAt: nullableString,
-    result: z.unknown().nullable(), error: nullableString,
-  }),
-  list_menu: z.object({
-    currency: z.string(), branchId: nullableString,
-    items: z.array(z.object({
-      productId: z.string(), name: z.string(), nameAr: nullableString, category: z.string(), categoryAr: nullableString,
-      priceMinor: money, basePriceMinor: money, available: z.boolean().nullable(), unavailableAtBranchIds: z.array(z.string()),
-      stockQty: z.number().int().nullable(), dietary: z.array(z.string()), allergens: z.array(z.string()), modifierGroups: z.number().int(),
-    })),
-    nextCursor: nullableString,
-  }),
-  get_finance_summary: z.object({
-    currency: z.string(), from: z.string(), to: z.string(), branchId: nullableString,
-    grossSalesMinor: money, discountsMinor: money, refundsMinor: money, vatMinor: money, netRevenueMinor: money,
-    cogsMinor: money, grossProfitMinor: money, operatingExpensesMinor: money, operatingExpensesByKind: z.record(z.string(), money),
-    paymentFeesMinor: money, operatingProfitMinor: money, grossMarginBp: z.number().int().nullable(), operatingMarginBp: z.number().int().nullable(),
-    coverage: z.object({ linesWithoutCost: z.number().int(), unpaidOrders: z.number().int(), paymentsWithUnknownFee: z.number().int(), testPayments: z.number().int() }),
-    warnings: z.array(z.string()), methodology: z.array(z.string()), method: z.literal('deterministic_sql'),
-  }),
-  list_payments: z.object({
-    items: z.array(z.object({
-      id: z.string(), branchId: z.string(), orderNumber: nullableString, reservationCode: nullableString, method: z.string(), provider: z.string(),
-      status: z.string(), amountMinor: money, refundedMinor: money, feeMinor: money.nullable(), currency: z.string(), isTest: z.boolean(),
-      providerReference: nullableString, createdAt: z.string(), capturedAt: nullableString,
-    })),
-    nextCursor: nullableString, masked: z.literal(true),
-  }),
-  list_delivery_jobs: z.object({
-    items: z.array(z.object({
-      id: z.string(), orderId: z.string(), orderNumber: z.string(), branchId: z.string(), status: z.string(),
-      driverName: nullableString, area: nullableString, city: nullableString, distanceM: z.number().int().nullable(), etaAt: nullableString,
-      codAmountMinor: money, cashStatus: z.string(), createdAt: z.string(), assignedAt: nullableString, pickedUpAt: nullableString, deliveredAt: nullableString,
-      failureReason: nullableString,
-    })),
-    nextCursor: nullableString, piiMasked: z.boolean(),
-  }),
-  query_data: z.object({
-    dataset: z.string(), from: z.string(), to: z.string(), timezone: z.string(), currency: z.string(), branchId: nullableString,
-    columns: z.array(z.string()), rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
-    truncated: z.boolean(), method: z.literal('deterministic_sql'), definition: z.string(),
-  }),
-} satisfies Record<McpToolName, z.ZodType>;
 
 /** Response of `POST /v1/o/:orgId/mcp/tools/:tool`. */
 export interface McpToolCallResponse {
@@ -481,3 +437,19 @@ export interface McpWhoAmI {
   auth?: 'key' | 'oauth';
   resource?: string | null;
 }
+
+/**
+ * 21-MCP: MCP sessions live in the database (mcp_sessions), so any MCP server instance can continue a session another
+ * one opened. `POST /v1/mcp/sessions` opens one, `GET /v1/mcp/sessions/:id` checks it belongs to the caller's
+ * connection (and refreshes its idle timer), `DELETE` ends it.
+ */
+export interface McpSessionView {
+  sessionId: string;
+  expiresAt: string;
+  who: McpWhoAmI;
+}
+export const openMcpSession = z.object({
+  protocolVersion: z.string().max(40).optional(),
+  clientName: z.string().max(120).optional(),
+  idleMinutes: z.number().int().min(1).max(24 * 60).default(30),
+}).strict();

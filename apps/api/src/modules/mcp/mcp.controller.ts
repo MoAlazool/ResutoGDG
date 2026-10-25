@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { createMcpClient, mcpApprovalsQuery, mcpCallsQuery, mcpDecision, updateMcpClient } from '@resuto/contracts';
+import { createMcpClient, mcpApprovalsQuery, mcpCallsQuery, mcpDecision, mcpGroupsQuery, updateMcpClient } from '@resuto/contracts';
 import type { z } from 'zod';
 import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
@@ -20,6 +20,16 @@ export class McpController {
   @RequirePermission('mcp:manage')
   catalog(@Tenant() ctx: TenantContext) {
     return this.exec.catalog(ctx.orgId);
+  }
+
+  /**
+   * Permission groups for a connection acting as `role` (21-MCP wizard): which groups and tools work for that role in
+   * this restaurant (entitlements), and the approval policy that governs each group's changes.
+   */
+  @Get('groups')
+  @RequirePermission('mcp:manage')
+  groups(@Tenant() ctx: TenantContext, @Query(zod(mcpGroupsQuery)) q: z.infer<typeof mcpGroupsQuery>) {
+    return this.clients.groups(ctx, q.role);
   }
 
   @Get('clients')

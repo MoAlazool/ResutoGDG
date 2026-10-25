@@ -140,10 +140,11 @@ describe('seven-area navigation (21-SHELL)', () => {
     const areas = visibleAreas({ role: 'owner', modules: ALL_ON, plan: 'pro', branch: TABLES });
     const nav = new Set(paths(areas));
     const palette = new Set(pageEntries(areas, 'owner', t, { explore: true }).map((e) => itemPath(e.href!)));
-    // Routes opened from a list row (a customer, a payment, an MCP connection) or by an OAuth flow
+    // Routes opened from a list row (a customer, a payment, an MCP connection, a change set) or by an OAuth flow
     // (/dashboard/mcp-authorize redirects to mcp/authorize): reached through their parent page.
     const viaParent: Record<string, string> = {
       '/customers/[customerId]': '/customers', '/payments/[paymentId]': '/payments', '/mcp/clients/[clientId]': '/mcp', '/mcp/authorize': '/mcp',
+      '/approvals/[changeSetId]': '/approvals',
     };
     const missing: string[] = [];
     for (const route of dashboardRoutes()) {

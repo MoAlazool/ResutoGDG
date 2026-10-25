@@ -86,6 +86,8 @@ export const AREAS: NavArea[] = [
   { key: 'apps', label: 'nav.area.apps', icon: 'apps', items: [
     { href: '/intelligence/assistant', label: 'nav.copilot', module: 'intelligence', permission: 'ai:use' },
     { href: '/mcp', label: 'nav.mcp', module: 'mcp', anyPermission: ['mcp:manage', 'mcp:approve'] },
+    // 21-MCP: the cross-feature approvals inbox (MCP, Studio AI, copilot and staff change sets).
+    { href: '/approvals', label: 'nav.approvals', module: 'core', permission: 'changes:read' },
     { href: '/integrations', label: 'nav.integrations', module: 'core', permission: 'integrations:manage' },
   ] },
 ];

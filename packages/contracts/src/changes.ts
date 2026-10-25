@@ -1,11 +1,12 @@
 // Change sets (Resuto 2.1, WS 21-CS): one typed, reviewable, approvable unit of change shared by MCP, Studio AI,
 // the copilot and staff. docs/architecture/CHANGE_SETS.md describes the engine.
 import { z } from 'zod';
-import { idempotencyKey, isoDateTime, optionalText, text, uuid } from './common';
+import { idempotencyKey, isoDate, isoDateTime, optionalText, text, uuid } from './common';
 import { listQueryOf } from './api';
 import { promotionInput } from './marketing';
 import type { ModuleKey } from './modules';
 import type { Permission, Role } from './permissions';
+import { ORDER_STATUSES } from './state-machines';
 import { createSection, sectionContent } from './studio';
 
 export const changesContractsVersion = 1 as const;
@@ -30,8 +31,8 @@ export type ChangeEffectStatus = (typeof CHANGE_EFFECT_STATUSES)[number];
 export const CHANGE_COMPENSATIONS = ['none', 'available', 'reversed', 'follow_up'] as const;
 export type ChangeCompensation = (typeof CHANGE_COMPENSATIONS)[number];
 
-/** Policy groups (the MCP permission groups of plan §6.6 that change things). */
-export const CHANGE_OP_GROUPS = ['menu', 'prices', 'promotions', 'website_drafts', 'website_publish', 'messages', 'payments'] as const;
+/** Policy groups (the MCP permission groups of plan §6.6 that change things). `operations` (21-MCP): bookings and order status. */
+export const CHANGE_OP_GROUPS = ['menu', 'prices', 'promotions', 'website_drafts', 'website_publish', 'messages', 'payments', 'operations'] as const;
 export type ChangeOpGroup = (typeof CHANGE_OP_GROUPS)[number];
 
 export const CHANGE_POLICY_MODES = ['auto', 'approval', 'blocked'] as const;
@@ -42,6 +43,7 @@ export const CHANGE_OP_TYPES = [
   'promotion.create',
   'website.section.add', 'website.section.update', 'website.publish',
   'campaign.send', 'payment_link.create',
+  'reservation.create', 'order.status.set',
 ] as const;
 export type ChangeOpType = (typeof CHANGE_OP_TYPES)[number];
 
@@ -68,12 +70,17 @@ export const CHANGE_OPS: Record<ChangeOpType, ChangeOpMeta> = {
   'website.publish': { title: 'Publish the website', titleAr: 'نشر الموقع', group: 'website_publish', permission: 'studio:publish', module: 'studio', kind: 'local', reversible: false },
   'campaign.send': { title: 'Send a campaign', titleAr: 'إرسال حملة', group: 'messages', permission: 'marketing:approve', module: 'marketing', kind: 'effect', reversible: false },
   'payment_link.create': { title: 'Create a payment link', titleAr: 'إنشاء رابط دفع', group: 'payments', permission: 'payments:collect', module: 'pay', kind: 'effect', reversible: true },
+  'reservation.create': { title: 'Book a table', titleAr: 'حجز طاولة', group: 'operations', permission: 'reservations:write', module: 'core', kind: 'local', reversible: false },
+  'order.status.set': { title: 'Move an order to the next status', titleAr: 'نقل طلب إلى الحالة التالية', group: 'operations', permission: 'orders:status', module: 'core', kind: 'local', reversible: false },
 };
 
 /** Percent offers above this many basis points need an owner among the approvers (default; configurable per org). */
 export const DEFAULT_OWNER_DISCOUNT_BPS = 3000;
-/** Pending change sets wait this long for a decision. */
+/** Pending change sets wait this long for a decision unless the group's policy says otherwise (`ttlHours`). */
 export const CHANGE_SET_TTL_HOURS = 24;
+/** Bounds of a policy's approval window (1 hour to 14 days). */
+export const CHANGE_SET_TTL_MIN_HOURS = 1;
+export const CHANGE_SET_TTL_MAX_HOURS = 24 * 14;
 
 export interface ChangePolicy {
   mode: ChangePolicyMode;
@@ -81,17 +88,33 @@ export interface ChangePolicy {
   approvers: 1 | 2;
   /** promotions only: percent offers above this need the owner. */
   ownerAboveBps: number | null;
+  /** How long a pending change in this group waits for a decision before it expires (21-MCP; default 24). */
+  ttlHours: number;
 }
 
 /** Risk defaults (plan §6.6): money, price changes and outbound messages need approval. */
 export const DEFAULT_CHANGE_POLICIES: Record<ChangeOpGroup, ChangePolicy> = {
-  menu: { mode: 'auto', approvers: 1, ownerAboveBps: null },
-  prices: { mode: 'approval', approvers: 1, ownerAboveBps: null },
-  promotions: { mode: 'approval', approvers: 1, ownerAboveBps: DEFAULT_OWNER_DISCOUNT_BPS },
-  website_drafts: { mode: 'auto', approvers: 1, ownerAboveBps: null },
-  website_publish: { mode: 'auto', approvers: 1, ownerAboveBps: null },
-  messages: { mode: 'approval', approvers: 1, ownerAboveBps: null },
-  payments: { mode: 'approval', approvers: 1, ownerAboveBps: null },
+  menu: { mode: 'auto', approvers: 1, ownerAboveBps: null, ttlHours: CHANGE_SET_TTL_HOURS },
+  prices: { mode: 'approval', approvers: 1, ownerAboveBps: null, ttlHours: CHANGE_SET_TTL_HOURS },
+  promotions: { mode: 'approval', approvers: 1, ownerAboveBps: DEFAULT_OWNER_DISCOUNT_BPS, ttlHours: CHANGE_SET_TTL_HOURS },
+  website_drafts: { mode: 'auto', approvers: 1, ownerAboveBps: null, ttlHours: CHANGE_SET_TTL_HOURS },
+  website_publish: { mode: 'auto', approvers: 1, ownerAboveBps: null, ttlHours: CHANGE_SET_TTL_HOURS },
+  messages: { mode: 'approval', approvers: 1, ownerAboveBps: null, ttlHours: CHANGE_SET_TTL_HOURS },
+  payments: { mode: 'approval', approvers: 1, ownerAboveBps: null, ttlHours: CHANGE_SET_TTL_HOURS },
+  operations: { mode: 'auto', approvers: 1, ownerAboveBps: null, ttlHours: CHANGE_SET_TTL_HOURS },
+};
+
+/** How strict a policy mode is: a per-connection override may only raise it (21-MCP). */
+export const CHANGE_POLICY_STRICTNESS: Record<ChangePolicyMode, number> = { auto: 0, approval: 1, blocked: 2 };
+export const stricterMode = (a: ChangePolicyMode, b: ChangePolicyMode): ChangePolicyMode =>
+  (CHANGE_POLICY_STRICTNESS[b] > CHANGE_POLICY_STRICTNESS[a] ? b : a);
+
+/** Order statuses a change set may move an order to (cancelling stays a staff action: refunds come first). */
+export const CHANGE_ORDER_TARGETS = ['accepted', 'preparing', 'ready', 'served', 'picked_up', 'delivered'] as const satisfies readonly (typeof ORDER_STATUSES)[number][];
+/** Operational roles are bound to their part of the flow: the kitchen prepares, the floor serves. */
+export const ORDER_TARGETS_BY_ROLE: Partial<Record<Role, readonly (typeof CHANGE_ORDER_TARGETS)[number][]>> = {
+  kitchen: ['accepted', 'preparing', 'ready'],
+  waiter: ['accepted', 'preparing', 'ready', 'served'],
 };
 
 // ---------------------------------------------------------------------------
@@ -126,6 +149,21 @@ export const changeOpInputs = {
     customerId: uuid.optional(),
     expiresInMinutes: z.number().int().min(5).max(7 * 24 * 60).default(24 * 60),
   }).strict().refine((v) => v.orderId || v.amountMinor, { message: 'orderId or amountMinor is required', path: ['amountMinor'] }),
+  'reservation.create': z.object({
+    branchId: uuid,
+    tableId: uuid.optional(),
+    date: isoDate,
+    time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'HH:MM'),
+    partySize: z.number().int().min(1).max(50),
+    guestName: z.string().trim().min(1).max(100),
+    guestPhone: z.string().trim().regex(/^\+[1-9][0-9]{6,14}$/, 'International format, e.g. +201001234567').optional(),
+    notes: z.string().trim().max(500).optional(),
+    durationMinutes: z.number().int().min(15).max(600).optional(),
+  }).strict(),
+  'order.status.set': z.object({
+    orderId: uuid,
+    status: z.enum(CHANGE_ORDER_TARGETS),
+  }).strict(),
 } satisfies Record<ChangeOpType, z.ZodType>;
 export type ChangeOpInput<T extends ChangeOpType> = z.output<(typeof changeOpInputs)[T]>;
 
@@ -137,6 +175,7 @@ export const changeOpRequest = z.discriminatedUnion('type', [
   opRequest('promotion.create'),
   opRequest('website.section.add'), opRequest('website.section.update'), opRequest('website.publish'),
   opRequest('campaign.send'), opRequest('payment_link.create'),
+  opRequest('reservation.create'), opRequest('order.status.set'),
 ]);
 export type ChangeOpRequest = z.infer<typeof changeOpRequest>;
 
@@ -167,6 +206,8 @@ export const changePolicyUpdate = z.object({
   mode: z.enum(CHANGE_POLICY_MODES),
   approvers: z.union([z.literal(1), z.literal(2)]).default(1),
   ownerAboveBps: z.number().int().min(0).max(10000).nullable().optional(),
+  /** Approval window for this group (hours, 1–336). Omitted: 24. */
+  ttlHours: z.number().int().min(CHANGE_SET_TTL_MIN_HOURS).max(CHANGE_SET_TTL_MAX_HOURS).optional(),
 }).strict();
 export type ChangePolicyUpdate = z.infer<typeof changePolicyUpdate>;
 
@@ -222,7 +263,9 @@ export interface ChangeSetView {
   summary: string | null;
   actor: { type: 'user' | 'mcp_client' | 'system'; id: string; mcpClientId: string | null };
   proposedBy: string | null;
-  policy: { mode: ChangePolicyMode; approvalsRequired: number; requiresOwner: boolean; groups: Partial<Record<ChangeOpGroup, ChangePolicyMode>> };
+  policy: { mode: ChangePolicyMode; approvalsRequired: number; requiresOwner: boolean; groups: Partial<Record<ChangeOpGroup, ChangePolicyMode>>; ttlHours?: number | null };
+  /** MCP sets: the tool that proposed it (21-MCP). */
+  sourceTool?: string | null;
   previewDigest: string | null;
   expiresAt: string | null;
   createdAt: string;

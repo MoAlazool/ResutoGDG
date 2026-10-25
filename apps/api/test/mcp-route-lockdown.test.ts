@@ -11,7 +11,9 @@ import { auth, bootTestApp, createTenant, seedMenu, sql, type SeededMenu, type T
 // output caps and the mcp_tool_calls audit). Audit FT-01/PS-03: @AllowMcp REST routes let a key restricted to
 // list_orders create payment links, change availability and transition orders directly.
 
-const RUNTIME = new Set(['GET /v1/mcp/whoami', 'GET /v1/o/:orgId/mcp/tools', 'POST /v1/o/:orgId/mcp/tools/:tool']);
+// 21-MCP: the database-backed Streamable HTTP sessions are part of the runtime (they carry no tool and change nothing).
+const RUNTIME = new Set(['GET /v1/mcp/whoami', 'GET /v1/o/:orgId/mcp/tools', 'POST /v1/o/:orgId/mcp/tools/:tool',
+  'POST /v1/mcp/sessions', 'GET /v1/mcp/sessions/:sessionId', 'DELETE /v1/mcp/sessions/:sessionId']);
 const VERBS: Partial<Record<RequestMethod, 'get' | 'post' | 'put' | 'patch' | 'delete'>> = {
   [RequestMethod.GET]: 'get', [RequestMethod.POST]: 'post', [RequestMethod.PUT]: 'put',
   [RequestMethod.PATCH]: 'patch', [RequestMethod.DELETE]: 'delete',

@@ -35,6 +35,7 @@ export const MCP_SECTIONS: SectionLink[] = [
   { href: '/mcp/approvals', label: 'mcp.tab.approvals', permission: 'mcp:approve' },
   { href: '/mcp/calls', label: 'mcp.tab.calls', permission: 'mcp:manage' },
   { href: '/mcp/connect', label: 'mcp.tab.connect', anyPermission: ['mcp:manage', 'mcp:approve'] },
+  { href: '/approvals', label: 'mcp.tab.inbox', permission: 'changes:read' },
 ];
 
 /** The section whose route is the longest prefix of `path` (relative to the restaurant), or null. */

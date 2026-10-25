@@ -74,7 +74,7 @@ describe('S08 MCP client: key → tools → reads → approved payment link → 
     expect(list.status).toBe(200);
     expect(list.body.output.items.map((x: any) => x.id).sort()).toEqual([orders.paid, orders.unpaid].sort());
     const one = await call('get_order', { orderId: orders.paid });
-    expect(one.body.output).toMatchObject({ totalMinor: PRICES.fries * 2, customerName: 'Mona Adel', paymentStatus: 'paid' });
+    expect(one.body.output).toMatchObject({ totalMinor: PRICES.fries * 2, customerName: { untrusted: true, text: 'Mona Adel' }, paymentStatus: 'paid' });
     const sum = await call('get_sales_summary', { from: today, to: today });
     expect(sum.status).toBe(200);
     const [db] = await sql(`select count(*)::int as n, sum(total_minor)::int as revenue from orders where org_id = $1 and status <> 'cancelled'`, [tenant.orgId]);

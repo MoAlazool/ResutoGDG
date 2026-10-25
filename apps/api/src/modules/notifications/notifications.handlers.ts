@@ -73,7 +73,9 @@ export class NotificationsHandlers {
         audiencePermission: 'mcp:approve', kind: 'mcp_approval_requested', severity: 'warning', templateKey: 'mcp_approval_requested',
         params: { tool, toolTitle: meta?.title ?? tool, toolTitleAr: meta?.titleAr ?? null, summary: a?.summary ?? null,
           expiresAt: a?.expires_at ? new Date(a.expires_at).toISOString() : null },
-        entityType: 'mcp_approval', entityId: e.aggregateId, link: '/mcp/approvals', dedupeKey: `mcp_approval:${e.aggregateId}`,
+        // 21-MCP: requests with a change set open in the cross-feature approvals inbox.
+        entityType: 'mcp_approval', entityId: e.aggregateId, dedupeKey: `mcp_approval:${e.aggregateId}`,
+        link: typeof e.payload.changeSetId === 'string' && /^[0-9a-f-]{36}$/i.test(e.payload.changeSetId) ? `/approvals/${e.payload.changeSetId}` : '/mcp/approvals',
       });
     }, 'system:notifications');
     await this.notifications.deliverEmail(e.orgId, id, {

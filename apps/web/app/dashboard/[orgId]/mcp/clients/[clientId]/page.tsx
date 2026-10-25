@@ -1,14 +1,17 @@
 'use client';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { Card, DataTable, Modal, Notice, SelectField, Stat, TextareaField, useAction } from '@resuto/ui';
+import { MCP_GROUPS, type McpPermissionGroup } from '@resuto/contracts';
+import { Badge, Card, DataTable, Modal, Notice, SelectField, Stat, TextareaField, useAction } from '@resuto/ui';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import '@/components/changes/changes.css';
 import {
-  ClientStatus, endOfDayIso, isoToDateInput, LoadState, McpPage, OutcomeBadge, ScopeForm,
+  ClientStatus, endOfDayIso, ExpiryBadge, isoToDateInput, LoadState, McpPage, OutcomeBadge, ScopeForm,
   type CatalogTool, type McpCall, type McpClient, type ScopeValue,
 } from '../../_components/shared';
 
@@ -28,7 +31,7 @@ export default function McpClientPage() {
   const client = useApi<McpClient>(path);
   const catalog = useApi<{ items: CatalogTool[] }>(`/o/${org.id}/mcp/catalog`);
   const usage = useApi<Usage>(`${path}/usage`);
-  const calls = useApi<{ items: McpCall[] }>(`/o/${org.id}/mcp/calls?clientId=${clientId}&limit=20`);
+  const calls = useApi<{ items: McpCall[] }>(`/o/${org.id}/mcp/calls?clientId=${clientId}&limit=50`, { pollMs: 30_000 });
   const [saved, setSaved] = useState(false);
   const [confirmRevoke, setConfirmRevoke] = useState(false);
 
@@ -60,12 +63,35 @@ export default function McpClientPage() {
               <div className="row">
                 <h2 className="m-0">{c.name}</h2>
                 <ClientStatus client={c} />
+                <ExpiryBadge client={c} timezone={org.timezone} />
+                <Badge tone="neutral">{t(`mcp.wizard.auth.${c.authKind === 'oauth' ? 'oauth' : 'key'}`)}</Badge>
                 <code dir="ltr" className="fine">{c.keyPrefix}…</code>
               </div>
               <span className="fine">{t('mcp.detail.created', { date: dateTime(c.createdAt, locale, org.timezone) })}</span>
             </div>
             {c.status === 'revoked' && <Notice tone="warn">{t('mcp.detail.revoked', { date: dateTime(c.revokedAt, locale, org.timezone) })}</Notice>}
             {c.status === 'active' && c.expired && <Notice tone="warn">{t('mcp.detail.expired')}</Notice>}
+
+            <section aria-labelledby="groups-h">
+              <h3 id="groups-h">{t('mcp.detail.groups')}</h3>
+              <Card>
+                <div className="stack gap-10">
+                  {c.groups?.length ? (
+                    <div className="row gap-6">{c.groups.map((g) => (
+                      <Badge key={g} tone="info">{locale === 'ar' ? MCP_GROUPS[g as McpPermissionGroup]?.titleAr ?? g : MCP_GROUPS[g as McpPermissionGroup]?.title ?? g}</Badge>
+                    ))}</div>
+                  ) : <p className="muted m-0">{t('mcp.detail.noGroups')}</p>}
+                  {!!Object.keys(c.policyOverrides ?? {}).length && (
+                    <p className="fine m-0">{t('mcp.detail.overrides')}: {Object.entries(c.policyOverrides ?? {})
+                      .map(([g, m]) => `${t(`mcp.policy.group.${g}`)}: ${t(`mcp.policy.mode.${m}`)}`).join(locale === 'ar' ? '، ' : ', ')}</p>
+                  )}
+                  <details>
+                    <summary className="cursor-pointer">{t('mcp.detail.toolList', { n: c.allowedTools.length })}</summary>
+                    <ul className="cx-tools mbs-8">{c.allowedTools.map((n) => <li key={n}><code dir="ltr">{n}</code></li>)}</ul>
+                  </details>
+                </div>
+              </Card>
+            </section>
 
             <section aria-labelledby="usage-h">
               <h3 id="usage-h">{t('mcp.detail.usage')}</h3>
@@ -110,7 +136,8 @@ export default function McpClientPage() {
             {!inactive && <TestPanel client={c} catalog={catalog.data?.items ?? []} onRan={() => { void calls.reload(); void usage.reload(); }} />}
 
             <section aria-labelledby="recent-h">
-              <h3 id="recent-h">{t('mcp.detail.recent')}</h3>
+              <h3 id="recent-h">{t('mcp.activity.title')}</h3>
+              <p className="fine mbs-0">{t('mcp.activity.body')}</p>
               <LoadState loading={calls.loading} error={calls.error} retry={calls.reload}>
                 <DataTable rows={calls.data?.items ?? []} rowKey={(r) => r.id} empty={<p className="muted m-0">{t('mcp.calls.empty')}</p>} columns={[
                   { key: 'time', header: t('mcp.col.time'), render: (r) => dateTime(r.createdAt, locale, org.timezone) },
@@ -118,6 +145,8 @@ export default function McpClientPage() {
                   { key: 'outcome', header: t('mcp.col.outcome'), render: (r) => <OutcomeBadge outcome={r.outcome} /> },
                   { key: 'via', header: t('mcp.col.via'), render: (r) => t(`mcp.via.${r.via}`) },
                   { key: 'err', header: t('mcp.col.error'), render: (r) => r.errorCode ? <span className="fine" dir="ltr">{r.errorCode}</span> : '' },
+                  { key: 'change', header: t('mcp.activity.change'), render: (r) => r.changeSetId
+                    ? <Link href={`/dashboard/${org.id}/approvals/${r.changeSetId}`}>{t('mcp.activity.view')}</Link> : '' },
                 ]} />
               </LoadState>
             </section>

@@ -1,0 +1,61 @@
+/* 21-MCP: connection wizard and approvals inbox. Semantic tokens and logical properties only (docs/ui/DESIGN_SYSTEM.md). */
+
+/* Wizard progress: an ordered list of the six steps. */
+.cx-steps { list-style: none; margin: 0 0 var(--space-4); padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); counter-reset: cx-step; }
+.cx-steps li { counter-increment: cx-step; display: inline-flex; align-items: center; gap: var(--space-2); padding-block: var(--space-1); padding-inline: var(--space-2) var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-full); color: var(--text-muted); font-size: var(--fs-sm); background: var(--surface-1); }
+.cx-steps li::before { content: counter(cx-step); display: inline-grid; place-items: center; inline-size: 22px; block-size: 22px; border-radius: var(--radius-full);
+  background: var(--surface-3); color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
+.cx-steps li[data-done='true']::before { background: var(--ok-bg); color: var(--ok-fg); }
+.cx-steps li[aria-current='step'] { border-color: var(--accent); color: var(--text-strong); font-weight: var(--fw-semibold); }
+.cx-steps li[aria-current='step']::before { background: var(--accent); color: var(--accent-fg); }
+.cx-steps button { all: unset; cursor: pointer; }
+.cx-steps button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-1); }
+
+.cx-panel { display: grid; gap: var(--space-4); }
+.cx-actions { display: flex; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+
+/* Choice cards (assistants, permission groups). */
+.cx-cards { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.cx-card { display: grid; gap: var(--space-2); align-content: start; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-2);
+  background: var(--surface-1); cursor: pointer; text-align: start; }
+.cx-card:hover { background: var(--surface-hover); }
+.cx-card[data-selected='true'] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--surface-selected); }
+.cx-card[data-disabled='true'] { cursor: not-allowed; opacity: 0.72; }
+.cx-card:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cx-card input { margin: 0; }
+.cx-card-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.cx-card-title { font-weight: var(--fw-semibold); color: var(--text-strong); }
+.cx-tools { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.cx-tools code { font-size: var(--fs-xs); padding-block: 1px; padding-inline: var(--space-1); border-radius: var(--radius-1); background: var(--surface-2); }
+
+.cx-url { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.cx-url code { flex: 1 1 280px; padding-block: var(--space-2); padding-inline: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-2);
+  background: var(--surface-1); word-break: break-all; user-select: all; font-size: var(--fs-md); }
+.cx-howto { margin: 0; padding-inline-start: var(--space-5); display: grid; gap: var(--space-2); }
+
+/* Policy summary and before/after diff tables. */
+.cx-table { inline-size: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.cx-table th, .cx-table td { padding-block: var(--space-2); padding-inline: var(--space-2); border-block-end: 1px solid var(--border-subtle); text-align: start; vertical-align: top; }
+.cx-table thead th { color: var(--text-muted); font-weight: var(--fw-medium); font-size: var(--fs-sm); background: var(--surface-2); }
+.cx-table tbody th { font-weight: var(--fw-semibold); }
+.cx-before { color: var(--danger-fg); text-decoration: line-through; }
+.cx-after { color: var(--ok-fg); font-weight: var(--fw-semibold); }
+.cx-same { color: var(--text-muted); }
+.cx-wrap { overflow-x: auto; }
+
+/* Approvals inbox. */
+.cx-list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.cx-item { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface-1); }
+.cx-item a.cx-item-title { font-weight: var(--fw-semibold); color: var(--text-strong); text-decoration: none; }
+.cx-item a.cx-item-title:hover { text-decoration: underline; }
+.cx-meta { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); color: var(--text-muted); font-size: var(--fs-sm); }
+.cx-op { display: grid; gap: var(--space-2); padding-block: var(--space-3); border-block-start: 1px solid var(--border-subtle); }
+.cx-op:first-child { border-block-start: 0; padding-block-start: 0; }
+.cx-op-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.cx-timeline { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-3); border-inline-start: 2px solid var(--border); padding-inline-start: var(--space-4); }
+.cx-timeline li { position: relative; display: grid; gap: 2px; }
+.cx-timeline li::before { content: ''; position: absolute; inset-inline-start: calc(-1 * var(--space-4) - 6px); inset-block-start: 6px; inline-size: 10px; block-size: 10px;
+  border-radius: var(--radius-full); background: var(--surface-1); border: 2px solid var(--accent); }
+.cx-timeline time { color: var(--text-muted); font-size: var(--fs-sm); }
+.cx-decide { display: grid; gap: var(--space-3); }

@@ -65,7 +65,8 @@ class TestOAuthClient implements OAuthClientProvider {
   consentUrl: string | null = null;
   /** The last authorization request URL (its `scope` shows what the client asked for). */
   authorizationUrl: URL | null = null;
-  constructor(private readonly tools: string[]) {}
+  /** `consent`: extra fields of the owner's consent (e.g. the wizard's permission groups). */
+  constructor(private readonly tools: string[], private readonly consent: Record<string, unknown> = {}) {}
   get redirectUrl() { return 'http://127.0.0.1:33419/callback'; }
   get clientMetadata(): OAuthClientMetadata {
     return { client_name: 'SDK test client', redirect_uris: [this.redirectUrl], grant_types: ['authorization_code', 'refresh_token'],
@@ -86,7 +87,8 @@ class TestOAuthClient implements OAuthClientProvider {
     this.consentUrl = res.headers.get('location');
     const requestId = new URL(this.consentUrl!).searchParams.get('request')!;
     // The owner approves in the dashboard (same API call the consent page makes).
-    const approved = await api('POST', `/o/${orgId}/mcp/oauth/requests/${requestId}/approve`, { actingRole: 'manager', allowedTools: this.tools, rateLimitPerMin: 600 });
+    const approved = await api('POST', `/o/${orgId}/mcp/oauth/requests/${requestId}/approve`, { actingRole: 'manager', allowedTools: this.tools, rateLimitPerMin: 600,
+      ...this.consent });
     const back = new URL(approved.redirectTo);
     expect(back.searchParams.get('state')).toBe('sdk-state-1');
     this.code = back.searchParams.get('code');
@@ -302,6 +304,59 @@ describe('OAuth 2.1 for MCP clients (official SDK client)', () => {
     expect(ok.status).toBe(200);
     expect(await ok.text()).toContain('Fattah Kitchen');
     expect(await callsOf('get_restaurant_profile')).toBe(profileCalls + 1);
+  });
+
+  // 21-MCP acceptance: OAuth connect (consent with permission groups, as the connection wizard sends them) → read →
+  // a write that the approval policy holds → a person approves → executed → audit rows and the connection's call log.
+  it('OAuth connection from permission groups: read, write held for approval, approve, executed, audited', async () => {
+    const provider = new TestOAuthClient([], { groups: ['menu', 'promotions'], name: 'Wizard assistant' });
+    const { client } = await connectWithOAuth(provider);
+    const [conn] = (await pool.query(`select id, auth_kind, permission_groups, allowed_tools from mcp_clients where org_id = $1 and name = 'Wizard assistant'`, [orgId])).rows;
+    expect(conn).toMatchObject({ auth_kind: 'oauth', permission_groups: ['menu', 'promotions'] });
+    const names = (await client.listTools()).tools.map((x) => x.name);
+    expect(names).toEqual(expect.arrayContaining(['list_menu', 'create_promotion', 'get_approval_status']));
+    expect(names).not.toContain('list_orders');
+    expect([...names].sort()).toEqual([...conn.allowed_tools].sort());
+
+    // Read.
+    const menu = await client.callTool({ name: 'list_menu', arguments: {} });
+    expect(menu.isError, JSON.stringify(menu.content)).toBeFalsy();
+
+    // Write: promotions need approval by default, so nothing is created yet.
+    const res = await client.callTool({ name: 'create_promotion', arguments: { name: 'Eid 15', nameAr: 'خصم العيد', code: 'OAUTHEID15', kind: 'percent', value: 1500 } });
+    expect(res.isError, JSON.stringify(res.content)).toBeFalsy();
+    const out = res.structuredContent as any;
+    expect(out).toMatchObject({ status: 'approval_required', policy: { mode: 'approval' } });
+    const changeSetId: string = out.changeSetId;
+    const offers = async () => (await pool.query(`select kind, value from promotions where org_id = $1 and code = 'OAUTHEID15'`, [orgId])).rows;
+    expect(await offers()).toEqual([]);
+    expect((await client.callTool({ name: 'get_approval_status', arguments: { approvalId: changeSetId } })).structuredContent)
+      .toMatchObject({ status: 'pending', changeSetStatus: 'pending_approval', tool: 'create_promotion' });
+
+    // A person approves in the approvals inbox (the same API calls the page makes).
+    const view = await api('GET', `/o/${orgId}/change-sets/${changeSetId}`);
+    expect(view).toMatchObject({ origin: 'mcp', status: 'pending_approval', sourceTool: 'create_promotion', actor: { type: 'mcp_client', mcpClientId: conn.id } });
+    expect(view.ops[0].changes.length).toBeGreaterThan(0);
+    const approved = await api('POST', `/o/${orgId}/change-sets/${changeSetId}/approve`, { note: 'OK for Eid', previewDigest: view.previewDigest });
+    expect(approved.status).toBe('applied');
+
+    // Executed, visible to the assistant, and audited.
+    expect(await offers()).toEqual([{ kind: 'percent', value: 1500 }]);
+    expect((await client.callTool({ name: 'get_approval_status', arguments: { approvalId: changeSetId } })).structuredContent)
+      .toMatchObject({ status: 'executed', changeSetStatus: 'applied' });
+    const actions = (await pool.query(`select action from audit_logs where entity_type = 'change_set' and entity_id = $1 order by id`, [changeSetId])).rows.map((r) => r.action);
+    expect(actions).toEqual(expect.arrayContaining(['change_set.pending_approval', 'change_set.approved', 'change_op.applied', 'change_set.applied']));
+    const audit = await api('GET', `/o/${orgId}/change-sets/${changeSetId}/audit?limit=100`);
+    expect(audit.items.map((r: any) => r.action)).toEqual(expect.arrayContaining(['change_set.approved', 'change_set.applied']));
+    const calls = (await pool.query(`select outcome, via, change_set_id from mcp_tool_calls where client_id = $1 and tool = 'create_promotion' order by id`, [conn.id])).rows;
+    expect(calls).toEqual([
+      { outcome: 'approval_required', via: 'mcp', change_set_id: changeSetId },
+      { outcome: 'ok', via: 'approval', change_set_id: changeSetId },
+    ]);
+    // The connection's activity (the dashboard timeline) links the call to the change.
+    const activity = await api('GET', `/o/${orgId}/mcp/calls?clientId=${conn.id}&limit=50`);
+    expect(activity.items.filter((r: any) => r.tool === 'create_promotion').every((r: any) => r.changeSetId === changeSetId)).toBe(true);
+    await client.close();
   });
 
   it('shows a plain error (never a redirect) for an unknown client', async () => {
