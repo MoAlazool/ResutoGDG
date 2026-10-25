@@ -36,6 +36,15 @@ export interface McpCaller {
 
 export type CallVia = 'mcp' | 'dashboard_test' | 'approval';
 
+/**
+ * A branch-scoped approver (param $p: their branch ids, or null for every branch) sees and decides an MCP request only
+ * when everything it changes is inside their branches: no op of its change set on another branch, and no branchId in
+ * its input outside them. The same rule as the change-set inbox (ChangesService.peek / list); 1D threat model.
+ */
+const approvalInScope = (p: number) => `($${p}::uuid[] is null or (
+    not exists (select 1 from change_ops o where o.change_set_id = a.change_set_id and o.branch_id is not null and not (o.branch_id = any($${p}::uuid[])))
+    and (jsonb_typeof(a.input->'branchId') is distinct from 'string' or (a.input->>'branchId') = any(($${p}::uuid[])::text[]))))`;
+
 export function outcomeFor(error: unknown): { outcome: 'denied' | 'invalid_input' | 'rate_limited' | 'error'; code: string; message: string } {
   if (error instanceof DomainError) {
     const outcome = error.code === 'rate_limited' ? 'rate_limited'
@@ -440,9 +449,9 @@ export class McpExecutionService implements OnModuleInit {
       const rows = await tx.query<any>(
         `select a.*, c.name as client_name, c.key_prefix, c.acting_role, ${cursorAt('a.requested_at')} as cursor_at
            from mcp_approvals a join mcp_clients c on c.id = a.client_id
-          where a.org_id = $1 and ($2::text = 'all' or a.status = $3) ${k.after('a.requested_at', 'a.id', 4)}
+          where a.org_id = $1 and ($2::text = 'all' or a.status = $3) and ${approvalInScope(4)} ${k.after('a.requested_at', 'a.id', 5)}
           order by a.requested_at desc, a.id desc limit ${k.fetch(limit)}`,
-        [ctx.orgId, status, status, ...k.params]);
+        [ctx.orgId, status, status, ctx.branchFilter, ...k.params]);
       return pageOf(rows, limit, (r) => ({ at: r.cursor_at, id: r.id }), (r) => this.toApproval(r));
     });
   }
@@ -450,7 +459,7 @@ export class McpExecutionService implements OnModuleInit {
   async getApproval(ctx: TenantContext, id: string) {
     await this.expireDue(ctx.orgId);
     return this.db.scoped(ctx, async (tx) => {
-      const r = await this.loadApproval(tx, ctx.orgId, id, false);
+      const r = await this.loadApproval(tx, ctx, id, false);
       const tool = this.tool(r.tool);
       let preview: ApprovalPreview | null = null;
       let previewError: string | null = null;
@@ -477,7 +486,7 @@ export class McpExecutionService implements OnModuleInit {
   async approve(userCtx: TenantContext, id: string, note: string | null | undefined, shownDigest?: string) {
     await this.expireDue(userCtx.orgId);
     const result = await this.db.withTenant(userCtx.orgId, async (tx) => {
-      const r = await this.loadApproval(tx, userCtx.orgId, id, true);
+      const r = await this.loadApproval(tx, userCtx, id, true);
       if (r.status !== 'pending') throw conflict('approval_not_pending', `This request is already ${r.status}`, { status: r.status });
       const tool = this.tool(r.tool);
       if (!tool?.meta.sensitive) throw conflict('approval_not_pending', 'Unknown tool');
@@ -543,7 +552,7 @@ export class McpExecutionService implements OnModuleInit {
     }, `user:${userCtx.userId}`);
     // Apply once, after the decision committed: local ops in one transaction, effects through the outbox (first attempt now).
     if (result.changeSetId) await this.changes.apply(userCtx.orgId, result.changeSetId);
-    const approval = await this.db.scoped(userCtx, async (tx) => this.toApproval(await this.loadApproval(tx, userCtx.orgId, id, false)));
+    const approval = await this.db.scoped(userCtx, async (tx) => this.toApproval(await this.loadApproval(tx, userCtx, id, false)));
     if (result.failedEarly === 'client_inactive') throw conflict('client_inactive', 'The MCP client was revoked or has expired; the request was closed', { approval });
     if (result.failedEarly === 'invalidated') throw conflict('approval_invalidated', `${result.reason}. Nothing was executed.`, { approval });
     if (result.failedEarly === 'expired') throw conflict('approval_not_pending', 'This request is already expired', { status: 'expired' });
@@ -554,8 +563,11 @@ export class McpExecutionService implements OnModuleInit {
   async reject(userCtx: TenantContext, id: string, note: string | null | undefined) {
     await this.expireDue(userCtx.orgId);
     await this.db.scoped(userCtx, async (tx) => {
-      const r = await this.loadApproval(tx, userCtx.orgId, id, true);
+      const r = await this.loadApproval(tx, userCtx, id, true);
       if (r.status !== 'pending') throw conflict('approval_not_pending', `This request is already ${r.status}`, { status: r.status });
+      // Rejecting needs what approving needs from the person: the tool's permission (1D threat model).
+      const permission = this.tool(r.tool)?.meta.permission;
+      if (permission && !userCtx.can(permission)) throw forbidden(`Rejecting this needs ${permission}`);
       await tx.query(`update mcp_approvals set status = 'rejected', decided_by = $2, decided_at = now(), decision_note = $3 where id = $1`,
         [r.id, userCtx.userId, note ?? null]);
       await this.audit.record(tx, userCtx, { action: 'mcp.approval.rejected', entityType: 'mcp_approval', entityId: r.id,
@@ -675,13 +687,18 @@ export class McpExecutionService implements OnModuleInit {
       extra: { approvedBy: cs.decided_by, status: info.to } });
   }
 
-  private async loadApproval(tx: Tx, orgId: string, id: string, lock: boolean) {
+  /**
+   * One request of the caller's restaurant. Outside the caller's branch scope (approvalInScope) it is not found when
+   * read, and a decision on it is refused (403, as for a branch the caller cannot access).
+   */
+  private async loadApproval(tx: Tx, ctx: TenantContext, id: string, lock: boolean) {
     const r = await tx.maybeOne<any>(
       `select a.*, c.name as client_name, c.key_prefix, c.acting_role, c.branch_ids, c.allowed_tools, c.status as client_status,
-              c.expires_at as client_expires_at, c.policy_overrides
+              c.expires_at as client_expires_at, c.policy_overrides, ${approvalInScope(3)} as in_scope
          from mcp_approvals a join mcp_clients c on c.id = a.client_id
-        where a.org_id = $1 and a.id = $2 ${lock ? 'for update of a' : ''}`, [orgId, id]);
-    if (!r) throw notFound('Approval');
+        where a.org_id = $1 and a.id = $2 ${lock ? 'for update of a' : ''}`, [ctx.orgId, id, ctx.branchFilter]);
+    if (!r || (!r.in_scope && !lock)) throw notFound('Approval');
+    if (!r.in_scope) throw forbidden('You do not have access to this branch');
     return r;
   }
 
