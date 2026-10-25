@@ -139,5 +139,5 @@ function CategoryModal({ open, onClose, onSaved }: { open: boolean; onClose: () 
 }
 
 export default function ExpensesPage() {
-  return <Suspense fallback={<Skeleton lines={6} />}><FinanceFrame><Expenses /></FinanceFrame></Suspense>;
+  return <Suspense fallback={<Skeleton lines={6} />}><FinanceFrame compare={false}><Expenses /></FinanceFrame></Suspense>;
 }

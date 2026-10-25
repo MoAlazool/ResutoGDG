@@ -1,13 +1,15 @@
 'use client';
 import { Suspense } from 'react';
 import type { ProfitAndLoss } from '@resuto/contracts';
-import { Card, Notice, Skeleton } from '@resuto/ui';
+import { Card, Notice, ProvenanceBadge, Skeleton } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useApi } from '@/lib/use-api';
 import { financeWarningText } from '@/lib/finance-warnings';
 import { PolicyCard } from '../_ui/AccountingSetup';
+import styles from '../_ui/finance.module.css';
 import { FinanceFrame, pct, useMoney, usePeriod } from '../_ui/FinanceFrame';
+import { profitProvenance } from '../_ui/provenance';
 
 function Pnl() {
   const { t } = useT();
@@ -24,14 +26,15 @@ function Pnl() {
   ] as const).filter(([, v]) => v > 0);
   const row = (label: string, v: number, opts: { neg?: boolean; strong?: boolean; indent?: boolean } = {}) => (
     <tr key={label} className={opts.strong ? 'row-strong' : undefined}>
-      <td style={{ paddingInlineStart: opts.indent ? 32 : 14 }}>{label}</td>
+      <td className={opts.indent ? styles.indent : undefined}>{label}</td>
       <td className="num text-end" dir="ltr">{opts.neg && v ? `−${m(v)}` : m(v)}</td>
     </tr>
   );
   return (
     <div className="grid grid-2 items-start">
-      {data.isSyntheticData && <div style={{ gridColumn: '1 / -1' }}><Notice tone="warn">{t('finance.demo')}</Notice></div>}
-      <Card title={t('finance.pnl.title')}>
+      {data.isSyntheticData && <div className={styles.full}><Notice tone="warn">{t('finance.demo')}</Notice></div>}
+      <Card title={t('finance.pnl.title')} actions={<ProvenanceBadge provenance={profitProvenance(data)}
+        labels={{ live: t('finance.prov.ledger'), estimated: t('finance.prov.estimated'), sandbox: t('finance.prov.sandbox'), unavailable: t('finance.prov.unavailable') }} />}>
         <div className="table-wrap">
           <table className="data">
             <tbody>
@@ -46,10 +49,10 @@ function Pnl() {
               {Object.entries(L.operatingExpensesByKind).map(([k, v]) => row(t(`finance.kind.${k}`), v, { neg: true, indent: true }))}
               {row(t('finance.pnl.paymentFees'), L.paymentFeesMinor, { neg: true, indent: true })}
               {row(t('finance.pnl.operatingProfit'), L.operatingProfitMinor, { strong: true })}
-              {memo.length > 0 && <tr><td colSpan={2} className="fine" style={{ paddingTop: 14 }}>{t('finance.pnl.memo')}</td></tr>}
+              {memo.length > 0 && <tr><td colSpan={2} className={`fine ${styles.memoHead}`}>{t('finance.pnl.memo')}</td></tr>}
               {memo.map(([k, v]) => (
                 <tr key={k} className="fine">
-                  <td style={{ paddingInlineStart: 32 }}>{t(`finance.pnl.memo.${k}`)}</td>
+                  <td className={styles.indent}>{t(`finance.pnl.memo.${k}`)}</td>
                   <td className="num text-end" dir="ltr">({m(v)})</td>
                 </tr>
               ))}
@@ -64,9 +67,9 @@ function Pnl() {
       </Card>
       <div className="stack">
         <PolicyCard onSaved={() => reload()} />
-        {data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}</strong><ul style={{ margin: '6px 0 0', paddingInlineStart: 18 }}>{data.warnings.map((w) => <li key={w}>{financeWarningText(w, t)}</li>)}</ul></Notice>}
+        {data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}</strong><ul className={styles.list}>{data.warnings.map((w) => <li key={w}>{financeWarningText(w, t)}</li>)}</ul></Notice>}
         <Card title={t('finance.pnl.methodology')}>
-          <ol className="fine" style={{ paddingInlineStart: 18, margin: 0 }}>{data.methodology.map((x) => <li key={x}>{x}</li>)}</ol>
+          <ol className={`fine m-0 ${styles.list}`}>{data.methodology.map((x) => <li key={x}>{x}</li>)}</ol>
         </Card>
       </div>
     </div>
@@ -74,5 +77,5 @@ function Pnl() {
 }
 
 export default function PnlPage() {
-  return <Suspense fallback={<Skeleton lines={6} />}><FinanceFrame><Pnl /></FinanceFrame></Suspense>;
+  return <Suspense fallback={<Skeleton lines={6} />}><FinanceFrame compare={false}><Pnl /></FinanceFrame></Suspense>;
 }

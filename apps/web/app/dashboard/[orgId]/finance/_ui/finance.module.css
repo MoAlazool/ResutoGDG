@@ -1,0 +1,39 @@
+/* Finance area (21-MONEY). Semantic tokens and logical properties only. */
+.picker { display: grid; gap: var(--space-2); margin-block-end: var(--space-4); padding-block-end: var(--space-3); }
+.pickerRow { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; }
+.pickerRow > :global(.field) { flex: 0 1 200px; min-inline-size: 150px; }
+.apply { margin-block-end: 14px; }
+.summary { color: var(--text-muted); }
+
+/* Overview */
+.stats { margin-block-end: var(--space-2); }
+.legend { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: var(--space-4); align-items: start; }
+.pair > :global(.card):not(:first-child) { margin-block-start: 0; }
+.margins { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-3) 0 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--text-muted); }
+.margins strong { color: var(--text); font-weight: var(--fw-semibold); }
+.margins [data-negative] strong { color: var(--danger-fg); }
+.chartSlot { min-block-size: 240px; }
+
+/* P&L */
+.indent { padding-inline-start: var(--space-8); }
+.memoHead { padding-block-start: var(--space-3); }
+.full { grid-column: 1 / -1; }
+.list { margin: var(--space-2) 0 0; padding-inline-start: var(--space-5); }
+
+/* Export centre */
+.kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: var(--space-3); margin: 0 0 var(--space-4); padding: 0; border: 0; }
+.kind { display: grid; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface-1); cursor: pointer; }
+.kind:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.kind:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.kindName { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--fw-semibold); }
+.kindHint { font-size: var(--fs-xs); color: var(--text-muted); }
+.exportActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.checksum { font-size: var(--fs-xs); }
+.connect { align-items: end; margin-block-start: var(--space-4); }
+.providers { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-end: var(--space-3); }
+.setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--space-4); align-items: start; margin-block-start: var(--space-4); }
+.setup > :global(.card):not(:first-child) { margin-block-start: 0; }
+.fieldset { display: grid; gap: 6px; min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+.mapping { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-3); }
+@media (max-width: 700px) { .mapping { grid-template-columns: minmax(0, 1fr); } }
