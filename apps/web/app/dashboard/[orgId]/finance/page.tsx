@@ -13,8 +13,8 @@ import { deltaPct } from './_ui/period';
 import { feesProvenance, profitProvenance, revenueProvenance, type FeesView } from './_ui/provenance';
 
 const chartLoading = () => <div className={`skeleton ${styles.chartSlot}`} aria-hidden="true" />;
-const NetByDayChart = dynamic(() => import('./_ui/OverviewCharts').then((m) => m.NetByDayChart), { ssr: false, loading: chartLoading });
-const NetByMonthChart = dynamic(() => import('./_ui/OverviewCharts').then((m) => m.NetByMonthChart), { ssr: false, loading: chartLoading });
+const NetByDayTrend = dynamic(() => import('./_ui/OverviewCharts').then((m) => m.NetByDayTrend), { ssr: false, loading: chartLoading });
+const NetByMonthTrend = dynamic(() => import('./_ui/OverviewCharts').then((m) => m.NetByMonthTrend), { ssr: false, loading: chartLoading });
 
 interface Insights {
   marginTrend: { direction: string; deltaBp: number | null; months: Array<{ month: string; netRevenueMinor: number; grossMarginBp: number | null }> };
@@ -71,14 +71,14 @@ function Overview() {
       {rev.data.warnings.length > 0 && <Notice tone="warn"><strong>{t('finance.warnings')}:</strong> {rev.data.warnings.map((w) => financeWarningText(w, t)).join(' ')}</Notice>}
 
       <Card title={t('finance.overview.netByDay')} actions={badge(revenue)}>
-        <NetByDayChart current={p} previous={p.previous} rows={rev.data.byDay} previousRows={p.previous ? prev.data?.byDay ?? null : null} format={m} />
+        <NetByDayTrend current={p} previous={p.previous} rows={rev.data.byDay} previousRows={p.previous ? prev.data?.byDay ?? null : null} format={m} />
       </Card>
 
       <div className={styles.pair}>
         <Card title={t('finance.insights')} actions={badge(insights.data ? revenue : 'unavailable')}>
           {!insights.data || !trend ? <Skeleton lines={3} /> : (
             <div className="stack">
-              <NetByMonthChart months={trend.months} format={m} />
+              <NetByMonthTrend months={trend.months} format={m} />
               <div>
                 <h3>{t('finance.overview.margins')}</h3>
                 <p className="fine m-0">{t(`finance.trend.${trend.direction}`, { bp: Math.abs(Math.round((trend.deltaBp ?? 0) / 100)) })}</p>
