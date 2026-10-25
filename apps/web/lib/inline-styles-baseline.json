@@ -33,8 +33,6 @@
   "apps/web/app/dashboard/[orgId]/mcp/connect/page.tsx": 4,
   "apps/web/app/dashboard/[orgId]/menu/page.tsx": 5,
   "apps/web/app/dashboard/[orgId]/notifications/page.tsx": 4,
-  "apps/web/app/dashboard/[orgId]/payments/[paymentId]/page.tsx": 4,
-  "apps/web/app/dashboard/[orgId]/payments/page.tsx": 6,
   "apps/web/app/dashboard/[orgId]/studio-media/page.tsx": 2,
   "apps/web/app/dashboard/[orgId]/website/_components/CreativePanel.tsx": 4,
   "apps/web/app/dashboard/[orgId]/website/_components/DomainsPanel.tsx": 2,

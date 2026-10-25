@@ -23,7 +23,7 @@ const ROOTS = [
   // 21-MONEY: the Settings cluster (SettingsPage template) and the Money area.
   'apps/web/app/dashboard/[orgId]/settings', 'apps/web/app/dashboard/[orgId]/team', 'apps/web/app/dashboard/[orgId]/billing',
   'apps/web/app/dashboard/[orgId]/data', 'apps/web/app/dashboard/[orgId]/audit', 'apps/web/components/settings',
-  'apps/web/app/dashboard/[orgId]/finance',
+  'apps/web/app/dashboard/[orgId]/finance', 'apps/web/app/dashboard/[orgId]/payments',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

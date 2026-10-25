@@ -1,0 +1,26 @@
+/* Payments (21-MONEY). Semantic tokens and logical properties only. */
+.notice { margin-block-end: var(--space-4); }
+.filterDates { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.filters :global(.field) { min-inline-size: 150px; margin-block-end: 0; }
+.dateError { margin: var(--space-1) 0 0; color: var(--danger-fg); font-size: var(--fs-xs); }
+.when { display: grid; gap: 2px; }
+
+/* Payment detail and sheet */
+.badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 0; }
+.figures div { display: grid; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-2); background: var(--surface-2); }
+.figures dt { color: var(--text-muted); font-size: var(--fs-xs); }
+.figures dd { margin: 0; font-size: var(--fs-lg); font-weight: var(--fw-semibold); color: var(--text-strong); }
+@media (max-width: 700px) { .figures { grid-template-columns: minmax(0, 1fr); } }
+.refundNotes { display: grid; gap: 2px; }
+.failure { color: var(--danger-fg); text-align: start; }
+.refundActions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-start: var(--space-3); }
+.refundForm { display: grid; gap: var(--space-2); padding-block-start: var(--space-3); border-block-start: 1px solid var(--border-subtle); }
+.refundForm h3 { margin: 0; }
+.sheetFoot { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); inline-size: 100%; }
+
+/* Lists, reconciliation, cash count */
+.runs { display: grid; gap: var(--space-2); margin-block-start: var(--space-4); }
+.run { justify-content: space-between; }
+.statValue { font-size: var(--fs-xl); }
+.alertBody { display: grid; gap: var(--space-1); }
