@@ -38,7 +38,7 @@ struct ProductView: View {
                                 HStack(alignment: .top) {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text(l.name(group.name, group.nameAr)).font(.headline)
-                                        Text(l.text("choose_options") + " \(group.minSelect)–\(group.maxSelect)").font(.subheadline)
+                                        Text(l.selectionRequirement(min: group.minSelect, max: group.maxSelect)).font(.subheadline)
                                     }
                                     Spacer()
                                     StatusBadge(text: l.text(group.minSelect > 0 ? "required" : "optional"), symbol: group.minSelect > 0 ? "checklist" : "plus.circle")
