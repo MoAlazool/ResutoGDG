@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Static route/permission drift checks. Does not substitute for an authenticated staging lifecycle."""
 import json, re, sys, plistlib
+from collections import Counter
 from pathlib import Path
 root=Path(__file__).resolve().parents[3]
 paths=json.loads((root/'docs/api/openapi.json').read_text())['paths']
@@ -27,5 +28,8 @@ print(f'PASS: {sum(map(len,required.values()))} route/method contracts, request 
 localization=(root/'apps/ipad-pos/App/Localization.swift').read_text()
 en,ar=localization.split('static let en:')[1].split('static let ar:')
 key_pattern=r'"([^"\n]+)"\s*:'
+for language, text in [('English',en),('Arabic',ar)]:
+    duplicates=[key for key,count in Counter(re.findall(key_pattern,text)).items() if count>1]
+    assert not duplicates, f'{language} duplicate localization keys would crash Swift Dictionary: {duplicates}'
 assert set(re.findall(key_pattern,en)) == set(re.findall(key_pattern,ar)), 'English/Arabic localization keys differ'
-print('PASS: English/Arabic localization key parity')
+print('PASS: English/Arabic localization key parity and unique keys')

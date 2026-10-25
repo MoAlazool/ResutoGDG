@@ -129,6 +129,22 @@ final class WorkflowTests: XCTestCase {
         XCTAssertEqual(app.descendants(matching:.any).matching(identifier:"order." + order).count,1)
         attach(app,"simulated-lost-response-original-key-reconciled")
     }
+    func testAmbiguousServerOrderSurvivesForceCloseWithoutDuplicate() throws {
+        var app = try launch(scenario:"lost-order-until-relaunch")
+        tap(app,"product." + product); tap(app,"product.add"); tap(app,"cart.review"); tap(app,"cart.confirm")
+        tap(app,"nav.orders")
+        let rows = app.buttons.matching(NSPredicate(format:"identifier BEGINSWITH %@","order."))
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout:20))
+        let originalServerID = rows.firstMatch.identifier
+        app.terminate(); XCTAssertTrue(app.wait(for:.notRunning,timeout:15))
+        app = try launch(reset:false,scenario:"lost-order-until-relaunch")
+        tap(app,"nav.sync")
+        XCTAssertTrue(element(app,"sync.state.accepted").waitForExistence(timeout:20))
+        tap(app,"nav.orders")
+        XCTAssertTrue(app.buttons[originalServerID].waitForExistence(timeout:15))
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format:"identifier BEGINSWITH %@","order.")).count,1)
+        attach(app,"simulated-force-close-same-server-order")
+    }
     func testLostCashResponseRequiresExplicitSameKeyRecovery() throws {
         let app = try launch(scenario:"lost-cash-response")
         tap(app,"product." + product); tap(app,"product.add"); tap(app,"cart.review"); tap(app,"cart.confirm")

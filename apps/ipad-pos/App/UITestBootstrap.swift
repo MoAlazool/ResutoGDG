@@ -14,7 +14,8 @@ struct UITestBootstrap {
               let data = raw.data(using: .utf8),
               let fixtures = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               fixtures["menu"] != nil else { return nil }
-        return UITestBootstrap(transport: ScenarioTransport(fixtures: fixtures, role: process.environment["RESUTO_UI_ROLE"] ?? "manager", scenario: process.environment["RESUTO_UI_SCENARIO"] ?? "normal"), reset: process.arguments.contains("--resuto-ui-reset"), configuration: Configuration(apiURL: URL(string: "https://api.uitest.invalid/v1")!, supabaseURL: URL(string: "https://auth.uitest.invalid")!, publicKey: "sb_publishable_ui_test_only"))
+        guard let transport = try? ScenarioTransport(fixtures: fixtures, role: process.environment["RESUTO_UI_ROLE"] ?? "manager", scenario: process.environment["RESUTO_UI_SCENARIO"] ?? "normal", reset: process.arguments.contains("--resuto-ui-reset")) else { return nil }
+        return UITestBootstrap(transport: transport, reset: process.arguments.contains("--resuto-ui-reset"), configuration: Configuration(apiURL: URL(string: "https://api.uitest.invalid/v1")!, supabaseURL: URL(string: "https://auth.uitest.invalid")!, publicKey: "sb_publishable_ui_test_only"))
     }
 }
 actor ScenarioTransport: HTTPTransport {
@@ -23,11 +24,31 @@ actor ScenarioTransport: HTTPTransport {
     private let scenario: String
     private var droppedOrderResponse = false
     private var droppedCashResponse = false
+    private let serverFile: URL
+    private let restoredServer: Bool
     private var soldOut = false
     private var order: [String: Any]?
     private var acceptedByKey: [String: [String: Any]] = [:]
     private let branchID = "22222222-2222-4222-8222-222222222222"
-    init(fixtures: [String: Any], role: String, scenario: String) { self.fixtures = fixtures; self.role = role; self.scenario = scenario }
+    init(fixtures: [String: Any], role: String, scenario: String, reset: Bool) throws {
+        self.fixtures = fixtures; self.role = role; self.scenario = scenario
+        let directory = try FileManager.default.url(for:.applicationSupportDirectory,in:.userDomainMask,appropriateFor:nil,create:true)
+        serverFile = directory.appendingPathComponent("resuto-synthetic-ui-server.json")
+        if reset, FileManager.default.fileExists(atPath:serverFile.path) { try FileManager.default.removeItem(at:serverFile) }
+        restoredServer = FileManager.default.fileExists(atPath:serverFile.path)
+        if restoredServer {
+            guard let saved = try JSONSerialization.jsonObject(with:Data(contentsOf:serverFile)) as? [String:Any],
+                  let keys = saved["acceptedByKey"] as? [String:[String:Any]] else { throw RuleError.invalid("corrupt_simulated_server") }
+            order = saved["order"] as? [String:Any]; acceptedByKey = keys; soldOut = saved["soldOut"] as? Bool ?? false
+        }
+    }
+    // Persists the synthetic SERVER separately from the app's real encrypted client outbox.
+    // This file and all code here exist only in explicitly enabled DEBUG simulator tests.
+    private func persistServer() throws {
+        var saved: [String:Any] = ["acceptedByKey":acceptedByKey,"soldOut":soldOut]
+        if let order { saved["order"] = order }
+        try JSONSerialization.data(withJSONObject:saved).write(to:serverFile,options:.atomic)
+    }
     func send(_ request: URLRequest) async throws -> HTTPResult {
         let path = request.url!.path
         let body = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
@@ -51,20 +72,25 @@ actor ScenarioTransport: HTTPTransport {
         }
         if path.hasSuffix("/availability"), request.httpMethod == "POST" {
             guard Permissions.can(role,"menu:availability"), body["branchId"] as? String == branchID else { return try failure(403,"forbidden") }
-            soldOut = body["available"] as? Bool != true; return try response(["available":!soldOut])
+            soldOut = body["available"] as? Bool != true; try persistServer(); return try response(["available":!soldOut])
         }
         if path == "/v1/o/org/floor/\(branchID)" { return try response(fixtures["floor"]!) }
         if path == "/v1/o/org/floor/\(branchID)/live" { return try response(["revision":1,"tables":(fixtures["floor"] as! [String: Any])["tables"]!]) }
         if path == "/v1/o/org/orders", request.httpMethod == "POST" {
             guard Permissions.can(role, "orders:write"), let key = request.value(forHTTPHeaderField: "Idempotency-Key") else { return try failure(403, "forbidden") }
-            if let existing = acceptedByKey[key] { return try response(existing, status: 201) }
+            if let existing = acceptedByKey[key] {
+                if scenario == "lost-order-until-relaunch", !restoredServer { throw URLError(.networkConnectionLost) }
+                return try response(existing,status:201)
+            }
             guard body["branchId"] as? String == branchID, body["channel"] as? String == "staff" else { return try failure(400, "validation_failed") }
             guard order == nil else { return try failure(409,"duplicate_order_with_new_key") }
             order = fixtures["detail"] as? [String: Any]
-            order!["id"] = "33333333-3333-4333-8333-333333333333"
+            order!["id"] = scenario == "lost-order-until-relaunch" ? UUID().uuidString : "33333333-3333-4333-8333-333333333333"
             order!["fulfillment"] = body["fulfillment"]
             order!["tableLabel"] = body["tableId"] == nil ? NSNull() : "T1" as Any
-            let result = fixtures["accepted"] as! [String: Any]; acceptedByKey[key] = result
+            var result = fixtures["accepted"] as! [String: Any]; result["id"] = order!["id"]; acceptedByKey[key] = result
+            try persistServer()
+            if scenario == "lost-order-until-relaunch", !restoredServer { throw URLError(.networkConnectionLost) }
             if scenario == "lost-order-response", !droppedOrderResponse { droppedOrderResponse = true; throw URLError(.networkConnectionLost) }
             return try response(result, status: 201)
         }
@@ -90,7 +116,7 @@ actor ScenarioTransport: HTTPTransport {
         }
         if path.hasSuffix("/transition"), var current = order {
             guard body["version"] as? Int == current["version"] as? Int else { return try failure(409, "version_conflict") }
-            current["status"] = body["to"]; current["version"] = (current["version"] as! Int) + 1; order = current
+            current["status"] = body["to"]; current["version"] = (current["version"] as! Int) + 1; order = current; try persistServer()
             return try response(["changed":true])
         }
         if path.hasSuffix("/collect"), var current = order {
@@ -101,7 +127,7 @@ actor ScenarioTransport: HTTPTransport {
             current["dueMinor"] = due - amount; current["paymentStatus"] = due == amount ? "paid" : "partially_paid"
             current["payments"] = [["id":"payment", "method":"cash", "status":"succeeded", "amountMinor":amount,"refundedMinor":0,"isTest":true]]; order = current
             let result: [String: Any] = ["paymentId":"payment","amountMinor":amount,"paymentStatus":current["paymentStatus"]!,"dueMinor":due-amount]
-            acceptedByKey[key] = result
+            acceptedByKey[key] = result; try persistServer()
             if scenario == "lost-cash-response", !droppedCashResponse { droppedCashResponse = true; throw URLError(.networkConnectionLost) }
             return try response(result)
         }
