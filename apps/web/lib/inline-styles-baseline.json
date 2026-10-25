@@ -57,7 +57,6 @@
   "apps/web/app/dashboard/[orgId]/team/page.tsx": 4,
   "apps/web/app/dashboard/[orgId]/website/_components/CreativePanel.tsx": 4,
   "apps/web/app/dashboard/[orgId]/website/_components/DomainsPanel.tsx": 2,
-  "apps/web/app/dashboard/[orgId]/website/_components/EditorPanels.tsx": 3,
   "apps/web/app/dashboard/mcp-authorize/page.tsx": 3,
   "apps/web/app/dashboard/oauth/[provider]/page.tsx": 1,
   "apps/web/app/dashboard/page.tsx": 1

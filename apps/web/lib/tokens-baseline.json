@@ -3,8 +3,6 @@
  "files": {
   "apps/web/app/dashboard/[orgId]/compliance/_components/FiscalDocuments.tsx": 1,
   "apps/web/app/dashboard/[orgId]/compliance/compliance.module.css": 3,
-  "apps/web/app/dashboard/[orgId]/website/_components/EditorPanels.tsx": 10,
-  "apps/web/app/dashboard/[orgId]/website/_components/website.css": 1,
   "apps/web/app/driver/driver.module.css": 14,
   "apps/web/app/driver/layout.tsx": 1,
   "apps/web/app/layout.tsx": 1,

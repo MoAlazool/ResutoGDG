@@ -50,7 +50,7 @@ export function UploadButton({ orgId, onUploaded, label }: { orgId: string; onUp
 }
 
 /** Full media library: upload, alt text, delete (blocked while an image is in use). */
-export function MediaLibrary({ orgId, canWrite }: { orgId: string; canWrite: boolean }) {
+export function MediaLibrary({ orgId, canWrite, compact = false }: { orgId: string; canWrite: boolean; compact?: boolean }) {
   const { t, locale } = useT();
   const session = useSession();
   const toast = useToast();
@@ -74,7 +74,7 @@ export function MediaLibrary({ orgId, canWrite }: { orgId: string; canWrite: boo
     }
   };
   return (
-    <section className="card">
+    <section className={compact ? 'ws-media-compact' : 'card'}>
       {dialog}
       <div className="spread mbe-14">
         <div><h2 className="m-0">{t('studio.media.title')}</h2><p className="fine">{t('studio.media.hint')}</p></div>
