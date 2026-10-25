@@ -5,7 +5,7 @@ import type { TenantContext } from '../../common/auth/context';
 import { RequirePermission, RequiresModule, Tenant } from '../../common/auth/decorators';
 import { RequireMfa } from '../../common/auth/mfa.guard';
 import { DbService } from '../../common/db/db.service';
-import { conflict, notFound } from '../../common/errors/domain-error';
+import { conflict, forbidden, notFound } from '../../common/errors/domain-error';
 import { zod } from '../../common/http/zod.pipe';
 import { McpClientsService } from './mcp-clients.service';
 import { clientContext, McpExecutionService } from './mcp-execution.service';
@@ -80,6 +80,11 @@ export class McpController {
     const client = await this.db.scoped(ctx, (tx) => tx.maybeOne<any>(
       `select id, acting_role, branch_ids, allowed_tools, status, expires_at from mcp_clients where org_id = $1 and id = $2`, [ctx.orgId, id]));
     if (!client) throw notFound('MCP client');
+    // The test runs with the connection's scope: a branch-limited caller may test only connections inside their
+    // branches, or it would read other branches' data through an all-branch connection (1D threat model).
+    if (ctx.branchFilter && (!client.branch_ids || client.branch_ids.some((b: string) => !ctx.branchFilter!.includes(b)))) {
+      throw forbidden('This connection reaches branches you do not have access to');
+    }
     if (client.status !== 'active' || (client.expires_at && new Date(client.expires_at) <= new Date())) {
       throw conflict('client_inactive', 'This connection is revoked or expired');
     }

@@ -85,6 +85,19 @@ describe('MCP approvals honour the approver\'s branch scope (as the change-set i
   });
 });
 
+describe('MCP connection test calls stay inside the caller\'s branch scope', () => {
+  it('an administrator limited to one branch cannot read another branch through an all-branch connection\'s test call', async () => {
+    const scopedAdmin = await addMember(t, a, 'admin', [a.branchId]);
+    const c = await mcpClient(a, ['get_restaurant_profile', 'list_orders']);
+    const refused = await t.http.post(`${o(a)}/mcp/clients/${c.id}/test/list_orders`).set(auth(scopedAdmin)).send({ input: {} });
+    expect(refused.status, JSON.stringify(refused.body)).toBe(403);
+    // A connection inside their branches can still be tested by them, and the owner tests every connection.
+    const own = await mcpClient(a, ['get_restaurant_profile', 'list_orders'], { branchIds: [a.branchId] });
+    expect((await t.http.post(`${o(a)}/mcp/clients/${own.id}/test/list_orders`).set(auth(scopedAdmin)).send({ input: {} })).status).toBe(200);
+    expect((await t.http.post(`${o(a)}/mcp/clients/${c.id}/test/list_orders`).set(auth(a.owner)).send({ input: {} })).status).toBe(200);
+  });
+});
+
 describe('change-set decisions need the permission of every op (approve and reject alike)', () => {
   it('a role with changes:approve but without menu:write can neither approve nor reject a price change', async () => {
     const res = await propose(a.owner, a, [priceOp(menuA.products.burger, 19900)]);
