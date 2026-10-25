@@ -210,6 +210,8 @@ test.describe('payments and finance', () => {
       await page.getByRole('button', { name: 'Remove filter: Status: Refunded' }).click();
       await expect(table.getByRole('row')).toHaveCount(2);
       // The filters survive a reload (they live in the URL).
+      await expect(page).toHaveURL(/[?&]method=cash/);
+      await expect(page).not.toHaveURL(/status=/);
       await page.reload();
       await expect(page.getByTestId('payment-filters').getByLabel('Method')).toHaveValue('cash');
       await expect(table.getByRole('row')).toHaveCount(2, { timeout: 20_000 });
