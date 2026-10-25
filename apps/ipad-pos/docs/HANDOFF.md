@@ -31,3 +31,9 @@ Prioritize atomic staff quote/price consent, durable operation lookup/uniqueness
 ## Owner-dependent validation
 
 Supply authorized staging staff accounts/project public config through approved access, Apple Developer team/signing, actual target iPads and selected printer/cash-drawer models. Review privacy and fiscal requirements; configure provider TEST credentials through the shared platform owner. Follow `VERIFICATION.md`, `SECURITY.md`, `HARDWARE.md` and `RELEASE.md`. Neither a CI pass nor a rendered native screen proves physical printer, provider settlement, regulatory or production readiness.
+
+## Latest native continuation — 2026-10-25
+
+Native run 40189594156 is green at `05096ad`: 107 core tests, 18/18 iPad simulator workflows and Debug/Release builds on Xcode 16.4. `evidence/native-ci-05096ad.json` records the exact execution. `TEST_MATRIX.md` lists covered assertions and remaining internal work. The simulator launch mean is 2.569 s; device performance and full visual/accessibility acceptance are not established.
+
+POS 0.2.0 pairing, separate Keychain credentials, staff/device permission intersection and encrypted foreground read-only shadows are wired in Settings. Device order/payment writes remain gated on deployed QA shadow/lifecycle acceptance; legacy operations preserve their endpoint/key. Scoped identity leases, late-read cancellation, mutation cache invalidation, conditional ETags, order selection/version checks, accessible table lists and manual-required refund UI are implemented/tested. Staging remains build `5c359d5` with no POS tables or dedicated Native QA restaurant; no approved staff credential source was available. Native/App/DB/production ownership boundaries remain unchanged. PR #3 remains Draft with base `feature/ipad-pos`.

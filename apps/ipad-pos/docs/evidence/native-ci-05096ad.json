@@ -1,0 +1,24 @@
+{
+  "sourceCommit": "05096ad4f7dff6853bba40c2eb6f07c4249f795c",
+  "runId": 40189594156,
+  "jobId": 121157556322,
+  "result": "success",
+  "xcode": "16.4 (16F6)",
+  "swift": "6.1.2",
+  "coreTests": 107,
+  "uiTests": 18,
+  "uiFailures": 0,
+  "debugBuild": "passed",
+  "releaseBuild": "passed",
+  "artifactId": 12598420196,
+  "artifactSHA256": "3617896bb4db5b53c5d207a81105949b299ae74fe6cb8058e2756d891dcfa4e4",
+  "simulatorLaunchMeanSeconds": 2.569,
+  "simulatorLaunchSamplesSeconds": [
+    2.694942,
+    2.549974,
+    2.461813
+  ],
+  "authenticatedStagingVerified": false,
+  "physicalDeviceVerified": false,
+  "productionReady": false
+}

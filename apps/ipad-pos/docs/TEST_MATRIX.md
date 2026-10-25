@@ -2,6 +2,8 @@
 
 All simulator workflows use the explicit DEBUG-only synthetic transport and visible NOT-STAGING banner. They exercise real SwiftUI, Keychain and encrypted files. They do not establish deployed API, web/KDS, provider or physical-device acceptance. The exact run/commit/result belongs in `VERIFICATION.md` and the evidence JSON; the table below describes assertions, not a production certification.
 
+Latest complete native execution: run **40189594156**, source **`05096ad`**, **107 core + 18/18 simulator UI tests passed**. Staging/device/visual limitations below remain.
+
 ## Simulator scenarios (18)
 
 | Workflow | Assertions |

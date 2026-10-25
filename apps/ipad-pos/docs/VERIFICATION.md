@@ -2,6 +2,12 @@
 
 `TEST_MATRIX.md` maps the 18 simulator scenarios to their actual assertions and lists remaining workflow, accessibility, staging and physical-device coverage.
 
+## Latest executed native result
+
+[Run 40189594156](https://github.com/MoAlazool/ResutoGDG/actions/runs/40189594156) passed at `05096ad4f7dff6853bba40c2eb6f07c4249f795c`: **107 portable core tests, all 18 iPad simulator UI cases, Debug build and Release build**, Xcode 16.4 / Swift 6.1.2. The refund assertion correction passed. Evidence: `evidence/native-ci-05096ad.json`, Actions result bundle/artifact `12598420196`.
+
+Simulator launch mean: 2.569 s (2.694942, 2.549974, 2.461813). This is not the authenticated-ready real-iPad target or proof that the <=2 s acceptance target is met. Full performance/visual/accessibility and physical hardware acceptance remain open. Synthetic native success is not authenticated staging verification.
+
 ## Executed in this environment
 
 Swift 6.0.3 on Linux compiles `ResutoCore` and `ResutoStagingProbe`; 107 XCTest tests pass locally. `scripts/check_contracts.py` validates the 23 route/method combinations used by the native client/probe against repository OpenAPI, supported staff channel, retry horizon and resource plists. `swiftc -frontend -parse App/*.swift` checks syntax only; it is not an Apple SDK typecheck.
@@ -94,3 +100,9 @@ Claude branch was re-fetched at `04c07c7` on 2026-10-25; there is no change to t
 Follow-up source review found initial workspace selection depended on a permission lease still loading during branch entry. Initial navigation now uses membership hints; operational actions keep the scoped lease and server guard. Mutation completion/failure invalidates older in-flight reads, and an unrelated uncached identity response no longer discards menu ETags. Two deterministic networking tests cover those cache cases (107 portable tests total). The d8c07ce CI run was superseded during UI execution; its 105 core tests and Release build passed, but its full 18-case UI result is not a pass. The corrected revision requires a complete native rerun.
 
 Run 40188215710 at `e6feb5a` passed 107 core tests, Debug/Release builds and **17/18 simulator UI cases**. All previous startup/dismissal cases passed, as did Arabic accessibility-size floor selection and English table-list selection. The manual-refund case reached the manual-required UI and failed in the final helper's `isHittable` query on noninteractive `order.paymentState` text (invalid AX activation point). The helper now waits on semantic existence/label instead of requesting a tap point for static text. The next complete 18-case run must verify that correction.
+
+Landscape PNG artifact review limitation: screenshots from run 40188215710 have EXIF orientation 8, a 2420×1668 encoded size and non-black pixel bounds ending at x=1668. The exported framing obscures part of the interface after orientation handling. These files are insufficient for complete pixel-level visual acceptance; do not infer a fully reviewed layout from a passing semantic accessibility test. Keep full visual/contrast/VoiceOver and physical-device acceptance open. Original Actions artifacts are retained without image retouching.
+
+Shared CI run 40189594097 at `05096ad`: browser suite passes all 70 cases. The database/API/web job failed in restricted-runtime API tests: `apps/api/test/connect.test.ts:364`, WhatsApp sender expected `{retried:1,sent:0}` but observed `{retried:1,sent:3}` (916 passed, 1 failed, 1 skipped). A job-only rerun was requested. This is a shared messaging test/dependency for Claude; no shared API, test, database or workflow file was changed. Evidence: `evidence/shared-api-ci-05096ad.json`. Do not describe the entire shared CI run as green while this remains unresolved.
+
+Shared CI retry resolution: job `121160347693` passed (restricted runtime 917 passed / 1 skipped; normal runtime 914 passed / 4 skipped), followed by MCP/web checks and build. Overall run `40189594097` is green at `05096ad`; the browser suite has 70 passes. The original sender assertion remains recorded as an intermittent shared-test follow-up for Claude, with no shared implementation/test/schema change. Later documentation-only commits preserve the tested application source; native evidence identifies the exact `05096ad` execution rather than claiming a deployment or physical-device result.
