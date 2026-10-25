@@ -1,0 +1,41 @@
+/* Dispatch (21-OPS): the map beside the board, driver status chips, job cards and the job sheet. Tokens and logical
+   properties only (was inline styles). */
+.dispatch-layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-4); align-items: start; }
+.dispatch-map { position: sticky; inset-block-start: var(--space-4); min-inline-size: 0; }
+.dispatch-lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); align-items: start; min-inline-size: 0; }
+@media (max-width: 1100px) {
+  .dispatch-layout { grid-template-columns: minmax(0, 1fr); }
+  .dispatch-map { position: static; }
+}
+.dispatch-job { padding: 14px; display: grid; gap: var(--space-2); }
+.dispatch-job-ref { padding-inline: 0; font-weight: var(--fw-bold); }
+.dispatch-job-address { font-size: var(--fs-md); }
+.dispatch-fail { color: var(--danger-fg); }
+.dispatch-driver { border-block-end: 1px solid var(--border-subtle); padding-block-end: var(--space-2); }
+.dispatch-driver-select { min-block-size: 36px; padding: 4px 8px; inline-size: 200px; max-inline-size: 100%; }
+.dispatch-driver-select[data-compact] { inline-size: 160px; }
+.dispatch-legend { gap: 14px; margin-block-start: 10px; }
+.dispatch-legend-dot { display: inline-block; inline-size: 10px; block-size: 10px; border-radius: var(--radius-full); background: var(--ink); }
+.dispatch-legend-dot[data-kind='restaurant'] { background: var(--herb); }
+.dispatch-legend-dot[data-kind='job'] { background: var(--danger); }
+.dispatch-list { margin: 4px 0 0; padding-inline-start: 18px; }
+.dispatch-events { display: grid; gap: 4px; }
+.dispatch-proof { padding: 14px; }
+.dispatch-proof-photo { display: block; margin-block-start: var(--space-2); max-block-size: 220px; max-inline-size: 100%; border-radius: var(--radius-2); }
+.dispatch-cash-row { display: flex; justify-content: space-between; }
+
+/* Driver status chips: availability from the status tokens (available ok, busy warn, on a break info). */
+.driver-chips { display: grid; gap: var(--space-2); }
+.driver-chips-summary { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.driver-chips ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.driver-chip { --chip-tone: var(--text-subtle); display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: 36px; padding: 4px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface-1); font-size: var(--fs-sm); }
+.driver-chip[data-availability='available'] { --chip-tone: var(--ok-fg); border-color: color-mix(in srgb, var(--ok-fg) 40%, var(--border)); }
+.driver-chip[data-availability='busy'] { --chip-tone: var(--warn-fg); }
+.driver-chip[data-availability='break'] { --chip-tone: var(--info-fg); }
+.driver-chip[data-availability='offline'], .driver-chip[data-availability='suspended'] { color: var(--text-muted); background: var(--surface-2); }
+.driver-chip[data-availability='suspended'] { --chip-tone: var(--danger-fg); }
+.driver-chip-dot { inline-size: 10px; block-size: 10px; border-radius: var(--radius-full); background: var(--chip-tone); flex: none; }
+.driver-chip-name { font-weight: var(--fw-semibold); }
+.driver-chip-state { color: var(--chip-tone); }
+.driver-chip-jobs, .driver-chip-seen { color: var(--text-muted); }

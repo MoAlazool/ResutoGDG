@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { DeliveryJobView } from '@resuto/contracts';
-import { Badge, Field, Modal, Notice, Skeleton, useAction } from '@resuto/ui';
+import { Badge, Field, Notice, Sheet, Skeleton, useAction } from '@resuto/ui';
 import { dateTime, money, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -17,8 +17,8 @@ interface JobDetail extends DeliveryJobView {
   items: Array<{ name: string; nameAr: string | null; quantity: number; notes: string | null }>;
 }
 
-/** Job detail with timeline, proof and dispatcher actions (delivery code, cancel). */
-export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose(): void; onChanged(): void }) {
+/** Job detail in a sheet (21-OPS; was a modal): timeline, proof and dispatcher actions (delivery code, cancel). */
+export function JobSheet({ jobId, onClose, onChanged }: { jobId: string; onClose(): void; onChanged(): void }) {
   const { t, locale } = useT();
   const { org } = useOrg();
   const { call } = useSession();
@@ -30,7 +30,7 @@ export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose
   const closed = j && ['delivered', 'cancelled'].includes(j.status);
 
   return (
-    <Modal open onClose={onClose} title={j ? t('driver.dispatch.jobTitle', { n: j.orderNumber }) : t('state.loading')}>
+    <Sheet open onClose={onClose} size="md" title={j ? t('driver.dispatch.jobTitle', { n: j.orderNumber }) : t('state.loading')}>
       {!j ? (job.error ? <Notice tone="danger">{job.error.message}</Notice> : <Skeleton lines={6} />) : (
         <div className="stack">
           <div className="spread"><JobStatus status={j.status} /><span className="muted">{j.branchName}</span></div>
@@ -44,19 +44,19 @@ export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose
           {j.navigationUrl && <a className="btn btn-sm btn-leaf" href={j.navigationUrl} target="_blank" rel="noopener noreferrer">↗ {t('driver.openMaps')}</a>}
           <div>
             <div className="fine">{t('driver.items')}</div>
-            <ul style={{ margin: '4px 0 0', paddingInlineStart: 18 }}>{j.items.map((i, k) => <li key={k}>{i.quantity} × {locale === 'ar' && i.nameAr ? i.nameAr : i.name}</li>)}</ul>
+            <ul className="dispatch-list">{j.items.map((i, k) => <li key={k}>{i.quantity} × {locale === 'ar' && i.nameAr ? i.nameAr : i.name}</li>)}</ul>
           </div>
           {(j.proofPhotoUrl || j.proofRecipient) && (
-            <div className="card card-warm" style={{ padding: 14 }}>
+            <div className="card card-warm dispatch-proof">
               <strong>{t('driver.proof.title')}</strong>
               {j.proofRecipient && <div>{t('driver.proof.recipient')}: <bdi>{j.proofRecipient}</bdi></div>}
               {j.proofNote && <div className="fine"><bdi>{j.proofNote}</bdi></div>}
-              {j.proofPhotoUrl && <img src={j.proofPhotoUrl} alt={t('driver.proof.title')} style={{ marginBlockStart: 8, maxHeight: 220, borderRadius: 10 }} />}
+              {j.proofPhotoUrl && <img src={j.proofPhotoUrl} alt={t('driver.proof.title')} className="dispatch-proof-photo" />}
             </div>
           )}
           <div>
             <div className="fine">{t('driver.timeline')}</div>
-            <ol style={{ margin: '4px 0 0', paddingInlineStart: 18, display: 'grid', gap: 4 }}>
+            <ol className="dispatch-list dispatch-events">
               {j.events.map((e) => (
                 <li key={e.id}>
                   <strong>{t(`driver.status.${e.toStatus}`)}</strong> · <span className="muted">{dateTime(e.createdAt, locale)}</span> · {t(`driver.dispatch.actor.${e.actorType}`)}
@@ -99,6 +99,6 @@ export function JobModal({ jobId, onClose, onChanged }: { jobId: string; onClose
           )}
         </div>
       )}
-    </Modal>
+    </Sheet>
   );
 }

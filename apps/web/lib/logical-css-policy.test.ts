@@ -15,6 +15,7 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/orders', 'apps/web/components/ops', 'apps/web/app/kitchen', 'apps/web/app/dashboard/[orgId]/kitchen',
   'apps/web/app/dashboard/[orgId]/floor', 'apps/web/app/dashboard/[orgId]/host', 'apps/web/app/dashboard/[orgId]/reservations',
   'apps/web/components/floor/LiveFloor.tsx', 'apps/web/components/floor/WalkInSheet.tsx', 'apps/web/components/floor/areas.ts',
+  'apps/web/app/dashboard/[orgId]/delivery',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

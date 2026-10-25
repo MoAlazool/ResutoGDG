@@ -29,7 +29,44 @@ export function Availability({ driver }: { driver: Pick<DriverView, 'availabilit
   return <Badge tone={AVAIL_TONE[driver.availability]}>{t(`driver.availability.${driver.availability}`)}</Badge>;
 }
 
-export const addressOf = (j: DeliveryJobView) => [j.dropoff.line1, j.dropoff.area, j.dropoff.city].filter(Boolean).join(', ');
+/** Availability order on the dispatch screen: who can take a job first. */
+export const AVAILABILITY_ORDER = ['available', 'busy', 'break', 'offline'] as const;
+
+/** Drivers sorted for the status chips: suspended last, then by availability, then by name. */
+export function sortDriversForChips<D extends Pick<DriverView, 'availability' | 'status' | 'displayName'>>(drivers: readonly D[]): D[] {
+  const rank = (d: D) => (d.status === 'suspended' ? 99 : (AVAILABILITY_ORDER as readonly string[]).indexOf(d.availability));
+  return [...drivers].sort((a, b) => rank(a) - rank(b) || a.displayName.localeCompare(b.displayName));
+}
+
+/**
+ * Driver status chips (21-OPS): one chip per driver with an availability dot, their open jobs and a stale-position
+ * mark, in the order a dispatcher reads them (available first). A summary counts each availability.
+ */
+export function DriverChips({ drivers }: { drivers: DriverView[] }) {
+  const { t, locale } = useT();
+  const counts = AVAILABILITY_ORDER.map((a) => [a, drivers.filter((d) => d.status !== 'suspended' && d.availability === a).length] as const).filter(([, n]) => n > 0);
+  return (
+    <section className="driver-chips" aria-label={t('driver.dispatch.drivers')}>
+      <p className="driver-chips-summary num">{counts.map(([a, n]) => `${n} ${t(`driver.availability.${a}`)}`).join(' · ')}</p>
+      <ul>
+        {sortDriversForChips(drivers).map((d) => {
+          const state = d.status === 'suspended' ? 'suspended' : d.availability;
+          return (
+            <li key={d.id} className="driver-chip" data-availability={state}>
+              <span className="driver-chip-dot" aria-hidden="true" />
+              <bdi className="driver-chip-name">{d.displayName}</bdi>
+              <span className="driver-chip-state">{state === 'suspended' ? t('driver.dispatch.suspended') : t(`driver.availability.${d.availability}`)}</span>
+              {d.activeJobs > 0 && <span className="driver-chip-jobs num">{t('driver.dispatch.activeJobs', { n: d.activeJobs })}</span>}
+              {d.lastLocation && <span className="driver-chip-seen num">{time(d.lastLocation.at, locale)}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+export const addressOf =(j: DeliveryJobView) => [j.dropoff.line1, j.dropoff.area, j.dropoff.city].filter(Boolean).join(', ');
 
 /** Driver picker + assign / offer buttons. */
 export function AssignControl({ job, drivers, onAssign, pending, compact }: {
@@ -44,7 +81,7 @@ export function AssignControl({ job, drivers, onAssign, pending, compact }: {
   if (!eligible.length) return <span className="fine">{t('driver.dispatch.noEligible')}</span>;
   return (
     <div className="row gap-6">
-      <select className="select" style={{ minHeight: 36, padding: '4px 8px', width: compact ? 160 : 200 }} value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={t('driver.dispatch.chooseDriver')}>
+      <select className="select dispatch-driver-select" data-compact={compact || undefined} value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={t('driver.dispatch.chooseDriver')}>
         <option value="">{t('driver.dispatch.chooseDriver')}</option>
         {eligible.map((d) => (
           <option key={d.id} value={d.id}>

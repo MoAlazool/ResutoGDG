@@ -1,7 +1,7 @@
 'use client';
 import type { DeliveryJobView } from '@resuto/contracts';
 import { Card, EmptyState, Notice, Skeleton } from '@resuto/ui';
-import { PIN_COLOR, SchematicMap, type MapPin } from '@/components/maps/SchematicMap';
+import { SchematicMap, type MapPin } from '@/components/maps/SchematicMap';
 import { isolate, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -11,14 +11,16 @@ import type { BoardData } from './shared';
 /** A driver position older than this is drawn faded. */
 const STALE_MS = 10 * 60_000;
 
-/** FT-14: dispatcher map (schematic, tile-free) of online drivers, active deliveries and their branches. */
-export function DispatchMap({ branchId }: { branchId: string }) {
+/**
+ * FT-14: dispatcher map (schematic, tile-free) of online drivers, active deliveries and their branches. Beside the
+ * board (21-OPS) it draws the board's own data (`data`), so the screen polls once.
+ */
+export function DispatchMap({ branchId, data }: { branchId: string; data?: BoardData }) {
   const { t, locale } = useT();
   const { org } = useOrg();
-  const board = useApi<BoardData>(`/o/${org.id}/delivery/board${branchId ? `?branchId=${branchId}` : ''}`, { pollMs: 15_000 });
-  if (board.loading && !board.data) return <Skeleton lines={8} />;
-  if (board.error) return <Notice tone="danger">{board.error.message}</Notice>;
-  const b = board.data!;
+  const board = useApi<BoardData>(data ? null : `/o/${org.id}/delivery/board${branchId ? `?branchId=${branchId}` : ''}`, { pollMs: 15_000 });
+  const b = data ?? board.data;
+  if (!b) return board.error ? <Notice tone="danger">{board.error.message}</Notice> : <Skeleton lines={8} />;
   const jobs: DeliveryJobView[] = [...b.unassigned, ...b.active];
   const pins: MapPin[] = [];
   const seenBranch = new Set<string>();
@@ -48,9 +50,9 @@ export function DispatchMap({ branchId }: { branchId: string }) {
       {pins.length === 0 ? <EmptyState title={t('dispatchMap.empty')} /> : (
         <SchematicMap label={t('dispatchMap.title')} pins={pins} lines={lines} width={760} height={420} />
       )}
-      <div className="row fine" style={{ gap: 14, marginTop: 10 }}>
+      <div className="row fine dispatch-legend">
         {([['restaurant', 'dispatchMap.legend.branch'], ['job', 'dispatchMap.legend.job'], ['driver', 'dispatchMap.legend.driver']] as const).map(([k, label]) => (
-          <span key={k} className="row gap-6"><span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: 99, background: PIN_COLOR[k], display: 'inline-block' }} />{t(label)}</span>
+          <span key={k} className="row gap-6"><span aria-hidden="true" className="dispatch-legend-dot" data-kind={k} />{t(label)}</span>
         ))}
       </div>
       {missing > 0 && <p className="fine">{t('dispatchMap.noCoords', { n: missing })}</p>}
