@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, type ReactNode } from 'react';
+import { act, useState, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Category, Product } from '@resuto/contracts';
 import { $, $$, click, EASTERN_DIGITS, key, mount } from '../../../../../../../packages/ui/test/dom';
@@ -23,10 +23,17 @@ const dish = (id: string, over: Partial<Product> = {}): Product => ({
 });
 afterEach(() => { document.body.innerHTML = ''; });
 
-const rail = (locale: 'en' | 'ar', onReorder = vi.fn(async () => {}), onSelect = vi.fn()) => mount(inLocale(locale, (
-  <CategoryRail categories={CATS} counts={new Map([['c1', 3], ['c2', 12], ['c3', 4]])} total={19} selected="" onSelect={onSelect}
-    writable busy={false} onAdd={() => {}} onRename={() => {}} onArchive={() => {}} onReorder={onReorder} />
-)), locale);
+/** The rail as the page uses it: a successful save reloads the menu, so the categories come back in the new order. */
+function Rail({ onReorder, onSelect }: { onReorder: (ids: string[]) => Promise<void>; onSelect: (id: string) => void }) {
+  const [cats, setCats] = useState(CATS);
+  return (
+    <CategoryRail categories={cats} counts={new Map([['c1', 3], ['c2', 12], ['c3', 4]])} total={19} selected="" onSelect={onSelect}
+      writable busy={false} onAdd={() => {}} onRename={() => {}} onArchive={() => {}}
+      onReorder={async (ids) => { await onReorder(ids); setCats(ids.map((id, i) => ({ ...CATS.find((c) => c.id === id)!, sortOrder: i }))); }} />
+  );
+}
+const rail = (locale: 'en' | 'ar', onReorder: (ids: string[]) => Promise<void> = vi.fn(async () => {}), onSelect = vi.fn()) =>
+  mount(inLocale(locale, <Rail onReorder={onReorder} onSelect={onSelect} />), locale);
 
 describe('CategoryRail', () => {
   it('reorders from the keyboard on a handle (arrows, Home, End), announces the move and keeps focus on the handle', async () => {
@@ -80,7 +87,7 @@ describe('ItemsTable', () => {
   ];
   const table = (locale: 'en' | 'ar', props: { onOpen?: (p: Product) => void; onAvailability?: (p: Product, on: boolean) => void; onSelectedChange?: (ids: string[]) => void } = {}) => mount(inLocale(locale, (
     <ItemsTable rows={rows} categories={CATS} branchId="b1" branchName={locale === 'ar' ? 'الزمالك' : 'Zamalek'} currency="EGP" selected={[]}
-      onSelectedChange={props.onSelectedChange ?? (() => {})} onOpen={props.onOpen} canAvailability selectable pending={new Set()}
+      onSelectedChange={props.onSelectedChange ?? (() => {})} onOpen={props.onOpen} canAvailability selectable pending={new Map()}
       onAvailability={props.onAvailability ?? (() => {})} bulkActions={() => null} empty={<p>none</p>} />
   )), locale);
 

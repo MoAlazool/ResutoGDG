@@ -26,8 +26,14 @@ export function CategoryRail({ categories, counts, total, selected, onSelect, wr
   const [said, setSaid] = useState('');
   const focusAfter = useRef<string | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  // Saves run one after another (the last order wins on the server too), and the server's order replaces the shown
+  // one only when no save is still running, so quick moves never jump back while their reloads arrive.
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
+  const inFlight = useRef(0);
+  const latest = useRef(categories);
+  latest.current = categories;
   const key = categories.map((c) => c.id).join(',');
-  useEffect(() => { setOrder(categories.map((c) => c.id)); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!inFlight.current) setOrder(categories.map((c) => c.id)); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!focusAfter.current) return;
     list.current?.querySelector<HTMLElement>(`[data-handle="${focusAfter.current}"]`)?.focus();
@@ -44,7 +50,9 @@ export function CategoryRail({ categories, counts, total, selected, onSelect, wr
     setOrder(next);
     const c = byId.get(id);
     if (c) setSaid(t('menu.ws.rail.moved', { name: name(c), pos: formatNumber(next.indexOf(id) + 1, locale), total: formatNumber(next.length, locale) }));
-    void onReorder(next).catch(() => setOrder(categories.map((x) => x.id)));
+    inFlight.current++;
+    const settle = () => { if (--inFlight.current === 0) setOrder(latest.current.map((x) => x.id)); };
+    saving.current = saving.current.then(() => onReorder(next)).then(settle, settle);
   };
   const handleKey = (id: string) => (e: KeyboardEvent<HTMLButtonElement>) => {
     const i = order.indexOf(id);
@@ -99,7 +107,7 @@ export function CategoryRail({ categories, counts, total, selected, onSelect, wr
             )}
             <button type="button" className="menu-rail-pick" aria-pressed={selected === c.id} onClick={() => onSelect(c.id)}>
               <span className="menu-rail-name"><bdi>{name(c)}</bdi></span>
-              <span className="menu-rail-count num" aria-label={t('ops.menu.itemsCount', { n: counts.get(c.id) ?? 0 })}>{formatNumber(counts.get(c.id) ?? 0, locale)}</span>
+              <span className="menu-rail-count num">{formatNumber(counts.get(c.id) ?? 0, locale)}</span>
             </button>
             {writable && (
               <Menu label={t('menu.ws.rail.actions', { name: name(c) })} align="end" items={[

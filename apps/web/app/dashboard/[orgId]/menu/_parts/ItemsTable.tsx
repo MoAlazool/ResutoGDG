@@ -22,7 +22,8 @@ export function ItemsTable({ rows, categories, branchId, branchName, currency, t
   selectable, pending, onAvailability, bulkActions, empty, busy, toolbar }: {
   rows: Product[]; categories: Category[]; branchId: string; branchName: string; currency: string; timezone?: string;
   selected: string[]; onSelectedChange: (ids: string[]) => void; onOpen?: (p: Product) => void;
-  canAvailability: boolean; selectable: boolean; pending: ReadonlySet<string>; onAvailability: (p: Product, available: boolean) => void;
+  canAvailability: boolean; selectable: boolean; /** Switches being saved, with the value asked for (shown at once, the save confirms it). */
+  pending: ReadonlyMap<string, boolean>; onAvailability: (p: Product, available: boolean) => void;
   bulkActions: (ids: string[], clear: () => void) => ReactNode; empty: ReactNode; busy?: boolean; toolbar?: ReactNode;
 }) {
   const { t, locale } = useT();
@@ -67,7 +68,7 @@ export function ItemsTable({ rows, categories, branchId, branchName, currency, t
         const v = branchView(p, branchId);
         if (!v.offered) return <span className="fine">{t('ops.menu.notOffered')}</span>;
         return (
-          <Switch className="menu-avail" checked={!v.soldOut} disabled={pending.has(p.id)} onChange={(on) => onAvailability(p, on)}
+          <Switch className="menu-avail" checked={pending.get(p.id) ?? !v.soldOut} disabled={pending.has(p.id)} onChange={(on) => onAvailability(p, on)}
             label={<span className="sr-only">{t('menu.ws.availableAt', { name: pick(locale, p.name, p.nameAr), branch: branchName })}</span>} />
         );
       },

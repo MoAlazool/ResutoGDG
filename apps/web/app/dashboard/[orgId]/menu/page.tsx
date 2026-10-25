@@ -73,7 +73,7 @@ function MenuWorkspace() {
   const [groupsOpen, setGroupsOpen] = useState(false);
   const [pricing, setPricing] = useState<string[] | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
-  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [pending, setPending] = useState<ReadonlyMap<string, boolean>>(new Map());
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Flash | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
@@ -135,12 +135,12 @@ function MenuWorkspace() {
   /** The inline switch: sold out (86) until the end of the branch's day, or available again. */
   const toggleAvailability = async (p: Product, available: boolean) => {
     if (pending.has(p.id)) return;
-    setPending((s) => new Set(s).add(p.id)); setNotice(null);
+    setPending((s) => new Map(s).set(p.id, available)); setNotice(null);
     try {
       await call(`/o/${org.id}/menu/products/${p.id}/availability`, { body: { branchId, available, ...(available ? {} : { until: 'end_of_day' }) } });
       await menu.reload();
     } catch (e) { setNotice({ tone: 'danger', text: (e as Error).message }); } finally {
-      setPending((s) => { const n = new Set(s); n.delete(p.id); return n; });
+      setPending((s) => { const n = new Map(s); n.delete(p.id); return n; });
     }
   };
 
