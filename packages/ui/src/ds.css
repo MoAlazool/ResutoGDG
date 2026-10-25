@@ -340,6 +340,8 @@ a.rui-stat:hover { border-color: var(--border-strong); }
 .rui-chart-legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .rui-chart-key { inline-size: 14px; block-size: 3px; border-radius: 2px; display: inline-block; }
 .rui-chart-swatch { inline-size: 10px; block-size: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+.rui-chart-empty { margin: 0; }
+.rui-route-map { inline-size: 100%; max-inline-size: 420px; block-size: auto; background: var(--surface-warm); border-radius: var(--radius-3); }
 .rui-chart-table { font-size: var(--fs-sm); }
 .rui-chart-table summary { cursor: pointer; color: var(--text-muted); }
 .rui-chart-table table { margin-block-start: 8px; }

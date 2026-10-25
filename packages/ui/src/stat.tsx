@@ -1,6 +1,6 @@
 'use client';
 import { INTL_LOCALE } from '@resuto/contracts/lite';
-import type { ReactNode } from 'react';
+import type { ElementType, ReactNode } from 'react';
 import { Badge, type Tone } from './base';
 import { Sparkline } from './charts/sparkline';
 import { figureOf, figureProps } from './figure';
@@ -51,9 +51,12 @@ const SL = { en: { noBase: 'No comparison', trend: 'Trend' }, ar: { noBase: 'Ù„Ø
  * An 'unavailable' figure shows a dash, never a made-up value. Wrap a row of them in .rui-stat-grid. Values are not
  * animated: a new value replaces the old one with a short cross-fade (.motion-content).
  */
-export function StatV2({ label, value, unit, delta, sparkline, provenance, hint, href, locale, labels, rtl }: {
+export function StatV2({ label, value, unit, delta, sparkline, provenance, hint, href, linkAs, locale, labels, rtl }: {
   label: ReactNode; value: ReactNode; unit?: ReactNode; delta?: StatDelta | null; sparkline?: number[]; provenance?: Provenance;
-  hint?: ReactNode; href?: string; locale?: UiLocale; labels?: Partial<typeof SL.en>; rtl?: boolean;
+  hint?: ReactNode; href?: string;
+  /** The link component for `href` (the web passes Next's Link for client navigation); a plain <a> by default. */
+  linkAs?: ElementType;
+  locale?: UiLocale; labels?: Partial<typeof SL.en>; rtl?: boolean;
 }) {
   const ctx = useUiLocale();
   const loc = locale ?? ctx;
@@ -93,7 +96,8 @@ export function StatV2({ label, value, unit, delta, sparkline, provenance, hint,
       {hint && <p className="rui-stat-hint">{hint}</p>}
     </>
   );
+  const A = linkAs ?? 'a';
   return href
-    ? <a className="rui-stat" href={href} data-provenance={provenance}>{body}</a>
+    ? <A className="rui-stat" href={href} data-provenance={provenance}>{body}</A>
     : <div className="rui-stat" data-provenance={provenance}>{body}</div>;
 }

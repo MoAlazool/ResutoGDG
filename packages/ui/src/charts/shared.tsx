@@ -1,9 +1,10 @@
 import { INTL_LOCALE } from '@resuto/contracts/lite';
 import type { ReactNode } from 'react';
 
-// The Resuto chart kit: dependency-free inline SVG, one kit for the overview, analytics, inventory and intelligence
-// pages (it replaces apps/web/components/charts and intelligence/_components/charts, which now re-export it). This
-// module holds the shared helpers; each chart has its own module, so a page ships only the charts it renders.
+// The Resuto chart kit: dependency-free inline SVG, the only chart kit of the web app (21-INSIGHTS retired the
+// apps/web/components/charts and intelligence/_components/charts copies; apps/web/lib/chart-kit-policy.test.ts fails if
+// a chart is imported from anywhere else). This module holds the shared helpers; each chart has its own module, so a
+// page ships only the charts it renders.
 // - Colours: --chart-1..8 (contrast-checked against --surface-1, light and dark). One magnitude = --chart-1; current
 //   vs comparison = --chart-1 + --chart-4 (validated pairing); categories cycle 1..8.
 // - Every chart has a text alternative: role="img" + title, or a list, plus a values table under a disclosure.

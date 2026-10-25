@@ -8,4 +8,5 @@ export * from './funnel';
 export { Heatmap } from './heatmap';
 export { Sparkline } from './sparkline';
 export { ForecastChart } from './forecast';
+export * from './route-map';
 export type { XYProps } from './xy';
