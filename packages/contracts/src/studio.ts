@@ -12,8 +12,43 @@ export type WebsiteTemplate = (typeof WEBSITE_TEMPLATES)[number];
 
 export const SECTION_KINDS = [
   'hero', 'about', 'menu_highlights', 'gallery', 'reservations', 'ordering', 'location', 'hours', 'testimonials', 'contact', 'custom',
+  // 21-STUDIO: a promotional banner, offers (dishes with their discount badges), social links, questions and answers, the
+  // whole menu as text.
+  'promo_banner', 'offers', 'social', 'faq', 'menu_full',
 ] as const;
 export type SectionKind = (typeof SECTION_KINDS)[number];
+
+/**
+ * Content fields each 21-STUDIO section kind accepts (the older kinds keep accepting every field, as before). Copy
+ * fields (eyebrow, headline, body, ctaLabel) and `layout` are open to all of them.
+ */
+export const SECTION_KIND_FIELDS: Partial<Record<SectionKind, readonly string[]>> = {
+  promo_banner: ['mediaId', 'promotionCode', 'badge'],
+  offers: ['productIds', 'promotionCode', 'badge'],
+  social: [],
+  faq: ['items'],
+  menu_full: ['categoryIds'],
+};
+const COPY_FIELDS = ['eyebrow', 'headline', 'body', 'ctaLabel', 'layout'];
+
+/** Why a section's content does not fit its kind (empty when it does). Shared by the API and the editor. */
+export function sectionContentIssues(kind: string, content: Record<string, unknown>): Array<{ path: string; message: string }> {
+  const allowed = SECTION_KIND_FIELDS[kind as SectionKind];
+  if (!allowed) return [];
+  const issues: Array<{ path: string; message: string }> = [];
+  for (const [key, value] of Object.entries(content)) {
+    if (value === undefined || COPY_FIELDS.includes(key) || allowed.includes(key)) continue;
+    issues.push({ path: `content.${key}`, message: `A ${kind} section has no ${key}` });
+  }
+  if (kind === 'faq') {
+    const items = (content.items ?? []) as Array<{ title?: { en?: string; ar?: string }; body?: { en?: string; ar?: string } }>;
+    items.forEach((item, i) => {
+      if (!item.title?.en && !item.title?.ar) issues.push({ path: `content.items.${i}.title`, message: 'Write the question in English or Arabic' });
+      if (!item.body?.en && !item.body?.ar) issues.push({ path: `content.items.${i}.body`, message: 'Write the answer in English or Arabic' });
+    });
+  }
+  return issues;
+}
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #173f36');
 
@@ -48,6 +83,21 @@ export const updateWebsite = z.object({
 }).strict();
 export type UpdateWebsite = z.infer<typeof updateWebsite>;
 
+/** Section-level layout from the inspector: alignment, vertical spacing, surface tone and grid columns. */
+export const SECTION_ALIGNS = ['start', 'center'] as const;
+export const SECTION_SPACINGS = ['compact', 'normal', 'roomy'] as const;
+export const SECTION_TONES = ['default', 'muted', 'accent', 'contrast'] as const;
+export const sectionLayout = z.object({
+  align: z.enum(SECTION_ALIGNS).optional(),
+  spacing: z.enum(SECTION_SPACINGS).optional(),
+  tone: z.enum(SECTION_TONES).optional(),
+  columns: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+}).strict();
+export type SectionLayout = z.infer<typeof sectionLayout>;
+
+/** An offer code (promotions.code) a section shows; the badge comes from that promotion when it is live. */
+export const sectionPromotionCode = z.string().trim().regex(/^[A-Za-z0-9_-]{3,32}$/, '3–32 letters, digits, - or _');
+
 export const sectionContent = z.object({
   eyebrow: studioText(60).optional(),
   headline: studioText(140).optional(),
@@ -57,6 +107,14 @@ export const sectionContent = z.object({
   mediaIds: z.array(uuid).max(24).optional(),
   productIds: z.array(uuid).max(12).optional(),
   items: z.array(z.object({ title: studioText(120), body: studioText(600).optional() }).strict()).max(12).optional(),
+  // 21-STUDIO
+  layout: sectionLayout.optional(),
+  /** offers / promo_banner: the promotion whose discount the badge shows (resolved in this restaurant when rendering). */
+  promotionCode: sectionPromotionCode.nullable().optional(),
+  /** offers / promo_banner: a short badge ("Eid special"); the discount itself comes from the promotion or the dish. */
+  badge: studioText(30).optional(),
+  /** menu_full: the categories to show (all active categories when empty). */
+  categoryIds: z.array(uuid).max(30).optional(),
 }).strict();
 export type SectionContent = z.infer<typeof sectionContent>;
 
@@ -64,7 +122,11 @@ export const createSection = z.object({
   kind: z.enum(SECTION_KINDS),
   content: sectionContent.default({}),
   isVisible: z.boolean().default(true),
-}).strict();
+}).strict().superRefine((v, ctx) => {
+  for (const issue of sectionContentIssues(v.kind, v.content as Record<string, unknown>)) {
+    ctx.addIssue({ code: 'custom', path: issue.path.split('.'), message: issue.message });
+  }
+});
 export type CreateSection = z.infer<typeof createSection>;
 
 export const updateSection = z.object({
@@ -74,6 +136,17 @@ export const updateSection = z.object({
 export type UpdateSection = z.infer<typeof updateSection>;
 
 export const reorderSections = z.object({ ids: z.array(uuid).min(1).max(50) }).strict();
+
+/** Applies a template (style family × layout variant, ./studio-templates.ts) to the draft. Never removes a section. */
+export const applyWebsiteTemplate = z.object({
+  family: z.string().regex(/^[a-z_]{3,40}$/),
+  variant: z.string().regex(/^[a-z_]{3,40}$/),
+  /** Use the family's renderer, colours and font (the logo, hero image and tagline are kept). */
+  applyStyle: z.boolean().default(true),
+  /** Add the variant's section kinds the draft does not have yet, in the variant's order. */
+  addSections: z.boolean().default(true),
+}).strict();
+export type ApplyWebsiteTemplate = z.infer<typeof applyWebsiteTemplate>;
 
 export const publishWebsite = z.object({ key: idempotencyKey, note: z.string().trim().max(200).optional() }).strict();
 
@@ -234,10 +307,34 @@ export interface PublicStorefront {
 }
 
 // --- Public site ------------------------------------------------------------
+/** A dish as the restaurant website shows it (highlights, offers, the full menu). Public fields only. */
+export interface PublicSiteProduct {
+  id: string; name: string; nameAr: string | null; description: string | null; descriptionAr: string | null;
+  priceMinor: number; currency: string; imageUrl: string | null; dietary: string[];
+  /** "url 320w, url 640w, ..." over the stored WebP copies (null without copies); the original's pixel size. */
+  imageSrcSet?: string | null; imageWidth?: number | null; imageHeight?: number | null;
+  /** The price before a dish discount (21-STUDIO product.discount.set); shown struck through when above priceMinor. */
+  compareAtMinor?: number | null;
+}
+
+/** The live promotion an offers or promo banner section refers to by code (21-STUDIO). Never redemption counts. */
+export interface PublicSitePromotion {
+  code: string | null; name: string; nameAr: string | null; kind: 'percent' | 'fixed' | 'free_delivery'; value: number;
+  minOrderMinor: number; endsAt: string | null;
+}
+
 export interface PublicSiteSection {
   id: string;
   kind: SectionKind;
-  content: SectionContent & { media?: { url: string; alt: string | null } | null; gallery?: Array<{ url: string; alt: string | null }> };
+  content: SectionContent & {
+    media?: { url: string; alt: string | null } | null; gallery?: Array<{ url: string; alt: string | null }>;
+    /** offers: the chosen dishes that guests can order, in the owner's order. */
+    products?: PublicSiteProduct[];
+    /** offers / promo_banner: the promotion named by promotionCode while it is active (null otherwise). */
+    promotion?: PublicSitePromotion | null;
+    /** menu_full: active categories with their orderable dishes. */
+    menu?: Array<{ id: string; name: string; nameAr: string | null; items: PublicSiteProduct[] }>;
+  };
 }
 
 export interface PublicSite {
@@ -260,14 +357,37 @@ export interface PublicSite {
     latitude: number | null; longitude: number | null; openingHours: unknown;
     acceptsDineIn: boolean; acceptsPickup: boolean; acceptsDelivery: boolean; acceptsReservations: boolean;
   }>;
-  menuHighlights: Array<{
-    id: string; name: string; nameAr: string | null; description: string | null; descriptionAr: string | null;
-    priceMinor: number; currency: string; imageUrl: string | null; dietary: string[];
-    /** "url 320w, url 640w, ..." over the stored WebP copies (null without copies); the original's pixel size. */
-    imageSrcSet?: string | null; imageWidth?: number | null; imageHeight?: number | null;
-  }>;
+  menuHighlights: PublicSiteProduct[];
   canonicalHost: string | null;
   links: { reserve: string; order: string; site: string };
   /** Published branch storefronts (a branch trading under its own brand), linked from the site. */
   storefronts: PublicStorefrontLink[];
+  /**
+   * Change-set preview only (GET …/studio/website/preview/change-sets/:id): the sections the proposal adds and the ones
+   * it edits, and the dishes whose price it changes. Never on the published site.
+   */
+  diff?: { changeSetId: string; added: string[]; changed: string[]; repriced: string[] };
+}
+
+// --- AI-assisted editing (21-STUDIO) ------------------------------------------------
+/**
+ * A request in plain words ("Add an Eid offers section with these 3 products at 15% off"). The planner turns it into
+ * typed change-set ops (website.section.add/update, promotion.create, product.discount.set) that a person reviews on
+ * the canvas and approves; it never publishes.
+ */
+export const studioAiProposal = z.object({
+  prompt: z.string().trim().min(3).max(600),
+  /** The dishes picked next to the prompt ("these 3 products"). */
+  productIds: z.array(uuid).max(12).optional(),
+  /** The language the owner wrote in (copy is drafted in both). */
+  locale: z.enum(['en', 'ar']).default('en'),
+}).strict();
+export type StudioAiProposal = z.infer<typeof studioAiProposal>;
+
+/** How the request was read, shown beside the diff (honest authorship: the rules planner is not a language model). */
+export interface StudioAiPlan {
+  planner: 'resuto_rules';
+  model: null;
+  /** What the planner understood, for the reviewer (English and Arabic). */
+  notes: Array<{ en: string; ar: string }>;
 }

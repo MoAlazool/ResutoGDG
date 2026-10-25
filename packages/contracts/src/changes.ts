@@ -40,6 +40,7 @@ export type ChangePolicyMode = (typeof CHANGE_POLICY_MODES)[number];
 
 export const CHANGE_OP_TYPES = [
   'menu.item.update', 'menu.item.price.set', 'menu.item.availability.set',
+  'product.discount.set',
   'promotion.create',
   'website.section.add', 'website.section.update', 'website.publish',
   'campaign.send', 'payment_link.create',
@@ -64,6 +65,7 @@ export const CHANGE_OPS: Record<ChangeOpType, ChangeOpMeta> = {
   'menu.item.update': { title: 'Edit a menu item', titleAr: 'تعديل صنف', group: 'menu', permission: 'menu:write', module: 'core', kind: 'local', reversible: false },
   'menu.item.price.set': { title: 'Change a price', titleAr: 'تغيير سعر', group: 'prices', permission: 'menu:write', module: 'core', kind: 'local', reversible: false },
   'menu.item.availability.set': { title: 'Change availability', titleAr: 'تغيير التوفر', group: 'menu', permission: 'menu:availability', module: 'core', kind: 'local', reversible: false },
+  'product.discount.set': { title: 'Discount a menu item', titleAr: 'خصم على صنف', group: 'prices', permission: 'menu:write', module: 'core', kind: 'local', reversible: false },
   'promotion.create': { title: 'Create an offer', titleAr: 'إنشاء عرض', group: 'promotions', permission: 'marketing:write', module: 'marketing', kind: 'local', reversible: false },
   'website.section.add': { title: 'Add a website section', titleAr: 'إضافة قسم للموقع', group: 'website_drafts', permission: 'studio:write', module: 'studio', kind: 'local', reversible: false },
   'website.section.update': { title: 'Edit a website section', titleAr: 'تعديل قسم في الموقع', group: 'website_drafts', permission: 'studio:write', module: 'studio', kind: 'local', reversible: false },
@@ -136,6 +138,11 @@ export const changeOpInputs = {
   'menu.item.availability.set': z.object({
     productId: uuid, branchId: uuid, available: z.boolean(), reason: z.string().trim().max(200).optional(),
   }).strict(),
+  /**
+   * A percent discount on one dish (21-STUDIO): the price guests pay becomes the original price less the discount, and
+   * the original is kept as the struck-through "was" price. 0 removes the discount (back to the original price).
+   */
+  'product.discount.set': z.object({ productId: uuid, discountBps: z.number().int().min(0).max(10000) }).strict(),
   'promotion.create': promotionInput,
   'website.section.add': createSection,
   'website.section.update': z.object({ sectionId: uuid, content: sectionContent.optional(), isVisible: z.boolean().optional() }).strict()
@@ -172,6 +179,7 @@ const opRequest = <T extends ChangeOpType>(type: T) => z.object({ type: z.litera
 /** One requested operation: a type and its typed input. */
 export const changeOpRequest = z.discriminatedUnion('type', [
   opRequest('menu.item.update'), opRequest('menu.item.price.set'), opRequest('menu.item.availability.set'),
+  opRequest('product.discount.set'),
   opRequest('promotion.create'),
   opRequest('website.section.add'), opRequest('website.section.update'), opRequest('website.publish'),
   opRequest('campaign.send'), opRequest('payment_link.create'),
