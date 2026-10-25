@@ -14,3 +14,4 @@ apps/ai-service
 supabase
 .env
 .env.*
+research
