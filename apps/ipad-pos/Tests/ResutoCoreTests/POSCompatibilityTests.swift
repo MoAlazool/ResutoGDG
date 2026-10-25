@@ -465,3 +465,44 @@ final class PermissionPerformanceTests: XCTestCase {
         }
     }
 }
+
+private actor CacheReadGate: HTTPTransport {
+    private var gate: CheckedContinuation<HTTPResult,Never>?
+    private var waiting: CheckedContinuation<Void,Never>?
+    private var reads = 0
+    private(set) var requests: [URLRequest] = []
+    func send(_ request: URLRequest) async throws -> HTTPResult {
+        requests.append(request)
+        if request.url?.path == "/auth/v1/token" { return try authResponse() }
+        reads += 1
+        if reads == 1 { return await withCheckedContinuation { gate = $0; waiting?.resume(); waiting = nil } }
+        return HTTPResult(data:Data(),status:304)
+    }
+    func waitForRead() async { if gate != nil { return }; await withCheckedContinuation { waiting = $0 } }
+    func finish() throws { gate?.resume(returning:HTTPResult(data:try fixture("me"),status:200,headers:["etag":"old-scope"])); gate = nil }
+}
+final class ScopedCacheRaceTests: XCTestCase {
+    func testLateReadCannotRestoreCacheAfterScopeInvalidation() async throws {
+        let transport = CacheReadGate(), auth = try AuthService(url:URL(string:"https://auth.example")!,publicKey:"public",transport:transport,secrets:MemoryStore())
+        try await auth.signIn(email:"synthetic@example.test",password:"synthetic")
+        let client = try APIClient(base:URL(string:"https://api.example/v1")!,auth:auth,transport:transport)
+        let read = Task { let value: Me = try await client.get("me"); return value }
+        await transport.waitForRead(); await client.clearCache(); try await transport.finish()
+        do { _ = try await read.value; XCTFail("Late read must not restore another workspace") } catch is CancellationError {} catch { XCTFail("Unexpected error: \(error)") }
+        do { let _: Me = try await client.get("me"); XCTFail("No old response may satisfy 304") } catch let error as APIError { XCTAssertEqual(error.status,304) }
+        let requests = await transport.requests; XCTAssertNil(requests.last?.value(forHTTPHeaderField:"If-None-Match"))
+    }
+}
+
+final class OrderDetailRefreshTests: XCTestCase {
+    func testLatePollingCannotReopenDismissedDetailsOrRegressVersion() throws {
+        let initial: OrderDetail = try decode("detail")
+        XCTAssertFalse(OrderLifecycle.acceptsRefresh(current:nil,incoming:initial))
+        var value = try JSONSerialization.jsonObject(with:fixture("detail")) as! [String:Any]
+        value["version"] = 1; let newer: OrderDetail = try parsed(value)
+        XCTAssertTrue(OrderLifecycle.acceptsRefresh(current:initial,incoming:newer))
+        XCTAssertFalse(OrderLifecycle.acceptsRefresh(current:newer,incoming:initial))
+        value["id"] = "another-order"; let another: OrderDetail = try parsed(value)
+        XCTAssertFalse(OrderLifecycle.acceptsRefresh(current:another,incoming:newer))
+    }
+}

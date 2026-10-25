@@ -68,6 +68,11 @@ public enum Money {
     }
 }
 public enum OrderLifecycle {
+    /// A polling response cannot reopen dismissed details or overwrite a newer confirmed order version.
+    public static func acceptsRefresh(current: OrderDetail?, incoming: OrderDetail) -> Bool {
+        guard let current else { return false }
+        return current.id == incoming.id && current.branchId == incoming.branchId && incoming.version >= current.version
+    }
     public static func next(_ status: String, fulfillment: String) -> String? {
         switch status {
         case "placed": return "accepted"

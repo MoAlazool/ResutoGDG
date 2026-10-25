@@ -32,6 +32,9 @@ final class WorkflowTests: XCTestCase {
     private func tap(_ app: XCUIApplication, _ id: String,file: StaticString = #filePath,line: UInt = #line) {
         guard let target = reveal(app,id,file:file,line:line) else { return }
         if !target.isEnabled { expectation(for:NSPredicate(format:"enabled == true"),evaluatedWith:target); waitForExpectations(timeout:20) }
+        if id == "nav.settings", !target.isHittable {
+            expectation(for:NSPredicate(format:"hittable == true"),evaluatedWith:target); waitForExpectations(timeout:15)
+        }
         target.tap()
     }
     private func assertOrderState(_ app: XCUIApplication,id: String,label: String,file: StaticString = #filePath,line: UInt = #line) {

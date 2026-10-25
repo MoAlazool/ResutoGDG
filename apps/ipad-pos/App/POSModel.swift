@@ -90,10 +90,13 @@ import CryptoKit
         do { try await operation() } catch { handle(error) }
     }
     func handle(_ failure: Error) {
+        if failure is CancellationError { return }
         let presentation = FailurePresentation(failure)
         error = presentation.key; errorRequestId = presentation.requestId
         if let api = failure as? APIError, [401, 403].contains(api.status) {
             // No continuing access to stale tenant data after revocation or membership removal.
+            generation = UUID(); let rejectedClient = self.api
+            Task { await rejectedClient?.clearCache() }
             deviceIntegration.detach(); accessLease = nil; locked = true; menu = nil; layout = nil; live = nil; orders = []; tickets = []; detail = nil
         }
     }
@@ -181,7 +184,8 @@ import CryptoKit
             guard snapshot == generation else { return }; orders = page.items
             if let visible = detail {
                 let fresh: OrderDetail = try await api.get("o/\(scope.orgId)/orders/\(visible.id)")
-                guard snapshot == generation, fresh.branchId == scope.branchId else { return }; detail = fresh
+                guard snapshot == generation, fresh.branchId == scope.branchId else { return }
+                if OrderLifecycle.acceptsRefresh(current:detail,incoming:fresh) { detail = fresh }
             }
         }
         if can("kitchen:operate") {
@@ -275,7 +279,9 @@ import CryptoKit
     }
     func openOrder(_ id: String) async throws {
         guard reachable, let scope, let api else { throw RuleError.invalid("online_required") }
+        let selection = generation
         let value: OrderDetail = try await api.get("o/\(scope.orgId)/orders/\(id)")
+        guard selection == generation, !locked, self.scope == scope else { throw CancellationError() }
         guard value.branchId == scope.branchId else { throw RuleError.invalid("branch_mismatch") }
         if detail?.id != value.id { refundStatus = nil }; detail = value
     }

@@ -98,11 +98,12 @@ public actor APIClient {
     public let base: URL
     private let auth: AuthService; private let transport: any HTTPTransport
     private var etags: [String: String] = [:]; private var cached: [String: Data] = [:]
+    private var cacheRevision = UUID()
     public init(base: URL, auth: AuthService, transport: any HTTPTransport) throws {
         guard base.scheme == "https", base.host != nil, base.user == nil, base.password == nil else { throw RuleError.invalid("https_required") }
         self.base = base; self.auth = auth; self.transport = transport
     }
-    public func clearCache() { cached.removeAll(); etags.removeAll() }
+    public func clearCache() { cacheRevision = UUID(); cached.removeAll(); etags.removeAll() }
     public func get<T: Decodable & Sendable>(_ path: String, query: [String: String] = [:]) async throws -> T {
         try await request(path, method: "GET", query: query, body: nil, key: nil)
     }
@@ -113,7 +114,7 @@ public actor APIClient {
         guard !path.contains(".."), !path.contains(":"), !path.contains("?"), !path.hasPrefix("/") else { throw RuleError.invalid("invalid_path") }
         var components = URLComponents(url: base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
-        let url = components.url!, cacheKey = url.absoluteString
+        let url = components.url!, cacheKey = url.absoluteString, revision = cacheRevision
         for attempt in 0...1 {
             var request = URLRequest(url: url); request.httpMethod = method; request.httpBody = body; request.timeoutInterval = 30
             request.setValue("Bearer \(try await auth.token())", forHTTPHeaderField: "Authorization")
@@ -123,6 +124,10 @@ public actor APIClient {
             if let key { request.setValue(key, forHTTPHeaderField: "Idempotency-Key") }
             if method == "GET", let tag = etags[cacheKey] { request.setValue(tag, forHTTPHeaderField: "If-None-Match") }
             let result = try await transport.send(request)
+            if method == "GET" {
+                try Task.checkCancellation()
+                guard revision == cacheRevision else { throw CancellationError() }
+            }
             // Only reads retry automatically after refresh. Mutations retain explicit operation identity.
             if result.status == 401, method == "GET", attempt == 0 { await auth.invalidateAccessToken(); continue }
             if result.status == 304, let data = cached[cacheKey] { return try JSONDecoder().decode(T.self, from: data) }
