@@ -1,12 +1,11 @@
 'use client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Badge, Card, DataTable, EmptyState, Field, Notice, PageHeader, SelectField, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
+import { Badge, Card, DataTable, EmptyState, Field, Notice, SelectField, Skeleton, Tabs, TextareaField, useAction } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
-import { SectionNav } from '@/components/shell/SectionNav';
+import { SettingsShell } from '@/components/settings/SettingsShell';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
-import { SETTINGS_SECTIONS } from '@/lib/sections';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { ChannelKindBadge, EmbeddedSignupCard, PageChannelCard, SIGNUP_RELOAD_PARAM, VerifyCell } from './MetaChannels';
@@ -36,14 +35,15 @@ export default function MessagingSettingsPage() {
   };
   return (
     <ModuleGate module="connect" permission="connect:read">
-      <PageHeader title={t('connect.messaging.title')} subtitle={t('connect.messaging.subtitle')} />
-      <SectionNav sections={SETTINGS_SECTIONS} label={t('nav.group.settings')} />
-      <Tabs value={tab} onChange={choose} tabs={[
-        { key: 'channels', label: t('connect.channels.title') },
-        { key: 'templates', label: t('connect.templates.title') },
-      ]} />
-      {tab === 'channels' && <Channels />}
-      {tab === 'templates' && <Templates />}
+      {/* 21-MONEY: one section list for the Settings cluster (SettingsPage template). */}
+      <SettingsShell header={{ title: t('connect.messaging.title'), subtitle: t('connect.messaging.subtitle') }}>
+        <Tabs value={tab} onChange={choose} tabs={[
+          { key: 'channels', label: t('connect.channels.title') },
+          { key: 'templates', label: t('connect.templates.title') },
+        ]} />
+        {tab === 'channels' && <Channels />}
+        {tab === 'templates' && <Templates />}
+      </SettingsShell>
     </ModuleGate>
   );
 }

@@ -20,6 +20,9 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/floor', 'apps/web/app/dashboard/[orgId]/host', 'apps/web/app/dashboard/[orgId]/reservations',
   'apps/web/components/floor/LiveFloor.tsx', 'apps/web/components/floor/WalkInSheet.tsx', 'apps/web/components/floor/areas.ts',
   'apps/web/app/dashboard/[orgId]/delivery', 'apps/web/app/dashboard/[orgId]/inventory',
+  // 21-MONEY: the Settings cluster (SettingsPage template) and the Money area.
+  'apps/web/app/dashboard/[orgId]/settings', 'apps/web/app/dashboard/[orgId]/team', 'apps/web/app/dashboard/[orgId]/billing',
+  'apps/web/app/dashboard/[orgId]/data', 'apps/web/app/dashboard/[orgId]/audit', 'apps/web/components/settings',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

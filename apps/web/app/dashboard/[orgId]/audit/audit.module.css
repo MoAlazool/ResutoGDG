@@ -1,0 +1,4 @@
+/* Activity log (21-MONEY: SettingsPage template). Logical properties only. */
+.entity { display: block; }
+.meta { margin: var(--space-1) 0 0; max-inline-size: 420px; font-size: var(--fs-xs); white-space: pre-wrap; word-break: break-word; }
+.more { display: flex; justify-content: center; }
