@@ -20,6 +20,8 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/floor', 'apps/web/app/dashboard/[orgId]/host', 'apps/web/app/dashboard/[orgId]/reservations',
   'apps/web/components/floor/LiveFloor.tsx', 'apps/web/components/floor/WalkInSheet.tsx', 'apps/web/components/floor/areas.ts',
   'apps/web/app/dashboard/[orgId]/delivery', 'apps/web/app/dashboard/[orgId]/inventory',
+  // 21-MENU: the menu workspace and the assisted import it links to.
+  'apps/web/app/dashboard/[orgId]/menu', 'apps/web/app/dashboard/[orgId]/menu-import',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

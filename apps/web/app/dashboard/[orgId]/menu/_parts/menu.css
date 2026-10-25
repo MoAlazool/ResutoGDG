@@ -1,0 +1,80 @@
+/* Menu workspace (21-MENU): the category rail beside the dishes table, the sheets. Logical properties only
+   (lib/logical-css-policy.test.ts), semantic tokens, 44 px touch targets for the rail, switches and bulk actions. */
+
+/* The page scrolls as one document; the rail and the table sit side by side on wide screens and stack on phones. */
+.menu-ws { display: grid; gap: var(--space-4); min-inline-size: 0; }
+.menu-ws .rui-workspace { block-size: auto; min-block-size: 0; }
+.menu-ws .rui-workspace[data-start] { grid-template-columns: minmax(220px, 260px) minmax(0, 1fr); }
+.menu-ws .rui-workspace-pane { overflow: visible; }
+.menu-main { display: grid; gap: var(--space-3); padding: var(--space-4); min-inline-size: 0; }
+.menu-keys-hint { margin: 0; }
+.menu-chip { min-block-size: var(--touch-target, 44px); }
+
+/* Category rail */
+.menu-rail { display: grid; gap: var(--space-2); padding: var(--space-3); }
+.menu-rail-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.menu-rail-head h2 { margin: 0; font-size: var(--fs-md); }
+.menu-rail-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.menu-rail-item { position: relative; display: flex; align-items: center; gap: 2px; border-radius: var(--radius-1); }
+.menu-rail-item[data-dragging] { opacity: .5; }
+.menu-rail-item[data-drop='before'] { box-shadow: inset 0 2px 0 var(--accent); }
+.menu-rail-item[data-drop='after'] { box-shadow: inset 0 -2px 0 var(--accent); }
+.menu-rail-pick {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex: 1; min-inline-size: 0;
+  min-block-size: var(--touch-target, 44px); padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-1);
+  background: none; color: var(--text); font: inherit; font-size: var(--fs-md); text-align: start; cursor: pointer;
+}
+.menu-rail-pick:hover { background: var(--surface-hover); }
+.menu-rail-pick[aria-pressed='true'] { background: var(--surface-selected); color: var(--accent-soft-fg); font-weight: var(--fw-semibold); }
+.menu-rail-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-rail-count { flex: none; color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.menu-rail-handle, .menu-rail-more {
+  display: inline-grid; place-items: center; flex: none; inline-size: var(--touch-target, 44px); block-size: var(--touch-target, 44px);
+  padding: 0; border: 0; border-radius: var(--radius-1); background: none; color: var(--text-muted); cursor: pointer;
+}
+.menu-rail-handle { cursor: grab; }
+.menu-rail-handle:hover, .menu-rail-more:hover { background: var(--surface-hover); color: var(--text); }
+.menu-rail-handle:disabled, .menu-rail-more:disabled { cursor: not-allowed; opacity: .5; }
+.menu-rail-hint { margin: 0; }
+
+/* Dishes table */
+.menu-table-v2 .rui-dt-bulk .btn-sm { min-block-size: 36px; }
+.menu-table-v2 .menu-item-cell img { border-radius: var(--radius-1); object-fit: cover; flex: none; }
+.menu-price { display: inline-grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
+.menu-price-was { color: var(--text-muted); font-size: var(--fs-xs); }
+.menu-avail { align-items: center; min-block-size: var(--touch-target, 44px); }
+.menu-avail .rui-switch-text { display: contents; }
+
+/* Sheets */
+.menu-sheet-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; inline-size: 100%; }
+.menu-item-form { gap: var(--space-4); }
+.menu-fieldset { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-3) var(--space-4) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-2); min-inline-size: 0; }
+.menu-fieldset legend { padding-inline: var(--space-1); font-weight: var(--fw-semibold); }
+.menu-checks { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.menu-checks .check { min-block-size: 32px; }
+.menu-photo { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.menu-photo img { border-radius: var(--radius-2); object-fit: cover; }
+.menu-h3 { margin: 0; font-size: var(--fs-lg); }
+.menu-price-form { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.menu-price-table tr[data-outcome='same'], .menu-price-table tr[data-outcome='below_zero'], .menu-price-table tr[data-outcome='too_high'] { color: var(--text-muted); }
+.menu-price-table td, .menu-import-table td.num { font-variant-numeric: tabular-nums; }
+.menu-import-table tr[data-invalid] { background: var(--danger-bg); }
+.menu-file { position: relative; }
+.menu-columns { display: block; overflow-wrap: anywhere; }
+
+@media (pointer: coarse) {
+  .menu-table-v2 .rui-dt-bulk .btn-sm, .menu-table-v2 .rui-dt-toolbar .btn-sm, .menu-rail-head .btn-sm { min-block-size: var(--touch-target, 44px); }
+}
+
+/* Phones: the rail becomes a row of category chips above the table (reorder from each chip's menu). */
+@media (max-width: 700px) {
+  .menu-main { padding: var(--space-3) 0 0; }
+  .menu-rail { padding: var(--space-2) 0; }
+  .menu-rail-list { display: flex; gap: var(--space-2); overflow-x: auto; overscroll-behavior-inline: contain; padding-block-end: var(--space-1); }
+  .menu-rail-item { flex: none; border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface-1); }
+  .menu-rail-pick { border-radius: var(--radius-full); }
+  .menu-rail-handle, .menu-rail-hint { display: none; }
+  .menu-rail-name { max-inline-size: 40vw; }
+  .menu-ws .rui-workspace { border: 0; background: none; }
+  .menu-ws .rui-workspace-start { background: none; }
+}
