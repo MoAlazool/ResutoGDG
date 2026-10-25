@@ -23,6 +23,8 @@ const ROOTS = [
   // 21-CRM: the funnel, retention and segment views, the Customers page, the Insights page shell and the guest beacon.
   'apps/web/components/crm', 'apps/web/app/dashboard/[orgId]/customers', 'apps/web/app/dashboard/[orgId]/analytics/page.tsx',
   'apps/web/lib/funnel-beacon.ts', 'apps/web/components/guest/FunnelView.tsx',
+  // 21-MENU: the menu workspace and the assisted import it links to.
+  'apps/web/app/dashboard/[orgId]/menu', 'apps/web/app/dashboard/[orgId]/menu-import',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');

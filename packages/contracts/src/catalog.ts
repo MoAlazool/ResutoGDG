@@ -149,6 +149,11 @@ export interface Product {
   isActive: boolean; trackStock: boolean; sortOrder: number; externalRef: string | null; version: number;
   branchSettings: ProductBranchSettingView[]; modifierGroupIds: string[];
   /**
+   * The price before a dish discount (21-STUDIO product.discount.set; 21-MENU shows it read-only in the item sheet),
+   * null without a discount. A regular price edit ends the discount and clears it.
+   */
+  compareAtMinor?: number | null;
+  /**
    * Portions the ingredients on hand can make, per active branch (the scarcest ingredient of the recipe decides,
    * gallery PAR-03). Null when the dish has no recipe, so its portions are not tracked by ingredients. Left out
    * (undefined) when the caller may not read stock: the counts are derived from stock levels, so GET /o/:orgId/menu

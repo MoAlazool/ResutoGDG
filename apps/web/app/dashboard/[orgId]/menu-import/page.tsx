@@ -41,7 +41,9 @@ function MenuImport() {
 
   return (
     <>
-      <PageHeader overline={t('studio.ai.import.overline')} title={t('studio.ai.import.title')} subtitle={t('studio.ai.import.subtitle')} />
+      {/* 21-MENU: reached from the menu workspace's Import action (assisted extraction keeps its own review step here). */}
+      <PageHeader overline={t('studio.ai.import.overline')} title={t('studio.ai.import.title')} subtitle={t('studio.ai.import.subtitle')}
+        actions={<Link className="btn" href={`/dashboard/${org.id}/menu`}>{t('menu.ws.backToMenu')}</Link>} />
       <div className="mi-layout" data-open={selected ? 'true' : undefined}>
         <div className="stack">
           {caps.data && (byok?.configured

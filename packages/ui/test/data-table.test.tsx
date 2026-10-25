@@ -71,6 +71,21 @@ describe('DataTableV2', () => {
     clickable.unmount();
   });
 
+  it('keeps a click on a control inside a clickable row (selection checkbox, button) from opening the row', () => {
+    const onRowClick = vi.fn();
+    const own = vi.fn();
+    const v = mount(<DataTableV2 label="Orders" rows={ROWS} rowKey={(r) => r.id} onRowClick={onRowClick} selectable
+      columns={[...COLS, { key: 'act', header: 'Action', render: (r) => <button type="button" onClick={() => own(r.id)}>Pay</button> }]} />);
+    click($$<HTMLInputElement>(v.host, 'tbody input[type="checkbox"]')[0]!);
+    expect($(v.host, '.rui-dt-bulk').textContent).toContain('1 selected');
+    click($$(v.host, 'tbody button').find((b) => b.textContent === 'Pay')!);
+    expect(own).toHaveBeenCalledWith('r1');
+    expect(onRowClick).not.toHaveBeenCalled();
+    click($$(v.host, 'tbody td')[2]!);
+    expect(onRowClick).toHaveBeenCalledWith(ROWS[0]);
+    v.unmount();
+  });
+
   it('selects rows, shows the bulk-action bar with the count, and clears it', () => {
     const bulk = vi.fn();
     const v = mount(<DataTableV2 label="Orders" rows={ROWS} columns={COLS} rowKey={(r) => r.id} selectable

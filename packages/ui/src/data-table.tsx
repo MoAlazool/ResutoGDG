@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { EmptyState, type Column } from './base';
 import { SegmentedControl } from './controls';
 import { useUiLocale } from './locale';
@@ -41,6 +41,8 @@ const L = {
 };
 export type DataTableLabels = typeof L.en;
 const fill = (s: string, v: Record<string, string | number>) => Object.entries(v).reduce((a, [k, x]) => a.replaceAll(`{${k}}`, String(x)), s);
+/** Controls whose clicks stay theirs inside a clickable row. */
+const ROW_CONTROLS = 'a[href], button, input, select, textarea, label, summary, [role="switch"], [role="button"], [role="menuitem"]';
 const text = (n: ReactNode) => (typeof n === 'string' || typeof n === 'number' ? String(n) : '');
 
 /** Cursor pagination over `{ items, nextCursor }` lists: keeps the stack of cursors so Previous works. */
@@ -142,6 +144,16 @@ export function DataTableV2<T>(props: DataTableV2Props<T>) {
   const clear = () => setSelected([]);
 
   const showToolbar = toolbar || props.columnToggle || props.densityToggle;
+  // A click on a control inside a clickable row (the selection checkbox, a switch, a button) is that control's, not the
+  // row's: without this, ticking a row's checkbox also opened the row (21-MENU).
+  const rowClick = (row: T) => (e: MouseEvent<HTMLTableRowElement>) => {
+    const hit = e.target as Element | null;
+    if (hit && hit !== e.currentTarget && typeof hit.closest === 'function') {
+      const control = hit.closest(ROW_CONTROLS);
+      if (control && e.currentTarget.contains(control)) return;
+    }
+    onRowClick?.(row);
+  };
   const rowKeyDown = (row: T) => (e: KeyboardEvent<HTMLTableRowElement>) => {
     if (e.target !== e.currentTarget) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick?.(row); }
@@ -225,7 +237,7 @@ export function DataTableV2<T>(props: DataTableV2Props<T>) {
                 const isSel = selected.includes(k);
                 return (
                   <tr key={k} data-selected={isSel || undefined} data-link={href ? '' : undefined}
-                    tabIndex={clickable ? 0 : undefined} onClick={clickable ? () => onRowClick!(r) : undefined} onKeyDown={clickable ? rowKeyDown(r) : undefined}
+                    tabIndex={clickable ? 0 : undefined} onClick={clickable ? rowClick(r) : undefined} onKeyDown={clickable ? rowKeyDown(r) : undefined}
                     className={clickable ? 'rui-dt-clickable' : undefined}>
                     {selectable && (
                       <td className="rui-dt-select">
