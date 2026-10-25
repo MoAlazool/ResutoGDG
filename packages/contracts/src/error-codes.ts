@@ -343,6 +343,8 @@ export const DOMAIN_ERROR_CODES = [
   'same_customer',
   'sandbox_disabled',
   'saved_reply_limit_reached',
+  'saved_report_limit_reached',
+  'saved_report_name_taken',
   'schedule_in_past',
   'scheduled_in_past',
   'scheduled_invalid',

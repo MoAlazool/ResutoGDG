@@ -456,6 +456,8 @@ export const en: Record<string, string> = {
   resync_required: 'The device must resynchronise its data.',
   reply_body_required: 'Keep the reply in English, Arabic or both.',
   saved_reply_limit_reached: 'This restaurant has the maximum number of saved replies. Delete one to add another.',
+  saved_report_limit_reached: 'You have the maximum number of saved reports. Delete one to save another.',
+  saved_report_name_taken: 'You already have a saved report with this name. Choose another name.',
   shortcut_taken: 'Another saved reply already uses this shortcut. Choose a different one.',
   tag_limit_reached: 'The tag limit is reached. Remove a tag first.',
   tag_name_taken: 'A tag with this name already exists.',

@@ -18,7 +18,8 @@ export const analyticsPeriodQuery = z.object({
   from: isoDate,
   to: isoDate,
   branchId: uuid.optional(),
-  compare: z.enum(['previous', 'none']).default('previous'),
+  /** previous: the same number of days just before; last_year: the same local dates one year earlier (21-INSIGHTS). */
+  compare: z.enum(['previous', 'last_year', 'none']).default('previous'),
 }).refine((q) => q.from <= q.to, { message: 'from must not be after to', path: ['to'] })
   .refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 < MAX_ANALYTICS_DAYS, { message: `at most ${MAX_ANALYTICS_DAYS} days`, path: ['from'] });
 export type AnalyticsPeriodQuery = z.infer<typeof analyticsPeriodQuery>;

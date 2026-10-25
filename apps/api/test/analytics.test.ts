@@ -318,3 +318,29 @@ describe('operations, overview and branch scope', () => {
     expect((await t.http.get(`${base}/overview?branchId=${north}`).set(auth(manager))).status).toBe(403);
   });
 });
+
+// 21-INSIGHTS: the overview's "same period last year" comparison carries over to the sales summary on a drill-down.
+describe('sales summary compared with the same dates last year', () => {
+  it('compares with the same local dates one year earlier, and still with the days just before by default', async () => {
+    const tenant = await createTenant(t, { country: 'EG' });
+    const menu = await seedMenu(tenant);
+    const place = async (at: string, quantity: number) => {
+      const o = await placeOrder(t, tenant, { channel: 'staff', fulfillment: 'pickup', lines: [{ productId: menu.products.fries, quantity }] });
+      await setPlacedAt(o.id, at);
+    };
+    await place('2026-09-03T10:00:00Z', 2);
+    await place('2025-09-04T10:00:00Z', 1);
+    await place('2026-08-30T10:00:00Z', 3);
+    const q = (compare?: string) => t.http.get(`/v1/o/${tenant.orgId}/analytics/summary?${new URLSearchParams({ from: '2026-09-01', to: '2026-09-07', ...(compare ? { compare } : {}) })}`)
+      .set(auth(tenant.owner));
+    const ly = await q('last_year');
+    expect(ly.status).toBe(200);
+    expect(ly.body.comparison).toMatchObject({ from: '2025-09-01', to: '2025-09-07', totals: { orders: 1 }, changePct: { orders: 0, netMinor: 100 } });
+    expect(ly.body.comparison.totals.netMinor * 2).toBe(ly.body.totals.netMinor);
+    const prev = await q();
+    expect(prev.body.comparison).toMatchObject({ from: '2026-08-25', to: '2026-08-31', totals: { orders: 1 } });
+    expect(prev.body.comparison.totals.netMinor).toBe(ly.body.comparison.totals.netMinor * 3);
+    expect((await q('none')).body.comparison).toBeNull();
+    expect((await q('yesterday')).status).toBe(400);
+  });
+});
