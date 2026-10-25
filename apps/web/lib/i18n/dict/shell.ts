@@ -19,6 +19,7 @@ export const shell = {
     'nav.copilot': 'Copilot',
     'nav.approvals': 'Approvals',
     'nav.teamRoles': 'Team & roles',
+    'nav.messaging': 'Messaging',
     'nav.dataImportExport': 'Data import & export',
     'nav.explore': 'Explore Resuto',
 
@@ -69,6 +70,7 @@ export const shell = {
     'palette.kind.page': 'Page',
     'palette.kind.action': 'Action',
     'palette.back': 'Back',
+    'palette.group.page': 'On this page: {page}',
 
     'shortcuts.title': 'Keyboard shortcuts',
     'shortcuts.general': 'General',
@@ -78,6 +80,7 @@ export const shell = {
     'shortcuts.then': 'then',
     'shortcuts.or': 'or',
     'shortcuts.note': 'Shortcuts are ignored while you type in a field.',
+    'shortcuts.onPage': 'On this page: {page}',
 
     'explore.title': 'Explore Resuto',
     'explore.subtitle': 'Modules your plan does not include yet. See what each one adds, then upgrade when you are ready.',
@@ -154,6 +157,7 @@ export const shell = {
     'nav.copilot': 'المساعد الذكي',
     'nav.approvals': 'الموافقات',
     'nav.teamRoles': 'الفريق والأدوار',
+    'nav.messaging': 'الرسائل',
     'nav.dataImportExport': 'استيراد البيانات وتصديرها',
     'nav.explore': 'اكتشف ريسوتو',
 
@@ -204,6 +208,7 @@ export const shell = {
     'palette.kind.page': 'صفحة',
     'palette.kind.action': 'إجراء',
     'palette.back': 'رجوع',
+    'palette.group.page': 'في هذه الصفحة: {page}',
 
     'shortcuts.title': 'اختصارات لوحة المفاتيح',
     'shortcuts.general': 'عام',
@@ -213,6 +218,7 @@ export const shell = {
     'shortcuts.then': 'ثم',
     'shortcuts.or': 'أو',
     'shortcuts.note': 'لا تعمل الاختصارات أثناء الكتابة في حقل.',
+    'shortcuts.onPage': 'في هذه الصفحة: {page}',
 
     'explore.title': 'اكتشف ريسوتو',
     'explore.subtitle': 'وحدات لا تشملها خطتك بعد. تعرّف على ما تضيفه كل وحدة، ثم قم بالترقية عندما تكون مستعدًا.',
