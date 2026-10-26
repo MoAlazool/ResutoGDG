@@ -354,9 +354,11 @@ function FactsTable({ studio, draft }: { studio: Studio; draft: PublicSite }) {
 
 function EntityChain({ draft, menu, siteUrl }: { draft: PublicSite; menu: PublicMenu | null; siteUrl: string }) {
   const { t } = useT();
+  // The menu chain is counted on the menu page (the whole menu); questions on the website (its FAQ).
   const types = useMemo(() => {
-    const docs = [...siteJsonLd(draft, siteUrl, 'en'), ...(menu ? menuPageJsonLd(menu, draft, siteUrl, siteUrls(draft, siteUrl).menu, 'en') : [])];
-    return jsonLdReport(docs).types;
+    const site = jsonLdReport(siteJsonLd(draft, siteUrl, 'en')).types;
+    const menuTypes = menu ? jsonLdReport(menuPageJsonLd(menu, draft, siteUrl, siteUrls(draft, siteUrl).menu, 'en')).types : site;
+    return { ...menuTypes, Question: site.Question ?? 0 } as Record<string, number>;
   }, [draft, menu, siteUrl]);
   const steps: Array<[string, number]> = [
     ['restaurant', 1], ['branches', draft.branches.length], ['menu', types.Menu ? 1 : 0], ['sections', types.MenuSection ?? 0],

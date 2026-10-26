@@ -15,10 +15,10 @@ test('the canvas frame runs no script, makes only same-origin requests and never
   const errors = collectErrors(page, SHELL_404);
   // 22-STUDIO root cause: the old canvas was a separate page in an opaque-origin frame, so its scripts and stylesheets
   // were cross-site requests that a cookie-gated deployment (Vercel Authentication, SameSite=Lax) answered 401.
-  const frameRequests: Array<{ url: string; type: string; site: string | null }> = [];
-  page.on('request', async (r) => {
+  const frameRequests: Array<{ url: string; type: string }> = [];
+  page.on('request', (r) => {
     if (r.frame() === page.mainFrame() || !r.url().startsWith(WEB_URL)) return;
-    frameRequests.push({ url: r.url(), type: r.resourceType(), site: await r.headerValue('sec-fetch-site') });
+    frameRequests.push({ url: r.url(), type: r.resourceType() });
   });
   await page.goto(`/dashboard/${tenant.orgId}/website`);
   const iframe = page.locator('iframe.ws-frame');
@@ -30,10 +30,14 @@ test('the canvas frame runs no script, makes only same-origin requests and never
   expect(await canvas.locator('.restaurant-editorial h1').evaluate((h) => getComputedStyle(h).fontSize)).not.toBe('32px');
   const frame = page.frames().find((f) => f !== page.mainFrame() && f.url() === 'about:srcdoc')!;
   expect(frame).toBeTruthy();
-  expect(frameRequests.filter((r) => r.type === 'script')).toEqual([]);
-  expect(frameRequests.filter((r) => r.site !== 'same-origin')).toEqual([]);
+  // The frame loads no script, only the editor's stylesheets and fonts; and it is a same-origin document, so those
+  // requests are same-origin (they carry the deployment's cookies, unlike the old opaque-origin frame's).
+  expect(frameRequests.filter((r) => !['stylesheet', 'font', 'image'].includes(r.type))).toEqual([]);
+  expect(await page.evaluate(() => document.querySelector<HTMLIFrameElement>('iframe.ws-frame')!.contentWindow!.origin)).toBe(new URL(WEB_URL).origin);
 
-  // Nothing in the frame can run: injected markup with script or event handlers stays inert.
+  // Nothing in the frame can run: injected markup with script or event handlers stays inert (Chromium reports each
+  // refusal; they are checked here and taken out of the page's error list).
+  const before = errors.length;
   await page.evaluate(() => {
     const d = document.querySelector<HTMLIFrameElement>('iframe.ws-frame')!.contentDocument!;
     d.body.insertAdjacentHTML('beforeend', '<img src="data:," onerror="parent.__canvasPwned = 1"><svg onload="parent.__canvasPwned = 2"></svg>');
@@ -43,11 +47,15 @@ test('the canvas frame runs no script, makes only same-origin requests and never
   });
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => (window as unknown as { __canvasPwned?: number }).__canvasPwned)).toBeUndefined();
+  const refused = errors.splice(before);
+  expect(refused.length).toBeGreaterThan(0);
+  expect(refused.every((e) => e.startsWith("Blocked script execution in 'about:srcdoc' because the document's frame is sandboxed"))).toBe(true);
 
-  // Links and the language switch in the canvas do not navigate it, the editor, or change the editor's language.
+  // Links in the canvas do not navigate it or the editor (the preview renders no language switch).
   const editorUrl = page.url();
+  await expect(canvas.locator('.lang-toggle')).toHaveCount(0);
   await canvas.locator('a[href^="/order/"]').first().click();
-  await canvas.locator('.lang-toggle').first().click();
+  await canvas.locator('a[href^="/reserve/"]').first().click();
   await page.waitForTimeout(300);
   expect(frame.url()).toBe('about:srcdoc');
   expect(page.url()).toBe(editorUrl);
