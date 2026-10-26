@@ -321,15 +321,17 @@ a.rui-stat:hover { border-color: var(--border-strong); }
   .rui-workspace[data-end], .rui-workspace[data-start][data-end] { grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); }
   .rui-workspace[data-end]:not([data-start]) { grid-template-columns: minmax(0, 1fr); }
   .rui-workspace-end { grid-column: 1 / -1; border-inline-start: 0; border-block-start: 1px solid var(--border); max-block-size: 40dvh; }
+  /* Settings: the section links become a row above the body from tablet width down (beside a 220 px list the body was
+     about 260 px at 768 px and its cards spilled past the page). */
+  .rui-settings-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .rui-settings-nav { position: static; overflow-x: auto; }
+  .rui-settings-nav ul { grid-auto-flow: column; grid-auto-columns: max-content; }
 }
 @media (max-width: 700px) {
   .rui-workspace, .rui-workspace[data-start], .rui-workspace[data-end], .rui-workspace[data-start][data-end] { grid-template-columns: minmax(0, 1fr); block-size: auto; }
   .rui-workspace-pane, .rui-workspace:not(:has(.rui-workspace-toolbar)) .rui-workspace-pane { grid-row: auto; grid-column: 1; overflow: visible; }
   .rui-workspace-start { border-inline-end: 0; border-block-end: 1px solid var(--border); }
   .rui-board { grid-auto-columns: minmax(82vw, 1fr); scroll-snap-type: inline mandatory; }
-  .rui-settings-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
-  .rui-settings-nav { position: static; overflow-x: auto; }
-  .rui-settings-nav ul { grid-auto-flow: column; grid-auto-columns: max-content; }
 }
 
 /* ---------- Charts ---------- */
