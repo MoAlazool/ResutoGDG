@@ -10,6 +10,7 @@ import { compliance } from './dict/compliance';
 import { connect } from './dict/connect';
 import { core } from './dict/core';
 import { crm } from './dict/crm';
+import { devices } from './dict/devices';
 import { counter } from './dict/counter';
 import { deliveryGuest } from './dict/delivery-guest';
 import { deliveryStaff } from './dict/delivery-staff';
@@ -44,7 +45,7 @@ import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 import { ROUTE_FAMILIES, type RouteScope } from './route-families';
 
-const PARTS = [common, core, insights, insightsArea, home, crm, platform, connect, marketing, pay, driver, studio, studioAi, studioWorkspace, studioOptimize, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, opsBoard, menuWorkspace, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
+const PARTS = [common, core, insights, insightsArea, home, crm, platform, connect, marketing, pay, driver, studio, studioAi, studioWorkspace, studioOptimize, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, opsBoard, menuWorkspace, account, deliveryGuest, deliveryStaff, counter, shell, onboarding, devices];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {

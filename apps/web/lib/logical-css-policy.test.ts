@@ -11,6 +11,8 @@ const ROOTS = [
   'packages/ui/src',
   // 21-INBOX increment 2: the Inbox workspace, the Customer 360 panel and Settings › Messaging.
   'apps/web/app/dashboard/[orgId]/inbox', 'apps/web/components/customers', 'apps/web/app/dashboard/[orgId]/settings/messaging',
+  // 22-DEVICES: Settings › iPad devices.
+  'apps/web/app/dashboard/[orgId]/settings/devices',
   // 21-HOME: the overview command centre.
   'apps/web/app/dashboard/[orgId]/_home',
   // 21-STUDIO: the Studio workspace (22-STUDIO: the canvas frame's stylesheet lives there now).

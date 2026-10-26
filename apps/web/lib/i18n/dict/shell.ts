@@ -21,6 +21,7 @@ export const shell = {
     'nav.approvals': 'Approvals',
     'nav.teamRoles': 'Team & roles',
     'nav.messaging': 'Messaging',
+    'nav.devices': 'iPad devices',
     'nav.dataImportExport': 'Data import & export',
     'nav.explore': 'Explore Resuto',
 
@@ -160,6 +161,7 @@ export const shell = {
     'nav.approvals': 'الموافقات',
     'nav.teamRoles': 'الفريق والأدوار',
     'nav.messaging': 'الرسائل',
+    'nav.devices': 'أجهزة iPad',
     'nav.dataImportExport': 'استيراد البيانات وتصديرها',
     'nav.explore': 'اكتشف ريسوتو',
 

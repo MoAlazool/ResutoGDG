@@ -25,7 +25,7 @@ describe('@resuto/contracts/lite', () => {
 
   it('re-exports the helpers guest pages use', async () => {
     const lite = await import('./lite');
-    for (const name of ['formatNumber', 'formatMoney', 'parseMajor', 'INTL_LOCALE', 'toWesternDigits', 'normalizePhone', 'PHONE_EXAMPLE', 'planSplit', 'SplitRuleError', 'ASSISTANT_ALLERGENS', 'TABLE_FEATURES', 'SOCIAL_NETWORKS', 'socialLinksOf', 'checkSocialLink', 'slugProblem', 'RESERVED_SLUGS', 'ONBOARDING_STEPS', 'resumeStep', 'THEME_PRESET_IDS', 'MENU_QR_POSTERS', 'parseCsv', 'toCsv']) {
+    for (const name of ['formatNumber', 'formatMoney', 'parseMajor', 'INTL_LOCALE', 'toWesternDigits', 'normalizePhone', 'PHONE_EXAMPLE', 'planSplit', 'SplitRuleError', 'ASSISTANT_ALLERGENS', 'TABLE_FEATURES', 'SOCIAL_NETWORKS', 'socialLinksOf', 'checkSocialLink', 'slugProblem', 'RESERVED_SLUGS', 'ONBOARDING_STEPS', 'resumeStep', 'THEME_PRESET_IDS', 'MENU_QR_POSTERS', 'parseCsv', 'toCsv', 'POS_ACTING_ROLES', 'POS_PAIRING_MINUTES', 'POS_DEVICE_TTL_DAYS']) {
       expect(lite, name).toHaveProperty(name);
     }
   });
