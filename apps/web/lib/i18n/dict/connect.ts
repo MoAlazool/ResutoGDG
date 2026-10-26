@@ -158,6 +158,8 @@ const en: Record<string, string> = {
   'connect.ws.keysHint': 'to move · more with', 'connect.ws.channelsTemplates': 'Channels & templates',
   'connect.ws.threadPane': 'Conversation', 'connect.ws.contextPane': 'Customer and tags',
   'connect.ws.pick': 'Choose a conversation', 'connect.ws.pickBody': 'Pick one from the list, or press j to open the first.',
+  'connect.ws.details': 'Customer details', 'connect.ws.backToThread': 'Back to the conversation', 'connect.ws.template': 'Template',
+  'connect.ws.clearFilters': 'Clear filters',
   'connect.messaging.title': 'Messaging', 'connect.messaging.subtitle': 'Channels and message templates for the Inbox.',
 };
 
@@ -314,6 +316,8 @@ const ar: Record<string, string> = {
   'connect.ws.keysHint': 'للتنقل · المزيد بـ', 'connect.ws.channelsTemplates': 'القنوات والقوالب',
   'connect.ws.threadPane': 'المحادثة', 'connect.ws.contextPane': 'العميل والوسوم',
   'connect.ws.pick': 'اختر محادثة', 'connect.ws.pickBody': 'اختر واحدة من القائمة، أو اضغط j لفتح الأولى.',
+  'connect.ws.details': 'تفاصيل العميل', 'connect.ws.backToThread': 'العودة إلى المحادثة', 'connect.ws.template': 'قالب',
+  'connect.ws.clearFilters': 'مسح عوامل التصفية',
   'connect.messaging.title': 'الرسائل', 'connect.messaging.subtitle': 'قنوات صندوق الرسائل وقوالب الرسائل.',
 };
 

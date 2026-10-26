@@ -1,7 +1,7 @@
 'use client';
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Badge, Field, Kbd, Notice, SegmentedControl, SelectField } from '@resuto/ui';
-import { dateTime } from '@/lib/format';
+import { dateTime, time } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { insertReply, insertSnippet, matchSavedReplies, replyBody, slashQuery } from '@/lib/inbox';
 import { InboxIcon } from './icons';
@@ -128,7 +128,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           { value: 'reply', label: <>{t('connect.ws.replyMode')} <Kbd>r</Kbd></> },
           { value: 'note', label: <>{t('connect.ws.noteMode')} <Kbd>n</Kbd></> },
         ]} />
-        {!note && <Badge tone={d.window.open ? 'ok' : 'warn'}>{d.window.open ? t('connect.window.open', { until: dateTime(d.window.closesAt, locale) }) : t('connect.window.closed')}</Badge>}
+        {/* The window closes within 24 hours, so its time alone is unambiguous; the full date is in the tooltip. */}
+        {!note && <span className="composer-window" title={d.window.open && d.window.closesAt ? dateTime(d.window.closesAt, locale) : undefined}>
+          <Badge tone={d.window.open ? 'ok' : 'warn'}>{d.window.open ? t('connect.window.open', { until: time(d.window.closesAt, locale) }) : t('connect.window.closed')}</Badge></span>}
       </div>
       {note
         ? <p className="composer-note-hint"><InboxIcon name="lock" size={14} /> {t('connect.ws.noteHint')}</p>
@@ -169,10 +171,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       <div className="composer-send">
         {note ? <span className="fine composer-hint">{t('connect.ws.sendHint')} <Kbd keys={['Ctrl', 'Enter']} /></span> : (
           <div className="composer-quick" role="group" aria-label={t('connect.ws.quickActions')}>
-            <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || !savedReplies.length} onClick={() => snippet('/')}>{t('connect.ws.savedReplies')} <Kbd>/</Kbd></button>
-            {quick.orderUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.orderUrl!)}><InboxIcon name="link" /> {t('connect.ws.orderLink')}</button>}
-            {quick.paymentLink && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || pending === 'pay'} onClick={() => void makePaymentLink()}><InboxIcon name="card" /> {t('connect.ws.paymentLink')}</button>}
-            {quick.reserveUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.reserveUrl!)}><InboxIcon name="calendar" /> {t('connect.ws.reservationLink')}</button>}
+            <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || !savedReplies.length} onClick={() => snippet('/')} title={t('connect.ws.savedReplies')}><InboxIcon name="note" /> <span className="composer-quick-label">{t('connect.ws.savedReplies')}</span> <Kbd>/</Kbd></button>
+            {quick.orderUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.orderUrl!)} title={t('connect.ws.orderLink')}><InboxIcon name="link" /> <span className="composer-quick-label">{t('connect.ws.orderLink')}</span></button>}
+            {quick.paymentLink && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked || pending === 'pay'} onClick={() => void makePaymentLink()} title={t('connect.ws.paymentLink')}><InboxIcon name="card" /> <span className="composer-quick-label">{t('connect.ws.paymentLink')}</span></button>}
+            {quick.reserveUrl && <button type="button" className="btn btn-sm btn-ghost" disabled={blocked} onClick={() => snippet(quick.reserveUrl!)} title={t('connect.ws.reservationLink')}><InboxIcon name="calendar" /> <span className="composer-quick-label">{t('connect.ws.reservationLink')}</span></button>}
           </div>
         )}
         <button className={note ? 'btn btn-note' : 'btn btn-primary'} disabled={disabled} aria-keyshortcuts="Control+Enter" title={`${t('connect.ws.sendHint')} Ctrl+Enter`}>
