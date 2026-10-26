@@ -37,7 +37,7 @@
 .sm-compare[data-split='100']{--split:100%}
 .sm-compare .sm-after{clip-path:inset(0 0 0 var(--split))}
 [dir=rtl] .sm-compare .sm-after{clip-path:inset(0 var(--split) 0 0)}
-.sm-label{position:absolute;top:8px;padding:2px 8px;border-radius:999px;background:var(--card);font-size:12px;font-weight:650}
+.sm-label{position:absolute;top:8px;padding:2px 8px;border-radius:999px;background:var(--card);font-size:var(--t-sm);font-weight:650}
 .sm-label-before{inset-inline-start:8px}
 .sm-label-after{inset-inline-end:8px}
 .sm-single{width:100%;border-radius:12px;border:1px solid var(--line-soft)}
