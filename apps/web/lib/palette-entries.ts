@@ -68,6 +68,7 @@ const ACTIONS: Array<{ id: string; label: string; keywords: string; href?: strin
   { id: 'new-order', label: 'palette.action.newOrder', keywords: 'new order create add ticket', href: '/orders?new=1', page: '/orders', permission: 'orders:write' },
   { id: 'new-reservation', label: 'palette.action.newReservation', keywords: 'new reservation booking book table', href: '/reservations?new=1', page: '/reservations', permission: 'reservations:write' },
   { id: 'invite', label: 'palette.action.inviteMember', keywords: 'invite member staff team add user', href: '/team?invite=1', page: '/team', permission: 'members:manage' },
+  { id: 'pair-ipad', label: 'palette.action.pairIpad', keywords: 'pair ipad device pos tablet pairing code', href: '/settings/devices?pair=1', page: '/settings/devices', permission: 'devices:manage' },
   { id: 'branches', label: 'palette.action.switchBranch', keywords: 'switch branch location change', action: 'branches' },
   { id: 'language', label: 'palette.action.switchLanguage', keywords: 'language arabic english switch lang', action: 'language' },
   { id: 'sign-out', label: 'palette.action.signOut', keywords: 'sign out log out logout exit', action: 'signOut' },

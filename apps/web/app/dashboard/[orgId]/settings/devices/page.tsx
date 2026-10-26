@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Page, PosDeviceSummary } from '@resuto/contracts';
 import { Badge, Card, DataTableV2, EmptyState, Ltr, Notice, SkeletonTable, UserText, useCursorPagination, usePrompt, type ColumnV2 } from '@resuto/ui';
 import { SettingsShell } from '@/components/settings/SettingsShell';
@@ -45,6 +45,8 @@ function Devices() {
   const list = useApi<Page<PosDeviceSummary>>(`/o/${org.id}/pos/devices?limit=${PAGE}${pager.cursor ? `&cursor=${encodeURIComponent(pager.cursor)}` : ''}`);
   const reload = list.reload;
   const onPaired = useCallback(() => { void reload(); }, [reload]);
+  // The command palette's "Pair a new iPad" opens the page with ?pair=1: open the sheet.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('pair') === '1') setPairing(true); }, []);
 
   const branchName = (id: string) => {
     const b = org.branches.find((x) => x.id === id);

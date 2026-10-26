@@ -22,6 +22,8 @@ const ROUTES = [
   // photos and Settings › Messaging with the WhatsApp stepper open.
   '/inbox', '/inbox?c=CONVERSATION', '/integrations', '/integrations?provider=paymob', '/website', '/website?tab=optimize', '/studio-media',
   '/settings/messaging', '/settings/messaging?connect=whatsapp',
+  // 22-DEVICES: Settings › iPad devices (an active and a revoked iPad in the list) and its pairing sheet.
+  '/settings/devices', '/settings/devices?pair=1',
 ];
 const WIDTHS = [{ width: 1280, height: 860 }, { width: 768, height: 1024 }, { width: 390, height: 844 }] as const;
 const MIN_PX = { en: 12.5, ar: 13.5 } as const;
@@ -102,6 +104,13 @@ test.beforeAll(async () => {
   await placeQrOrder(request, tenant, menu);
   await sql(`insert into customers(org_id, display_name, phone_e164, email) values ($1, 'Mona Abdelrahman El-Sayed (layout)', '+201001112233', 'mona.layout@example.test')`, [tenant.orgId]);
   await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/mcp/clients`, { name: 'Layout assistant', actingRole: 'manager', groups: ['menu'], rateLimitPerMin: 600 });
+  // Two paired iPads for Settings › iPad devices: one active, one revoked with a reason (pairing as in pos-ipad.spec.ts).
+  for (const [i, name] of ['Counter iPad (layout)', 'Kitchen display iPad with a long name'].entries()) {
+    const pairing = await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/pos/pairings`, { branchId: tenant.branchId, actingRole: i ? 'kitchen' : 'cashier', name, requireStaff: !i });
+    const paired = await request.post(`${API_URL}/v1/pos/pair`, { headers: { 'X-Forwarded-For': `198.19.250.${10 + i}` }, data: { code: pairing.code, model: 'iPad13,1', appVersion: '0.2.0' } });
+    expect(paired.status(), await paired.text()).toBe(201);
+    if (i) await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/pos/devices/${(await paired.json()).device.id}/revoke`, { reason: 'Replaced by a new iPad after the screen cracked' });
+  }
   // An Inbox conversation (sandbox WhatsApp channel) for the thread and Customer 360 panes.
   const api = apiAs(request, tenant.owner);
   const channel = await api.post(`/o/${tenant.orgId}/connect/channels`, { transport: 'sandbox', displayName: 'WhatsApp sandbox', orderingEnabled: false });
