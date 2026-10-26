@@ -49,6 +49,11 @@ export interface ColumnV2<T> extends Column<T> {
   rowHeader?: boolean;
   /** CSS width of the column (e.g. '12ch', '140px'). */
   width?: string;
+  /**
+   * 'low': a secondary column that steps aside on tablet widths (700–1100 px), where a full table would scroll sideways.
+   * Phones show every column anyway (one card per row) and desktops have the room.
+   */
+  priority?: 'low';
 }
 
 export interface SortState { key: string; dir: 'asc' | 'desc' }
@@ -246,7 +251,7 @@ export function DataTableV2<T>(props: DataTableV2Props<T>) {
                   const key = c.sortKey ?? c.key;
                   const dir = sort?.key === key ? sort.dir : null;
                   return (
-                    <th key={c.key} scope="col" data-align={c.align ?? 'start'} aria-sort={dir ? (dir === 'asc' ? 'ascending' : 'descending') : sortable ? 'none' : undefined}>
+                    <th key={c.key} scope="col" data-align={c.align ?? 'start'} data-priority={c.priority} aria-sort={dir ? (dir === 'asc' ? 'ascending' : 'descending') : sortable ? 'none' : undefined}>
                       {sortable
                         ? <button type="button" className="rui-dt-sort" onClick={() => toggleSort(c)} data-dir={dir ?? undefined}
                           aria-label={text(c.header) ? fill(t.sortBy, { col: text(c.header) }) + (dir ? ` (${dir === 'asc' ? t.sortAsc : t.sortDesc})` : '') : undefined}>
@@ -281,8 +286,8 @@ export function DataTableV2<T>(props: DataTableV2Props<T>) {
                         : content;
                       const inner = <>{c.header ? <span className="dt-label" aria-hidden="true">{c.header}</span> : null}<div className="dt-cell">{cell}</div></>;
                       return c.key === headerKey
-                        ? <th key={c.key} scope="row" data-align={c.align ?? 'start'}>{inner}</th>
-                        : <td key={c.key} data-align={c.align ?? 'start'}>{inner}</td>;
+                        ? <th key={c.key} scope="row" data-align={c.align ?? 'start'} data-priority={c.priority}>{inner}</th>
+                        : <td key={c.key} data-align={c.align ?? 'start'} data-priority={c.priority}>{inner}</td>;
                     })}
                   </tr>
                 );
