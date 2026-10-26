@@ -5,7 +5,7 @@
 .cx-steps li { counter-increment: cx-step; display: inline-flex; align-items: center; gap: var(--space-2); padding-block: var(--space-1); padding-inline: var(--space-2) var(--space-3);
   border: 1px solid var(--border); border-radius: var(--radius-full); color: var(--text-muted); font-size: var(--fs-sm); background: var(--surface-1); }
 .cx-steps li::before { content: counter(cx-step); display: inline-grid; place-items: center; inline-size: 22px; block-size: 22px; border-radius: var(--radius-full);
-  background: var(--surface-3); color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
+  background: var(--surface-3); color: var(--text-secondary); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
 .cx-steps li[data-done='true']::before { background: var(--ok-bg); color: var(--ok-fg); }
 .cx-steps li[aria-current='step'] { border-color: var(--accent); color: var(--text-strong); font-weight: var(--fw-semibold); }
 .cx-steps li[aria-current='step']::before { background: var(--accent); color: var(--accent-fg); }
@@ -27,7 +27,7 @@
 .cx-card-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .cx-card-title { font-weight: var(--fw-semibold); color: var(--text-strong); }
 .cx-tools { display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
-.cx-tools code { font-size: var(--fs-xs); padding-block: 1px; padding-inline: var(--space-1); border-radius: var(--radius-1); background: var(--surface-2); }
+.cx-tools code { font-size: var(--fs-sm); padding-block: 1px; padding-inline: var(--space-1); border-radius: var(--radius-1); background: var(--surface-2); }
 
 .cx-url { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .cx-url code { flex: 1 1 280px; padding-block: var(--space-2); padding-inline: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-2);

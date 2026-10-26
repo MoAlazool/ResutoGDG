@@ -27,7 +27,7 @@
 .menu-rail-pick:hover { background: var(--surface-hover); }
 .menu-rail-pick[aria-pressed='true'] { background: var(--surface-selected); color: var(--accent-soft-fg); font-weight: var(--fw-semibold); }
 .menu-rail-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu-rail-count { flex: none; color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.menu-rail-count { flex: none; color: var(--text-muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .menu-rail-handle, .menu-rail-more {
   display: inline-grid; place-items: center; flex: none; inline-size: var(--touch-target, 44px); block-size: var(--touch-target, 44px);
   padding: 0; border: 0; border-radius: var(--radius-1); background: none; color: var(--text-muted); cursor: pointer;
@@ -41,7 +41,7 @@
 .menu-table-v2 .rui-dt-bulk .btn-sm { min-block-size: 36px; }
 .menu-table-v2 .menu-item-cell img { border-radius: var(--radius-1); object-fit: cover; flex: none; }
 .menu-price { display: inline-grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
-.menu-price-was { color: var(--text-muted); font-size: var(--fs-xs); }
+.menu-price-was { color: var(--text-muted); font-size: var(--fs-sm); }
 .menu-avail { align-items: center; min-block-size: var(--touch-target, 44px); }
 .menu-avail .rui-switch-text { display: contents; }
 
