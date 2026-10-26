@@ -20,7 +20,7 @@
 .facet[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-soft-fg); font-weight: var(--fw-semibold); }
 .facetCount {
   display: inline-grid; place-items: center; min-inline-size: 24px; block-size: 22px; padding-inline: 6px; border-radius: var(--radius-full);
-  background: var(--surface-3); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+  background: var(--surface-3); color: var(--text-secondary); font-size: var(--fs-sm); font-weight: var(--fw-semibold);
 }
 .facet[data-empty] { color: var(--text-muted); border-style: dashed; }
 .facet[aria-pressed='true'] .facetCount { background: var(--surface-1); color: var(--accent-soft-fg); }
@@ -54,8 +54,8 @@
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block-start: auto; padding-block-start: var(--space-3);
   border-block-start: 1px solid var(--border-subtle);
 }
-.countries { margin-inline-start: auto; font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: 0.02em; color: var(--text-muted); }
-.readiness { font-size: var(--fs-xs); color: var(--text-muted); }
+.countries { margin-inline-start: auto; font-size: var(--fs-sm); font-weight: var(--fw-semibold); letter-spacing: 0.02em; color: var(--text-muted); }
+.readiness { font-size: var(--fs-sm); color: var(--text-muted); }
 
 /* Logos: one fixed box, one padding, one backdrop; the mark is contained, never stretched or cropped. */
 .cardLogo {
@@ -115,9 +115,9 @@
 .section:first-child { border-block-start: 0; padding-block-start: 0; }
 .section h3 { margin: 0; font-size: var(--fs-md); }
 .reasons { margin: 0; padding-inline-start: 18px; font-size: var(--fs-sm); color: var(--text-secondary); }
-.steps { margin: 0; padding-inline-start: 18px; font-size: 12px; overflow-wrap: anywhere; }
-.list { margin: 0; padding-inline-start: 18px; font-size: 12px; }
-.plain { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 12px; }
+.steps { margin: 0; padding-inline-start: 18px; font-size: var(--t-sm); overflow-wrap: anywhere; }
+.list { margin: 0; padding-inline-start: 18px; font-size: var(--t-sm); }
+.plain { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: var(--t-sm); }
 
 .code { word-break: break-all; background: var(--surface-warm); padding: 6px 8px; border-radius: 6px; flex: 1; }
 .copyRow { display: flex; gap: 6px; align-items: center; }

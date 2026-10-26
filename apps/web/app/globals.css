@@ -51,6 +51,9 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--ink); }
 /* Isolated user-entered or left-to-right values (UserText, Phone, Email, Code in @resuto/ui). */
 bdi { unicode-bidi: isolate; }
 .code-ref { font-family: var(--font-mono); font-size: max(.92em, var(--t-sm)); }
+/* Inline code (URLs, language codes, tool names): the browser's bare 'monospace' shrinks it to 13/16 of the text; the
+   mono stack avoids that and the small token is its floor (22-DASH). */
+:where(code, kbd, samp) { font-family: var(--font-mono); font-size: max(.92em, var(--t-sm)); }
 /* Initial tile for an item without a photo (legacy menu cards), instead of a colour emoji. */
 .requests-strip { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; min-height: 74px; margin-block-end: 16px; padding-block: 14px; }
 .requests-strip h2 { margin: 0; font-size: 15px; }
@@ -512,12 +515,12 @@ body:has(.gx-dock, .bk-bar, .gx-sheet-foot) .ws-lang { inset-block-end: calc(88p
 .login-form .btn-block { width: 100%; margin-block-start: 10px; }
 .login-form .notice { margin-block: 6px 4px; }
 .login-note { font-size: var(--t-sm); color: var(--fine-text); margin-block: 18px 8px; line-height: 1.6; }
-.login-links { display: grid; gap: 8px; margin-block-start: 6px; font-size: 12px; }
+.login-links { display: grid; gap: 8px; margin-block-start: 6px; font-size: var(--fs-sm); }
 .login-links a, .login-roles a { color: var(--login-link); text-decoration: none; }
 .login-links a:hover, .login-roles a:hover { color: var(--green); text-decoration: underline; }
 /* A link inside a sentence ("Already have an account? Sign in") is told apart by its underline, not only by colour. */
 .login-links span a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
-.login-roles { display: flex; gap: 16px; flex-wrap: wrap; margin-block-start: 18px; padding-block-start: 16px; border-block-start: 1px solid var(--border); font-size: 12px; }
+.login-roles { display: flex; gap: 16px; flex-wrap: wrap; margin-block-start: 18px; padding-block-start: 16px; border-block-start: 1px solid var(--border); font-size: var(--fs-sm); }
 .login-dev { margin-block-start: 22px; font-size: var(--t-sm); color: var(--fine-text); display: flex; gap: 8px; align-items: baseline; }
 @media (max-width: 950px) {
   .login-brand { padding: 40px; }
