@@ -357,7 +357,7 @@
 .bk-days, .bk-chips { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding-block: 2px 6px; margin-inline: calc(var(--pad) * -1); padding-inline: var(--pad); scrollbar-width: none; }
 .bk-days::-webkit-scrollbar, .bk-chips::-webkit-scrollbar { display: none; }
 .bk-day { flex: 0 0 auto; scroll-snap-align: start; display: grid; justify-items: center; gap: 2px; min-width: 72px; padding: 11px 12px; white-space: nowrap; border-radius: 15px; border: 1px solid var(--brand-line); background: var(--bk-soft); }
-.bk-day small, .bk-day i { font-size: var(--t-sm); color: var(--brand-muted-2); font-style: normal; }
+.bk-day small, .bk-day i { font-size: var(--t-sm); line-height: 1.35; color: var(--brand-muted-2); font-style: normal; }
 .bk-day b { font-size: 18px; font-weight: 650; }
 .bk-day[aria-pressed='true'] { background: var(--brand-ink); border-color: var(--brand-ink); color: var(--bk-on); }
 .bk-day[aria-pressed='true'] small, .bk-day[aria-pressed='true'] i { color: var(--bk-on-muted); }
@@ -380,7 +380,7 @@
 .bk-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
 .bk-slot { display: grid; gap: 2px; justify-items: center; padding: 10px 6px; border-radius: 14px; border: 1px solid var(--brand-line); background: var(--bk-soft); }
 .bk-slot b { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.bk-slot small { font-size: var(--t-sm); color: var(--ok-fg); }
+.bk-slot small { font-size: var(--t-sm); line-height: 1.35; color: var(--ok-fg); }
 .bk-slot[aria-pressed='true'] { background: var(--brand-ink); border-color: var(--brand-ink); color: var(--bk-on); }
 .bk-slot[aria-pressed='true'] small { color: color-mix(in srgb, var(--herb) 55%, var(--on-ink)); }
 .bk-slot:disabled { opacity: .45; }
@@ -548,4 +548,11 @@
 }
 @media print {
   .gx-header nav, .gx-dock, .gx-footer, .gx-backdrop { display: none !important; }
+}
+/* 22-DASH: the dock's text reached the 12.5 px floor (13.5 px Arabic); on the narrowest phones its buttons give up a
+   little padding instead, so the amount due, the View bill words and the count still fit (360 px). */
+@media (max-width: 380px) {
+  .gx-dock { gap: 6px; padding: 8px; }
+  .gx-dock .gx-btn { padding: 0 10px; }
+  .gx-dock > .gx-dock-bill { padding-inline: 9px; }
 }
