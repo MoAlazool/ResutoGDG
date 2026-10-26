@@ -37,13 +37,14 @@ import { platform } from './dict/platform';
 import { shell } from './dict/shell';
 import { studio } from './dict/studio';
 import { studioAi } from './dict/studio-ai';
+import { studioOptimize } from './dict/studio-optimize';
 import { studioWorkspace } from './dict/studio-workspace';
 import { allergens, vocab } from './dict/vocab';
 import { formatMessage } from './format-message';
 import type { Locale, Messages } from './locale';
 import { ROUTE_FAMILIES, type RouteScope } from './route-families';
 
-const PARTS = [common, core, insights, insightsArea, home, crm, platform, connect, marketing, pay, driver, studio, studioAi, studioWorkspace, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, opsBoard, menuWorkspace, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
+const PARTS = [common, core, insights, insightsArea, home, crm, platform, connect, marketing, pay, driver, studio, studioAi, studioWorkspace, studioOptimize, finance, compliance, intelligence, mcp, notifications, loyalty, integrations, integrationsWave4, integrationsActivation, integrationsMarketplace, vocab, allergens, guest, ops, opsBoard, menuWorkspace, account, deliveryGuest, deliveryStaff, counter, shell, onboarding];
 
 let merged: Record<Locale, Messages> | null = null;
 function all(): Record<Locale, Messages> {

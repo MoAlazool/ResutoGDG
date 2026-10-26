@@ -19,6 +19,8 @@ export type Tr = (key: string, vars?: Record<string, string | number>) => string
 
 export type SaveState = 'saved' | 'saving' | 'unsaved' | 'error';
 export type InspectorMode = 'section' | 'site' | 'ai';
+/** The two Studio workspaces (22-STUDIO): designing the page, and optimizing it for search, answers and AI engines. */
+export type StudioWorkspace = 'design' | 'optimize';
 
 /** An AI proposal on the canvas: the change set, how it was read, and the draft as it will look once applied. */
 export interface Proposal { changeSet: ChangeSetView; plan: StudioAiPlan | null; after: PublicSite | null }
@@ -38,6 +40,10 @@ export interface Studio {
   /** Reloads the draft after a change made outside the history (template, restore, an applied change set). */
   refresh: (opts?: { clearHistory?: boolean }) => Promise<void>;
   setDirty: (dirty: boolean) => void;
+  /** Reloads the draft preview (after a change that does not move the draft revision, e.g. an image's alt text). */
+  reloadPreview: () => Promise<void>;
+  /** Switches to the Optimize workspace (search, answers and AI engines). */
+  openOptimize: () => void;
   device: CanvasDevice;
   canvasLocale: 'en' | 'ar';
   proposal: Proposal | null;

@@ -173,7 +173,7 @@ describe('message scopes', () => {
 
   it('the root layout ships only the base scope and each guest route group adds the guest scope', () => {
     expect(readFileSync(join(WEB, 'app/layout.tsx'), 'utf8')).toMatch(/messagesFor\(locale, 'base'\)/);
-    for (const g of ['app/t', 'app/m', 'app/v', 'app/order', 'app/reserve', 'app/pay', 'app/s', 'app/o', 'app/r', 'app/unsubscribe', 'app/studio-canvas']) {
+    for (const g of ['app/t', 'app/m', 'app/v', 'app/order', 'app/reserve', 'app/pay', 'app/s', 'app/o', 'app/r', 'app/unsubscribe']) {
       expect(readFileSync(join(WEB, g, 'layout.tsx'), 'utf8'), g).toMatch(/<ScopeMessages scope="guest">/);
     }
     // Every guest route directory is listed above (a new one needs its layout).

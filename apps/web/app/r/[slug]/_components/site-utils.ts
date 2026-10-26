@@ -8,6 +8,9 @@ export type T = (key: string, vars?: Record<string, string | number>) => string;
 export const loc = (v: { en?: string; ar?: string } | undefined | null, locale: SiteLocale) =>
   (locale === 'ar' ? v?.ar || v?.en : v?.en || v?.ar) ?? '';
 export const pickName = (locale: SiteLocale, en: string | null | undefined, ar: string | null | undefined) => (locale === 'ar' && ar ? ar : en ?? ar ?? '');
+/** An image's alt text in the page's language (22-STUDIO: Arabic pages use the Arabic alt, falling back to the English). */
+export const altOf = (m: { alt: string | null; altAr?: string | null } | null | undefined, locale: SiteLocale) =>
+  (locale === 'ar' ? m?.altAr || m?.alt : m?.alt || m?.altAr) ?? '';
 /** Guest-facing prices keep their minor digits ("EGP 145.00"), as the original site did (audit VP-26). */
 export const price = (minor: number, currency: string, locale: SiteLocale) => formatMoney(minor, currency as Currency, locale, { decimals: 'always' });
 

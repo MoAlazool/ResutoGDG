@@ -5,7 +5,8 @@ const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 const withLang = (url: string, lang: 'en' | 'ar') => `${url}${url.includes('?') ? '&' : '?'}lang=${lang}`;
 
 /**
- * A restaurant website's own sitemap (21-STUDIO SEO): the site, its menu, booking and storefront pages, each with its
+ * A restaurant website's own sitemap (21-STUDIO SEO): the site, its menu page (/m/<slug>, 22-STUDIO), its ordering,
+ * booking and storefront pages, each with its
  * English and Arabic alternates (hreflang en, ar, x-default) — the same alternates the pages declare. Only published
  * sites have one. Submit it in Search Console as /r/<slug>/sitemap.xml.
  */
@@ -17,6 +18,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   const base = site.canonicalHost ? `https://${site.canonicalHost}` : home.replace(/\/r\/[^/]+$/, '');
   const pages = [
     home,
+    `${base}/m/${site.slug}`,
     ...(acceptsOrders(site) ? [`${base}${site.canonicalHost ? '/order' : site.links.order}`] : []),
     ...(acceptsReservations(site) ? [`${base}${site.canonicalHost ? '/reserve' : site.links.reserve}`] : []),
     ...(site.storefronts ?? []).map((sf) => `${base}${site.canonicalHost ? sf.path.replace(/^\/r\/[^/]+/, '') : sf.path}`),

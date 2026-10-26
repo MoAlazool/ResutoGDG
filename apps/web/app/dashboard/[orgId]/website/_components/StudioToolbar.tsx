@@ -3,15 +3,16 @@ import { Icon, Menu, SegmentedControl } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import type { CanvasDevice } from '@/lib/studio-canvas';
 import { Monitor, Redo2, Smartphone, Tablet, Undo2 } from './studio-icons';
-import type { SaveState, Studio } from './types';
+import type { SaveState, Studio, StudioWorkspace } from './types';
 
 /**
  * The workspace toolbar: page, device, canvas language, undo/redo (the client history), save state, the before/after
  * switch of an AI proposal, preview (canvas only), version history and publish.
  */
-export function StudioToolbar({ studio, save, onDevice, onLocale, onUndo, onRedo, focus, onFocus, onHistory }: {
+export function StudioToolbar({ studio, save, onDevice, onLocale, onUndo, onRedo, focus, onFocus, onHistory, workspace, onWorkspace, zoom, onZoom }: {
   studio: Studio; save: SaveState; onDevice: (d: CanvasDevice) => void; onLocale: (l: 'en' | 'ar') => void;
   onUndo: () => void; onRedo: () => void; focus: boolean; onFocus: (on: boolean) => void; onHistory: () => void;
+  workspace: StudioWorkspace; onWorkspace: (w: StudioWorkspace) => void; zoom: 'fit' | 'actual'; onZoom: (z: 'fit' | 'actual') => void;
 }) {
   const { t } = useT();
   const { state, history, canWrite, canPublish } = studio;
@@ -22,8 +23,11 @@ export function StudioToolbar({ studio, save, onDevice, onLocale, onUndo, onRedo
     { key: 'menu', label: t('studio.ws.page.menu'), href: `/m/${slug}` },
     { key: 'order', label: t('studio.ws.page.order'), href: `/order/${slug}` },
   ];
+  const publicUrl = typeof window === 'undefined' ? state.publicPath : `${window.location.origin}${state.publicPath}`;
   return (
     <>
+      <SegmentedControl size="sm" label={t('studio.opt.workspace')} value={workspace} onChange={onWorkspace}
+        options={[{ value: 'design', label: t('studio.opt.design') }, { value: 'optimize', label: t('studio.opt.optimize') }]} />
       <Menu label={t('studio.ws.page.label')} items={pages.map((p) => p.href
         ? { key: p.key, label: `${p.label} ↗`, text: p.label, href: p.href }
         : { key: p.key, label: p.label, onSelect: () => undefined, hint: t('studio.ws.page.editing') })}
@@ -35,6 +39,8 @@ export function StudioToolbar({ studio, save, onDevice, onLocale, onUndo, onRedo
       ]} />
       <SegmentedControl size="sm" label={t('studio.preview.language')} value={studio.canvasLocale} onChange={onLocale}
         options={[{ value: 'en', label: 'EN' }, { value: 'ar', label: 'ع' }]} />
+      <SegmentedControl size="sm" label={t('studio.ws.zoom')} value={zoom} onChange={onZoom}
+        options={[{ value: 'fit', label: t('studio.ws.zoomFit') }, { value: 'actual', label: '100%' }]} />
       {canWrite && (
         <span className="row gap-4">
           <button type="button" className="btn btn-sm btn-ghost" disabled={!history.canUndo} onClick={onUndo}
@@ -55,7 +61,10 @@ export function StudioToolbar({ studio, save, onDevice, onLocale, onUndo, onRedo
       <span className="ws-toolbar-end row gap-6">
         <button type="button" className="btn btn-sm" aria-pressed={focus} onClick={() => onFocus(!focus)}>{focus ? t('studio.ws.exitPreview') : t('studio.ws.preview')}</button>
         <button type="button" className="btn btn-sm" onClick={onHistory}>{t('studio.ws.versions')}</button>
-        {w.publishedRevision > 0 && <a className="btn btn-sm" href={state.publicPath} target="_blank" rel="noopener">{t('studio.website.view')} ↗</a>}
+        {/* Editing happens here; the public site is what guests see (opens in a new tab, its real address). */}
+        {w.publishedRevision > 0
+          ? <a className="btn btn-sm" href={state.publicPath} target="_blank" rel="noopener" title={publicUrl} aria-label={t('studio.ws.openPublicAria', { url: publicUrl })}>{t('studio.ws.openPublic')} ↗</a>
+          : <span className="fine" title={publicUrl}>{t('studio.ws.notPublicYet')}</span>}
         {canPublish && <button type="button" className="btn btn-sm btn-primary" disabled={!w.hasUnpublishedChanges} onClick={() => void studio.publish()}>{t('studio.publish.cta')}</button>}
       </span>
     </>

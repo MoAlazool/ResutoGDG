@@ -156,7 +156,7 @@ export class SiteBuilderService {
           content: {
             ...s.content,
             media: s.content?.mediaId && media.get(s.content.mediaId) ? media.get(s.content.mediaId)! : null,
-            gallery: (s.content?.mediaIds ?? []).map((id) => media.get(id)).filter((m): m is { url: string; alt: string | null } => !!m),
+            gallery: (s.content?.mediaIds ?? []).map((id) => media.get(id)).filter((m): m is { url: string; alt: string | null; altAr: string | null } => !!m),
             ...(s.kind === 'offers' ? { products: (s.content?.productIds ?? []).map((id) => offerById.get(id)).filter((p): p is PublicSiteProduct => !!p) } : {}),
             ...((s.kind === 'offers' || s.kind === 'promo_banner')
               ? { promotion: s.content?.promotionCode ? promotions.get(String(s.content.promotionCode).toLowerCase()) ?? null : null } : {}),
@@ -256,10 +256,14 @@ export class SiteBuilderService {
    * resolves `urls`, after its transaction; then dropUnsigned() removes entries that could not be signed.
    */
   async mediaMap(tx: Tx, orgId: string, ids: string[], urls: MediaUrls) {
-    const out = new Map<string, { url: string; alt: string | null }>();
+    // altAr (22-STUDIO): the Arabic alt text, so an Arabic page describes its images in Arabic.
+    const out = new Map<string, { url: string; alt: string | null; altAr: string | null }>();
     if (!ids.length) return out;
-    const rows = await tx.query<any>('select id, path, alt, variants from media_assets where org_id = $1 and id = any($2::uuid[])', [orgId, ids]);
-    for (const r of rows) out.set(r.id, urls.set({ url: '', alt: r.alt as string | null }, 'url', r.path, { variants: r.variants, minWidth: 1280 }) as { url: string; alt: string | null });
+    const rows = await tx.query<any>('select id, path, alt, alt_ar, variants from media_assets where org_id = $1 and id = any($2::uuid[])', [orgId, ids]);
+    for (const r of rows) {
+      out.set(r.id, urls.set({ url: '', alt: r.alt as string | null, altAr: (r.alt_ar as string | null) ?? null }, 'url', r.path, { variants: r.variants, minWidth: 1280 }) as
+        { url: string; alt: string | null; altAr: string | null });
+    }
     return out;
   }
 }

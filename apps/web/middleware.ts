@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { langParam, legacyRedirect } from './components/landing/legacy-routes';
-import { buildCsp, META_SDK_PAGE, newNonce, STAFF_DOCUMENT, STUDIO_CANVAS_PAGE } from './lib/csp';
+import { buildCsp, META_SDK_PAGE, newNonce } from './lib/csp';
 import { LOCALE_COOKIE } from './lib/i18n/locale';
 
 /**
@@ -55,9 +55,7 @@ export async function middleware(req: NextRequest) {
   // INT-23: the same guest pages may run the consented TikTok and Snap Pixels.
   const csp = buildCsp({ nonce, dev: CSP_DEV, apiUrl: process.env.NEXT_PUBLIC_API_URL, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, metaPixel,
     tiktokPixel: metaPixel, snapPixel: metaPixel,
-    metaSdk: META_SDK_PAGE.test(req.nextUrl.pathname),
-    // 21-STUDIO: staff documents may frame the Studio canvas; the canvas may be framed by this site only.
-    frameSelf: STAFF_DOCUMENT.test(req.nextUrl.pathname), framedBySelf: STUDIO_CANVAS_PAGE.test(req.nextUrl.pathname) });
+    metaSdk: META_SDK_PAGE.test(req.nextUrl.pathname) });
   // ?lang=ar|en wins over the saved language: the request carries it as the locale cookie (so this render already
   // uses it) and the response saves it, with the same attributes as the in-page language switcher.
   const lang = langParam(req.nextUrl.searchParams);
