@@ -10,7 +10,7 @@ import { DishImage as PublicDishImage } from '@/components/public/DishImage';
 import { DISH_SIZES, dishSrcSet } from '@/lib/dish-image';
 import { LanguageToggle } from '@/lib/i18n/client';
 import {
-  acceptsOrders, acceptsReservations, clock, DAY_KEYS, discountPercent, heroCopy, loc, openingHours, pickName, price, promotionLabel, showsDemoStory, type SiteLocale, type T,
+  acceptsOrders, acceptsReservations, altOf, clock, DAY_KEYS, discountPercent, heroCopy, loc, openingHours, pickName, price, promotionLabel, showsDemoStory, type SiteLocale, type T,
 } from './site-utils';
 import './site.css';
 
@@ -165,7 +165,7 @@ function OliveHero({ s, ctx }: { s: Section; ctx: Ctx }) {
   return (
     <section className={`restaurant-editorial${img ? '' : ' no-photo'}`} aria-labelledby={`h-${s.id}`}>
       {/* Without a photo the template draws its own backdrop (site.css .no-photo), never another restaurant's room. */}
-      {img ? <img src={img} alt={s.content.media?.alt ?? ''} fetchPriority="high" /> : <span className="site-hero-mark" aria-hidden>{copy.eyebrow.slice(0, 1)}</span>}
+      {img ? <img src={img} alt={altOf(s.content.media, ctx.locale)} fetchPriority="high" /> : <span className="site-hero-mark" aria-hidden>{copy.eyebrow.slice(0, 1)}</span>}
       <div>
         <span className="overline">{copy.eyebrow}</span>
         <h1 id={`h-${s.id}`}>{copy.headline}</h1>
@@ -191,7 +191,7 @@ function SmashHero({ s, ctx }: { s: Section; ctx: Ctx }) {
         </div>
         {img && (
           <div className="bg-hero-art">
-            <img src={img} alt={s.content.media?.alt ?? ''} fetchPriority="high" />
+            <img src={img} alt={altOf(s.content.media, ctx.locale)} fetchPriority="high" />
             {loc(s.content.eyebrow, locale) && <span>{loc(s.content.eyebrow, locale)}</span>}
           </div>
         )}
@@ -211,7 +211,7 @@ function About({ s, ctx }: { s: Section; ctx: Ctx }) {
         {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
         {acceptsOrders(site) && <a className="site-link" href={ctx.links.order}>{ctx.t('studio.site.browseMenu')} <span aria-hidden>{locale === 'ar' ? '↖' : '↗'}</span></a>}
       </div>
-      {img ? <img className="dish-photo" src={img.url} alt={img.alt ?? ''} loading="lazy" /> : <span className="dish-photo dish-placeholder" aria-hidden>◌</span>}
+      {img ? <img className="dish-photo" src={img.url} alt={altOf(img, ctx.locale)} loading="lazy" /> : <span className="dish-photo dish-placeholder" aria-hidden>◌</span>}
     </section>
   );
 }
@@ -315,7 +315,7 @@ function Gallery({ s, ctx }: { s: Section; ctx: Ctx }) {
   return (
     <section className="consumer-main site-gallery" aria-labelledby={`h-${s.id}`}>
       <h2 id={`h-${s.id}`}>{heading(s, ctx, 'studio.site.gallery')}</h2>
-      <div className="site-gallery-grid">{items.map((m, i) => <img key={i} src={m.url} alt={m.alt ?? ''} loading="lazy" />)}</div>
+      <div className="site-gallery-grid">{items.map((m, i) => <img key={i} src={m.url} alt={altOf(m, ctx.locale)} loading="lazy" />)}</div>
     </section>
   );
 }
@@ -452,7 +452,7 @@ function Custom({ s, ctx }: { s: Section; ctx: Ctx }) {
         {loc(s.content.headline, locale) && <h2 id={`h-${s.id}`}>{loc(s.content.headline, locale)}</h2>}
         {loc(s.content.body, locale) && <p className="site-prose">{loc(s.content.body, locale)}</p>}
       </div>
-      {s.content.media && <img className="dish-photo" src={s.content.media.url} alt={s.content.media.alt ?? ''} loading="lazy" />}
+      {s.content.media && <img className="dish-photo" src={s.content.media.url} alt={altOf(s.content.media, ctx.locale)} loading="lazy" />}
     </section>
   );
 }
@@ -485,7 +485,7 @@ function PromoBanner({ s, ctx }: { s: Section; ctx: Ctx }) {
         <PromoChip ctx={ctx} s={s} />
         {acceptsOrders(site) && <a className="primary button" href={ctx.links.order}><span className="button-label">{loc(s.content.ctaLabel, locale) || t('studio.site.orderCta')}</span></a>}
       </div>
-      {s.content.media && <img src={s.content.media.url} alt={s.content.media.alt ?? ''} loading="lazy" />}
+      {s.content.media && <img src={s.content.media.url} alt={altOf(s.content.media, ctx.locale)} loading="lazy" />}
     </section>
   );
 }

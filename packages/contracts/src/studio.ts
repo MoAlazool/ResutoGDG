@@ -289,7 +289,8 @@ export interface PublicSiteSection {
   id: string;
   kind: SectionKind;
   content: SectionContent & {
-    media?: { url: string; alt: string | null } | null; gallery?: Array<{ url: string; alt: string | null }>;
+    /** altAr (22-STUDIO): the image's Arabic alt text (Arabic pages use it, falling back to alt). */
+    media?: { url: string; alt: string | null; altAr?: string | null } | null; gallery?: Array<{ url: string; alt: string | null; altAr?: string | null }>;
     /** offers: the chosen dishes that guests can order, in the owner's order. */
     products?: PublicSiteProduct[];
     /** offers / promo_banner: the promotion named by promotionCode while it is active (null otherwise). */
