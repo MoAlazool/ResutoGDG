@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 import path from 'node:path';
 import { buildCsp } from './lib/csp';
 import { insightsRedirects } from './lib/insights';
+import { navRedirects } from './lib/nav-redirects';
 
 const repoRoot = new URL('../..', import.meta.url).pathname;
 
@@ -39,9 +40,10 @@ const config: NextConfig = {
       '@resuto/contracts/lite$': path.join(repoRoot, 'packages/contracts/src/lite.ts') };
     return config;
   },
-  // 21-INSIGHTS: routes that merged into the Insights area (the old Analytics tabs, the intelligence customers screen).
+  // 21-INSIGHTS: routes that merged into the Insights area (the old Analytics tabs, the intelligence customers screen);
+  // 22-TYPE: /studio opens the website studio (lib/nav-redirects.ts).
   async redirects() {
-    return insightsRedirects();
+    return [...insightsRedirects(), ...navRedirects()];
   },
   async headers() {
     // Static files from public/ (PCL-22, docs/CACHE_POLICY.md). Fonts carry a content hash in their name

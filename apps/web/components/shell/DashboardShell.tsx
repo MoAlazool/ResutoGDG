@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { EntitlementsView, ModuleKey } from '@resuto/contracts';
 import { can as roleCan, dateTimeFormat } from '@resuto/contracts/lite';
@@ -75,6 +75,8 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
   const session = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  // The query picks the item of a page tab (/website?tab=domains → Domains, lib/nav.ts activeItem).
+  const search = useSearchParams()?.toString() ?? '';
 
   // The screen's CSS as stylesheets before the screen renders, so it is not held behind its loading skeleton (21-PERF).
   useEffect(() => { preinitPreloadedStyles(); }, []);
@@ -221,10 +223,10 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
               ? <BranchSwitcher org={org} branchId={branchId} allBranches={allBranches} allowAll={allowAll} onChoose={chooseBranch} collapsed={collapsed} />
               : <RestaurantChip name="" busy />}
           </div>
-          {navCtx ? <SidebarNav areas={primary} base={base} pathname={pathname} collapsed={collapsed} openOrders={openOrders} label={t('shell.nav')} /> : <NavSkeleton />}
+          {navCtx ? <SidebarNav areas={primary} base={base} pathname={pathname} search={search} collapsed={collapsed} openOrders={openOrders} label={t('shell.nav')} /> : <NavSkeleton />}
           {org && navCtx && (
             <div className="ws-sidebar-bottom">
-              {settings && <SidebarNav areas={[settings]} base={base} pathname={pathname} collapsed={collapsed} label={t('nav.group.settings')} />}
+              {settings && <SidebarNav areas={[settings]} base={base} pathname={pathname} search={search} collapsed={collapsed} label={t('nav.group.settings')} />}
               {explore && (
                 <Link className="ws-area-btn ws-explore" href={`${base}/explore`} aria-current={pathname === `${base}/explore` ? 'page' : undefined}
                   aria-label={collapsed ? t('nav.explore') : undefined} title={collapsed ? t('nav.explore') : undefined}>
@@ -251,10 +253,10 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
             promise={org && !org.branches.some((b) => b.acceptsDineIn !== false) ? t('shell.promise.counter') : t('shell.promise.tables')}
             mode={org ? <>{payConfig.data ? `${payConfig.data.mode === 'live' ? t('shell.payments.live') : t('shell.payments.simulated')} · ` : ''}<bdi>{org.currency}</bdi></> : null} />
         </div>
-        {navCtx && <MobileTabBar areas={areas} base={base} pathname={pathname} onMore={() => setDrawer(true)} moreOpen={!!drawer} />}
+        {navCtx && <MobileTabBar areas={areas} base={base} pathname={pathname} search={search} onMore={() => setDrawer(true)} moreOpen={!!drawer} />}
         <Suspense fallback={null}>
         {org && navCtx && drawer !== null && guest && (
-          <MobileDrawer open={drawer} onClose={() => setDrawer(false)} areas={primary} settings={settings} base={base} pathname={pathname}
+          <MobileDrawer open={drawer} onClose={() => setDrawer(false)} areas={primary} settings={settings} base={base} pathname={pathname} search={search}
             explore={explore} openOrders={openOrders} guest={guest} setupHref={setupHref} onNavigate={navigate} onLanguage={switchLanguage}
             onSignOut={() => void signOut()} />
         )}
