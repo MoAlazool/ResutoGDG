@@ -12,12 +12,13 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { CustomerLoyalty } from '../../loyalty/_components/CustomerLoyalty';
 import st from './customer.module.css';
 
 // The Customer 360 panel the Inbox shows (21-INBOX), as its own chunk: value and cadence, favourites, first touch,
 // consent per channel, conversations and staff notes. Identity, orders, reservations and loyalty are on this page already.
 const Customer360Panel = lazy(() => import('@/components/customers/Customer360Panel'));
+// The loyalty card (balance, ledger, adjustment sheet) as its own chunk too.
+const CustomerLoyalty = lazy(() => import('../../loyalty/_components/CustomerLoyalty').then((m) => ({ default: m.CustomerLoyalty })));
 
 export default function CustomerProfilePage() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -111,7 +112,7 @@ export default function CustomerProfilePage() {
             <StatV2 label={t('insights.kpi.aov')} value={f.money(c.totals.averageOrderMinor)} />
             <StatV2 label={t('insights.customers.lastOrder')} value={c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'} />
           </div>
-          {!c.anonymisedAt && <CustomerLoyalty customerId={c.id} />}
+          {!c.anonymisedAt && <Suspense fallback={<Skeleton lines={3} />}><CustomerLoyalty customerId={c.id} /></Suspense>}
           <Section title={t('insights.c360.title')}>
             <Suspense fallback={<Skeleton lines={4} />}>
               <Customer360Panel customerId={c.id} omit={['identity', 'orders', 'reservations', 'loyalty']} layout="grid" />

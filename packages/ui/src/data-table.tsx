@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { EmptyState, type Column } from './base';
-import { SegmentedControl } from './controls';
+import { SegmentedControl } from './segmented';
 import { useUiLocale } from './locale';
 import type { UiLocale } from './overlays';
 import { Popover } from './popover';
