@@ -1,7 +1,7 @@
 /*
  * Restaurant website templates. "olive" ports the legacy guest home
- * (platform.css .consumer-app/.restaurant-editorial/.dish-grid, pages.css
- * invitation, style.css buttons); "smash" ports burger.css; "minimal" is a
+ * (the legacy platform stylesheet's .consumer-app/.restaurant-editorial/.dish-grid, the pages
+ * stylesheet's invitation, the shared buttons); "smash" ports the burger stylesheet; "minimal" is a
  * quieter variant of olive. Theme colours from Studio arrive as --site-* vars.
  */
 .site-root a{text-decoration:none;color:inherit}

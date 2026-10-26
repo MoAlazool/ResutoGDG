@@ -159,6 +159,8 @@ export function auditSite(input: AuditInput): AuditCheck[] {
     vars: { url: `${new URL(siteUrl).origin}${draft.canonicalHost ? '' : `/r/${draft.slug}`}/sitemap.xml` },
     fix: { kind: 'link', href: `/r/${draft.slug}/sitemap.xml`, external: true } });
   add({ id: 'seo.shareImage', area: 'seo', status: seo.ogImageUrl ? 'pass' : 'warn', fix: { kind: 'field', field: 'ogImage' } });
+  const photos = !!draft.theme.heroUrl || draft.sections.some((s) => !!s.content.media || (s.content.gallery ?? []).length > 0);
+  add({ id: 'seo.photos', area: 'seo', status: photos ? 'pass' : 'warn' });
   for (const l of LOCALES) {
     const page = input.rendered?.[l];
     if (!page) continue;
@@ -232,6 +234,10 @@ export function auditSite(input: AuditInput): AuditCheck[] {
       fix: about ? { kind: 'section', id: about.id } : { kind: 'ai', request: 'about' } });
   }
   add({ id: 'geo.names', area: 'geo', status: name.en && name.ar ? 'pass' : 'warn', details: name.ar ? [] : ['ar'] });
+  const noPin = draft.branches.filter((b) => b.latitude === null || b.longitude === null).map((b) => b.name);
+  add({ id: 'geo.mapPin', area: 'geo', status: draft.branches.length && !noPin.length ? 'pass' : 'warn', details: noPin });
+  add({ id: 'geo.mapsLink', area: 'geo', status: draft.org.socialLinks?.google_maps ? 'pass' : 'warn' });
+  add({ id: 'geo.logo', area: 'geo', status: draft.theme.logoUrl ? 'pass' : 'warn' });
   // Name, address and phone must agree between the website, the menu page and the structured data (they come from the
   // same branch records, so a difference means one page is stale: e.g. the published site predates a branch change).
   const contradictions: string[] = [];

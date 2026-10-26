@@ -1,48 +1,6 @@
-// UI strings for the Resuto Studio workspace (21-STUDIO): toolbar, navigator, canvas, inspector, templates, SEO/AEO/GEO
-// checklist and AI editing, plus the public site copy of the new section kinds (studio.site.*, guest scope). Keys are
+// UI strings for the Resuto Studio workspace (21-STUDIO): toolbar, navigator, canvas, inspector, templates and AI editing
+// (the SEO/AEO/GEO copy is in studio-optimize.ts, 22-STUDIO), plus the public site copy of the new section kinds (studio.site.*, guest scope). Keys are
 // prefixed "studio." and exist in both languages (lib/i18n tests). Numbers stay Western digits.
-const SEO_CHECKS = {
-  en: {
-    title: ['Page title in English and Arabic', 'What search results show as the link.'],
-    description: ['Description in English and Arabic', 'The text under the link in search results and chats.'],
-    shareImage: ['Sharing image', 'Shown when the site is shared on WhatsApp or social media.'],
-    hreflang: ['Language alternates (hreflang)', 'Each page names its English and Arabic version.'],
-    sitemap: ['Sitemap', 'Your website has its own sitemap for search engines.'],
-    structuredData: ['Structured data is valid', 'schema.org Restaurant, Menu, Offer and FAQ data built from your site.'],
-    nameBoth: ['Restaurant name in Arabic', 'Listings and answers use the name in each language.'],
-    address: ['Address and city for every branch', 'Maps and "near me" searches need the address.'],
-    phone: ['Phone number for every branch', 'Shown in listings and in the structured data.'],
-    mapPin: ['Map location for every branch', 'Set the branch location in Settings › Branches.'],
-    mapsLink: ['Google Maps link', 'Add it under social links so guests find directions.'],
-    logo: ['Logo', 'Used by search engines and in your site header.'],
-    photos: ['Photos', 'A hero photo or a gallery makes listings and shares stand out.'],
-    faq: ['At least 3 questions and answers', 'Answer engines quote clear Q&A: add a FAQ section.'],
-    hours: ['Opening hours for every branch', 'Structured hours answer "is it open now?".'],
-    menuText: ['Menu as text', 'A full-menu section (or described dishes) lets assistants answer "what do they serve?".'],
-    aboutBoth: ['About text in English and Arabic', 'A short description in the hero or About section.'],
-  },
-  ar: {
-    title: ['عنوان الصفحة بالعربية والإنجليزية', 'ما تعرضه نتائج البحث كرابط.'],
-    description: ['الوصف بالعربية والإنجليزية', 'النص تحت الرابط في نتائج البحث والمحادثات.'],
-    shareImage: ['صورة المشاركة', 'تظهر عند مشاركة الموقع على واتساب أو وسائل التواصل.'],
-    hreflang: ['بدائل اللغة (hreflang)', 'كل صفحة تشير إلى نسختها العربية والإنجليزية.'],
-    sitemap: ['خريطة الموقع', 'لموقعك خريطة خاصة به لمحركات البحث.'],
-    structuredData: ['البيانات المنظمة صحيحة', 'بيانات schema.org للمطعم والقائمة والعروض والأسئلة من موقعك.'],
-    nameBoth: ['اسم المطعم بالعربية', 'تستخدم القوائم والإجابات الاسم بكل لغة.'],
-    address: ['العنوان والمدينة لكل فرع', 'الخرائط وعمليات البحث "بالقرب مني" تحتاج إلى العنوان.'],
-    phone: ['رقم الهاتف لكل فرع', 'يظهر في القوائم وفي البيانات المنظمة.'],
-    mapPin: ['موقع الفرع على الخريطة', 'حدّد موقع الفرع من الإعدادات › الفروع.'],
-    mapsLink: ['رابط خرائط Google', 'أضفه في روابط التواصل ليجد الضيوف الاتجاهات.'],
-    logo: ['الشعار', 'تستخدمه محركات البحث وترويسة موقعك.'],
-    photos: ['الصور', 'صورة رئيسية أو معرض صور يميّز القوائم والمشاركات.'],
-    faq: ['3 أسئلة وأجوبة على الأقل', 'تقتبس محركات الإجابة الأسئلة الواضحة: أضف قسم الأسئلة الشائعة.'],
-    hours: ['مواعيد العمل لكل فرع', 'المواعيد المنظمة تجيب عن سؤال "هل هو مفتوح الآن؟".'],
-    menuText: ['القائمة كنص', 'قسم القائمة الكاملة (أو أطباق بوصف) يتيح للمساعدات الإجابة عمّا تقدمونه.'],
-    aboutBoth: ['نبذة بالعربية والإنجليزية', 'وصف قصير في الواجهة الرئيسية أو قسم من نحن.'],
-  },
-} as const;
-const checks = (l: 'en' | 'ar') => Object.fromEntries(Object.entries(SEO_CHECKS[l]).flatMap(([k, [label, hint]]) => [[`studio.seo.check.${k}`, label], [`studio.seo.check.${k}.hint`, hint]]));
-
 const FAMILIES = {
   en: {
     bistro: ['Bistro', 'Warm and editorial, serif headings.'], street_food: ['Street food', 'Bold, red and yellow, built for ordering.'],
@@ -61,14 +19,15 @@ const families = (l: 'en' | 'ar') => Object.fromEntries(Object.entries(FAMILIES[
 
 export const studioWorkspace = {
   en: {
-    ...checks('en'), ...families('en'),
+    ...families('en'),
     // public site (guest scope): new section kinds
     'studio.site.offersTitle': 'Offers', 'studio.site.faqTitle': 'Questions and answers', 'studio.site.socialTitle': 'Follow us', 'studio.site.menuFullTitle': 'Our menu',
     'studio.site.percentOff': '{pct}% off', 'studio.site.amountOff': '{amount} off', 'studio.site.freeDelivery': 'Free delivery', 'studio.site.useCode': 'use the code',
     'studio.site.was': 'Was', 'studio.site.emptyBlock': 'Empty section: add its content in the inspector (guests do not see an empty section).',
     'studio.site.diff.added': 'Proposed', 'studio.site.diff.changed': 'Changed',
     // workspace
-    'studio.ws.toolbar': 'Studio tools', 'studio.ws.navigator': 'Navigator', 'studio.ws.canvas': 'Canvas', 'studio.ws.inspector': 'Inspector',
+    'studio.ws.toolbar': 'Studio tools', 'studio.ws.zoom': 'Canvas zoom', 'studio.ws.zoomFit': 'Fit',
+    'studio.ws.openPublic': 'Open public site', 'studio.ws.openPublicAria': 'Open the public site {url} in a new tab', 'studio.ws.notPublicYet': 'Not public yet', 'studio.ws.navigator': 'Navigator', 'studio.ws.canvas': 'Canvas', 'studio.ws.inspector': 'Inspector',
     'studio.ws.canvasFrame': 'Website canvas (draft)', 'studio.ws.canvasCopyError': 'The canvas could not load the website copy. Check the connection and try again.',
     'studio.ws.page.label': 'Page', 'studio.ws.page.current': 'Page: {page}', 'studio.ws.page.home': 'Home page', 'studio.ws.page.menu': 'Digital menu',
     'studio.ws.page.order': 'Online ordering', 'studio.ws.page.reserve': 'Reservations', 'studio.ws.page.editing': 'Editing', 'studio.ws.page.open': 'Open',
@@ -107,9 +66,6 @@ export const studioWorkspace = {
     'studio.templates.applied': '{name} applied ({n, plural, =0 {no sections added} one {# section added} other {# sections added}}).',
     'studio.variant.full': 'Full site', 'studio.variant.menu_first': 'Menu first', 'studio.variant.offers_led': 'Offers first',
     // SEO / AEO / GEO
-    'studio.seo.group.search': 'Search', 'studio.seo.group.local': 'Local listing', 'studio.seo.group.answers': 'AI answer readiness',
-    'studio.seo.done': '{done} of {total}', 'studio.seo.ok': 'Done', 'studio.seo.todo': 'To do',
-    'studio.seo.sitemap': 'Sitemap:', 'studio.seo.jsonLd': 'Structured data (schema.org JSON-LD)', 'studio.seo.jsonLdValid': 'Valid: no problems found. It is published with the site.',
     // AI editing
     'studio.ai.title': 'AI editing', 'studio.ai.tabEdit': 'Edit the site', 'studio.ai.tabCopy': 'Copy drafts',
     'studio.ai.hint': 'Describe a change. It is proposed as a change set: you see it on the canvas, approve it, then publish when ready.',
@@ -124,12 +80,13 @@ export const studioWorkspace = {
     'studio.ai.publishNow': 'Publish now', 'studio.ai.compare': 'Compare', 'studio.ai.before': 'Before', 'studio.ai.after': 'After',
   },
   ar: {
-    ...checks('ar'), ...families('ar'),
+    ...families('ar'),
     'studio.site.offersTitle': 'العروض', 'studio.site.faqTitle': 'أسئلة وأجوبة', 'studio.site.socialTitle': 'تابعونا', 'studio.site.menuFullTitle': 'قائمتنا',
     'studio.site.percentOff': 'خصم {pct}%', 'studio.site.amountOff': 'خصم {amount}', 'studio.site.freeDelivery': 'توصيل مجاني', 'studio.site.useCode': 'استخدم الكود',
     'studio.site.was': 'كان', 'studio.site.emptyBlock': 'قسم فارغ: أضف محتواه من لوحة الخصائص (لا يرى الضيوف قسمًا فارغًا).',
     'studio.site.diff.added': 'مقترح', 'studio.site.diff.changed': 'معدّل',
-    'studio.ws.toolbar': 'أدوات الاستوديو', 'studio.ws.navigator': 'المتصفح', 'studio.ws.canvas': 'اللوحة', 'studio.ws.inspector': 'الخصائص',
+    'studio.ws.toolbar': 'أدوات الاستوديو', 'studio.ws.zoom': 'تكبير اللوحة', 'studio.ws.zoomFit': 'ملاءمة',
+    'studio.ws.openPublic': 'فتح الموقع العام', 'studio.ws.openPublicAria': 'فتح الموقع العام {url} في علامة تبويب جديدة', 'studio.ws.notPublicYet': 'غير منشور بعد', 'studio.ws.navigator': 'المتصفح', 'studio.ws.canvas': 'اللوحة', 'studio.ws.inspector': 'الخصائص',
     'studio.ws.canvasFrame': 'لوحة الموقع (مسودة)', 'studio.ws.canvasCopyError': 'تعذّر على اللوحة تحميل نصوص الموقع. تحقّق من الاتصال ثم أعد المحاولة.',
     'studio.ws.page.label': 'الصفحة', 'studio.ws.page.current': 'الصفحة: {page}', 'studio.ws.page.home': 'الصفحة الرئيسية', 'studio.ws.page.menu': 'القائمة الرقمية',
     'studio.ws.page.order': 'الطلب أونلاين', 'studio.ws.page.reserve': 'الحجوزات', 'studio.ws.page.editing': 'قيد التحرير', 'studio.ws.page.open': 'فتح',
@@ -165,9 +122,6 @@ export const studioWorkspace = {
     'studio.templates.useStyleOf': 'استخدم نمط {name}', 'studio.templates.useLayoutOf': 'استخدم نمط {name} مع تخطيط {variant}',
     'studio.templates.applied': 'تم تطبيق {name} ({n, plural, =0 {لم يُضف أي قسم} one {أُضيف قسم واحد} two {أُضيف قسمان} few {أُضيفت # أقسام} many {أُضيف # قسمًا} other {أُضيف # قسم}}).',
     'studio.variant.full': 'موقع كامل', 'studio.variant.menu_first': 'القائمة أولًا', 'studio.variant.offers_led': 'العروض أولًا',
-    'studio.seo.group.search': 'البحث', 'studio.seo.group.local': 'الظهور المحلي', 'studio.seo.group.answers': 'الجاهزية لإجابات الذكاء الاصطناعي',
-    'studio.seo.done': '{done} من {total}', 'studio.seo.ok': 'تم', 'studio.seo.todo': 'مطلوب',
-    'studio.seo.sitemap': 'خريطة الموقع:', 'studio.seo.jsonLd': 'البيانات المنظمة (schema.org JSON-LD)', 'studio.seo.jsonLdValid': 'صحيحة: لا توجد مشكلات. تُنشر مع الموقع.',
     'studio.ai.title': 'التحرير بالذكاء', 'studio.ai.tabEdit': 'تعديل الموقع', 'studio.ai.tabCopy': 'مسودات النصوص',
     'studio.ai.hint': 'صف التغيير. يُقترح كمجموعة تغييرات: تراها في اللوحة، توافق عليها، ثم تنشر عندما تكون جاهزًا.',
     'studio.ai.prompt': 'ما الذي تريد تغييره؟', 'studio.ai.placeholder': 'مثال: أضف قسم عروض العيد على هذه الأطباق الثلاثة بخصم 15%',

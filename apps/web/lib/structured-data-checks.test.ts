@@ -48,6 +48,10 @@ describe('structured-data property checks (Restaurant / Menu / FAQPage guidance)
     // A promotion offer (makesOffer) needs a name, not a dish price.
     const promo = propertyChecks({ '@type': 'Restaurant', name: 'x', makesOffer: [{ '@type': 'Offer', name: 'Eid' }] }).filter((c) => c.type === 'Offer');
     expect(promo.every((c) => c.ok || c.level === 'recommended')).toBe(true);
+    // Another branch (department) is checked for its location facts only, not the menu or price range of the whole business.
+    const dept = propertyChecks({ '@type': 'Restaurant', name: 'x', url: 'https://x/', menu: 'https://x/m', department: [{ '@type': 'Restaurant', name: 'Branch', address: { '@type': 'PostalAddress' } }] })
+      .filter((c) => c.path.startsWith('$.department'));
+    expect(dept.filter((c) => c.type === 'Restaurant').map((c) => c.property)).toEqual(['name', 'address', 'telephone', 'geo', 'openingHoursSpecification']);
     // References to nodes described elsewhere are not checked as nodes.
     expect(propertyChecks({ '@type': 'Restaurant', name: 'x', hasMenu: { '@id': 'https://x/m/y#menu' } }).some((c) => c.type === '')).toBe(false);
   });

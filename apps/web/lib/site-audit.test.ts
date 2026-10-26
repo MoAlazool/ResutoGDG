@@ -9,9 +9,10 @@ const branch = (over: Partial<PublicSite['branches'][number]> = {}): PublicSite[
 });
 const site = (over: Partial<PublicSite> = {}): PublicSite => ({
   slug: 'olive', revision: 2, publishedAt: '2026-10-20T10:00:00.000Z', preview: true,
-  org: { name: 'The Olive Room', nameAr: 'غرفة الزيتون', currency: 'EGP', country: 'EG', defaultLocale: 'ar', demo: false, socialLinks: { instagram: 'https://instagram.com/olive' } },
+  org: { name: 'The Olive Room', nameAr: 'غرفة الزيتون', currency: 'EGP', country: 'EG', defaultLocale: 'ar', demo: false,
+    socialLinks: { instagram: 'https://instagram.com/olive', google_maps: 'https://maps.app.goo.gl/olive' } },
   template: 'olive',
-  theme: { primaryColor: '#173f36', accentColor: '#C85E33', backgroundColor: '#faf9f5', font: 'manrope', logoUrl: null, heroUrl: null, tagline: {} },
+  theme: { primaryColor: '#173f36', accentColor: '#C85E33', backgroundColor: '#faf9f5', font: 'manrope', logoUrl: 'https://cdn.example/logo.png', heroUrl: 'https://cdn.example/hero.webp', tagline: {} },
   seo: { title: { en: 'The Olive Room — Mediterranean in Zamalek', ar: 'غرفة الزيتون — مطبخ متوسطي في الزمالك' },
     description: { en: 'Seasonal Mediterranean plates in Zamalek, Cairo. Book a table or order for pickup and delivery online.', ar: 'أطباق متوسطية موسمية في الزمالك بالقاهرة. احجز طاولة أو اطلب للاستلام والتوصيل عبر الإنترنت.' },
     ogImageUrl: 'https://cdn.example/og.webp' },
@@ -118,6 +119,18 @@ describe('Optimize checks (SEO / AEO / GEO) from real site data', () => {
     expect(facts?.details?.join(' ')).not.toMatch(/23:00/);
     expect(byId(auditSite(input()), 'geo.entities')).toMatchObject({ status: 'pass' });
     expect(byId(auditSite(input({ menu: null })), 'geo.entities')?.status).toBe('warn');
+  });
+
+  it('local listing facts: map pins, the Maps profile, the logo and photos', () => {
+    const bare = auditSite(input({ draft: site({ org: { ...site().org, socialLinks: {} }, theme: { ...site().theme, logoUrl: null, heroUrl: null },
+      branches: [branch({ latitude: null, longitude: null })] }) }));
+    expect(byId(bare, 'geo.mapPin')).toMatchObject({ status: 'warn', details: ['Zamalek'] });
+    expect(byId(bare, 'geo.mapsLink')?.status).toBe('warn');
+    expect(byId(bare, 'geo.logo')?.status).toBe('warn');
+    expect(byId(bare, 'seo.photos')?.status).toBe('warn');
+    expect(byId(bare, 'geo.sameAs')?.status).toBe('warn');
+    const full = auditSite(input());
+    for (const id of ['geo.mapPin', 'geo.mapsLink', 'geo.logo', 'seo.photos', 'geo.sameAs']) expect(byId(full, id)?.status, id).toBe('pass');
   });
 
   it('nothing is a score: info items explain without counting; Web Vitals only link to measured data for public https sites', () => {

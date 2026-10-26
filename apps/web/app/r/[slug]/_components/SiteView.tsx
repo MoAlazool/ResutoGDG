@@ -1,5 +1,5 @@
 // Restaurant website renderer (server- and client-safe: no hooks). Ports the
-// legacy guest home page ("olive", legacy/public/guest.js home + platform.css),
+// legacy guest home page ("olive": the legacy guest home script and the platform stylesheet),
 // the Smash & Co storefront ("smash", legacy/public/burger.js/css) and a
 // lighter "minimal" variant, all driven by published Studio data.
 import type { CSSProperties, ReactNode } from 'react';

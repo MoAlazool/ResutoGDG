@@ -7,27 +7,21 @@ import { LocaleProvider, useT } from '@/lib/i18n/client';
 import { formatMessage } from '@/lib/i18n/format-message';
 import { CANVAS_SANDBOX, CANVAS_SRCDOC, CANVAS_WIDTHS, syncStyles, targetOf, type CanvasDevice, type CanvasTarget } from '@/lib/studio-canvas';
 import { SiteView } from '@/app/r/[slug]/_components/SiteView';
+import { loadSiteCopy } from './site-copy';
 import './canvas-frame.css';
 
 type Messages = Record<string, string>;
-let messagesOnce: Promise<{ en: Messages; ar: Messages }> | null = null;
-/** Both languages of the site copy, fetched once per editor session (app/api/studio/site-messages). */
-function loadMessages() {
-  messagesOnce ??= fetch('/api/studio/site-messages', { credentials: 'same-origin' }).then((r) => {
-    if (!r.ok) throw new Error(`site copy ${r.status}`);
-    return r.json() as Promise<{ en: Messages; ar: Messages }>;
-  }).catch((e) => { messagesOnce = null; throw e; });
-  return messagesOnce;
-}
 
 /**
  * The canvas: the draft rendered by the site renderer inside a script-free, same-origin iframe (lib/studio-canvas.ts
  * explains why and how). The frame is laid out at the device's real width (desktop 1280, tablet 820, phone 390 px) and
  * scaled down to fit the pane, so the page reflows exactly as it will for guests (its media queries see that width).
  */
-export function Canvas({ site, locale, device, selected, onSelect, compare, label, onDocument }: {
+export function Canvas({ site, locale, device, selected, onSelect, compare, label, onDocument, zoom = 'fit' }: {
   site: PublicSite; locale: 'en' | 'ar'; device: CanvasDevice; selected: CanvasTarget | null; onSelect: (id: CanvasTarget | null) => void;
   compare: 'before' | 'after' | null; label: string;
+  /** fit: the device width scaled down to the pane; actual: 100 % (the pane scrolls sideways when narrower). */
+  zoom?: 'fit' | 'actual';
   /** The rendered canvas document, for checks that read the real page (heading outline, image alt text). */
   onDocument?: (doc: Document | null) => void;
 }) {
@@ -41,7 +35,7 @@ export function Canvas({ site, locale, device, selected, onSelect, compare, labe
 
   const fetchCopy = useCallback(() => {
     setCopyError(false);
-    loadMessages().then(setMessages, () => setCopyError(true));
+    loadSiteCopy().then(setMessages, () => setCopyError(true));
   }, []);
   useEffect(fetchCopy, [fetchCopy]);
 
@@ -93,7 +87,7 @@ export function Canvas({ site, locale, device, selected, onSelect, compare, labe
     if (!el) return;
     const fit = () => {
       const width = CANVAS_WIDTHS[device];
-      const scale = Math.min(1, el.clientWidth / width);
+      const scale = zoom === 'actual' ? 1 : Math.min(1, el.clientWidth / width);
       el.style.setProperty('--ws-frame-width', `${width}px`);
       el.style.setProperty('--ws-frame-scale', String(scale));
       el.style.setProperty('--ws-frame-height', `${Math.max(1, Math.round(el.clientHeight / scale))}px`);
@@ -102,7 +96,7 @@ export function Canvas({ site, locale, device, selected, onSelect, compare, labe
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [device]);
+  }, [device, zoom]);
 
   // Nothing in the canvas navigates or runs the page's own controls (language switch, forms): a click selects what it
   // landed on. Stopping the event in the capture phase keeps it from reaching the renderer's handlers.
@@ -116,7 +110,7 @@ export function Canvas({ site, locale, device, selected, onSelect, compare, labe
     formatMessage(dict?.[key] ?? messages?.en[key] ?? key, locale, vars), [dict, messages, locale]);
 
   return (
-    <div ref={stage} className="ws-stage" data-device={device} data-ready={doc && messages ? '' : undefined}>
+    <div ref={stage} className="ws-stage" data-device={device} data-zoom={zoom} data-ready={doc && messages ? '' : undefined}>
       {copyError && <div className="ws-stage-note"><Notice tone="danger">{t('studio.ws.canvasCopyError')}</Notice>
         <button type="button" className="btn btn-sm mbs-12" onClick={fetchCopy}>{t('action.retry')}</button></div>}
       <iframe ref={frame} className="ws-frame" srcDoc={CANVAS_SRCDOC} sandbox={CANVAS_SANDBOX} title={label} onLoad={attach} />
