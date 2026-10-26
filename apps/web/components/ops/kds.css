@@ -4,7 +4,7 @@
    tokens, 44 px or larger targets. Tokens only; no motion beyond what the global reduced-motion rule switches off. */
 .kds { display: grid; gap: 14px; }
 .kds-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.kds-bar .kds-live { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.kds-bar .kds-live { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-muted); }
 .kds-bar .kds-live::before { content: ''; inline-size: 8px; block-size: 8px; border-radius: 50%; background: var(--live); }
 .kds-bar .kds-live[data-stale='true']::before { background: var(--danger); }
 .kds-bar > .notice { flex-basis: 100%; }
