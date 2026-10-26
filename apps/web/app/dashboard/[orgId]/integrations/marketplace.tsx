@@ -57,7 +57,7 @@ function CapabilityLine({ card }: { card: MarketCard }) {
 /** One chip of a filter group: its label, how many cards choosing it would list, pressed when chosen. */
 function FacetChip({ pressed, count, onClick, children, status }: { pressed: boolean; count: number; onClick: () => void; children: ReactNode; status?: MarketplaceStatus }) {
   return (
-    <button type="button" className={s.facet} aria-pressed={pressed} onClick={onClick} data-status-filter={status}>
+    <button type="button" className={s.facet} aria-pressed={pressed} onClick={onClick} data-status-filter={status} data-empty={count === 0 && !pressed ? '' : undefined}>
       {status && <span className={s.dot} data-status={status} aria-hidden="true" />}
       {/* The count is visual; the list's own count is announced (aria-live), and the chip's name stays its label. */}
       <span>{children}</span><span className={`${s.facetCount} num`} aria-hidden="true">{count}</span>

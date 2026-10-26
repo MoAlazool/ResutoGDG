@@ -22,6 +22,7 @@
   display: inline-grid; place-items: center; min-inline-size: 24px; block-size: 22px; padding-inline: 6px; border-radius: var(--radius-full);
   background: var(--surface-3); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: var(--fw-semibold);
 }
+.facet[data-empty] { color: var(--text-muted); border-style: dashed; }
 .facet[aria-pressed='true'] .facetCount { background: var(--surface-1); color: var(--accent-soft-fg); }
 .help { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
 .empty { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-6); border: 1px dashed var(--border); border-radius: var(--radius-2); color: var(--text-secondary); }
@@ -92,6 +93,8 @@
 .chip { white-space: normal; line-height: 1.35; text-align: start; }
 
 @media (max-width: 700px) {
+  .market :global(.rui-filterbar-search) { flex-basis: 100%; max-inline-size: none; min-inline-size: 0; }
+  .market :global(.rui-filterbar-actions) { margin-inline-start: 0; }
   .facetRow { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
   .facetChips { flex-wrap: nowrap; overflow-x: auto; padding-block-end: 2px; scrollbar-width: none; }
   .facetChips::-webkit-scrollbar { display: none; }
@@ -126,3 +129,5 @@
 .select { min-block-size: 32px; inline-size: auto; }
 .tight { display: grid; gap: 2px; }
 .capsMore { font-weight: var(--fw-semibold); color: var(--text-muted); white-space: nowrap; }
+/* The search field has its own clear button: hide the browser's second one. */
+.market input[type='search']::-webkit-search-cancel-button { appearance: none; }
