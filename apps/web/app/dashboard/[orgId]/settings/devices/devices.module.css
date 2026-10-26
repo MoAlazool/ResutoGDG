@@ -1,6 +1,8 @@
 /* Settings › iPad devices (22-DEVICES). Logical properties and design tokens only; small text never below --t-sm. */
 .sub { display: block; margin-block-start: var(--space-1); color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; }
-.reason { display: block; margin-block-start: var(--space-1); color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; max-inline-size: 32ch; overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; column-gap: var(--space-2); margin-block-start: var(--space-1); color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; }
+.nowrap { white-space: nowrap; }
+.reason { display: block; margin-block-start: var(--space-1); color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; min-inline-size: 12ch; max-inline-size: 28ch; overflow-wrap: break-word; }
 .notice { margin-block-end: var(--space-3); }
 
 /* Pairing sheet: the form */

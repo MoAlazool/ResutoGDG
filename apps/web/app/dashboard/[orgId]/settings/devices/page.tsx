@@ -72,14 +72,16 @@ function Devices() {
   }
 
   const when = (iso: string | null) => (iso ? <span className="num nowrap">{formatWhen(iso, locale, org.timezone)}</span> : null);
+  // Seven columns so the list fits the settings column at desktop widths: the device's model sits under its name, staff
+  // sign-in under the acting role, the end of validity under the pairing date.
   const columns: ColumnV2<PosDeviceSummary>[] = [
     { key: 'name', header: t('devices.col.name'), rowHeader: true, render: (d) => (
       <span><strong><UserText>{d.name}</UserText></strong>
-        {(d.model || d.appVersion) && <span className={styles.sub}><Ltr>{[d.model, d.appVersion].filter(Boolean).join(' · ')}</Ltr></span>}</span>) },
+        {(d.model || d.appVersion) && <span className={styles.meta}>{[d.model, d.appVersion].filter(Boolean).map((x) => <Ltr key={x} className={styles.nowrap}>{x}</Ltr>)}</span>}</span>) },
     { key: 'branch', header: t('devices.col.branch'), render: (d) => branchName(d.branchId) },
-    { key: 'role', header: t('devices.col.role'), render: (d) => t(`role.${d.actingRole}`) },
-    { key: 'staff', header: t('devices.col.staff'), priority: 'low', render: (d) => (d.requireStaff
-      ? <Badge tone="info">{t('devices.staff.required')}</Badge> : <span className="muted">{t('devices.staff.optional')}</span>) },
+    { key: 'role', header: t('devices.col.role'), render: (d) => (
+      <span>{t(`role.${d.actingRole}`)}
+        <span className={styles.sub} data-staff={d.requireStaff ? 'required' : 'optional'}>{d.requireStaff ? t('devices.staff.required') : t('devices.staff.optional')}</span></span>) },
     { key: 'status', header: t('devices.col.status'), render: (d) => {
       const s = deviceStatus(d);
       return (
@@ -89,10 +91,10 @@ function Devices() {
         </span>
       );
     } },
-    { key: 'paired', header: t('devices.col.paired'), render: (d) => when(d.pairedAt) },
     { key: 'lastSeen', header: t('devices.col.lastSeen'), render: (d) => when(d.lastSeenAt) ?? <span className="muted">{t('devices.list.never')}</span> },
-    { key: 'expires', header: t('devices.col.expires'), priority: 'low', render: (d) => (d.expiresAt
-      ? <span className="num nowrap">{date(d.expiresAt, locale, org.timezone)}</span> : <span className="muted">{t('devices.list.noExpiry')}</span>) },
+    { key: 'paired', header: t('devices.col.paired'), priority: 'low', render: (d) => (
+      <span>{when(d.pairedAt)}
+        <span className={styles.sub}>{d.expiresAt ? t('devices.list.validUntil', { date: date(d.expiresAt, locale, org.timezone) }) : t('devices.list.noExpiry')}</span></span>) },
     { key: 'actions', header: t('devices.col.actions'), align: 'end', hideable: false, render: (d) => (deviceStatus(d) === 'active'
       ? <button type="button" className="btn btn-sm btn-danger" aria-label={t('devices.list.revokeNamed', { name: d.name })} onClick={() => void revoke(d)}>{t('devices.list.revoke')}</button>
       : null) },

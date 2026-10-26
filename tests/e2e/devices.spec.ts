@@ -61,13 +61,13 @@ const COPY = {
     title: 'iPad devices', empty: 'No iPads paired yet', pair: 'Pair a new iPad', staff: /Require staff sign-in on the device/, create: 'Create pairing code',
     name: 'Name of the iPad', paired: /is paired and ready to use/, done: 'Done', active: 'Active', revoked: 'Revoked', revokeBtn: 'Revoke',
     reasonLabel: /Reason/, confirm: 'Revoke iPad', revokedNotice: /was revoked/, reasonText: 'Reason: Lost at the counter', sections: 'Settings sections',
-    role: { cashier: 'Cashier', kitchen: 'Kitchen team' }, required: 'Required', notRequired: 'Not required', table: 'Paired iPads', reason: 'Lost at the counter',
+    role: { cashier: 'Cashier', kitchen: 'Kitchen team' }, required: 'Staff sign-in required', notRequired: 'No staff sign-in', table: 'Paired iPads', reason: 'Lost at the counter',
   },
   ar: {
     title: 'أجهزة iPad', empty: 'لا توجد أجهزة iPad مقترنة بعد', pair: 'إقران جهاز iPad جديد', staff: /طلب تسجيل دخول الموظف على الجهاز/, create: 'إنشاء رمز الإقران',
     name: 'اسم الجهاز', paired: /وهو جاهز للاستخدام/, done: 'تم', active: 'نشط', revoked: 'ملغى', revokeBtn: 'إلغاء الإقران',
     reasonLabel: /السبب/, confirm: 'إلغاء إقران الجهاز', revokedNotice: /توقف عن العمل فورًا/, reasonText: 'السبب: فُقد عند الكاشير', sections: 'أقسام الإعدادات',
-    role: { cashier: 'الكاشير', kitchen: 'فريق المطبخ' }, required: 'مطلوب', notRequired: 'غير مطلوب', table: 'أجهزة iPad المقترنة', reason: 'فُقد عند الكاشير',
+    role: { cashier: 'الكاشير', kitchen: 'فريق المطبخ' }, required: 'يتطلب دخول موظف', notRequired: 'بلا دخول موظف', table: 'أجهزة iPad المقترنة', reason: 'فُقد عند الكاشير',
   },
 } as const;
 
@@ -107,7 +107,8 @@ for (const locale of ['en', 'ar'] as const) {
         await expect(staffSwitch).not.toBeChecked();
       }
       await sheet.getByRole('radio', { name: new RegExp(s.role[role]) }).check({ force: true });
-      await sheet.getByLabel(s.name).fill(deviceName);
+      await sheet.getByRole('textbox', { name: new RegExp(`^${s.name}`) }).fill(deviceName);
+      await shot(page, `${locale}-2-pair-form`);
       await page.getByRole('button', { name: s.create }).click();
 
       const codeEl = page.getByTestId('pairing-code');
@@ -119,7 +120,7 @@ for (const locale of ['en', 'ar'] as const) {
       const first = await timer.textContent();
       await expect(timer).not.toHaveText(first!, { timeout: 5_000 });
       await expect(page.getByTestId('api-base')).toHaveText(`${API_URL}/v1`);
-      await shot(page, `${locale}-2-pairing-code`);
+      await shot(page, `${locale}-3-pairing-code`);
 
       // The simulated iPad exchanges the code for its own credential.
       const paired = await pairDevice(api, code);
@@ -136,7 +137,7 @@ for (const locale of ['en', 'ar'] as const) {
       await expect(row).toContainText(s.active);
       await expect(row).toContainText(s.role[role]);
       await expect(row).toContainText(locale === 'en' ? s.required : s.notRequired);
-      await shot(page, `${locale}-3-list-active`);
+      await shot(page, `${locale}-4-list-active`);
 
       // Revoke with a reason; the list refreshes and shows it.
       await row.getByRole('button', { name: new RegExp(s.revokeBtn) }).click();
@@ -147,7 +148,7 @@ for (const locale of ['en', 'ar'] as const) {
       await expect(row).toContainText(s.revoked);
       await expect(row).toContainText(s.reasonText);
       await expect(row.getByRole('button', { name: new RegExp(s.revokeBtn) })).toHaveCount(0);
-      await shot(page, `${locale}-4-list-revoked`);
+      await shot(page, `${locale}-5-list-revoked`);
 
       // The device credential is refused from now on, and it never reached the page.
       const after = await session(api, paired.token);
