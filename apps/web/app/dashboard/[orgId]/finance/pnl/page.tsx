@@ -34,7 +34,7 @@ function Pnl() {
     </tr>
   );
   return (
-    <div className="grid grid-2 items-start">
+    <div className={`grid ${styles.pnlGrid} items-start`}>
       {data.isSyntheticData && <div className={styles.full}><Notice tone="warn">{t('finance.demo')}</Notice></div>}
       <Card title={t('finance.pnl.title')} actions={<ProvenanceBadge provenance={profitProvenance(data)} />}>
         <div className="table-wrap">
