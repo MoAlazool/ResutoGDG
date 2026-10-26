@@ -55,6 +55,12 @@ function menuItem(p: Dish, currency: string, locale: SiteLocale, url: string): L
   };
 }
 
+/** A dish the page shows (highlights, offers) as something the restaurant offers at a price: Offer → itemOffered MenuItem. */
+function dishOffer(p: Dish, currency: string, locale: SiteLocale, url: string): Ld {
+  const { offers, ...item } = menuItem(p, currency, locale, url);
+  return { ...(offers as Ld), itemOffered: item };
+}
+
 function promotionOffer(p: PublicSitePromotion, locale: SiteLocale, currency: string, url: string): Ld {
   const what = p.kind === 'percent' ? (locale === 'ar' ? `خصم ${p.value / 100}%` : `${p.value / 100}% off`)
     : p.kind === 'fixed' ? (locale === 'ar' ? `خصم ${formatMoney(p.value, currency as Currency, 'ar')}` : `${formatMoney(p.value, currency as Currency, 'en')} off`)
@@ -122,7 +128,8 @@ export function restaurantLd(site: PublicSite, url: string, locale: SiteLocale):
     ...(b ? locationFacts(b, site.org.country) : {}),
   };
   // The menu: the full-menu section when the page shows one (the same dishes, under the menu page's @id); otherwise the
-  // menu page's address (a few highlighted dishes are not the restaurant's menu).
+  // menu page's address, and the dishes the page does show (highlights, offers) as offers of the restaurant (a few
+  // highlighted dishes are not the restaurant's menu).
   const full = site.sections.find((s) => s.kind === 'menu_full' && s.content.menu?.some((c) => c.items.length));
   ld.menu = urls.menu;
   ld.hasMenu = full ? menuNode(full.content.menu!, site.org.currency, locale, urls) : urls.menu;
@@ -138,7 +145,10 @@ export function restaurantLd(site: PublicSite, url: string, locale: SiteLocale):
   }
   const promos = new Map<string, PublicSitePromotion>();
   for (const s of site.sections) if (s.content.promotion) promos.set(s.content.promotion.code ?? s.content.promotion.name, s.content.promotion);
-  if (promos.size) ld.makesOffer = [...promos.values()].map((p) => promotionOffer(p, locale, site.org.currency, urls.order));
+  const dishes = full ? [] : [...new Map([...site.menuHighlights, ...site.sections.flatMap((s) => s.content.products ?? [])].map((p) => [p.id, p])).values()];
+  const offers = [...[...promos.values()].map((p) => promotionOffer(p, locale, site.org.currency, urls.order)),
+    ...dishes.map((p) => dishOffer(p, site.org.currency, locale, urls.order))];
+  if (offers.length) ld.makesOffer = offers;
   return ld;
 }
 
@@ -221,7 +231,9 @@ export function validateJsonLd(doc: unknown): string[] {
       Restaurant: ['name', 'url'], FAQPage: ['mainEntity'], Question: ['name', 'acceptedAnswer'], Answer: ['text'], Menu: ['hasMenuSection'],
       MenuSection: ['name', 'hasMenuItem'], MenuItem: ['name', 'offers'], Offer: [], PostalAddress: ['addressCountry'],
     };
-    for (const f of need[type as string] ?? []) if (o[f] === undefined || o[f] === '') problems.push(`${path}: ${type} needs ${f}`);
+    // A dish offered by the restaurant (Offer → itemOffered MenuItem) carries its price on the Offer around it.
+    const required = type === 'MenuItem' && path.endsWith('.itemOffered') ? ['name'] : need[type as string] ?? [];
+    for (const f of required) if (o[f] === undefined || o[f] === '') problems.push(`${path}: ${type} needs ${f}`);
     if (type === 'Offer' && o.price !== undefined && typeof o.priceCurrency !== 'string') problems.push(`${path}: Offer with a price needs priceCurrency`);
   };
   walk(doc, '$');

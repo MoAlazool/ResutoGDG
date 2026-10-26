@@ -70,10 +70,22 @@ describe('schema.org structured data for the restaurant website', () => {
     for (const d of siteJsonLd(site(), URL_, 'ar')) expect(validateJsonLd(d)).toEqual([]);
   });
 
-  it('without a full-menu section, points to the menu page (a few highlighted dishes are not the menu)', () => {
-    const highlights = restaurantLd(site({ sections: [], menuHighlights: [dish(), dish({ id: 'p3', priceMinor: 12000 })] }), URL_, 'en') as any;
+  it('without a full-menu section, points to the menu page and lists the dishes it shows as the restaurant’s offers', () => {
+    const highlights = restaurantLd(site({ sections: [], menuHighlights: [dish(), dish({ id: 'p3', name: 'Fattah', priceMinor: 12000, compareAtMinor: null })] }), URL_, 'en') as any;
     expect(highlights.hasMenu).toBe('https://app.resuto.test/m/koshary-lab');
     expect(highlights.priceRange).toBe('EGP 38.25–120.00');
+    // A few highlighted dishes are not the menu: they are offers of the restaurant (the dish, its price, its list price).
+    expect(highlights.makesOffer).toEqual([
+      { '@type': 'Offer', price: '38.25', priceCurrency: 'EGP', url: 'https://app.resuto.test/order/koshary-lab',
+        priceSpecification: [{ '@type': 'UnitPriceSpecification', price: '38.25', priceCurrency: 'EGP' },
+          { '@type': 'UnitPriceSpecification', price: '45.00', priceCurrency: 'EGP', priceType: 'https://schema.org/ListPrice' }],
+        itemOffered: { '@type': 'MenuItem', name: 'Koshari', description: 'Lentils, rice, pasta', image: 'https://cdn.example/k.webp', suitableForDiet: 'https://schema.org/VegetarianDiet' } },
+      { '@type': 'Offer', price: '120.00', priceCurrency: 'EGP', url: 'https://app.resuto.test/order/koshary-lab',
+        itemOffered: { '@type': 'MenuItem', name: 'Fattah', description: 'Lentils, rice, pasta', image: 'https://cdn.example/k.webp', suitableForDiet: 'https://schema.org/VegetarianDiet' } },
+    ]);
+    expect(validateJsonLd(highlights)).toEqual([]);
+    // With a full-menu section the dishes are in the Menu, not repeated as offers.
+    expect((restaurantLd(site(), URL_, 'en') as any).makesOffer.every((o: any) => !o.itemOffered)).toBe(true);
     const bare = restaurantLd(site({ sections: [] }), URL_, 'en') as any;
     expect(bare.hasMenu).toBe('https://app.resuto.test/m/koshary-lab');
     expect(bare.priceRange).toBeUndefined();

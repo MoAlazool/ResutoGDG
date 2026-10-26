@@ -77,6 +77,8 @@ export const PROPERTY_RULES: Record<string, PropRule[]> = {
  * the restaurant they are part of): name and address required; phone, map position and hours recommended.
  */
 const DEPARTMENT: PropRule[] = PROPERTY_RULES.Restaurant!.filter((r) => ['name', 'address', 'telephone', 'geo', 'openingHoursSpecification'].includes(r.property));
+/** A dish offered by the restaurant (Offer → itemOffered): the price is on the Offer, the dish needs its name. */
+const DISH_OFFERED: PropRule[] = [{ property: 'name', level: 'required' }, { property: 'description', level: 'recommended' }];
 /** Offers of a promotion (makesOffer) describe a discount, not a dish price: they need a name, not a price. */
 const PROMO_OFFER: PropRule[] = [{ property: 'name', level: 'required' }, { property: 'url', level: 'recommended', test: isUrl }];
 
@@ -88,7 +90,10 @@ export function propertyChecks(doc: unknown): PropCheck[] {
     if (!isObj(v)) return;
     if (Object.keys(v).length === 1 && typeof v['@id'] === 'string') return;
     const type = typeof v['@type'] === 'string' ? (v['@type'] as string) : '';
-    const rules = type === 'Offer' && parentKey === 'makesOffer' ? PROMO_OFFER : type === 'Restaurant' && parentKey === 'department' ? DEPARTMENT : PROPERTY_RULES[type] ?? [];
+    const rules = type === 'Offer' && parentKey === 'makesOffer' && !isObj(v.itemOffered) ? PROMO_OFFER
+      : type === 'Restaurant' && parentKey === 'department' ? DEPARTMENT
+        : type === 'MenuItem' && parentKey === 'itemOffered' ? DISH_OFFERED
+          : PROPERTY_RULES[type] ?? [];
     for (const r of rules) {
       const val = v[r.property];
       out.push({ path, type, property: r.property, level: r.level, ok: present(val) && (r.test ? r.test(val, v) : true), ...(r.note ? { note: r.note } : {}) });

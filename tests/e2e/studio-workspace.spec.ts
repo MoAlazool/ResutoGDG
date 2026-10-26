@@ -117,13 +117,14 @@ test('AI editing: proposal → canvas before/after diff → approve → applied,
   await site.reload();
   await expect(site.getByRole('heading', { name: 'Eid offers' })).toBeVisible();
   await expect(site.locator('.site-offers .site-badge-float').first()).toHaveText('15% off');
-  // Server-rendered JSON-LD: the discounted dish carries its list price.
+  // Server-rendered JSON-LD: the discounted dish the page shows is an offer of the restaurant with its list price (22-STUDIO:
+  // without a full-menu section, the menu itself is the menu page's).
   const ld = JSON.parse(await site.locator('script[type="application/ld+json"]').first().textContent() ?? '{}');
   expect(ld['@type']).toBe('Restaurant');
-  const items = ld.hasMenu.hasMenuSection.flatMap((s: any) => s.hasMenuItem);
-  const burrata = items.find((i: any) => i.name === 'Burrata & heirloom tomato');
-  expect(burrata.offers).toMatchObject({ price: '123.25', priceCurrency: 'EGP' });
-  expect(burrata.offers.priceSpecification[1]).toMatchObject({ price: '145.00', priceType: 'https://schema.org/ListPrice' });
+  expect(ld.hasMenu).toBe(`${WEB_URL}/m/${tenant.slug}`);
+  const burrata = ld.makesOffer.find((o: any) => o.itemOffered?.name === 'Burrata & heirloom tomato');
+  expect(burrata).toMatchObject({ '@type': 'Offer', price: '123.25', priceCurrency: 'EGP' });
+  expect(burrata.priceSpecification[1]).toMatchObject({ price: '145.00', priceType: 'https://schema.org/ListPrice' });
   await site.close();
   expect(errors).toEqual([]);
 });

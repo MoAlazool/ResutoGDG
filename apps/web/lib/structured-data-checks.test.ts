@@ -56,6 +56,16 @@ describe('structured-data property checks (Restaurant / Menu / FAQPage guidance)
     expect(propertyChecks({ '@type': 'Restaurant', name: 'x', hasMenu: { '@id': 'https://x/m/y#menu' } }).some((c) => c.type === '')).toBe(false);
   });
 
+  it('dishes the website shows (not a full menu) are offers with a price and a named item', () => {
+    const highlights = site({ sections: [], menuHighlights: [{ id: 'p', name: 'Kofta', nameAr: 'كفتة', description: null, descriptionAr: null, priceMinor: 12000, currency: 'EGP', imageUrl: null, dietary: [] }] });
+    const r = jsonLdReport(siteJsonLd(highlights, URL_, 'ar'));
+    expect(r.problems).toEqual([]);
+    expect(r.required.failed).toEqual([]);
+    expect(r.types).toMatchObject({ Offer: 1, MenuItem: 1 });
+    const noPrice = propertyChecks({ '@type': 'Restaurant', name: 'x', makesOffer: [{ '@type': 'Offer', itemOffered: { '@type': 'MenuItem', name: 'Kofta' } }] });
+    expect(noPrice.filter((c) => !c.ok && c.level === 'required').map((c) => `${c.type}.${c.property}`)).toEqual(['Restaurant.address', 'Offer.price', 'Offer.priceCurrency']);
+  });
+
   it('extracts and parses every JSON-LD script of a page, reporting unparseable ones', () => {
     const html = '<head><script type="application/ld+json">{"@type":"Restaurant","name":"A\\u003c/script>"}</script>'
       + '<script nonce="x" type="application/ld+json">{"@type":"FAQPage"}</script><script type="application/ld+json">{oops}</script></head>';
