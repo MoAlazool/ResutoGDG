@@ -176,26 +176,26 @@
     },
     "featureSettings": "\"ss01\", \"cv11\" (landing)",
     "scale": {
-      "_scope": ":root / html[lang=ar] (typography.css). Arabic gets one step larger.",
+      "_scope": ":root / html[lang=ar] (typography.css). Arabic gets one step larger (22-TYPE: Arabic sizes rose again by 0.5px so Plex Arabic's smaller x-height reads like Manrope; the English xs step is 12px).",
       "t-xs": {
-        "en": "11.5px",
-        "ar": "12.5px"
+        "en": "12px",
+        "ar": "13px"
       },
       "t-sm": {
         "en": "12.5px",
-        "ar": "13.5px"
+        "ar": "14px"
       },
       "t-md": {
         "en": "13.5px",
-        "ar": "14.5px"
+        "ar": "15px"
       },
       "t-lg": {
         "en": "15px",
-        "ar": "16px"
+        "ar": "16.5px"
       },
       "t-field": {
         "en": "14.5px",
-        "ar": "15.5px"
+        "ar": "16px"
       }
     },
     "headings-landing": {
@@ -336,7 +336,9 @@
       "--neutral-450": "#97a19a",
       "--neutral-500": "#7f8982",
       "--neutral-600": "#666e66",
+      "--neutral-650": "#5c655d",
       "--neutral-700": "#536358",
+      "--neutral-750": "#46554b",
       "--neutral-800": "{color.legacy-base.text}",
       "--neutral-850": "#1c2b24",
       "--neutral-900": "#16221d",
@@ -471,9 +473,10 @@
       "--surface-selected": "var(--neutral-100)",
       "--text": "var(--neutral-800)",
       "--text-strong": "var(--brand-800)",
-      "--text-secondary": "var(--neutral-700)",
-      "--text-muted": "var(--neutral-600)",
+      "--text-secondary": "var(--neutral-750)",
+      "--text-muted": "var(--neutral-650)",
       "--text-subtle": "var(--neutral-600)",
+      "--text-disabled": "var(--neutral-500)",
       "--border": "var(--neutral-150)",
       "--border-subtle": "var(--neutral-100)",
       "--border-strong": "var(--neutral-500)",
@@ -528,6 +531,7 @@
       "--text-secondary": "var(--neutral-300)",
       "--text-muted": "var(--neutral-400)",
       "--text-subtle": "var(--neutral-450)",
+      "--text-disabled": "var(--neutral-500)",
       "--border": "var(--neutral-800)",
       "--border-subtle": "var(--neutral-850)",
       "--border-strong": "var(--neutral-500)",
@@ -584,34 +588,34 @@
       "--green-hover": "var(--accent-hover)",
       "--lime": "var(--lime-100)",
       "--canvas": "var(--surface-3)",
-      "--nav-text": "var(--text-muted)",
+      "--nav-text": "var(--text-secondary)",
       "--nav-hover": "var(--surface-hover)",
       "--nav-active-bg": "var(--surface-selected)",
       "--nav-active-text": "var(--accent-soft-fg)",
       "--nav-badge": "var(--neutral-200)",
-      "--nav-label": "var(--text-subtle)",
+      "--nav-label": "var(--text-muted)",
       "--period": "var(--lime-500)",
       "--live": "var(--green-500)",
       "--subtle": "var(--text-muted)",
-      "--faint": "var(--text-subtle)",
+      "--faint": "var(--text-muted)",
       "--chip-bg": "var(--surface-hover)",
       "--chip-line": "var(--neutral-300)",
       "--avatar-bg": "var(--sand-300)",
       "--avatar-text": "var(--sand-700)",
       "--mark-text": "var(--lime-50)",
       "--fine-text": "var(--text-muted)",
-      "--th-text": "var(--text-muted)",
+      "--th-text": "var(--text-secondary)",
       "--stat-label": "var(--text-muted)",
-      "--stat-unit": "var(--text-subtle)",
+      "--stat-unit": "var(--text-muted)",
       "--eyebrow-sep": "var(--neutral-300)",
       "--guest-link": "var(--text-muted)",
-      "--mode-note-end": "var(--text-subtle)",
-      "--profile-sub": "var(--text-subtle)",
+      "--mode-note-end": "var(--text-muted)",
+      "--profile-sub": "var(--text-muted)",
       "--btn-line": "var(--neutral-200)",
       "--btn-text": "var(--text-secondary)",
       "--btn-hover": "var(--surface-hover)",
       "--pill-bg": "var(--surface-selected)",
-      "--pill-text": "var(--text-muted)",
+      "--pill-text": "var(--text-secondary)",
       "--file-bg": "var(--surface-2)",
       "--file-text": "var(--text-muted)",
       "--file-hover-line": "var(--lime-300)",
@@ -852,7 +856,18 @@
       "--receipt-focus-ring": "#163d3422",
       "--driver-header-line": "#ffffff44",
       "--driver-header-fill": "#ffffff14",
-      "--driver-header-border": "#ffffff33"
+      "--driver-header-border": "#ffffff33",
+      "--t-nav": "14px",
+      "--t-nav-sub": "13.5px",
+      "--fw-nav": "500",
+      "--fw-nav-area": "600",
+      "--fw-nav-active": "650",
+      "--lh-nav": "1.4",
+      "--fw-ui": "500",
+      "--logo-text": "var(--brand-ink)",
+      "--logo-mark-bg": "var(--brand-ink)",
+      "--logo-mark-text": "#F6EBD7",
+      "--logo-period": "var(--herb)"
     },
     "component-dark": {
       "$description": "Dark values of the component palettes that sit in staff screens ([data-theme='dark'], after the component tier). The Floor Studio and live-floor chrome map onto the semantic dark roles; the floor scene materials (--floor-* without -ui-, the legacy table-state palette) stay theme-invariant like a printed map.",
@@ -898,7 +913,7 @@
       "--toast-bg": "var(--neutral-800)"
     },
     "ar": {
-      "$description": "Arabic: one size up at body sizes (12/13/14/16 → 13/14/15/17), looser line height (1.6), the Arabic display face.",
+      "$description": "Arabic: one size up at body sizes (12/13/14/16 → 13/14/15/17), looser line height (1.6), the Arabic display face. 22-TYPE: the staff navigation is set larger in Arabic (15.5/15px, line height 1.5) and its active item in semibold (Plex Arabic has 500/600/700 faces, no 650).",
       "--fs-xs": "13px",
       "--fs-sm": "14px",
       "--fs-md": "15px",
@@ -911,7 +926,11 @@
       "--t-md": "{font.scale.t-md.ar}",
       "--t-lg": "{font.scale.t-lg.ar}",
       "--t-field": "{font.scale.t-field.ar}",
-      "--font-display": "'Plex Arabic', sans-serif"
+      "--font-display": "'Plex Arabic', sans-serif",
+      "--t-nav": "15.5px",
+      "--t-nav-sub": "15px",
+      "--fw-nav-active": "600",
+      "--lh-nav": "1.5"
     },
     "contrast": {
       "$description": "WCAG 2.2 AA pairs checked by scripts/ui/contrast.mjs in the light and dark themes: 'text' needs 4.5:1, 'large' (large or non-essential text) and 'ui' (focus rings, control borders, chart marks) need 3:1. Each entry is [foreground, [backgrounds…]].",
@@ -952,7 +971,9 @@
         ["--floor-ui-delete", ["--floor-ui-surface", "--floor-ui-raised", "--floor-ui-bg", "--floor-ui-hover", "--floor-ui-canvas"]],
         ["--floor-ui-conflict-text", ["--floor-ui-conflict-bg"]]
       ],
-      "large": [],
+      "large": [
+        ["--text-disabled", ["--bg", "--surface-1", "--surface-2", "--surface-3", "--surface-warm", "--surface-hover"]]
+      ],
       "ui": [
         ["--focus", ["--bg", "--surface-1", "--surface-2", "--surface-3", "--surface-warm"]],
         ["--border-strong", ["--bg", "--surface-1", "--surface-2", "--surface-3", "--surface-warm"]],
