@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { apiCreateTenant, apiQrSheet, apiSaveFloor, apiSeedMenu, expect, matchScreenshot, publishSite, qrPath, seedMenu, setLocale, signIn, test } from './fixtures';
 
 // CR-11: visual-fidelity gate for the restored surfaces. Captures are deterministic: a fixed clock, motion reduced,
@@ -25,10 +25,21 @@ async function settle(page: Page) {
 const dynamic = (page: Page) => [page.locator('time'), page.locator('[data-dynamic], [data-visual-mask]'), page.locator('bdi:has-text("#")'),
   page.getByText(/Measured from current restaurant data|refreshes every/)];
 
-async function shot(page: Page, name: string, opts: { fullPage?: boolean } = {}) {
+async function shot(page: Page, name: string, opts: { fullPage?: boolean; mask?: Locator[]; style?: string } = {}) {
   await settle(page);
-  await matchScreenshot(page, `${name}.png`, { fullPage: opts.fullPage ?? false, mask: dynamic(page), maxDiffPixelRatio: 0.01 });
+  await matchScreenshot(page, `${name}.png`, { fullPage: opts.fullPage ?? false, mask: [...dynamic(page), ...(opts.mask ?? [])], style: opts.style, maxDiffPixelRatio: 0.01 });
 }
+
+/**
+ * The booking page reads today's sittings from the API while the HTML is rendered, so its date strip, the open or
+ * passed state of each sitting and the hold note follow the server's clock, which the browser's fixed clock cannot
+ * reach. Those parts are masked, and the sitting grid and the note get a fixed height, so the capture is the same at any
+ * time of day (the grid becomes "no more sittings today" after the last one).
+ */
+const bookingClock = (page: Page) => ({
+  mask: [page.locator('.bk-days, .bk-slots, .bk-empty, .bk-note, .bk-label b, .bk-step-title small')],
+  style: '.bk-slots, .bk-empty { block-size: 168px !important; overflow: hidden !important; } .bk-note { block-size: 1.6em; overflow: hidden; }',
+});
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(FIXED);
@@ -66,7 +77,7 @@ test.describe('restaurant and guest surfaces', () => {
     await page.goto(`/order/${tenant.slug}`);
     await shot(page, 'order-en-mobile');
     await page.goto(`/reserve/${tenant.slug}`);
-    await shot(page, 'reserve-en-mobile');
+    await shot(page, 'reserve-en-mobile', bookingClock(page));
     await page.goto(qr);
     await shot(page, 'table-menu-en-mobile');
   });

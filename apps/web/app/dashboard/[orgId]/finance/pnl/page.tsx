@@ -30,11 +30,11 @@ function Pnl() {
   const row = (label: string, v: number, opts: { neg?: boolean; strong?: boolean; indent?: boolean } = {}) => (
     <tr key={label} className={opts.strong ? 'row-strong' : undefined}>
       <td className={opts.indent ? styles.indent : undefined}>{label}</td>
-      <td className="num text-end" dir="ltr">{opts.neg && v ? `−${m(v)}` : m(v)}</td>
+      <td className="num text-end" dir="ltr">{opts.neg && v ? m(-v) : m(v)}</td>
     </tr>
   );
   return (
-    <div className="grid grid-2 items-start">
+    <div className={`grid ${styles.pnlGrid} items-start`}>
       {data.isSyntheticData && <div className={styles.full}><Notice tone="warn">{t('finance.demo')}</Notice></div>}
       <Card title={t('finance.pnl.title')} actions={<ProvenanceBadge provenance={profitProvenance(data)} />}>
         <div className="table-wrap">

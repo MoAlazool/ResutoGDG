@@ -2,7 +2,7 @@
    (lib/logical-css-policy.test.ts), semantic tokens, 44 px touch targets for the rail, switches and bulk actions. */
 
 /* The page scrolls as one document; the rail and the table sit side by side on wide screens and stack on phones. */
-.menu-ws { display: grid; gap: var(--space-4); min-inline-size: 0; }
+.menu-ws { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); min-inline-size: 0; }
 .menu-ws .rui-workspace { block-size: auto; min-block-size: 0; }
 .menu-ws .rui-workspace[data-start] { grid-template-columns: minmax(220px, 260px) minmax(0, 1fr); }
 .menu-ws .rui-workspace-pane { overflow: visible; }
@@ -27,7 +27,7 @@
 .menu-rail-pick:hover { background: var(--surface-hover); }
 .menu-rail-pick[aria-pressed='true'] { background: var(--surface-selected); color: var(--accent-soft-fg); font-weight: var(--fw-semibold); }
 .menu-rail-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu-rail-count { flex: none; color: var(--text-muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.menu-rail-count { flex: none; color: var(--text-muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .menu-rail-handle, .menu-rail-more {
   display: inline-grid; place-items: center; flex: none; inline-size: var(--touch-target, 44px); block-size: var(--touch-target, 44px);
   padding: 0; border: 0; border-radius: var(--radius-1); background: none; color: var(--text-muted); cursor: pointer;
@@ -41,7 +41,7 @@
 .menu-table-v2 .rui-dt-bulk .btn-sm { min-block-size: 36px; }
 .menu-table-v2 .menu-item-cell img { border-radius: var(--radius-1); object-fit: cover; flex: none; }
 .menu-price { display: inline-grid; justify-items: end; gap: 2px; font-variant-numeric: tabular-nums; }
-.menu-price-was { color: var(--text-muted); font-size: var(--fs-xs); }
+.menu-price-was { color: var(--text-muted); font-size: var(--fs-sm); }
 .menu-avail { align-items: center; min-block-size: var(--touch-target, 44px); }
 .menu-avail .rui-switch-text { display: contents; }
 
@@ -66,7 +66,19 @@
   .menu-table-v2 .rui-dt-bulk .btn-sm, .menu-table-v2 .rui-dt-toolbar .btn-sm, .menu-rail-head .btn-sm { min-block-size: var(--touch-target, 44px); }
 }
 
-/* Phones: the rail becomes a row of category chips above the table (reorder from each chip's menu). */
+/* Tablets and phones (22-DASH): the rail becomes a row of category chips above the table (reorder from each chip's
+   menu); beside a 220 px rail the table had 240 px at 768 px and pushed the page sideways. On tablets the category and
+   portions columns step aside (priority 'low'). */
+@media (max-width: 1100px) {
+  .menu-ws .rui-workspace[data-start] { grid-template-columns: minmax(0, 1fr); }
+  .menu-ws .rui-workspace-pane, .menu-ws .rui-workspace:not(:has(.rui-workspace-toolbar)) .rui-workspace-pane { grid-row: auto; grid-column: 1; }
+  .menu-ws .rui-workspace-start { border-inline-end: 0; border-block-end: 1px solid var(--border); }
+  .menu-rail-list { display: flex; gap: var(--space-2); overflow-x: auto; overscroll-behavior-inline: contain; padding-block-end: var(--space-1); }
+  .menu-rail-item { flex: none; border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface-1); }
+  .menu-rail-pick { border-radius: var(--radius-full); }
+  .menu-rail-handle, .menu-rail-hint { display: none; }
+  .menu-rail-name { max-inline-size: 40vw; }
+}
 @media (max-width: 700px) {
   .menu-main { padding: var(--space-3) 0 0; }
   .menu-rail { padding: var(--space-2) 0; }

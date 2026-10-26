@@ -14,7 +14,7 @@
 .section { display: grid; gap: var(--space-3); min-inline-size: 0; }
 .sectionHead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2) var(--space-4); }
 .sectionTitle { margin: 0; font-size: var(--fs-xl); font-weight: var(--fw-semibold); color: var(--text-strong); }
-.sectionNote { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.sectionNote { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--space-4); }
 .tile {
@@ -24,7 +24,7 @@
 .tileHead { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 .tileTitle { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-secondary); }
 .big { font-size: var(--fs-3xl); font-weight: var(--fw-bold); color: var(--text-strong); line-height: 1.1; font-variant-numeric: tabular-nums; }
-.fine { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.fine { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
 
 .stages { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .stage {
@@ -87,3 +87,6 @@
   .attItem { grid-template-columns: minmax(0, 1fr); }
   .attSide { justify-items: start; grid-auto-flow: column; align-items: center; }
 }
+/* 22-DASH: the "measured … as of" line replaces a one-line "Loading" and takes two lines on a phone; its room is kept so
+   the period toolbar and the sections do not jump down when the figures arrive (CLS 0.46 at 390 px). */
+@media (max-width: 700px) { .page :global(.page-header p) { min-block-size: calc(2lh); } }

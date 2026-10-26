@@ -11,13 +11,13 @@
 .res-gantt-row[data-unassigned] .res-gantt-label { color: var(--text-muted); font-weight: var(--fw-regular); }
 .res-gantt-track { position: relative; display: block; block-size: var(--res-lane); margin-inline-end: 24px; }
 .res-gantt-row .res-gantt-track { background: var(--surface-2); border-radius: var(--radius-1); }
-.res-gantt-hour { position: absolute; inset-block-start: 0; transform: translateX(-50%); font-size: var(--fs-xs); color: var(--text-muted); white-space: nowrap; }
+.res-gantt-hour { position: absolute; inset-block-start: 0; transform: translateX(-50%); font-size: var(--fs-sm); color: var(--text-muted); white-space: nowrap; }
 [dir='rtl'] .res-gantt-hour { transform: translateX(50%); }
 .res-gantt-tick { position: absolute; inset-block: 0; inline-size: 1px; background: var(--border-subtle); }
 .res-gantt-now { position: absolute; inset-block: -3px; inline-size: 2px; background: var(--danger-fg); z-index: 1; }
 .res-gantt-bar { position: absolute; block-size: calc(var(--res-lane) - 6px); margin-block-start: 3px; min-inline-size: 28px; overflow: hidden; white-space: nowrap;
   text-overflow: ellipsis; text-align: start; padding: 0 8px; border: 1px solid var(--info-fg); border-inline-start-width: 4px; border-radius: var(--radius-1);
-  background: var(--info-bg); color: var(--info-fg); font: inherit; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; cursor: pointer; z-index: 2; }
+  background: var(--info-bg); color: var(--info-fg); font: inherit; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; cursor: pointer; z-index: 2; }
 .res-gantt-bar:hover { box-shadow: var(--elevation-1); }
 .res-gantt-bar:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
 .res-gantt-bar[data-status='held'] { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-fg); }

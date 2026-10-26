@@ -32,7 +32,8 @@ export default function NotificationsPageView() {
   });
   return (
     <ListPage header={{ title: t('notifications.title'), subtitle: t('notifications.subtitle'),
-      actions: state.data?.unread ? <button type="button" className="btn" disabled={markAll.pending} onClick={() => markAll.run()}>{t('notifications.markAll')}</button> : undefined }}
+      // The action is always there (disabled with nothing unread or while loading), so the header keeps its height.
+      actions: <button type="button" className="btn" disabled={!state.data?.unread || markAll.pending} onClick={() => markAll.run()}>{t('notifications.markAll')}</button> }}
       filters={<Tabs<Filter> value={filter} onChange={setFilter} tabs={[
         { key: 'all', label: t('notifications.filter.all') },
         { key: 'unread', label: t('notifications.filter.unread') },

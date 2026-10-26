@@ -7,15 +7,19 @@
 
 /* Overview */
 .stats { margin-block-end: var(--space-2); }
-.legend { margin: 0; color: var(--text-muted); font-size: var(--fs-xs); }
+.legend { margin: 0; color: var(--text-muted); font-size: var(--fs-sm); }
 .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: var(--space-4); align-items: start; }
 .pair > :global(.card):not(:first-child) { margin-block-start: 0; }
-.margins { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-3) 0 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--text-muted); }
+.margins { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-3) 0 0; padding: 0; list-style: none; font-size: var(--fs-sm); color: var(--text-muted); }
 .margins strong { color: var(--text); font-weight: var(--fw-semibold); }
 .margins [data-negative] strong { color: var(--danger-fg); }
 .chartSlot { min-block-size: 240px; }
 
 /* P&L */
+/* P&L: the statement takes the wider column; the policy and method notes sit beside it (a spanning notice kept an
+   auto-fit grid at three tracks, leaving a third of the page empty). */
+.pnlGrid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+@media (max-width: 1100px) { .pnlGrid { grid-template-columns: minmax(0, 1fr); } }
 .indent { padding-inline-start: var(--space-8); }
 .memoHead { padding-block-start: var(--space-3); }
 .full { grid-column: 1 / -1; }
@@ -27,9 +31,9 @@
 .kind:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .kind:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
 .kindName { display: flex; align-items: center; gap: var(--space-2); font-weight: var(--fw-semibold); }
-.kindHint { font-size: var(--fs-xs); color: var(--text-muted); }
+.kindHint { font-size: var(--fs-sm); color: var(--text-muted); }
 .exportActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
-.checksum { font-size: var(--fs-xs); }
+.checksum { font-size: var(--fs-sm); }
 .connect { align-items: end; margin-block-start: var(--space-4); }
 .providers { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-end: var(--space-3); }
 .setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: var(--space-4); align-items: start; margin-block-start: var(--space-4); }

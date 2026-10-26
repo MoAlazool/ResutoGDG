@@ -352,7 +352,7 @@ export const exploreLink = (page: Page) => workspaceNav(page).getByRole('link', 
  * uploaded with the job's artifact for the owner to approve (docs/ui/visual-baselines.json, CR-11). A committed
  * baseline is always compared. Playwright 1.56's --update-snapshots=missing writes the file but fails the test.
  */
-export async function matchScreenshot(target: Page | Locator, name: string, options: Pick<PageAssertionsToHaveScreenshotOptions, 'fullPage' | 'mask' | 'maxDiffPixelRatio'> = {}) {
+export async function matchScreenshot(target: Page | Locator, name: string, options: Pick<PageAssertionsToHaveScreenshotOptions, 'fullPage' | 'mask' | 'maxDiffPixelRatio' | 'style'> = {}) {
   const expected = test.info().snapshotPath(name, { kind: 'screenshot' });
   if (process.env.E2E_RECORD_MISSING_BASELINES === '1' && !existsSync(expected)) {
     mkdirSync(path.dirname(expected), { recursive: true });

@@ -12,7 +12,10 @@
       "rerecordNote": "21-MIGRATE re-recorded the six local baselines made stale by the 2.1 redesign (landing-ar-mobile, staff-overview-en, staff-floor-en, staff-orders-en, staff-settings-en, kds-en; 2.7–10.2 % of pixels changed; landing-ar-mobile-hero in landing.spec.ts 8.8 %) and added 15 staff surfaces (EN/AR × desktop/phone) with `E2E_VISUAL=1 pnpm e2e --project=visual --update-snapshots`; a second run without --update-snapshots passed 7/7. The other eight baselines were unchanged (within 1 %). Pending owner review.",
       "rerecorded22At": "2026-10-26",
       "rerecorded22By": "ws22-type agent (22-TYPE), pending owner review",
-      "rerecorded22Note": "22-TYPE re-recorded the 18 local staff baselines changed by the bilingual typography and sidebar refinement (text tokens, nav type tokens, Arabic type offsets, the public-site logo in the shell, the rebuilt sidebar): staff-customers-ar-mobile, staff-customers-en, staff-floor-en, staff-loyalty-ar, staff-marketing-ar-mobile, staff-marketing-en, staff-mcp-en, staff-menu-ar, staff-menu-en, staff-orders-ar-mobile, staff-orders-en, staff-overview-ar-mobile, staff-overview-ar, staff-overview-en-mobile, staff-overview-en, staff-payments-en, staff-settings-ar, staff-settings-en. Recorded with `E2E_VISUAL=1 pnpm e2e --project=visual -g staff --update-snapshots`; a second run without --update-snapshots passed 2/2. kds-en and the public/guest baselines were unchanged. Pending owner review."
+      "rerecorded22Note": "22-TYPE re-recorded the 18 local staff baselines changed by the bilingual typography and sidebar refinement (text tokens, nav type tokens, Arabic type offsets, the public-site logo in the shell, the rebuilt sidebar): staff-customers-ar-mobile, staff-customers-en, staff-floor-en, staff-loyalty-ar, staff-marketing-ar-mobile, staff-marketing-en, staff-mcp-en, staff-menu-ar, staff-menu-en, staff-orders-ar-mobile, staff-orders-en, staff-overview-ar-mobile, staff-overview-ar, staff-overview-en-mobile, staff-overview-en, staff-payments-en, staff-settings-ar, staff-settings-en. Recorded with `E2E_VISUAL=1 pnpm e2e --project=visual -g staff --update-snapshots`; a second run without --update-snapshots passed 2/2. kds-en and the public/guest baselines were unchanged. Pending owner review.",
+      "rerecorded22DashAt": "2026-10-26",
+      "rerecorded22DashBy": "ws22-dash agent (22-DASH), pending owner review",
+      "rerecorded22DashNote": "22-DASH re-recorded the 16 local baselines changed by the dashboard-wide readable text floor (no visible text under 12.5 px, 13.5 px Arabic: fine print, small buttons, badges, eyebrows, KPI labels, ticket lines, guest tags and booking chips), the settings/menu tablet layouts and the shell count badge: kds-en, login-en-desktop, order-en-mobile, reserve-en-mobile, staff-customers-ar-mobile, staff-floor-en, staff-marketing-ar-mobile, staff-marketing-en, staff-menu-ar, staff-menu-en, staff-orders-ar-mobile, staff-overview-ar-mobile, staff-overview-en-mobile, staff-settings-ar, staff-settings-en, table-menu-en-mobile. reserve-en-mobile now masks the parts that follow the server clock (date strip, sittings, hold note; tests/e2e/visual.spec.ts bookingClock) instead of following the time of day. Recorded with `E2E_VISUAL=1 pnpm e2e --project=visual --update-snapshots` (only baselines over the 1 % threshold were rewritten); a second run without --update-snapshots passed 7/7. Pending owner review."
     },
     "docker": {
       "status": "not yet recorded",
@@ -54,7 +57,14 @@
       "legacy": "docs/ui/baseline/manager-login-desktop.webp",
       "status": "candidate",
       "reviewedBy": "ws10a-data-qa",
-      "notes": "New staff sign-in replaces the legacy single-password manager login; same brand and palette, different form (accounts per person)."
+      "notes": "New staff sign-in replaces the legacy single-password manager login; same brand and palette, different form (accounts per person).",
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
+      }
     },
     {
       "surface": "restaurant-en-desktop",
@@ -75,21 +85,42 @@
       "legacy": "docs/ui/baseline/order-mobile.webp",
       "status": "candidate",
       "reviewedBy": "ws10a-data-qa",
-      "notes": "Web ordering at phone width; legacy order page layout with the 2.0 cart bar."
+      "notes": "Web ordering at phone width; legacy order page layout with the 2.0 cart bar.",
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
+      }
     },
     {
       "surface": "reserve-en-mobile",
       "legacy": "docs/ui/baseline/reserve-mobile.webp",
       "status": "candidate",
       "reviewedBy": "ws10a-data-qa",
-      "notes": "Three-step booking (VP-08) at phone width."
+      "notes": "Three-step booking (VP-08) at phone width.",
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
+      }
     },
     {
       "surface": "table-menu-en-mobile",
       "legacy": "docs/ui/baseline/table-qr-mobile.webp",
       "status": "candidate",
       "reviewedBy": "ws10a-data-qa",
-      "notes": "QR table menu: hero, assistant card, search, categories and the bottom bill/cart bar match legacy; the 2.0 header shows the table and \"Call waiter\"."
+      "notes": "QR table menu: hero, assistant card, search, categories and the bottom bill/cart bar match legacy; the 2.0 header shows the table and \"Call waiter\".",
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-overview-en",
@@ -131,6 +162,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -173,6 +211,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -187,6 +232,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded 2026-10-26 by the ws21-migrate agent (21-MIGRATE) after the 2.1 redesign, local environment; pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -221,6 +273,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -238,6 +297,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -306,6 +372,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -357,6 +430,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -374,6 +454,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -391,6 +478,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -408,6 +502,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -425,6 +526,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     },
     {
@@ -442,6 +550,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      },
+      "rerecorded22Dash": {
+        "at": "2026-10-26",
+        "by": "ws22-dash agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-DASH (readable text floor and layout pass); pending owner review (not approved)."
       }
     }
   ]

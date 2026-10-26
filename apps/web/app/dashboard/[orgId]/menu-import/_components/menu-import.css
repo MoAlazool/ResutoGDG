@@ -27,9 +27,9 @@
 .mi-input{width:100%;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--card);color:inherit}
 .mi-input[aria-invalid=true],.mi-invalid{border-color:var(--danger)}
 .mi-num{max-width:110px;text-align:end;font-variant-numeric:tabular-nums}
-.mi-rowno{font-size:12px;color:var(--muted);margin-bottom:4px;white-space:nowrap}
-.mi-checks{min-width:180px;font-size:13px}
-.mi-details{margin-top:6px;font-size:13px}
+.mi-rowno{font-size:var(--t-sm);color:var(--muted);margin-bottom:4px;white-space:nowrap}
+.mi-checks{min-width:180px;font-size:var(--fs-sm)}
+.mi-details{margin-top:6px;font-size:var(--fs-sm)}
 .mi-details summary{cursor:pointer;color:var(--muted)}
 .mi-details .field{margin-top:6px}
 .mi-group{border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;margin:8px 0;display:grid;gap:6px}

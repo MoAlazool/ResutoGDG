@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { MCP_TOOLS, type ChangeAuditEntry, type ChangeSetView, type McpToolName, type Page } from '@resuto/contracts';
-import { Card, DetailPage, EmptyState, ErrorState, KeyValueList, Notice, Skeleton, TextareaField, useAction } from '@resuto/ui';
+import { Card, DetailPage, EmptyState, ErrorState, KeyValueList, Notice, Skeleton, SkeletonBlock, TextareaField, useAction } from '@resuto/ui';
 import { AuditTimeline, ChangeSetDiff, RequirementLine, SetStatusBadge } from '@/components/changes/ChangeSetDiff';
 import { ApiRequestError } from '@/lib/api';
 import { canDecide, canReject } from '@/lib/change-diff';
@@ -93,7 +93,9 @@ export default function ChangeSetPage() {
   // DetailPage: the changes and the decision in the main column; facts and the audit trail in the inspector.
   return (
     <DetailPage inspectorLabel={t('mcp.inbox.audit')}
-      header={{ eyebrow: t('mcp.inbox.title'), title: c?.title ?? t('mcp.inbox.title'), subtitle: c?.summary ?? undefined,
+      header={{ eyebrow: t('mcp.inbox.title'), title: c?.title ?? t('mcp.inbox.title'),
+        // While the change set loads, its summary line keeps its room (the header no longer grows when it arrives).
+        subtitle: c ? c.summary ?? undefined : <SkeletonBlock width="min(420px, 100%)" height={18} />,
         actions: <Link className="btn btn-ghost" href={`/dashboard/${org.id}/approvals`}>{t('mcp.inbox.back')}</Link> }}
       inspector={c ? <>
         {facts}

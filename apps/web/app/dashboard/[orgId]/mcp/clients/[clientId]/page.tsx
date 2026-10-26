@@ -55,8 +55,9 @@ export default function McpClientPage() {
   const inactive = !!c && (c.status === 'revoked' || c.expired);
 
   return (
-    <McpPage tab="clients" actions={c && c.status === 'active'
-      ? <button type="button" className="btn btn-danger" onClick={() => setConfirmRevoke(true)}>{t('mcp.detail.revoke')}</button> : undefined}>
+    // While the connection loads its Revoke action holds its place (disabled), so the header does not grow on arrival.
+    <McpPage tab="clients" actions={!c || c.status === 'active'
+      ? <button type="button" className="btn btn-danger" disabled={!c} onClick={() => setConfirmRevoke(true)}>{t('mcp.detail.revoke')}</button> : undefined}>
       <LoadState loading={client.loading || catalog.loading} error={client.error ?? catalog.error} retry={() => { void client.reload(); void catalog.reload(); }}>
         {c && (
           <div className="stack gap-16">

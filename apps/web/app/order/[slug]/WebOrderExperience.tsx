@@ -232,7 +232,7 @@ function CheckoutSheet({ slug, menu, cart, onClose, onDone }: {
         {quote && (
           <div>
             <MoneyRow fine label={t('core.bill.subtotal')} value={m(quote.subtotalMinor)} />
-            {quote.discountMinor > 0 && <MoneyRow fine label={t('core.bill.discount')} value={`−${m(quote.discountMinor)}`} />}
+            {quote.discountMinor > 0 && <MoneyRow fine label={t('core.bill.discount')} value={m(-quote.discountMinor)} />}
             {quote.deliveryFeeMinor > 0 && <MoneyRow fine label={t('core.bill.delivery')} value={m(quote.deliveryFeeMinor)} />}
             {quote.taxMinor > 0 && <MoneyRow fine label={quote.taxInclusive ? t('core.bill.vatIncluded') : t('core.bill.vat')} value={m(quote.taxMinor)} />}
             <MoneyRow grand label={t('core.bill.total')} value={m(quote.totalMinor)} />

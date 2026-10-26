@@ -63,6 +63,14 @@ aliases for backgrounds (for example `.btn-primary` on `--ink`) need their 21-MI
   Arabic ships 400/500/600/700 faces only, all self-hosted, none synthesised). Small sizes go through tokens, never
   fixed px, so the Arabic offsets apply. Arabic staff documents preload Plex Arabic Medium besides the SemiBold primary
   file (`lib/fonts.ts`).
+- **Readable floor (22-DASH):** no visible text below 12.5 px in English or 13.5 px in Arabic, anywhere in the staff
+  pages, the operator console or the guest pages (SVG text in charts and the floor drawing scales with its drawing and is
+  exempt). Use `--fs-sm` (13 / Arabic 14) for fine print, help, captions and small buttons and `--t-sm` (12.5 / 14) for
+  compact chips, counts and badges. `--fs-xs` / `--t-xs` remain for SVG chart axes (and, until their own pass, the Inbox,
+  Website studio, integrations and onboarding stylesheets). An unstyled `<small>` is
+  floored at `--t-sm`. KPI labels and stat labels use `--text-secondary` medium. `tests/e2e/layout-sweep.spec.ts`
+  checks the floor and the absence of sideways page scroll on the main routes at 1280, 768 and 390 px in both
+  languages.
 - **Space:** a 4 px grid, `--space-1` (4 px) … `--space-12` (48 px). The pre-2.1 `--space-1…4` (8–32 px) had no users and
   now follow the grid.
 - **Radius:** `--radius-1` 6 px (controls, chips), `--radius-2` 10 px (panels, inputs, popovers), `--radius-3` 14 px
@@ -139,6 +147,10 @@ defaults chosen by the page language (`UiLocaleProvider`, set by the web app's `
   stay valid because the page re-queries).
 - The header row is sticky inside a scroll box (`maxHeight`, default 70vh). Under 700 px rows become label/value cards,
   as the original table does.
+- 22-DASH: end-aligned cells use tabular numbers and stay on one line; a table wider than its box scrolls inside it and
+  keeps the row's name column in view (sticky at the inline start; not on link rows or selectable tables, whose row
+  link and checkbox column need the row as their containing block). `priority: 'low'` hides a secondary column at
+  701-1100 px. Phone cards show the row name as the card title and leave empty cells out.
 
 ## 3. Icons
 
