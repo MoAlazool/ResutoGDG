@@ -206,6 +206,8 @@ th[data-align='end'] .rui-dt-sort { flex-direction: row-reverse; }
   .rui-dt .dt-stack table.data tbody th[scope='row'] > .dt-label { display: none; }
   .rui-dt .dt-stack table.data tbody td:has(> .dt-cell:empty) { display: none; }
   .rui-dt .dt-stack table.data td[data-align='end'] { white-space: normal; }
+  /* Density and column choices do not apply to cards. */
+  .rui-dt-toolbar-end { display: none; }
   .rui-dt .dt-stack table.data tr[data-link] { position: relative; }
   .rui-dt-scroll[data-sticky] { max-block-size: none; }
   .rui-dt-select { inline-size: auto; }

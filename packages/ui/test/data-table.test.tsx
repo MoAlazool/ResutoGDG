@@ -45,6 +45,17 @@ describe('DataTableV2', () => {
     expect(out).toContain('data-sticky=""');
   });
 
+  it('marks low-priority columns on their header and every cell (they step aside at tablet widths), in English and Arabic', () => {
+    for (const locale of ['en', 'ar'] as const) {
+      const v = mount(<div lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}><DataTableV2 label="Orders" locale={locale} rows={ROWS} rowKey={(r) => r.id}
+        columns={[COLS[0]!, COLS[1]!, { ...COLS[2]!, priority: 'low' }]} /></div>);
+      expect($$(v.host, '[data-priority="low"]').map((c) => c.tagName)).toEqual(['TH', 'TD', 'TD', 'TD']);
+      expect($$(v.host, 'thead th')[2]!.getAttribute('data-priority')).toBe('low');
+      expect($$(v.host, 'thead th')[1]!.hasAttribute('data-priority')).toBe(false);
+      expect(v.host.textContent).not.toMatch(EASTERN_DIGITS);
+    }
+  });
+
   it('sorts from the header buttons and reports aria-sort (ascending → descending → off)', () => {
     const v = mount(<DataTableV2 label="Orders" rows={ROWS} columns={COLS} rowKey={(r) => r.id} />);
     expect(names(v.host)).toEqual(['Mona', 'Adel', 'Karim']);
