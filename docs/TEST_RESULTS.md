@@ -365,3 +365,58 @@ https://resuto-2-staging-web.vercel.app, Vercel SSO 302), API `dep-dbebvru7bikc7
 `dep-dbebvs0473hc73cqmji0`, MCP `dep-dbebvscs728c73boef5g`, all at `5c359d5`. `smoke.mjs` **43 / 43** with the commit
 pinned on API/AI/MCP, `mcp-check.mjs` **7 / 7**, boot demo refresh **"all assertions hold."**, no error lines in the
 new API instance's log.
+
+## Resuto 2.1 (2026-10-24 … 2026-10-26, `69ec75e` … `d4305a3`)
+
+Plan: `docs/plans/RESUTO_2_1_PLAN.md`. Every 1A/1B/1C workstream is merged (DS, POSAPI 0.1/0.2, SHELL, CS, MCP, HOME,
+INBOX 1+2, INT, ONB 1+2, STUDIO, MENU, CRM, OPS, MONEY, INSIGHTS, ADMIN, WAQR stage 1 research only, MIGRATE), then the
+1D stabilisation: threat-model security assessment, axe on every route, performance before/after and the fixes, and
+three new staging flow checks.
+
+**GitHub CI run 122 (`d4305a3`): every job passes** — https://github.com/MoAlazool/ResutoGDG/actions/runs/40312668823
+(Database, API and web incl. the API as `resuto_api` and the OpenAPI additive check; Browser E2E Chromium + WebKit
+phone scenarios, including the new `a11y.spec.ts` on Chromium; Visual parity; Legacy). Run 121 (`f679244`) also green.
+
+| Local suite (`d4305a3`) | Result |
+|---|---|
+| API integration (owner) | **1147 passed, 4 skipped, 1 failed** — see note |
+| API integration as `resuto_api` | **1151 passed, 1 skipped** |
+| Database security | **151 / 151** (incl. unique migration versions, RLS on every public table) |
+| Contracts | **108 / 108** |
+| MCP server | **30 / 30** |
+| Web unit (incl. `packages/ui`, i18n route-scope tests) | **931 / 931** |
+| Staging script tests | **17 / 17** |
+| OpenAPI | drift test green; change vs `5c359d5` is additive |
+| Bundle budget | pass, no budget raised: guest max 168.1 / 170, public 209.3 / 226, staff 216.4 / 220 |
+| Playwright Chromium, whole suite except visual (ws/21-perf, before merge) | **123 passed** |
+| axe (`tests/e2e/a11y.spec.ts`, colour contrast on, serious/critical fail) | 76 dashboard routes + kitchen/security EN/AR, 10 phone routes, guest, auth, landing/pricing, onboarding, every /admin page, Free-plan locked previews: **0 violations, no exclusions** |
+| Token contrast (`scripts/ui/contrast.mjs`) | **282 pairs, 0 failing** |
+
+Note on the one local failure: `test/perf-plans.test.ts › Orders page` scanned 4,003 rows (budget < 50) once in the
+full local run. It passed 3/3 alone and 2/2 alongside the order-heavy files, CI runs 110–122 passed it, and no API or
+migration code changed since it last passed (`bb5f96f`). Most likely cause: the shared test database's statistics
+(other files' open orders) made the planner walk the time-ordered index for `limit 51` instead of the open-orders
+partial index. Not reproduced, so not changed; production-sized plans are covered by `scripts/perf/explain.mjs --assert`.
+
+Ratchets: inline styles 285 → **2** (inbox virtual-list spacer heights); hex colour literals 430 → **101**.
+
+Security (`docs/security/THREAT_MODEL_2.1.md`): F-1 (MCP approvals ignored the approver's branch scope), F-2 (reject
+did not require the approve permissions), F-3 (MCP connection test call across branches) confirmed with failing tests
+and fixed; cross-tenant probes over every 2.1 endpoint answered 404 and changed nothing. Accepted risks A-1…A-13 await
+the owner's sign-off.
+
+Performance (`docs/PERFORMANCE.md`, local container, median of 3, two alternated passes): staff LCP is now below 2.0 on
+every measured page (e.g. orders 3,636/3,412 → 3,292/3,160 ms; overview 3,472/3,464 → 2,424/2,468 ms); HTML documents are
+inside their `--web` budgets (staff 111–131 → 26.5–32.0 kB gzip). Still above 2.0: public site `/r` (+108/+52 ms, the
+larger global CSS) and first-visit JS on some staff pages.
+
+Staging redeployed at `d4305a3`: web `dpl_EC9qdP4LNngqgraCsf2qJR3pjAi5`, API `dep-dbfjk61srm7s73f7n51g`, AI
+`dep-dbfjk6ei0phs73au4cl0`, MCP `dep-dbfjk6mi0phs73au4do0`. Migrations applied ("database is up to date" on the second
+boot), boot demo refresh **"all assertions hold."**, `smoke.mjs` **43 / 43** with the commit pinned on API/AI/MCP,
+`mcp-check.mjs` **7 / 7**.
+
+Not yet run on staging (owner input needed, `docs/STAGING_DEPLOYMENT.md` "Flow checks"): `eid-check.mjs` (29/29 on a
+local stack), `pos-check.mjs` (37/37 locally) and `onboarding-check.mjs` (24/24 locally) need a dedicated confirmed
+check owner + waiter account or the staging service-role key; staging sign-up needs email confirmation without SMTP.
+The staging web app is not browser-verified: the Vercel automation bypass was revoked and is not recreated without
+the owner's approval. The POS device API 0.2.0 is therefore **not staging-verified** yet.

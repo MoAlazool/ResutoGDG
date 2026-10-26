@@ -1,8 +1,30 @@
-# RESUME — Resuto 2.0 continuation
+# RESUME — Resuto 2.1 (product experience redesign) on top of the 2.0 continuation
 
 Short, current state for whoever picks this up next. Details live in `docs/` (linked below).
 
-## Where things are
+## Resuto 2.1 — state (2026-10-26, `d4305a3`)
+- Plan: `docs/plans/RESUTO_2_1_PLAN.md`. All 1A/1B/1C workstreams merged; 1D done except the owner-gated staging
+  flow checks. Results: `docs/TEST_RESULTS.md` → "Resuto 2.1"; security: `docs/security/THREAT_MODEL_2.1.md`;
+  performance: `docs/PERFORMANCE.md` → "Resuto 2.1 before/after" + "Fixes after 1D measurement".
+- GitHub CI run 122 green at `d4305a3`. Staging (all four services) at `d4305a3`: smoke 43/43, MCP 7/7, demo integrity holds.
+- Render services do NOT auto-deploy on push: use Render `trigger_deploy` per service and the Vercel CLI
+  (`vercel api /v13/deployments … --input <json>` with the full sha, target production).
+- iPad (Codex, Draft PR #3, branch `feature/ipad-pos`, never modified here): contracts in `docs/api/IPAD_INTEGRATION.md`
+  and `IPAD_COMPATIBILITY.md` (POS API 0.2.0). Not staging-verified until `scripts/staging/pos-check.mjs` passes on
+  staging, and not "stable" until the real iPad app has run the flow there.
+
+### Next executable task
+Owner input first: a dedicated confirmed staging check owner + waiter account (or the staging service-role key) →
+run `eid-check.mjs`, `pos-check.mjs`, `onboarding-check.mjs` on staging (`docs/STAGING_DEPLOYMENT.md` "Flow checks") →
+if pos-check passes, post the "0.2.0 verified on staging with a simulated client" note on PR #3.
+Owner decisions open: threat-model accepted risks A-1…A-13 (§12), G-WA (QR mode; recommendation: close it, use official
+coexistence, `research/wa-qr/README.md`), O-2 Turnstile key, O-3 staging `resuto_api` role, O-4 plan matrix (Free still
+includes ordering QRs; pinned known gap), PDPL cross-border legal advice, review of the re-recorded visual baselines
+(`docs/ui/visual-baselines.json`, "pending owner review"), optional new Vercel bypass for staging browser QA.
+Internal follow-ups (not blocking): start `/me` + org + entitlements before hydration; split `ds.css` for guest pages;
+enforce the `--web` HTML budgets in CI; intermittent `perf-plans` plan choice on the shared test DB.
+
+## Where things are (2.0)
 - Branch: `claude/relaxed-mayer-omkl3f` (Resuto 2.0). `main` and `legacy/` are the original Resuto and are not modified.
 - Private staging: web https://resuto-2-staging-web.vercel.app (Vercel login required), API/AI/MCP on Render
   (`resuto-2-staging-*`), Supabase project `resuto-staging`. Setup and access: `docs/STAGING_DEPLOYMENT.md`.

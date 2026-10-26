@@ -1,3 +1,27 @@
+# Resuto 2.1 — handoff addendum (2026-10-26)
+
+Branch `claude/relaxed-mayer-omkl3f`, deployed commit **`d4305a3`** on all four staging services (GitHub CI run 122
+green on it). `main`, `legacy/`, production and Codex's `feature/ipad-pos` are untouched; PR #3 is not merged.
+
+| Area | State | Evidence |
+|---|---|---|
+| Design system, 7-area shell, ⌘K, one branch context | done | `docs/ui/DESIGN_SYSTEM.md`, `lib/shell.test.ts` |
+| Change-set engine + MCP experience (wizard, groups, policies, MFA on approve when enrolled, approvals inbox) | done | `apps/api/test/changes*.test.ts`, MCP 30/30 |
+| Home command centre, Inbox workspace + Customer 360, Integrations marketplace + operator console | done | E2E specs, API tests |
+| Free QR onboarding, Studio canvas + AI via change sets, Menu workspace, CRM funnels, Ops, Money, Insights, Admin | done | E2E specs (123 passed), API 1147/1151 |
+| Page migration (templates, tokens) | done: inline styles 285 → 2, hex 430 → 101 | ratchet baselines |
+| Accessibility | axe on every route EN/AR, contrast on, 0 serious/critical | `tests/e2e/a11y.spec.ts` |
+| Performance | staff LCP below 2.0 on every measured page; HTML within budget; `/r` +50–110 ms vs 2.0 remains | `docs/PERFORMANCE.md` |
+| Security | threat model; 3 in-tenant permission gaps fixed; accepted risks await sign-off | `docs/security/THREAT_MODEL_2.1.md` |
+| POS device API 0.2.0 for the iPad | implemented and tested locally (API, Playwright simulated device, `pos-check.mjs` 37/37 locally); **not staging-verified** | `docs/api/IPAD_INTEGRATION.md` |
+| WhatsApp QR mode (G-WA) | stage 1 research only, nothing productised | `research/wa-qr/README.md` |
+| Proposed plan matrix (§7) | not enforced (awaiting approval) | plan §7, known-gap test |
+
+Owner actions to finish 2.1 verification and decisions: see `RESUME.md` → "Next executable task". Detailed results:
+`docs/TEST_RESULTS.md` → "Resuto 2.1".
+
+---
+
 # Resuto 2.0 — handoff report
 
 Branch `claude/relaxed-mayer-omkl3f`, deployed commit **`5c359d5`** (2026-10-24; GitHub CI run 61 green on it). `main`, `legacy/` and every legacy
