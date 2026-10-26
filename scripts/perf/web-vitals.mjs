@@ -5,7 +5,7 @@
 //
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scripts/perf/web-vitals.mjs --web http://127.0.0.1:3570 \
 //     --api http://127.0.0.1:4570 --accounts <demo-accounts.json> --label baseline [--pages landing,guest-qr] \
-//     [--runs 3] [--observe 20] [--shots <dir>] [--out results.json]
+//     [--runs 3] [--observe 20] [--shots <dir>] [--build <sha of the measured web build>] [--out results.json]
 //
 // Profile: 390x844 @2x mobile viewport, 150 ms RTT, 1.6 Mbit/s down, 750 kbit/s up, CPU slowed 4x (close to
 // Lighthouse "slow 4G" mobile). Each page runs `runs` times in fresh browser contexts and reports the median;
@@ -41,6 +41,9 @@ const ALL = [
   ['guest-qr', `/t/${acct.qr.qrToken}`, true, 'ar', true], ['web-order', `/order/${acct.slug}`, true, 'en'],
   ['overview', D, false, 'en', true], ['orders', `${D}/orders`, false, 'en', true], ['customers', `${D}/customers`, false, 'en'],
   ['kds-full', `/kitchen/${acct.orgId}`, false, 'en', true],
+  // 21-A11Y before/after (Resuto 2.1): more staff screens and the view-only menu QR page (/m, new in 2.1).
+  ['inbox', `${D}/inbox`, false, 'en'], ['menu', `${D}/menu`, false, 'en'], ['analytics', `${D}/analytics`, false, 'en'],
+  ['billing', `${D}/billing`, false, 'en'], ['menu-only', `/m/${acct.slug}`, true, 'ar'],
 ];
 const pages = a.pages ? String(a.pages).split(',') : null;
 const typeOf = (t, url, mime) => (t === 'Font' || /\.(woff2?|ttf|otf)(\?|$)/.test(url) ? 'font'
@@ -156,6 +159,6 @@ const md = `Web vitals "${label}" at ${commit ?? '?'} (${new Date().toISOString(
 console.log(md);
 if (a.out) {
   mkdirSync(path.dirname(path.resolve(a.out)), { recursive: true });
-  writeFileSync(a.out, JSON.stringify({ label, commit, at: new Date().toISOString(), runs: RUNS, rows: out }, null, 1));
+  writeFileSync(a.out, JSON.stringify({ label, commit, build: a.build ?? null, at: new Date().toISOString(), runs: RUNS, rows: out }, null, 1));
   writeFileSync(String(a.out).replace(/\.json$/, '') + '.md', md);
 }
