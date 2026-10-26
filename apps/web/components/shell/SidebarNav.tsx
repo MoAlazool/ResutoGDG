@@ -14,12 +14,15 @@ export const relativePath = (pathname: string, base: string) => (pathname === ba
  * itself, the others open and close on demand. Collapsed to icons, an area is a single link to its first page (its
  * name is the link's label and tooltip); the full lists stay one click away (expand) or one ⌘K away.
  */
-export function SidebarNav({ areas, base, pathname, collapsed = false, openOrders, label, onNavigate }: {
-  areas: NavArea[]; base: string; pathname: string; collapsed?: boolean; openOrders?: number | null; label: string; onNavigate?: () => void;
+export function SidebarNav({ areas, base, pathname, search = '', collapsed = false, openOrders, label, onNavigate }: {
+  areas: NavArea[]; base: string; pathname: string;
+  /** The current query: an item that is a tab of a page (/website?tab=domains) is active only on that tab. */
+  search?: string;
+  collapsed?: boolean; openOrders?: number | null; label: string; onNavigate?: () => void;
 }) {
   const { t } = useT();
   const path = relativePath(pathname, base);
-  const current = activeItem(areas, path);
+  const current = activeItem(areas, path, search);
   const [toggled, setToggled] = useState<Partial<Record<AreaKey, boolean>>>({});
   // A new page in another area opens that area (an area closed by hand stays closed until then).
   useEffect(() => { if (current) setToggled((s) => (s[current.area.key] === false ? { ...s, [current.area.key]: undefined } : s)); }, [current?.area.key]); // eslint-disable-line react-hooks/exhaustive-deps
