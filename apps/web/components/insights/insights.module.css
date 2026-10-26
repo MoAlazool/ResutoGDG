@@ -35,6 +35,8 @@
 
 /* Overview: KPI tiles and the section cards. */
 .cards { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+/* The grid gap spaces the cards; the flow rule's top margin on a second card misaligned the row by 16 px. */
+.cards > :global(.card) { margin-block-start: 0; }
 .cardHead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin-block-end: var(--space-3); }
 .cardTitle { margin: 0; font-size: var(--fs-lg); }
 .note { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }

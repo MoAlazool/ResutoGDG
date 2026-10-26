@@ -40,7 +40,7 @@ export default function MarketingPage() {
     <ModuleGate module="marketing" permission="marketing:read">
       <ListPage header={{ title: t('marketing.title'), subtitle: t('marketing.subtitle') }}
         filters={<Tabs value={tab} onChange={setTab} tabs={(['campaigns', 'segments', 'promotions', 'links', 'recommendations', 'meta'] as TabKey[]).map((k) => ({ key: k, label: t(`marketing.tab.${k}`) }))} />}>
-        {tab === 'campaigns' && <><Campaigns /><QuietHours /></>}
+        {tab === 'campaigns' && <div className="stack gap-16"><Campaigns /><QuietHours /></div>}
         {tab === 'segments' && <Segments />}
         {tab === 'promotions' && <Promotions />}
         {tab === 'links' && <Links />}

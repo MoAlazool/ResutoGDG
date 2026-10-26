@@ -35,7 +35,7 @@
 
 /* Plan picker */
 .interval { margin-block-end: var(--space-4); }
-.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: var(--space-3); }
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: var(--space-3); }
 .plan {
   display: grid; gap: var(--space-1); align-content: start; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-2);
   background: var(--surface-1); color: var(--text); font: inherit; text-align: start; cursor: pointer;
