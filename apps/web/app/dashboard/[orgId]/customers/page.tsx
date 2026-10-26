@@ -121,7 +121,7 @@ function Customers({ tabs }: { tabs: ReactNode }) {
       {truncated && <Notice tone="warn">{t('insights.customers.truncated')}</Notice>}
       {can('customers:export') && <p className="fine">{t('insights.customers.exportNote')}</p>}
       <section className="card">
-        <div className="form-row">
+        <div className="form-row is-filters">
           <Field label={t('action.search')} type="search" placeholder={t('insights.customers.searchHint')} value={draft.q} onChange={set('q')} />
           <Field label={t('insights.customers.tag')} value={draft.tag} onChange={set('tag')} />
           <SelectField label={t('insights.customers.consent')} value={draft.consent} onChange={set('consent')}>
@@ -159,7 +159,7 @@ function Customers({ tabs }: { tabs: ReactNode }) {
               { key: 'spend', header: t('insights.customers.spend'), align: 'end', render: (c) => <span className="num">{f.money(c.totalSpendMinor)}</span> },
               { key: 'last', header: t('insights.customers.lastOrder'), render: (c) => <span className="fine">{c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'}</span> },
               { key: 'consent', header: t('insights.customers.consent'), render: (c) => c.marketingConsent ? <Badge tone="ok"><Icon icon={CheckIcon} size={12} /> {t('insights.customers.consentGranted')}</Badge> : <Badge>{t('insights.customers.consentNot')}</Badge> },
-              { key: 'tags', header: t('insights.customers.tags'), render: (c) => <span className="row gap-4">{c.tags.slice(0, 3).map((tg) => <Badge key={tg} tone="info">{tg}</Badge>)}</span> },
+              { key: 'tags', header: t('insights.customers.tags'), render: (c) => c.tags.length ? <span className="row gap-4">{c.tags.slice(0, 3).map((tg) => <Badge key={tg} tone="info">{tg}</Badge>)}</span> : null },
             ]} />
           <div className="row mbs-12">
             {cursor && <button className="btn btn-sm" onClick={() => setCursor(undefined)}>{t('insights.firstPage')}</button>}

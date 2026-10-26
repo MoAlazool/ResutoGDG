@@ -117,6 +117,12 @@ bdi { unicode-bidi: isolate; }
 .input:focus, .select:focus, .textarea:focus { border-color: var(--herb); outline: none; box-shadow: 0 0 0 3px var(--focus-soft); }
 .field-error { color: var(--danger); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
 .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 14px; }
+/* A filter row on a phone: the search spans the row and the short filters sit two by two, so the list starts in the
+   first screen instead of after four stacked fields (22-DASH). */
+@media (max-width: 700px) {
+  .form-row.is-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-row.is-filters > :first-child { grid-column: 1 / -1; }
+}
 .check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; }
 /* Date and time fields show Resuto's formatting at rest (DateTimeInput); the native fields appear while typing. */
 .date-input { position: relative; display: block; }
