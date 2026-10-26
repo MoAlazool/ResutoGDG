@@ -94,6 +94,8 @@ describe('status filter, capability search and faceted counts (22-INTINBOX)', ()
     expect(filterCards(cards, { category: '', query: 'daily results' }, label, capLabel).map((c) => c.id)).toEqual(['meta_ads']);
     expect(filterCards(cards, { category: '', query: 'ad account picker' }, label, capLabel).map((c) => c.id)).toEqual(['meta_ads']);
     expect(filterCards(cards, { category: '', query: 'refunds' }, label)).toEqual([]);
+    // The provider's Arabic name finds it from an Arabic page (Paymob: باي موب).
+    expect(filterCards(cards, { category: '', query: 'باي موب' }, label).map((c) => c.id)).toEqual(['paymob']);
   });
 
   it('counts each facet against the other filters (what choosing it would list)', () => {

@@ -3,7 +3,7 @@
 // (marketplaceStatus in @resuto/contracts); this file never upgrades it.
 import { MARKETPLACE_CATEGORIES, MARKETPLACE_LINKS, PROVIDER_LOGO_IDS, marketplaceStatus } from '@resuto/contracts/lite';
 import type { ConnectMethod, MarketplaceCategory, MarketplaceReason, MarketplaceStatus, ProviderMarketplaceState } from '@resuto/contracts';
-import type { ProviderId, Tone } from '@resuto/ui';
+import { PROVIDER_LOGOS, type ProviderId, type Tone } from '@resuto/ui';
 
 export const STATUS_TONE: Record<MarketplaceStatus, Tone> = {
   not_connected: 'neutral', connected: 'ok', needs_attention: 'warn', sandbox: 'sandbox', pending_review: 'info', not_available: 'danger',
@@ -28,6 +28,8 @@ export interface MarketCard {
   countries: string[];
   /** Capability codes the provider declares (empty for the guided links). */
   capabilities: string[];
+  /** The provider's name in English and Arabic from its logo entry ("واتساب"), so a search finds it in either language. */
+  aliases: string[];
   /** Readiness summary of the catalogue (`implemented_unverified`, `simulated` …); null for the guided links. */
   readiness: string | null;
   /** Guided flows that live elsewhere in the dashboard (ZATCA onboarding, website domains). */
@@ -35,18 +37,19 @@ export interface MarketCard {
 }
 
 const logoOf = (id: string) => (PROVIDER_LOGO_IDS[id] as ProviderId | undefined) ?? null;
+const aliasesOf = (logo: ProviderId | null) => (logo ? [...new Set([PROVIDER_LOGOS[logo].name.en, PROVIDER_LOGOS[logo].name.ar])] : []);
 
 /** Catalogue items plus the guided-link cards, in the plan's category order, then by name. */
 export function marketCards(items: CatalogCardInput[], orgId: string, linkName: (id: string) => string): MarketCard[] {
   const cards: MarketCard[] = items.map((i) => ({
     id: i.id, name: i.name, category: i.marketplaceCategory ?? 'website', connectMethod: i.connectMethod ?? (i.sandboxOnly ? 'platform_managed' : 'api_key'),
     status: i.marketplace?.status ?? (i.sandboxOnly ? 'sandbox' : 'not_connected'), reasons: i.marketplace?.reasons ?? [], logo: logoOf(i.id),
-    countries: i.countries, capabilities: i.capabilities ?? [], readiness: i.readiness ?? null, href: null,
+    countries: i.countries, capabilities: i.capabilities ?? [], aliases: aliasesOf(logoOf(i.id)), readiness: i.readiness ?? null, href: null,
   }));
   for (const l of MARKETPLACE_LINKS) {
     const { status, reasons } = marketplaceStatus({ simulated: false, readinessSummary: l.readiness, connectMethod: l.connectMethod, connection: null });
     cards.push({ id: l.id, name: linkName(l.id), category: l.category, connectMethod: l.connectMethod, status, reasons, logo: logoOf(l.id),
-      countries: [...l.countries], capabilities: [], readiness: null, href: `/dashboard/${orgId}/${l.path}` });
+      countries: [...l.countries], capabilities: [], aliases: aliasesOf(logoOf(l.id)), readiness: null, href: `/dashboard/${orgId}/${l.path}` });
   }
   const order = (c: MarketplaceCategory) => MARKETPLACE_CATEGORIES.indexOf(c);
   return cards.sort((a, b) => order(a.category) - order(b.category) || a.name.localeCompare(b.name));
@@ -61,13 +64,13 @@ export const STATUS_ORDER: MarketplaceStatus[] = ['needs_attention', 'connected'
 export interface CardFilter { category: MarketplaceCategory | ''; query: string; status?: MarketplaceStatus | '' }
 
 /**
- * Category and status filters plus a case-insensitive search over the name, id, the category's label in the page
- * language and, when `capabilityLabel` is given, the capabilities (code and label: "refunds", "قوالب").
+ * Category and status filters plus a case-insensitive search over the name, id, the provider's English and Arabic
+ * names, the category's label in the page language and, when `capabilityLabel` is given, the capabilities (code and label: "refunds", "قوالب").
  */
 export function filterCards(cards: MarketCard[], f: CardFilter, categoryLabel: (c: MarketplaceCategory) => string, capabilityLabel?: (code: string) => string) {
   const q = f.query.trim().toLocaleLowerCase();
   return cards.filter((c) => (!f.category || c.category === f.category) && (!f.status || c.status === f.status)
-    && (!q || [c.name, c.id.replace(/_/g, ' '), categoryLabel(c.category),
+    && (!q || [c.name, c.id.replace(/_/g, ' '), categoryLabel(c.category), ...c.aliases,
       ...(capabilityLabel ? c.capabilities.flatMap((x) => [x.replace(/_/g, ' '), capabilityLabel(x)]) : [])].some((s) => s.toLocaleLowerCase().includes(q))));
 }
 
