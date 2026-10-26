@@ -48,6 +48,8 @@
 .ticket.is-very-late .ticket-age { color: var(--danger); font-weight: 700; }
 .ticket-source { font-size: var(--fs-sm); font-weight: 500; margin: 10px 0 12px; color: var(--text); overflow-wrap: anywhere; }
 .ticket-source span { font-size: var(--t-sm); font-weight: var(--fw-medium); color: var(--text-muted); }
+/* The guest's name moves to the next line as one piece (a Latin name split around Arabic words read as two names). */
+.ticket-source bdi { display: inline-block; }
 .ticket-line { display: flex; gap: 10px; width: 100%; text-align: start; font-size: var(--fs-md); padding: 9px 0; border: 0; border-top: 1px solid var(--line-soft);
   background: transparent; line-height: 1.45; color: var(--text); font-family: inherit; }
 button.ticket-line { cursor: pointer; border-radius: 6px; }

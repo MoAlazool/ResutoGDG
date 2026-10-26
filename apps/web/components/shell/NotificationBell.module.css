@@ -8,7 +8,8 @@
 .bell > summary:hover, .bell[open] > summary { background: var(--nav-hover); }
 .bell > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .count {
-  position: absolute; inset-block-start: 1px; inset-inline-end: -2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  position: absolute; inset-block-start: -5px; inset-inline-end: -9px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  box-shadow: 0 0 0 2px var(--card);
   background: var(--danger); color: var(--on-ink); font-size: var(--t-sm); font-weight: 700; line-height: 20px; text-align: center;
   font-variant-numeric: tabular-nums;
 }
