@@ -50,7 +50,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 input[type='checkbox'], input[type='radio'] { accent-color: var(--ink); }
 /* Isolated user-entered or left-to-right values (UserText, Phone, Email, Code in @resuto/ui). */
 bdi { unicode-bidi: isolate; }
-.code-ref { font-family: var(--font-mono); font-size: .92em; }
+.code-ref { font-family: var(--font-mono); font-size: max(.92em, var(--t-sm)); }
 /* Initial tile for an item without a photo (legacy menu cards), instead of a colour emoji. */
 .requests-strip { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; min-height: 74px; margin-block-end: 16px; padding-block: 14px; }
 .requests-strip h2 { margin: 0; font-size: 15px; }
@@ -61,6 +61,8 @@ bdi { unicode-bidi: isolate; }
 
 .overline { font-size: var(--t-sm); letter-spacing: 1.6px; text-transform: uppercase; color: var(--faint); font-weight: 700; }
 [lang='ar'] .overline { letter-spacing: 0; }
+/* An unstyled <small> (the browser's "smaller", 11.7 px under 14 px text) never drops below the small token. */
+:where(small) { font-size: max(.85em, var(--t-sm)); }
 .muted { color: var(--muted); }
 .fine { font-size: var(--fs-sm); color: var(--muted); line-height: 1.6; }
 .num { font-variant-numeric: tabular-nums; }
@@ -494,8 +496,8 @@ body:has(.gx-dock, .bk-bar, .gx-sheet-foot) .ws-lang { inset-block-end: calc(88p
 [lang='ar'] .login-brand h1 { font-family: var(--font-body-ar); font-size: 54px; font-weight: 600; line-height: 1.4; }
 .login-brand p { color: var(--login-muted); font-size: 16px; margin: 0; }
 .login-brand .eyebrow { color: var(--login-eyebrow); }
-.login-brand > small { font-size: 9px; letter-spacing: 3px; color: var(--login-small); text-transform: uppercase; }
-[lang='ar'] .login-brand > small { letter-spacing: 0; font-size: 11px; }
+.login-brand > small { font-size: var(--t-sm); letter-spacing: 2px; color: var(--login-small); text-transform: uppercase; }
+[lang='ar'] .login-brand > small { letter-spacing: 0; }
 .login-main { display: grid; place-items: center; padding: 40px; }
 .login-form { width: 100%; max-width: 350px; }
 .login-form h1 { font-family: var(--font-body-en); font-size: 34px; font-weight: 600; letter-spacing: -1.2px; color: var(--text); margin: 0 0 10px; }
