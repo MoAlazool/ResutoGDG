@@ -11,7 +11,6 @@ import { useApi } from '@/lib/use-api';
 import { useSession } from '@/lib/session';
 import type { CanvasDevice, CanvasTarget } from '@/lib/studio-canvas';
 import { DraftHistory, type DraftApi, type HistoryEntry } from '@/lib/studio-history';
-import { Canvas } from './Canvas';
 import { Navigator, type NavTab } from './Navigator';
 import { StudioToolbar } from './StudioToolbar';
 import type { InspectorMode, Proposal, SaveState, Studio, WebsiteState } from './types';
@@ -21,11 +20,13 @@ import './website.css';
 // first (plan §9: the Studio canvas and its panels are lazy).
 const Inspector = dynamic(() => import('./Inspector').then((m) => m.Inspector), { ssr: false, loading: () => <div className="ws-pane-pad"><Skeleton lines={6} /></div> });
 const HistorySheet = dynamic(() => import('./HistoryPanel').then((m) => m.HistorySheet), { ssr: false });
+// The canvas carries the site renderer (SiteView and its stylesheet): its own chunk, loaded with the workspace.
+const Canvas = dynamic(() => import('./Canvas').then((m) => m.Canvas), { ssr: false, loading: () => <div className="ws-pane-pad"><Skeleton lines={8} /></div> });
 
 /**
  * Resuto Studio (21-STUDIO, plan §6.4): a canvas workspace. Toolbar (page, device, language, undo/redo, save state,
- * preview, publish, versions) over a left navigator (pages, sections, assets, templates), the canvas (the draft in a
- * sandboxed iframe, app/studio-canvas) and the inspector (section and site settings, SEO, AI editing). Every edit goes
+ * preview, publish, versions) over a left navigator (pages, sections, assets, templates), the canvas (the draft rendered
+ * into a script-free frame, Canvas.tsx and lib/studio-canvas.ts) and the inspector (section and site settings, SEO, AI editing). Every edit goes
  * straight to the draft through the Studio API and is recorded in a client history stack for undo and redo; guests see
  * nothing until the owner publishes.
  */

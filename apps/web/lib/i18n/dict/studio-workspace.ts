@@ -69,7 +69,7 @@ export const studioWorkspace = {
     'studio.site.diff.added': 'Proposed', 'studio.site.diff.changed': 'Changed',
     // workspace
     'studio.ws.toolbar': 'Studio tools', 'studio.ws.navigator': 'Navigator', 'studio.ws.canvas': 'Canvas', 'studio.ws.inspector': 'Inspector',
-    'studio.ws.canvasFrame': 'Website canvas (draft)', 'studio.ws.canvasReload': 'Reload the page to open the canvas.',
+    'studio.ws.canvasFrame': 'Website canvas (draft)', 'studio.ws.canvasCopyError': 'The canvas could not load the website copy. Check the connection and try again.',
     'studio.ws.page.label': 'Page', 'studio.ws.page.current': 'Page: {page}', 'studio.ws.page.home': 'Home page', 'studio.ws.page.menu': 'Digital menu',
     'studio.ws.page.order': 'Online ordering', 'studio.ws.page.reserve': 'Reservations', 'studio.ws.page.editing': 'Editing', 'studio.ws.page.open': 'Open',
     'studio.ws.page.hint': 'The menu, ordering and booking pages follow your menu and branch settings; edit them there.',
@@ -130,7 +130,7 @@ export const studioWorkspace = {
     'studio.site.was': 'كان', 'studio.site.emptyBlock': 'قسم فارغ: أضف محتواه من لوحة الخصائص (لا يرى الضيوف قسمًا فارغًا).',
     'studio.site.diff.added': 'مقترح', 'studio.site.diff.changed': 'معدّل',
     'studio.ws.toolbar': 'أدوات الاستوديو', 'studio.ws.navigator': 'المتصفح', 'studio.ws.canvas': 'اللوحة', 'studio.ws.inspector': 'الخصائص',
-    'studio.ws.canvasFrame': 'لوحة الموقع (مسودة)', 'studio.ws.canvasReload': 'أعد تحميل الصفحة لفتح اللوحة.',
+    'studio.ws.canvasFrame': 'لوحة الموقع (مسودة)', 'studio.ws.canvasCopyError': 'تعذّر على اللوحة تحميل نصوص الموقع. تحقّق من الاتصال ثم أعد المحاولة.',
     'studio.ws.page.label': 'الصفحة', 'studio.ws.page.current': 'الصفحة: {page}', 'studio.ws.page.home': 'الصفحة الرئيسية', 'studio.ws.page.menu': 'القائمة الرقمية',
     'studio.ws.page.order': 'الطلب أونلاين', 'studio.ws.page.reserve': 'الحجوزات', 'studio.ws.page.editing': 'قيد التحرير', 'studio.ws.page.open': 'فتح',
     'studio.ws.page.hint': 'صفحات القائمة والطلب والحجز تتبع إعدادات القائمة والفروع؛ عدّلها من هناك.',

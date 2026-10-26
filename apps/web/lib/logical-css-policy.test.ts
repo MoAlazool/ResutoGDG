@@ -13,8 +13,8 @@ const ROOTS = [
   'apps/web/app/dashboard/[orgId]/inbox', 'apps/web/components/customers', 'apps/web/app/dashboard/[orgId]/settings/messaging',
   // 21-HOME: the overview command centre.
   'apps/web/app/dashboard/[orgId]/_home',
-  // 21-STUDIO: the Studio workspace and its canvas document.
-  'apps/web/app/dashboard/[orgId]/website', 'apps/web/app/studio-canvas',
+  // 21-STUDIO: the Studio workspace (22-STUDIO: the canvas frame's stylesheet lives there now).
+  'apps/web/app/dashboard/[orgId]/website',
   // 21-OPS: the Orders board and list, the shared ticket board and kitchen display.
   'apps/web/app/dashboard/[orgId]/orders', 'apps/web/components/ops', 'apps/web/app/kitchen', 'apps/web/app/dashboard/[orgId]/kitchen',
   'apps/web/app/dashboard/[orgId]/floor', 'apps/web/app/dashboard/[orgId]/host', 'apps/web/app/dashboard/[orgId]/reservations',
