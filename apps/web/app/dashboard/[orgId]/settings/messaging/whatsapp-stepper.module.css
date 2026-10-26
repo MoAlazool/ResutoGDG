@@ -1,7 +1,7 @@
 /* 21-INT WhatsApp official stepper (plan §6.9). Logical properties only (RTL). */
 .stepper { display: grid; gap: 14px; }
 .steps { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.steps button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.steps button { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: var(--t-sm); cursor: pointer; }
 .steps button[aria-current='step'] { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: 600; }
 .steps button[data-done='true'] { border-color: color-mix(in srgb, var(--herb) 50%, var(--line)); }
 .body { display: grid; gap: 10px; }
