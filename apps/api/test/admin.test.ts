@@ -181,13 +181,14 @@ describe('price management', () => {
 
 describe('operations view', () => {
   it('summarises outbox, handler failures, webhooks, jobs and usage without payloads', async () => {
-    await sql(`insert into webhook_inbox(provider, event_key, signature_valid, payload, status, error) values ('stripe', $1, false, '{"card":"4242"}', 'rejected', 'bad signature')`, [unique('evt')]);
+    await sql(`insert into webhook_inbox(provider, event_key, signature_valid, payload, status, error) values ('stripe', $1, false, '{"card":"PAYLOAD-4242-SECRET"}', 'rejected', 'bad signature')`, [unique('evt')]);
     const res = await t.http.get('/v1/admin/operations').set(auth(support));
     expect(res.status).toBe(200);
     expect(res.body.outbox).toEqual(expect.objectContaining({ unpublished: expect.any(Number) }));
     expect(res.body.webhooks.rejected).toBeGreaterThanOrEqual(1);
     expect(res.body.webhooks.recent[0]).toMatchObject({ provider: 'stripe', status: 'rejected', error: 'bad signature' });
-    expect(JSON.stringify(res.body)).not.toContain('4242');
+    // A marker no id or hex value can contain by chance (a bare "4242" matched random UUIDs now and then).
+    expect(JSON.stringify(res.body)).not.toContain('PAYLOAD-4242');
     expect(Array.isArray(res.body.jobs)).toBe(true);
     expect(Array.isArray(res.body.usage30d)).toBe(true);
   });
