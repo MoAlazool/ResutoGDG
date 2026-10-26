@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  base32Decode, commitMatches, discountedPrice, exitCodeFor, leaks, menuQrProblems, missingInOrder, orderingUiMarkers, parseMcpBody, pngBytes,
+  applyFeedPage, base32Decode, commitMatches, discountedPrice, exitCodeFor, leaks, isError, menuQrProblems, missingInOrder, orderingUiMarkers, parseMcpBody, pngBytes,
   redact, targetProblem, throwawayId, totp, visibleHtml,
 } from '../lib/check-kit.mjs';
 
@@ -96,5 +96,30 @@ describe('staging check kit', () => {
     assert.equal(redact('key rmcp_ABCdef123_x ok'), 'key rmcp_… ok');
     assert.equal(redact('Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.sig'), 'Bearer <jwt>');
     assert.equal(redact('sb_secret_abc123 and sb_publishable_xyz'), 'sb_secret_… and sb_publishable_…');
+    assert.equal(redact('device rpos_AbC-12_x'), 'device rpos_…');
+    assert.equal(leaks('{"token":"rpos_abc"}').length, 1);
+  });
+
+  it('applies the POS event feed: dedupe by seq, no gaps, same epoch', () => {
+    const ev = (seq) => ({ seq, kind: 'order.updated' });
+    const a = applyFeedPage({ epoch: null, lastSeq: 4 }, { epoch: 'e1', events: [ev(3), ev(4), ev(5), ev(6)] });
+    assert.deepEqual(a.state, { epoch: 'e1', lastSeq: 6 });
+    assert.deepEqual(a.fresh.map((e) => e.seq), [5, 6]);
+    assert.equal(a.problem, null);
+    const same = applyFeedPage(a.state, { epoch: 'e1', events: [ev(5), ev(6)] });
+    assert.deepEqual([same.fresh.length, same.problem, same.state.lastSeq], [0, null, 6]);
+    const gap = applyFeedPage(a.state, { epoch: 'e1', events: [ev(7), ev(9)] });
+    assert.deepEqual([gap.state.lastSeq, gap.fresh.map((e) => e.seq), gap.problem], [7, [7], 'gap: seq 9 after 7']);
+    assert.match(applyFeedPage(a.state, { epoch: 'e2', events: [] }).problem, /epoch changed/);
+    assert.equal(applyFeedPage(a.state, null).problem, 'not an event page');
+    const input = { epoch: 'e1', lastSeq: 6 };
+    applyFeedPage(input, { epoch: 'e1', events: [ev(7)] });
+    assert.deepEqual(input, { epoch: 'e1', lastSeq: 6 });
+  });
+
+  it('matches the error envelope by status and code', () => {
+    assert.equal(isError({ status: 401, body: { error: { code: 'pos_staff_required' } } }, 401, 'pos_staff_required'), true);
+    assert.equal(isError({ status: 403, body: { error: { code: 'pos_staff_required' } } }, 401, 'pos_staff_required'), false);
+    assert.equal(isError({ status: 401, body: null }, 401, 'unauthorized'), false);
   });
 });
