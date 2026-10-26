@@ -102,7 +102,7 @@ describe('message scopes', () => {
     const AUTH_ROOTS = ['app/(auth)', 'app/invite'];
     const authFiles = routeFiles(AUTH_ROOTS, STAFF_DIRS.filter((d) => !AUTH_ROOTS.includes(d)));
     expect(authFiles.some((f) => f.endsWith('AuthForm.tsx'))).toBe(true);
-    const ok = (k: string) => inScope(k, 'guest') || inScope(k, 'auth');
+    const ok = (k: string) => inScope(k, 'base') || inScope(k, 'auth');
     const missing: string[] = [];
     for (const u of usedKeys(authFiles)) {
       if (u.key && u.key in en && !ok(u.key)) missing.push(`${u.file}: ${u.key}`);
@@ -126,7 +126,8 @@ describe('message scopes', () => {
     const ROOTS = ['app/onboarding'];
     const files = routeFiles(ROOTS, STAFF_DIRS.filter((d) => !ROOTS.includes(d)));
     expect(files.some((f) => f.includes('/onboarding/'))).toBe(true);
-    const ok = (k: string) => inScope(k, 'guest') || inScope(k, 'onboarding');
+    // The root layout ships only the base scope (21-PERF): the wizard's guest-namespace keys come with its own scope.
+    const ok = (k: string) => inScope(k, 'base') || inScope(k, 'onboarding');
     const missing: string[] = [];
     for (const u of usedKeys(files)) {
       if (u.key && u.key in en && !ok(u.key)) missing.push(`${u.file}: ${u.key}`);
@@ -136,7 +137,8 @@ describe('message scopes', () => {
     for (const locale of ['en', 'ar'] as const) {
       const o = messagesFor(locale, 'onboarding');
       const s = messagesFor(locale, 'staff');
-      expect(Object.keys(o).every((k) => k in s)).toBe(true);
+      // Staff copy, or guest copy the wizard shows (the social network names of the restaurant site).
+      expect(Object.keys(o).every((k) => k in s || inScope(k, 'guest'))).toBe(true);
       expect(Object.keys(messagesFor(locale, 'auth')).every((k) => k in o)).toBe(true);
       expect(JSON.stringify(o).length).toBeLessThan(JSON.stringify(s).length / 5);
     }
@@ -152,7 +154,7 @@ describe('message scopes', () => {
     const files = runtimeRouteFiles(ROOTS, STAFF_DIRS.filter((d) => !ROOTS.includes(d)));
     expect(files.some((f) => f.endsWith('AdminShell.tsx'))).toBe(true);
     expect(files.some((f) => f.endsWith('AreaError.tsx'))).toBe(true);
-    const ok = (k: string) => inScope(k, 'guest') || inScope(k, 'admin');
+    const ok = (k: string) => inScope(k, 'base') || inScope(k, 'admin');
     const missing: string[] = [];
     for (const u of usedKeys(files)) {
       if (u.key && u.key in en && !ok(u.key)) missing.push(`${u.file}: ${u.key}`);
@@ -167,6 +169,40 @@ describe('message scopes', () => {
       expect(JSON.stringify(a).length).toBeLessThan(JSON.stringify(s).length / 5);
     }
     expect(readFileSync(join(WEB, 'app/admin/layout.tsx'), 'utf8')).toMatch(/<StaffProviders[^>]*scope="admin"/);
+  });
+
+  it('the root layout ships only the base scope and each guest route group adds the guest scope', () => {
+    expect(readFileSync(join(WEB, 'app/layout.tsx'), 'utf8')).toMatch(/messagesFor\(locale, 'base'\)/);
+    for (const g of ['app/t', 'app/m', 'app/v', 'app/order', 'app/reserve', 'app/pay', 'app/s', 'app/o', 'app/r', 'app/unsubscribe', 'app/studio-canvas']) {
+      expect(readFileSync(join(WEB, g, 'layout.tsx'), 'utf8'), g).toMatch(/<ScopeMessages scope="guest">/);
+    }
+    // Every guest route directory is listed above (a new one needs its layout).
+    const dirs = readdirSync(join(WEB, 'app')).filter((n) => GUEST_ROOTS.includes(`app/${n}`) && statSync(join(WEB, 'app', n)).isDirectory());
+    for (const d of dirs) if (d !== 'pricing' && d !== 'l') expect(existsSync(join(WEB, 'app', d, 'layout.tsx')), d).toBe(true);
+    for (const locale of ['en', 'ar'] as const) {
+      const base = messagesFor(locale, 'base');
+      expect(Object.keys(base).every((k) => inScope(k, 'guest'))).toBe(true);
+      expect(JSON.stringify(base).length).toBeLessThan(JSON.stringify(messagesFor(locale, 'guest')).length / 4);
+    }
+  });
+
+  it('guest payment copy only: the payments workspace strings are staff copy', () => {
+    const guest = Object.keys(messagesFor('en', 'guest'));
+    expect(guest.filter((k) => /^pay\.(dash|alert|recon|refund|detail|collect|link|cash|sheet|timeline|payment|purpose)\./.test(k))).toEqual([]);
+    expect(guest.some((k) => k.startsWith('pay.receipt.'))).toBe(true);
+  });
+
+  it('the landing and pricing pages get the public scope, and it covers what they use', () => {
+    const files = routeFiles(['app/page.tsx', 'app/pricing'], STAFF_DIRS);
+    expect(files.some((f) => f.endsWith('LandingPage.tsx'))).toBe(true);
+    const ok = (k: string) => k.startsWith(LANDING_COPY) || inScope(k, 'base') || inScope(k, 'public');
+    const missing: string[] = [];
+    for (const u of usedKeys(files)) {
+      if (u.key && u.key in en && !ok(u.key)) missing.push(`${u.file}: ${u.key}`);
+      if (u.prefix) for (const k of Object.keys(en).filter((x) => x.startsWith(u.prefix!))) if (!ok(k)) missing.push(`${u.file}: ${u.prefix}* (${k})`);
+    }
+    expect(missing).toEqual([]);
+    for (const p of ['app/page.tsx', 'app/pricing/page.tsx']) expect(readFileSync(join(WEB, p), 'utf8'), p).toMatch(/<ScopeMessages scope="public">/);
   });
 
   it('guest and staff scopes are disjoint and together cover every key except the landing copy', () => {

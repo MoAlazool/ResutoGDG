@@ -22,6 +22,12 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@resuto/ui', '@resuto/contracts'],
+  experimental: {
+    // A server component that imports one component from the @resuto/ui barrel (the root not-found's Wordmark, the
+    // area skeletons of every staff loading.tsx) otherwise makes every 'use client' module the barrel re-exports a
+    // client entry of that segment: ~100 kB raw of charts, tables and sheets on every page (21-PERF).
+    optimizePackageImports: ['@resuto/ui'],
+  },
   outputFileTracingRoot: repoRoot,
   // The contracts package ships CommonJS for Node consumers (API, worker, MCP).
   // The web app compiles its TypeScript source instead, so dev-mode React Refresh

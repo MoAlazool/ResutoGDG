@@ -6,7 +6,8 @@ import { formatMessage } from './i18n/format-message';
 import { integrations } from './i18n/dict/integrations';
 import { allergens, vocab } from './i18n/dict/vocab';
 import type { Locale } from './i18n/locale';
-import { actionLabel, allergenLabel, capabilityLabel, entityLabel, forecastReason, invoiceStatusLabel, paymentProviderLabel, reconSourceLabel, reconStatusLabel, sourceLabel, stationLabel, subscriptionEventLabel, unitLabel, type Translate } from './vocab';
+import { allergenLabel, entityLabel, forecastReason, invoiceStatusLabel, paymentProviderLabel, reconSourceLabel, reconStatusLabel, sourceLabel, stationLabel, subscriptionEventLabel, unitLabel, type Translate } from './vocab';
+import { actionLabel, capabilityLabel } from './vocab-codes';
 
 // VS-21 / DF-15: codes the API stores in English are shown in the page language.
 

@@ -1,26 +1,30 @@
 import type { ReactNode } from 'react';
-import { LocaleScope } from '@/lib/i18n/client';
-import { messagesFor } from '@/lib/i18n/messages';
+import { LocaleScope } from '@/lib/i18n/locale-scope';
+import { messagesFor, routeMessages } from '@/lib/i18n/messages';
+import type { RouteScope } from '@/lib/i18n/route-families';
 import { getLocale } from '@/lib/i18n/server';
 import { SessionProvider } from '@/lib/session';
 
 /**
  * Providers for staff route groups ((auth), dashboard, kitchen, driver, admin, onboarding, invite): the staff
- * message namespaces for the active locale (only the auth copy on the sign-in, onboarding and invitation pages) and
- * the signed-in session. Guest routes do not get either, so their
- * bundles carry no session code, no Supabase client and no staff dictionaries.
+ * messages for the active locale and the signed-in session. Guest routes do not get either, so their bundles carry no
+ * session code, no Supabase client and no staff dictionaries.
+ *
+ * Messages: a staff route group passes `route` (the families its own source uses, lib/i18n/route-families.ts; module
+ * screens add theirs in their directory layouts), the sign-in, onboarding, invitation and console pages a `scope` of
+ * their copy only. Never every module's copy: that was ~300 KB of text in every staff document (21-PERF).
  */
-export async function StaffProviders({ children, requireAuth = true, scope = 'staff' }: {
+export async function StaffProviders({ children, requireAuth = true, scope, route }: {
   children: ReactNode; requireAuth?: boolean;
-  /**
-   * 'auth' for the sign-in, sign-up and invitation pages, 'onboarding' for the wizard, 'admin' for the operator console:
-   * their copy only, not every module's.
-   */
-  scope?: 'staff' | 'auth' | 'onboarding' | 'admin';
+  /** 'auth' for the sign-in, sign-up and invitation pages, 'onboarding' for the wizard, 'admin' for the operator console. */
+  scope?: 'auth' | 'onboarding' | 'admin';
+  /** The route scope of a staff route group (dashboard, kitchen, driver). */
+  route?: RouteScope;
 }) {
   const locale = await getLocale();
+  const messages = route ? routeMessages(locale, route) : messagesFor(locale, scope ?? 'staff');
   return (
-    <LocaleScope messages={messagesFor(locale, scope)}>
+    <LocaleScope messages={messages}>
       <SessionProvider requireAuth={requireAuth}>{children}</SessionProvider>
     </LocaleScope>
   );

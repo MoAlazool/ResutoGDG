@@ -8,7 +8,7 @@ import { ApiRequestError } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
-import { capabilityLabel } from '@/lib/vocab';
+import { capabilityLabel } from '@/lib/vocab-codes';
 import { beginOAuth } from '../../oauth/binding';
 import s from './integrations.module.css';
 

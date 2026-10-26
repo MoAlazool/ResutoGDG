@@ -20,8 +20,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: '#173f36', width: 'device-width', initialScale: 1 };
 
 /**
- * Root layout: document language/direction and the shared + guest messages for the active locale only.
- * Staff route groups add their namespaces and the session in their own layouts (components/shell/StaffProviders).
+ * Root layout: document language/direction and the base messages (app name, actions, states, errors) for the active
+ * locale only. Every route group adds its own scope in its layout: guest pages the guest copy (lib/i18n/scope.tsx
+ * ScopeMessages), staff route groups their namespaces and the session (components/shell/StaffProviders). Before
+ * 21-PERF this layout shipped the whole guest scope (~55 KB of text) to every document, staff and sign-in pages included.
  * The active locale's primary font is preloaded (one file; lib/fonts.ts).
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -30,7 +32,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang={locale} dir={locale === 'ar' ? 'rtl' : 'ltr'}>
       <body>
-        <LocaleProvider locale={locale} messages={messagesFor(locale, 'guest')}>{children}</LocaleProvider>
+        <LocaleProvider locale={locale} messages={messagesFor(locale, 'base')}>{children}</LocaleProvider>
       </body>
     </html>
   );

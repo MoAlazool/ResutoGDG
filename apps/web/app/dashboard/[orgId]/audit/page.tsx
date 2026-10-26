@@ -6,7 +6,8 @@ import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
-import { actionLabel, entityLabel, sourceLabel } from '@/lib/vocab';
+import { entityLabel, sourceLabel } from '@/lib/vocab';
+import { actionLabel } from '@/lib/vocab-codes';
 import styles from './audit.module.css';
 
 interface Entry {

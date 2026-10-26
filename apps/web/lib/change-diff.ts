@@ -94,7 +94,7 @@ export function effectKey(op: Pick<ChangeOpView, 'effect' | 'kind'>): string | n
   return `mcp.inbox.effect.${op.effect.status}`;
 }
 
-/** Audit rows of a change set as timeline items, oldest first (labels: vocab.action.* through lib/vocab.ts). */
+/** Audit rows of a change set as timeline items, oldest first (labels: vocab.action.* through lib/vocab-codes.ts). */
 export function timelineOf(rows: readonly ChangeAuditEntry[]) {
   return rows.map((r) => ({
     id: r.id, at: r.at, action: r.action, actorType: r.actorType,

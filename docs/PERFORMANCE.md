@@ -466,3 +466,122 @@ and a per-module staff scope, which is a structural i18n change, not a cheap one
   `GUEST_SCOPE`'s `pay.` rule to the guest payment keys, split the staff scope per module, then run
   `bundle-budget.mjs --web` in CI so the document budgets are enforced.
 - Orders CLS 0.225 is still above the 0.1 "good" threshold.
+
+### Fixes after 1D measurement (21-PERF, `f679244` → `819af8a`)
+
+Root causes were taken from Chrome traces of the throttled first visit (Playwright CDP: network waterfall with start/end
+per request, LCP candidates, long tasks, the trace's screenshots, `performance.mark` in a diagnostic build, async stacks
+of the first data request and a pause on every thrown exception to see what suspended). Three causes, three commits:
+
+1. **Messages in every HTML document (`819af8a`).** The root layout serialised the whole guest scope (1,096 keys, ~55 KB
+   of text, ~9 KB of it staff payments copy pulled in by `GUEST_SCOPE`'s `/^pay\./`) into every document, and every
+   staff document also carried every module's copy (5,548 keys, ~320 KB): 375 of the 428 KB of a staff document. On the
+   throttled profile the document is on the critical path: the orders document (113 KB transferred) finished at
+   1,888 ms instead of 1,423 ms on 2.0 (90 KB), the scripts competed with it for the 1.6 Mbit/s, hydration ended later
+   and the first API call (`/me`) left at 2,970 ms instead of 2,637 ms. Fix: the root layout ships only the base scope
+   (app, action, state, lang, err, plural); the guest route groups add the guest scope in their own layouts; landing and
+   pricing get the public scope (platform.*); `GUEST_SCOPE` keeps only the guest payment families; staff routes get
+   **generated route scopes**: `lib/i18n/scope-analysis.ts` walks each route's runtime import closure and keeps every
+   message family (a key without its last segment, at most two segments) the source mentions, as a literal key, a
+   prefix passed to a helper or a `` `ns.${x}` `` template, so over-inclusion only costs bytes. The shell's families
+   ship with `StaffProviders` (dashboard, kitchen, driver), each module's in its directory layout (minus the shell's),
+   the overview's in its page. `route-scopes.test.ts` fails when `route-families.ts` is stale, a module has no layout, or
+   a literal key or prefix a route uses is not in its documents. The activity-log action and capability labels
+   (vocab.action 15 KB, vocab.capability 5 KB) moved to `lib/vocab-codes.ts` so screens that only label units or
+   stations do not ship them. Checked at run time with a Chromium sweep of 76 routes × EN/AR (every staff module and
+   sub-route, the analytics views, kitchen display, onboarding, account, sign-in, landing, pricing, every guest page,
+   404): no raw message key in text, `aria-label`, `title`, `placeholder` or `alt`, and no page error. Same orders
+   trace after the fix: document 30 KB, done at 304 ms; `/me` at 2,427 ms.
+2. **The whole UI barrel on every page (`1303587`).** The root `not-found.tsx` (a server component in every page's tree)
+   and the area skeletons of every staff `loading.tsx` import from the `@resuto/ui` barrel. A server component that
+   imports from a barrel makes every `'use client'` module the barrel re-exports a client entry of its segment, so since
+   the 2.1 design system grew the barrel (charts, DataTableV2, sheets, popovers, templates) every page loaded six extra
+   chunks right after the document (~102 KB raw, ~40 KB transferred; `/not-found` went from its own 8.2 KB chunk on
+   2.0 to six shared chunks plus a 1.4 KB one). This, not the menu, was what grew on `/order` and `/r`: the web order page transferred 219 KB of script
+   before its LCP image instead of 184 KB. Fix: `experimental.optimizePackageImports: ['@resuto/ui']`. The first-load
+   budget did not see it because it counts layouts and the page, not the not-found boundary.
+3. **Staff screens held behind their loading skeleton (`8f634e1`, present in 2.0 as well).** The staff shell renders its
+   skeleton on the server (the restaurant is known only in the browser), so the server HTML carries a screen's CSS as
+   `<link rel="preload" as="style">` only. Next's flight hints register those hrefs as preloads on the client, React then
+   never watches the existing preload links, treats the screen's stylesheets as not loaded when the screen first renders,
+   suspends it behind the module's `loading.tsx` (React error 474, SuspenseyCommit) and retries on the Suspense throttle.
+   On `/orders` the board rendered at 2,830 ms and committed at 3,259 ms after five discarded renders; the kitchen feed
+   request waits for that commit. Fix: the shell preinits the preloaded CSS hrefs with Next's precedence on mount (the
+   files are already downloaded), after which render 2,928 → effect 3,043 ms.
+
+Not changed: the API, the harness, the data, any budget. The module layouts add one tiny client chunk per prefetched
+module (`LocaleScope` moved to its own module so it does not duplicate the client i18n code); the first-load budget
+moves by −5.6 to +1.2 kB per route (staff max 219.1 → 216.4 kB, guest max 167.5 → 168.1 kB, both inside their budgets).
+
+**Re-measured** exactly as above (same harness and profile, same demo data: the `5c359d5` database and its migrated
+copy, median of 3 runs, two passes per build), now with three builds served side by side: 2.0 (`5c359d5`), 2.1 as
+merged (`f679244` = `e4d5bb0` plus the 21-A11Y fixes) and the fixed head (`819af8a`; the API is the `f679244` build for
+both 2.1 columns). Passes alternated on 2026-10-26: 2.0 A (10:12 UTC), merged A (10:20), fixed A (10:28), fixed B
+(10:36), merged B (10:44), 2.0 B (10:52); load average 0.9–1.9. Raw:
+`docs/perf-results/2026-10-26-21perf-{before,base,head}-{A,B}.json` (base = merged, head = fixed), sizes
+`…-21perf-budget-{before,merged,fixed}.json`.
+
+| page | LCP ms 2.0 → merged → **fixed** (pass A / B) | fixed − merged | fixed − 2.0 | FCP ms 2.0 → merged → fixed | requests | KB first visit (js) 2.0 → merged → fixed | repeat-visit LCP ms 2.0 → merged → fixed |
+|---|---|---|---|---|---|---|---|
+| landing (en) | 2,344 / 2,340 → 2,332 / 2,312 → **2,280 / 2,348** | −52 / +36 | −64 / +8 | 1,580 / 1,600 → 1,560 / 1,532 → 1,496 / 1,584 | 27 → 31 → 25 | 645 (242) → 679 (266) → 626 (228) | 1,172 / 1,236 → 1,172 / 1,212 → 1,244 / 1,220 |
+| landing (ar) | 2,932 / 2,532 → 3,288 / 3,300 → **2,980 / 2,940** | −308 / −360 | +48 / +408 | 2,088 / 1,940 → 2,452 / 2,440 → 2,008 / 1,980 | 29 → 33 → 27 | 734 (242) → 769 (266) → 713 (228) | 1,236 / 1,192 → 1,304 / 1,204 → 1,172 / 1,156 |
+| public site `/r` (en) | 2,564 / 2,560 → 2,808 / 2,760 → **2,672 / 2,612** | −136 / −148 | +108 / +52 | 852 / 888 → 924 / 888 → 896 / 916 | 24 → 30 / 31 → 24 | 478 (150) → 519 / 520 (176) → 477 (137) | 272 / 272 → 272 / 292 → 272 / 280 |
+| guest QR `/t` (ar) | 3,548 / 3,540 → 3,488 / 3,536 → **3,452 / 3,432** | −36 / −104 | −96 / −108 | 996 / 996 → 1,048 / 1,060 → 1,020 / 1,052 | 46 → 54 / 55 → 46 | 739 (203) → 786 / 787 (235) → 724 (179) | 276 / 260 → 280 / 272 → 288 / 264 |
+| web order `/order` (en) | 2,972 / 2,956 → 3,176 / 3,156 → **2,904 / 2,904** | −272 / −252 | −68 / −52 | 828 / 852 → 912 / 892 → 896 / 888 | 37 → 44 → 37 | 550 (193) → 590 (222) → 533 (168) | 284 / 272 → 284 / 292 → 284 / 268 |
+| menu QR `/m` (ar) | – (404 on 2.0) → 1,584 / 1,584 → **1,576 / 1,580** | −8 / −4 | – | – → 836 / 832 → 828 / 812 | – → 40 / 41 → 32 | – → 649 / 650 (202) → 591 (147) | – → 296 / 256 → 280 / 240 |
+| overview | 3,472 / 3,464 → 3,660 / 3,560 → **2,424 / 2,468** | −1,236 / −1,092 | −1,048 / −996 | 792 / 796 → 828 / 808 → 720 / 732 | 59 → 69 → 72 | 422 (231) → 529 (305) → 429 / 419 (284) | 1,456 / 1,480 → 1,868 / 1,532 → 1,028 / 1,096 |
+| orders | 3,636 / 3,412 → 4,052 / 3,916 → **3,292 / 3,160** | −760 / −756 | −344 / −252 | 780 / 756 → 840 / 820 → 712 / 712 | 55 → 62 → 62 | 438 (257) → 502 (282) → 417 / 409 (268) | 1,476 / 1,428 → 1,532 / 1,780 → 1,480 / 1,340 |
+| inbox | 3,324 / 2,988 → 3,756 / 3,652 → **2,752 / 2,708** | −1,004 / −944 | −572 / −280 | 780 / 772 → 828 / 816 → 728 / 732 | 51 → 64 → 63 | 389 (206) → 465 (248) → 346 (225) | 1,332 / 1,148 → 1,580 / 1,652 → 1,120 / 1,028 |
+| menu | 3,652 / 3,300 → 3,556 / 3,508 → **2,552 / 2,432** | −1,004 / −1,076 | −1,100 / −868 | 768 / 764 → 820 / 832 → 744 / 732 | 69 → 70 → 73 | 656 (251) → 812 (252) → 721 / 758 (238) | 1,552 / 1,352 → 1,396 / 1,336 → 1,036 / 836 |
+| analytics | 3,300 / 3,196 → 3,552 / 3,532 → **2,388 / 2,364** | −1,164 / −1,168 | −912 / −832 | 752 / 752 → 808 / 812 → 720 / 716 | 53 → 67 → 67 | 434 (253) → 479 (257) → 382 / 368 (232) | 1,476 / 1,364 → 1,576 / 1,552 → 892 / 832 |
+| billing | 3,252 / 3,136 → 3,580 / 3,568 → **2,816 / 2,672** | −764 / −896 | −436 / −464 | 776 / 764 → 808 / 816 → 720 / 700 | 56 → 71 → 72 | 431 (249) → 523 / 526 (305) → 409 / 404 (283) | 1,216 / 1,316 → 1,608 / 1,644 → 1,104 / 1,052 |
+
+CLS is unchanged by these fixes (fixed: orders 0.224, inbox 0.13, menu 0.045, billing 0.045, analytics 0.018 vs
+0.002 merged, overview 0.009; guest pages as before). TTFB 14–53 ms in every pass. Polling unchanged (merged and fixed:
+overview 0, orders 45, guest QR 12 GET/min). The LCP element is the same in the merged and fixed builds on every page
+(orders `div.ticket-source`, inbox `span.inbox-row-preview`, overview `h1`), so those deltas compare the same paint;
+against 2.0 it still differs on orders, inbox and overview (see the caveats above).
+
+HTML documents (gzip kB, raw kB in brackets; budgets unchanged):
+
+| route | locale | 2.0 | merged | fixed | budget |
+|---|---|---|---|---|---|
+| `/login` | en / ar | 22.7 (85.2) / 26.2 (104.8) | 23.5 (88.9) / 27.1 (108.9) | **7.7 (28.7) / 8.6 (33.6)** | 18 |
+| `/signup` | en / ar | 22.8 / 26.3 | 23.5 / 27.2 | **7.7 / 8.7** | 18 |
+| `/onboarding` | en / ar | 22.5 / 25.9 | 25.5 / 29.6 | **10.2 / 11.8** | 18 |
+| `/` | en / ar | 41.1 / 45.0 | 41.8 / 46.0 | **25.5 / 27.6** | 42 |
+| `/pricing` | en / ar | 26.8 / 30.6 | 27.4 / 31.5 | **11.0 / 12.4** | 42 |
+| `/r/[slug]` | en / ar | 24.0 / 27.3 | 25.3 / 28.7 | **22.0 / 25.4** | 42 |
+| `/order/[slug]` | en / ar | 24.5 / 27.4 | 25.3 / 28.3 | **21.9 / 25.1** | 42 |
+| `/t/[qr]` | en / ar | 24.6 / 27.5 | 25.4 / 28.4 | **22.0 / 25.2** | 42 |
+| `/m/[slug]` | en / ar | – (404) | 24.8 / 27.8 | **21.3 / 24.5** | 42 |
+| `/dashboard/[orgId]` | en / ar | 88.1 (338.4) / 103.0 (433.2) | 111.0 (428.2) / 130.8 (551.7) | **27.1 (101.8) / 32.0 (126.5)** | 62 |
+| `/dashboard/[orgId]/orders` | en / ar | 88.1 / 102.9 | 111.2 / 131.0 | **26.5 / 30.8** | 62 |
+| `/kitchen/[orgId]` | en / ar | 86.6 / 101.4 | 109.5 / 129.3 | **12.8 / 15.0** | 62 |
+
+Every measured document is now inside its `--web` budget (`node scripts/ui/bundle-budget.mjs --web … --org --slug
+--qr` exits 0 without `--report`), so the document budgets can be enforced in CI (not changed here).
+
+**What improved.** Every staff page measured is now faster than both 2.1 as merged (−756 to −1,236 ms LCP) and 2.0
+(−252 to −1,100 ms), with FCP 24–72 ms earlier than 2.0 and repeat-visit LCP lower than 2.0 on every staff page except
+orders pass A (+4 ms). The web order page is back below 2.0 (−68 / −52 ms) and the guest QR page stays below it. The
+Arabic landing lost its regression against the merged build (−308 / −360 ms LCP, FCP −444 / −460 ms); against 2.0 it
+is +48 ms in pass A and +408 ms in pass B, where the 2.0 pass B runs were the fastest of the session (2,580 / 2,532 /
+2,348 ms against 2,932 / 2,888 / 2,972 in pass A and 2,928 / 3,028 in 1D), so that difference is inside the spread.
+
+**What still regresses.**
+- *Public site `/r`: +108 / +52 ms LCP and +44 / +28 ms FCP against 2.0* (from +244 / +200). Its JavaScript is now below
+  2.0 (137 against 150 KB); what remains is the 2.1 global CSS: `globals.css` now imports the design-system tokens
+  (4.7 → 18 KB raw) and `ds.css` (37 KB raw, Sheet, Menu, DataTableV2, charts, templates), ~20 KB gzip of
+  render-blocking CSS on every page against 10 KB on 2.0. Splitting `ds.css` into what guest pages render and a staff
+  sheet is the next step; it was not done here because guest pages do render some of those components (sheets, phone
+  input, segmented controls) and a visual pass is needed to split it safely.
+- *JavaScript transferred on a first staff visit* is still above 2.0 on overview (284 against 231 KB), billing (283 /
+  249), inbox (225 / 206) and orders (268 / 257); it is now below 2.0 on menu and analytics. Most of the overview's
+  extra is the home's on-demand insights code (29 + 17 KB) fetched after the LCP. Requests are up on staff pages (e.g.
+  overview 59 → 72, billing 56 → 72): the tab bar's prefetch of other modules now also loads their small layout chunk.
+- Orders CLS 0.224 is unchanged and still above 0.1.
+- Not attempted: starting `/me`, `/o/:id` and the entitlements read before hydration (an inline early fetch). The
+  orders first visit still spends ~2.4 s downloading and hydrating JavaScript before the first API call, then two
+  serial round trips (restaurant, then the screen's data); an early fetch would need the Supabase session read outside
+  supabase-js and the MFA assurance check, so it is a follow-up rather than part of this pass.

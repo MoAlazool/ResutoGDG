@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { PublicPlansResponse } from '@resuto/contracts';
 import { langAlternates } from '@/components/landing/legacy-routes';
 import { PricingPage } from '@/components/landing/PricingPage';
+import { ScopeMessages } from '@/lib/i18n/scope';
 import { getLocale } from '@/lib/i18n/server';
 import { faq, formatAmount, fromPrice } from './pricing-model';
 
@@ -51,7 +52,7 @@ export default async function Pricing() {
   return (
     <>
       {jsonLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />}
-      <PricingPage initial={plans} />
+      <ScopeMessages scope="public"><PricingPage initial={plans} /></ScopeMessages>
     </>
   );
 }

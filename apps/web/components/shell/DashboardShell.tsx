@@ -7,6 +7,7 @@ import { can as roleCan, dateTimeFormat } from '@resuto/contracts/lite';
 import { Breadcrumb, LiveStatus, PageEyebrowProvider, RestaurantChip, Topbar, Wordmark, WorkspaceFooter } from '@resuto/ui';
 import { connectionState, subscribeConnection } from '@/lib/connection';
 import { pick } from '@/lib/pick';
+import { preinitPreloadedStyles } from '@/lib/preinit-styles';
 import { LanguageToggle, setLocale, useT } from '@/lib/i18n/client';
 import { ACTIVE_ORDER_STATUSES, lockedItems, visibleAreas } from '@/lib/nav';
 import { OrgProvider, type OrgInfo } from '@/lib/org-context';
@@ -74,6 +75,9 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
   const session = useSession();
   const router = useRouter();
   const pathname = usePathname();
+
+  // The screen's CSS as stylesheets before the screen renders, so it is not held behind its loading skeleton (21-PERF).
+  useEffect(() => { preinitPreloadedStyles(); }, []);
 
   const orgQ = useApi<OrgInfo>(`/o/${orgId}`);
   const entQ = useApi<EntitlementsView>(`/o/${orgId}/billing/entitlements`);
