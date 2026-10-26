@@ -1,7 +1,7 @@
 name: Native iPad POS
 on:
   push:
-    branches: [feature/ipad-pos]
+    branches: [feature/ipad-pos, 'integration/**']
     paths: ['apps/ipad-pos/**', '.github/workflows/ipad-pos.yml', 'packages/contracts/src/**', 'docs/api/openapi.json']
   pull_request:
     branches: [feature/ipad-pos]
