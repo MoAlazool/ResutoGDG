@@ -248,7 +248,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded": {
+        "at": "2026-10-26",
+        "by": "ws22-intinbox agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-INTINBOX (on 22-TYPE 3aa586f): the Inbox is now a full-height workspace (no page footer, list and empty thread pane fill the viewport, one-line filter rows). Recorded with E2E_RECORD_MISSING_BASELINES=1 after removing the stale file; the rest of the visual suite compared unchanged except reserve-en-mobile (3 % different, a guest page this workstream does not touch; left as is). Pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-customers-en",
