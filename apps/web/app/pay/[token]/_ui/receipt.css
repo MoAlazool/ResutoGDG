@@ -37,12 +37,12 @@
 .receipt-logo{max-width:96px;max-height:44px;object-fit:contain;margin:0 auto 14px;display:block}
 .receipt-title{font-family:ui-monospace,SFMono-Regular,Menlo,"Courier New",monospace;font-size:23px;font-weight:600;
  letter-spacing:.28em;text-transform:uppercase;margin:0 0 10px;padding-inline-start:.28em;color:var(--receipt-ink)}
-.receipt-stamp{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:11.5px;font-weight:600;letter-spacing:.04em;
+.receipt-stamp{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:var(--t-sm);font-weight:600;letter-spacing:.04em;
  color:var(--receipt-ok);background:var(--receipt-ok-bg);border-radius:999px;padding:5px 12px}
 
 .receipt-venue{text-align:center;margin:18px 0 0;display:flex;flex-direction:column;gap:4px}
 .receipt-venue strong{font-size:14px;font-weight:600}
-.receipt-venue span{font-size:11.5px;color:var(--receipt-faint)}
+.receipt-venue span{font-size:var(--t-sm);color:var(--receipt-faint)}
 
 /* ---- rules ----------------------------------------------------------- */
 .receipt-rule{height:1px;margin:16px 0;background:var(--receipt-line)}
@@ -51,40 +51,40 @@
 /* ---- metadata -------------------------------------------------------- */
 .receipt-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 14px;margin:0}
 .receipt-meta>div{min-width:0}
-.receipt-meta dt{font-size:9.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--receipt-faint);margin-bottom:3px}
-.receipt-meta dd{margin:0;font-size:12.5px;font-weight:550;overflow-wrap:anywhere}
-.receipt-payment dd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;font-weight:500}
+.receipt-meta dt{font-size:var(--t-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--receipt-faint);margin-bottom:3px}
+.receipt-meta dd{margin:0;font-size:var(--t-sm);font-weight:550;overflow-wrap:anywhere}
+.receipt-payment dd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-sm);font-weight:500}
 .receipt-paid-flag{color:var(--receipt-ok);font-weight:700!important;letter-spacing:.06em}
 
 /* ---- items ----------------------------------------------------------- */
 .receipt-items{display:flex;flex-direction:column;gap:12px}
 .receipt-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:baseline}
-.receipt-qty{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--receipt-faint);min-width:16px}
+.receipt-qty{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-sm);color:var(--receipt-faint);min-width:16px}
 .receipt-qty:after{content:'×';margin-inline-start:2px}
-.receipt-item-name{font-size:13px;line-height:1.4;overflow-wrap:anywhere;min-width:0}
-.receipt-item-name small{display:block;font-size:10.5px;color:var(--receipt-faint);margin-top:3px}
-.receipt-item-price{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;font-weight:600;white-space:nowrap}
+.receipt-item-name{font-size:var(--fs-sm);line-height:1.4;overflow-wrap:anywhere;min-width:0}
+.receipt-item-name small{display:block;font-size:var(--t-sm);color:var(--receipt-faint);margin-top:3px}
+.receipt-item-price{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-sm);font-weight:600;white-space:nowrap}
 
 /* ---- totals ---------------------------------------------------------- */
 .receipt-totals{display:flex;flex-direction:column;gap:10px}
-.receipt-amount{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:12.5px;color:var(--receipt-muted)}
+.receipt-amount{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:var(--t-sm);color:var(--receipt-muted)}
 .receipt-amount b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;white-space:nowrap;color:var(--receipt-ink)}
 .receipt-credit b{color:var(--receipt-ok)}
-.receipt-grand{margin-top:4px;padding-top:12px;border-top:1.5px solid var(--receipt-ink);font-size:12px;
+.receipt-grand{margin-top:4px;padding-top:12px;border-top:1.5px solid var(--receipt-ink);font-size:var(--t-sm);
  text-transform:uppercase;letter-spacing:.11em;font-weight:700;color:var(--receipt-ink)}
 .receipt-grand b{font-size:19px;letter-spacing:0}
 .receipt-paid b{color:var(--receipt-ok)}
 .receipt-due b{color:var(--receipt-due)}
-.receipt-settled{margin:12px 0 0;text-align:center;font-size:11.5px;font-weight:600;color:var(--receipt-ok)}
-.receipt-note{margin:12px 0 0;font-size:10.5px;line-height:1.6;color:var(--receipt-faint);text-align:center}
+.receipt-settled{margin:12px 0 0;text-align:center;font-size:var(--t-sm);font-weight:600;color:var(--receipt-ok)}
+.receipt-note{margin:12px 0 0;font-size:var(--t-sm);line-height:1.6;color:var(--receipt-faint);text-align:center}
 
 /* ---- footer / barcode ------------------------------------------------ */
 /* display/padding/font-size override the global `footer` rule in style.css. */
 .receipt-foot{display:block;text-align:center;padding:4px 0 0;font-size:inherit;color:inherit}
-.receipt-thanks{margin:0 0 16px;font-size:12.5px;color:var(--receipt-muted)}
+.receipt-thanks{margin:0 0 16px;font-size:var(--t-sm);color:var(--receipt-muted)}
 .receipt-thanks span{color:var(--receipt-heart)}
 .receipt-barcode{display:block;width:min(100%,240px);height:52px;margin:0 auto;fill:var(--receipt-ink)}
-.receipt-code{display:block;margin-top:9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+.receipt-code{display:block;margin-top:9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-sm);
  letter-spacing:.22em;color:var(--receipt-faint)}
 
 /* ---- success beat ---------------------------------------------------- */
@@ -114,7 +114,7 @@
 .receipt-action.is-primary:hover{background:var(--brand-ink-3)}
 .receipt-actions-primary{flex-direction:column;gap:8px}
 .receipt-action{flex:1;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
- background:var(--receipt-card);border:1px solid var(--receipt-action-line);border-radius:9px;color:var(--receipt-action-text);font-size:13px;font-weight:550;
+ background:var(--receipt-card);border:1px solid var(--receipt-action-line);border-radius:9px;color:var(--receipt-action-text);font-size:var(--fs-sm);font-weight:550;
  padding:0 12px;transition:background .15s,transform .15s}
 .receipt-action:hover{background:var(--receipt-action-hover)}
 .receipt-action:active{transform:scale(.97)}
@@ -125,9 +125,9 @@
 .receipt-list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;text-align:start;
  background:var(--receipt-card);border:1px solid var(--receipt-line);border-radius:10px;padding:14px 16px;min-height:48px}
 .receipt-list-item:hover{background:var(--receipt-item-hover)}
-.receipt-list-item strong{font-size:13px;font-weight:600;display:block}
-.receipt-list-item small{font-size:11px;color:var(--receipt-faint);display:block;margin-top:3px}
-.receipt-list-item b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;white-space:nowrap}
+.receipt-list-item strong{font-size:var(--fs-sm);font-weight:600;display:block}
+.receipt-list-item small{font-size:var(--t-sm);color:var(--receipt-faint);display:block;margin-top:3px}
+.receipt-list-item b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-sm);white-space:nowrap}
 
 /* ---- responsive ------------------------------------------------------ */
 @media(max-width:430px){
@@ -153,8 +153,8 @@
    text drops them and only the LTR codes/amounts keep the receipt face. */
 [dir=rtl] .receipt-title,[dir=rtl] .receipt-paid-flag,[dir=rtl] .receipt-meta dt{letter-spacing:normal}
 [dir=rtl] .receipt-title{font-family:inherit;padding-inline-start:0}
-[dir=rtl] .receipt-payment dd{font-family:inherit;font-size:12.5px}
-[dir=rtl] .receipt-payment dd[dir=ltr]{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+[dir=rtl] .receipt-payment dd{font-family:inherit;font-size:var(--t-sm)}
+[dir=rtl] .receipt-payment dd[dir=ltr]{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--t-sm)}
 .receipt-paper [dir=ltr]{unicode-bidi:isolate}
 
 @media(prefers-reduced-motion:reduce){
@@ -183,7 +183,7 @@
 .pay-lines li span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
 .pay-method{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;min-height:52px;background:var(--receipt-card)}
 .pay-method[aria-checked=true]{border-color:var(--ink);box-shadow:0 0 0 2px var(--receipt-focus-ring)}
-.pay-method small{display:block;color:var(--muted);font-size:12px}
+.pay-method small{display:block;color:var(--muted);font-size:var(--t-sm)}
 .pay-methods{display:grid;gap:8px;margin:12px 0 16px}
 .pay-totals{display:grid;gap:6px;font-size:14px;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px}
 .pay-totals div{display:flex;justify-content:space-between}

@@ -5,7 +5,7 @@
 .social-icons ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
 .social-icons a { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 44px; min-height: 44px;
   border-radius: 999px; background: var(--surface-1); border: 1px solid var(--border-subtle); color: var(--text); text-decoration: none; }
-.social-icons.with-names a { padding-inline: 12px 16px; font-size: 13px; font-weight: 600; }
+.social-icons.with-names a { padding-inline: 12px 16px; font-size: var(--fs-sm); font-weight: 600; }
 .social-icons a:hover { box-shadow: var(--elevation-1); }
 .social-icons a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .social-icons img { width: 20px; height: 20px; display: block; }
