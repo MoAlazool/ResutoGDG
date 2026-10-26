@@ -348,7 +348,7 @@ function TableCart({ visit, ordering, settling, cart, products, currency, sugges
             <input maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} dir="auto" /></label>
           {quote && (
             <div>
-              {quote.discountMinor > 0 && <MoneyRow fine label={t('core.bill.discount')} value={`−${m(quote.discountMinor)}`} />}
+              {quote.discountMinor > 0 && <MoneyRow fine label={t('core.bill.discount')} value={m(-quote.discountMinor)} />}
               {quote.serviceChargeMinor > 0 && <MoneyRow fine label={t('core.bill.service')} value={m(quote.serviceChargeMinor)} />}
               {quote.taxMinor > 0 && <MoneyRow fine label={quote.taxInclusive ? t('core.bill.vatIncluded') : t('core.bill.vat')} value={m(quote.taxMinor)} />}
             </div>
