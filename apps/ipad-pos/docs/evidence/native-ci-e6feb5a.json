@@ -1,0 +1,14 @@
+{
+  "runId": 40188215710,
+  "sourceCommit": "e6feb5a4d9b7640b87da7a1f4ba664fb8e4f7ddd",
+  "result": "failure",
+  "coreTests": 107,
+  "uiTests": 18,
+  "uiPassed": 17,
+  "uiFailed": 1,
+  "releaseBuild": "passed",
+  "debugBuild": "passed",
+  "failure": "Refund workflow final status assertion called isHittable on a static label without an AX activation point; semantic status helper corrected.",
+  "stagingVerified": false,
+  "physicalDeviceVerified": false
+}

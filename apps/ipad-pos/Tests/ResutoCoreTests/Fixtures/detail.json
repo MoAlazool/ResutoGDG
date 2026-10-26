@@ -1,0 +1,30 @@
+{
+  "id": "order",
+  "number": "42",
+  "branchId": "22222222-2222-4222-8222-222222222222",
+  "fulfillment": "pickup",
+  "status": "placed",
+  "paymentStatus": "unpaid",
+  "currency": "EGP",
+  "totalMinor": 10431,
+  "dueMinor": 10431,
+  "subtotalMinor": 9150,
+  "discountMinor": 0,
+  "serviceChargeMinor": 0,
+  "taxMinor": 1281,
+  "deliveryFeeMinor": 0,
+  "taxInclusive": false,
+  "version": 0,
+  "lines": [
+    {
+      "id": "line",
+      "name": "Lunch",
+      "nameAr": "غداء",
+      "quantity": 1,
+      "lineTotalMinor": 9150,
+      "kitchenStatus": "queued",
+      "notes": null
+    }
+  ],
+  "payments": []
+}

@@ -1,0 +1,27 @@
+{
+  "commit": "be5a52871dcd5057155090f5cf74e8b4d9522d5a",
+  "runId": 40125492140,
+  "url": "https://github.com/MoAlazool/ResutoGDG/actions/runs/40125492140",
+  "conclusion": "success",
+  "xcode": "16.4",
+  "coreTests": 42,
+  "simulatorUITests": 4,
+  "authenticatedWorkflowTests": false,
+  "realDeviceVerified": false,
+  "physicalPrinterVerified": false,
+  "simulatorLaunchSeconds": {
+    "mean": 2.793,
+    "samples": [
+      3.085011,
+      2.713417,
+      2.481867,
+      2.98785,
+      2.697707
+    ]
+  },
+  "artifact": {
+    "id": 12573656142,
+    "sha256": "0cae3d23157b74fba604101961b47470dcafdb3c38ac2b78145cfc02b807bb2c"
+  },
+  "limitations": "Applies to the named commit. Simulator launch metrics are not a real-device performance pass; UI tests cover unauthenticated launch, rotation, language launch, screenshot and launch metrics."
+}

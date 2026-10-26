@@ -1,0 +1,39 @@
+{
+  "observedAtUTC": "2026-10-25T16:02:03.935457Z",
+  "project": "skvnznyfxpxfuzvuipju",
+  "readOnly": true,
+  "stagingWritesPerformed": false,
+  "productionAccessed": false,
+  "backendBranch": "claude/relaxed-mayer-omkl3f",
+  "backendHead": "48f5eeba38649cee4ea447b4a0982a803f71434d",
+  "posContractDocumentsChangedSince806a4c2": false,
+  "lastAppliedMigration": "20261023040002_counter_legacy_revoke",
+  "posTablesPresent": {
+    "pos_devices": false,
+    "pos_device_pairings": false,
+    "pos_events": false,
+    "pos_event_heads": false,
+    "pos_order_submissions": false,
+    "pos_print_jobs": false
+  },
+  "nativeOrIPADQAOrganizationNameMatches": 0,
+  "qaCountLimit": "Name-filter count only; does not establish whether a differently named approved QA tenant exists. No credential/account rows were read.",
+  "renderService": "srv-dbaa8hqjnfac73ev3kjg",
+  "renderLiveDeployment": "dep-dbebvru7bikc73fulm2g",
+  "renderLiveCommit": "5c359d5c73e861634c3e289488579df9ef0d02f9",
+  "approvedStaffCredentialsAvailable": false,
+  "authenticatedLifecycleVerified": false,
+  "pendingMigrations": [
+    "20261024210001_pos_devices_feed",
+    "20261025100000_change_sets",
+    "20261025120001_module_enabled_free_fallback",
+    "20261025120002_organization_social_links",
+    "20261025200000_mcp_groups_sessions",
+    "20261025210001_pos_require_staff",
+    "20261025300001_inbox_workspace",
+    "20261025400001_user_preferences",
+    "20261025410001_platform_provider_apps",
+    "20261025410002_channel_routing",
+    "20261026100001_onboarding_wizard"
+  ]
+}

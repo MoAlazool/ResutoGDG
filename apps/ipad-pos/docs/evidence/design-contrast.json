@@ -1,0 +1,7 @@
+{
+  "scope": "Specified accent versus system white/black reference only; not a full UI contrast audit",
+  "lightAccentOnWhite": 12.0,
+  "darkAccentOnBlack": 12.97,
+  "wcagNormalTextMinimum": 4.5,
+  "note": "System dynamic secondary labels, real photos, dark surfaces and every interaction state still require measured visual/device accessibility review."
+}

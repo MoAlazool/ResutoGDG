@@ -1,0 +1,71 @@
+{
+  "currency": "EGP",
+  "menus": [
+    {
+      "id": "menu",
+      "branchId": null,
+      "isActive": true
+    }
+  ],
+  "categories": [
+    {
+      "id": "category",
+      "menuId": "menu",
+      "name": "Kitchen",
+      "nameAr": "المطبخ",
+      "isActive": true
+    }
+  ],
+  "modifierGroups": [
+    {
+      "id": "group",
+      "name": "Size",
+      "nameAr": "الحجم",
+      "isActive": true,
+      "minSelect": 1,
+      "maxSelect": 1,
+      "options": [
+        {
+          "id": "option",
+          "groupId": "group",
+          "name": "Regular",
+          "nameAr": "عادي",
+          "priceDeltaMinor": 150,
+          "isDefault": true,
+          "isAvailable": true
+        }
+      ]
+    }
+  ],
+  "products": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "categoryId": "category",
+      "name": "Lunch",
+      "nameAr": "غداء",
+      "description": null,
+      "descriptionAr": null,
+      "priceMinor": 10000,
+      "currency": "EGP",
+      "imageUrl": null,
+      "isActive": true,
+      "trackStock": true,
+      "version": 1,
+      "branchSettings": [
+        {
+          "branchId": "22222222-2222-4222-8222-222222222222",
+          "isAvailable": true,
+          "priceOverrideMinor": 9000,
+          "stockQty": 5,
+          "soldOut": false
+        }
+      ],
+      "modifierGroupIds": [
+        "group"
+      ],
+      "allergens": [
+        "milk"
+      ]
+    }
+  ]
+}

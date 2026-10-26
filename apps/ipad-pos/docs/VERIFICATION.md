@@ -1,0 +1,118 @@
+# Verification and measurable acceptance
+
+`TEST_MATRIX.md` maps the 21 simulator scenarios to their actual assertions and lists remaining workflow, accessibility, staging and physical-device coverage.
+
+## Latest executed native result
+
+[Run 40210274577](https://github.com/MoAlazool/ResutoGDG/actions/runs/40210274577) passed at `42263eb48c343d8894d1e847beebfce878850b54`: **107 portable core tests, all 21 iPad simulator UI cases, Debug build and Release build**, Xcode 16.4 / Swift 6.1.2, iPad Pro 11-inch M4 / iOS 18.5. Evidence: `evidence/native-ci-42263eb.json`, artifact `12605304878` (SHA-256 `c1c51e861e7ccf07b6032d5a1384a57b6a812f0a826d8cd528abb10ee0044663`).
+
+All 19 final full CoreSimulator frames were inspected. The final Arabic sheets place cancellation, content and recap correctly; localized allergen labels and Western money digits are checked by real UI assertions. The compact cart remains reachable at accessibility text sizes. These checks are not full VoiceOver/contrast/dark-appearance or physical-device certification. Selected native screenshots and before/after comparisons are in `UX_GALLERY.md`; no generated mockup or retouched UI is used. Raw frames are retained in Actions; upright copies use quarter-turn normalization only.
+
+Latest simulator launch mean: **3.298 s**, samples 3.716393, 3.506971, 2.670940; relative standard deviation 13.694%. Earlier `106010a` measured 2.311 s with 22.590% RSD. These variable first-frame simulator samples do **not** establish an improvement or meet the <=2 s real-device authenticated-ready acceptance target. That performance gate remains open.
+
+Earlier major UI source `106010a` passed [40201606143](https://github.com/MoAlazool/ResutoGDG/actions/runs/40201606143), 107 core + 21 UI. Its screenshot review exposed an Arabic sheet inheritance defect subsequently fixed and verified in the final run. Shared CI [40201606026](https://github.com/MoAlazool/ResutoGDG/actions/runs/40201606026) also passed; the latest shared run is tracked separately from native acceptance.
+
+Baseline visual evidence: [40200247954](https://github.com/MoAlazool/ResutoGDG/actions/runs/40200247954) at `8e4c175`, 107 core + both visual scenarios pass, 19 full native frames. Capture-only revisions preserve the earlier application UI. Initial capture failure and later cancelled/superseded runs are not counted as complete suite passes.
+
+## Executed in this environment
+
+Swift 6.0.3 on Linux compiles `ResutoCore` and `ResutoStagingProbe`; 107 XCTest tests pass locally. `scripts/check_contracts.py` validates the 23 route/method combinations used by the native client/probe against repository OpenAPI, supported staff channel, retry horizon and resource plists. `swiftc -frontend -parse App/*.swift` checks syntax only; it is not an Apple SDK typecheck.
+
+Read-only staging probes on 2026-10-24: `/v1/health` 200 with `environment=staging`, `paymentMode=sandbox`, database latency and API build `5c359d5c73e861634c3e289488579df9ef0d02f9`; `/v1/me` and protected orders without credentials both 401. Raw non-sensitive evidence is in `evidence/staging-read-only.json`. No authenticated order was created or financial action performed by these probes.
+
+GitHub, Supabase, Render and Vercel connectors were inspected read-only. Staging project/client configuration, service metadata and protected web project are verified. No approved staging staff credential source or dedicated Native QA restaurant was found; cloud readiness has no injected secrets. See `STAGING.md` for exact setup. No authentication or deployment-protection bypass was attempted.
+
+## Automated suites
+
+- Core domain: input bounds, required/foreign/duplicate/unavailable modifiers, branch overrides, dine-in table requirement, unsupported delivery entry rejection, amount parsing, Western digits, exact minor-unit splits, lifecycle, permissions, branch access and Codable fixtures.
+- Queue: local-only until approval, restart persistence, crash between capture and cart clearing, immutable draft-ID reuse, same-key lost-response retries, backoff/Retry-After, scope isolation, authorization gates, semantic conflict handling, replay expiry and clock rollback, failed persistence, corrupt storage, concurrent drains.
+- Networking: verified request paths, bearer/request ID headers, typed decoding, single-flight refresh, late-refresh logout race, session-local logout, error envelope/request ID, ETag/304, HTTPS, no automatic mutation retry.
+- Printing: persistent queue, ambiguous-send confirmation, interrupted print recovery, server-total projection. No physical hardware implied.
+- Performance: repeated catalogue validation and 1000-product/60-line cart XCTest measures; UI launch metric on macOS simulator CI. These do not establish busy-restaurant real-device performance.
+- UI: four original launch/locale/rotation/performance tests; eleven new simulator-only contract workflows cover actual sign-in UI, branch/role selection, order/KDS/status/cash/receipt queue, encrypted cart relaunch, Arabic product/rotation, sold-out toggle, dine-in, EN/AR accessibility descriptions, lost order-response retry and manual lost-cash-response recovery. These use a visibly labelled DEBUG/simulator-only transport with real Keychain/AES persistence. They are not staging. Latest-head CI results remain pending.
+
+Synthetic JSON fixtures are generated by `generate_fixtures.py` from reviewed field shapes. They contain no real customer data and do not represent live staging captures. No shared backend tests were modified or deployed.
+
+## macOS CI
+
+Verified run [40125492140](https://github.com/MoAlazool/ResutoGDG/actions/runs/40125492140) passed at `be5a528` on Xcode 16.4: 42 core tests and 4 simulator UI tests. Artifacts were downloaded through the GitHub connector and the welcome screenshot was inspected. It exposed a missing English welcome subtitle, corrected in the next revision; that revision adds English/Arabic catalogue parity and a real Arabic welcome-text assertion. `evidence/native-ci-be5a528.json` preserves the exact result. Always check the PR for the latest head's result.
+
+Measured simulator launch mean was 2.793 s (samples 3.085011, 2.713417, 2.481867, 2.987850, 2.697707). This is not an achieved real-device <=2 s target; physical-device measurement and optimization remain open.
+
+
+`.github/workflows/ipad-pos.yml` uses a macOS runner's selected Xcode, prints the actual version/device inventory, discovers an installed iPad simulator rather than assuming a model/OS, checks generated artifacts, runs package tests, builds the app and runs UI tests using ad hoc simulator signing with a test-only application prefix and explicit Keychain entitlements. Result bundles and build logs upload on failure/success. Read-only token permissions; no deploy, secrets, archive upload or distribution signing workflow. A passing simulator run is not real-device or payment/hardware acceptance.
+
+## Required authenticated staging lifecycle
+
+Use owner-authorized staff accounts for a dedicated test restaurant and at least two branches. Do not use production data. Record API build and native commit.
+
+1. Sign in, list only permitted restaurants/branches; reauthenticate on expiry; switch staff and confirm prior context is inaccessible. Try denied role and tenant/branch B requests with tenant A credentials: no disclosure/mutation.
+2. Load the actual menu, prices, modifiers and sold-out state; compare with web. Change availability/price on web; refresh native and verify changed choices are blocked/reviewed.
+3. Seat a table on iPad; confirm floor/visit on web. Create one pickup and one dine-in order. Confirm same ID/number/totals in dashboard and KDS, correct stock/outbox effects and analytics attribution (`staff`).
+4. Advance in KDS/web; confirm native within polling acceptance. Native status change must appear on web. Race two clients with same order version; one rejects stale version without silent overwrite.
+5. Interrupt before/during/after creation response, force-close/reboot, reconnect and retry. Confirm one server order/KDS ticket. Wait past retry horizon: attention, no replacement order.
+6. Save offline drafts; no kitchen receipt claim. Reconnect after product price/permission/table state changes; inspect server rejection/review. No offline financial success UI.
+7. Record partial/exact cash physically with server confirmation; compare ledger, due, payment allocations, history, analytics and receipt totals. Lose response and recover original key. Never create a second key automatically.
+8. Request refund as manager; cashier denied. Pending/unknown/manual_required remains pending. Complete authorized manual/provider workflow on web and observe resulting totals on refresh. Provider card tests require configured TEST credentials and acceptance harness.
+9. Validate local data deletion/retention, locked-device behavior, RTL/mixed text/Western digits, VoiceOver, larger Dynamic Type, switch control, keyboard, multitasking, dark/light/reduced motion and app snapshots.
+
+## Acceptance targets (unverified unless a run is recorded)
+
+Cold authenticated-ready UI <=2 s excluding network; local catalogue taps/cart updates p95 <100 ms on oldest supported real iPad; 1000-item catalogue scrolling without sustained main-thread stalls; server status convergence <=10 s under normal connectivity; zero duplicate orders/effects across 100 injected retry/crash scenarios; zero false paid/kitchen-confirmed states; no cross-scope local record access; no lost acknowledged durable draft after force-close; <=200 MB steady-state memory with 1000 menu products/200 active orders; no clipped Arabic/accessibility controls in supported orientations. Measure actual device/OS/build/dataset and report p50/p95 rather than declaring these achieved.
+
+## Current execution additions (2026-10-24)
+
+- Native Swift public-only probe executed against staging: health staging/sandbox and unauthenticated `/me` 401 passed. Evidence: `evidence/native-staging-public.json`. No order/payment mutation was performed.
+- Read-only credential discovery and dedicated QA setup are documented in `STAGING.md`. Authenticated probe compiles but its auth/write lifecycle remains unexecuted. It cannot replace actual browser/UI, inventory, physical-device or provider checks.
+- 107 Linux core tests pass. Large-catalogue estimate was about 0.9 ms per 60-line estimate (1000 products) in the recorded Linux run; this is a core CPU benchmark, not iPad tap/scroll/memory acceptance. Unicode note limits use UTF-16 to match the server's JS validation; checked arithmetic rejects overflow.
+- CI run 40129289426 built but new sign-in workflows exposed Keychain access failure in the unsigned simulator. The subsequent change adds real simulator Keychain entitlements and ad hoc signing; fixture persistence is not substituted to hide the failure. Latest expanded CI run must be checked for the fix and downstream workflow issues.
+
+## Draft POS adapters
+
+The local suite now includes synthetic dual-credential headers, staff refresh, pairing-format/context rejection, device revocation preserving staff auth, staff switching preserving device auth, intersection permissions, feed sequence/epoch/gap/dedupe/unknown-kind handling, checkpoint/projection failures, scope isolation, read-only shadow snapshots, projection-loss recovery, server quote consent, lost-response reconciliation, processing/price-conflict handling and legacy endpoint preservation. These tests do not prove the 0.2.0 backend is deployed or that real staging guard checks pass. Live activation follows `POS_API_MIGRATION.md` and Claude's integration document.
+
+The expanded UI runner now uses semantic button/switch targets and scrolls lazy SwiftUI form rows before interacting. Status assertions are scoped to the active order sheet. An additional Release simulator build excludes the DEBUG fixture transport. All 107 portable core tests also pass with Release optimization on Linux. Check the latest macOS run before claiming Apple build/UI coverage at the current head. Backend messages are no longer directly displayed in the UI; translated recovery keys and support request IDs are used instead.
+
+Shared web E2E run 40144268882 reported 69 passes and one WebKit dine-in failure at `tests/e2e/scenario-dine-in.spec.ts:156`: unexpected RSC fetch fallback warnings for local order/reservation/restaurant pages. This is a shared web test result, not native/staging acceptance; shared web/backend files were not changed. Native run 40144268894 compiled Debug and Release, passed 80 core tests and 10/13 UI tests; availability and offscreen recovery/print-row cases failed and are being rerun after corrections. Financial collection reached a server-confirmed paid state in the synthetic transport, not staging.
+
+The latest read-only staging probe at 2026-10-24T23:59:00Z still reports API build `5c359d5`. Metadata query found no `pos_devices`, `pos_order_submissions`, `pos_events` or `pos_print_jobs` tables in the staging public schema. No POS API activation or database mutation was attempted. Reservation day/time now uses the branch's verified `timezone` field, falling back to restaurant timezone; a midnight/cross-timezone test covers Western ISO dates.
+
+## Additional executed portable checks
+
+107 core XCTest cases pass in both Debug and Release on Linux. `check_ui_transport.py` compiles and executes the actual DEBUG simulator transport with synthetic fixtures in a temporary directory: sold-out availability changes, a lost acknowledgement, persistent original server identity and same-key replay after restart pass. It performs no network access. Localization has unique-key checks; the actual Swift dictionaries were separately initialized successfully without SwiftUI after removing the duplicate `price_changed` regression.
+
+The 14th simulator scenario records the server-generated ID while the creation acknowledgement is unavailable, force-closes the app, reopens real Keychain/AES client storage and verifies reconciliation to that original ID with one server order. Its synthetic server file is separate from client storage and excluded from Release/device builds. It is not a staging or physical-device result.
+
+Additional tests cover approved API/Auth origin pairs, wrong origin/user-info/query/port rejection, expired signed-image cursor refresh without an event, staging receipt test labeling and Arabic decimal keyboard input. Normal-size Arabic portrait entry was visually inspected from run 40144268894: RTL placement, Western digits and readable controls were present; this does not establish large Dynamic Type, contrast, VoiceOver or real-device acceptance.
+
+Run 40146365555 at `a6f8af3` passed 84 core tests, Debug/Release builds and 11/14 UI cases, including the new force-close/same-server-ID case and reversible availability. Remaining failures were secure-field keyboard focus and settings/receipt access below the sidebar viewport. The next revision adds always-visible Settings toolbar navigation, semantic scroll containers, silent no-session startup, busy-command gating, focus synchronization and faster condition-based waits. These fixes require the next macOS result; no passing result is inferred.
+
+## POS 0.2.0 continuation
+
+Reviewed Claude `69ec75e`: staff-on-device and by-client-ID lookup are implemented draft, not staging-verified. Native decoding now requires top-level `requireStaff` as well as the device policy; accepted reconciliation validates number/currency agreement. Settings adds Keychain-backed pairing, encrypted read-only shadows, foreground cancellation/backoff and manager-only local forgetting. A synthetic pairing/shadow/forget UI case brings the suite to 15 scenarios. It is not staging evidence.
+
+Run 40148561355 at `fc6f583`: 91 portable tests, Debug and Release builds passed; **13/14 UI tests passed**. Login/accessibility, cash recovery and receipt navigation fixes passed. The remaining cart-relaunch assertion now waits for branch loading to finish; new-head CI must verify it. Authenticated staging and physical-device checks remain pending.
+
+Additional independent work: the floor has a native table-list alternative, automatically selected at accessibility Dynamic Type sizes, with localized occupancy/capacity and actionable table descriptions. Two new synthetic UI scenarios cover list-based dine-in selection and Arabic accessibility text (18 scenarios total; latest Apple result pending). Permission access now uses a scoped eight-hour identity lease rather than Wi-Fi reachability, with wall/monotonic expiry and rollback/isolation tests. Reconciliation tests reject mismatched order numbers and currencies without claiming acceptance. No staging/device result is implied.
+
+The floor table-list and Arabic accessibility-size scenarios extend the suite alongside a manual-refund UI workflow (18 cases total). The refund scenario must preserve the server’s paid state while displaying `manual_required`; it is not provider settlement. Permission hint sets are now initialized once rather than reconstructed on each lookup; the Linux CPU benchmark is not an iPad responsiveness result. Read-only shadows drop menu/floor snapshots when server session permissions narrow without a feed event; a negative test covers memory and persisted projections. Local forgetting joins its cancelled poll before file deletion.
+
+Shared repository CI [40150009954](https://github.com/MoAlazool/ResutoGDG/actions/runs/40150009954) at `812439b` completed successfully in all four jobs, including **70 browser E2E tests**. This supersedes the earlier WebKit failure for that revision and confirms the unchanged shared code passes its existing local CI suites. It does not verify native-to-staging/Web/KDS integration or Claude’s separately implemented POS 0.2.0 branch.
+
+Run 40150009851 at `812439b`: 96 core tests and Debug/Release builds passed, **14/15 native UI cases passed**. Pairing/read-only shadows/local forgetting and the restored-cart case passed. Order-to-Settings navigation failed with the order sheet active; the recording/hierarchy showed dismissed order details returning during background polling. Incoming detail snapshots now require the same still-selected order and a non-regressing version; a portable regression test rejects updates after dismissal. Scope cache invalidation also rejects late GET responses; its deterministic continuation-gate test verifies no old ETag/body is restored. Exact evidence is in `evidence/native-ci-812439b.json`. The next full 18-case Apple run remains the acceptance gate for these changes.
+
+Claude branch was re-fetched at `04c07c7` on 2026-10-25; there is no change to the reviewed POS contracts, implementations or integration documents relative to the pinned `69ec75e` revision. No shared branch or deployment was changed.
+
+Follow-up source review found initial workspace selection depended on a permission lease still loading during branch entry. Initial navigation now uses membership hints; operational actions keep the scoped lease and server guard. Mutation completion/failure invalidates older in-flight reads, and an unrelated uncached identity response no longer discards menu ETags. Two deterministic networking tests cover those cache cases (107 portable tests total). The d8c07ce CI run was superseded during UI execution; its 105 core tests and Release build passed, but its full 18-case UI result is not a pass. The corrected revision requires a complete native rerun.
+
+Run 40188215710 at `e6feb5a` passed 107 core tests, Debug/Release builds and **17/18 simulator UI cases**. All previous startup/dismissal cases passed, as did Arabic accessibility-size floor selection and English table-list selection. The manual-refund case reached the manual-required UI and failed in the final helper's `isHittable` query on noninteractive `order.paymentState` text (invalid AX activation point). The helper now waits on semantic existence/label instead of requesting a tap point for static text. The next complete 18-case run must verify that correction.
+
+Landscape PNG artifact review limitation: screenshots from run 40188215710 have EXIF orientation 8, a 2420×1668 encoded size and non-black pixel bounds ending at x=1668. The exported framing obscures part of the interface after orientation handling. These files are insufficient for complete pixel-level visual acceptance; do not infer a fully reviewed layout from a passing semantic accessibility test. Keep full visual/contrast/VoiceOver and physical-device acceptance open. Original Actions artifacts are retained without image retouching.
+
+Shared CI run 40189594097 at `05096ad`: browser suite passes all 70 cases. The database/API/web job failed in restricted-runtime API tests: `apps/api/test/connect.test.ts:364`, WhatsApp sender expected `{retried:1,sent:0}` but observed `{retried:1,sent:3}` (916 passed, 1 failed, 1 skipped). A job-only rerun was requested. This is a shared messaging test/dependency for Claude; no shared API, test, database or workflow file was changed. Evidence: `evidence/shared-api-ci-05096ad.json`. Do not describe the entire shared CI run as green while this remains unresolved.
+
+Shared CI retry resolution: job `121160347693` passed (restricted runtime 917 passed / 1 skipped; normal runtime 914 passed / 4 skipped), followed by MCP/web checks and build. Overall run `40189594097` is green at `05096ad`; the browser suite has 70 passes. The original sender assertion remains recorded as an intermittent shared-test follow-up for Claude, with no shared implementation/test/schema change. Later documentation-only commits preserve the tested application source; native evidence identifies the exact `05096ad` execution rather than claiming a deployment or physical-device result.
+
+## Shared CI at the final native source
+
+[Run 40210274579](https://github.com/MoAlazool/ResutoGDG/actions/runs/40210274579) at `42263eb` is green: browser 70 passed, API 914 passed / 4 skipped, restricted runtime API 917 passed / 1 skipped, web 445 passed / 20 skipped, plus database/security/build and visual parity checks. These are disposable CI services, not authenticated staging. Exact results are recorded in `evidence/shared-ci-42263eb.json`.

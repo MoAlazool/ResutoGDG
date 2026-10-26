@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "order",
+      "number": "42",
+      "branchId": "22222222-2222-4222-8222-222222222222",
+      "fulfillment": "pickup",
+      "status": "placed",
+      "paymentStatus": "unpaid",
+      "tableLabel": null,
+      "visitId": null,
+      "currency": "EGP",
+      "totalMinor": 10431,
+      "paidMinor": 0,
+      "refundedMinor": 0,
+      "dueMinor": 10431,
+      "placedAt": "2026-10-24T12:00:00Z",
+      "version": 0
+    }
+  ],
+  "nextCursor": null
+}
