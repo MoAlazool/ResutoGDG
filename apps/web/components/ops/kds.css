@@ -56,3 +56,8 @@
   .kds-full .board-keys { display: none; }
 }
 .kds-loading { inline-size: 320px; }
+/* 22-DASH: the station chips arrive with the first tickets; one row that scrolls sideways (never a second row) keeps the
+   board from jumping down on a phone (CLS 0.67 at 390 px). */
+.station-picker { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-block: 2px; }
+.station-picker::-webkit-scrollbar { display: none; }
+.station-picker > .btn { flex: none; }

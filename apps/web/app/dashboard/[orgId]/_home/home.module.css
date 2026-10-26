@@ -87,3 +87,6 @@
   .attItem { grid-template-columns: minmax(0, 1fr); }
   .attSide { justify-items: start; grid-auto-flow: column; align-items: center; }
 }
+/* 22-DASH: the "measured … as of" line replaces a one-line "Loading" and takes two lines on a phone; its room is kept so
+   the period toolbar and the sections do not jump down when the figures arrive (CLS 0.46 at 390 px). */
+@media (max-width: 700px) { .page :global(.page-header p) { min-block-size: calc(2lh); } }
