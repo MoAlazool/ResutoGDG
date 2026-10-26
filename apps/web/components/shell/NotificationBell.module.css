@@ -8,8 +8,8 @@
 .bell > summary:hover, .bell[open] > summary { background: var(--nav-hover); }
 .bell > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .count {
-  position: absolute; inset-block-start: 1px; inset-inline-end: -2px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
-  background: var(--danger); color: var(--on-ink); font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+  position: absolute; inset-block-start: 1px; inset-inline-end: -2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  background: var(--danger); color: var(--on-ink); font-size: var(--t-sm); font-weight: 700; line-height: 20px; text-align: center;
   font-variant-numeric: tabular-nums;
 }
 .menu {
@@ -28,7 +28,7 @@
 .item[data-severity='warning'].unread .dot { background: var(--warn); }
 .title { font-size: var(--t-md); font-weight: 600; line-height: 1.35; }
 .body { font-size: var(--t-sm); color: var(--muted); line-height: 1.4; margin-block-start: 2px; }
-.time { font-size: var(--t-xs); color: var(--fine-text); margin-block-start: 4px; }
+.time { font-size: var(--t-sm); color: var(--fine-text); margin-block-start: 4px; }
 .foot { padding: 10px 14px; border-block-start: 1px solid var(--line-soft); text-align: center; }
 .foot a { font-size: var(--t-sm); color: var(--text); font-weight: 600; }
 .empty { padding: 22px 16px; text-align: center; color: var(--muted); font-size: var(--t-sm); }

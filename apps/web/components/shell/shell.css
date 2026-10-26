@@ -136,13 +136,30 @@ button.ws-chip:hover { background: var(--surface-hover); }
   }
   .ws-tab {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-block-size: 56px; min-inline-size: 0;
-    padding: 6px 2px; border: 0; background: none; color: var(--nav-text); font: inherit; font-size: var(--t-xs); font-weight: var(--fw-nav); text-decoration: none; cursor: pointer;
+    padding: 6px 2px; border: 0; background: none; color: var(--nav-text); font: inherit; font-size: var(--t-sm); font-weight: var(--fw-nav); text-decoration: none; cursor: pointer;
   }
   .ws-tab[aria-current='page'], .ws-tab[data-current] { color: var(--accent); font-weight: var(--fw-nav-active); }
   .ws-tab-text { max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ws-page { padding-block-end: calc(80px + env(safe-area-inset-bottom)); }
   .ws-footer { padding-block-end: calc(72px + env(safe-area-inset-bottom)); }
   body:has(.ws-tabbar) .toast-region { inset-block-end: calc(72px + env(safe-area-inset-bottom)); }
+}
+
+/* Tablet widths (701–1100 px, sidebar beside the page): the topbar keeps search, language and notifications; the date
+   goes and the sync label is kept for screen readers only (it is a live region), so the bar never runs past the page
+   (it was 912–933 px wide at 768 px). Search shrinks to its icon below 900 px. */
+@media (min-width: 701px) and (max-width: 1100px) {
+  .ws-topbar { gap: 12px; }
+  .ws-topbar-end { gap: 12px; }
+  .ws-topbar .ws-date { display: none; }
+  .ws-topbar .ws-sync { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .ws-topbar-title { overflow: hidden; }
+  .ws-search { min-inline-size: 0; }
+}
+@media (min-width: 701px) and (max-width: 900px) {
+  .ws-search { padding: 0; inline-size: 34px; justify-content: center; border-radius: 50%; }
+  .ws-search .rui-kbd { display: none; }
+  .ws-search .ws-search-text { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {
