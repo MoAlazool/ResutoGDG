@@ -20,7 +20,7 @@
 .pr-card{position:relative;display:flex;flex-direction:column;gap:12px;padding:26px;border-radius:22px;background:#fff;border:1px solid #d0dacc;box-shadow:0 0 0 1px var(--brand-line);transition:box-shadow .3s}
 .pr-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .lp .pr-card h2{font-size:19px;font-weight:650;letter-spacing:-.02em;line-height:1.2}
-.pr-badge{font-size:10.5px;font-weight:750;padding:4px 10px;border-radius:99px;background:var(--ember);color:#fff;white-space:nowrap}
+.pr-badge{font-size:10.5px;font-weight:750;padding:4px 10px;border-radius:99px;background:var(--ember-ink);color:#fff;white-space:nowrap}
 .lp .pr-for{font-size:13px;line-height:1.5;min-height:3em}
 .pr-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
 .pr-price b{font-size:clamp(32px,3.2vw,42px);font-weight:650;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1}

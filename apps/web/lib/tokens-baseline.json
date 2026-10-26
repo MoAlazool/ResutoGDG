@@ -7,7 +7,7 @@
   "apps/web/app/layout.tsx": 1,
   "apps/web/app/o/[token]/OrderingClient.tsx": 4,
   "apps/web/app/pay/[token]/sandbox/page.tsx": 1,
-  "apps/web/app/r/[slug]/_components/site.css": 84,
+  "apps/web/app/r/[slug]/_components/site.css": 82,
   "apps/web/components/floor/model.ts": 3,
   "apps/web/lib/i18n/dict/platform.ts": 5
  }

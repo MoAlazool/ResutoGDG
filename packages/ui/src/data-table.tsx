@@ -10,6 +10,33 @@ import { Popover } from './popover';
 // table new and migrated pages use. Same column shape ({ key, header, render, align }) plus optional sorting,
 // visibility and row headers, so a page moves over by renaming the import.
 
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A table that scrolls (wide columns on a phone, a capped height) but holds no control could not be scrolled from the
+ * keyboard (WCAG 2.1.1, axe scrollable-region-focusable): the scroll box then becomes a focusable, named region.
+ * Only then, so tables with links, row buttons or no overflow add no extra tab stop.
+ */
+export function useScrollRegion<E extends HTMLElement>(deps: unknown[] = []) {
+  const ref = useRef<E>(null);
+  const [needsFocus, setNeedsFocus] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => {
+      const scrolls = el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1;
+      setNeedsFocus(scrolls && !el.querySelector(FOCUSABLE));
+    };
+    check();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, deps); // eslint-disable-line react-hooks/exhaustive-deps
+  return { ref, needsFocus };
+}
+
 export interface ColumnV2<T> extends Column<T> {
   /** Client-side comparator; the header becomes a sort button. */
   sort?: (a: T, b: T) => number;
@@ -131,6 +158,7 @@ export function DataTableV2<T>(props: DataTableV2Props<T>) {
   const allOn = selectable && keys.length > 0 && keys.every((k) => selected.includes(k));
   const someOn = selectable && keys.some((k) => selected.includes(k));
   const allRef = useRef<HTMLInputElement>(null);
+  const scroll = useScrollRegion<HTMLDivElement>([rows, hidden]);
   useEffect(() => { if (allRef.current) allRef.current.indeterminate = !!someOn && !allOn; }, [someOn, allOn]);
 
   const toggleSort = (c: ColumnV2<T>) => {
@@ -196,7 +224,8 @@ export function DataTableV2<T>(props: DataTableV2Props<T>) {
       {!rows.length ? (
         <div className="card" aria-busy={busy || undefined}>{props.empty ?? <EmptyState title={t.empty} />}</div>
       ) : (
-        <div className="table-wrap dt-stack rui-dt-scroll" aria-busy={busy || undefined} data-busy={busy || undefined}
+        <div ref={scroll.ref} className="table-wrap dt-stack rui-dt-scroll" aria-busy={busy || undefined} data-busy={busy || undefined}
+          {...(scroll.needsFocus ? { tabIndex: 0, role: 'region', 'aria-labelledby': `${id}-cap` } : {})}
           data-sticky={props.stickyHeader === false ? undefined : ''} style={{ ['--dt-max' as string]: props.maxHeight ?? '70vh' }}>
           <table className="data" aria-labelledby={`${id}-cap`}>
             <caption id={`${id}-cap`} className="sr-only">{label}</caption>

@@ -97,7 +97,9 @@ button.ws-chip:hover { background: var(--surface-hover); }
   .ws > .ws-sidebar > .ws-sidebar-head > .ws-chip { margin: 0; }
   .ws-chip-menu .rui-pop-panel { inline-size: min(300px, calc(100vw - 32px)); inset-inline-start: auto; inset-inline-end: 0; }
   .ws-search { min-inline-size: 0; padding: 0; inline-size: 34px; justify-content: center; border-radius: 50%; }
-  .ws-search :is(.ws-search-text, .rui-kbd) { display: none; }
+  .ws-search .rui-kbd { display: none; }
+  /* An icon button on phones: the label stays in the accessibility tree (its name), only visually hidden. */
+  .ws-search .ws-search-text { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .ws-topbar .ws-sync { display: none; }
   .ws-tabbar {
     position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 30; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);

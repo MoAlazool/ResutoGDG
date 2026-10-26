@@ -40,7 +40,7 @@ aliases for backgrounds (for example `.btn-primary` on `--ink`) need their 21-MI
 |---|---|---|---|
 | Page background | `--bg` | sand-50 `#faf9f5` | Guest pages and `body` |
 | Surfaces | `--surface-1` (cards, panels), `--surface-2` (table heads, input groups), `--surface-3` (app canvas, wells), `--surface-warm`, `--surface-hover`, `--surface-selected` | white, neutral-25, neutral-50, sand-100, neutral-50, neutral-100 | |
-| Text | `--text`, `--text-strong` (headings, brand ink), `--text-secondary`, `--text-muted` (AA 4.5:1 on every surface), `--text-subtle` (3:1: large or non-essential text only) | neutral-800, brand-800, neutral-700, neutral-600, neutral-500 | |
+| Text | `--text`, `--text-strong` (headings, brand ink), `--text-secondary`, `--text-muted` (AA 4.5:1 on every surface), `--text-subtle` (AA 4.5:1 since 21-A11Y: it labels small text such as eyebrows, captions and the profile line) | neutral-800, brand-800, neutral-700, neutral-600, neutral-600 (dark: neutral-450) | |
 | Borders | `--border`, `--border-subtle`, `--border-strong` (3:1: control outlines, switch tracks) | neutral-150, neutral-100, neutral-500 | |
 | Accent | `--accent`, `--accent-hover`, `--accent-fg`, `--accent-soft`, `--accent-soft-fg` | brand-800 `#173f36` (the staff primary button), brand-600, white | The brand hue is unchanged |
 | Focus | `--focus`, `--focus-soft` | herb-600 `#4d8a3a` (3:1 on every surface) | Was `#9bc76a` (1.8:1) |
@@ -215,8 +215,10 @@ categorical palette), `DonutChart`, `FunnelChart`, `Heatmap`, `Sparkline`, `Fore
 
 ## 8. Accessibility
 
-- Contrast: AA by construction for the semantic pairs (`scripts/ui/contrast.mjs`). Use `--text-subtle` only for large
-  or non-essential text.
+- Contrast: AA by construction for the semantic pairs (`scripts/ui/contrast.mjs`), every text token at 4.5:1. 21-A11Y
+  raised `--text-subtle` from 3:1 (`#7f8982`, which axe flagged on every staff page: eyebrows, the profile line, mode
+  notes) to the `--text-muted` step in light and `--neutral-450` in dark; hierarchy below muted comes from size and
+  weight, not a lighter grey. `tests/e2e/a11y.spec.ts` runs axe with colour contrast on every staff route.
 - Focus: the global `:focus-visible` ring uses `--focus`; custom widgets keep a visible ring (rows, menu items, options).
 - Dialogs and sheets are native `<dialog>` (focus trap, Escape, inert page) and return focus to their opener.
 - Keyboard: menus, segmented controls, comboboxes, tables and charts are fully operable without a pointer.
