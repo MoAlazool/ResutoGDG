@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Card, PageHeader } from '@resuto/ui';
+import { Card, DetailPage, Icon } from '@resuto/ui';
+import { BackIcon } from '@/components/icons/glyphs';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
@@ -14,8 +15,9 @@ export default function PaymentDetailPage() {
   const { org } = useOrg();
   return (
     <ModuleGate module="pay" permission="payments:read">
-      <PageHeader overline={<Link href={`/dashboard/${org.id}/payments`}>← {t('pay.dash.title')}</Link>} title={t('pay.detail.title')} />
-      <Card><PaymentDetail paymentId={paymentId} /></Card>
+      <DetailPage header={{ eyebrow: <Link href={`/dashboard/${org.id}/payments`}><Icon icon={BackIcon} size={14} /> {t('pay.dash.title')}</Link>, title: t('pay.detail.title') }}>
+        <Card><PaymentDetail paymentId={paymentId} /></Card>
+      </DetailPage>
     </ModuleGate>
   );
 }

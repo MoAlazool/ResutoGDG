@@ -2,7 +2,8 @@
 import { useSearchParams } from 'next/navigation';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { FloorLayout, ReservationView } from '@resuto/contracts';
-import { Badge, Code, EmptyState, Field, Notice, PageHeader, Phone, Skeleton, Tabs, UserText, useConfirm } from '@resuto/ui';
+import { Badge, Code, EmptyState, Field, Icon, ListPage, Notice, Phone, Skeleton, Tabs, UserText, useConfirm } from '@resuto/ui';
+import { PlusIcon } from '@/components/icons/glyphs';
 import '@/components/ops/ops.css';
 import { FrontOfHouseNav } from '@/components/ops/FrontOfHouseNav';
 import { shiftDay } from '@/components/ops/timeline';
@@ -74,9 +75,9 @@ function Reservations() {
     <ModuleGate module="core" permission="reservations:read">
       {confirmDialog}
       <FrontOfHouseNav />
-      <PageHeader title={t('nav.reservations')} subtitle={t('core.resdash.subtitle', { n: live.length, covers })}
-        actions={can('reservations:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}>+ {t('core.resdash.new')}</button>} />
-      <div className="res-toolbar">
+      <ListPage header={{ title: t('nav.reservations'), subtitle: t('core.resdash.subtitle', { n: live.length, covers }),
+        actions: can('reservations:write') && <button className="btn btn-primary" onClick={() => setCreating(true)}><Icon icon={PlusIcon} size={16} /> {t('core.resdash.new')}</button> }}
+        filters={<div className="res-toolbar">
         <div className="res-day" role="group" aria-label={t('core.orders.date')}>
           <button type="button" className="btn btn-sm" aria-label={t('ops.res.prevDay')} onClick={() => setDate(shiftDay(date, -1))}><span className="res-dir" aria-hidden="true">‹</span></button>
           <Field label={t('core.orders.date')} type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
@@ -85,7 +86,7 @@ function Reservations() {
         </div>
         <Tabs<View> label={t('ops.orders.view')} value={view} onChange={setView}
           tabs={[{ key: 'timeline', label: t('ops.res.timeline') }, { key: 'list', label: t('ops.orders.list') }]} />
-      </div>
+      </div>}>
       {error && <Notice tone="danger">{error}</Notice>}
       {notice && <Notice tone="ok">{notice}</Notice>}
       {day.loading && !day.data ? <Skeleton lines={6} /> : !items.length ? (
@@ -117,6 +118,7 @@ function Reservations() {
           ))}
         </ol>
       )}
+      </ListPage>
       {opened && <Suspense fallback={null}><ReservationSheet r={opened} onClose={() => setOpenId(null)} actions={actions} /></Suspense>}
       {creating && (
         <Suspense fallback={null}>

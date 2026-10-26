@@ -36,7 +36,7 @@ function PickRestaurant() {
 
   return (
     <main className="ws-solo">
-      <div className="ws-solo-card" style={{ display: 'grid', gap: 16, maxWidth: 520 }}>
+      <div className="ws-solo-card is-stack">
         <Wordmark label={t('app.name')} />
         {!valid ? <Notice tone="danger">{t('mcp.oauth.badRequest')}</Notice>
           : !me ? <NavSkeleton count={3} />
@@ -46,11 +46,11 @@ function PickRestaurant() {
               </EmptyState>
             ) : (
               <>
-                <h1 style={{ fontSize: 20, margin: 0 }}>{t('mcp.oauth.pickTitle')}</h1>
+                <h1 className="ws-solo-title">{t('mcp.oauth.pickTitle')}</h1>
                 <p className="fine m-0">{t('mcp.oauth.pickBody')}</p>
                 <div className="stack gap-8">
                   {eligible.map((m) => (
-                    <button key={m.orgId} type="button" className="btn" style={{ justifyContent: 'flex-start' }}
+                    <button key={m.orgId} type="button" className="btn justify-start"
                       onClick={() => router.push(`/dashboard/${m.orgId}/mcp/authorize?request=${request}`)}><bdi>{m.orgName}</bdi></button>
                   ))}
                 </div>

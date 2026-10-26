@@ -45,7 +45,7 @@ function OAuthReturn() {
 
   return (
     <main className="ws-solo" aria-busy={!error}>
-      <div className="ws-solo-card" style={{ display: 'grid', gap: 16 }}>
+      <div className="ws-solo-card is-stack">
         <Wordmark label={t('app.name')} />
         {error ? (
           <>

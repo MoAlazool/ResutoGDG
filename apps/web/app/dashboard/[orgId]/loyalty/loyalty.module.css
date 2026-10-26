@@ -1,0 +1,7 @@
+/* Loyalty (21-MIGRATE): page classes that replace the former inline styles. Logical properties only. */
+.stats { margin-block-end: var(--space-4); }
+.choices { gap: 6px; }
+.products { max-block-size: 180px; overflow-y: auto; }
+.cardHead { align-items: center; margin-block-end: var(--space-3); }
+.cardTitle { margin: 0; font-size: var(--fs-xl); }
+.recent { margin-block: 6px; }

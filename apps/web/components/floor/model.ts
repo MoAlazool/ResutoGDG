@@ -295,12 +295,16 @@ export const draftId = () => `new-${typeof crypto !== 'undefined' && 'randomUUID
 export const isDraftId = (id: string) => id.startsWith('new-');
 
 /** The legacy 12-table example (always a draft: table ids/QR tokens are issued by the server on save). */
+/** Zone colours a new zone starts with (stored in the layout, so plain values rather than CSS tokens). */
+export const ZONE_COLOR_DEFAULT = '#e7efdc';
+export const ZONE_COLOR_GARDEN = '#e0e9d7';
+
 export function demoFloor(revision = 0): FloorLayout {
   const zone = (id: string, label: string, y: number, height: number, color: string): FloorObject => ({ id, type: 'zone', label, x: 600, y, width: 1080, height, rotation: 0, color });
   const slot = (i: number) => (i === 3 ? 11 : i === 11 ? 3 : i === 5 ? 2 : i === 2 ? 5 : i === 8 ? 10 : i === 10 ? 8 : i);
   return {
     revision, schemaVersion: 2, width: LAYOUT_WIDTH, height: LAYOUT_HEIGHT, background: emptyBackground(),
-    zones: [zone('demo-main', 'Main Room', 280, 450, '#e9e6dc'), zone('demo-terrace', 'Terrace', 625, 220, '#e0e9d7')],
+    zones: [zone('demo-main', 'Main Room', 280, 450, '#e9e6dc'), zone('demo-terrace', 'Terrace', 625, 220, ZONE_COLOR_GARDEN)],
     objects: [
       { id: 'demo-wall', type: 'wall', label: 'North wall', x: 600, y: 40, width: 1120, height: 16, rotation: 0 },
       { id: 'demo-window', type: 'window', label: 'Window side', x: 800, y: 52, width: 550, height: 12, rotation: 0 },
@@ -348,7 +352,7 @@ export function createItem(f: FloorLayout, kind: AddKind, label: (k: string) => 
   if (type === 'zone') {
     o.width = 360; o.height = 230;
     o.label = label(preset === 'terrace' ? 'Terrace' : preset === 'outdoor' ? 'Outdoor' : 'New zone');
-    o.color = preset ? '#e0e9d7' : '#e7efdc';
+    o.color = preset ? ZONE_COLOR_GARDEN : ZONE_COLOR_DEFAULT;
     o.material = preset ? 'garden' : 'stone';
     return { item: o, list: 'zones' };
   }

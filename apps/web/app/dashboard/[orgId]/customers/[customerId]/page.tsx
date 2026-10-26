@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { CONSENT_SOURCES, type CustomerProfile, type CustomerSummary } from '@resuto/contracts';
-import { Badge, DataTable, EmptyState, Field, Modal, Notice, PageHeader, SelectField, Skeleton, Stat, TextareaField, useAction, Phone, Email, Ltr, UserText } from '@resuto/ui';
+import { Badge, DataTableV2, DetailPage, EmptyState, Field, Icon, Notice, SelectField, Sheet, Skeleton, StatV2, TextareaField, useAction, Phone, Email, Ltr, UserText } from '@resuto/ui';
+import { BackIcon, CheckIcon } from '@/components/icons/glyphs';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { LoadError, qs, Section, useBranchName, useFormat, InsightsPage } from '@/components/charts/insights';
 import { dateTime } from '@/lib/format';
@@ -11,11 +12,13 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { CustomerLoyalty } from '../../loyalty/_components/CustomerLoyalty';
+import st from './customer.module.css';
 
 // The Customer 360 panel the Inbox shows (21-INBOX), as its own chunk: value and cadence, favourites, first touch,
 // consent per channel, conversations and staff notes. Identity, orders, reservations and loyalty are on this page already.
 const Customer360Panel = lazy(() => import('@/components/customers/Customer360Panel'));
+// The loyalty card (balance, ledger, adjustment sheet) as its own chunk too.
+const CustomerLoyalty = lazy(() => import('../../loyalty/_components/CustomerLoyalty').then((m) => ({ default: m.CustomerLoyalty })));
 
 export default function CustomerProfilePage() {
   const { customerId } = useParams<{ customerId: string }>();
@@ -65,39 +68,26 @@ export default function CustomerProfilePage() {
   }
   return (
     <ModuleGate module="core" permission="customers:read"><InsightsPage>
-      <p><Link href={`/dashboard/${org.id}/customers`} className="fine">← {t('insights.customers.title')}</Link></p>
+      <p><Link href={`/dashboard/${org.id}/customers`} className={`fine ${st.back}`}><Icon icon={BackIcon} size={14} />{t('insights.customers.title')}</Link></p>
       <LoadError error={error} retry={reload} />
       {!c && !error && <div className="card"><Skeleton lines={6} /></div>}
       {c && (
-        <>
-          <PageHeader overline={t('nav.customers')} title={c.displayName ? <UserText>{c.displayName}</UserText> : t('insights.customers.unnamed')}
-            subtitle={<span className="row gap-6">
+        <DetailPage inspectorLabel={t('insights.profile.details')}
+          header={{ eyebrow: t('nav.customers'), title: c.displayName ? <UserText>{c.displayName}</UserText> : t('insights.customers.unnamed'),
+            subtitle: <span className="row gap-6">
               {c.anonymisedAt && <Badge tone="danger">{t('insights.profile.anonymised')}</Badge>}
-              {c.marketingConsent ? <Badge tone="ok">✓ {t('insights.customers.consentGranted')}</Badge> : <Badge>{t('insights.customers.consentNot')}</Badge>}
+              {c.marketingConsent ? <Badge tone="ok"><Icon icon={CheckIcon} size={12} /> {t('insights.customers.consentGranted')}</Badge> : <Badge>{t('insights.customers.consentNot')}</Badge>}
               {c.tags.map((tg) => <Badge key={tg} tone="info">{tg}</Badge>)}
-            </span>}
-            actions={writable && !c.anonymisedAt ? <button className="btn" onClick={() => setEdit({ displayName: c.displayName ?? '', tags: c.tags.join(', '), notes: c.notes ?? '' })}>{t('action.edit')}</button> : undefined} />
-          {mergeResult && <Notice tone={mergeResult.consentConflict ? 'warn' : 'ok'}>{t('insights.profile.mergeDone', { orders: mergeResult.moved.orders ?? 0 })} {mergeResult.consentConflict && t('insights.profile.consentConflict')}</Notice>}
-          <div className="grid grid-4 mbe-16">
-            <Stat label={t('insights.kpi.orders')} value={f.num(c.totals.orderCount)} hint={c.totals.cancelledCount ? t('insights.kpi.cancelled', { count: c.totals.cancelledCount }) : undefined} />
-            <Stat label={t('insights.customers.spend')} value={f.money(c.totals.netMinor)} hint={c.totals.refundedMinor ? t('insights.profile.refunded', { value: f.money(c.totals.refundedMinor) }) : undefined} />
-            <Stat label={t('insights.kpi.aov')} value={f.money(c.totals.averageOrderMinor)} />
-            <Stat label={t('insights.customers.lastOrder')} value={c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'} />
-          </div>
-          {!c.anonymisedAt && <CustomerLoyalty customerId={c.id} />}
-          <Section title={t('insights.c360.title')}>
-            <Suspense fallback={<Skeleton lines={4} />}>
-              <Customer360Panel customerId={c.id} omit={['identity', 'orders', 'reservations', 'loyalty']} layout="grid" />
-            </Suspense>
-          </Section>
-          <div className="grid grid-2 items-start">
+            </span>,
+            actions: writable && !c.anonymisedAt ? <button className="btn" onClick={() => setEdit({ displayName: c.displayName ?? '', tags: c.tags.join(', '), notes: c.notes ?? '' })}>{t('action.edit')}</button> : undefined }}
+          inspector={<>
             <Section title={t('insights.profile.details')}>
               <dl className="stack gap-8 m-0">
                 <div><dt className="fine">{t('insights.customers.phone')}</dt><dd className="m-0">{c.phone ? <Phone value={c.phone} link /> : '—'}</dd></div>
                 <div><dt className="fine">{t('insights.customers.email')}</dt><dd className="m-0">{c.email ? <Email value={c.email} link /> : '—'}</dd></div>
                 <div><dt className="fine">{t('insights.profile.identities')}</dt><dd className="m-0">{c.identities.length ? c.identities.map((i) => <Badge key={i.id}>{i.kind}: <Ltr>{i.value}</Ltr></Badge>) : '—'}</dd></div>
                 <div><dt className="fine">{t('insights.profile.addresses')}</dt><dd className="m-0">{c.addresses.length ? c.addresses.map((a) => <div key={a.id}>{[a.label, a.line1, a.area, a.city].filter(Boolean).map((part, n) => <span key={n}>{n > 0 && ' · '}<UserText>{part}</UserText></span>)}</div>) : '—'}</dd></div>
-                <div><dt className="fine">{t('insights.profile.notes')}</dt><dd style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{c.notes ? <UserText>{c.notes}</UserText> : '—'}</dd></div>
+                <div><dt className="fine">{t('insights.profile.notes')}</dt><dd className={st.notes}>{c.notes ? <UserText>{c.notes}</UserText> : '—'}</dd></div>
                 <div><dt className="fine">{t('insights.profile.firstSeen')}</dt><dd className="m-0">{c.firstOrderAt ? dateTime(c.firstOrderAt, locale, org.timezone) : '—'}</dd></div>
               </dl>
             </Section>
@@ -106,7 +96,7 @@ export default function CustomerProfilePage() {
                 {c.marketingConsent ? t('insights.profile.recordRevoke') : t('insights.profile.recordGrant')}</button>) : undefined}>
               <p className="fine">{t('insights.profile.consentHelp')}</p>
               {c.consentHistory.length ? (
-                <ol className="stack" style={{ gap: 6, margin: 0, paddingInlineStart: 18 }}>
+                <ol className={`stack ${st.history}`}>
                   {c.consentHistory.map((e) => (
                     <li key={e.id}><Badge tone={e.granted ? 'ok' : 'neutral'}>{e.granted ? t('insights.profile.granted') : t('insights.profile.revoked')}</Badge>{' '}
                       <span className="fine">{dateTime(e.occurredAt, locale, org.timezone)} · {e.source}{e.note ? ` · ${e.note}` : ''}</span></li>
@@ -114,19 +104,32 @@ export default function CustomerProfilePage() {
                 </ol>
               ) : <p className="muted">{t('insights.profile.noConsent')}</p>}
             </Section>
+          </>}>
+          {mergeResult && <Notice tone={mergeResult.consentConflict ? 'warn' : 'ok'}>{t('insights.profile.mergeDone', { orders: mergeResult.moved.orders ?? 0 })} {mergeResult.consentConflict && t('insights.profile.consentConflict')}</Notice>}
+          <div className="rui-stat-grid mbe-16">
+            <StatV2 label={t('insights.kpi.orders')} value={f.num(c.totals.orderCount)} hint={c.totals.cancelledCount ? t('insights.kpi.cancelled', { count: c.totals.cancelledCount }) : undefined} />
+            <StatV2 label={t('insights.customers.spend')} value={f.money(c.totals.netMinor)} hint={c.totals.refundedMinor ? t('insights.profile.refunded', { value: f.money(c.totals.refundedMinor) }) : undefined} />
+            <StatV2 label={t('insights.kpi.aov')} value={f.money(c.totals.averageOrderMinor)} />
+            <StatV2 label={t('insights.customers.lastOrder')} value={c.lastOrderAt ? dateTime(c.lastOrderAt, locale, org.timezone) : '—'} />
           </div>
+          {!c.anonymisedAt && <Suspense fallback={<Skeleton lines={3} />}><CustomerLoyalty customerId={c.id} /></Suspense>}
+          <Section title={t('insights.c360.title')}>
+            <Suspense fallback={<Skeleton lines={4} />}>
+              <Customer360Panel customerId={c.id} omit={['identity', 'orders', 'reservations', 'loyalty']} layout="grid" />
+            </Suspense>
+          </Section>
           <Section title={t('insights.profile.orders')}>
-            <DataTable rows={c.orders} rowKey={(o) => o.id} empty={<EmptyState title={t('insights.profile.noOrders')} />} columns={[
-              { key: 'n', header: '#', render: (o) => <span className="num">{o.number}</span> },
+            <DataTableV2 label={t('insights.profile.orders')} rows={c.orders} rowKey={(o) => o.id} empty={<EmptyState title={t('insights.profile.noOrders')} />} columns={[
+              { key: 'n', header: '#', render: (o) => <span className="num">{o.number}</span>, sort: (a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }) },
               { key: 'at', header: t('insights.inventory.when'), render: (o) => <span className="fine">{dateTime(o.placedAt, locale, org.timezone)}</span> },
               { key: 'branch', header: t('insights.branch.label'), render: (o) => branchName(o.branchId) },
               { key: 'ch', header: t('insights.marketing.channel'), render: (o) => `${t(`insights.channel.${o.channel}`)} · ${t(`insights.fulfillment.${o.fulfillment}`)}` },
               { key: 'st', header: t('insights.inventory.status'), render: (o) => <Badge tone={o.status === 'cancelled' ? 'danger' : 'neutral'}>{t(`insights.status.${o.status}`)}</Badge> },
-              { key: 'total', header: t('insights.profile.total'), align: 'end', render: (o) => <span className="num">{f.money(o.totalMinor)}{o.refundedMinor ? <span className="fine"> (−{f.money(o.refundedMinor)})</span> : null}</span> },
+              { key: 'total', header: t('insights.profile.total'), align: 'end', sort: (a, b) => a.totalMinor - b.totalMinor, render: (o) => <span className="num">{f.money(o.totalMinor)}{o.refundedMinor ? <span className="fine"> (−{f.money(o.refundedMinor)})</span> : null}</span> },
             ]} />
           </Section>
           <Section title={t('insights.profile.reservations')}>
-            <DataTable rows={c.reservations} rowKey={(r) => r.id} empty={<EmptyState title={t('insights.profile.noReservations')} />} columns={[
+            <DataTableV2 label={t('insights.profile.reservations')} rows={c.reservations} rowKey={(r) => r.id} empty={<EmptyState title={t('insights.profile.noReservations')} />} columns={[
               { key: 'code', header: t('insights.profile.code'), render: (r) => <span className="num">{r.code}</span> },
               { key: 'at', header: t('insights.inventory.when'), render: (r) => dateTime(r.startsAt, locale, org.timezone) },
               { key: 'party', header: t('insights.profile.party'), align: 'end', render: (r) => r.partySize },
@@ -152,7 +155,7 @@ export default function CustomerProfilePage() {
             </Section>
           )}
 
-          <Modal open={!!edit} onClose={() => setEdit(null)} title={t('action.edit')}>
+          <Sheet open={!!edit} onClose={() => setEdit(null)} title={t('action.edit')} locale={locale}>
             {edit && (
               <form onSubmit={saveEdit.run}>
                 <Field label={t('insights.customers.name')} value={edit.displayName} maxLength={120} onChange={(e) => setEdit({ ...edit, displayName: e.target.value })} />
@@ -162,8 +165,8 @@ export default function CustomerProfilePage() {
                 <div className="row justify-end"><button className="btn btn-primary" disabled={saveEdit.pending}>{t('action.save')}</button></div>
               </form>
             )}
-          </Modal>
-          <Modal open={!!consent} onClose={() => setConsent(null)} title={consent?.granted ? t('insights.profile.recordGrant') : t('insights.profile.recordRevoke')}>
+          </Sheet>
+          <Sheet open={!!consent} onClose={() => setConsent(null)} title={consent?.granted ? t('insights.profile.recordGrant') : t('insights.profile.recordRevoke')} locale={locale}>
             {consent && (
               <form onSubmit={saveConsent.run}>
                 <p className="fine">{t('insights.profile.consentExplicit')}</p>
@@ -175,8 +178,8 @@ export default function CustomerProfilePage() {
                 <div className="row justify-end"><button className="btn btn-primary" disabled={saveConsent.pending}>{t('action.confirm')}</button></div>
               </form>
             )}
-          </Modal>
-          <Modal open={!!anon} onClose={() => setAnon(null)} title={t('insights.profile.anonymise')}>
+          </Sheet>
+          <Sheet open={!!anon} onClose={() => setAnon(null)} title={t('insights.profile.anonymise')} locale={locale}>
             {anon && (
               <form onSubmit={doAnon.run}>
                 <Notice tone="danger">{t('insights.profile.anonymiseWarn')}</Notice>
@@ -188,8 +191,8 @@ export default function CustomerProfilePage() {
                 </div>
               </form>
             )}
-          </Modal>
-          <Modal open={!!merge} onClose={() => setMerge(null)} title={t('insights.profile.merge')}>
+          </Sheet>
+          <Sheet open={!!merge} onClose={() => setMerge(null)} title={t('insights.profile.merge')} locale={locale}>
             {merge && (
               <div>
                 <p className="fine">{t('insights.profile.mergeKeep', { name: c.displayName ?? t('insights.customers.unnamed') })}</p>
@@ -210,8 +213,8 @@ export default function CustomerProfilePage() {
                 </div>
               </div>
             )}
-          </Modal>
-        </>
+          </Sheet>
+        </DetailPage>
       )}
     </InsightsPage></ModuleGate>
   );

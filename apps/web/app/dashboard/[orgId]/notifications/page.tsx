@@ -2,13 +2,14 @@
 import type { NotificationsPage } from '@resuto/contracts';
 import Link from 'next/link';
 import { useState } from 'react';
-import { Badge, EmptyState, Loadable, PageHeader, SkeletonCards, Tabs, useAction, type Tone } from '@resuto/ui';
+import { Badge, EmptyState, ListPage, Loadable, SkeletonCards, Tabs, useAction, type Tone } from '@resuto/ui';
 import { DeliveryLine, useNotificationText } from '@/components/shell/notification-text';
 import { dateTime } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import st from './notifications.module.css';
 
 const TONE: Record<string, Tone> = { info: 'info', warning: 'warn', critical: 'danger' };
 type Filter = 'all' | 'unread';
@@ -30,30 +31,29 @@ export default function NotificationsPageView() {
     await state.reload();
   });
   return (
-    <>
-      <PageHeader title={t('notifications.title')} subtitle={t('notifications.subtitle')}
-        actions={state.data?.unread ? <button type="button" className="btn" disabled={markAll.pending} onClick={() => markAll.run()}>{t('notifications.markAll')}</button> : undefined} />
-      <Tabs<Filter> value={filter} onChange={setFilter} tabs={[
+    <ListPage header={{ title: t('notifications.title'), subtitle: t('notifications.subtitle'),
+      actions: state.data?.unread ? <button type="button" className="btn" disabled={markAll.pending} onClick={() => markAll.run()}>{t('notifications.markAll')}</button> : undefined }}
+      filters={<Tabs<Filter> value={filter} onChange={setFilter} tabs={[
         { key: 'all', label: t('notifications.filter.all') },
         { key: 'unread', label: t('notifications.filter.unread') },
-      ]} />
+      ]} />}>
       <Loadable state={state} locale={locale} timeZone={org.timezone} skeleton={<SkeletonCards count={4} height={92} />}
         isEmpty={(d) => !d.items.length}
         empty={<div className="card"><EmptyState title={t('notifications.empty')}>{t('notifications.emptyBody')}</EmptyState></div>}>
         {(d) => (
-          <ul className="stack" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          <ul className="stack list-plain">
             {d.items.map((n) => {
               const { title, body } = text(n);
               return (
-                <li key={n.id} className="card" style={{ padding: 18, borderInlineStart: n.readAt ? undefined : '3px solid var(--green)' }}>
+                <li key={n.id} className={`card ${st.item}`} data-unread={n.readAt ? undefined : ''}>
                   <div className="spread items-start gap-12">
-                    <div className="stack" style={{ gap: 6, minWidth: 0, flex: '1 1 280px' }}>
+                    <div className={`stack ${st.body}`}>
                       <div className="row gap-8">
                         <Badge tone={TONE[n.severity]}>{t(`intelligence.severity.${n.severity === 'critical' ? 'critical' : n.severity === 'warning' ? 'warning' : 'info'}`)}</Badge>
                         {!n.readAt && <Badge tone="ok">{t('notifications.unread')}</Badge>}
                         <span className="fine">{dateTime(n.createdAt, locale, org.timezone)}</span>
                       </div>
-                      <strong style={{ fontSize: 16 }}>{title}</strong>
+                      <strong className={st.title}>{title}</strong>
                       <p className="m-0">{body}</p>
                       <DeliveryLine n={n} />
                     </div>
@@ -68,6 +68,6 @@ export default function NotificationsPageView() {
           </ul>
         )}
       </Loadable>
-    </>
+    </ListPage>
   );
 }

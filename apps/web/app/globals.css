@@ -488,6 +488,9 @@ body:has(.gx-dock, .bk-bar, .gx-sheet-foot) .ws-lang { inset-block-end: calc(88p
 .auth-card .brand-row img { width: 34px; height: 34px; border-radius: 9px; }
 .ws-solo { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: var(--canvas); color: var(--text); }
 .ws-solo-card { width: min(460px, 100%); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-panel); padding: 32px; }
+.ws-solo-card.is-stack { display: grid; gap: 16px; }
+.ws-solo-card.is-roomy { display: grid; gap: 20px; }
+.ws-solo-title { font-size: 20px; margin: 0; }
 .err-page { min-height: 100dvh; display: grid; place-items: center; padding: 32px 16px; background: var(--canvas); color: var(--text); }
 .err-page-inner { width: min(520px, 100%); text-align: center; display: grid; justify-items: center; gap: 14px; }
 .err-code { font-family: var(--font-mark); font-style: italic; font-size: 72px; line-height: 1; color: var(--green); }
@@ -522,7 +525,7 @@ tr.row-strong { font-weight: 700; background: var(--surface-code); }
 .gap-4 { gap: 4px !important; } .gap-6 { gap: 6px !important; } .gap-8 { gap: 8px !important; }
 .gap-10 { gap: 10px !important; } .gap-12 { gap: 12px !important; } .gap-16 { gap: 16px !important; }
 .text-end { text-align: end !important; } .text-start { text-align: start !important; }
-.justify-end { justify-content: flex-end !important; }
+.justify-end { justify-content: flex-end !important; } .justify-start { justify-content: flex-start !important; }
 .items-start { align-items: flex-start !important; } .items-end { align-items: end !important; }
 .mbe-6 { margin-block-end: 6px !important; } .mbe-12 { margin-block-end: 12px !important; }
 .mbe-14 { margin-block-end: 14px !important; } .mbe-16 { margin-block-end: 16px !important; }
@@ -534,3 +537,5 @@ tr.row-strong { font-weight: 700; background: var(--surface-code); }
 .wrap { flex-wrap: wrap !important; }
 .nowrap { white-space: nowrap !important; }
 .break-all { word-break: break-all !important; }
+.fieldset-plain { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+.list-plain { list-style: none; margin: 0; padding: 0; }

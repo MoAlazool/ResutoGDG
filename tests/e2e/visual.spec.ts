@@ -88,3 +88,36 @@ test.describe('staff surfaces', () => {
     }
   });
 });
+
+// 21-MIGRATE: the 2.1 staff screens on the page templates, in Arabic (RTL) and at phone width as well, so the
+// EN/AR × desktop/phone matrix covers the key staff areas (overview, menu, orders, inbox, customers, payments,
+// marketing, loyalty, MCP, settings).
+test.describe('staff surfaces in Arabic and at phone width', () => {
+  test('overview, menu, inbox, customers, payments, marketing, loyalty, MCP and settings', async ({ page, request }) => {
+    const tenant = await apiCreateTenant(request, { planId: 'pro' });
+    await apiSeedMenu(request, tenant);
+    await apiSaveFloor(request, tenant);
+    const d = `/dashboard/${tenant.orgId}`;
+    const desktop: Array<[string, string, 'en' | 'ar']> = [
+      ['staff-overview-ar', d, 'ar'], ['staff-menu-en', `${d}/menu`, 'en'], ['staff-menu-ar', `${d}/menu`, 'ar'],
+      ['staff-inbox-en', `${d}/inbox`, 'en'], ['staff-customers-en', `${d}/customers`, 'en'], ['staff-payments-en', `${d}/payments`, 'en'],
+      ['staff-marketing-en', `${d}/marketing`, 'en'], ['staff-loyalty-ar', `${d}/loyalty`, 'ar'], ['staff-mcp-en', `${d}/mcp`, 'en'],
+      ['staff-settings-ar', `${d}/settings`, 'ar'],
+    ];
+    const phone: Array<[string, string, 'en' | 'ar']> = [
+      ['staff-overview-en-mobile', d, 'en'], ['staff-overview-ar-mobile', d, 'ar'], ['staff-orders-ar-mobile', `${d}/orders`, 'ar'],
+      ['staff-customers-ar-mobile', `${d}/customers`, 'ar'], ['staff-marketing-ar-mobile', `${d}/marketing`, 'ar'],
+    ];
+    let signedIn: 'en' | 'ar' | null = null;
+    for (const [list, mobile] of [[desktop, false], [phone, true]] as const) {
+      if (mobile) await page.setViewportSize({ width: 390, height: 844 });
+      for (const [name, path, locale] of list) {
+        if (signedIn === null) { await signIn(page, tenant.owner, locale); signedIn = locale; }
+        else if (signedIn !== locale) { await setLocale(page, locale); signedIn = locale; }
+        await page.goto(path);
+        await expect(page.locator('h1').first()).toBeVisible({ timeout: 20_000 });
+        await shot(page, name);
+      }
+    }
+  });
+});

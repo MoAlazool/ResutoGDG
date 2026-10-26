@@ -1,0 +1,10 @@
+/* Marketing (21-MIGRATE): page classes that replace the former inline styles. Logical properties only. */
+.rule { gap: var(--space-2); align-items: flex-end; padding-block: var(--space-2); border-block-end: 1px solid var(--border-subtle); }
+.addRule { margin-block: 10px; }
+.count { margin-block-end: 10px; }
+.nameInput { flex: 1; min-inline-size: 180px; }
+.fullRow { flex-basis: 100%; }
+.schedule input { inline-size: auto; min-block-size: 32px; }
+.evidence { white-space: pre-wrap; }
+.dryRunStats { margin-block: 10px; }
+.when { display: inline-flex; align-items: center; gap: 4px; }

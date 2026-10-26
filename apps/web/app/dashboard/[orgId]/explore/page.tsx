@@ -1,6 +1,6 @@
 'use client';
 import type { ModuleKey } from '@resuto/contracts';
-import { EmptyState, LockedFeature, PageHeader, SkeletonBlock } from '@resuto/ui';
+import { EmptyState, ListPage, LockedFeature, SkeletonBlock } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { lockedItems, type NavItem } from '@/lib/nav';
 import { useOrg } from '@/lib/org-context';
@@ -22,8 +22,7 @@ export default function ExplorePage() {
   const groups = ORDER.filter((m) => byModule.has(m)).map((m) => ({ module: m, items: byModule.get(m)! }));
   const plansHref = `/dashboard/${org.id}/billing`;
   return (
-    <>
-      <PageHeader title={t('explore.title')} subtitle={t('explore.subtitle')} />
+    <ListPage header={{ title: t('explore.title'), subtitle: t('explore.subtitle') }}>
       {!groups.length ? (
         <div className="card"><EmptyState title={t('explore.none.title')}>{t('explore.none.body')}</EmptyState></div>
       ) : (
@@ -38,7 +37,7 @@ export default function ExplorePage() {
           ))}
         </div>
       )}
-    </>
+    </ListPage>
   );
 }
 

@@ -5,7 +5,7 @@ import {
 } from '@resuto/contracts';
 import { useEffect, useState, type FormEvent } from 'react';
 import {
-  Badge, DataTable, EmptyState, Field, Loadable, Modal, Notice, PageHeader, SelectField, SkeletonBlock, SkeletonTable, Stat, Tabs, useAction,
+  Badge, DataTableV2, EmptyState, Field, ListPage, Loadable, Notice, SelectField, Sheet, SkeletonBlock, SkeletonTable, StatV2, Tabs, useAction,
 } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { LedgerTable } from './_components/LedgerTable';
@@ -14,6 +14,7 @@ import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
+import s from './loyalty.module.css';
 
 type Tab = 'rules' | 'rewards' | 'ledger';
 interface ProgramView { program: LoyaltyProgram; rewards: LoyaltyReward[] }
@@ -30,22 +31,23 @@ export default function LoyaltyPage() {
   const active = program.data?.program.isActive;
   return (
     <ModuleGate module="marketing" permission="marketing:read">
-      <PageHeader overline={t('nav.group.customers')} title={t('loyalty.title')} subtitle={t('loyalty.subtitle')} />
-      <div className="grid grid-3" style={{ marginBlockEnd: 18 }}>
-        <Stat label={t('loyalty.status')} value={active === undefined ? '—' : active ? t('loyalty.on') : t('loyalty.off')} />
-        <Stat label={t('loyalty.liability')} value={totals.data ? formatNumber(totals.data.totals.outstanding, locale) : '—'} />
-        <Stat label={t('loyalty.members')} value={totals.data ? formatNumber(totals.data.totals.members, locale) : '—'} />
-      </div>
-      <Tabs<Tab> value={tab} onChange={setTab} tabs={[
-        { key: 'rules', label: t('loyalty.tab.rules') },
-        { key: 'rewards', label: t('loyalty.tab.rewards') },
-        { key: 'ledger', label: t('loyalty.tab.ledger') },
-      ]} />
-      {tab === 'ledger' ? <Ledger /> : (
-        <Loadable state={program} locale={locale} timeZone={org.timezone} skeleton={<div className="card"><SkeletonBlock height={240} /></div>}>
-          {(d) => tab === 'rules' ? <Rules initial={d.program} onSaved={program.reload} /> : <Rewards rewards={d.rewards} onChange={program.reload} />}
-        </Loadable>
-      )}
+      <ListPage header={{ eyebrow: t('nav.group.customers'), title: t('loyalty.title'), subtitle: t('loyalty.subtitle') }}
+        filters={<Tabs<Tab> value={tab} onChange={setTab} tabs={[
+          { key: 'rules', label: t('loyalty.tab.rules') },
+          { key: 'rewards', label: t('loyalty.tab.rewards') },
+          { key: 'ledger', label: t('loyalty.tab.ledger') },
+        ]} />}>
+        <div className={`rui-stat-grid ${s.stats}`}>
+          <StatV2 label={t('loyalty.status')} value={active === undefined ? '—' : active ? t('loyalty.on') : t('loyalty.off')} />
+          <StatV2 label={t('loyalty.liability')} value={totals.data ? formatNumber(totals.data.totals.outstanding, locale) : '—'} />
+          <StatV2 label={t('loyalty.members')} value={totals.data ? formatNumber(totals.data.totals.members, locale) : '—'} />
+        </div>
+        {tab === 'ledger' ? <Ledger /> : (
+          <Loadable state={program} locale={locale} timeZone={org.timezone} skeleton={<div className="card"><SkeletonBlock height={240} /></div>}>
+            {(d) => tab === 'rules' ? <Rules initial={d.program} onSaved={program.reload} /> : <Rewards rewards={d.rewards} onChange={program.reload} />}
+          </Loadable>
+        )}
+      </ListPage>
     </ModuleGate>
   );
 }
@@ -104,7 +106,7 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
         <Field label={t('loyalty.rules.expiry')} inputMode="numeric" value={p.expiryDays === null ? '' : String(p.expiryDays)} hint={t('loyalty.rules.expiryHint')} disabled={!editable}
           onChange={(e) => setP({ ...p, expiryDays: e.target.value.trim() ? Math.max(1, Math.min(3650, Math.floor(Number(e.target.value) || 1))) : null })} />
       </div>
-      <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
+      <fieldset className={`stack fieldset-plain ${s.choices}`}>
         <legend className="fine">{t('loyalty.rules.channels')} {p.eligibleChannels === null && <Badge>{t('loyalty.rules.allChannels')}</Badge>}</legend>
         <div className="row gap-12 wrap">
           {LOYALTY_CHANNELS.map((c) => (
@@ -114,7 +116,7 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
         </div>
       </fieldset>
       {org.branches.length > 1 && (
-        <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
+        <fieldset className={`stack fieldset-plain ${s.choices}`}>
           <legend className="fine">{t('loyalty.rules.branches')} {p.eligibleBranchIds === null && <Badge>{t('loyalty.rules.allBranches')}</Badge>}</legend>
           <div className="row gap-12 wrap">
             {org.branches.map((b) => (
@@ -124,10 +126,10 @@ function Rules({ initial, onSaved }: { initial: LoyaltyProgram; onSaved: () => P
           </div>
         </fieldset>
       )}
-      <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0, margin: 0 }}>
+      <fieldset className={`stack fieldset-plain ${s.choices}`}>
         <legend className="fine">{t('loyalty.rules.excluded')}</legend>
         <small className="fine">{t('loyalty.rules.excludedHint')}</small>
-        <div className="row" style={{ gap: 12, flexWrap: 'wrap', maxHeight: 180, overflowY: 'auto' }}>
+        <div className={`row gap-12 wrap ${s.products}`}>
           {(menu.data?.products ?? []).map((pr) => (
             <label key={pr.id} className="check"><input type="checkbox" disabled={!editable} checked={p.excludedProductIds.includes(pr.id)}
               onChange={(e) => setP({ ...p, excludedProductIds: e.target.checked ? [...p.excludedProductIds, pr.id] : p.excludedProductIds.filter((x) => x !== pr.id) })} />
@@ -171,11 +173,11 @@ function Rewards({ rewards, onChange }: { rewards: LoyaltyReward[]; onChange: ()
       <Notice>{t('loyalty.rewards.howRedeem')}</Notice>
       {editable && <div><button type="button" className="btn btn-primary" onClick={() => setDraft({ name: '', nameAr: '', points: '100', kind: 'fixed', value: '', cap: '', min: '' })}>{t('loyalty.rewards.add')}</button></div>}
       {toggle.error && <Notice tone="danger">{toggle.error}</Notice>}
-      <DataTable rows={rewards} rowKey={(r) => r.id}
+      <DataTableV2 label={t('loyalty.tab.rewards')} rows={rewards} rowKey={(r) => r.id}
         empty={<EmptyState title={t('loyalty.rewards.empty')}>{t('loyalty.rewards.emptyBody')}</EmptyState>}
         columns={[
-          { key: 'name', header: t('loyalty.rewards.name'), render: (r) => <bdi>{pick(locale, r.name, r.nameAr)}</bdi> },
-          { key: 'cost', header: t('loyalty.rewards.cost'), align: 'end', render: (r) => <span className="num">{formatNumber(r.pointsCost, locale)}</span> },
+          { key: 'name', header: t('loyalty.rewards.name'), render: (r) => <bdi>{pick(locale, r.name, r.nameAr)}</bdi>, sort: (a, b) => pick(locale, a.name, a.nameAr).localeCompare(pick(locale, b.name, b.nameAr)) },
+          { key: 'cost', header: t('loyalty.rewards.cost'), align: 'end', sort: (a, b) => a.pointsCost - b.pointsCost, render: (r) => <span className="num">{formatNumber(r.pointsCost, locale)}</span> },
           { key: 'value', header: t('loyalty.rewards.value'), render: (r) => r.kind === 'fixed' ? money(r.value)
             : <>{t('loyalty.rewards.percentValue', { pct: formatNumber(r.value / 100, locale) })}{r.maxDiscountMinor ? <span className="fine"> · ≤ {money(r.maxDiscountMinor)}</span> : null}</> },
           { key: 'min', header: t('loyalty.rewards.minOrder'), render: (r) => (r.minOrderMinor ? money(r.minOrderMinor) : '—') },
@@ -183,7 +185,7 @@ function Rewards({ rewards, onChange }: { rewards: LoyaltyReward[]; onChange: ()
           { key: 'act', header: '', align: 'end', render: (r) => editable
             ? <button type="button" className="btn btn-sm btn-ghost" disabled={toggle.pending} onClick={() => toggle.run(r)}>{r.isActive ? t('loyalty.rewards.pause') : t('loyalty.rewards.resume')}</button> : null },
         ]} />
-      <Modal open={!!draft} onClose={() => setDraft(null)} title={t('loyalty.rewards.add')}>
+      <Sheet open={!!draft} onClose={() => setDraft(null)} title={t('loyalty.rewards.add')} locale={locale}>
         {draft && (
           <form onSubmit={create.run}>
             <Field label={t('loyalty.rewards.name')} required maxLength={80} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
@@ -205,7 +207,7 @@ function Rewards({ rewards, onChange }: { rewards: LoyaltyReward[]; onChange: ()
             <div className="row justify-end"><button className="btn btn-primary" disabled={create.pending}>{t('action.save')}</button></div>
           </form>
         )}
-      </Modal>
+      </Sheet>
     </div>
   );
 }

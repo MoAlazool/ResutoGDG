@@ -1,7 +1,4 @@
 /* Copilot (AI & Apps): formerly inline styles (21-INSIGHTS). Logical properties only. */
-.layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.main { min-inline-size: 0; flex: 2 1 420px; }
-.side { min-inline-size: 0; flex: 1 1 240px; }
 .log { min-block-size: 240px; max-block-size: 55dvh; overflow-y: auto; padding-inline-end: 4px; }
 .message { align-self: flex-start; max-inline-size: 88%; background: var(--surface-warm); border-radius: 12px; padding: 10px 14px; }
 .message[data-role='user'] { align-self: flex-end; background: var(--leaf-bg); }

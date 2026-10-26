@@ -2,12 +2,13 @@
 import { formatDate, formatNumber, type LoyaltyBalance, type LoyaltyLedgerEntry } from '@resuto/contracts';
 import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
-import { Field, Modal, Notice, SkeletonBlock, Stat, useAction } from '@resuto/ui';
+import { Field, Notice, Sheet, SkeletonBlock, StatV2, useAction } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
 import { LedgerTable } from './LedgerTable';
+import s from '../loyalty.module.css';
 
 /**
  * Loyalty block on the customer profile (FT-03): balance derived from the ledger, points expiring soon, recent
@@ -34,8 +35,8 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
   if (!enabled) return null;
   return (
     <section className="card mbe-16">
-      <div className="spread" style={{ alignItems: 'center', marginBlockEnd: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{t('loyalty.customer.title')}</h2>
+      <div className={`spread ${s.cardHead}`}>
+        <h2 className={s.cardTitle}>{t('loyalty.customer.title')}</h2>
         <div className="row gap-8">
           {can('orders:write') && <Link className="btn btn-sm btn-primary" href={`/dashboard/${org.id}/orders?newFor=${customerId}`}>{t('loyalty.customer.redeem')}</Link>}
           {can('marketing:approve') && <button type="button" className="btn btn-sm" onClick={() => setAdj({ points: '', reason: '', key: crypto.randomUUID() })}>{t('loyalty.customer.adjust')}</button>}
@@ -44,16 +45,16 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
       </div>
       {done !== null && <Notice tone="ok">{t('loyalty.customer.adjusted', { balance: formatNumber(done, locale) })}</Notice>}
       {!bal.data ? <SkeletonBlock height={64} /> : (
-        <div className="grid grid-3 mbe-12">
-          <Stat label={t('loyalty.customer.balance')} value={formatNumber(bal.data.balance, locale)} />
-          <Stat label={t('loyalty.customer.lifetime')} value={formatNumber(bal.data.lifetimeEarned, locale)} />
-          {bal.data.expiringSoon && <Stat label={t('loyalty.customer.expiringLabel')} value={t('loyalty.customer.expiring', {
+        <div className="rui-stat-grid mbe-12">
+          <StatV2 label={t('loyalty.customer.balance')} value={formatNumber(bal.data.balance, locale)} />
+          <StatV2 label={t('loyalty.customer.lifetime')} value={formatNumber(bal.data.lifetimeEarned, locale)} />
+          {bal.data.expiringSoon && <StatV2 label={t('loyalty.customer.expiringLabel')} value={t('loyalty.customer.expiring', {
             points: formatNumber(bal.data.expiringSoon.points, locale), date: formatDate(bal.data.expiringSoon.at, locale, org.timezone) })} />}
         </div>
       )}
-      <h3 className="fine" style={{ marginBlock: '6px' }}>{t('loyalty.customer.recent')}</h3>
+      <h3 className={`fine ${s.recent}`}>{t('loyalty.customer.recent')}</h3>
       <LedgerTable rows={led.data?.items ?? []} pending={led.loading} showGuest={false} />
-      <Modal open={!!adj} onClose={() => setAdj(null)} title={t('loyalty.customer.adjust')}>
+      <Sheet open={!!adj} onClose={() => setAdj(null)} title={t('loyalty.customer.adjust')} locale={locale}>
         {adj && (
           <form onSubmit={save.run}>
             <Field label={t('loyalty.customer.adjustPoints')} required inputMode="numeric" dir="ltr" value={adj.points} onChange={(e) => setAdj({ ...adj, points: e.target.value })} />
@@ -64,7 +65,7 @@ export function CustomerLoyalty({ customerId }: { customerId: string }) {
             </div>
           </form>
         )}
-      </Modal>
+      </Sheet>
     </section>
   );
 }

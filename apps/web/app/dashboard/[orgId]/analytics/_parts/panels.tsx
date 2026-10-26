@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import type { AnalyticsMeta, RevenueTotals } from '@resuto/contracts';
 import dynamic from 'next/dynamic';
-import { Badge, BarList, DataTable, EmptyState, Notice, Skeleton, Stat } from '@resuto/ui';
+import { Badge, BarList, cohortLevel, DataTable, EmptyState, Notice, Skeleton, Stat } from '@resuto/ui';
 import { Delta, LoadError, MetaPanel, qs, Section, useBranchName, useFormat, type Period } from '@/components/charts/insights';
 import a from './analytics.module.css';
 import { useT } from '@/lib/i18n/client';
@@ -192,7 +192,7 @@ export function CustomersPanel(props: PanelProps) {
                   <tr key={c.cohort}><td className="num">{c.cohort}</td><td className="num text-end">{c.size}</td>
                     {Array.from({ length: maxOffset }, (_, i) => {
                       const p = c.retentionPct[i];
-                      return <td key={i} className="num" style={{ textAlign: 'end', background: p ? `color-mix(in srgb, var(--chart-1) ${Math.round(p * 0.6)}%, transparent)` : undefined }}>
+                      return <td key={i} className="num text-end rui-cohort-cell" data-level={p ? cohortLevel(p) : 'none'}>
                         {p === undefined ? '' : `${f.pct(p)} (${c.active[i]})`}</td>;
                     })}</tr>
                 ))}

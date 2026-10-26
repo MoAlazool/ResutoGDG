@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AssistantReply } from '@resuto/contracts';
-import { Badge, Card, Notice, PageHeader, Skeleton } from '@resuto/ui';
+import { Badge, Card, DetailPage, Notice, Skeleton } from '@resuto/ui';
 import { ModuleGate } from '@/components/shell/ModuleGate';
 import { newIdempotencyKey } from '@/lib/api';
 import { useT } from '@/lib/i18n/client';
@@ -64,9 +64,23 @@ export default function AssistantPage() {
   return (
     // Copilot belongs to AI & Apps (21-SHELL), not to the Insights area: its own header, no Insights sub-navigation.
     <ModuleGate module="intelligence" permission="ai:use">
-      <PageHeader overline={t('nav.area.apps')} title={t('nav.copilot')} subtitle={t('intelligence.subtitle')} />
-      <div className={a.layout}>
-        <div className={a.main}>
+      <DetailPage inspectorLabel={t('intelligence.assistant.threads')}
+        header={{ eyebrow: t('nav.area.apps'), title: t('nav.copilot'), subtitle: t('intelligence.subtitle') }}
+        inspector={<>
+          <Card title={t('intelligence.assistant.threads')} actions={<button type="button" className="btn btn-sm" onClick={() => { setThreadId(null); setMessages([]); }}>{t('intelligence.assistant.new')}</button>}>
+            {threads.loading && !threads.data ? <Skeleton lines={3} /> : (
+              <ul className={a.threads}>
+                {(threads.data?.items ?? []).map((th) => (
+                  <li key={th.id}>
+                    <button type="button" className={`btn btn-sm btn-block ${a.thread} ${th.id === threadId ? 'btn-leaf' : 'btn-ghost'}`} dir="auto" onClick={() => open(th.id)}>
+                      {th.title ?? '…'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </>}>
           <Card title={t('intelligence.tab.assistant')} actions={rules
             ? <Badge tone="sandbox">{t('intelligence.assistant.rulesMode')}</Badge> : <Badge tone="info">{t('intelligence.assistant.geminiMode')}</Badge>}>
             {rules && <div className="mbe-12"><Notice>{t('intelligence.assistant.rulesModeHint')}</Notice></div>}
@@ -96,23 +110,7 @@ export default function AssistantPage() {
               <button className="btn btn-primary" disabled={pending || !text.trim()}>{t('intelligence.assistant.send')}</button>
             </form>
           </Card>
-        </div>
-        <div className={a.side}>
-          <Card title={t('intelligence.assistant.threads')} actions={<button type="button" className="btn btn-sm" onClick={() => { setThreadId(null); setMessages([]); }}>{t('intelligence.assistant.new')}</button>}>
-            {threads.loading && !threads.data ? <Skeleton lines={3} /> : (
-              <ul className={a.threads}>
-                {(threads.data?.items ?? []).map((th) => (
-                  <li key={th.id}>
-                    <button type="button" className={`btn btn-sm btn-block ${a.thread} ${th.id === threadId ? 'btn-leaf' : 'btn-ghost'}`} dir="auto" onClick={() => open(th.id)}>
-                      {th.title ?? '…'}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-        </div>
-      </div>
+      </DetailPage>
     </ModuleGate>
   );
 }
