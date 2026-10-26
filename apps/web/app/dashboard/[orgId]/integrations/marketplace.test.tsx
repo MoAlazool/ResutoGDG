@@ -71,6 +71,22 @@ describe.each(['en', 'ar'] as const)('marketplace rendering (%s)', (lang) => {
     expect(html).not.toMatch(KEY_LEAK);
   });
 
+  it('cards share one structure: a fixed logo box, a readable status chip, readiness never upgraded, status filters with counts', () => {
+    const html = render(lang, h(Marketplace, { items, connections: [], onChanged: () => {} }));
+    // Every card: one logo box, a status chip carrying its status, the footer.
+    for (const id of ['meta_ads', 'whatsapp_cloud', 'stripe', 'zatca', 'vercel_domains']) {
+      const card = html.slice(html.indexOf(`data-card="${id}"`), html.indexOf('</button>', html.indexOf(`data-card="${id}"`)));
+      expect(card).toMatch(/data-size="md"/);
+      expect(card).toMatch(/data-status="(not_connected|needs_attention|not_available|connected|sandbox|pending_review)"/);
+    }
+    expect(html).toContain('data-card="whatsapp_cloud" data-status="needs_attention"');
+    // The status filter lists the statuses present, each with its count; "verified" is never claimed.
+    expect(html).toMatch(/data-status-filter="needs_attention"[^>]*>.*?<span class="[^"]*num" aria-hidden="true">1<\/span>/);
+    expect(html).toContain(lang === 'en' ? 'Any status' : 'كل الحالات');
+    expect(html).toContain(lang === 'en' ? 'Built, not yet verified' : 'مبني ولم يُتحقق منه بعد');
+    expect(html).not.toMatch(lang === 'en' ? />Verified</ : />تم التحقق</);
+  });
+
   it('chips read the same in both languages', () => {
     expect(render(lang, h(StatusChip, { status: 'pending_review' }))).toContain(lang === 'en' ? 'Pending provider review' : 'بانتظار مراجعة المزوّد');
   });
