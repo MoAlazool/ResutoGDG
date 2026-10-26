@@ -477,8 +477,13 @@ export class ChangesService {
     await this.db.withTenant(userCtx.orgId, async (tx) => {
       const row = await this.lockSet(tx, userCtx.orgId, id);
       if (row.status !== 'pending_approval') throw conflict('change_set_not_pending', `This change set is already ${row.status}`, { status: row.status });
+      // A decision either way needs what approving needs: every op's permission and branch (1D threat model).
       const ops = await this.opsOf(tx, id);
-      for (const op of ops) if (op.branch_id) userCtx.assertBranch(op.branch_id);
+      for (const op of ops) {
+        const meta = CHANGE_OPS[op.op_type as ChangeOpType];
+        if (!userCtx.can(meta.permission)) throw forbidden(`Rejecting this needs ${meta.permission}`);
+        if (op.branch_id) userCtx.assertBranch(op.branch_id);
+      }
       const ins = await tx.maybeOne(
         `insert into change_decisions(change_set_id, org_id, user_id, role, decision, note) values ($1, $2, $3, $4, 'rejected', $5)
          on conflict (change_set_id, user_id) do nothing returning user_id`, [id, row.org_id, userCtx.userId, userCtx.role, note]);
