@@ -94,7 +94,7 @@ defaults chosen by the page language (`UiLocaleProvider`, set by the web app's `
 | `Popover` | `popover.tsx` | Filters, column pickers, small forms | Escape and outside press close; `align="start"/"end"` is logical |
 | `Menu` | `popover.tsx` | Row and page action menus | WAI-ARIA menu button: roving focus, arrows, Home/End, type-ahead, Escape returns focus |
 | `Tooltip` | `popover.tsx` | Short descriptions of icon buttons and truncated values | Never the only label of a control |
-| `SegmentedControl` | `controls.tsx` | 2–5 mutually exclusive views | Radio group; arrows mirrored in RTL |
+| `SegmentedControl` | `segmented.tsx` (re-exported by `controls.tsx`) | 2–5 mutually exclusive views | Radio group; arrows mirrored in RTL |
 | `Switch` | `controls.tsx` | Settings that apply at once | Native checkbox with `role="switch"` |
 | `Combobox` | `controls.tsx` | Picking one of many (suppliers, items, customers) | ARIA 1.2 combobox; matching ignores case, diacritics, hamza forms and Arabic-Indic digits |
 | `MoneyInput` | `controls.tsx` | Amounts | Integer minor units in and out; accepts Arabic-Indic digits and separators (`normalizeNumericInput`), `parseMajor` from contracts |
@@ -105,7 +105,7 @@ defaults chosen by the page language (`UiLocaleProvider`, set by the web app's `
 | `StatV2`, `ProvenanceBadge`, `provenanceFromMetaKind` | `stat.tsx` | KPI tiles | Value, unit, delta, sparkline, provenance; `href` + `linkAs` (Next `Link`) for a drill-down tile |
 | `EmptyState` (+ `icon`, `secondary`) | `base.tsx` | Empty lists and sections | Old markup unchanged without the new props |
 | `LockedFeature` | `locked-feature.tsx` | Modules outside the plan | Inert preview, benefits, upgrade action |
-| `ListPage`, `DetailPage`, `WorkspacePage`, `BoardPage`, `SettingsPage` | `templates.tsx` | Page layouts | Regions only; content stays in the page. `BoardPage` lanes carry `data-lane` and take `boardRef`, `label`, `footer` (21-OPS: drag and drop on the Orders board and kitchen display, `components/ops/KanbanBoard`). `SettingsPage` takes `renderLink` for client-side section links; the web app wraps it as `components/settings/SettingsShell` with `SETTINGS_SECTIONS` (21-MONEY: settings, messaging, team, billing, data, audit) |
+| `ListPage`, `DetailPage`, `WorkspacePage`, `BoardPage`, `SettingsPage` | `templates/*.tsx` (one module each, re-exported by `templates.tsx`, so a route ships only the templates it renders) | Page layouts | Regions only; content stays in the page. `BoardPage` lanes carry `data-lane` and take `boardRef`, `label`, `footer` (21-OPS: drag and drop on the Orders board and kitchen display, `components/ops/KanbanBoard`). `SettingsPage` takes `renderLink` for client-side section links; the web app wraps it as `components/settings/SettingsShell` with `SETTINGS_SECTIONS` (21-MONEY: settings, messaging, team, billing, data, audit) |
 | Chart kit | `charts/` | All charts | See §5 |
 | `Loadable` (+ `fade`) | `states.tsx` | Skeleton → content | Opt-in 120 ms fade |
 | `withViewTransition`, `prefersReducedMotion`, `staggerStyle` | `motion.ts` | Route and pane changes | See §6 |
