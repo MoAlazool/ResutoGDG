@@ -229,7 +229,7 @@ th[data-align='end'] .rui-dt-sort { flex-direction: row-reverse; }
 .rui-filter-chip button:hover { background: var(--surface-1); color: var(--text); }
 
 /* ---------- Stat v2 and provenance ---------- */
-.rui-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); }
+.rui-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr)); gap: var(--space-4); }
 .rui-stat {
   display: grid; gap: var(--space-2); align-content: start; min-inline-size: 0; padding: var(--space-5); container-type: inline-size;
   background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-2); color: inherit; text-decoration: none;
@@ -239,10 +239,12 @@ a.rui-stat:hover { border-color: var(--border-strong); }
 .rui-stat-label { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--text-secondary); }
 .rui-stat-value { display: block; font-family: var(--font-body-en); font-size: min(30px, 16cqi, calc(160cqi / var(--chars, 1))); font-weight: 550; letter-spacing: -1px; line-height: 1.15; color: var(--text); }
 .rui-stat-value.is-fig { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A text value (a date, a sentence) reads as text, not as a 30 px figure that breaks over three lines. */
+.rui-stat-value:not(.is-fig) { font-size: min(22px, 13cqi); letter-spacing: -.3px; line-height: 1.3; }
 [lang='ar'] .rui-stat-value { font-family: var(--font-body-ar); letter-spacing: 0; font-weight: 600; }
 .rui-stat-value small { font-size: var(--t-sm); letter-spacing: 0; color: var(--text-muted); font-weight: var(--fw-medium); margin-inline-start: var(--space-2); }
 .rui-stat[data-provenance='unavailable'] .rui-stat-value { color: var(--text-subtle); }
-.rui-stat-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-block-size: 28px; }
+.rui-stat-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-2); min-block-size: 28px; }
 .rui-stat-delta { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-muted); }
 .rui-stat-delta[data-trend='good'] { color: var(--ok-fg); }
 .rui-stat-delta[data-trend='bad'] { color: var(--danger-fg); }
