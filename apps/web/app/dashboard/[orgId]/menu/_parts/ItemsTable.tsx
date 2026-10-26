@@ -42,7 +42,7 @@ export function ItemsTable({ rows, categories, branchId, branchName, currency, t
       ),
     },
     {
-      key: 'category', header: t('core.menu.category'), sort: (a, b) => (catIndex.get(a.categoryId) ?? 0) - (catIndex.get(b.categoryId) ?? 0) || a.sortOrder - b.sortOrder,
+      key: 'category', header: t('core.menu.category'), priority: 'low', sort: (a, b) => (catIndex.get(a.categoryId) ?? 0) - (catIndex.get(b.categoryId) ?? 0) || a.sortOrder - b.sortOrder,
       render: (p) => <bdi>{catName.get(p.categoryId) ?? ''}</bdi>,
     },
     { key: 'station', header: t('core.menu.station'), defaultHidden: true, render: (p) => stationLabel(t, p.station) },
@@ -60,7 +60,7 @@ export function ItemsTable({ rows, categories, branchId, branchName, currency, t
         );
       },
     },
-    { key: 'portions', header: t('ops.menu.col.portions'), render: (p) => <PortionsCell p={p} branchId={branchId} /> },
+    { key: 'portions', header: t('ops.menu.col.portions'), priority: 'low', render: (p) => <PortionsCell p={p} branchId={branchId} /> },
     { key: 'status', header: t('ops.menu.col.status'), sort: (a, b) => statusRank(a, branchId) - statusRank(b, branchId), render: (p) => <DishStatus p={p} branchId={branchId} timezone={timezone} /> },
     ...(canAvailability ? [{
       key: 'available', header: t('menu.ws.col.available'), hideable: false,
