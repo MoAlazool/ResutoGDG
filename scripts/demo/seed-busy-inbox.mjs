@@ -54,7 +54,7 @@ const NAMES = [
 ];
 const INBOUND = [
   'Is the terrace open tonight?', 'هل التراس مفتوح الليلة؟', 'Do you deliver to Maadi?', 'بتوصلوا المعادي؟', 'Can I book a table for 6 at 9 pm?',
-  'عايز أحجز ترابيزة لـ ٦ أشخاص الساعة ٩', 'What time do you close on Friday?', 'المنيو فيها أكل نباتي؟', 'My order is 20 minutes late, any update?',
+  'عايز أحجز ترابيزة لـ 6 أشخاص الساعة 9', 'What time do you close on Friday?', 'المنيو فيها أكل نباتي؟', 'My order is 20 minutes late, any update?',
   'الطلب وصل بارد للأسف 😕', 'Thanks, the food was amazing!', 'شكراً جداً الأكل كان تحفة', 'Do you have gluten-free bread?',
   'Can I pay by card on delivery?', 'ممكن أدفع فيزا عند الاستلام؟', 'Hi! Is the Smash burger available with a vegan patty?',
   'هل عندكم عروض لرمضان؟', 'I would like to order the mixed grill platter for pickup at 8:30', 'Need catering for 40 people next Thursday, office lunch in Zamalek',
@@ -62,9 +62,9 @@ const INBOUND = [
   'Ok perfect 👍', 'تمام شكراً', 'Is parking available near the Zamalek branch?', 'Do you have a kids menu? My son is allergic to sesame — سمسم',
 ];
 const OUTBOUND = [
-  'Hi! Yes, the terrace is open from 6 pm until midnight.', 'أهلاً بيك! أيوه التراس مفتوح من ٦ لنص الليل.', 'We deliver to Maadi within 45–60 minutes.',
-  'بنوصل المعادي في خلال ٤٥ لـ ٦٠ دقيقة.', 'Your table for 6 at 9 pm is booked. See you tonight!', 'تم الحجز ✅ مستنيينك الساعة ٩',
-  'So sorry about the delay — the driver is 5 minutes away.', 'آسفين جداً على التأخير، السواق قدامه ٥ دقايق.', 'Yes, all our burgers can be made with a plant-based patty.',
+  'Hi! Yes, the terrace is open from 6 pm until midnight.', 'أهلاً بيك! أيوه التراس مفتوح من 6 لنص الليل.', 'We deliver to Maadi within 45–60 minutes.',
+  'بنوصل المعادي في خلال 45 لـ 60 دقيقة.', 'Your table for 6 at 9 pm is booked. See you tonight!', 'تم الحجز ✅ مستنيينك الساعة 9',
+  'So sorry about the delay — the driver is 5 minutes away.', 'آسفين جداً على التأخير، السواق قدامه 5 دقايق.', 'Yes, all our burgers can be made with a plant-based patty.',
   'We will send a replacement right away and refund the onion rings.', 'هنبعتلك بديل حالاً ونرجعلك تمن الـ onion rings.', 'You can pay by card or cash on delivery.',
 ];
 const NOTES = [
@@ -80,7 +80,7 @@ const LONG_THREAD_EN = [
   'Can we mix? Some of us do not eat red meat', 'Absolutely, you can choose per person. I will send both menus now.',
 ];
 const LONG_THREAD_AR = [
-  'مساء الخير، عايزة أسأل عن حجز عيد ميلاد', 'مساء النور! أكيد، العدد كام والمعاد إمتى؟', 'هنكون ١٠ أشخاص يوم الخميس الساعة ٨ ونص',
+  'مساء الخير، عايزة أسأل عن حجز عيد ميلاد', 'مساء النور! أكيد، العدد كام والمعاد إمتى؟', 'هنكون 10 أشخاص يوم الخميس الساعة 8 ونص',
   'تمام، عندنا الأوضة الخاصة فوق أو التراس', 'الأوضة الخاصة أحسن عشان الأطفال', 'ممكن نجيب التورتة معانا؟', 'أكيد مفيش أي رسوم على التورتة 🎂',
   'ممتاز، والأكل؟ في menu للمجموعات؟', 'في اتنين set menus، هبعتهم لحضرتك دلوقتي', 'One of my friends is vegetarian — هل في اختيارات نباتي؟',
   'Yes! The Mediterranean menu has a full vegetarian option — طبق مشويات خضار وفلافل', 'تمام جداً، هنأكد بكرة إن شاء الله',
@@ -188,7 +188,7 @@ async function main() {
         if (long && k % 23 === 5) { await insertMessage(conv.id, { direction: 'inbound', kind: 'image', body: arabic ? 'صورة الطلب' : 'Photo of the receipt', payload: { type: 'image' }, at }); continue; }
         if (long && k % 31 === 9) { await insertMessage(conv.id, { direction: 'inbound', kind: 'location', body: '26th of July St, Zamalek, Cairo', payload: { type: 'location' }, at }); continue; }
         if (long && k % 29 === 12 && p.kind === 'whatsapp') {
-          await insertMessage(conv.id, { direction: 'outbound', kind: 'template', body: arabic ? 'أهلاً! حجزك يوم الخميس الساعة ٨:٣٠ مؤكد. نشوفك قريب 🌿' : 'Hello! Your booking on Thursday at 8:30 pm is confirmed. See you soon 🌿',
+          await insertMessage(conv.id, { direction: 'outbound', kind: 'template', body: arabic ? 'أهلاً! حجزك يوم الخميس الساعة 8:30 مؤكد. نشوفك قريب 🌿' : 'Hello! Your booking on Thursday at 8:30 pm is confirmed. See you soon 🌿',
             payload: { type: 'template', templateName: 'booking_confirmation', language: arabic ? 'ar' : 'en', params: [] }, automated: true, at });
           continue;
         }

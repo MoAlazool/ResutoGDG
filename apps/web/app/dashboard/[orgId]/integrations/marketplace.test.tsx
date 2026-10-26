@@ -81,7 +81,7 @@ describe.each(['en', 'ar'] as const)('marketplace rendering (%s)', (lang) => {
     }
     expect(html).toContain('data-card="whatsapp_cloud" data-status="needs_attention"');
     // The status filter lists the statuses present, each with its count; "verified" is never claimed.
-    expect(html).toMatch(/data-status-filter="needs_attention"[^>]*>.*?<span class="[^"]*num">1<\/span>/);
+    expect(html).toMatch(/data-status-filter="needs_attention"[^>]*>.*?<span class="[^"]*num" aria-hidden="true">1<\/span>/);
     expect(html).toContain(lang === 'en' ? 'Any status' : 'كل الحالات');
     expect(html).toContain(lang === 'en' ? 'Built, not yet verified' : 'مبني ولم يُتحقق منه بعد');
     expect(html).not.toMatch(lang === 'en' ? />Verified</ : />تم التحقق</);
