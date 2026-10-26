@@ -6,7 +6,7 @@ import { Badge } from '@resuto/ui';
 import { dateTime } from '@/lib/format';
 import { diffRows, effectKey, OP_TONE, requirementOf, SET_TONE, timelineOf } from '@/lib/change-diff';
 import { useT } from '@/lib/i18n/client';
-import { actionLabel } from '@/lib/vocab';
+import { actionLabel } from '@/lib/vocab-codes';
 import './changes.css';
 
 export function SetStatusBadge({ status }: { status: ChangeSetSummary['status'] }) {

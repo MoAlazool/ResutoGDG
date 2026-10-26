@@ -4,6 +4,7 @@ import { landingFloorFrom, SAMPLE_FLOOR, type LandingFloor } from '@/components/
 import { langAlternates } from '@/components/landing/legacy-routes';
 import { DEMO_SLUG } from '@/components/landing/links';
 import { landingPlansFrom, type LandingPlan } from '@/components/landing/plans';
+import { ScopeMessages } from '@/lib/i18n/scope';
 import { getT } from '@/lib/i18n/server';
 
 const APP_ORIGIN = (process.env.NEXT_PUBLIC_APP_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
@@ -85,7 +86,7 @@ export default async function Home() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       {Object.entries(langAlternates(`${APP_ORIGIN}/`)).map(([hl, href]) => <link key={hl} rel="alternate" hrefLang={hl} href={href} />)}
-      <LandingPage plans={plans} floor={floor} />
+      <ScopeMessages scope="public"><LandingPage plans={plans} floor={floor} /></ScopeMessages>
     </>
   );
 }

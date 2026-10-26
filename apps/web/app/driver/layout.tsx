@@ -7,5 +7,5 @@ export const metadata: Metadata = { title: 'ResutoDriver', robots: { index: fals
 export const viewport: Viewport = { themeColor: '#173f36', width: 'device-width', initialScale: 1, viewportFit: 'cover' };
 
 export default function DriverLayout({ children }: { children: ReactNode }) {
-  return <StaffProviders><DriverShell>{children}</DriverShell></StaffProviders>;
+  return <StaffProviders route="driver"><DriverShell>{children}</DriverShell></StaffProviders>;
 }

@@ -19,17 +19,17 @@ import { useT } from '@/lib/i18n/client';
 import { useBranchScope, useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { Attention } from './_home/Attention';
-import { Customers } from './_home/Customers';
-import { attentionPath, COMPARES, overviewPath, PERIOD_PRESETS, periodRange, sectionAvailable, shownSections, type HomeAccess, type PeriodPreset } from './_home/model';
-import { Performance, type RatingsData } from './_home/Performance';
-import { RightNow } from './_home/RightNow';
-import type { OverviewData } from './_home/types';
-import s from './_home/home.module.css';
+import { Attention } from './Attention';
+import { Customers } from './Customers';
+import { attentionPath, COMPARES, overviewPath, PERIOD_PRESETS, periodRange, sectionAvailable, shownSections, type HomeAccess, type PeriodPreset } from './model';
+import { Performance, type RatingsData } from './Performance';
+import { RightNow } from './RightNow';
+import type { OverviewData } from './types';
+import s from './home.module.css';
 
-const CustomiseSheet = dynamic(() => import('./_home/CustomiseSheet'), { ssr: false });
+const CustomiseSheet = dynamic(() => import('./CustomiseSheet'), { ssr: false });
 // Insights and the ask box: a separate chunk (it needs the full contracts entry, which the first load does not).
-const NextActions = dynamic(() => import('./_home/NextActions').then((m) => m.NextActions), { ssr: false, loading: () => <div className="skeleton" aria-hidden="true" /> });
+const NextActions = dynamic(() => import('./NextActions').then((m) => m.NextActions), { ssr: false, loading: () => <div className="skeleton" aria-hidden="true" /> });
 
 const QUICK_LINKS: Array<{ href: string; label: string; glyph: NavGlyphName; permission: Permission }> = [
   { href: '/orders', label: 'nav.orders', glyph: 'orders', permission: 'orders:read' },

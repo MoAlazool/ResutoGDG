@@ -1,16 +1,14 @@
 'use client';
-import { createContext, Fragment, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import { Fragment, useCallback, useContext, useMemo, type ReactNode } from 'react';
 import { UiLocaleProvider } from '@resuto/ui/src/locale';
+import { CatalogContext, LocaleContext } from './context';
 import { formatMessage } from './format-message';
 import { LOCALE_COOKIE, type Locale, type Messages } from './locale';
 
 // Client-side strings. The server passes only the active locale's messages for the route group (see
 // lib/i18n/messages.ts messagesFor), so no dictionary is bundled into client JavaScript.
 
-interface LocaleValue { locale: Locale; messages: Messages }
-const LocaleContext = createContext<LocaleValue>({ locale: 'en', messages: {} });
-/** Both locales' messages, for the rare page that switches language without a reload (WhatsApp ordering link). */
-const CatalogContext = createContext<Partial<Record<Locale, Messages>>>({});
+export { LocaleScope } from './locale-scope';
 
 /**
  * Sets the language for a subtree. The root layout passes the server-selected messages; a nested provider that
@@ -28,12 +26,6 @@ export function LocaleCatalog({ catalog, children }: { catalog: Partial<Record<L
   return <CatalogContext.Provider value={catalog}>{children}</CatalogContext.Provider>;
 }
 
-/** Adds a route group's messages (e.g. the staff namespaces) on top of the root layout's shared ones. */
-export function LocaleScope({ messages, children }: { messages: Messages; children: ReactNode }) {
-  const parent = useContext(LocaleContext);
-  const value = useMemo(() => ({ locale: parent.locale, messages: { ...parent.messages, ...messages } }), [parent, messages]);
-  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
-}
 
 export function useT() {
   const { locale, messages } = useContext(LocaleContext);

@@ -14,7 +14,7 @@ import {
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
 import { useApi } from '@/lib/use-api';
-import { capabilityLabel } from '@/lib/vocab';
+import { capabilityLabel } from '@/lib/vocab-codes';
 import {
   ACCOUNT_KEY, AccountPicker, CapabilityTable, EditConnection, KeysForm, pickerKey, useOAuthStart, useTx, WebhookPanel,
   type CatalogItem, type ConnectionView,
