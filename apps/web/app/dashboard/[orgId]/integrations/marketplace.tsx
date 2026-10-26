@@ -59,7 +59,8 @@ function FacetChip({ pressed, count, onClick, children, status }: { pressed: boo
   return (
     <button type="button" className={s.facet} aria-pressed={pressed} onClick={onClick} data-status-filter={status}>
       {status && <span className={s.dot} data-status={status} aria-hidden="true" />}
-      <span>{children}</span><span className={`${s.facetCount} num`}>{count}</span>
+      {/* The count is visual; the list's own count is announced (aria-live), and the chip's name stays its label. */}
+      <span>{children}</span><span className={`${s.facetCount} num`} aria-hidden="true">{count}</span>
     </button>
   );
 }
@@ -95,7 +96,7 @@ export function Marketplace({ items, connections, onChanged }: { items: CatalogI
   ];
   return (
     <div className={s.market}>
-      <FilterBar search={{ value: query, onChange: setQuery, placeholder: t('mkt.search'), label: t('mkt.search'), debounceMs: 0 }}
+      <FilterBar search={{ value: query, onChange: setQuery, placeholder: t('mkt.searchHint'), label: t('mkt.search'), debounceMs: 0 }}
         chips={chips} onClearAll={clear}
         actions={<p className={s.count} aria-live="polite">{t('mkt.count', { n: shown.length })}</p>} />
       <div className={s.facets}>
