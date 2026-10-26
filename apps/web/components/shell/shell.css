@@ -121,6 +121,8 @@ button.ws-chip:hover { background: var(--surface-hover); }
   .ws-chip-menu { margin: 0; max-inline-size: 62%; inline-size: auto; min-inline-size: 0; }
   /* The name keeps its width in the shrink-to-fit chip (a flex: 1 text column collapsed to its first letter). */
   .ws-chip-text { flex: 0 1 auto; }
+  /* The 58% cap of a plain chip (app/globals.css) applied again inside the menu's own 62% box: 97 px for the name. */
+  .ws-chip-menu > .ws-chip { max-inline-size: 100%; }
   .ws > .ws-sidebar > .ws-sidebar-head > .ws-chip { margin: 0; }
   .ws-chip-menu .rui-pop-panel { inline-size: min(300px, calc(100vw - 32px)); inset-inline-start: auto; inset-inline-end: 0; }
   .ws-search { min-inline-size: 0; padding: 0; inline-size: 34px; justify-content: center; border-radius: 50%; }
