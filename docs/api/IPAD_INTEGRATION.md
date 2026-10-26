@@ -78,7 +78,7 @@ same as for the web app.
 
 ## 2. Pairing (device enrolment)
 
-1. **Code.** A manager creates a code on the web dashboard, or with `POST /v1/o/{orgId}/pos/pairings` using a staff JWT with the `devices:manage` permission. A branch-scoped manager can do this only for their own branches.
+1. **Code.** A manager creates a code on the web dashboard (Settings › iPad devices, `/dashboard/{orgId}/settings/devices`: branch, acting role, name, code lifetime, staff sign-in on by default, validity; it shows the code once with a countdown and the API address, lists the devices and revokes them with a reason), or with `POST /v1/o/{orgId}/pos/pairings` using a staff JWT with the `devices:manage` permission. A branch-scoped manager can do this only for their own branches.
    - Body: `{ branchId: uuid, actingRole: "waiter"|"cashier"|"kitchen", name: string(1..60), expiresInMinutes?: 1..60 = 10, deviceTtlDays?: 1..730 = 365, requireStaff?: boolean = false }`. `requireStaff` is 0.2.0.
    - Response: `{ id, branchId, actingRole, name, code: "XXXXX-XXXXX", expiresAt }`. The code is 10 Crockford base32 characters, single use.
 2. **Exchange.** The app sends `POST /v1/pos/pair`, which is public. Case and dashes are ignored, and there are 30 attempts per IP per 10 minutes.
