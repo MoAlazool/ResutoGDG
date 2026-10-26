@@ -233,7 +233,103 @@ If the database is unreachable both paths keep counting in memory (fail open, lo
    above, enable **Vercel Authentication for all deployments**, deploy the branch, and confirm an
    anonymous request is redirected to Vercel login.
 5. Verify: `node scripts/staging/smoke.mjs`, `node scripts/staging/mcp-check.mjs` and
-   `node scripts/staging/browser-check.mjs` (environment variables listed at the top of each script).
+   `node scripts/staging/browser-check.mjs` (environment variables listed at the top of each script), then the two
+   flow checks below (`eid-check.mjs`, `onboarding-check.mjs`).
+
+## Flow checks: the "Eid offers" change set and the Free onboarding (2.1, plan §12.3)
+
+Two scripts that write labelled test data, so they refuse any host that is not loopback or does not name itself staging
+(`staging`/`stg` in the host name; `ALLOW_NON_STAGING=1` overrides). Rows print as `✓` passed, `✗` failed, `⊘` blocked
+(the step could not run here; the reason is printed, nothing is faked) and `·` notes. Exit code **0** all passed,
+**1** a check failed, **3** nothing failed but a step was blocked, **2** missing configuration. Both print the deployed
+builds, honour `EXPECT_COMMIT=<sha>` and write `{ at, title, builds, results, notes, … }` to `SMOKE_REPORT=<file>` like
+`smoke.mjs`. They never print passwords, tokens or the MCP key (details are redacted). Pure helpers:
+`scripts/staging/lib/check-kit.mjs`, unit-tested by `node --test scripts/staging/test/*.test.mjs` (CI runs it).
+
+### `scripts/staging/eid-check.mjs`
+
+The change-set flow end to end on a **dedicated test tenant, never the demo restaurant**: MCP connection key → MCP
+`list_menu` / `get_website_draft` → `propose_changes` with one set (an `offers` section "Eid offers" with three dishes
+and `product.discount.set` 15 % on each) → `approval_required`; the staff API shows `pending_approval` (origin `mcp`,
+before/after prices) and the canvas preview diff (one added section, three repriced dishes); prices are unchanged →
+the owner approves through `POST /o/:orgId/change-sets/:id/approve` → `applied`: prices at 85 % with the original as the
+was-price (`compareAtMinor`), the draft has the section, `get_approval_status` says executed → MCP
+`publish_website_revision` → `/v1/public/sites/<slug>` (and `WEB_URL/r/<slug>` when given) shows the section → the
+change set's audit trail has every transition and op, and `GET /mcp/calls` links the proposal and its approved
+execution → cleanup.
+
+| Variable | Staging | Notes |
+|---|---|---|
+| `API_URL`, `MCP_URL` | required | |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | required | |
+| `STAGING_CHECK_EMAIL`, `STAGING_CHECK_PASSWORD` | required | a dedicated staging account, **not** a demo account: create it once (Supabase → Authentication → Add user, auto-confirm), or let the check create it confirmed when `SUPABASE_SERVICE_ROLE_KEY` is set |
+| `STAGING_CHECK_TOTP_SECRET` | optional | the base32 secret of that account's authenticator, only if it enrolled one: approving and creating MCP keys then need aal2, and the check verifies a TOTP code through Supabase (challenge + verify). Without it such a step is reported **blocked**, never bypassed |
+| `SUPABASE_SERVICE_ROLE_KEY` | optional | only to create the dedicated account on first use |
+| `WEB_URL`, `VERCEL_BYPASS` | optional | the rendered `/r/<slug>` check; without the bypass the private web app answers 401/302 and that row is blocked |
+| `EID_TENANT_PREFIX` (`stg-check-eid`), `EID_PLAN` (`pro`) | optional | |
+
+**Data it creates and keeps:** the dedicated account; one restaurant `stg-check-eid-<yyyymmddhhmm>-<hex>` named
+"Staging check: Eid (test data)" on a 14-day **paid trial** (`EID_PLAN`; the flow needs the Studio and MCP modules); a
+category "Staging check (test data)" with three dishes "Eid check: … (test)". Later runs **reuse** that restaurant while
+its trial is live and create a new one (same prefix) once it has lapsed to Free; lapsed ones are left as they are
+(a user may own at most 10 restaurants). Per run, kept as history: the two change sets and their audit rows, the
+revoked MCP connection ("Staging Eid check <run> (temporary)") and its call log, and three website revisions (publish,
+cleanup republish).
+**Cleanup per run:** the MCP key is revoked (and checked refused), the Eid section is deleted and the site republished,
+the discounts are ended through a second change set the owner approves (original prices back, no was-price). A run
+that stops early still revokes its key; the next run first ends leftover discounts and removes a leftover Eid section.
+If the approval is blocked (MFA without the secret) the set stays pending and expires by itself after 24 h. Lapsed
+Eid tenants can be removed with the SQL shown for the onboarding leftovers below, using `'stg-check-eid-%'` (checked on
+a local database: the delete cascades through change sets, audit rows and MCP connections).
+**MFA, honestly:** the result says which session approved (from the audit row's `aal`). A staging account without a
+verified factor approves on a password session (`aal1`), because MFA is opt-in on the Free plan; the note says so.
+
+Local stack (development issuer, the way it was verified):
+`AUTH_MODE=local API_URL=http://127.0.0.1:4681 MCP_URL=http://127.0.0.1:7381 WEB_URL=http://localhost:3681 node scripts/staging/eid-check.mjs`
+(the account `stg-check-eid-owner@example.test` is created on first use; `STAGING_CHECK_EMAIL`/`_PASSWORD` override).
+
+### `scripts/staging/onboarding-check.mjs`
+
+A brand-new owner through the wizard's API calls: signup → `GET/PUT /onboarding/progress` after each step →
+web-address availability → `POST /orgs` on **Free** → service mode → theme preset (`PUT /o/:orgId/brand`) → one
+category and two dishes → `POST /o/:orgId/brand/publish` → `GET /o/:orgId/menu-qr` (view-only: opens `/m/<slug>`, no
+table or venue token; the PNG and SVG are saved to a temporary folder whose path is printed) → wizard done → plan is
+`free` and the full Studio answers 402 → `/v1/public/menu/<slug>` and `/v1/public/sites/<slug>` (no tokens) → with
+`WEB_URL`, `/m/<slug>` renders the dishes and the "This menu is for browsing" notice with **no cart or ordering UI**
+(no Add/stepper/dock classes, no Add button, no checkout, no ordering assistant, no `/t/`, `/v/` or `/order/` link) and
+`/r/<slug>` renders the site. The PDF posters are made in the browser and are not checked here. The known gap that a
+Free owner can still open the ordering-QR routes (pinned by `apps/api/test/onboarding-free.test.ts`) is printed as a
+note and not asserted either way.
+
+| Variable | Staging | Notes |
+|---|---|---|
+| `API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | required | |
+| `SUPABASE_SERVICE_ROLE_KEY` | needed to run past signup | staging has "Confirm email" ON and no SMTP sender, so the public signup returns no session (or the built-in sender refuses the address). The check then confirms **its own throwaway** through the Admin Auth API and says so in the row. Without the key the signup row is **blocked** (exit 3) |
+| `DEMO_ADMIN_PASSWORD` (+ `DEMO_EMAIL_DOMAIN`) or `ADMIN_EMAIL`/`ADMIN_PASSWORD` | optional | a superadmin to suspend the throwaway tenant; an admin with an authenticator gets a blocked row instead |
+| `WEB_URL`, `VERCEL_BYPASS` | optional | the rendered `/m` and `/r` checks |
+| `ONBOARDING_PREFIX` (`stg-onb`), `ONBOARDING_EMAIL_DOMAIN` (`DEMO_EMAIL_DOMAIN`, else `olive-room.demo.test`) | optional | |
+
+**Data it creates:** per run one account `stg-onb-<yyyymmddhhmm>-<hex>@<domain>` (random password, never printed) and
+one Free restaurant with the same slug, named "Staging check: onboarding (throwaway)", with two "(test)" dishes and a
+published site. **Cleanup:** Resuto has no account or restaurant deletion API (the account lifecycle covers password,
+email and sign-in only), so the check neutralises and lists what remains: the owner deactivates the branch (the public
+menu answers 404), a platform admin suspends the tenant when credentials are given (the site answers 404, staff access
+ends; it also drops out of `/me`), and with the service-role key the Supabase user is **banned** for ten years and its
+name cleared (not deleted: rows such as `created_by` still reference it). To remove the leftovers for good, a platform
+operator runs in the Supabase SQL editor, after checking the list:
+`select id, slug, status from organizations where slug like 'stg-onb-%';` then
+`delete from organizations where slug like 'stg-onb-%';` (organization deletion cascades, migration `20261022020001`)
+and deletes the `stg-onb-…` users under Authentication → Users.
+
+Local stack: `AUTH_MODE=local API_URL=http://127.0.0.1:4681 WEB_URL=http://localhost:3681 [ADMIN_EMAIL=… ADMIN_PASSWORD=…] node scripts/staging/onboarding-check.mjs`
+(the development issuer signs up without confirmation and has no account lifecycle, so the account stays in the
+local database).
+
+**Local stack used to verify both** (from a worktree): migrate a fresh database
+(`scripts/db/ensure-db.mjs` + `scripts/db/migrate.mjs`, as `tests/e2e/start-api.mjs` does), build the API
+(`tsc -p tsconfig.build.json`) and run `dist/main.js` + `dist/worker.js` with `NODE_ENV=development AUTH_DEV_MODE=true`
+and a 32+ character `SUPABASE_JWT_SECRET`; build the MCP server and run it with `MCP_PORT`, `RESUTO_API_URL`; build and
+`next start` the web app with `NEXT_PUBLIC_API_URL` and `APP_HOSTS=localhost,127.0.0.1`.
 
 ## Notes and limits
 
