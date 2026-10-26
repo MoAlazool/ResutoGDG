@@ -21,6 +21,7 @@ export const shell = {
     'nav.approvals': 'Approvals',
     'nav.teamRoles': 'Team & roles',
     'nav.messaging': 'Messaging',
+    'nav.devices': 'iPad devices',
     'nav.dataImportExport': 'Data import & export',
     'nav.explore': 'Explore Resuto',
 
@@ -62,6 +63,7 @@ export const shell = {
     'palette.action.newOrder': 'New order',
     'palette.action.newReservation': 'New reservation',
     'palette.action.inviteMember': 'Invite a team member',
+    'palette.action.pairIpad': 'Pair a new iPad',
     'palette.action.switchBranch': 'Switch branch',
     'palette.action.switchLanguage': 'Switch language to Arabic',
     'palette.action.signOut': 'Sign out',
@@ -160,6 +162,7 @@ export const shell = {
     'nav.approvals': 'الموافقات',
     'nav.teamRoles': 'الفريق والأدوار',
     'nav.messaging': 'الرسائل',
+    'nav.devices': 'أجهزة iPad',
     'nav.dataImportExport': 'استيراد البيانات وتصديرها',
     'nav.explore': 'اكتشف ريسوتو',
 
@@ -201,6 +204,7 @@ export const shell = {
     'palette.action.newOrder': 'طلب جديد',
     'palette.action.newReservation': 'حجز جديد',
     'palette.action.inviteMember': 'دعوة عضو إلى الفريق',
+    'palette.action.pairIpad': 'إقران جهاز iPad جديد',
     'palette.action.switchBranch': 'تبديل الفرع',
     'palette.action.switchLanguage': 'تغيير اللغة إلى الإنجليزية',
     'palette.action.signOut': 'تسجيل الخروج',

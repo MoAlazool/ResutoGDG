@@ -98,6 +98,10 @@ export const AREAS: NavArea[] = [
 /** The Settings cluster in the sidebar footer. */
 export const SETTINGS_AREA: NavArea = { key: 'settings', label: 'nav.group.settings', icon: 'settings', items: [
   { href: '/settings', label: 'nav.settings', module: 'core', permission: 'org:manage', free: true, shortcut: 's' },
+  // Settings › Messaging (21-INBOX) has its own entry, so on that page the sidebar marks Messaging, not Restaurant settings.
+  { href: '/settings/messaging', label: 'nav.messaging', module: 'connect', permission: 'connect:read' },
+  // 22-DEVICES: pairing and revoking native POS iPads (owner, admin, manager; branch-scoped managers see their branches).
+  { href: '/settings/devices', label: 'nav.devices', module: 'core', permission: 'devices:manage' },
   { href: '/team', label: 'nav.teamRoles', module: 'core', permission: 'members:manage', free: true },
   { href: '/billing', label: 'nav.billing', module: 'core', permission: 'billing:manage', free: true },
   { href: '/data', label: 'nav.dataImportExport', module: 'core', anyPermission: ['menu:write', 'customers:export', 'finance:read'], free: true },

@@ -168,7 +168,7 @@ const resolve = (template: string) => {
 test('the route list covers every navigation entry and dashboard page', () => {
   const routes = staffRouteTemplates();
   // Sanity: the derivation found the shell (nav.ts), the section lists (sections.ts) and the file-system pages.
-  for (const r of ['', '/orders', '/inbox', '/menu', '/analytics/sales', '/settings/messaging', '/mcp/new', '/floor?tab=qr', '/floor?tab=studio', '/orders?new=1', '/explore']) {
+  for (const r of ['', '/orders', '/inbox', '/menu', '/analytics/sales', '/settings/messaging', '/settings/devices', '/mcp/new', '/floor?tab=qr', '/floor?tab=studio', '/orders?new=1', '/explore']) {
     expect(routes, r).toContain(r);
   }
   expect(routes.length).toBeGreaterThan(50);

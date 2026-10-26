@@ -4,7 +4,7 @@ import type { Permission, Role } from '@resuto/contracts';
 import { can } from '@resuto/contracts/lite';
 import { EXPLORE_ITEM, navVisible, type NavArea } from './nav';
 import { PALETTE_KEYWORDS } from './palette-keywords';
-import { ANALYTICS_SECTIONS, FINANCE_SECTIONS, INTELLIGENCE_SECTIONS, MCP_SECTIONS, SETTINGS_SECTIONS, type SectionLink } from './sections';
+import { ANALYTICS_SECTIONS, FINANCE_SECTIONS, INTELLIGENCE_SECTIONS, MCP_SECTIONS, type SectionLink } from './sections';
 
 export type PaletteAction = 'signOut' | 'language' | 'branches';
 
@@ -37,9 +37,8 @@ export const PALETTE_SUBS: Record<string, SectionLink[]> = {
   '/analytics': ANALYTICS_SECTIONS.filter((s) => s.href !== '/analytics'),
   '/intelligence': INTELLIGENCE_SECTIONS.filter((s) => s.href !== '/intelligence'),
   '/mcp': [...MCP_SECTIONS.slice(1), { href: '/mcp/new', label: 'mcp.clients.new', permission: 'mcp:manage' }],
-  // Channels and templates moved from the Inbox to Settings › Messaging (21-INBOX): listed under the Inbox, so members
-  // who use the Inbox without org:manage (no Settings item) find them too.
-  '/inbox': [{ ...SETTINGS_SECTIONS[1]!, label: 'connect.ws.channelsTemplates' }],
+  // Channels and templates (Settings › Messaging, 21-INBOX) are a Settings item of their own (connect:read), so members
+  // who use the Inbox without org:manage find them directly.
 };
 
 /** Pages: each visible item, then the sections and page actions under it ("Finance › P&L"). */
@@ -69,6 +68,7 @@ const ACTIONS: Array<{ id: string; label: string; keywords: string; href?: strin
   { id: 'new-order', label: 'palette.action.newOrder', keywords: 'new order create add ticket', href: '/orders?new=1', page: '/orders', permission: 'orders:write' },
   { id: 'new-reservation', label: 'palette.action.newReservation', keywords: 'new reservation booking book table', href: '/reservations?new=1', page: '/reservations', permission: 'reservations:write' },
   { id: 'invite', label: 'palette.action.inviteMember', keywords: 'invite member staff team add user', href: '/team?invite=1', page: '/team', permission: 'members:manage' },
+  { id: 'pair-ipad', label: 'palette.action.pairIpad', keywords: 'pair ipad device pos tablet pairing code', href: '/settings/devices?pair=1', page: '/settings/devices', permission: 'devices:manage' },
   { id: 'branches', label: 'palette.action.switchBranch', keywords: 'switch branch location change', action: 'branches' },
   { id: 'language', label: 'palette.action.switchLanguage', keywords: 'language arabic english switch lang', action: 'language' },
   { id: 'sign-out', label: 'palette.action.signOut', keywords: 'sign out log out logout exit', action: 'signOut' },

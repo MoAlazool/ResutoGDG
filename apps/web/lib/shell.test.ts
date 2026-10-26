@@ -125,7 +125,7 @@ const paths = (areas: ReturnType<typeof visibleAreas>) => areas.flatMap((a) => a
 describe('seven-area navigation (21-SHELL)', () => {
   it('has the seven primary areas of plan §3 in order, and Settings in the footer cluster', () => {
     expect(AREAS.map((a) => a.key)).toEqual(['home', 'operations', 'store', 'customers', 'money', 'insights', 'apps']);
-    expect(SETTINGS_AREA.items.map((i) => i.href)).toEqual(['/settings', '/team', '/billing', '/data', '/audit']);
+    expect(SETTINGS_AREA.items.map((i) => i.href)).toEqual(['/settings', '/settings/messaging', '/settings/devices', '/team', '/billing', '/data', '/audit']);
     const where = (href: string) => ALL_AREAS.find((a) => a.items.some((i) => i.href === href))?.key;
     expect(['', '/setup', '/notifications'].map(where)).toEqual(['home', 'home', 'home']);
     expect(['/orders', '/kitchen', '/floor', '/host', '/reservations', '/delivery', '/inventory'].map(where)).toEqual(Array(7).fill('operations'));

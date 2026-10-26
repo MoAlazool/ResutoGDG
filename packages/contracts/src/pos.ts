@@ -5,27 +5,11 @@ import { z } from 'zod';
 import { listQuery } from './api';
 import { isoDateTime, optionalText, phoneE164, uuid } from './common';
 import { COLLECT_METHODS, FULFILLMENTS, cartLine, kitchenBumpRequest, kitchenLineRequest, orderTransitionRequest } from './orders';
+import { POS_ACTING_ROLES, POS_DEVICE_NAME_MAX, POS_DEVICE_TTL_DAYS, POS_PAIRING_MINUTES, type PosActingRole } from './pos-constants';
 
-/** Version of the POS contract described in docs/api/IPAD_COMPATIBILITY.md (bumped on every additive change). */
-export const POS_CONTRACT_VERSION = '0.2.0' as const;
-
-/** Device credentials are `rpos_<43 url-safe chars>` (256 bits); only their sha256 is stored. */
-export const POS_DEVICE_TOKEN_PREFIX = 'rpos_' as const;
-
-/**
- * Staff session on a paired device (contract 0.2.0): next to `Authorization: Bearer rpos_...`, a device request may send
- * `X-Resuto-Staff-Authorization: Bearer <staff access token>` (the employee's Supabase session). The request then acts
- * as that employee, with the employee's role bounded by the device's acting role, inside the device's branch.
- */
-export const POS_STAFF_HEADER = 'X-Resuto-Staff-Authorization' as const;
-
-/** Roles a device can act as. A device never acts as a manager, owner or any role that manages the restaurant. */
-export const POS_ACTING_ROLES = ['waiter', 'cashier', 'kitchen'] as const;
-export type PosActingRole = (typeof POS_ACTING_ROLES)[number];
-
-/** Pairing codes: 10 characters of Crockford base32 (no I, L, O, U), shown as XXXXX-XXXXX. */
-export const POS_PAIRING_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' as const;
-export const POS_PAIRING_CODE_LENGTH = 10;
+// The zod-free constants (version, credential prefix, staff header, acting roles, pairing code and limits) live in
+// pos-constants.ts so web pages can use them from '@resuto/contracts/lite' without the schema library.
+export * from './pos-constants';
 
 /** Event kinds of the per-branch feed (GET /v1/pos/events). New kinds may be added; clients ignore unknown ones. */
 export const POS_EVENT_KINDS = [
@@ -57,11 +41,11 @@ export const createPosPairingRequest = z.object({
   branchId: uuid,
   actingRole: z.enum(POS_ACTING_ROLES),
   /** Label shown in the device list ("Bar iPad"). */
-  name: z.string().trim().min(1).max(60),
+  name: z.string().trim().min(1).max(POS_DEVICE_NAME_MAX),
   /** How long the code can be used (minutes). */
-  expiresInMinutes: z.number().int().min(1).max(60).default(10),
+  expiresInMinutes: z.number().int().min(POS_PAIRING_MINUTES.min).max(POS_PAIRING_MINUTES.max).default(POS_PAIRING_MINUTES.default),
   /** The paired device's credential expires after this many days. */
-  deviceTtlDays: z.number().int().min(1).max(730).default(365),
+  deviceTtlDays: z.number().int().min(POS_DEVICE_TTL_DAYS.min).max(POS_DEVICE_TTL_DAYS.max).default(POS_DEVICE_TTL_DAYS.default),
   /**
    * Contract 0.2.0: the device needs a staff session (X-Resuto-Staff-Authorization) on every device route except
    * GET /v1/pos/session, which answers 401 pos_staff_required without one. Default false (0.1.0 behaviour).

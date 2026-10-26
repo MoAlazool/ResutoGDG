@@ -1,0 +1,43 @@
+/* Settings › iPad devices (22-DEVICES). Logical properties and design tokens only; small text never below --t-sm. */
+.sub { display: block; margin-block-start: var(--space-1); color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; }
+.meta { display: flex; flex-wrap: wrap; column-gap: var(--space-2); margin-block-start: var(--space-1); color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; }
+.nowrap { white-space: nowrap; }
+.reason { display: block; margin-block-start: var(--space-1); color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; min-inline-size: 12ch; max-inline-size: 28ch; overflow-wrap: break-word; }
+.notice { margin-block-end: var(--space-3); }
+
+/* Pairing sheet: the form */
+.form { display: grid; gap: var(--space-4); }
+.roles { display: grid; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-inline-size: 0; }
+.roles legend { padding: 0; margin-block-end: var(--space-2); font-size: var(--fs-sm); font-weight: 650; color: var(--ink); }
+.role {
+  display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface-1); cursor: pointer;
+}
+.role:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.role input { margin-block-start: 3px; accent-color: var(--accent); }
+.role strong { display: block; font-size: var(--fs-md); }
+.role small { display: block; color: var(--text-secondary); font-size: var(--t-sm); line-height: 1.5; }
+.abilities { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--surface-2); font-size: var(--fs-sm); line-height: 1.6; }
+.abilities p { margin: 0; }
+.abilities ul { margin: var(--space-1) 0 var(--space-2); padding-inline-start: var(--space-5); }
+.numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+
+/* Pairing sheet: the one-time code */
+.codeView { display: grid; gap: var(--space-4); }
+.codeLabel { margin: 0; font-size: var(--fs-sm); font-weight: 650; color: var(--ink); }
+.codeRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.code {
+  font-family: var(--font-mono); font-size: var(--fs-4xl); font-weight: 700; letter-spacing: .08em; line-height: 1.2; color: var(--ink);
+  padding: var(--space-2) var(--space-4); border: 1px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-2);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere; user-select: all;
+}
+.timer { margin: 0; font-size: var(--fs-md); color: var(--text-secondary); }
+.timer strong { font-size: var(--fs-xl); color: var(--ink); font-variant-numeric: tabular-nums; }
+.stepsTitle { margin: 0; font-size: var(--fs-md); }
+.steps { margin: 0; padding-inline-start: var(--space-5); display: grid; gap: var(--space-1); font-size: var(--fs-md); line-height: 1.6; }
+.api { display: grid; gap: var(--space-1); }
+.api > span { font-size: var(--fs-sm); font-weight: 650; color: var(--ink); }
+.api small { color: var(--text-secondary); font-size: var(--t-sm); }
+.apiRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.apiValue { font-family: var(--font-mono); font-size: var(--fs-sm); overflow-wrap: anywhere; }

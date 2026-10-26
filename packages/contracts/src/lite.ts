@@ -21,3 +21,4 @@ export * from './studio-templates';
 export * from './studio-sections';
 export * from './reservation-rules';
 export * from './funnel-beacon';
+export * from './pos-constants';
