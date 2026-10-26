@@ -4,9 +4,9 @@ import {
   WEB_URL, type MenuSeed, type Tenant, type User,
 } from './fixtures';
 
-// 22-DASH: layout regression sweep. The main staff routes, the full-screen kitchen display, the operator console and
-// the guest pages, in English and Arabic, at 1280 px (desktop), 768 px (tablet: sidebar beside the page) and 390 px
-// (phone). Every page must
+// 22-DASH: layout regression sweep. The main staff routes (with the Inbox, integrations, Website studio and Messaging),
+// the full-screen kitchen display, the operator console, the guest pages, the sign-in pages and onboarding, in English
+// and Arabic, at 1280 px (desktop), 768 px (tablet: sidebar beside the page) and 390 px (phone). Every page must
 //   1. never scroll sideways: document scrollWidth === clientWidth (a wide table or board scrolls inside its own box);
 //   2. show no visible text smaller than 12.5 px in English or 13.5 px in Arabic (the 22-TYPE / 22-DASH floor: small
 //      sizes go through the --t-sm / --fs-sm tokens, which are larger in Arabic).
@@ -17,6 +17,13 @@ const ROUTES = [
   '/payments', '/payments?tab=reconciliation', '/finance', '/finance/pnl', '/finance/expenses', '/finance/exports', '/marketing', '/loyalty',
   '/analytics', '/analytics/sales', '/intelligence', '/intelligence/assistant', '/mcp', '/mcp/approvals', '/approvals', '/qr', '/settings',
   '/team', '/billing', '/audit',
+  // 22-DASH follow-up: the Inbox (list and a thread with Customer 360), the integrations marketplace and a connect sheet, the
+  // Website studio (Design and Optimize; the canvas frame holds the restaurant's own site and is not measured), Food
+  // photos and Settings › Messaging with the WhatsApp stepper open.
+  '/inbox', '/inbox?c=CONVERSATION', '/integrations', '/integrations?provider=paymob', '/website', '/website?tab=optimize', '/studio-media',
+  '/settings/messaging', '/settings/messaging?connect=whatsapp',
+  // 22-DEVICES: Settings › iPad devices (an active and a revoked iPad in the list) and its pairing sheet.
+  '/settings/devices', '/settings/devices?pair=1',
 ];
 const WIDTHS = [{ width: 1280, height: 860 }, { width: 768, height: 1024 }, { width: 390, height: 844 }] as const;
 const MIN_PX = { en: 12.5, ar: 13.5 } as const;
@@ -59,7 +66,8 @@ async function measure(page: Page, minPx: number): Promise<Finding> {
 
 async function settle(page: Page) {
   await page.waitForLoadState('load');
-  await expect(page.locator('h1, main .empty strong').first()).toBeVisible({ timeout: 30_000 });
+  // A visible heading (on a phone the Inbox thread pane hides the page title, so its thread heading counts).
+  await expect(page.locator('h1:visible, main h2:visible, main .empty strong:visible').first()).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.skeleton:visible')).toHaveCount(0, { timeout: 15_000 }).catch(() => undefined);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(200);
@@ -81,6 +89,8 @@ async function placeQrOrder(request: APIRequestContext, t: Tenant, menu: MenuSee
 let tenant: Tenant;
 let tablePath: string;
 let superadmin: User;
+let conversationId: string;
+let newcomer: User;
 
 test.beforeAll(async () => {
   test.setTimeout(180_000);
@@ -94,6 +104,19 @@ test.beforeAll(async () => {
   await placeQrOrder(request, tenant, menu);
   await sql(`insert into customers(org_id, display_name, phone_e164, email) values ($1, 'Mona Abdelrahman El-Sayed (layout)', '+201001112233', 'mona.layout@example.test')`, [tenant.orgId]);
   await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/mcp/clients`, { name: 'Layout assistant', actingRole: 'manager', groups: ['menu'], rateLimitPerMin: 600 });
+  // Two paired iPads for Settings › iPad devices: one active, one revoked with a reason (pairing as in pos-ipad.spec.ts).
+  for (const [i, name] of ['Counter iPad (layout)', 'Kitchen display iPad with a long name'].entries()) {
+    const pairing = await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/pos/pairings`, { branchId: tenant.branchId, actingRole: i ? 'kitchen' : 'cashier', name, requireStaff: !i });
+    const paired = await request.post(`${API_URL}/v1/pos/pair`, { headers: { 'X-Forwarded-For': `198.19.250.${10 + i}` }, data: { code: pairing.code, model: 'iPad13,1', appVersion: '0.2.0' } });
+    expect(paired.status(), await paired.text()).toBe(201);
+    if (i) await apiAs(request, tenant.owner).post(`/o/${tenant.orgId}/pos/devices/${(await paired.json()).device.id}/revoke`, { reason: 'Replaced by a new iPad after the screen cracked' });
+  }
+  // An Inbox conversation (sandbox WhatsApp channel) for the thread and Customer 360 panes.
+  const api = apiAs(request, tenant.owner);
+  const channel = await api.post(`/o/${tenant.orgId}/connect/channels`, { transport: 'sandbox', displayName: 'WhatsApp sandbox', orderingEnabled: false });
+  conversationId = (await api.post(`/o/${tenant.orgId}/connect/sandbox/inbound`, { channelId: channel.id, from: '+201005550199', name: 'Mona Abdelrahman', text: 'Is the terrace open tonight? We are six.' })).conversationId;
+  // A signed-up account without a restaurant, for the onboarding wizard.
+  newcomer = await apiSignup(request, 'Layout Newcomer');
   superadmin = await apiSignup(request, 'Layout Operator');
   await sql(`insert into platform_admins(user_id, role) values ($1, 'superadmin') on conflict do nothing`, [superadmin.userId]);
   await request.dispose();
@@ -110,7 +133,7 @@ for (const locale of ['en', 'ar'] as const) {
       const page = await context.newPage();
       await signIn(page, tenant.owner, locale);
       for (const route of ROUTES) {
-        await page.goto(`/dashboard/${tenant.orgId}${route}`);
+        await page.goto(`/dashboard/${tenant.orgId}${route.replace('CONVERSATION', conversationId)}`);
         await settle(page);
         failures.push(...report(`${locale} ${size.width} ${route || '/'}`, await measure(page, MIN_PX[locale])));
       }
@@ -122,7 +145,7 @@ for (const locale of ['en', 'ar'] as const) {
     expect(failures).toEqual([]);
   });
 
-  test(`operator console and guest pages never scroll sideways and keep text at ${MIN_PX[locale]} px or more (${locale})`, async ({ browser }) => {
+  test(`operator console, guest, sign-in and onboarding pages never scroll sideways and keep text at ${MIN_PX[locale]} px or more (${locale})`, async ({ browser }) => {
     const failures: string[] = [];
     for (const size of WIDTHS) {
       const phone = size.width < 700;
@@ -139,6 +162,17 @@ for (const locale of ['en', 'ar'] as const) {
         await settle(page);
         failures.push(...report(`${locale} ${size.width} ${url.replace(tenant.slug, '[slug]').replace(/\/t\/[^/]+$/, '/t/[qr]')}`, await measure(page, MIN_PX[locale])));
       }
+      // Sign-in pages (signed out) and the onboarding wizard (an account without a restaurant).
+      await page.evaluate(() => localStorage.removeItem('resuto_session'));
+      for (const url of ['/login', '/signup', '/forgot-password', '/reset-password']) {
+        await page.goto(url);
+        await settle(page);
+        failures.push(...report(`${locale} ${size.width} ${url}`, await measure(page, MIN_PX[locale])));
+      }
+      await signIn(page, newcomer, locale);
+      await page.goto('/onboarding');
+      await settle(page);
+      failures.push(...report(`${locale} ${size.width} /onboarding`, await measure(page, MIN_PX[locale])));
       await context.close();
     }
     expect(failures).toEqual([]);

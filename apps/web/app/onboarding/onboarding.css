@@ -2,7 +2,7 @@
    sits at the reading start. Semantic tokens only, logical properties only (Arabic mirrors itself), 44 px targets. */
 .onb { min-height: 100dvh; background: var(--bg); color: var(--text); padding-block-end: var(--space-12); }
 .onb-top { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); max-inline-size: 1100px; margin-inline: auto; }
-.onb-eyebrow { font-size: var(--fs-xs); color: var(--text-muted); font-weight: var(--fw-semibold); flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.onb-eyebrow { font-size: var(--fs-sm); color: var(--text-muted); font-weight: var(--fw-semibold); flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .onb-lang { min-block-size: 44px; min-inline-size: 44px; }
 .onb-shell { display: grid; gap: var(--space-4); max-inline-size: 1100px; margin-inline: auto; padding-inline: var(--space-4); }
 @media (min-width: 900px) { .onb-shell { grid-template-columns: 240px minmax(0, 1fr); align-items: start; gap: var(--space-8); } }
@@ -20,7 +20,7 @@
 .onb-steps li button:hover { background: var(--surface-hover); }
 .onb-steps li.is-current > * { background: var(--surface-1); color: var(--text-strong); font-weight: var(--fw-semibold); box-shadow: var(--elevation-1); }
 .onb-mark { display: inline-grid; place-items: center; inline-size: 26px; block-size: 26px; flex: none; border-radius: var(--radius-full);
-  border: 1px solid var(--border-strong); font-size: var(--fs-xs); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
+  border: 1px solid var(--border-strong); font-size: var(--fs-sm); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
 .onb-steps li.is-done .onb-mark { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 .onb-steps li.is-current .onb-mark { border-color: var(--accent); color: var(--accent); }
 
@@ -41,7 +41,7 @@
 .onb-error { margin: 0; color: var(--danger-fg); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
 .onb-ok { margin: 0; color: var(--ok-fg); font-weight: var(--fw-semibold); }
 .onb-ok a { color: inherit; text-decoration: underline; overflow-wrap: anywhere; }
-.onb-saved { margin: var(--space-3) 0 0; min-block-size: 1.2em; font-size: var(--fs-xs); color: var(--text-muted); }
+.onb-saved { margin: var(--space-3) 0 0; min-block-size: 1.2em; font-size: var(--fs-sm); color: var(--text-muted); }
 .onb-fixed { margin: 0; display: flex; gap: var(--space-2); flex-wrap: wrap; font-size: var(--fs-sm); color: var(--text-secondary); }
 .onb-done-line { margin: 0; overflow-wrap: anywhere; }
 .onb-step-loading { min-block-size: 220px; border-radius: var(--radius-2);
@@ -63,7 +63,7 @@
 
 /* Restaurant: service choices */
 .onb-choices { border: 0; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
-.onb-choices legend { font-size: 13px; font-weight: 650; margin-block-end: var(--space-2); padding: 0; }
+.onb-choices legend { font-size: var(--fs-sm); font-weight: 650; margin-block-end: var(--space-2); padding: 0; }
 .onb-choice { display: flex; gap: var(--space-3); align-items: flex-start; min-block-size: 44px; padding: var(--space-3); border: 1px solid var(--border);
   border-radius: var(--radius-2); cursor: pointer; }
 .onb-choice.is-on { border-color: var(--accent); background: var(--accent-soft); }
@@ -82,17 +82,17 @@
 /* Brand */
 .onb-logo { display: flex; gap: var(--space-4); align-items: center; flex-wrap: wrap; }
 .onb-logo-box { inline-size: 88px; block-size: 88px; border-radius: var(--radius-2); border: 1px dashed var(--border-strong); display: grid; place-items: center;
-  overflow: hidden; background: var(--surface-2); color: var(--text-muted); font-size: var(--fs-xs); text-align: center; padding: var(--space-1); }
+  overflow: hidden; background: var(--surface-2); color: var(--text-muted); font-size: var(--fs-sm); text-align: center; padding: var(--space-1); }
 .onb-logo-box img { max-inline-size: 100%; max-block-size: 100%; object-fit: contain; }
 .onb-presets, .onb-colors { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
-.onb-presets legend, .onb-colors legend { font-size: 13px; font-weight: 650; margin-block-end: var(--space-2); padding: 0; }
+.onb-presets legend, .onb-colors legend { font-size: var(--fs-sm); font-weight: 650; margin-block-end: var(--space-2); padding: 0; }
 .onb-preset-grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (min-width: 700px) { .onb-preset-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .onb-preset { position: relative; display: grid; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-2); cursor: pointer; min-inline-size: 0; }
 .onb-preset input { position: absolute; opacity: 0; inline-size: 1px; block-size: 1px; }
 .onb-preset:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 .onb-preset.is-on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
-.onb-preset small { color: var(--text-muted); font-size: var(--fs-xs); }
+.onb-preset small { color: var(--text-muted); font-size: var(--fs-sm); }
 .onb-swatch { display: flex; block-size: 36px; border-radius: var(--radius-1); overflow: hidden; border: 1px solid var(--border-subtle); }
 .onb-swatch i { flex: 1; }
 .onb-swatch i:nth-child(1) { background: var(--sw-1); flex: 2; }
@@ -112,7 +112,7 @@
 .onb-menu-summary { display: grid; gap: var(--space-2); }
 .onb-dish-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); font-size: var(--fs-sm); }
 .onb-dish-list li { display: grid; gap: 2px; }
-.onb-cat { color: var(--text-muted); font-size: var(--fs-xs); font-weight: var(--fw-semibold); }
+.onb-cat { color: var(--text-muted); font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
 .onb-dishes { overflow-wrap: anywhere; }
 .onb-preview { display: grid; gap: var(--space-2); }
 .onb-problems { margin: 0; padding-inline-start: var(--space-5); color: var(--danger-fg); font-size: var(--fs-sm); }
@@ -130,7 +130,7 @@
 .onb-dish-photo { display: grid; gap: var(--space-2); justify-items: center; align-content: start; }
 .onb-dish-photo img, .onb-dish-photo > span { inline-size: 88px; block-size: 88px; border-radius: var(--radius-2); object-fit: cover; background: var(--surface-3);
   display: grid; place-items: center; font-size: var(--fs-2xl); color: var(--text-muted); }
-.onb-dish-photo .btn { min-block-size: 44px; font-size: var(--fs-xs); padding-inline: var(--space-2); white-space: normal; }
+.onb-dish-photo .btn { min-block-size: 44px; font-size: var(--fs-sm); padding-inline: var(--space-2); white-space: normal; }
 .onb-dish-fields { display: grid; gap: var(--space-2); min-inline-size: 0; }
 .onb-dish-fields .field { gap: 4px; }
 .onb-dish-name { overflow-wrap: anywhere; }
@@ -141,7 +141,7 @@
 .onb-social-row { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--space-2) var(--space-3); align-items: center; }
 .onb-social-row .input { grid-column: 1 / -1; }
 .onb-social-row .onb-error { grid-column: 1 / -1; }
-.onb-social-name { font-size: 13px; font-weight: 650; }
+.onb-social-name { font-size: var(--fs-sm); font-weight: 650; }
 @media (min-width: 700px) { .onb-social-row { grid-template-columns: 24px 120px minmax(0, 1fr); } .onb-social-row .input { grid-column: auto; } .onb-social-row .onb-error { grid-column: 3; } }
 
 /* Preview frames: a drawing of the guest menu in the chosen brand. */
