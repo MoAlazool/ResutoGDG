@@ -19,6 +19,7 @@ import { Composer, type ComposerHandle, type ComposerMode, type QuickActions } f
 import { ContextPane } from './_components/ContextPane';
 import { ConversationList } from './_components/ConversationList';
 import { Thread, ThreadHeader } from './_components/Thread';
+import { InboxIcon } from './_components/icons';
 import type { Assignee, Channel, ConvItem, ConversationTag, Detail, SavedReply, Template } from './_components/types';
 import './inbox.css';
 
@@ -60,17 +61,35 @@ function useDocumentVisible() {
   return visible;
 }
 
-function useNarrow(query = '(max-width: 700px)') {
-  const [narrow, setNarrow] = useState(false);
+/** Whether a media query matches (false on the server and before the first effect). */
+function useMedia(query: string) {
+  const [match, setMatch] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;
     const m = window.matchMedia(query);
-    const on = () => setNarrow(m.matches);
+    const on = () => setMatch(m.matches);
     on();
     m.addEventListener?.('change', on);
     return () => m.removeEventListener?.('change', on);
   }, [query]);
-  return narrow;
+  return match;
+}
+
+// Layouts (inbox.css): three panes from 1200 px; list + one pane (thread or customer) from 1000 px; one pane below.
+const WIDE = '(min-width: 1200px)';
+const SINGLE = '(max-width: 999px)';
+const INSPECTOR_KEY = 'resuto.inbox.inspector';
+type Pane = 'list' | 'thread' | 'info';
+
+/** The customer pane's open/closed choice on wide screens, remembered in this browser (a convenience; may fail). */
+function useInspectorPref(): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(true);
+  useEffect(() => { try { if (window.localStorage.getItem(INSPECTOR_KEY) === 'closed') setOpen(false); } catch { /* storage unavailable */ } }, []);
+  const set = useCallback((next: boolean) => {
+    setOpen(next);
+    try { window.localStorage.setItem(INSPECTOR_KEY, next ? 'open' : 'closed'); } catch { /* storage unavailable */ }
+  }, []);
+  return [open, set];
 }
 
 function useNow(ms: number) {
@@ -87,12 +106,14 @@ function InboxWorkspace() {
   const params = useSearchParams();
   const base = `/o/${org.id}/connect`;
   const visible = useDocumentVisible();
-  const narrow = useNarrow();
+  const single = useMedia(SINGLE);
+  const wide = useMedia(WIDE);
+  const [inspector, setInspector] = useInspectorPref();
   const now = useNow(30_000);
   const [filters, setFiltersState] = useState<InboxFilters>(DEFAULT_FILTERS);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(() => params.get('c'));
-  const [phonePane, setPhonePane] = useState<'list' | 'thread'>(() => (params.get('c') ? 'thread' : 'list'));
+  const [pane, setPane] = useState<Pane>(() => (params.get('c') ? 'thread' : 'list'));
   const [mode, setMode] = useState<ComposerMode>('reply');
   const [simOpen, setSimOpen] = useState<boolean | null>(null);
   const [announce, setAnnounce] = useState('');
@@ -141,7 +162,7 @@ function InboxWorkspace() {
   }, [items, selectedId, t, qs, branchId, list.data, list.pending]);
 
   // The open thread: every 4 s while it is on screen and the page is visible (lib/inbox.ts threadPollMs).
-  const threadShown = !narrow || phonePane === 'thread';
+  const threadShown = wide || (pane !== 'info' && (!single || pane === 'thread'));
   const detail = useApi<Detail>(selectedId ? `${base}/conversations/${selectedId}` : null, { pollMs: threadPollMs(visible, threadShown), pauseWhileEditing: false });
   const d = detail.data && detail.data.id === selectedId ? detail.data : undefined;
 
@@ -154,7 +175,7 @@ function InboxWorkspace() {
 
   const select = useCallback((id: string) => {
     setSelectedId(id);
-    setPhonePane('thread');
+    setPane('thread');
     setMode('reply');
     setUnchanged(0);
     const q = new URLSearchParams(window.location.search);
@@ -163,7 +184,7 @@ function InboxWorkspace() {
   }, []);
   // A link to another conversation of the Inbox (?c=, e.g. from the Customer 360 panel) opens it.
   const cParam = params.get('c');
-  useEffect(() => { if (cParam && cParam !== selectedId) { setSelectedId(cParam); setPhonePane('thread'); } }, [cParam]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (cParam && cParam !== selectedId) { setSelectedId(cParam); setPane('thread'); } }, [cParam]); // eslint-disable-line react-hooks/exhaustive-deps
   // Opening a conversation marks it read.
   useEffect(() => {
     if (!selectedId) return;
@@ -213,7 +234,7 @@ function InboxWorkspace() {
   const keyAction = (k: InboxKey) => {
     if (k === 'next' || k === 'prev') { const id = step(ids, selectedId, k === 'next' ? 1 : -1); if (id && id !== selectedId) select(id); return !!id; }
     if (!d) return false;
-    if (k === 'reply' || k === 'note') { if (!can('connect:reply')) return false; setPhonePane('thread'); composer.current?.focus(k); return true; }
+    if (k === 'reply' || k === 'note') { if (!can('connect:reply')) return false; setPane('thread'); composer.current?.focus(k); return true; }
     if (k === 'assign') {
       const btn = document.querySelector<HTMLButtonElement>('[data-inbox-assign]');
       if (!btn) return false;
@@ -251,8 +272,9 @@ function InboxWorkspace() {
     })),
   });
 
+  const onDetails = () => { if (wide) setInspector(!inspector); else setPane(pane === 'info' ? 'thread' : 'info'); };
   return (
-    <div className="inbox-page" data-pane={phonePane}>
+    <div className="inbox-page" data-pane={pane} data-inspector={inspector ? 'open' : 'closed'} data-selected={selectedId ? '' : undefined}>
       <div className="inbox-head">
         <h1 className="inbox-title">{t('connect.inbox.title')}</h1>
         <span className="fine inbox-keys-hint" aria-hidden="true"><Kbd>j</Kbd> <Kbd>k</Kbd> {t('connect.ws.keysHint')} <Kbd>?</Kbd></span>
@@ -269,17 +291,21 @@ function InboxWorkspace() {
             hasMore={!!nextCursor} loadingMore={olderHere.loading} onLoadMore={loadMore} filters={{ ...filters, q: search }} onFilters={setFilters}
             channels={branchChannels} tags={tags.data?.items ?? []} timeZone={org.timezone} now={now} />
         )}
-        end={d ? <ContextPane d={d} tags={tags.data?.items ?? []} onTagsChanged={refresh} /> : undefined}>
+        end={d ? <ContextPane d={d} tags={tags.data?.items ?? []} onTagsChanged={refresh} onBack={() => setPane('thread')} /> : undefined}>
         {!selectedId ? (
           <div className="inbox-pad inbox-empty-thread">
+            <span className="inbox-empty-icon" aria-hidden="true"><InboxIcon name="inbox" size={28} /></span>
             <EmptyState title={t('connect.ws.pick')}>{t('connect.ws.pickBody')}</EmptyState>
           </div>
         ) : !d ? (
-          <div className="inbox-pad">{detail.error ? <Notice tone="danger">{detail.error.message}</Notice> : <Skeleton lines={8} />}</div>
+          <div className="inbox-pad inbox-thread-loading">{detail.error
+            ? <Notice tone="danger">{detail.error.message} <button type="button" className="btn btn-sm" onClick={() => void detail.reload()}>{t('action.retry')}</button></Notice>
+            : <Skeleton lines={8} />}</div>
         ) : (
           <div className="inbox-main">
             <ThreadHeader d={d} orgId={org.id} canReply={can('connect:reply')} canManage={can('connect:manage')} assignees={assignees.data?.items ?? []}
-              busy={busy} onAssign={(u) => void assign(u)} onAct={(p) => void act(p)} onBack={() => setPhonePane('list')} />
+              busy={busy} onAssign={(u) => void assign(u)} onAct={(p) => void act(p)} onBack={() => setPane('list')}
+              onDetails={onDetails} detailsOpen={wide ? inspector : pane === 'info'} />
             {actError && <div className="inbox-pad"><Notice tone="danger">{actError}</Notice></div>}
             <Thread d={d} timeZone={org.timezone} canReply={can('connect:reply')} resendBusy={busy} onResend={(id) => void resend(id)} />
             <Composer ref={composer} d={d} mode={mode} onMode={setMode} canReply={can('connect:reply')} templates={usableTemplates}

@@ -1,27 +1,120 @@
 /* 21-INT integrations marketplace, provider sheet and shared connection parts. Logical properties only (RTL). */
 
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+/* ---------- Marketplace (22-INTINBOX): one card system ---------- */
+.market { display: grid; gap: var(--space-4); min-inline-size: 0; }
+.market :global(.rui-filterbar) { margin-block-end: 0; }
+.count { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); white-space: nowrap; }
 
-.card {
-  display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: start; text-align: start;
-  background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-md);
-  padding: 14px 16px; font: inherit; cursor: pointer; min-block-size: 112px; inline-size: 100%;
+/* Filter groups: a label, then chips with live counts. Phones scroll the chips sideways instead of stacking rows. */
+.facets { display: grid; gap: var(--space-2); }
+.facetRow { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+.facetLabel { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-secondary); }
+.facetChips { display: flex; flex-wrap: wrap; gap: var(--space-2); min-inline-size: 0; }
+.facet {
+  display: inline-flex; align-items: center; gap: var(--space-2); min-block-size: 40px; padding-block: 0; padding-inline: var(--space-3) var(--space-2);
+  border: 1px solid var(--border); border-radius: var(--radius-full); background: var(--surface-1); color: var(--text); font: inherit; font-size: var(--fs-sm);
+  cursor: pointer; white-space: nowrap;
 }
-.card:hover { border-color: color-mix(in srgb, var(--herb) 40%, var(--line)); }
-.card:focus-visible { outline: 2px solid var(--herb); outline-offset: 2px; }
-.cardLogo { grid-row: span 2; display: grid; place-items: center; inline-size: 44px; block-size: 44px; border-radius: 12px; background: var(--surface-warm); overflow: hidden; }
-.cardLogo img { max-inline-size: 36px; object-fit: contain; }
-.cardName { font-weight: 700; line-height: 1.35; }
-.cardMeta { font-size: 12px; color: var(--muted); }
-.cardFoot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.facet:hover { background: var(--surface-hover); }
+.facet:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.facet[aria-pressed='true'] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-soft-fg); font-weight: var(--fw-semibold); }
+.facetCount {
+  display: inline-grid; place-items: center; min-inline-size: 24px; block-size: 22px; padding-inline: 6px; border-radius: var(--radius-full);
+  background: var(--surface-3); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+}
+.facet[data-empty] { color: var(--text-muted); border-style: dashed; }
+.facet[aria-pressed='true'] .facetCount { background: var(--surface-1); color: var(--accent-soft-fg); }
+.help { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+.empty { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-6); border: 1px dashed var(--border); border-radius: var(--radius-2); color: var(--text-secondary); }
+
+/* The grid: every card in a row has the same height (grid-auto-rows: 1fr), the footer sits on the card's bottom edge. */
+.grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 272px), 1fr)); grid-auto-rows: 1fr; gap: var(--space-4);
+  margin: 0; padding: 0; list-style: none;
+}
+.cell { display: flex; min-inline-size: 0; }
+.card {
+  display: flex; flex-direction: column; gap: var(--space-3); inline-size: 100%; min-block-size: 176px; padding: var(--space-4);
+  background: var(--surface-1); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-3); font: inherit; text-align: start; cursor: pointer;
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+.card:hover { border-color: var(--border-strong); box-shadow: var(--elevation-1); }
+.card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.card[data-status='needs_attention'] { border-color: color-mix(in srgb, var(--warn-fg) 45%, var(--border)); }
+.card[data-status='connected'] { border-color: color-mix(in srgb, var(--ok-fg) 35%, var(--border)); }
+.cardHead { display: flex; align-items: flex-start; gap: var(--space-3); min-inline-size: 0; }
+.cardTitle { display: grid; gap: 2px; min-inline-size: 0; }
+.cardName { font-size: var(--fs-md); font-weight: var(--fw-semibold); line-height: 1.35; color: var(--text-strong); overflow-wrap: anywhere; hyphens: auto; }
+.cardMeta { font-size: var(--fs-sm); line-height: 1.4; color: var(--text-muted); }
+.cardCaps {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  font-size: var(--fs-sm); line-height: 1.45; color: var(--text-secondary);
+}
+.cardFoot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block-start: auto; padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--border-subtle);
+}
+.countries { margin-inline-start: auto; font-size: var(--fs-xs); font-weight: var(--fw-semibold); letter-spacing: 0.02em; color: var(--text-muted); }
+.readiness { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* Logos: one fixed box, one padding, one backdrop; the mark is contained, never stretched or cropped. */
+.cardLogo {
+  display: grid; place-items: center; flex: none; inline-size: 48px; block-size: 48px; padding: 8px; border-radius: var(--radius-2);
+  background: var(--surface-1); border: 1px solid var(--border-subtle); box-shadow: var(--elevation-1); overflow: hidden;
+}
+.cardLogo[data-size='lg'] { inline-size: 56px; block-size: 56px; }
+.cardLogo img, .cardLogo svg { inline-size: 100%; block-size: 100%; max-inline-size: 100%; max-block-size: 100%; object-fit: contain; }
+.monogram {
+  display: grid; place-items: center; inline-size: 100%; block-size: 100%; border-radius: var(--radius-1);
+  background: var(--surface-selected); color: var(--text-secondary); font-size: var(--fs-md); font-weight: var(--fw-bold); letter-spacing: -0.01em;
+}
+.cardLogo[data-size='lg'] .monogram { font-size: var(--fs-lg); }
+
+/* Status chips: readable size, a dot and words; each state has its own colour (sandbox dashed, as everywhere). */
+.status {
+  display: inline-flex; align-items: center; gap: 6px; min-block-size: 26px; padding: 2px 10px; border-radius: var(--radius-full);
+  border: 1px solid transparent; font-size: var(--fs-sm); font-weight: var(--fw-semibold); line-height: 1.3; white-space: normal; text-align: start;
+  background: var(--surface-3); color: var(--text-secondary);
+}
+.dot { flex: none; inline-size: 8px; block-size: 8px; border-radius: 50%; background: currentColor; }
+.status[data-status='connected'] { background: var(--ok-bg); color: var(--ok-fg); }
+.status[data-status='needs_attention'] { background: var(--warn-bg); color: var(--warn-fg); }
+.status[data-status='sandbox'] { background: var(--sandbox-bg); color: var(--sandbox-fg); border: 1px dashed var(--sandbox-border); }
+.status[data-status='pending_review'] { background: var(--info-bg); color: var(--info-fg); }
+.status[data-status='not_available'] { background: var(--danger-bg); color: var(--danger-fg); }
+.status[data-status='not_connected'] .dot { background: transparent; border: 1.5px solid currentColor; }
+.facet .dot[data-status='connected'] { background: var(--ok-fg); }
+.facet .dot[data-status='needs_attention'] { background: var(--warn-fg); }
+.facet .dot[data-status='sandbox'] { background: var(--sandbox-fg); }
+.facet .dot[data-status='pending_review'] { background: var(--info-fg); }
+.facet .dot[data-status='not_available'] { background: var(--danger-fg); }
+.facet .dot[data-status='not_connected'] { background: transparent; border: 1.5px solid var(--text-muted); }
 
 .chip { white-space: normal; line-height: 1.35; text-align: start; }
 
-.sheetHead { display: flex; align-items: center; gap: 12px; }
+@media (max-width: 700px) {
+  .market :global(.rui-filterbar-search) { flex-basis: 100%; max-inline-size: none; min-inline-size: 0; }
+  .market :global(.rui-filterbar-actions) { margin-inline-start: 0; }
+  .facetRow { grid-template-columns: minmax(0, 1fr); gap: var(--space-1); }
+  .facetChips { flex-wrap: nowrap; overflow-x: auto; padding-block-end: 2px; scrollbar-width: none; }
+  .facetChips::-webkit-scrollbar { display: none; }
+  .card { min-block-size: 0; }
+  .grid { grid-auto-rows: auto; gap: var(--space-3); }
+}
+
+.sheetHead { display: flex; align-items: center; gap: var(--space-3); min-inline-size: 0; overflow-wrap: anywhere; }
+.summary { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-subtle); border-radius: var(--radius-2); background: var(--surface-2); }
+.section.summary:first-child { padding-block-start: var(--space-3); }
+.summaryRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.summaryLabel { font-size: var(--fs-sm); color: var(--text-muted); }
+/* The readiness table fits the sheet: fixed columns, labels that wrap instead of running off the edge. */
+.capTable table { table-layout: fixed; inline-size: 100%; }
+.capTable th:first-child, .capTable td:first-child { inline-size: 34%; }
+.capTable :global(.badge) { white-space: normal; overflow-wrap: anywhere; text-align: start; line-height: 1.35; }
 .section { display: grid; gap: 8px; padding-block: 12px; border-block-start: 1px solid var(--line); }
 .section:first-child { border-block-start: 0; padding-block-start: 0; }
-.section h3 { margin: 0; font-size: 14px; }
-.reasons { margin: 0; padding-inline-start: 18px; font-size: 13px; }
+.section h3 { margin: 0; font-size: var(--fs-md); }
+.reasons { margin: 0; padding-inline-start: 18px; font-size: var(--fs-sm); color: var(--text-secondary); }
 .steps { margin: 0; padding-inline-start: 18px; font-size: 12px; overflow-wrap: anywhere; }
 .list { margin: 0; padding-inline-start: 18px; font-size: 12px; }
 .plain { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 12px; }
@@ -35,3 +128,6 @@
 .pre { white-space: pre-wrap; max-block-size: 200px; overflow: auto; }
 .select { min-block-size: 32px; inline-size: auto; }
 .tight { display: grid; gap: 2px; }
+.capsMore { font-weight: var(--fw-semibold); color: var(--text-muted); white-space: nowrap; }
+/* The search field has its own clear button: hide the browser's second one. */
+.market input[type='search']::-webkit-search-cancel-button { appearance: none; }

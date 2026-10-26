@@ -5,6 +5,7 @@ import { Menu, Notice, Skeleton, useAction } from '@resuto/ui';
 import { useT } from '@/lib/i18n/client';
 import { useOrg } from '@/lib/org-context';
 import { useSession } from '@/lib/session';
+import { InboxIcon } from './icons';
 import type { ConversationTag, Detail } from './types';
 
 // The Customer 360 panel is its own chunk: it loads when a conversation with a customer profile is open.
@@ -14,14 +15,17 @@ export interface ContextPaneProps {
   d: Detail;
   tags: ConversationTag[];
   onTagsChanged(): Promise<void> | void;
+  /** Back to the conversation (tablets and phones, where this pane replaces the thread). */
+  onBack?(): void;
 }
 
 /** Right pane: this conversation's tags, then the customer's 360 (or why there is none). */
-export function ContextPane({ d, tags, onTagsChanged }: ContextPaneProps) {
+export function ContextPane({ d, tags, onTagsChanged, onBack }: ContextPaneProps) {
   const { t } = useT();
   const { org, can } = useOrg();
   return (
-    <div className="inbox-context">
+    <div className="inbox-context" id="inbox-inspector">
+      {onBack && <button type="button" className="btn btn-sm btn-ghost inbox-info-back" onClick={onBack}><InboxIcon name="back" /> {t('connect.ws.backToThread')}</button>}
       <ConversationTags d={d} tags={tags} canReply={can('connect:reply')} canManage={can('connect:manage')} onChanged={onTagsChanged} />
       {d.customer && can('customers:read') ? (
         <section className="inbox-context-sec" aria-labelledby="inbox-c360">

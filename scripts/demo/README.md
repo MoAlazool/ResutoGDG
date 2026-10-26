@@ -118,3 +118,18 @@ node --test scripts/demo/test/*.test.mjs   # unit tests + one test per assertion
 
 The full demo is this loader against a running API. `scripts/db/seed.mjs` only migrates the legacy fixture
 (re-timed to the load, stale legacy work imported as closed history) and is not a substitute for it.
+
+## Busy inbox fixture (`scripts/demo/seed-busy-inbox.mjs`, local only)
+
+For design and load checks of the Inbox workspace: adds 72 conversations to the loaded demo tenant across WhatsApp (the
+demo sandbox channel), Messenger and Instagram (two fixture Page channels with fictional ids, never connected to Meta),
+in Arabic, English and mixed text, with every state the Inbox shows (unread, waiting for a reply, bot, taken over,
+closed, assigned, tagged, ordering) and two long threads (96 and 128 entries: photos, locations, templates, button
+replies, a failed delivery, internal notes, an order card, four days of day separators). No outbound message is left
+queued, so no worker tries to send anything. It writes with SQL (no API back-dates messages), only rows of the demo
+organization; re-running replaces its own rows (fixture channels carry `verification.fixture = 'busy-inbox'`, fixture
+WhatsApp contacts use +20 109 900 xxxx). Refuses production, staging and any non-local database.
+
+```bash
+DATABASE_URL=postgres://postgres@127.0.0.1:54329/<db> node scripts/demo/seed-busy-inbox.mjs [--slug the-olive-room]
+```
