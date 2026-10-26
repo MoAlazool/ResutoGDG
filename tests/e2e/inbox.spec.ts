@@ -151,7 +151,9 @@ test('the old Channels and Templates tabs lead to Settings › Messaging', async
     await page.goto(inboxUrl());
     await page.getByRole('link', { name: 'Channels & templates' }).click();
     await expect(page).toHaveURL(new RegExp(`/settings/messaging$`));
-    await expect(page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Messaging' })).toHaveAttribute('aria-current', 'page');
+    // Both the page's section list and the sidebar's own Messaging entry mark it current.
+    await expect(page.getByRole('navigation', { name: 'Settings sections' }).getByRole('link', { name: 'Messaging' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByLabel('Settings pages').getByRole('link', { name: 'Messaging' })).toHaveAttribute('aria-current', 'page');
     expect(errors).toEqual([]);
   } finally {
     await context.close();
