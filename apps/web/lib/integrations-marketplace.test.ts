@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { marketplaceStatus, type MarketplaceConnectionFacts } from '@resuto/contracts/lite';
-import { connectAction, filterCards, keysAreAdvanced, marketCards, oauthBrand, presentCategories, STATUS_TONE, type CatalogCardInput } from './integrations-marketplace';
+import { connectAction, facetCounts, filterCards, keysAreAdvanced, marketCards, oauthBrand, presentCategories, STATUS_ORDER, STATUS_TONE, type CatalogCardInput } from './integrations-marketplace';
 import { dictionaries } from './i18n/messages';
 
 // 21-INT: the marketplace shows the chip the readiness facts and the connection support (never "verified"), filters
@@ -61,6 +61,57 @@ describe('cards, categories and search', () => {
     expect(filterCards(cards, { category: '', query: 'payments' }, label).map((c) => c.id)).toEqual(['paymob']);
     expect(filterCards(cards, { category: 'pos', query: 'meta' }, label)).toEqual([]);
     expect(filterCards(cards, { category: '', query: 'domain' }, (c) => dictionaries.ar[`mkt.category.${c}`]!).map((c) => c.id)).toEqual(['vercel_domains']);
+  });
+});
+
+describe('status filter, capability search and faceted counts (22-INTINBOX)', () => {
+  const items = [
+    item('meta_ads', { name: 'Meta Ads', connectMethod: 'oauth', capabilities: ['daily_insights', 'ad_account_picker'], readiness: 'implemented_unverified',
+      marketplace: { status: 'needs_attention', reasons: ['missing_permissions'], connectionId: 'c1', providerReview: 'unknown' } }),
+    item('paymob', { name: 'Paymob', category: 'payments', marketplaceCategory: 'payments', capabilities: ['refunds', 'checkout'],
+      marketplace: { status: 'connected', reasons: [], connectionId: 'c2', providerReview: null } }),
+    item('moyasar', { name: 'Moyasar', category: 'payments', marketplaceCategory: 'payments', capabilities: ['refunds'] }),
+    item('pos_sandbox', { name: 'POS sandbox', category: 'pos', marketplaceCategory: 'pos', connectMethod: 'platform_managed', sandboxOnly: true }),
+  ];
+  const cards = marketCards(items, 'org-1', (id) => id);
+  const label = (c: string) => dictionaries.en[`mkt.category.${c}`]!;
+  const capLabel = (c: string) => ({ refunds: 'Refunds', checkout: 'Checkout', daily_insights: 'Daily results' } as Record<string, string>)[c] ?? c;
+
+  it('keeps the capabilities and readiness on the card (empty for the guided links)', () => {
+    expect(cards.find((c) => c.id === 'meta_ads')).toMatchObject({ capabilities: ['daily_insights', 'ad_account_picker'], readiness: 'implemented_unverified' });
+    expect(cards.find((c) => c.id === 'zatca')).toMatchObject({ capabilities: [], readiness: null });
+  });
+
+  it('filters by status, alone or with a category and a search', () => {
+    expect(filterCards(cards, { category: '', query: '', status: 'connected' }, label).map((c) => c.id)).toEqual(['paymob']);
+    expect(filterCards(cards, { category: 'payments', query: '', status: 'not_connected' }, label).map((c) => c.id)).toEqual(['moyasar']);
+    expect(filterCards(cards, { category: '', query: '', status: 'sandbox' }, label).map((c) => c.id)).toEqual(['pos_sandbox']);
+    expect(filterCards(cards, { category: '', query: 'meta', status: 'connected' }, label)).toEqual([]);
+  });
+
+  it('searches capabilities by label and by code only when a capability label is given', () => {
+    expect(filterCards(cards, { category: '', query: 'refunds' }, label, capLabel).map((c) => c.id)).toEqual(['moyasar', 'paymob']);
+    expect(filterCards(cards, { category: '', query: 'daily results' }, label, capLabel).map((c) => c.id)).toEqual(['meta_ads']);
+    expect(filterCards(cards, { category: '', query: 'ad account picker' }, label, capLabel).map((c) => c.id)).toEqual(['meta_ads']);
+    expect(filterCards(cards, { category: '', query: 'refunds' }, label)).toEqual([]);
+  });
+
+  it('counts each facet against the other filters (what choosing it would list)', () => {
+    const all = facetCounts(cards, { category: '', query: '', status: '' }, label, capLabel);
+    expect(all.allCategories).toBe(cards.length);
+    expect(all.category.get('payments')).toBe(2);
+    expect(Object.fromEntries(all.status)).toMatchObject({ needs_attention: 1, connected: 1, sandbox: 1 });
+    const payments = facetCounts(cards, { category: 'payments', query: '', status: 'connected' }, label, capLabel);
+    // Statuses within Payments; categories within Connected.
+    expect(Object.fromEntries(payments.status)).toEqual({ connected: 1, not_connected: 1 });
+    expect(Object.fromEntries(payments.category)).toEqual({ payments: 1 });
+    expect(payments.allStatuses).toBe(2);
+    expect(payments.allCategories).toBe(1);
+  });
+
+  it('lists every status once, what needs the owner first', () => {
+    expect([...STATUS_ORDER].sort()).toEqual(Object.keys(STATUS_TONE).sort());
+    expect(STATUS_ORDER[0]).toBe('needs_attention');
   });
 });
 
