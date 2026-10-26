@@ -170,7 +170,8 @@ function PlanMatrix({ catalog, currentPlanId, s }: { catalog: PublicPlansRespons
     <div className={styles.matrix}>
       <h3>{s.matrixTitle}</h3>
       <p className="fine">{s.matrixBody}</p>
-      <div className="table-wrap">
+      {/* Scrolls sideways on phones and holds no control: focusable and named so keyboard users can scroll it. */}
+      <div className="table-wrap" tabIndex={0} role="region" aria-label={s.matrixTitle}>
         <table className="data" data-testid="plan-matrix">
           <thead>
             <tr>

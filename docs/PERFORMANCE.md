@@ -335,3 +335,134 @@ ok).
   `tests/e2e/guest-first-paint.spec.ts` (server HTML of both pages through `inspectGuestShell`, and the slow path above
   in Chromium).
 
+
+## Resuto 2.1 before/after (5c359d5 → e4d5bb0)
+
+Plan §8 1D / §9: Web Vitals and bundle sizes of Resuto 2.0 as on staging before 2.1 (`5c359d5`) against the 2.1
+phase-1A–1C merge (`e4d5bb0`), measured on 2026-10-26 (21-A11Y). The a11y fixes made in the same workstream are not in
+either build.
+
+**Method.**
+- Builds: each commit checked out separately (`git worktree add --detach`), its own `next build` and API build, served
+  with `next start` on :3672 and the built API on :4672 (`AUTH_DEV_MODE`, worker in process). So "after" includes the
+  2.1 API changes as well as the web changes.
+- Data: one demo restaurant ("The Olive Room", 2 branches, 8 weeks of orders, photos) loaded with the `5c359d5`
+  loader (`scripts/demo/load-demo-data.mjs`) through the `5c359d5` API into its own database; the after database is a
+  `CREATE DATABASE … TEMPLATE` copy of it migrated forward with the 14 migrations 2.1 adds. Same rows, same photo files
+  (one storage directory). This is the demo data only, not the 200k-order scaled database of the sections above, so
+  these numbers are not comparable with those tables.
+- Harness: `scripts/perf/web-vitals.mjs` (390×844 @2x, 150 ms RTT, 1.6 Mbit/s down, 750 kbit/s up, CPU ×4), median of
+  3 runs per page, from the `ws/21-a11y` checkout for both builds (it adds `inbox`, `menu`, `analytics`, `billing` and
+  the view-only menu `menu-only` = `/m/<slug>` to the page list, and `--build` to record the measured build). Two passes
+  per build, alternated: before A (07:39 UTC), after A (07:59), after B (08:08), before B (08:16). `/m/<slug>` does not
+  exist on `5c359d5` (404), so it has after numbers only.
+- First-load JS: `node scripts/ui/bundle-budget.mjs --next <build>/.next --report` on both builds (same algorithm).
+  HTML documents: the same script's `--web` mode against each running build, now with `--slug`/`--qr` so the guest
+  pages are measured too (21-A11Y addition; gzip level 9 of the document as served, `resuto_locale` cookie per locale).
+
+**Environment caveats.** A shared development container (4 vCPU, 15 GB RAM, the shared local Postgres 16 cluster),
+not production hardware, not a CDN, no HTTP/2 multiplexing from a real edge. Other agents' workloads ran on the same
+machine during the passes (load average 0.3–1.7). Pass-to-pass spread of a page's median is up to ~400 ms (inbox
+before: 3,044 vs 3,420 ms), so differences below that are within noise; the per-run values are in the raw files. For
+some pages the LCP element differs between builds (overview: `span.row` → `h1`; orders: `h1` → `div.ticket-source`;
+inbox: `p` → `span.inbox-row-preview`), so their LCP compares different paints. Raw results:
+`docs/perf-results/2026-10-26-21a11y-{before-A,before-B,after-A,after-B}.json`, bundle and document sizes
+`…-21a11y-budget-{before,after}.json`.
+
+### Web (throttled mobile; medians of 3, pass A / pass B)
+
+| page | LCP ms before → after | FCP ms before → after | CLS before → after | requests | KB first visit (js) before → after | repeat-visit LCP ms before → after |
+|---|---|---|---|---|---|---|
+| landing (en) | 2,460 / 2,408 → 2,460 / 2,484 | 1,704 / 1,668 → 1,712 / 1,692 | 0.02 → 0.02 | 27 → 31 | 645 (242) → 679 (266) | 1,156 / 1,244 → 1,412 / 1,344 |
+| landing (ar) | 2,928 / 3,028 → **3,156 / 3,316** | 1,988 / 2,108 → **2,356 / 2,436** | 0.034 → 0.034 | 29 → 33 | 734 (242) → 769 (266) | 1,152 / 2,104 → 1,332 / 2,256 |
+| public site `/r` (en) | 2,548 / 2,584 → **2,760 / 2,796** | 884 / 892 → 924 / 936 | 0.002 → 0.002 | 24 → 30 | 478 (150) → 519 (176) | 304 / 292 → 300 / 284 |
+| guest QR `/t` (ar) | 3,532 / 3,520 → 3,448 / 3,484 | 992 / 1,024 → 1,040 / 1,064 | 0.021 → 0.021 | 46 → 54 | 742 (203) → 786 (235) | 276 / 264 → 280 / 268 |
+| web order `/order` (en) | 2,964 / 2,960 → **3,172 / 3,144** | 880 / 868 → 892 / 952 | 0.001 → 0.001 | 37 → 45 / 44 | 550 (193) → 590 (222) | 284 / 288 → 300 / 304 |
+| menu QR `/m` (ar, new) | – | – | – | – → 40 | – → 649 (202) | – → 260 / 288 |
+| overview | 3,544 / 3,680 → 3,640 / 3,692 | 800 / 832 → 844 / 852 | **0.124 → 0.009** | 59 → 69 | 422 (231) → 528 / 526 (305) | 1,588 / 1,652 → 1,532 / 2,084 |
+| orders | 3,348 / 3,568 → **3,980 / 4,224** | 764 / 804 → 832 / 852 | **0.329 → 0.225** | 55 / 53 → 60 | 438 (257) → 502 (282) | 1,372 / 1,680 → 1,820 / 1,908 |
+| inbox | 3,044 / 3,420 → **3,728 / 3,680** | 768 / 792 → 808 / 824 | 0.159 / 0.043 → 0.14 | 51 → 64 | 389 (206) → 467 (248) | 1,232 / 1,496 → 1,640 / 1,724 |
+| menu | 3,276 / 3,396 → **3,704 / 3,680** | 788 / 784 → 844 / 852 | 0.123 → 0.062 / 0.046 | 69 → 70 | 656 (251; img 218) → 812 (252; img 327) | 1,504 / 1,700 → 1,416 / 1,600 |
+| analytics | 3,344 / 3,600 → 3,596 / 3,664 | 752 / 760 → 828 / 860 | **0.123 → 0.002** | 53 → 67 | 434 (253) → 476 / 479 (257) | 1,528 / 1,456 → 1,704 / 1,752 |
+| billing | 3,216 / 3,228 → **3,796 / 3,800** | 772 / 792 → 832 / 824 | 0.007 → 0.046 | 56 → 71 | 431 (249) → 531 / 528 (305) | 1,340 / 1,424 → 1,736 / 1,812 |
+
+Polling while open (20 s, first run): overview 9 GET/min → 0 (2.1 home no longer polls on this profile); orders 48 →
+48 / 45; guest QR 12 → 12. TTFB 22–46 ms on every page in both builds.
+
+### First-load JS (gzip kB, `bundle-budget.mjs`)
+
+| route | 5c359d5 | e4d5bb0 |
+|---|---|---|
+| `/` | 182.4 | 184.5 |
+| `/pricing` | 205.7 | 209.5 |
+| `/login`, `/signup` | 182.5 | 186.1 |
+| `/onboarding` | 131.8 | 139.4 |
+| `/r/[slug]` | 112.4 | 115.0 |
+| `/order/[slug]` | 129.7 | 133.7 |
+| `/t/[qr]` | 140.6 | 144.1 |
+| `/m/[slug]` | – | 124.2 |
+| `/dashboard/[orgId]` | 182.4 | 179.3 |
+| `/dashboard/[orgId]/orders` | 215.4 | 215.7 |
+| `/dashboard/[orgId]/inbox` | 160.5 | 174.3 |
+| `/dashboard/[orgId]/menu` | 210.2 | 182.5 |
+| `/dashboard/[orgId]/analytics` | 207.0 | 174.3 |
+| `/dashboard/[orgId]/billing` | 204.4 | 173.6 |
+| `/kitchen/[orgId]` | 193.8 | 202.7 |
+| group max: guest / public / staff / other | 162.2 / 205.7 / 216.5 / 184.5 | 167.5 / 209.5 / 218.9 / 189.8 |
+
+Every route is inside its group budget in both builds (guest 170, public 226, staff 220). The first-load figure fell
+on menu, analytics and billing (code moved behind lazy imports), but the JavaScript those pages actually transfer on a
+first visit grew (billing 249 → 305 KB, overview 231 → 305 KB): the lazy chunks load right after the first paint, so
+the budget does not see them.
+
+### HTML documents (gzip kB, raw kB in brackets; `bundle-budget.mjs --web`)
+
+| route | locale | 5c359d5 | e4d5bb0 | document budget |
+|---|---|---|---|---|
+| `/login` | en / ar | 22.7 (85.2) / 26.2 (104.8) | 23.5 (88.9) / 27.2 (108.9) | 18 — **over in both builds** |
+| `/signup` | en / ar | 22.8 (85.3) / 26.3 (105.0) | 23.5 (89.0) / 27.2 (109.1) | 18 — **over in both** |
+| `/onboarding` | en / ar | 22.5 (84.1) / 25.9 (103.6) | 25.5 (96.3) / 29.6 (118.8) | 18 — **over in both** |
+| `/` | en / ar | 41.1 (170.7) / 45.1 (192.1) | 41.8 (174.2) / 46.0 (196.1) | 42 — **ar over in both** |
+| `/pricing` | en / ar | 26.8 / 30.6 | 27.4 / 31.5 | 42 |
+| `/r/[slug]` | en / ar | 24.0 / 27.2 | 25.3 / 28.7 | 42 |
+| `/order/[slug]` | en / ar | 24.5 / 27.4 | 25.3 / 28.3 | 42 |
+| `/t/[qr]` | en / ar | 24.6 / 27.5 | 25.3 / 28.4 | 42 |
+| `/m/[slug]` | en / ar | – (404) | 24.7 / 27.8 | 42 |
+| `/dashboard/[orgId]` | en / ar | 88.1 (338.4) / 103.0 (433.2) | 111.0 (428.2) / 130.8 (551.7) | 62 — **over in both** |
+| `/dashboard/[orgId]/orders` | en / ar | 88.1 / 102.9 | 111.2 / 131.0 | 62 — **over in both** |
+| `/kitchen/[orgId]` | en / ar | 86.6 / 101.4 | 109.5 / 129.3 | 62 — **over in both** |
+
+The document budgets are not enforced in CI (the gate runs without `--web`), and both builds are over them on the auth,
+staff and Arabic landing documents. Cause, measured on `/login` (en, after): 59.6 KB of the 88.9 KB document is the root
+layout's message payload, the whole guest scope (1,096 keys, ~55 KB: `core.guest` 10.9 KB, `core.res` 6.6, `studio.site`
+4.9, `core.web` 4.3, `connect.order` 4.0, and ~9 KB of `pay.*` staff payment copy that `GUEST_SCOPE`'s `/^pay\./`
+pulls in). Every document, the auth and staff ones included, carries it before its own scope. Staff documents grew
+~23 kB gz (en) / ~28 kB gz (ar) with the 2.1 copy, because the staff scope still serialises every module's strings.
+Not fixed here: getting under the budgets needs the guest scope moved from the root layout to the guest route groups
+and a per-module staff scope, which is a structural i18n change, not a cheap one (see the follow-ups below).
+
+### Regressions (honest summary)
+
+- **Staff pages are slower on this profile.** LCP after minus before, pass A / pass B: orders +632 / +656 ms,
+  billing +580 / +572 ms, inbox +684 / +260 ms, menu +428 / +284 ms, analytics +252 / +64 ms, overview +96 / +12 ms.
+  FCP is +20 to +100 ms on every staff page. They make 1–15 more requests and transfer more JavaScript on a first
+  visit (overview +74 KB, billing +56 KB, inbox +42 KB), and repeat-visit LCP grew on orders, inbox, analytics and
+  billing (+180 to +450 ms). Not root-caused in this workstream.
+- **Guest and public pages:** web order +208 / +184 ms LCP and public site +212 / +212 ms, with +26 to +32 KB of JavaScript
+  (guest first-load JS +2.6 to +4.0 kB gz per route); guest QR LCP is unchanged (−84 / −36 ms) despite +32 KB JS.
+- **Arabic landing:** LCP +228 / +288 ms and FCP +368 / +328 ms; English landing unchanged within noise. Both load 24 KB more
+  JavaScript and 4 more requests.
+- **HTML documents** grew on every measured route (above) and stay over their budgets.
+- **Improvements:** layout shift dropped on overview (0.124 → 0.009), analytics (0.123 → 0.002), menu (0.123 →
+  0.05) and orders (0.329 → 0.225); the menu's repeat visit no longer re-downloads 100 KB of photos (216 → 135 KB);
+  the 2.1 home stopped polling (9 → 0 GET/min); the new view-only menu `/m/<slug>` paints at ~1.6 s, half the time of
+  the ordering menu.
+
+### Follow-ups
+
+- Staff LCP/JS: profile the orders, inbox and billing first visit (which lazy chunks load before the LCP element) and
+  the shell's extra requests; add a transferred-JS check next to the first-load budget, which misses lazy chunks.
+- HTML documents: move the guest message scope out of the root layout into the guest route groups, narrow
+  `GUEST_SCOPE`'s `pay.` rule to the guest payment keys, split the staff scope per module, then run
+  `bundle-budget.mjs --web` in CI so the document budgets are enforced.
+- Orders CLS 0.225 is still above the 0.1 "good" threshold.

@@ -1,0 +1,486 @@
+{
+ "label": "before",
+ "commit": "e4d5bb0",
+ "build": "5c359d5",
+ "at": "2026-10-26T07:46:54.758Z",
+ "runs": 3,
+ "rows": [
+  {
+   "id": "landing",
+   "locale": "en",
+   "lcp": 2460,
+   "fcp": 1704,
+   "cls": 0.02,
+   "ttfb": 34,
+   "loadMs": 2935,
+   "lcpEl": "P.",
+   "requests": 27,
+   "kb": 645,
+   "fontKb": 124,
+   "imageKb": 192,
+   "scriptKb": 242,
+   "apiKb": 0,
+   "repeatLcp": 1156,
+   "repeatLcpEl": "P.",
+   "repeatFcp": 408,
+   "lcpRuns": [
+    2460,
+    2404,
+    2472
+   ],
+   "repeatLcpRuns": [
+    1104,
+    1156,
+    1464
+   ],
+   "repeatLcpEls": [
+    "P.",
+    "P.",
+    "P."
+   ],
+   "repeatKb": 43,
+   "repeatRequests": 27,
+   "repeatCachedOr304": 26,
+   "repeatFromCache": 26,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  },
+  {
+   "id": "landing-ar",
+   "locale": "ar",
+   "lcp": 2928,
+   "fcp": 1988,
+   "cls": 0.034,
+   "ttfb": 37,
+   "loadMs": 3382,
+   "lcpEl": "P.",
+   "requests": 29,
+   "kb": 734,
+   "fontKb": 201,
+   "imageKb": 200,
+   "scriptKb": 242,
+   "apiKb": 0,
+   "repeatLcp": 1152,
+   "repeatLcpEl": "P.",
+   "repeatFcp": 388,
+   "lcpRuns": [
+    2996,
+    2928,
+    2908
+   ],
+   "repeatLcpRuns": [
+    1176,
+    1152,
+    1148
+   ],
+   "repeatLcpEls": [
+    "P.",
+    "P.",
+    "P."
+   ],
+   "repeatKb": 47,
+   "repeatRequests": 29,
+   "repeatCachedOr304": 28,
+   "repeatFromCache": 28,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  },
+  {
+   "id": "public-site",
+   "locale": "en",
+   "lcp": 2548,
+   "fcp": 884,
+   "cls": 0.002,
+   "ttfb": 23,
+   "loadMs": 2628,
+   "lcpEl": "IMG.",
+   "requests": 24,
+   "kb": 478,
+   "fontKb": 124,
+   "imageKb": 159,
+   "scriptKb": 150,
+   "apiKb": 1,
+   "repeatLcp": 304,
+   "repeatLcpEl": "IMG.",
+   "repeatFcp": 304,
+   "lcpRuns": [
+    2548,
+    2576,
+    2528
+   ],
+   "repeatLcpRuns": [
+    304,
+    316,
+    268
+   ],
+   "repeatLcpEls": [
+    "IMG.",
+    "IMG.",
+    "IMG."
+   ],
+   "repeatKb": 29,
+   "repeatRequests": 24,
+   "repeatCachedOr304": 22,
+   "repeatFromCache": 22,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  },
+  {
+   "id": "guest-qr",
+   "locale": "ar",
+   "lcp": 3532,
+   "fcp": 992,
+   "cls": 0.021,
+   "ttfb": 27,
+   "loadMs": 3982,
+   "lcpEl": "IMG.",
+   "requests": 46,
+   "kb": 742,
+   "fontKb": 293,
+   "imageKb": 184,
+   "scriptKb": 203,
+   "apiKb": 8,
+   "repeatLcp": 276,
+   "repeatLcpEl": "IMG.",
+   "repeatFcp": 276,
+   "lcpRuns": [
+    3532,
+    3556,
+    3516
+   ],
+   "repeatLcpRuns": [
+    296,
+    276,
+    272
+   ],
+   "repeatLcpEls": [
+    "IMG.",
+    "IMG.",
+    "IMG."
+   ],
+   "repeatKb": 37,
+   "repeatRequests": 45,
+   "repeatCachedOr304": 39,
+   "repeatFromCache": 39,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": {
+    "perMinute": 12,
+    "preflightsPerMinute": 3,
+    "notModified": 0,
+    "total": 4
+   }
+  },
+  {
+   "id": "web-order",
+   "locale": "en",
+   "lcp": 2964,
+   "fcp": 880,
+   "cls": 0.001,
+   "ttfb": 22,
+   "loadMs": 2986,
+   "lcpEl": "IMG.",
+   "requests": 37,
+   "kb": 550,
+   "fontKb": 124,
+   "imageKb": 184,
+   "scriptKb": 193,
+   "apiKb": 2,
+   "repeatLcp": 284,
+   "repeatLcpEl": "IMG.",
+   "repeatFcp": 284,
+   "lcpRuns": [
+    2964,
+    3012,
+    2964
+   ],
+   "repeatLcpRuns": [
+    280,
+    284,
+    284
+   ],
+   "repeatLcpEls": [
+    "IMG.",
+    "IMG.",
+    "IMG."
+   ],
+   "repeatKb": 29,
+   "repeatRequests": 37,
+   "repeatCachedOr304": 33,
+   "repeatFromCache": 33,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  },
+  {
+   "id": "overview",
+   "locale": "en",
+   "lcp": 3544,
+   "fcp": 800,
+   "cls": 0.124,
+   "ttfb": 31,
+   "loadMs": 2381,
+   "lcpEl": "SPAN.row gap-6",
+   "requests": 59,
+   "kb": 422,
+   "fontKb": 53,
+   "imageKb": 0,
+   "scriptKb": 231,
+   "apiKb": 21,
+   "repeatLcp": 1588,
+   "repeatLcpEl": "SPAN.row gap-6",
+   "repeatFcp": 272,
+   "lcpRuns": [
+    3484,
+    3544,
+    3664
+   ],
+   "repeatLcpRuns": [
+    1588,
+    1696,
+    1408
+   ],
+   "repeatLcpEls": [
+    "SPAN.row gap-6",
+    "SPAN.row gap-6",
+    "SPAN.row gap-6"
+   ],
+   "repeatKb": 111,
+   "repeatRequests": 54,
+   "repeatCachedOr304": 31,
+   "repeatFromCache": 31,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": {
+    "perMinute": 9,
+    "preflightsPerMinute": 9,
+    "notModified": 1,
+    "total": 3
+   }
+  },
+  {
+   "id": "orders",
+   "locale": "en",
+   "lcp": 3348,
+   "fcp": 764,
+   "cls": 0.329,
+   "ttfb": 31,
+   "loadMs": 2402,
+   "lcpEl": "H1.",
+   "requests": 55,
+   "kb": 438,
+   "fontKb": 53,
+   "imageKb": 0,
+   "scriptKb": 257,
+   "apiKb": 18,
+   "repeatLcp": 1372,
+   "repeatLcpEl": "H1.",
+   "repeatFcp": 292,
+   "lcpRuns": [
+    3688,
+    3240,
+    3348
+   ],
+   "repeatLcpRuns": [
+    1288,
+    1372,
+    1576
+   ],
+   "repeatLcpEls": [
+    "H1.",
+    "H1.",
+    "H1."
+   ],
+   "repeatKb": 108,
+   "repeatRequests": 52,
+   "repeatCachedOr304": 30,
+   "repeatFromCache": 29,
+   "repeatRevalidated": 1,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": {
+    "perMinute": 48,
+    "preflightsPerMinute": 21,
+    "notModified": 6,
+    "total": 16
+   }
+  },
+  {
+   "id": "inbox",
+   "locale": "en",
+   "lcp": 3044,
+   "fcp": 768,
+   "cls": 0.159,
+   "ttfb": 38,
+   "loadMs": 2125,
+   "lcpEl": "P.",
+   "requests": 51,
+   "kb": 389,
+   "fontKb": 53,
+   "imageKb": 0,
+   "scriptKb": 206,
+   "apiKb": 21,
+   "repeatLcp": 1232,
+   "repeatLcpEl": "P.",
+   "repeatFcp": 268,
+   "lcpRuns": [
+    2968,
+    3044,
+    3292
+   ],
+   "repeatLcpRuns": [
+    1232,
+    1116,
+    1448
+   ],
+   "repeatLcpEls": [
+    "P.",
+    "P.",
+    "P."
+   ],
+   "repeatKb": 111,
+   "repeatRequests": 49,
+   "repeatCachedOr304": 25,
+   "repeatFromCache": 25,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  },
+  {
+   "id": "menu",
+   "locale": "en",
+   "lcp": 3276,
+   "fcp": 788,
+   "cls": 0.123,
+   "ttfb": 28,
+   "loadMs": 2361,
+   "lcpEl": "H1.",
+   "requests": 69,
+   "kb": 656,
+   "fontKb": 53,
+   "imageKb": 218,
+   "scriptKb": 251,
+   "apiKb": 25,
+   "repeatLcp": 1504,
+   "repeatLcpEl": "H1.",
+   "repeatFcp": 304,
+   "lcpRuns": [
+    3480,
+    3216,
+    3276
+   ],
+   "repeatLcpRuns": [
+    1496,
+    1504,
+    1512
+   ],
+   "repeatLcpEls": [
+    "H1.",
+    "H1.",
+    "H1."
+   ],
+   "repeatKb": 216,
+   "repeatRequests": 68,
+   "repeatCachedOr304": 35,
+   "repeatFromCache": 35,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 100,
+   "repeatFontKb": 0,
+   "polling": null
+  },
+  {
+   "id": "analytics",
+   "locale": "en",
+   "lcp": 3344,
+   "fcp": 752,
+   "cls": 0.123,
+   "ttfb": 30,
+   "loadMs": 2379,
+   "lcpEl": "P.",
+   "requests": 53,
+   "kb": 434,
+   "fontKb": 53,
+   "imageKb": 0,
+   "scriptKb": 253,
+   "apiKb": 23,
+   "repeatLcp": 1528,
+   "repeatLcpEl": "P.",
+   "repeatFcp": 264,
+   "lcpRuns": [
+    3280,
+    3396,
+    3344
+   ],
+   "repeatLcpRuns": [
+    1452,
+    1760,
+    1528
+   ],
+   "repeatLcpEls": [
+    "P.",
+    "P.",
+    "P."
+   ],
+   "repeatKb": 113,
+   "repeatRequests": 51,
+   "repeatCachedOr304": 27,
+   "repeatFromCache": 27,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  },
+  {
+   "id": "billing",
+   "locale": "en",
+   "lcp": 3216,
+   "fcp": 772,
+   "cls": 0.007,
+   "ttfb": 33,
+   "loadMs": 2351,
+   "lcpEl": "P.fine m-0",
+   "requests": 56,
+   "kb": 431,
+   "fontKb": 53,
+   "imageKb": 0,
+   "scriptKb": 249,
+   "apiKb": 26,
+   "repeatLcp": 1340,
+   "repeatLcpEl": "P.fine m-0",
+   "repeatFcp": 244,
+   "lcpRuns": [
+    3164,
+    3216,
+    3324
+   ],
+   "repeatLcpRuns": [
+    1524,
+    1340,
+    1204
+   ],
+   "repeatLcpEls": [
+    "P.fine m-0",
+    "P.fine m-0",
+    "P.fine m-0"
+   ],
+   "repeatKb": 116,
+   "repeatRequests": 53,
+   "repeatCachedOr304": 25,
+   "repeatFromCache": 25,
+   "repeatRevalidated": 0,
+   "repeatImageKb": 0,
+   "repeatFontKb": 0,
+   "polling": null
+  }
+ ]
+}

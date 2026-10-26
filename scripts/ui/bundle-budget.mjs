@@ -3,7 +3,7 @@
 // prints "First Load JS": the gzip size of the unique JS files of the page entry and every layout above it.
 //
 //   node scripts/ui/bundle-budget.mjs [--next apps/web/.next] [--json out.json] [--report]
-//   node scripts/ui/bundle-budget.mjs --web http://127.0.0.1:3530 [--org <orgId>] [--json out.json] [--report]
+//   node scripts/ui/bundle-budget.mjs --web http://127.0.0.1:3530 [--org <orgId>] [--slug <restaurant slug>] [--qr <table token>] [--json out.json] [--report]
 //
 // With --web it also measures the HTML documents of a running build (`next start`), in English and Arabic: the RSC
 // payload inside each document carries the route group's dictionary, which first-load JS does not count, and HTML is
@@ -105,12 +105,16 @@ async function main() {
     const WEB = String(args.web).replace(/\/$/, '');
     const routes = ['/login', '/signup', '/onboarding', '/', '/pricing'];
     if (args.org) routes.push(`/dashboard/${args.org}`, `/dashboard/${args.org}/orders`, `/kitchen/${args.org}`);
+    // Guest pages carry their restaurant's menu in the HTML (PCL-08, PERF-01): --slug <restaurant> [--qr <table token>].
+    if (args.slug) routes.push(`/r/${args.slug}`, `/order/${args.slug}`, `/m/${args.slug}`);
+    if (args.qr) routes.push(`/t/${args.qr}`);
+    const mask = (route) => route.replace(String(args.org ?? '\0'), '[orgId]').replace(String(args.slug ?? '\0'), '[slug]').replace(String(args.qr ?? '\0'), '[qr]');
     for (const route of routes) for (const locale of ['en', 'ar']) {
       const res = await fetch(WEB + route, { headers: { Cookie: `resuto_locale=${locale}`, 'Accept-Encoding': 'identity' }, redirect: 'manual' });
       const body = Buffer.from(await res.arrayBuffer());
       const budget = DOC_BUDGETS.find((b) => b.test(route));
       const gzKb = Math.round(gzipSync(body, { level: 9 }).length / 100) / 10;
-      docs.push({ route: route.replace(String(args.org ?? '\0'), '[orgId]'), locale, status: res.status, rawKb: Math.round(body.length / 100) / 10, gzipKb: gzKb,
+      docs.push({ route: mask(route), locale, status: res.status, rawKb: Math.round(body.length / 100) / 10, gzipKb: gzKb,
         group: budget.group, budgetKb: budget.kb, over: gzKb > budget.kb });
     }
     for (const d of docs) console.log(`${d.over ? 'OVER' : 'ok  '}  doc ${d.group.padEnd(6)} ${String(d.gzipKb).padStart(6)} kB gz (${d.rawKb} kB raw) / ${d.budgetKb} kB  ${d.locale} ${d.route} [${d.status}]`);

@@ -22,7 +22,9 @@
 .facts > div { display: contents; }
 
 .snippet { position: relative; }
+/* A ghost button on the dark code block: its label takes the code text colour (the default ghost grey is 2.5:1 there). */
 .snippetCopy { position: absolute; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); }
+.snippetCopy :global(.btn) { color: var(--code-text); }
 .url { font-size: 15px; word-break: break-all; }
 .safety { margin: 0; padding-inline-start: var(--space-5); gap: 6px; }
 

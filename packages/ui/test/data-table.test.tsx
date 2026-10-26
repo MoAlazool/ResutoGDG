@@ -19,6 +19,24 @@ const COLS: ColumnV2<Row>[] = [
 const names = (host: HTMLElement) => $$(host, 'tbody tr').map((tr) => tr.querySelector('th .dt-cell')?.textContent);
 
 describe('DataTableV2', () => {
+  it('makes a scrolling table without controls a focusable, named region (keyboard scrolling), and only then', () => {
+    const width = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth');
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', { configurable: true, get() { return this.classList.contains('rui-dt-scroll') ? 900 : 0; } });
+    try {
+      const plain = mount(<DataTableV2 label="Orders" rows={ROWS} columns={COLS.map((c) => ({ ...c, sort: undefined }))} rowKey={(r) => r.id} />);
+      const box = $(plain.host, '.rui-dt-scroll');
+      expect(box.getAttribute('tabindex')).toBe('0');
+      expect(box.getAttribute('role')).toBe('region');
+      expect(document.getElementById(box.getAttribute('aria-labelledby')!)?.textContent).toBe('Orders');
+      // Sort buttons in the header can take the focus and scroll the box: no extra tab stop.
+      const withButtons = mount(<DataTableV2 label="Orders" rows={ROWS} columns={COLS} rowKey={(r) => r.id} />);
+      expect($(withButtons.host, '.rui-dt-scroll').hasAttribute('tabindex')).toBe(false);
+    } finally {
+      if (width) Object.defineProperty(HTMLElement.prototype, 'scrollWidth', width);
+      else delete (HTMLElement.prototype as { scrollWidth?: number }).scrollWidth;
+    }
+  });
+
   it('names the table, marks the row header cell and keeps the mobile label/value markup', () => {
     const out = html(<DataTableV2 label="Orders" rows={ROWS} columns={COLS} rowKey={(r) => r.id} />);
     expect(out).toContain('<caption');

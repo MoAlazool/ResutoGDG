@@ -50,15 +50,19 @@ export function KitchenDemo({ L }: { L: Landing }) {
   const addOrder = () => setState((s) => { const o = make('received'); return { orders: [...s.orders, o], follow: o.n }; });
 
   // FLIP: remember where every card was, then glide each one to its new place.
-  const rects = useRef(new Map<number, DOMRect>());
+  // The first pass only records positions: the cards rendered with the page are already in place, and animating them
+  // in would run before the reduced-motion preference is known (it is read after mount) and would leave them at
+  // opacity 0 while the offscreen stage holds every animation (unreadable until the section scrolls into view).
+  const rects = useRef<Map<number, DOMRect> | null>(null);
   useLayoutEffect(() => {
     const box = boxRef.current;
     if (!box) return;
+    const before = rects.current;
     const now = new Map<number, DOMRect>();
     box.querySelectorAll<HTMLElement>('.kds-card').forEach((el) => {
-      const n = Number(el.dataset.n), b = el.getBoundingClientRect(), a = rects.current.get(n);
+      const n = Number(el.dataset.n), b = el.getBoundingClientRect(), a = before?.get(n);
       now.set(n, b);
-      if (reduced) return;
+      if (reduced || !before) return;
       if (!a) { el.animate([{ opacity: 0, transform: 'translateY(-14px) scale(.96)' }, { opacity: 1, transform: 'none' }], { duration: 420, easing: EASE.move }); return; }
       const dx = a.left - b.left, dy = a.top - b.top;
       if (dx || dy) el.animate([{ transform: `translate(${dx}px,${dy}px)`, zIndex: 3 }, { transform: 'none', zIndex: 3 }], { duration: 560, easing: EASE.move });
