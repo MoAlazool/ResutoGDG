@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { metadata } from '@/app/layout';
 import { APP_ORIGIN } from './app-origin';
-import { FONT_PRELOAD, PRIMARY_FONT } from './fonts';
+import { FONT_PRELOAD, PRIMARY_FONT, STAFF_FONTS } from './fonts';
 
 const web = fileURLToPath(new URL('../', import.meta.url));
 const css = readFileSync(`${web}app/globals.css`, 'utf8');
@@ -28,6 +28,17 @@ describe('primary font preload (REM-W03)', () => {
     expect(ar?.weight).toBe('600');
     // One file per locale, never the other locale's face.
     expect(new Set(Object.values(PRIMARY_FONT)).size).toBe(2);
+  });
+
+  it('preloads the Arabic staff body face (Plex Arabic Medium) on staff pages only, and it exists (22-TYPE)', () => {
+    expect(STAFF_FONTS.en).toEqual([]);
+    expect(STAFF_FONTS.ar).toHaveLength(1);
+    const medium = faces.find((f) => f.src === STAFF_FONTS.ar[0]);
+    expect(medium?.family).toBe('Plex Arabic');
+    expect(medium?.weight).toBe('500');
+    expect(existsSync(`${web}public${STAFF_FONTS.ar[0]}`)).toBe(true);
+    expect(STAFF_FONTS.ar).not.toContain(PRIMARY_FONT.ar);
+    expect(readFileSync(`${web}components/shell/StaffProviders.tsx`, 'utf8')).toMatch(/STAFF_FONTS\[locale\]/);
   });
 
   it('uses CORS mode, as font loads do', () => {

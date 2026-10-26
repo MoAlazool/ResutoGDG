@@ -24,10 +24,10 @@ export function tabAreas(areas: NavArea[]): NavArea[] {
  * Phone navigation (< 700 px, 21-SHELL): a bottom tab bar with up to four areas and "More", which opens the drawer
  * with the full navigation. Replaces the strip of 28 chips.
  */
-export function MobileTabBar({ areas, base, pathname, onMore, moreOpen }: { areas: NavArea[]; base: string; pathname: string; onMore(): void; moreOpen: boolean }) {
+export function MobileTabBar({ areas, base, pathname, search = '', onMore, moreOpen }: { areas: NavArea[]; base: string; pathname: string; search?: string; onMore(): void; moreOpen: boolean }) {
   const { t } = useT();
   const tabs = tabAreas(areas);
-  const current = activeItem(areas, relativePath(pathname, base));
+  const current = activeItem(areas, relativePath(pathname, base), search);
   const inTabs = !!current && tabs.some((a) => a.key === current.area.key);
   return (
     <nav className="ws-tabbar" aria-label={t('shell.mobileNav')}>

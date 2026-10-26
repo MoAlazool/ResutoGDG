@@ -63,9 +63,12 @@ export const AREAS: NavArea[] = [
   ] },
   { key: 'store', label: 'nav.area.store', icon: 'store', items: [
     { href: '/menu', label: 'nav.menu', module: 'core', permission: 'menu:read', free: true, shortcut: 'm', also: ['/menu-import'] },
+    // 22-TYPE: one name for the website builder ("Website studio", the page's own title is Website); /studio redirects here.
     { href: '/website', label: 'nav.studio', module: 'studio', permission: 'studio:read', free: true, freeLabel: 'nav.storeDesign' },
     { href: '/studio-media', label: 'nav.foodPhotos', module: 'studio', permission: 'studio:read' },
-    { href: '/floor?tab=qr', label: 'nav.qrCodes', module: 'core', permission: 'floor:write', free: true },
+    // The QR codes hub has its own route in this area (it used to open the floor's QR tab, which highlighted Operations
+    // and showed the front-of-house tabs). The floor keeps its "Table QR codes" tab for staff working on the floor.
+    { href: '/qr', label: 'nav.qrCodes', module: 'core', permission: 'floor:write', free: true },
     { href: '/website?tab=domains', label: 'nav.domains', module: 'studio', permission: 'studio:read' },
   ] },
   { key: 'customers', label: 'nav.area.customers', icon: 'customers', items: [
@@ -177,20 +180,34 @@ export function lockedItems(ctx: ShellContext): NavItem[] {
   return out;
 }
 
-/** Path of an item without its query ("/floor?tab=qr" → "/floor"). */
+/** Path of an item without its query ("/website?tab=domains" → "/website"). */
 export const itemPath = (href: string) => href.split('?')[0]!;
 
+/** The query of an item's href as pairs ("/website?tab=domains" → [["tab", "domains"]]). */
+const itemQuery = (href: string): Array<[string, string]> => {
+  const q = href.split('?')[1];
+  return q ? [...new URLSearchParams(q).entries()] : [];
+};
+
 /**
- * The item a path (relative to the restaurant, no query) belongs to: the item, or one of its sub-routes, whose route
- * is the longest prefix of the path. Items with a query (a tab of another item's page) never win over that item.
+ * The item a page belongs to: the item, or one of its sub-routes, whose route is the longest prefix of the path. An
+ * item with a query (a tab of a page, "/website?tab=domains") matches only when the current query has its parameters,
+ * and then wins over the item of the page itself; without them it never matches. `path` is relative to the restaurant
+ * and may carry the query ("/website?tab=domains"); `search` is the query of the current URL when `path` has none.
+ * At most one item is active for any URL (lib/shell.test.ts checks every item).
  */
-export function activeItem(areas: NavArea[], path: string): { area: NavArea; item: NavItem } | null {
+export function activeItem(areas: NavArea[], path: string, search = ''): { area: NavArea; item: NavItem } | null {
+  const [bare, inline] = path.split('?') as [string, string | undefined];
+  const params = new URLSearchParams(inline ?? search);
   let best: { area: NavArea; item: NavItem; len: number; exact: boolean } | null = null;
   const consider = (area: NavArea, item: NavItem, href: string, exact: boolean) => {
     const p = itemPath(href);
-    const hit = p === '' ? path === '' : path === p || path.startsWith(`${p}/`);
+    const hit = p === '' ? bare === '' : bare === p || bare.startsWith(`${p}/`);
     if (!hit) return;
-    const len = p.length + (href.includes('?') ? -0.5 : 0);
+    const query = itemQuery(href);
+    if (query.some(([k, v]) => params.get(k) !== v)) return;
+    // A matching query is more specific than the page alone, but never more than a longer path.
+    const len = p.length + (query.length ? 0.5 : 0);
     if (!best || len > best.len || (len === best.len && exact && !best.exact)) best = { area, item, len, exact };
   };
   for (const area of areas) {

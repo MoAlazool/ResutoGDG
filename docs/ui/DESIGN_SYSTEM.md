@@ -40,7 +40,7 @@ aliases for backgrounds (for example `.btn-primary` on `--ink`) need their 21-MI
 |---|---|---|---|
 | Page background | `--bg` | sand-50 `#faf9f5` | Guest pages and `body` |
 | Surfaces | `--surface-1` (cards, panels), `--surface-2` (table heads, input groups), `--surface-3` (app canvas, wells), `--surface-warm`, `--surface-hover`, `--surface-selected` | white, neutral-25, neutral-50, sand-100, neutral-50, neutral-100 | |
-| Text | `--text`, `--text-strong` (headings, brand ink), `--text-secondary`, `--text-muted` (AA 4.5:1 on every surface), `--text-subtle` (AA 4.5:1 since 21-A11Y: it labels small text such as eyebrows, captions and the profile line) | neutral-800, brand-800, neutral-700, neutral-600, neutral-600 (dark: neutral-450) | |
+| Text | `--text` (primary), `--text-strong` (headings, brand ink), `--text-secondary` (navigation, table headers, labels), `--text-muted` (helper text, subtitles, eyebrows, meta), `--text-subtle` (tertiary: timestamps, placeholders), `--text-disabled` (disabled controls only) | neutral-800 `#25382f`, brand-800, neutral-750 `#46554b`, neutral-650 `#5c655d`, neutral-600 `#666e66`, neutral-500 `#7f8982` (dark: neutral-300/400/450/500) | 22-TYPE: on the canvas 11.8 / 7.5 / 5.7 / 5.0 / 3.4:1. Secondary and muted were neutral-700/600 (6.1 and 5.0:1) and the navigation used muted |
 | Borders | `--border`, `--border-subtle`, `--border-strong` (3:1: control outlines, switch tracks) | neutral-150, neutral-100, neutral-500 | |
 | Accent | `--accent`, `--accent-hover`, `--accent-fg`, `--accent-soft`, `--accent-soft-fg` | brand-800 `#173f36` (the staff primary button), brand-600, white | The brand hue is unchanged |
 | Focus | `--focus`, `--focus-soft` | herb-600 `#4d8a3a` (3:1 on every surface) | Was `#9bc76a` (1.8:1) |
@@ -55,7 +55,14 @@ aliases for backgrounds (for example `.btn-primary` on `--ink`) need their 21-MI
   `--fs-4xl 30`, `--fs-5xl 36` (px). Arabic: +1 px at the body sizes (13/14/15/17) and `--lh-body` 1.6 (Latin 1.5);
   `--lh-heading` 1.3 (Arabic 1.45). Weights `--fw-regular/medium/semibold/bold`. Every number uses
   `font-variant-numeric: tabular-nums` (`.num`); Western digits are enforced by `lib/digits-policy.test.ts`. The older
-  `--t-xs…--t-field` scale (11.5–15 px) is kept verbatim for the pages that use it.
+  `--t-xs…--t-field` scale (12–15 px; Arabic 13–16.5 px since 22-TYPE) is kept for the staff pages that use it.
+- **Staff typography (22-TYPE):** staff text (`.ws`, `.ws-solo`) is Manrope 450 (a variable weight: 400 read thin at
+  12–14 px) and Plex Arabic 500; buttons and table headers semibold; Arabic page titles bold, section headings semibold.
+  The navigation has its own tokens: `--t-nav` / `--t-nav-sub` 14 / 13.5 px (Arabic 15.5 / 15 px), `--lh-nav` 1.4
+  (Arabic 1.5), `--fw-nav` 500, `--fw-nav-area` 600 (open or current area), `--fw-nav-active` 650 (Arabic 600: Plex
+  Arabic ships 400/500/600/700 faces only, all self-hosted, none synthesised). Small sizes go through tokens, never
+  fixed px, so the Arabic offsets apply. Arabic staff documents preload Plex Arabic Medium besides the SemiBold primary
+  file (`lib/fonts.ts`).
 - **Space:** a 4 px grid, `--space-1` (4 px) … `--space-12` (48 px). The pre-2.1 `--space-1…4` (8–32 px) had no users and
   now follow the grid.
 - **Radius:** `--radius-1` 6 px (controls, chips), `--radius-2` 10 px (panels, inputs, popovers), `--radius-3` 14 px
@@ -208,6 +215,10 @@ categorical palette), `DonutChart`, `FunnelChart`, `Heatmap`, `Sparkline`, `Fore
   properties in every `packages/ui/src` file; a genuinely physical value (an SVG x coordinate) carries `logical-exempt`.
 - Transforms do not flip by themselves: mirror them under `[dir='rtl']` (sheets, slide-ins, switch thumb, bar origin).
 - Arrow keys in horizontal groups follow the reading direction (`horizontalStep`, `isRtl`).
+- The staff sidebar (22-TYPE) is one component for both directions: grid columns `minmax(0, 1fr)` (an auto column let a
+  long Arabic label widen the list and the whole sidebar scrolled sideways), long page labels wrap, only the list
+  scrolls (vertically), the guide line and the active bar sit at the inline start, and the collapse icons mirror.
+  The logo is the public site's (`Wordmark`, `script="ar"` shows the Arabic logo image).
 - Phones, codes, shortcuts and Latin identifiers stay LTR (`PhoneInput`, `Kbd`, `Ltr`, `Phone`, `Code`); user text uses
   `UserText`/`<bdi>`.
 - Western digits everywhere: format through `@resuto/contracts` (`INTL_LOCALE`, `numberFormat`), never a raw `ar-*`

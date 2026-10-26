@@ -9,7 +9,10 @@
       "determinism": "two consecutive runs against the same baselines passed within 1 % (maxDiffPixelRatio 0.01)",
       "rerecordedAt": "2026-10-26",
       "rerecordedBy": "ws21-migrate agent (21-MIGRATE), pending owner review",
-      "rerecordNote": "21-MIGRATE re-recorded the six local baselines made stale by the 2.1 redesign (landing-ar-mobile, staff-overview-en, staff-floor-en, staff-orders-en, staff-settings-en, kds-en; 2.7–10.2 % of pixels changed; landing-ar-mobile-hero in landing.spec.ts 8.8 %) and added 15 staff surfaces (EN/AR × desktop/phone) with `E2E_VISUAL=1 pnpm e2e --project=visual --update-snapshots`; a second run without --update-snapshots passed 7/7. The other eight baselines were unchanged (within 1 %). Pending owner review."
+      "rerecordNote": "21-MIGRATE re-recorded the six local baselines made stale by the 2.1 redesign (landing-ar-mobile, staff-overview-en, staff-floor-en, staff-orders-en, staff-settings-en, kds-en; 2.7–10.2 % of pixels changed; landing-ar-mobile-hero in landing.spec.ts 8.8 %) and added 15 staff surfaces (EN/AR × desktop/phone) with `E2E_VISUAL=1 pnpm e2e --project=visual --update-snapshots`; a second run without --update-snapshots passed 7/7. The other eight baselines were unchanged (within 1 %). Pending owner review.",
+      "rerecorded22At": "2026-10-26",
+      "rerecorded22By": "ws22-type agent (22-TYPE), pending owner review",
+      "rerecorded22Note": "22-TYPE re-recorded the 18 local staff baselines changed by the bilingual typography and sidebar refinement (text tokens, nav type tokens, Arabic type offsets, the public-site logo in the shell, the rebuilt sidebar): staff-customers-ar-mobile, staff-customers-en, staff-floor-en, staff-loyalty-ar, staff-marketing-ar-mobile, staff-marketing-en, staff-mcp-en, staff-menu-ar, staff-menu-en, staff-orders-ar-mobile, staff-orders-en, staff-overview-ar-mobile, staff-overview-ar, staff-overview-en-mobile, staff-overview-en, staff-payments-en, staff-settings-ar, staff-settings-en. Recorded with `E2E_VISUAL=1 pnpm e2e --project=visual -g staff --update-snapshots`; a second run without --update-snapshots passed 2/2. kds-en and the public/guest baselines were unchanged. Pending owner review."
     },
     "docker": {
       "status": "not yet recorded",
@@ -100,6 +103,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded 2026-10-26 by the ws21-migrate agent (21-MIGRATE) after the 2.1 redesign, local environment; pending owner review (not approved)."
+      },
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
       }
     },
     {
@@ -114,6 +124,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded 2026-10-26 by the ws21-migrate agent (21-MIGRATE) after the 2.1 redesign, local environment; pending owner review (not approved)."
+      },
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
       }
     },
     {
@@ -128,6 +145,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded 2026-10-26 by the ws21-migrate agent (21-MIGRATE) after the 2.1 redesign, local environment; pending owner review (not approved)."
+      },
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
       }
     },
     {
@@ -142,6 +166,13 @@
         "environment": "local",
         "status": "pending owner review",
         "note": "Re-recorded 2026-10-26 by the ws21-migrate agent (21-MIGRATE) after the 2.1 redesign, local environment; pending owner review (not approved)."
+      },
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
       }
     },
     {
@@ -166,7 +197,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-menu-en",
@@ -176,7 +214,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-menu-ar",
@@ -186,7 +231,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-inbox-en",
@@ -206,7 +258,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-payments-en",
@@ -216,7 +275,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-marketing-en",
@@ -226,7 +292,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-loyalty-ar",
@@ -236,7 +309,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-mcp-en",
@@ -246,7 +326,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-settings-ar",
@@ -256,7 +343,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-overview-en-mobile",
@@ -266,7 +360,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-overview-ar-mobile",
@@ -276,7 +377,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-orders-ar-mobile",
@@ -286,7 +394,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-customers-ar-mobile",
@@ -296,7 +411,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     },
     {
       "surface": "staff-marketing-ar-mobile",
@@ -306,7 +428,14 @@
       "recordedBy": "ws21-migrate agent",
       "recordedAt": "2026-10-26",
       "environment": "local",
-      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved."
+      "notes": "2.1 staff screen on the page templates (21-MIGRATE); no legacy counterpart. Recorded by the agent, pending owner review — not approved.",
+      "rerecorded22": {
+        "at": "2026-10-26",
+        "by": "ws22-type agent",
+        "environment": "local",
+        "status": "pending owner review",
+        "note": "Re-recorded by 22-TYPE (staff typography tokens and the rebuilt sidebar, the public-site logo); pending owner review (not approved)."
+      }
     }
   ]
 }
