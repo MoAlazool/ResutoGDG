@@ -157,3 +157,86 @@ test('the old Channels and Templates tabs lead to Settings › Messaging', async
     await context.close();
   }
 });
+
+// 22-INTINBOX: the workspace is exactly the viewport. With a busy inbox (30 conversations, an 80-message thread in
+// Arabic and English) the document never scrolls on a desktop; the list, the thread and the customer pane scroll on
+// their own; the thread header and the composer stay in view whatever the thread's scroll position. On a phone the
+// panes come one at a time (list → thread → customer) with the composer still in view.
+test('full-height workspace: no document scroll, independent pane scroll, composer always in view', async ({ browser, request }) => {
+  const busy = await apiCreateTenant(request, { planId: 'pro' });
+  const api = apiAs(request, busy.owner);
+  const channel = await api.post(`/o/${busy.orgId}/connect/channels`, { transport: 'sandbox', displayName: 'WhatsApp sandbox', orderingEnabled: false });
+  const say = (from: string, name: string, text: string) => api.post(`/o/${busy.orgId}/connect/sandbox/inbound`, { channelId: channel.id, from, name, text });
+  for (let i = 0; i < 30; i++) await say(`+2010055${String(10000 + i)}`, i % 2 ? `ضيف ${i}` : `Guest ${i}`, i % 2 ? 'هل التراس مفتوح الليلة؟' : 'Is the terrace open tonight?');
+  let long = '';
+  for (let i = 0; i < 80; i++) long = (await say('+201005599999', 'Salma Farouk', i % 3 === 0 ? `رسالة رقم ${i}: عايزة أحجز ترابيزة لـ 6 الساعة 9` : `Message ${i}: can we bring our own cake? Mixed نص عربي too`)).conversationId;
+
+  const measure = (page: Page) => page.evaluate(() => {
+    const box = (sel: string) => { const e = document.querySelector(sel)!; const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, sh: e.scrollHeight, ch: e.clientHeight, oy: getComputedStyle(e).overflowY }; };
+    return { doc: document.documentElement.scrollHeight, vh: window.innerHeight, scrollY: window.scrollY, list: box('.inbox-list-scroll'), thread: box('.thread'), composer: box('form.composer'), head: box('.thread-head') };
+  });
+
+  const { context, page } = await newContext(browser, { user: busy.owner });
+  const errors = collectErrors(page);
+  try {
+    await page.goto(`/dashboard/${busy.orgId}/inbox?c=${long}`);
+    await expect(page.locator('.thread .msg').first()).toBeVisible({ timeout: 20_000 });
+    expect(await page.locator('.thread .msg').count()).toBeGreaterThanOrEqual(80);
+    let m = await measure(page);
+    expect(m.doc, 'the document is exactly the viewport').toBeLessThanOrEqual(m.vh);
+    expect(m.list.sh, 'the list scrolls inside its pane').toBeGreaterThan(m.list.ch);
+    expect(m.thread.sh, 'the thread scrolls inside its pane').toBeGreaterThan(m.thread.ch);
+    expect([m.list.oy, m.thread.oy]).toEqual(['auto', 'auto']);
+    expect(m.composer.bottom).toBeLessThanOrEqual(m.vh);
+    // Scroll the thread to its start, then the list to its end: the page itself never moves, header and composer stay.
+    await page.locator('.thread').evaluate((e) => { e.scrollTop = 0; });
+    await page.locator('.inbox-list-scroll').evaluate((e) => { e.scrollTop = e.scrollHeight; });
+    await page.mouse.move(700, 500);
+    await page.mouse.wheel(0, 4000);
+    m = await measure(page);
+    expect(m.scrollY).toBe(0);
+    expect(m.head.top).toBeGreaterThanOrEqual(0);
+    expect(m.composer.top).toBeGreaterThan(m.thread.top);
+    expect(m.composer.bottom).toBeLessThanOrEqual(m.vh);
+    await expect(page.locator('form.composer textarea')).toBeInViewport();
+    // The customer pane scrolls on its own too, and can be hidden to give the thread the room.
+    expect(await page.locator('.rui-workspace-end').evaluate((e) => getComputedStyle(e).overflowY)).toBe('auto');
+    await page.getByRole('button', { name: 'Customer details' }).click();
+    await expect(page.locator('.rui-workspace-end')).toBeHidden();
+    await page.getByRole('button', { name: 'Customer details' }).click();
+    await expect(page.locator('.rui-workspace-end')).toBeVisible();
+    // Keyboard triage still works in the full-height layout.
+    await page.locator('body').press('j');
+    await expect(page.locator('.thread-name')).not.toHaveText('Salma Farouk');
+    await page.locator('body').press('k');
+    await expect(page.locator('.thread-name')).toHaveText('Salma Farouk');
+    // Mixed-direction text keeps its own direction per message.
+    await expect(page.locator('.thread .msg-bubble').first()).toHaveAttribute('dir', 'auto');
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+
+  const phone = await newContext(browser, { user: busy.owner, mobile: true });
+  try {
+    await phone.page.goto(`/dashboard/${busy.orgId}/inbox`);
+    await expect(phone.page.locator('.inbox-row').first()).toBeVisible({ timeout: 20_000 });
+    let m = await phone.page.evaluate(() => ({ doc: document.documentElement.scrollHeight, vh: window.innerHeight }));
+    expect(m.doc).toBeLessThanOrEqual(m.vh);
+    await phone.page.locator(`[data-conversation="${long}"]`).click();
+    await expect(phone.page.locator('.thread .msg').first()).toBeVisible();
+    await expect(phone.page.locator('.inbox-list')).toBeHidden();
+    await expect(phone.page.locator('form.composer textarea')).toBeInViewport();
+    m = await phone.page.evaluate(() => ({ doc: document.documentElement.scrollHeight, vh: window.innerHeight }));
+    expect(m.doc).toBeLessThanOrEqual(m.vh);
+    await phone.page.getByRole('button', { name: 'Customer details' }).click();
+    await expect(phone.page.locator('.rui-workspace-end')).toBeVisible();
+    await expect(phone.page.locator('.thread')).toBeHidden();
+    await phone.page.getByRole('button', { name: 'Back to the conversation' }).click();
+    await expect(phone.page.locator('.thread')).toBeVisible();
+    await phone.page.getByRole('button', { name: 'Conversations' }).click();
+    await expect(phone.page.locator('.inbox-list')).toBeVisible();
+  } finally {
+    await phone.context.close();
+  }
+});

@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Badge, EmptyState, Notice, ProviderLogo, Skeleton } from '@resuto/ui';
+import { Badge, EmptyState, Notice, ProviderLogo } from '@resuto/ui';
 import { formatElapsedMs, formatWhen } from '@/lib/format';
 import { useT } from '@/lib/i18n/client';
-import { INBOX_VIEW_KEYS, scrollToRow, slaTone, virtualWindow, waitingSince, type InboxFilters } from '@/lib/inbox';
+import { DEFAULT_FILTERS, INBOX_VIEW_KEYS, scrollToRow, slaTone, virtualWindow, waitingSince, type InboxFilters } from '@/lib/inbox';
+import { Avatar } from './Avatar';
 import { guestKey, providerOf, type Channel, type ConvItem, type ConversationTag } from './types';
 
 /** Fixed row height of the virtualised list (px): three lines plus padding, and a ≥ 44 px target. */
@@ -68,9 +69,9 @@ export function ConversationList(props: ConversationListProps) {
   return (
     <div className="inbox-list">
       <div className="inbox-filters">
-        <input className="input" type="search" placeholder={t('connect.inbox.search')} aria-label={t('connect.inbox.search')} value={filters.q}
+        <input className="input inbox-search" type="search" placeholder={t('connect.inbox.search')} aria-label={t('connect.inbox.search')} value={filters.q}
           onChange={(e) => set({ q: e.target.value })} maxLength={80} />
-        <div className="inbox-chips" data-wrap="" role="group" aria-label={t('connect.ws.views')}>
+        <div className="inbox-chips" role="group" aria-label={t('connect.ws.views')}>
           {INBOX_VIEW_KEYS.map((k) => (
             <button key={k} type="button" className="inbox-chip" aria-pressed={filters.view === k} onClick={() => set({ view: k })}>{viewLabel(k)}</button>
           ))}
@@ -79,8 +80,8 @@ export function ConversationList(props: ConversationListProps) {
           <div className="inbox-chips" role="group" aria-label={t('connect.ws.channels')}>
             <button type="button" className="inbox-chip" aria-pressed={!filters.channelId} onClick={() => set({ channelId: null })}>{t('connect.ws.allChannels')}</button>
             {channels.map((c) => (
-              <button key={c.id} type="button" className="inbox-chip" aria-pressed={filters.channelId === c.id} onClick={() => set({ channelId: c.id })}>
-                <ProviderLogo provider={providerOf(c.kind)} size={16} decorative /><bdi>{c.displayName}</bdi>
+              <button key={c.id} type="button" className="inbox-chip inbox-chip-channel" aria-pressed={filters.channelId === c.id} onClick={() => set({ channelId: c.id })} title={c.displayName}>
+                <ProviderLogo provider={providerOf(c.kind)} size={16} decorative /><bdi className="inbox-chip-text">{c.displayName}</bdi>
                 {c.sandbox && <span className="inbox-chip-note">{t('connect.sandbox.badge')}</span>}
               </button>
             ))}
@@ -94,13 +95,15 @@ export function ConversationList(props: ConversationListProps) {
             </select>
           )}
           <button type="button" className="inbox-chip" aria-pressed={filters.unread} onClick={() => set({ unread: !filters.unread })}>{t('connect.inbox.unread')}</button>
+          {items.length > 0 && <span className="inbox-count num" aria-live="polite">{items.length}{hasMore ? '+' : ''}</span>}
         </div>
       </div>
       {error && <div className="inbox-pad"><Notice tone="danger">{error}</Notice></div>}
-      {loading && !items.length && <div className="inbox-pad"><Skeleton lines={6} /></div>}
+      {loading && !items.length && <ListSkeleton />}
       {!loading && !error && items.length === 0 && (
-        <div className="inbox-pad">{filtered
-          ? <EmptyState title={t('connect.ws.emptyView')}>{t('connect.ws.emptyViewBody')}</EmptyState>
+        <div className="inbox-pad inbox-list-empty">{filtered
+          ? <EmptyState title={t('connect.ws.emptyView')}>{t('connect.ws.emptyViewBody')}
+            <div className="mbs-12"><button type="button" className="btn btn-sm" onClick={() => onFilters(DEFAULT_FILTERS)}>{t('connect.ws.clearFilters')}</button></div></EmptyState>
           : <EmptyState title={t('connect.inbox.empty')}>{t('connect.inbox.emptyBody')}</EmptyState>}</div>
       )}
       <div ref={scroller} className="inbox-list-scroll" onScroll={(e) => setView({ top: e.currentTarget.scrollTop, height: e.currentTarget.clientHeight })}>
@@ -133,26 +136,44 @@ function Row({ c, index, count, selected, onSelect, timeZone, now, locale, t }: 
   return (
     <li className="inbox-row" aria-posinset={index + 1} aria-setsize={count}>
       <button type="button" className="inbox-row-btn" data-conversation={c.id} aria-current={selected || undefined} onClick={() => onSelect(c.id)}
-        data-unread={c.unreadCount > 0 || undefined}>
-        <span className="inbox-row-line">
-          <ProviderLogo provider={providerOf(c.channelKind)} size={16} alt={c.channelName} />
-          <strong className="inbox-row-name"><bdi>{name}</bdi></strong>
-          <span className="inbox-row-time num">{formatWhen(c.lastMessageAt, locale, timeZone, now)}</span>
-        </span>
-        <span className="inbox-row-preview">
-          {c.lastMessage ? <>{c.lastMessage.direction === 'outbound' && <span className="inbox-row-you">{t('connect.ws.you')} </span>}<bdi>{c.lastMessage.body ?? t('connect.inbox.unsupported')}</bdi></> : ' '}
-        </span>
-        <span className="inbox-row-line inbox-row-badges">
-          {c.unreadCount > 0 && <Badge tone="ok"><span className="num">{c.unreadCount}</span><span className="sr-only"> {t('connect.inbox.unread')}</span></Badge>}
-          {waited !== null && <span className="inbox-sla" data-tone={slaTone(waited)} title={t('connect.ws.waitingFor', { time: formatElapsedMs(waited, locale) })}>
-            <span className="sr-only">{t('connect.ws.waiting')} </span><span className="num">{formatElapsedMs(waited, locale)}</span></span>}
-          {c.status === 'handoff' && <Badge tone="warn">{t('connect.status.handoff')}</Badge>}
-          {c.orderingStep && <Badge tone="info">{t('connect.ws.ordering')}</Badge>}
-          {c.lead && <Badge>{t('connect.ws.lead')}</Badge>}
-          {c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
-          {c.tags.slice(0, 2).map((tg) => <span key={tg.id} className="inbox-tag" data-color={tg.color}><bdi>{tg.name}</bdi></span>)}
+        data-unread={c.unreadCount > 0 || undefined} data-status={c.status}>
+        <Avatar name={name} kind={c.channelKind} channelName={c.channelName} />
+        <span className="inbox-row-body">
+          <span className="inbox-row-line">
+            <strong className="inbox-row-name"><bdi>{name}</bdi></strong>
+            <span className="inbox-row-time num">{formatWhen(c.lastMessageAt, locale, timeZone, now)}</span>
+          </span>
+          <span className="inbox-row-line">
+            <span className="inbox-row-preview">
+              {c.lastMessage ? <>{c.lastMessage.direction === 'outbound' && <span className="inbox-row-you">{t('connect.ws.you')} </span>}<bdi>{c.lastMessage.body ?? t('connect.inbox.unsupported')}</bdi></> : ' '}
+            </span>
+            {c.unreadCount > 0 && <span className="inbox-unread"><span className="num">{c.unreadCount}</span><span className="sr-only"> {t('connect.inbox.unread')}</span></span>}
+          </span>
+          <span className="inbox-row-line inbox-row-badges">
+            {waited !== null && <span className="inbox-sla" data-tone={slaTone(waited)} title={t('connect.ws.waitingFor', { time: formatElapsedMs(waited, locale) })}>
+              <span className="sr-only">{t('connect.ws.waiting')} </span><span className="num">{formatElapsedMs(waited, locale)}</span></span>}
+            {c.status === 'handoff' && <Badge tone="warn">{t('connect.status.handoff')}</Badge>}
+            {c.status === 'closed' && <Badge>{t('connect.status.closed')}</Badge>}
+            {c.orderingStep && <Badge tone="info">{t('connect.ws.ordering')}</Badge>}
+            {c.lead && <Badge>{t('connect.ws.lead')}</Badge>}
+            {c.sandbox && <Badge tone="sandbox">{t('connect.sandbox.badge')}</Badge>}
+            {c.tags.slice(0, 2).map((tg) => <span key={tg.id} className="inbox-tag" data-color={tg.color}><bdi>{tg.name}</bdi></span>)}
+            {c.tags.length > 2 && <span className="inbox-tag-more num">+{c.tags.length - 2}</span>}
+          </span>
         </span>
       </button>
     </li>
+  );
+}
+
+/** Placeholder rows in the list's own geometry while the first page loads. */
+function ListSkeleton() {
+  return (
+    <ul className="inbox-rows inbox-skeleton" aria-hidden="true">
+      {Array.from({ length: 7 }, (_, i) => (
+        <li key={i} className="inbox-row"><span className="inbox-row-btn"><span className="inbox-avatar skeleton" />
+          <span className="inbox-row-body"><span className="skeleton inbox-skel-line" /><span className="skeleton inbox-skel-line" data-short="" /></span></span></li>
+      ))}
+    </ul>
   );
 }

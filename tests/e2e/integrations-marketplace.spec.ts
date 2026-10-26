@@ -41,6 +41,29 @@ test('marketplace: category filter, search and honest chips', async ({ browser }
   await page.getByRole('searchbox', { name: 'Search integrations' }).fill('whatsapp');
   await expect(grid.locator('[data-card="whatsapp_cloud"]')).toBeVisible();
   await expect(grid.locator('[data-card="foodics"]')).toHaveCount(0);
+
+  // 22-INTINBOX: search by capability, a status filter with counts, readable chips, one card size per row.
+  await page.getByRole('searchbox', { name: 'Search integrations' }).fill('refunds');
+  await expect(grid.locator('[data-card="paymob"]')).toBeVisible();
+  await expect(grid.locator('[data-card="whatsapp_cloud"]')).toHaveCount(0);
+  await page.getByRole('searchbox', { name: 'Search integrations' }).fill('');
+  const status = page.getByRole('group', { name: 'Status' });
+  await expect(status.getByRole('button', { name: 'Any status', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(status.locator('[data-status-filter="needs_attention"]')).toContainText('1');
+  await status.getByRole('button', { name: 'Needs attention', exact: true }).click();
+  await expect(grid.locator('[data-card]')).toHaveCount(1);
+  await expect(grid.locator('[data-card="gemini_byok"]')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Active filters' })).toContainText('Needs attention');
+  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(status.getByRole('button', { name: 'Any status', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(grid.locator('[data-card="meta_ads"]')).toBeVisible();
+  const chip = grid.locator('[data-card="stripe"] [data-status="not_available"]');
+  await expect(chip).toHaveText('Not yet available');
+  expect(await chip.evaluate((e) => parseFloat(getComputedStyle(e).fontSize))).toBeGreaterThanOrEqual(13);
+  const heights = await grid.locator('[data-card]').evaluateAll((els) => els.slice(0, 6).map((e) => Math.round(e.getBoundingClientRect().height)));
+  expect(new Set(heights.slice(0, 3)).size, `first row card heights ${heights}`).toBe(1);
+  const logos = await grid.locator('[data-card] > span:first-child > span:first-child').evaluateAll((els) => els.map((e) => `${Math.round(e.getBoundingClientRect().width)}x${Math.round(e.getBoundingClientRect().height)}`));
+  expect(new Set(logos), 'one logo box size').toEqual(new Set(['48x48']));
   expect(errors).toEqual([]);
   await context.close();
 });
