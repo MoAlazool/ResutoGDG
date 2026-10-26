@@ -213,7 +213,7 @@ export function DashboardShell({ orgId, children }: { orgId: string; children: R
         <aside className="ws-sidebar" aria-label={t('shell.nav')}>
           <div className="ws-sidebar-head">
             <div className="ws-brand-row">
-              <Link className="ws-brand" href={base} aria-label={t('app.name')}><Wordmark label={t('app.name')} size={collapsed ? 'sm' : 'md'} /></Link>
+              <Link className="ws-brand" href={base} aria-label={t('app.name')}><Wordmark label={t('app.name')} size={collapsed ? 'sm' : 'md'} script={locale === 'ar' ? 'ar' : 'latin'} /></Link>
               <button type="button" className="ws-icon-btn ws-collapse" onClick={toggleCollapsed} aria-pressed={collapsed}
                 aria-label={collapsed ? t('shell.expand') : t('shell.collapse')} title={collapsed ? t('shell.expand') : t('shell.collapse')}>
                 <UiIcon name={collapsed ? 'expand' : 'collapse'} />

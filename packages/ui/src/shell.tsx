@@ -8,16 +8,27 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 // data and permissions stay in the app (components/shell/DashboardShell.tsx).
 
 /**
- * The Resuto wordmark: italic "r" tile, "resuto" and the lime period. It is Latin in both languages and is laid
- * out left-to-right even in Arabic pages, so the period always follows the word (the legacy RTL page put it on the
- * wrong side).
+ * The Resuto wordmark, as the public site draws it (components/landing/Chrome.tsx, landing.css .lp-logo): the italic
+ * "r" tile, "resuto" and the herb period. The Latin wordmark is laid out left-to-right even in Arabic pages, so the
+ * period always follows the word. With `script="ar"` (Arabic staff pages, 22-TYPE) it is the public site's Arabic logo
+ * (/brand/resuto-arabic-logo.webp, "ريسوتو"); the "r" tile alone stands in for it where only the mark fits (the
+ * collapsed sidebar).
  */
-export function Wordmark({ size = 'md', tone = 'ink', label = 'Resuto' }: { size?: 'sm' | 'md' | 'lg'; tone?: 'ink' | 'light'; label?: string }) {
+export function Wordmark({ size = 'md', tone = 'ink', label = 'Resuto', script = 'latin' }: {
+  size?: 'sm' | 'md' | 'lg'; tone?: 'ink' | 'light'; label?: string; script?: 'latin' | 'ar';
+}) {
+  if (script === 'ar' && tone === 'ink') {
+    return (
+      <span className="ws-wordmark" data-size={size} data-script="ar" role="img" aria-label={label}>
+        <img className="ws-wordmark-ar" src="/brand/resuto-arabic-logo.webp" alt="" width={308} height={96} decoding="async" />
+        <span className="ws-wordmark-mark" aria-hidden="true">r</span>
+      </span>
+    );
+  }
   return (
     <span className="ws-wordmark" data-size={size} data-tone={tone} dir="ltr" role="img" aria-label={label}>
       <span className="ws-wordmark-mark" aria-hidden="true">r</span>
-      <span aria-hidden="true">resuto</span>
-      <span className="ws-wordmark-period" aria-hidden="true">.</span>
+      <span className="ws-wordmark-type" aria-hidden="true">resuto<span className="ws-wordmark-period">.</span></span>
     </span>
   );
 }

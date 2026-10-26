@@ -40,6 +40,8 @@ const ROOTS = [
   'apps/web/app/pay/[token]/_ui/receipt.css', 'apps/web/app/driver/driver.module.css',
   'apps/web/app/dashboard/[orgId]/approvals', 'apps/web/app/dashboard/[orgId]/explore', 'apps/web/app/dashboard/[orgId]/integrations',
   'apps/web/app/dashboard/[orgId]/setup', 'apps/web/components/charts',
+  // 22-TYPE: the staff shell (sidebar, drawer, tab bar, palette) and the QR codes hub.
+  'apps/web/components/shell', 'apps/web/app/dashboard/[orgId]/qr',
 ];
 const SKIP = [/tokens\.css$/];
 const repo = join(__dirname, '..', '..', '..');
