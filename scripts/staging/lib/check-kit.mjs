@@ -135,7 +135,7 @@ export function pngBytes(dataUrl) {
 }
 
 /** Capability tokens or secrets that must never appear in a public response. */
-const LEAKS = [/sb_secret_/i, /service_role/i, /encrypted_password/, /postgres(ql)?:\/\//i, /"qrToken"|qr_token/i, /sessionToken|visitToken/i, /rmcp_[A-Za-z0-9]/];
+const LEAKS = [/sb_secret_/i, /service_role/i, /encrypted_password/, /postgres(ql)?:\/\//i, /"qrToken"|qr_token/i, /sessionToken|visitToken/i, /rmcp_[A-Za-z0-9]/, /rpos_[A-Za-z0-9]/];
 export const leaks = (text) => LEAKS.filter((re) => re.test(String(text ?? ''))).map(String);
 
 /** Missing entries of `expected` in `actual`, counting repeats (audit actions may legitimately repeat). */
@@ -149,9 +149,34 @@ export function missingInOrder(actual, expected) {
   return missing;
 }
 
+/**
+ * Applies one page of the POS event feed (GET /v1/pos/events) the way the iPad app must (IPAD_INTEGRATION.md §5):
+ * the epoch stays the same, events at or below the last applied seq are duplicates (at-least-once delivery) and are
+ * skipped, and every new event is exactly the last applied seq + 1. Returns the new state, the fresh events and the
+ * first problem (a changed epoch or a gap means "resync"), without mutating the input.
+ */
+export function applyFeedPage(state, page) {
+  const s = { epoch: state.epoch ?? null, lastSeq: state.lastSeq ?? 0 };
+  if (!page || !Array.isArray(page.events)) return { state: s, fresh: [], problem: 'not an event page' };
+  if (s.epoch !== null && page.epoch !== s.epoch) return { state: s, fresh: [], problem: `epoch changed (${s.epoch} → ${page.epoch})` };
+  s.epoch = page.epoch;
+  const fresh = [];
+  for (const e of page.events) {
+    if (e.seq <= s.lastSeq) continue;
+    if (e.seq !== s.lastSeq + 1) return { state: s, fresh, problem: `gap: seq ${e.seq} after ${s.lastSeq}` };
+    s.lastSeq = e.seq;
+    fresh.push(e);
+  }
+  return { state: s, fresh, problem: null };
+}
+
+/** Whether an HTTP result is the contract's error envelope with this status and code. */
+export const isError = (r, status, code) => r?.status === status && r?.body?.error?.code === code;
+
 /** Replaces anything that looks like a credential in a detail string before it is printed. */
 export const redact = (s) => String(s ?? '')
   .replace(/rmcp_[A-Za-z0-9_-]+/g, 'rmcp_…')
+  .replace(/rpos_[A-Za-z0-9_-]+/g, 'rpos_…')
   .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+/g, '<jwt>')
   .replace(/sb_(secret|publishable)_[A-Za-z0-9_-]+/g, 'sb_$1_…');
 

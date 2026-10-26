@@ -233,12 +233,12 @@ If the database is unreachable both paths keep counting in memory (fail open, lo
    above, enable **Vercel Authentication for all deployments**, deploy the branch, and confirm an
    anonymous request is redirected to Vercel login.
 5. Verify: `node scripts/staging/smoke.mjs`, `node scripts/staging/mcp-check.mjs` and
-   `node scripts/staging/browser-check.mjs` (environment variables listed at the top of each script), then the two
-   flow checks below (`eid-check.mjs`, `onboarding-check.mjs`).
+   `node scripts/staging/browser-check.mjs` (environment variables listed at the top of each script), then the three
+   flow checks below (`eid-check.mjs`, `onboarding-check.mjs`, `pos-check.mjs`).
 
-## Flow checks: the "Eid offers" change set and the Free onboarding (2.1, plan §12.3)
+## Flow checks: the "Eid offers" change set, the Free onboarding and the POS device API (2.1, plan §12.3)
 
-Two scripts that write labelled test data, so they refuse any host that is not loopback or does not name itself staging
+Three scripts that write labelled test data, so they refuse any host that is not loopback or does not name itself staging
 (`staging`/`stg` in the host name; `ALLOW_NON_STAGING=1` overrides). Rows print as `✓` passed, `✗` failed, `⊘` blocked
 (the step could not run here; the reason is printed, nothing is faked) and `·` notes. Exit code **0** all passed,
 **1** a check failed, **3** nothing failed but a step was blocked, **2** missing configuration. Both print the deployed
@@ -325,7 +325,57 @@ Local stack: `AUTH_MODE=local API_URL=http://127.0.0.1:4681 WEB_URL=http://local
 (the development issuer signs up without confirmation and has no account lifecycle, so the account stays in the
 local database).
 
-**Local stack used to verify both** (from a worktree): migrate a fresh database
+### `scripts/staging/pos-check.mjs`
+
+The POS device API 0.2.0 (`docs/api/IPAD_INTEGRATION.md` §4, §5, §8) with a **simulated iPad** (a scripted HTTP client,
+as `tests/e2e/pos-ipad.spec.ts` does locally) on a **dedicated test tenant, never the demo restaurant**. Each step is a
+row: the owner pairs a staff-only (`requireStaff`) waiter iPad for branch A (code → `rpos_` credential) → `GET
+/v1/pos/session` works and returns only the credential's prefix → without `X-Resuto-Staff-Authorization` every other
+route is `401 pos_staff_required`, a malformed staff header `401 unauthorized`, and the credential on a staff route
+`403 pos_device_only` → the waiter signs in on the iPad (staff on the session, waiter ∩ waiter permissions) → menu,
+floor and orders sync with cursors (`unchanged: true` / `mode: delta`) → quote, submit with a `clientOrderId` (201,
+channel `pos`), replay (same order, `Idempotent-Replayed: true`), the same id with another body (`409
+client_order_id_reused`), `GET /v1/pos/orders/by-client-id/:id` (accepted; unknown → 404) → the event feed applied as
+the app must (dedupe by `seq`, each new event exactly the last `seq` + 1, same epoch) → a kitchen iPad: the waiter there
+gets waiter ∩ kitchen permissions and cannot submit (403 `forbidden`) → the kitchen bumps the order from the **staff
+API**: the device's long-poll (`wait=10`) delivers `ticket.status_changed` and the orders delta shows `preparing` → a
+second bump while the device is "offline", then it resumes from its last `seq`; re-reading applies nothing twice; a
+foreign epoch is `409 resync_required` → a branch price change while the device was offline: `409 pos_price_changed`
+with per-line details and nothing created, then the reviewed resubmit of the same `clientOrderId` is 201 → a stale
+`version` is `409 stale_order` → cash payment with a `clientPaymentId` (paid; the replay returns the same payment;
+`payment.captured` in the feed) → a branch-B device gets 404 on branch A's order (read, pay, reconcile) and the
+A-scoped waiter on it is `403 pos_staff_not_allowed` → cleanup → every device of the run revoked, then `401
+device_revoked`.
+
+Contract notes: a waiter on a **cashier** device *can* take payment (both roles hold `payments:collect`), so the
+intersection is shown with the kitchen device; a device of another branch answers **404** (not 403) for that branch's
+orders, as the contract says.
+
+| Variable | Staging | Notes |
+|---|---|---|
+| `API_URL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | required | |
+| `STAGING_CHECK_EMAIL`, `STAGING_CHECK_PASSWORD` | required | the same dedicated owner account as `eid-check.mjs` (it owns at most 10 restaurants across both checks) |
+| `STAGING_CHECK_STAFF_EMAIL`, `STAGING_CHECK_STAFF_PASSWORD` | required | a second dedicated account (not a demo account), created once like the owner, or by the check when `SUPABASE_SERVICE_ROLE_KEY` is set. The owner invites it as a **waiter scoped to branch A** (invitation link, no email) and it accepts through the API |
+| `STAGING_CHECK_TOTP_SECRET` | optional | only if the owner enrolled an authenticator: inviting or re-scoping a member needs aal2 (pairing does not). Without it those steps are **blocked** |
+| `SUPABASE_SERVICE_ROLE_KEY` | optional | only to create the two dedicated accounts on first use |
+| `POS_TENANT_PREFIX` (`stg-check-pos`), `POS_PLAN` (`pro`) | optional | |
+
+**Data it creates and keeps:** the waiter account; one restaurant `stg-check-pos-<yyyymmddhhmm>-<hex>` ("Staging check:
+POS (test data)") on a 14-day paid trial with branch A ("POS check branch A (test)") and branch B ("POS check branch B
+(test)"), a category "POS check (test data)" with two "(test)" dishes, a floor with table T1, and the waiter's
+membership. It is reused while the trial is live, as for the Eid tenant. Per run, kept as history: two pickup orders
+named "staging POS check (test)" (one paid in cash and handed over, one cancelled), their kitchen tickets, print jobs
+and event-feed rows, one cash payment in that tenant's ledger and analytics, and three revoked devices ("Staging check
+… <run>"). **Cleanup per run:** the branch price override is removed right after the conflict step (and at the start of
+the next run if a run stopped there), the paid order is moved to `picked_up` (no longer open), the unpaid order is
+cancelled through the staff route (devices have no `orders:cancel`), and every device paired in the run is revoked
+(checked: `401 device_revoked`). Pairing is limited to 30 codes per address per 10 minutes; a run uses 3.
+
+Local stack: `AUTH_MODE=local API_URL=http://127.0.0.1:4681 node scripts/staging/pos-check.mjs` (the owner
+`stg-check-pos-owner@example.test` and the waiter `stg-check-pos-waiter@example.test` are created on first use; the
+`STAGING_CHECK_*` variables override them). Only the API (+ worker) is needed.
+
+**Local stack used to verify them** (from a worktree): migrate a fresh database
 (`scripts/db/ensure-db.mjs` + `scripts/db/migrate.mjs`, as `tests/e2e/start-api.mjs` does), build the API
 (`tsc -p tsconfig.build.json`) and run `dist/main.js` + `dist/worker.js` with `NODE_ENV=development AUTH_DEV_MODE=true`
 and a 32+ character `SUPABASE_JWT_SECRET`; build the MCP server and run it with `MCP_PORT`, `RESUTO_API_URL`; build and
