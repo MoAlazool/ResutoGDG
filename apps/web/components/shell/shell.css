@@ -10,6 +10,9 @@
 .ws[data-collapsed] .ws-brand-row { flex-direction: column; align-items: center; gap: var(--space-3); }
 .ws[data-collapsed] .ws-brand { padding-inline-start: 0; }
 .ws[data-collapsed] .ws-brand .ws-wordmark > span:not(.ws-wordmark-mark) { display: none; }
+/* Collapsed, the Arabic logo gives way to its "r" tile (the only part that fits 76 px). */
+.ws[data-collapsed] .ws-brand .ws-wordmark[data-script='ar'] > .ws-wordmark-ar { display: none; }
+.ws[data-collapsed] .ws-brand .ws-wordmark[data-script='ar'] > .ws-wordmark-mark { display: inline-grid; }
 
 .ws-icon-btn {
   display: inline-grid; place-items: center; inline-size: 34px; block-size: 34px; flex-shrink: 0; border: 1px solid transparent;
@@ -21,7 +24,7 @@
 .ws-menu-slot { display: contents; }
 
 /* Restaurant chip / branch switcher */
-.ws-chip-menu { display: flex; inline-size: 100%; margin: 28px 0 18px; }
+.ws-chip-menu { display: flex; inline-size: 100%; margin: 22px 0 14px; }
 .ws-chip-menu > .ws-chip { margin: 0; }
 button.ws-chip { inline-size: 100%; background: none; font: inherit; color: inherit; text-align: start; cursor: pointer; }
 button.ws-chip:hover { background: var(--surface-hover); }
@@ -32,36 +35,58 @@ button.ws-chip:hover { background: var(--surface-hover); }
 .ws[data-collapsed] .ws-chip { justify-content: center; padding: 6px; }
 .ws[data-collapsed] :is(.ws-chip-text, .ws-chip-chev) { display: none; }
 .ws[data-collapsed] .ws-chip-menu .rui-pop-panel { inline-size: auto; }
-.ws > .ws-sidebar > .ws-sidebar-head > .ws-chip { margin: 28px 0 18px; }
+.ws > .ws-sidebar > .ws-sidebar-head > .ws-chip { margin: 22px 0 14px; }
 
-/* Areas */
-.ws-nav { display: grid; gap: 2px; align-content: start; }
-.ws-area { display: grid; }
+/* Areas (22-TYPE): an area is a disclosure heading (icon, name, chevron); its pages hang from a guide line under the
+   icon, their text aligned with the area name. Sizes, weights and line height come from the nav tokens (larger in
+   Arabic); rows are at least 38 px (44 px on touch screens) and never scroll sideways: long labels wrap. */
+.ws-nav { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; align-content: start; }
+.ws-area { display: grid; grid-template-columns: minmax(0, 1fr); }
 .ws-area-btn {
-  position: relative; display: flex; align-items: center; gap: 12px; inline-size: 100%; min-block-size: 40px; padding: 8px 12px;
-  border: 0; border-radius: 7px; background: none; color: var(--nav-text); font: inherit; font-size: 14px; text-align: start;
-  text-decoration: none; cursor: pointer;
+  position: relative; display: flex; align-items: center; gap: 12px; inline-size: 100%; min-inline-size: 0; min-block-size: 40px;
+  padding-block: 8px; padding-inline: 10px 8px; border: 0; border-radius: 8px; background: none; color: var(--nav-text); font: inherit;
+  font-size: var(--t-nav); font-weight: var(--fw-nav); line-height: var(--lh-nav); text-align: start; text-decoration: none; cursor: pointer;
 }
 .ws-area-btn:hover { background: var(--nav-hover); color: var(--text); }
-.ws-area[data-current] > .ws-area-btn { color: var(--text); font-weight: 600; }
-.ws-area-btn .rui-icon { flex-shrink: 0; }
-.ws-area-chev { margin-inline-start: auto; display: inline-flex; color: var(--text-subtle); transition: transform var(--dur-fast) var(--ease-out); }
+/* Over the Arabic base rule that sets buttons and nav in semibold: a closed area is medium, like the English one. */
+[lang='ar'] .ws-area-btn { font-weight: var(--fw-nav); }
+.ws-area-btn .rui-icon { flex-shrink: 0; color: var(--text-muted); }
+.ws-area-btn:hover .rui-icon { color: var(--text); }
+/* An open area reads as a section heading; the area of the current page carries the accent on its icon. */
+.ws-area[data-open] > .ws-area-btn { color: var(--text); font-weight: var(--fw-nav-area); }
+.ws-area[data-current] > .ws-area-btn { color: var(--text); font-weight: var(--fw-nav-area); }
+.ws-area[data-current] > .ws-area-btn .rui-icon { color: var(--accent); }
+/* A closed area that holds the current page keeps a quiet marker, so the location is never lost. */
+.ws-area[data-current]:not([data-open]) > .ws-area-btn { background: var(--nav-active-bg); }
+.ws-area-btn .ws-nav-text { flex: 1 1 auto; }
+.ws-area-chev { margin-inline-start: auto; display: inline-flex; flex-shrink: 0; color: var(--text-muted); transition: transform var(--dur-fast) var(--ease-out); }
 .ws-area[data-open] .ws-area-chev { transform: rotate(180deg); }
 .ws-area-btn .ws-badge + .ws-area-chev { margin-inline-start: 6px; }
-.ws-sub { list-style: none; margin: 2px 0 6px; padding: 0; padding-inline-start: 30px; display: grid; gap: 1px; }
+.ws-sub {
+  list-style: none; margin-block: 2px 8px; margin-inline: 19px 0; padding: 0; padding-inline-start: 10px;
+  border-inline-start: 1px solid var(--border); display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px;
+}
 .ws-sub[hidden] { display: none; }
-.ws-sub .ws-nav-link { font-size: 13.5px; padding: 7px 12px; }
+.ws-sub .ws-nav-link { font-size: var(--t-nav-sub); padding-block: 8px; padding-inline: 13px 10px; min-block-size: 36px; }
+.ws-sub .ws-nav-text { white-space: normal; overflow-wrap: break-word; text-overflow: clip; }
+/* The active page: its bar sits on the guide line. */
+.ws-sub .ws-nav-link[aria-current='page']::before { inset-inline-start: -12px; inset-block: 6px; inline-size: 3px; }
+@media (pointer: coarse) {
+  .ws-area-btn, .ws-nav-link { min-block-size: 44px; }
+}
 .ws-area-icon { justify-content: center; padding: 10px; }
 .ws-area-icon[aria-current] { background: var(--nav-active-bg); color: var(--nav-active-text); }
+.ws-area-icon[aria-current] .rui-icon { color: var(--accent); }
 .ws-dot-badge { position: absolute; inset-block-start: 7px; inset-inline-end: 9px; inline-size: 7px; block-size: 7px; border-radius: 50%; background: var(--accent); }
-.ws-explore { margin-block-start: 4px; }
-.ws-explore[aria-current='page'] { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: 600; }
+.ws-explore { margin-block-start: 2px; }
+.ws-explore[aria-current='page'] { background: var(--nav-active-bg); color: var(--nav-active-text); font-weight: var(--fw-nav-active); }
 .ws[data-collapsed] :is(.ws-nav-text, .ws-mode-note, .ws-profile-text) { display: none; }
 .ws[data-collapsed] :is(.ws-explore, .ws-area-btn) { justify-content: center; }
 .ws[data-collapsed] .ws-profile { justify-content: center; padding-inline: 0; }
 
 /* Sidebar footer: Settings cluster, Explore, account menu */
-.ws-sidebar-bottom { display: grid; gap: 2px; padding-block-start: 18px; }
+.ws-sidebar-bottom { display: grid; gap: 2px; }
+.ws-sidebar-bottom > .ws-nav { padding: 0; }
 .ws-account { display: flex; inline-size: 100%; }
 .ws-account .rui-pop-panel { inline-size: 100%; min-inline-size: 220px; }
 .ws[data-collapsed] .ws-account .rui-pop-panel { inline-size: 240px; }
@@ -87,13 +112,17 @@ button.ws-chip:hover { background: var(--surface-hover); }
 .ws-tabbar { display: none; }
 .ws-drawer .ws-nav { margin-block-end: var(--space-3); }
 .ws-drawer-account { list-style: none; margin: var(--space-3) 0 0; padding: var(--space-3) 0 0; border-block-start: 1px solid var(--border-subtle); display: grid; gap: 2px; }
-.ws-drawer-account .ws-nav-link { border: 0; background: none; font: inherit; font-size: 14px; text-align: start; cursor: pointer; }
+.ws-drawer-account .ws-nav-link { border: 0; background: none; font: inherit; font-size: var(--t-nav); font-weight: var(--fw-nav); text-align: start; cursor: pointer; }
 .ws-drawer-account .ws-nav-link[data-tone='danger'] { color: var(--danger-fg); }
 
 @media (max-width: 700px) {
   .ws > .ws-sidebar > :is(.ws-nav, .ws-nav-skeleton, .ws-sidebar-bottom), .ws-collapse { display: none; }
   .ws-brand-row { flex: 0 0 auto; }
-  .ws-chip-menu { margin: 0; max-inline-size: 62%; inline-size: auto; }
+  .ws-chip-menu { margin: 0; max-inline-size: 62%; inline-size: auto; min-inline-size: 0; }
+  /* The name keeps its width in the shrink-to-fit chip (a flex: 1 text column collapsed to its first letter). */
+  .ws-chip-text { flex: 0 1 auto; }
+  /* The 58% cap of a plain chip (app/globals.css) applied again inside the menu's own 62% box: 97 px for the name. */
+  .ws-chip-menu > .ws-chip { max-inline-size: 100%; }
   .ws > .ws-sidebar > .ws-sidebar-head > .ws-chip { margin: 0; }
   .ws-chip-menu .rui-pop-panel { inline-size: min(300px, calc(100vw - 32px)); inset-inline-start: auto; inset-inline-end: 0; }
   .ws-search { min-inline-size: 0; padding: 0; inline-size: 34px; justify-content: center; border-radius: 50%; }
@@ -107,9 +136,9 @@ button.ws-chip:hover { background: var(--surface-hover); }
   }
   .ws-tab {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-block-size: 56px; min-inline-size: 0;
-    padding: 6px 2px; border: 0; background: none; color: var(--nav-text); font: inherit; font-size: 11px; text-decoration: none; cursor: pointer;
+    padding: 6px 2px; border: 0; background: none; color: var(--nav-text); font: inherit; font-size: var(--t-xs); font-weight: var(--fw-nav); text-decoration: none; cursor: pointer;
   }
-  .ws-tab[aria-current='page'], .ws-tab[data-current] { color: var(--accent); font-weight: 600; }
+  .ws-tab[aria-current='page'], .ws-tab[data-current] { color: var(--accent); font-weight: var(--fw-nav-active); }
   .ws-tab-text { max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ws-page { padding-block-end: calc(80px + env(safe-area-inset-bottom)); }
   .ws-footer { padding-block-end: calc(72px + env(safe-area-inset-bottom)); }
@@ -126,10 +155,10 @@ button.ws-chip:hover { background: var(--surface-hover); }
 .section-nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-1); }
 .section-nav a {
   display: inline-flex; align-items: center; min-block-size: 40px; padding: 8px 12px; margin-block-end: -1px; white-space: nowrap;
-  border-block-end: 2px solid transparent; color: var(--text-muted); font-size: var(--t-md); text-decoration: none;
+  border-block-end: 2px solid transparent; color: var(--text-secondary); font-size: var(--t-md); font-weight: var(--fw-ui); text-decoration: none;
 }
 .section-nav a:hover { color: var(--text); }
-.section-nav a[aria-current='page'] { color: var(--text); border-block-end-color: var(--accent); font-weight: 600; }
+.section-nav a[aria-current='page'] { color: var(--text); border-block-end-color: var(--accent); font-weight: var(--fw-nav-active); }
 /* A new group of links (Insights: analytics, then intelligence): a short divider at its reading start. */
 .section-nav li[data-group-start] { display: flex; align-items: center; gap: var(--space-1); }
 .section-nav li[data-group-start]::before { content: ''; inline-size: 1px; block-size: 20px; background: var(--border); margin-inline: var(--space-2); }

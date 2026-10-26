@@ -397,6 +397,13 @@ full local run. It passed 3/3 alone and 2/2 alongside the order-heavy files, CI 
 migration code changed since it last passed (`bb5f96f`). Most likely cause: the shared test database's statistics
 (other files' open orders) made the planner walk the time-ordered index for `limit 51` instead of the open-orders
 partial index. Not reproduced, so not changed; production-sized plans are covered by `scripts/perf/explain.mjs --assert`.
+Follow-up (2026-10-26): not reproduced in 2 further full API runs (1148/1148 each, plans captured with
+`PERF_PLANS_DEBUG=1`: the Orders query used `orders_open_branch_idx` / `orders_open_org_idx` every time), nor with the
+`orders` statistics deliberately skewed to 84 % open orders (direct EXPLAIN and the test itself, 3/3, still on the
+partial index). So a table-wide open-fraction skew is ruled out; the remaining candidates are `orders_branch_time_idx`
+/ `orders_org_time_idx` winning on an under-sampled tenant estimate when the shared table is large. The assertions now
+carry a compact plan trace (node, index, estimated vs actual rows) as their failure message, so the next occurrence
+shows the chosen index and the estimate error; the assertions themselves are unchanged.
 
 Ratchets: inline styles 285 → **2** (inbox virtual-list spacer heights); hex colour literals 430 → **101**.
 

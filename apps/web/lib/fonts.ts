@@ -18,5 +18,16 @@ export const PRIMARY_FONT: Record<Locale, string> = {
   ar: '/fonts/plex-arabic-semibold.6d6502b5.woff2',
 };
 
+/**
+ * Staff pages (22-TYPE) also preload the face their body text is set in: Arabic staff screens set running text, table
+ * cells and inputs in Plex Arabic Medium (500) and their navigation and headings in SemiBold (the primary file), so
+ * both start with the document instead of Medium arriving after layout and swapping in. English staff pages use the
+ * one Manrope file. Only staff route groups add it (components/shell/StaffProviders): the landing never uses Medium.
+ */
+export const STAFF_FONTS: Record<Locale, string[]> = {
+  en: [],
+  ar: ['/fonts/plex-arabic-medium.b9bcf7d8.woff2'],
+};
+
 /** Options for ReactDOM.preload: fonts are always fetched in CORS mode, so the preload must be too or it is wasted. */
 export const FONT_PRELOAD = { as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' } as const;

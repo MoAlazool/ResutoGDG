@@ -129,7 +129,7 @@ describe('seven-area navigation (21-SHELL)', () => {
     const where = (href: string) => ALL_AREAS.find((a) => a.items.some((i) => i.href === href))?.key;
     expect(['', '/setup', '/notifications'].map(where)).toEqual(['home', 'home', 'home']);
     expect(['/orders', '/kitchen', '/floor', '/host', '/reservations', '/delivery', '/inventory'].map(where)).toEqual(Array(7).fill('operations'));
-    expect(['/menu', '/website', '/studio-media', '/floor?tab=qr', '/website?tab=domains'].map(where)).toEqual(Array(5).fill('store'));
+    expect(['/menu', '/website', '/studio-media', '/qr', '/website?tab=domains'].map(where)).toEqual(Array(5).fill('store'));
     expect(['/inbox', '/customers', '/loyalty', '/marketing'].map(where)).toEqual(Array(4).fill('customers'));
     expect(['/payments', '/finance', '/compliance'].map(where)).toEqual(Array(3).fill('money'));
     expect(['/analytics', '/intelligence'].map(where)).toEqual(['insights', 'insights']);
@@ -198,7 +198,7 @@ describe('seven-area navigation (21-SHELL)', () => {
       const areas = visibleAreas({ role: 'owner', ...ctx, branch: TABLES });
       expect(areas.map((a) => a.key)).toEqual(['home', 'store', 'settings']);
       expect(areas.find((a) => a.key === 'store')!.items.map((i) => [i.href, i.label])).toEqual([
-        ['/menu', 'nav.menu'], ['/website', 'nav.storeDesign'], ['/floor?tab=qr', 'nav.qrCodes'],
+        ['/menu', 'nav.menu'], ['/website', 'nav.storeDesign'], ['/qr', 'nav.qrCodes'],
       ]);
       expect(areas.find((a) => a.key === 'home')!.items.map((i) => i.href)).toEqual(['', '/setup', '/notifications']);
       // Operations, customers, money, insights and apps stay hidden; Explore lists them.
@@ -220,8 +220,8 @@ describe('seven-area navigation (21-SHELL)', () => {
       .flatMap((a) => a.items).map((i) => i.href);
     expect(counter).not.toContain('/floor');
     expect(counter).not.toContain('/reservations');
-    // The QR hub stays for counter venues (their venue code lives on the QR tab).
-    expect(counter).toContain('/floor?tab=qr');
+    // The QR hub stays for counter venues (their venue code is on the QR codes page).
+    expect(counter).toContain('/qr');
     // Drivers land on /driver; inside the workspace they only have their notifications.
     expect(visibleAreas({ role: 'driver', modules: ALL_ON, plan: 'pro', branch: TABLES }).flatMap((a) => a.items).map((i) => i.href)).toEqual(['/notifications']);
   });
@@ -241,7 +241,7 @@ describe('seven-area navigation (21-SHELL)', () => {
     expect(at('/customers/c1')).toBe('/customers');
     expect(at('/explore')).toBeUndefined();
     const free = visibleAreas({ role: 'owner', modules: ONLY_CORE, plan: 'free', branch: TABLES });
-    expect(activeItem(free, '/floor')?.item.href).toBe('/floor?tab=qr');
+    expect(activeItem(free, '/qr')?.item.href).toBe('/qr');
   });
 
   it('every area route group has its own loading and error state', () => {
@@ -314,5 +314,85 @@ describe('service model drives the navigation (VS-16)', () => {
   });
   it('an unknown branch (still loading) hides nothing', () => {
     expect(hrefs(undefined)).toHaveLength(items.length);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 22-TYPE: routing correctness. Every item opens a real route, is the one active item on its own URL (and in its own
+// area), the Website studio and the QR codes hub keep their area, and old URLs still land somewhere sensible.
+// ---------------------------------------------------------------------------------------------------------------
+describe('navigation routing regression (22-TYPE)', () => {
+  const ROLES = ['owner', 'manager', 'host', 'cashier', 'kitchen', 'marketing', 'accountant', 'waiter'] as const;
+  const CONTEXTS = [
+    { name: 'pro tables', modules: ALL_ON, plan: 'pro', branch: TABLES },
+    { name: 'pro counter', modules: ALL_ON, plan: 'pro', branch: { serviceMode: 'counter', acceptsReservations: false } },
+    { name: 'free', modules: ONLY_CORE, plan: 'free', branch: TABLES },
+  ];
+  const routes = new Set(dashboardRoutes());
+
+  it('every item, for every role and plan, opens a dashboard route that exists', () => {
+    const bad: string[] = [];
+    for (const role of ROLES) for (const ctx of CONTEXTS) {
+      for (const a of visibleAreas({ role, ...ctx })) for (const i of a.items) if (!routes.has(itemPath(i.href))) bad.push(`${role}/${ctx.name}: ${i.href}`);
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('on its own URL, every item is the one active item, in its own area (query included)', () => {
+    const wrong: string[] = [];
+    for (const role of ROLES) for (const ctx of CONTEXTS) {
+      const areas = visibleAreas({ role, ...ctx });
+      // The sidebar renders the primary areas and the Settings cluster as two lists: each list has at most one active
+      // item, and the two lists never both have one.
+      const primary = areas.filter((a) => a.key !== 'settings');
+      const settings = areas.filter((a) => a.key === 'settings');
+      for (const area of areas) for (const item of area.items) {
+        const hit = activeItem(areas, item.href);
+        if (hit?.item !== item || hit.area.key !== area.key) wrong.push(`${role}/${ctx.name}: ${item.href} → ${hit?.item.href ?? 'none'} (${hit?.area.key ?? '-'})`);
+        const both = [activeItem(primary, item.href), activeItem(settings, item.href)].filter(Boolean);
+        if (both.length !== 1) wrong.push(`${role}/${ctx.name}: ${item.href} active in ${both.length} lists`);
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it('a page tab item is active only on its tab; the page item everywhere else on that page', () => {
+    const areas = visibleAreas({ role: 'owner', modules: ALL_ON, plan: 'pro', branch: TABLES });
+    const at = (p: string, q = '') => activeItem(areas, p, q)?.item.href;
+    expect(at('/website')).toBe('/website');
+    expect(at('/website', 'tab=domains')).toBe('/website?tab=domains');
+    expect(at('/website?tab=domains')).toBe('/website?tab=domains');
+    expect(at('/website', 'tab=domains&x=1')).toBe('/website?tab=domains');
+    expect(at('/website', 'tab=design')).toBe('/website');
+    expect(at('/website', 'tab=creative')).toBe('/website');
+    expect(activeItem(areas, '/website', 'tab=domains')?.area.key).toBe('store');
+  });
+
+  it('the QR codes item has its own route in Menu & Store; the floor\'s QR tab stays with the floor', () => {
+    const areas = visibleAreas({ role: 'owner', modules: ALL_ON, plan: 'pro', branch: TABLES });
+    expect(activeItem(areas, '/qr')).toMatchObject({ area: { key: 'store' }, item: { href: '/qr', label: 'nav.qrCodes' } });
+    expect(activeItem(areas, '/floor', 'tab=qr')).toMatchObject({ area: { key: 'operations' }, item: { href: '/floor' } });
+    expect(activeItem(areas, '/floor', 'tab=studio')?.item.href).toBe('/floor');
+    expect(routes.has('/qr')).toBe(true);
+    // No navigation item points into another item's page any more except the Domains tab of the website studio.
+    const tabItems = ALL_AREAS.flatMap((a) => a.items).filter((i) => i.href.includes('?')).map((i) => i.href);
+    expect(tabItems).toEqual(['/website?tab=domains']);
+  });
+
+  it('names the website builder "Website studio" in both languages, and /studio redirects to it', async () => {
+    const { dictionaries } = await import('./i18n/messages');
+    expect(dictionaries.en['nav.studio']).toBe('Website studio');
+    expect(dictionaries.ar['nav.studio']).toBe('استوديو الموقع');
+    const { navRedirects } = await import('./nav-redirects');
+    expect(navRedirects()).toContainEqual({ source: '/dashboard/:orgId/studio', destination: '/dashboard/:orgId/website', permanent: false });
+    // Nothing else claims /studio (a real route there would shadow the redirect).
+    expect(routes.has('/studio')).toBe(false);
+  });
+
+  it('the palette lists the QR codes hub and no stale floor-tab entry', () => {
+    const areas = visibleAreas({ role: 'owner', modules: ALL_ON, plan: 'pro', branch: TABLES });
+    const hrefs = pageEntries(areas, 'owner', t, { explore: false }).map((e) => e.href);
+    expect(hrefs).toContain('/qr');
+    expect(hrefs).not.toContain('/floor?tab=qr');
   });
 });

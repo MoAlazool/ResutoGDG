@@ -36,7 +36,11 @@ async function analyse(text: string, params: unknown[]) {
     let scanned = 0;
     const indexes = new Set<string>();
     const seqScans: string[] = [];
+    const nodes: string[] = [];
     const walk = (n: Node) => {
+      // Compact plan trace for failure messages (node, relation/index, estimated vs actual rows): when a plan check
+      // fails intermittently, the message itself shows which index the planner chose and how far its estimate was off.
+      nodes.push(`${n['Node Type']}${(n as any)['Relation Name'] ? ` ${(n as any)['Relation Name']}` : ''}${n['Index Name'] ? ` via ${n['Index Name']}` : ''} est=${(n as any)['Plan Rows']} act=${n['Actual Rows']}x${n['Actual Loops']}`);
       // Rows read from the tables under test. Small lookup tables (dining_tables, through a materialised nested loop)
       // are read whole under RLS when the planner likes it; that is not what these checks are about.
       if (/Scan/.test(n['Node Type']) && ['orders', 'order_lines', 'payments', 'payment_allocations'].includes((n as any)['Relation Name'])) {
@@ -48,7 +52,7 @@ async function analyse(text: string, params: unknown[]) {
     };
     walk(rows[0]['QUERY PLAN'][0].Plan);
     if (process.env.PERF_PLANS_DEBUG) console.log(JSON.stringify(rows[0]['QUERY PLAN'][0].Plan, (k, v) => (['Output', 'Shared Hit Blocks'].includes(k) ? undefined : v)));
-    return { scanned, indexes, seqScans };
+    return { scanned, indexes, seqScans, trace: nodes.join(' | ') };
   } finally {
     c.release();
   }
@@ -89,8 +93,8 @@ describe('open-order reads stay proportional to open orders (PCL-09)', () => {
   it('Orders page, one branch and all branches', async () => {
     for (const branch of [tenant.branchId, null]) {
       const plan = await analyse(ORDER_LIST_SQL, listParams(branch));
-      expect(plan.seqScans).not.toContain('orders');
-      expect(plan.scanned).toBeLessThan(50);
+      expect(plan.seqScans, plan.trace).not.toContain('orders');
+      expect(plan.scanned, plan.trace).toBeLessThan(50);
       expect([...plan.indexes].some((i) => i === 'orders_open_branch_idx' || i === 'orders_open_org_idx')).toBe(true);
     }
   });
