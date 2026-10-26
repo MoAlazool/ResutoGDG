@@ -50,6 +50,8 @@ const KIND_RULES: Array<{ kind: SectionKind; test: RegExp }> = [
   { kind: 'promo_banner', test: /\bbanner\b|\bannouncement\b|\bribbon\b|بانر|بنر|إعلان|اعلان|شريط/i },
   { kind: 'offers', test: /\boffers?\b|\bdeals?\b|\bdiscounts?\b|\bsale\b|\bspecials?\b|\boff\b|عروض|عرض|خصم|تخفيض|تخفيضات/i },
   { kind: 'menu_highlights', test: /\bhighlights?\b|\bfavourites?\b|\bfavorites?\b|\bbest ?sellers?\b|المميزة|الأكثر طلبًا|المفضلة/i },
+  // 22-STUDIO (GEO): a factual description of the restaurant, written only from its own records.
+  { kind: 'about', test: /\babout (?:us|section|the restaurant)\b|\babout\b.*\bsection\b|\bdescri(?:be|ption)\b|من نحن|نبذة|وصف المطعم|وصفًا للمطعم/i },
 ];
 
 const PERCENT = /(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:%|٪|percent\b|per cent\b|في المئة|في المائة|بالمئة|بالمائة)/i;
@@ -98,6 +100,62 @@ function faqItems(ctx: PlannerContext) {
   return items.slice(0, 12);
 }
 
+/**
+ * A factual description of the restaurant (22-STUDIO, GEO: answer engines describe a business from clear, consistent
+ * facts). Only what the records say: the name, where each branch is, what guests can do (pickup, delivery, booking) and
+ * how many dishes the menu has. No adjectives, claims, prices or awards. Null without a branch to describe.
+ */
+export function aboutText(ctx: PlannerContext): Bilingual | null {
+  const branches = ctx.branches;
+  if (!branches.length) return null;
+  const nameEn = ctx.restaurant.name;
+  const nameAr = ctx.restaurant.nameAr || ctx.restaurant.name;
+  const placeEn = (b: PlannerBranch) => [b.address, b.city].filter(Boolean).join(', ') || b.name;
+  const placeAr = (b: PlannerBranch) => [b.address, b.city].filter(Boolean).join('، ') || b.nameAr || b.name;
+  const en: string[] = [];
+  const ar: string[] = [];
+  if (branches.length === 1) {
+    en.push(`${nameEn} is a restaurant at ${placeEn(branches[0]!)}.`);
+    ar.push(`${nameAr} مطعم في ${placeAr(branches[0]!)}.`);
+  } else {
+    en.push(`${nameEn} is a restaurant with ${branches.length} branches: ${joinEn(branches.map((b) => `${b.name} (${placeEn(b)})`))}.`);
+    ar.push(`${nameAr} مطعم له ${branches.length} فروع: ${joinAr(branches.map((b) => `${b.nameAr || b.name} (${placeAr(b)})`))}.`);
+  }
+  const pickup = branches.some((b) => b.acceptsPickup);
+  const delivery = branches.some((b) => b.acceptsDelivery);
+  const booking = branches.some((b) => b.acceptsReservations);
+  const doEn = [booking && 'book a table online', (pickup || delivery) && `order online for ${pickup && delivery ? 'pickup or delivery' : pickup ? 'pickup' : 'delivery'}`].filter(Boolean) as string[];
+  const doAr = [booking && 'حجز طاولة عبر الإنترنت', (pickup || delivery) && `الطلب عبر الإنترنت ${pickup && delivery ? 'للاستلام أو التوصيل' : pickup ? 'للاستلام' : 'للتوصيل'}`].filter(Boolean) as string[];
+  if (doEn.length) { en.push(`Guests can ${joinEn(doEn)}.`); ar.push(`يمكن للضيوف ${doAr.join(' و')}.`); }
+  if (ctx.products.length) { en.push(`The menu lists ${ctx.products.length} dishes.`); ar.push(`تضم القائمة ${ctx.products.length} طبقًا.`); }
+  return { en: en.join(' '), ar: ar.join(' ') };
+}
+
+/** An About section from the facts: added, or the existing one's missing languages filled (never overwriting text). */
+function planAbout(req: PlannerRequest, ctx: PlannerContext, prompt: string): EditPlan {
+  const facts = aboutText(ctx);
+  if (!facts) throw invalid('ai_request_unclear', 'Add a branch with its address first: the description is written only from your restaurant\'s details');
+  const notes: Bilingual[] = [{ en: 'Written only from your records: the name, branch addresses, ordering and booking options, and the number of dishes. Read it and edit it before approving.',
+    ar: 'مكتوب من بياناتك فقط: الاسم وعناوين الفروع وخيارات الطلب والحجز وعدد الأطباق. راجعه وعدّله قبل الموافقة.' }];
+  const existing = ctx.sections.find((s) => s.kind === 'about');
+  const ops: ChangeOpRequest[] = [];
+  if (existing) {
+    const body = existing.content.body ?? {};
+    const missing = (['en', 'ar'] as const).filter((l) => !body[l]?.trim());
+    if (!missing.length) throw invalid('ai_request_unclear', 'The About section already has text in English and Arabic: edit it in the inspector');
+    const filled = { ...body, ...Object.fromEntries(missing.map((l) => [l, facts[l]])) };
+    ops.push({ type: 'website.section.update', input: { sectionId: existing.id, content: { ...existing.content, body: filled,
+      headline: existing.content.headline ?? { en: 'About us', ar: 'من نحن' } } } });
+    notes.unshift({ en: `Fill the About text in ${missing.map((l) => (l === 'en' ? 'English' : 'Arabic')).join(' and ')}`, ar: `إكمال نص "من نحن" ${missing.map((l) => (l === 'en' ? 'بالإنجليزية' : 'بالعربية')).join(' و')}` });
+  } else {
+    ops.push({ type: 'website.section.add', input: { kind: 'about', content: { headline: { en: 'About us', ar: 'من نحن' }, body: facts }, isVisible: true } });
+    notes.unshift({ en: 'Add an About section to the draft ("About us")', ar: 'إضافة قسم «من نحن» إلى المسودة' });
+  }
+  notes.push({ en: 'Nothing is published: approve the change, then publish the website yourself.', ar: 'لن يُنشر شيء: وافق على التغيير ثم انشر الموقع بنفسك.' });
+  void req;
+  return { title: 'Describe the restaurant (About)', summary: prompt.slice(0, 1000), ops, notes };
+}
+
 /** The typed ops for a request, or 422 ai_request_unclear when nothing in it maps to a website change. */
 export function planStudioEdit(req: PlannerRequest, ctx: PlannerContext): EditPlan {
   const prompt = westernDigits(req.prompt.normalize('NFC')).trim();
@@ -132,6 +190,7 @@ export function planStudioEdit(req: PlannerRequest, ctx: PlannerContext): EditPl
   let kind = KIND_RULES.find((r) => r.test.test(prompt))?.kind ?? null;
   if (!kind && bps !== null) kind = 'offers';
   if (!kind && names.length) kind = 'menu_highlights';
+  if (kind === 'about') return planAbout(req, ctx, prompt);
   if (!kind) {
     throw invalid('ai_request_unclear', 'Say which section to add — for example "Add an Eid offers section with these 3 dishes at 15% off" or "Add a FAQ section"');
   }

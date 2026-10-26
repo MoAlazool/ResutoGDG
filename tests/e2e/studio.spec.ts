@@ -12,7 +12,7 @@ test('edit in ResutoStudio → publish → /r/<slug> renders the new revision', 
   await signIn(page, tenant.owner);
   const errors = collectErrors(page, SHELL_404);
   await page.goto(`/dashboard/${tenant.orgId}/website`);
-  await expect(page.getByRole('heading', { level: 1, name: 'Website' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Website studio' })).toBeVisible();
   await expect(page.getByText('Live · revision 1')).toBeVisible();
   // The canvas (a sandboxed frame) shows the draft.
   const canvas = page.frameLocator('iframe.ws-frame');

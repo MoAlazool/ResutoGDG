@@ -41,3 +41,14 @@ describe('restaurant site copy (template words are demo copy only)', () => {
     expect(showsDemoStory(site({ demo: true, template: 'minimal' }))).toBe(false);
   });
 });
+
+describe('altOf (22-STUDIO)', () => {
+  it('uses the page language’s alt text, falling back to the other language, else empty', async () => {
+    const { altOf } = await import('./site-utils');
+    expect(altOf({ alt: 'Grilled seabass', altAr: 'قاروص مشوي' }, 'ar')).toBe('قاروص مشوي');
+    expect(altOf({ alt: 'Grilled seabass', altAr: 'قاروص مشوي' }, 'en')).toBe('Grilled seabass');
+    expect(altOf({ alt: 'Grilled seabass', altAr: null }, 'ar')).toBe('Grilled seabass');
+    expect(altOf({ alt: null, altAr: 'قاروص' }, 'en')).toBe('قاروص');
+    expect(altOf(null, 'en')).toBe('');
+  });
+});

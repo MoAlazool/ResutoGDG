@@ -33,7 +33,7 @@ const siteEn: Record<string, string> = {
   'studio.site.notFoundTitle': 'This website is not available', 'studio.site.notFoundBody': 'The restaurant may not have published its website yet, or the address is wrong.',
   'studio.site.errorTitle': 'The website could not be loaded', 'studio.site.errorBody': 'Please try again in a moment.',
   // editor
-  'studio.website.title': 'Website', 'studio.website.published': 'Live · revision {n}', 'studio.website.notPublished': 'Not published yet',
+  'studio.website.title': 'Website studio', 'studio.website.published': 'Live · revision {n}', 'studio.website.notPublished': 'Not published yet',
   'studio.website.unpublished': 'Unpublished changes', 'studio.website.publishedAt': 'Last published {at}', 'studio.website.view': 'View website',
   'studio.publish.cta': 'Publish', 'studio.publish.title': 'Publish your website?', 'studio.publish.body': 'Guests will see the current draft right away. You can restore an earlier version from History.',
   'studio.publish.done': 'Website published (revision {n}).',
@@ -116,7 +116,7 @@ const siteAr: Record<string, string> = {
   'studio.site.quotesTitle': 'من ضيوفنا', 'studio.site.contactTitle': 'تواصل معنا',
   'studio.site.notFoundTitle': 'هذا الموقع غير متاح', 'studio.site.notFoundBody': 'ربما لم ينشر المطعم موقعه بعد، أو أن العنوان غير صحيح.',
   'studio.site.errorTitle': 'تعذر تحميل الموقع', 'studio.site.errorBody': 'يرجى المحاولة مرة أخرى بعد قليل.',
-  'studio.website.title': 'الموقع', 'studio.website.published': 'منشور · المراجعة {n}', 'studio.website.notPublished': 'لم يُنشر بعد',
+  'studio.website.title': 'استوديو الموقع', 'studio.website.published': 'منشور · المراجعة {n}', 'studio.website.notPublished': 'لم يُنشر بعد',
   'studio.website.unpublished': 'تغييرات غير منشورة', 'studio.website.publishedAt': 'آخر نشر {at}', 'studio.website.view': 'عرض الموقع',
   'studio.publish.cta': 'نشر', 'studio.publish.title': 'نشر موقعك؟', 'studio.publish.body': 'سيرى الضيوف المسودة الحالية فورًا. يمكنك استعادة نسخة سابقة من السجل.',
   'studio.publish.done': 'تم نشر الموقع (المراجعة {n}).',

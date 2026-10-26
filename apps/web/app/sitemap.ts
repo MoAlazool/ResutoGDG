@@ -11,5 +11,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${APP_ORIGIN}/pricing`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${APP_ORIGIN}/signup`, lastModified: now, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${APP_ORIGIN}/r/${DEMO_SLUG}`, lastModified: now, changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${APP_ORIGIN}/m/${DEMO_SLUG}`, lastModified: now, changeFrequency: 'weekly', priority: 0.5 },
   ];
 }

@@ -7,6 +7,18 @@ description is `docs/api/openapi.json` (regenerate: `UPDATE_OPENAPI=1 npx vitest
 
 ## Unreleased
 
+### Added — Studio and the public website (22-STUDIO)
+
+- `GET /v1/public/sites/:slug`, `GET /v1/o/:orgId/studio/website/preview` (and the change-set preview): each section
+  image (`sections[].content.media`, `content.gallery[]`) gains `altAr` (the image's Arabic alt text from the media
+  library, or null), so Arabic pages describe images in Arabic. Additive; `alt` is unchanged.
+- `POST /v1/o/:orgId/studio/ai/proposals`: the rules planner also understands a request for an About section ("Add an
+  about section describing the restaurant", "من نحن"): it proposes `website.section.add` (or fills only the empty
+  language of an existing About section with `website.section.update`) with text built from the restaurant's own
+  records (name, branch addresses, ordering and booking options, number of dishes). Same change-set flow, approval
+  floor and errors as every Studio AI request (`422 ai_request_unclear` when there is no branch to describe or the
+  About text is already written in both languages).
+
 ### Added — CRM, growth and funnels (21-CRM)
 
 - `POST /v1/public/funnel/beacon` (public, 204): one first-party funnel event from a guest page, sent as a

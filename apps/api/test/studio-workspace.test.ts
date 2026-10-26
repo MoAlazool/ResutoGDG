@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { JwtService } from '../src/common/auth/jwt.service';
-import { planStudioEdit, westernDigits } from '../src/modules/studio/ai/studio-edit-planner';
+import { aboutText, planStudioEdit, westernDigits } from '../src/modules/studio/ai/studio-edit-planner';
 import { addMember, auth, bootTestApp, createTenant, seedMenu, sql, unique, type SeededMenu, type TestApp, type TestTenant, type TestUser } from './helpers';
 
 // 21-STUDIO: the new section kinds (validation, rendering on the public site), templates, the product.discount.set
@@ -349,6 +349,30 @@ describe('rules planner (unit)', () => {
     for (const prompt of ['Add offers and publish the website', 'publish now with 10% off the Koshari']) {
       expect(planStudioEdit({ prompt, locale: 'en' }, ctx).ops.map((o) => o.type)).not.toContain('website.publish');
     }
+  });
+  it('22-STUDIO: describes the restaurant (About) only from its records, filling missing languages without overwriting', () => {
+    const branch = { name: 'Zamalek', nameAr: 'الزمالك', address: '14 26th of July St', city: 'Cairo', phone: null, hours: [],
+      acceptsPickup: true, acceptsDelivery: true, acceptsReservations: true };
+    const withBranch = { ...ctx, restaurant: { name: 'The Olive Room', nameAr: 'غرفة الزيتون' }, branches: [branch, { ...branch, name: 'Downtown', nameAr: null, address: null, acceptsReservations: false }] };
+    expect(aboutText(withBranch)).toEqual({
+      en: 'The Olive Room is a restaurant with 2 branches: Zamalek (14 26th of July St, Cairo) and Downtown (Cairo). Guests can book a table online and order online for pickup or delivery. The menu lists 2 dishes.',
+      ar: 'غرفة الزيتون مطعم له 2 فروع: الزمالك (14 26th of July St، Cairo)، Downtown (Cairo). يمكن للضيوف حجز طاولة عبر الإنترنت والطلب عبر الإنترنت للاستلام أو التوصيل. تضم القائمة 2 طبقًا.' });
+    expect(aboutText({ ...withBranch, branches: [] })).toBeNull();
+    const add = planStudioEdit({ prompt: 'Add an about section describing the restaurant', locale: 'en' }, withBranch);
+    expect(add.ops).toEqual([{ type: 'website.section.add', input: { kind: 'about', content: { headline: { en: 'About us', ar: 'من نحن' }, body: aboutText(withBranch) }, isVisible: true } }]);
+    expect(planStudioEdit({ prompt: 'أضف قسم من نحن', locale: 'ar' }, withBranch).ops[0]!.type).toBe('website.section.add');
+    // An existing About section: only its empty language is filled; with both languages written, nothing is proposed.
+    const aboutId = '00000000-0000-4000-8000-000000000002';
+    const partial = { ...withBranch, sections: [...ctx.sections, { id: aboutId, kind: 'about', content: { headline: { en: 'Our story' }, body: { en: 'Family run since 1998.' } } }] };
+    const fill = planStudioEdit({ prompt: 'Write a description for the About section', locale: 'en' }, partial);
+    expect(fill.ops).toEqual([{ type: 'website.section.update', input: { sectionId: aboutId, content: { headline: { en: 'Our story' },
+      body: { en: 'Family run since 1998.', ar: aboutText(withBranch)!.ar } } } }]);
+    const full = { ...withBranch, sections: [{ id: aboutId, kind: 'about', content: { body: { en: 'x', ar: 'y' } } }] };
+    expect(() => planStudioEdit({ prompt: 'Add an about section', locale: 'en' }, full)).toThrow(/already has text/);
+    expect(() => planStudioEdit({ prompt: 'Add an about section', locale: 'en' }, { ...ctx, branches: [] })).toThrow(/branch/);
+    // Never invents: no prices, ratings or superlatives.
+    expect(JSON.stringify(add)).not.toMatch(/best|award|rated|star|EGP|\d+\.\d{2}/i);
+    expect(add.ops.map((o) => o.type)).not.toContain('website.publish');
   });
   it('does not mistake "QR code" for an offer code', () => {
     const plan = planStudioEdit({ prompt: 'Add offers for the QR code menu at 10% off the Koshari', locale: 'en' }, ctx);

@@ -135,7 +135,9 @@ export async function setLocale(page: Page, locale: 'en' | 'ar') {
  */
 export function collectErrors(page: Page, ignore: RegExp[] = []) {
   const errors: string[] = [];
-  page.on('console', (m) => { if (m.type() === 'error' && !ignore.some((r) => r.test(m.text())) && !isCancelledRscFetch(m.text())) errors.push(m.text()); });
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !ignore.some((r) => r.test(m.text())) && !isCancelledRscFetch(m.text()) && !isTraceSnapshotInScriptlessFrame(m.text(), m.location().url)) errors.push(m.text());
+  });
   page.on('pageerror', (e) => { if (!isCancelledRscFetch(e.message)) errors.push(`pageerror: ${e.message}`); });
   return errors;
 }
@@ -150,6 +152,17 @@ export function isCancelledRscFetch(text: string): boolean {
   const host = new URL(WEB_URL).host.replace(/[.]/g, '\\.');
   return new RegExp(`//?${host}/[^\\s?]*\\?_rsc=\\S+ due to access control checks\\.$`).test(text)
     || new RegExp(`^Failed to fetch RSC payload for https?://${host}/\\S*\\. Falling back to browser navigation\\. TypeError: Load failed$`).test(text);
+}
+
+/**
+ * Playwright's trace recorder (trace: 'retain-on-failure') adds its snapshot script to every new document. The Studio
+ * canvas (22-STUDIO) is a srcdoc frame sandboxed without allow-scripts, so Chromium refuses that script and logs one
+ * error per frame document ("about:blank", then "about:srcdoc"). Only that exact refusal, from those frame documents, is
+ * ignored: the app never runs script in the canvas (tests/e2e/studio-workspace.spec.ts proves injected script stays inert).
+ */
+export function isTraceSnapshotInScriptlessFrame(text: string, url: string | undefined): boolean {
+  return /^about:(blank|srcdoc)$/.test(url ?? '')
+    && /^Blocked script execution in 'about:(blank|srcdoc)' because the document's frame is sandboxed and the 'allow-scripts' permission is not set\.$/.test(text);
 }
 
 /** No element may make the page scroll sideways (RTL and 390 px layouts). */
