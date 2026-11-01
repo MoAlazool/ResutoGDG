@@ -9,9 +9,8 @@ export const metadata: Metadata = {
   description: 'Resuto connects reservations, QR ordering, kitchen operations, payments and restaurant management in Arabic and English.',
   alternates: { canonical: '/' },
   icons: {
-    icon: [{ url: '/brand/resuto-icon.png', type: 'image/png', sizes: '512x512' }],
-    shortcut: '/brand/resuto-icon.png',
-    apple: [{ url: '/brand/resuto-icon.png', type: 'image/png', sizes: '512x512' }],
+    icon: [{ url: '/brand/resuto-favicon.svg', type: 'image/svg+xml' }],
+    shortcut: '/brand/resuto-favicon.svg',
   },
   openGraph: { type: 'website', siteName: 'Resuto', url: '/', images: [{ url: '/brand/og-resuto.png', width: 1200, height: 630, alt: 'Resuto' }] },
   twitter: { card: 'summary_large_image', images: ['/brand/og-resuto.png'] },

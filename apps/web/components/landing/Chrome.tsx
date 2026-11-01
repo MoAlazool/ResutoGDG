@@ -18,7 +18,7 @@ const NAV_LINKS: Array<[string, string]> = [['#studio', 'Floor Studio'], ['#serv
 export function Wordmark({ rtl }: { rtl: boolean }) {
   return rtl
     ? <img className="lp-logo-ar" src="/brand/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} />
-    : <><img className="lp-logo-mark-image" src="/brand/resuto-icon.png" alt="" width={512} height={512} /><span className="lp-logo-type">resuto<i>.</i></span></>;
+    : <><span className="lp-logo-mark" aria-hidden>r</span><span className="lp-logo-type">resuto<i>.</i></span></>;
 }
 
 export function Switcher({ L }: { L: Landing }) {
@@ -149,9 +149,9 @@ const META_CHANNELS: MetaChannel[] = [
 ];
 
 function ChannelGlyph({ id }: { id: MetaChannel['id'] }) {
-  if (id === 'instagram') return <svg viewBox="0 0 24 24" aria-hidden><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" /></svg>;
-  if (id === 'messenger') return <svg viewBox="0 0 24 24" aria-hidden><path d="M3 11.7c0-5 3.9-8.7 9-8.7s9 3.6 9 8.7-3.9 8.7-9 8.7c-.9 0-1.7-.1-2.5-.3L6 22v-3.4c-1.9-1.6-3-4-3-6.9Z" /><path d="m7.3 14.5 4-4.2 2.2 2 3.4-2-4.1 4.3-2.2-2-3.3 1.9Z" /></svg>;
-  return <svg viewBox="0 0 24 24" aria-hidden><path d="M20.5 11.7a8.5 8.5 0 0 1-12.6 7.5L3 20.5l1.3-4.7A8.5 8.5 0 1 1 20.5 11.7Z" /><path d="M8.2 7.3c.3-.5.6-.5.9-.5h.5c.2 0 .4.1.5.4l.8 2c.1.3 0 .5-.2.7l-.6.7c-.2.2-.1.4 0 .6.7 1.3 1.8 2.3 3.2 2.9.2.1.4.1.6-.1l.8-1c.2-.2.4-.3.7-.2l1.9.9c.3.1.4.3.4.5 0 .4-.2 1.3-.7 1.8-.5.6-1.3.9-2.2.8-1.2-.1-3.3-.8-5.3-2.6-1.6-1.5-2.7-3.4-3-4.7-.2-.9.1-1.7.5-2.2Z" /></svg>;
+  if (id === 'instagram') return <svg viewBox="0 0 24 24" aria-hidden><path className="brand-fill" d="M7.8 2h8.4A5.8 5.8 0 0 1 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8A5.8 5.8 0 0 1 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2Zm-.2 2A3.6 3.6 0 0 0 4 7.6v8.8A3.6 3.6 0 0 0 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6A3.6 3.6 0 0 0 16.4 4H7.6Zm9.65 1.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z" /></svg>;
+  if (id === 'messenger') return <svg viewBox="0 0 24 24" aria-hidden><path className="brand-cut" d="m5.4 14.8 5.1-5.4 2.7 2.35 5.35-2.9-5.8 6.1-2.65-2.35-4.7 2.2Z" /></svg>;
+  return <img src={marks.whatsapp} alt="" width={24} height={24} />;
 }
 
 export function Connect({ L }: { L: Landing }) {
@@ -180,6 +180,14 @@ export function Connect({ L }: { L: Landing }) {
           <div className="meta-channel-tabs" role="group" aria-label={rtl ? 'اختر قناة المحادثة' : 'Choose a messaging channel'}>
             {META_CHANNELS.map((item) => <button key={item.id} type="button" aria-pressed={selected === item.id} className={selected === item.id ? 'is-on' : undefined} onClick={() => setSelected(item.id)}><span className={`meta-glyph is-${item.id}`}><ChannelGlyph id={item.id} /></span><span><strong>{c(item.name)}</strong><small>{c(item.readiness)}</small></span></button>)}
           </div>
+
+          <ol className="meta-process" aria-label={rtl ? 'كيف تنتقل المحادثة إلى إجراء تشغيلي' : 'How a conversation becomes an operational action'}>
+            <li><b>01</b><span><strong>{rtl ? 'رسالة العميل' : 'Customer message'}</strong><small>{rtl ? `يبدأ العميل المحادثة على ${c(channel.name)}.` : `The guest starts a conversation on ${c(channel.name)}.`}</small></span></li>
+            <li><b>02</b><span><strong>{rtl ? 'الاستقبال والتوحيد' : 'Receive & unify'}</strong><small>{rtl ? 'بعد إعداد المزود، يوجّه Webhook الرسالة إلى صندوق ريسوتو الموحد.' : 'After provider setup, a webhook routes it into the Resuto inbox.'}</small></span></li>
+            <li><b>03</b><span><strong>{rtl ? 'إضافة السياق' : 'Add context'}</strong><small>{rtl ? 'يظهر سجل المحادثة وبيانات العميل أو الطلب المتاحة للفريق.' : 'Available conversation, customer and order context appears for staff.'}</small></span></li>
+            <li><b>04</b><span><strong>{rtl ? 'إجراء المطعم' : 'Restaurant action'}</strong><small>{c(channel.action)}</small></span></li>
+            <li><b>05</b><span><strong>{rtl ? 'متابعة وقياس' : 'Follow up & learn'}</strong><small>{rtl ? 'يُرسل الرد وفق سياسة القناة، وتدعم الإشارات المصرح بها التقارير.' : 'The reply follows channel policy; authorized signals can inform reporting.'}</small></span></li>
+          </ol>
 
           <div className="meta-workspace" key={selected}>
             <section className="meta-phone" aria-label={`${c(channel.name)} ${rtl ? 'مثال محاكاة' : 'simulated example'}`}>
