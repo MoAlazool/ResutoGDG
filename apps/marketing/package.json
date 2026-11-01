@@ -6,6 +6,8 @@
     "prepare:public": "node scripts/prepare-public.mjs",
     "dev": "pnpm prepare:public && next dev -p 3100",
     "build": "pnpm prepare:public && next build",
+    "deploy": "wrangler deploy --config wrangler.jsonc",
+    "deploy:dry-run": "wrangler deploy --config wrangler.jsonc --dry-run",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
@@ -22,6 +24,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "3.2.4",
+    "wrangler": "4.156.0"
   }
 }
