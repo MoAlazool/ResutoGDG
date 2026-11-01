@@ -221,7 +221,7 @@ export function StudioDemo({ L }: { L: Landing }) {
                 )}
               </aside>
             </div>
-            <div className="lp-studio-foot"><div data-guide /><a className="lp-inline is-dark" href={LINKS.reserve}>{l('Try the guest map')} {arrow}</a></div>
+            <div className="lp-studio-foot"><div data-guide /><a className="lp-inline is-dark" href={LINKS.reserve}>{L.rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a></div>
           </div>
         </div>
       </div>

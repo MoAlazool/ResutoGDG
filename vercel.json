@@ -1,45 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "installCommand": "echo 'legacy static landing needs no dependencies'",
-  "buildCommand": "node legacy/scripts/build-static-landing.mjs",
-  "outputDirectory": "legacy/dist-landing",
+  "framework": "nextjs",
+  "installCommand": "corepack enable && pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @resuto/marketing build",
+  "outputDirectory": "apps/marketing/out",
   "cleanUrls": true,
-  "rewrites": [
-    {
-      "source": "/api/public",
-      "destination": "/data/public.json"
-    },
-    {
-      "source": "/api/plans",
-      "destination": "/data/plans.json"
-    },
-    {
-      "source": "/api/integration-capabilities",
-      "destination": "/data/capabilities.json"
-    },
-    {
-      "source": "/qr/:token",
-      "destination": "/data/qr.svg"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/:page(restaurant|reserve|menu|account|kitchen|host|order)",
-      "destination": "https://resutogdg.onrender.com/:page",
-      "permanent": false
-    },
-    {
-      "source": "/:area(manager|burger|t|s)/:rest*",
-      "destination": "https://resutogdg.onrender.com/:area/:rest*",
-      "permanent": false
-    },
-    {
-      "source": "/:area(manager|burger)",
-      "destination": "https://resutogdg.onrender.com/:area",
-      "permanent": false
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -54,7 +19,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"
+          "value": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self' mailto:"
         }
       ]
     },

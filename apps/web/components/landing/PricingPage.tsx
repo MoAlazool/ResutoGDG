@@ -3,9 +3,8 @@
 // the full comparison with the Foodics column, common questions, the sales form and the dark footer strip), filled
 // from the live price list. Resuto 2.0 additions keep the same visual language: the Free QR line, the Egypt/Saudi
 // switch and Build Your Resuto (priced by the same quote service invoices use).
-import { formatNumber, normalizeNumericInput, type ModuleKey, type PriceQuote, type PublicPlansResponse, type SalesInquiryReceipt } from '@resuto/contracts';
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { api, ApiRequestError, newIdempotencyKey } from '@/lib/api';
+import { formatNumber, type ModuleKey, type PriceQuote, type PublicPlansResponse } from '@resuto/contracts';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/lib/i18n/client';
 import { Switcher, Wordmark } from './Chrome';
 import { LINKS } from './links';
@@ -19,7 +18,7 @@ import './landing.css';
 import './pricing-page.css';
 
 type Country = 'EG' | 'SA';
-const SIGNUP = `${LINKS.signup}?next=${encodeURIComponent('/onboarding')}`;
+const accessHref = (plan?: string) => `/contact/?subject=request-access${plan ? `&plan=${encodeURIComponent(plan)}` : ''}`;
 
 function Chip({ cell, locale }: { cell: Cell; locale: Locale }) {
   if (cell.kind === 'text') return <span className="cmp-v is-text"><bdi>{cell.text}</bdi></span>;
@@ -61,27 +60,26 @@ function PricingNav({ locale }: { locale: Locale }) {
         </nav>
         <div className="lp-nav-end">
           <Switcher L={L} />
-          <a className="lp-btn lp-btn-solid" href={LINKS.demo}><span className="lp-cta-long">{c(['Open the live demo', 'جرّب العرض المباشر'])}</span><span className="lp-cta-short">{c(['Live demo', 'عرض مباشر'])}</span></a>
+          <a className="lp-btn lp-btn-solid" href="/contact/?subject=request-access"><span className="lp-cta-long">{c(['Request access', 'اطلب الوصول'])}</span><span className="lp-cta-short">{c(['Contact', 'تواصل'])}</span></a>
         </div>
       </div>
     </header>
   );
 }
 
-export function PricingPage({ initial }: { initial: PublicPlansResponse | null }) {
+export function PricingPage({ initial, countries }: { initial: PublicPlansResponse; countries?: Partial<Record<Country, PublicPlansResponse>> }) {
   const { locale: loc } = useT();
   const locale = loc as Locale;
   const c = useCallback((p: Pair) => pick(locale, p), [locale]);
-  const [country, setCountry] = useState<Country>(initial?.country ?? 'EG');
-  const [byCountry, setByCountry] = useState<Partial<Record<Country, PublicPlansResponse>>>(initial ? { [initial.country]: initial } : {});
-  const [failed, setFailed] = useState(false);
+  const available = useMemo(() => ({ [initial.country]: initial, ...countries }), [initial, countries]);
+  const [country, setCountry] = useState<Country>(initial.country as Country);
   const [yearly, setYearly] = useState(false);
   const [focus, setFocus] = useState('growth');
   /** The plan the visitor actually chose (?plan= or a click), for the sales inquiry; the comparison's focus defaults to Growth. */
   const [chosen, setChosen] = useState<string | null>(null);
   const choose = useCallback((id: string) => { setFocus(id); setChosen(id); }, []);
   const [reduced, setReduced] = useState(true);
-  const data = byCountry[country] ?? null;
+  const data = available[country] ?? initial;
 
   useEffect(() => { setReduced(window.matchMedia('(prefers-reduced-motion: reduce)').matches); }, []);
   // ?plan=pro highlights that plan's card and comparison column (links from the landing teaser).
@@ -91,23 +89,12 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
     scrollToHash(window.location.hash);
   }, []);
 
-  const load = useCallback(async (which: Country) => {
-    setFailed(false);
-    try {
-      const body = await api<PublicPlansResponse>(`/public/plans?country=${which}&interval=month`);
-      setByCountry((m) => ({ ...m, [which]: body }));
-    } catch {
-      setFailed(true);
-    }
-  }, []);
-  useEffect(() => { if (!byCountry[country]) void load(country); }, [country, byCountry, load]);
-
-  const cards = useMemo(() => (data ? pricingCards(data, locale) : []), [data, locale]);
-  const groups = useMemo(() => (data ? comparison(data, yearly, locale) : []), [data, yearly, locale]);
-  const questions = useMemo(() => (data ? faq(data, locale) : []), [data, locale]);
-  const ten = data ? yearlyIsTenMonths(data) : false;
-  const free = data ? freePlan(data) : null;
-  const egp = (data?.currency ?? 'EGP') === 'EGP';
+  const cards = useMemo(() => pricingCards(data, locale), [data, locale]);
+  const groups = useMemo(() => comparison(data, yearly, locale), [data, yearly, locale]);
+  const questions = useMemo(() => faq(data, locale), [data, locale]);
+  const ten = yearlyIsTenMonths(data);
+  const free = freePlan(data);
+  const egp = data.currency === 'EGP';
   const planIds = cards.map((x) => x.id);
   const focusId = planIds.includes(focus) ? focus : 'growth';
 
@@ -122,27 +109,20 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
               <span className="lp-chapter-tag">{c(['Pricing', 'الأسعار'])}</span>
               <h1>{c(['One price for the whole service.', 'سعر واحد للخدمة كلها.'])}</h1>
               <p>{country === 'SA'
-                ? c(['Reservations, QR ordering, the kitchen board and split bills, priced in Saudi riyals. Start with a 14-day trial; no card is needed.', 'الحجوزات وطلبات QR وشاشة المطبخ وتقسيم الفاتورة، بأسعار بالريال السعودي. ابدأ بتجربة 14 يومًا دون بطاقة.'])
-                : c(['Reservations, QR ordering, the kitchen board and split bills, priced in Egyptian pounds. Start with a 14-day trial; no card is needed.', 'الحجوزات وطلبات QR وشاشة المطبخ وتقسيم الفاتورة، بأسعار بالجنيه المصري. ابدأ بتجربة 14 يومًا دون بطاقة.'])}</p>
+                ? c(['Reservations, QR ordering, the kitchen board and split bills, priced in Saudi riyals. Request access to discuss rollout.', 'الحجوزات وطلبات QR وشاشة المطبخ وتقسيم الفاتورة، بأسعار بالريال السعودي. اطلب الوصول لمناقشة الإطلاق.'])
+                : c(['Reservations, QR ordering, the kitchen board and split bills, priced in Egyptian pounds. Request access to discuss rollout.', 'الحجوزات وطلبات QR وشاشة المطبخ وتقسيم الفاتورة، بأسعار بالجنيه المصري. اطلب الوصول لمناقشة الإطلاق.'])}</p>
               <div className="pr-switches">
                 <div className="lp-seg lp-seg-pill billing-toggle" role="group" aria-label={c(['Billing period', 'فترة الدفع'])}>
                   <button type="button" className={yearly ? undefined : 'is-on'} aria-pressed={!yearly} onClick={() => setYearly(false)}>{c(['Monthly', 'شهري'])}</button>
                   <button type="button" className={yearly ? 'is-on' : undefined} aria-pressed={yearly} onClick={() => setYearly(true)}>{ten ? c(['Yearly · 2 months free', 'سنوي · شهران مجانًا']) : c(['Yearly', 'سنوي'])}</button>
                 </div>
                 <div className="lp-seg lp-seg-pill lp-seg-sm" role="group" aria-label={c(['Country', 'الدولة'])}>
-                  <button type="button" className={country === 'EG' ? 'is-on' : undefined} aria-pressed={country === 'EG'} onClick={() => setCountry('EG')}>{c(['Egypt · EGP', 'مصر · جنيه'])}</button>
-                  <button type="button" className={country === 'SA' ? 'is-on' : undefined} aria-pressed={country === 'SA'} onClick={() => setCountry('SA')}>{c(['Saudi Arabia · SAR', 'السعودية · ريال'])}</button>
+                  {available.EG && <button type="button" className={country === 'EG' ? 'is-on' : undefined} aria-pressed={country === 'EG'} onClick={() => setCountry('EG')}>{c(['Egypt · EGP', 'مصر · جنيه'])}</button>}
+                  {available.SA && <button type="button" className={country === 'SA' ? 'is-on' : undefined} aria-pressed={country === 'SA'} onClick={() => setCountry('SA')}>{c(['Saudi Arabia · SAR', 'السعودية · ريال'])}</button>}
                 </div>
               </div>
             </div>
 
-            {failed && !data && (
-              <div className="pr-free" role="alert"><b>{c(['Prices could not be loaded.', 'تعذّر تحميل الأسعار.'])}</b>
-                <button type="button" className="lp-btn lp-btn-line-ink lp-btn-sm" onClick={() => void load(country)}>{c(['Retry', 'إعادة المحاولة'])}</button></div>
-            )}
-            {!data && !failed && <div className="pr-grid" aria-busy="true">{[0, 1, 2, 3].map((i) => <article key={i} className="pr-card" style={{ minHeight: 420 }} />)}</div>}
-
-            {data && (
               <>
                 <div className="pr-grid pricing-grid" id="pr-grid">
                   {cards.map((p) => {
@@ -159,9 +139,9 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
                         </div>
                         <small className="pr-billed">{sales ? c(['Scoped and quoted separately', 'يحدد النطاق والسعر بالاتفاق'])
                           : yearly ? (ten ? c(['Billed annually · 10 months for 12', 'دفع سنوي · 10 أشهر مقابل 12']) : c(['Billed annually', 'دفع سنوي'])) : c(['Billed monthly', 'دفع شهري'])}</small>
-                        <a className={`lp-btn ${p.featured ? 'lp-btn-solid' : 'lp-btn-line-ink'} lp-btn-full`} href={sales ? '#sales' : SIGNUP}
-                          onClick={sales ? () => setChosen(BUSINESS_ID) : undefined}>
-                          {sales ? c(['Contact sales', 'تواصل للمبيعات']) : c(['Start 14-day trial', 'ابدأ تجربة 14 يومًا'])}
+                        <a className={`lp-btn ${p.featured ? 'lp-btn-solid' : 'lp-btn-line-ink'} lp-btn-full`} href={accessHref(p.id)}
+                          onClick={() => setChosen(p.id)}>
+                          {sales ? c(['Contact sales', 'تواصل للمبيعات']) : c(['Request access', 'اطلب الوصول'])}
                         </a>
                         <ul>{p.bullets.map((b) => <li key={b}>{b}</li>)}</ul>
                       </article>
@@ -174,7 +154,7 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
                     <b><bdi>{free.name}</bdi></b>
                     <span>{((locale === 'ar' ? free.descriptionAr : free.description) ?? free.description ?? '').replace(/[.。]\s*$/, '')}
                       {typeof free.limits.orders_per_month === 'number' && <> · {c(['up to', 'حتى'])} {formatNumber(free.limits.orders_per_month, locale)} {c(['orders a month', 'طلب شهريًا'])}</>}</span>
-                    <a href={SIGNUP}>{c(['Start free', 'ابدأ مجانًا'])} {locale === 'ar' ? '←' : '→'}</a>
+                    <a href={accessHref(free.id)}>{c(['Request access', 'اطلب الوصول'])} {locale === 'ar' ? '←' : '→'}</a>
                   </p>
                 )}
                 <div className="pr-addons" aria-label={c(['Add-ons', 'الإضافات'])}>
@@ -182,11 +162,10 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
                   <ul>{addOns(data, yearly, locale).map((a) => <li key={a.name}><b>{a.name}</b><span><bdi>{a.price}</bdi></span></li>)}</ul>
                 </div>
               </>
-            )}
           </div>
         </section>
 
-        {data && (
+        {(
           <section className="pr-compare" id="compare">
             <div className="lp-shell">
               <div className="pr-sec-head">
@@ -236,9 +215,9 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
           </section>
         )}
 
-        {data && <Builder data={data} country={country} yearly={yearly} locale={locale} />}
+        <Builder data={data} country={country} yearly={yearly} locale={locale} />
 
-        {data && (
+        {(
           <section className="pr-faq" id="faq">
             <div className="lp-shell">
               <div className="pr-sec-head"><h2>{c(['Common questions', 'أسئلة شائعة'])}</h2></div>
@@ -252,9 +231,9 @@ export function PricingPage({ initial }: { initial: PublicPlansResponse | null }
       <footer className="pr-foot">
         <div className="lp-shell">
           <a href="/">{c(['Resuto home', 'الرئيسية'])}</a>
-          <a href={LINKS.demo}>{c(['Restaurant demo', 'تجربة المطعم'])}</a>
-          <a href={LINKS.reserve}>{c(['Reserve a table', 'احجز طاولة'])}</a>
-          <a href={LINKS.menu}>{c(['Menu', 'القائمة'])}</a>
+          <a href="/contact/">{c(['Contact sales', 'تواصل مع المبيعات'])}</a>
+          <a href="/about/">{c(['About', 'عن ريسوتو'])}</a>
+          <a href="/privacy/">{c(['Privacy', 'الخصوصية'])}</a>
           <small>© <bdi>{new Date().getFullYear()}</bdi> Resuto</small>
         </div>
       </footer>
@@ -277,31 +256,31 @@ function Group({ group, planIds, egp, locale }: { group: ReturnType<typeof compa
   );
 }
 
-/** Build Your Resuto: a base plan plus modules, priced by POST /public/pricing/quote (the invoice's pricing service). */
+/** Build Your Resuto: a static calculation from the versioned public catalog bundled with the marketing build. */
 function Builder({ data, country, yearly, locale }: { data: PublicPlansResponse; country: Country; yearly: boolean; locale: Locale }) {
   const c = (p: Pair) => pick(locale, p);
   const custom = customPlan(data);
   const [planId, setPlanId] = useState(custom?.id ?? data.plans[0]?.id ?? 'free');
   const [addons, setAddons] = useState<ModuleKey[]>(['pay', 'connect']);
-  const [quote, setQuote] = useState<PriceQuote | null>(null);
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const seq = useRef(0);
   const plan = data.plans.find((p) => p.id === planId);
   const interval = yearly ? 'year' : 'month';
-
-  useEffect(() => {
-    const id = ++seq.current;
-    setState('loading');
-    const timer = setTimeout(async () => {
-      try {
-        const q = await api<PriceQuote>('/public/pricing/quote', { body: { planId, country, interval, addons } });
-        if (id === seq.current) { setQuote(q); setState('idle'); }
-      } catch {
-        if (id === seq.current) setState('error');
-      }
-    }, 180);
-    return () => clearTimeout(timer);
-  }, [planId, country, interval, addons]);
+  const quote = useMemo<PriceQuote>(() => {
+    const planAmount = (yearly ? plan?.prices.year : plan?.prices.month)?.amountMinor ?? 0;
+    const lines: PriceQuote['lines'] = [{ kind: 'plan', key: planId, amountMinor: planAmount }];
+    const enabled = new Set<ModuleKey>((plan?.modules ?? []) as ModuleKey[]);
+    for (const key of addons) {
+      if (enabled.has(key)) continue;
+      const module = data.modules.find((item) => item.key === key);
+      const amountMinor = (yearly ? module?.prices.year : module?.prices.month)?.amountMinor ?? 0;
+      lines.push({ kind: 'module', key, amountMinor });
+      enabled.add(key);
+    }
+    return {
+      planId, country, currency: data.currency, interval, lines,
+      subtotalMinor: lines.reduce((sum, line) => sum + (line.included ? 0 : line.amountMinor), 0),
+      modules: [...enabled], externalCostsNote: data.externalCostsNote, externalCostsNoteAr: data.externalCostsNoteAr,
+    };
+  }, [addons, country, data, interval, plan, planId, yearly]);
 
   const toggle = (m: ModuleKey) => setAddons((a) => (a.includes(m) ? a.filter((x) => x !== m) : [...a, m]));
   const planLabel = (id: string) => data.plans.find((p) => p.id === id)?.name ?? id;
@@ -317,7 +296,7 @@ function Builder({ data, country, yearly, locale }: { data: PublicPlansResponse;
       <div className="lp-shell">
         <div className="pr-sec-head">
           <h2>{c(['Build your Resuto', 'ابنِ ريسوتو الخاص بك'])}</h2>
-          <p>{c(['Start from any plan and add modules. The quote is calculated by the same pricing service your invoice uses.', 'ابدأ من أي خطة وأضف الوحدات. يُحسب العرض بخدمة التسعير نفسها التي تُصدر فاتورتك.'])}</p>
+          <p>{c(['Start from any plan and add modules. This estimate uses the same versioned public price catalog shown above; sales confirms the final scope.', 'ابدأ من أي خطة وأضف الوحدات. يستخدم هذا التقدير قائمة الأسعار العامة نفسها المعروضة أعلاه؛ ويؤكد فريق المبيعات النطاق النهائي.'])}</p>
         </div>
         <div className="pr-build-in">
           <div className="pr-build-card">
@@ -345,22 +324,18 @@ function Builder({ data, country, yearly, locale }: { data: PublicPlansResponse;
           </div>
           <aside className="pr-build-card pr-summary" aria-live="polite">
             <h3>{c(['Total', 'الإجمالي'])}</h3>
-            {state === 'error' && <p className="pr-error" role="alert">{c(['Could not calculate this quote. Try again.', 'تعذّر حساب العرض. حاول مرة أخرى.'])}</p>}
-            {quote && (
               <>
                 <div className="pr-lines">
                   {quote.lines.filter((l) => !l.included).map((l) => (
                     <div key={`${l.kind}:${l.key}`}><span><bdi>{lineName(l)}</bdi></span><bdi>{money(l.amountMinor)}</bdi></div>
                   ))}
                 </div>
-                <div className="pr-total" style={{ opacity: state === 'loading' ? 0.55 : 1 }}>
+                <div className="pr-total">
                   <span>{yearly ? c(['per year', 'سنويًا']) : c(['per month', 'شهريًا'])}</span>
                   <strong><bdi>{money(quote.subtotalMinor)}</bdi></strong>
                 </div>
               </>
-            )}
-            {!quote && state === 'loading' && <p>{c(['Calculating…', 'جارٍ الحساب…'])}</p>}
-            <a className="lp-btn lp-btn-solid lp-btn-full" href={SIGNUP}>{c(['Get started with this setup', 'ابدأ بهذا الإعداد'])}</a>
+            <a className="lp-btn lp-btn-solid lp-btn-full" href={accessHref(planId)}>{c(['Request this setup', 'اطلب هذا الإعداد'])}</a>
             <p>{locale === 'ar' ? data.externalCostsNoteAr : data.externalCostsNote}</p>
           </aside>
         </div>
@@ -370,66 +345,21 @@ function Builder({ data, country, yearly, locale }: { data: PublicPlansResponse;
   );
 }
 
-/** Sales form (legacy "Let’s shape your setup."): stored for the Resuto team via POST /public/sales-inquiries. */
+/** Static deployment contact panel: no fake submission or backend dependency. */
 function SalesForm({ locale, planId }: { locale: Locale; planId: string | null }) {
   const c = (p: Pair) => pick(locale, p);
-  const arrow = locale === 'ar' ? '←' : '→';
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<SalesInquiryReceipt | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const key = useRef<string | null>(null);
-
-  async function submit(ev: FormEvent<HTMLFormElement>) {
-    ev.preventDefault();
-    if (busy) return;
-    const f = new FormData(ev.currentTarget);
-    key.current ??= newIdempotencyKey();
-    setBusy(true);
-    setError(null);
-    try {
-      const receipt = await api<SalesInquiryReceipt>('/public/sales-inquiries', { body: {
-        restaurant: String(f.get('restaurant') ?? '').trim(), email: String(f.get('email') ?? '').trim(),
-        branches: Number(normalizeNumericInput(String(f.get('branches') ?? '1'))),
-        requirements: String(f.get('requirements') ?? '').trim(), website: String(f.get('website') ?? ''),
-        planId, locale, key: key.current,
-      } });
-      setDone(receipt);
-    } catch (e) {
-      const kind = e instanceof ApiRequestError ? e.kind : 'server';
-      // A refused key (the server holds a different inquiry under it) is never reused: the next send gets a new one.
-      if (kind === 'conflict') key.current = null;
-      setError(kind === 'validation' ? c(['Check the form: every field is required and the email must be valid.', 'راجع النموذج: كل الحقول مطلوبة ويجب أن يكون البريد صحيحًا.'])
-        : kind === 'rate_limited' ? c(['We already have your recent requests. The team will reply to them.', 'وصلتنا طلباتك الأخيرة بالفعل، وسيرد عليها الفريق.'])
-          : kind === 'offline' ? c(['You are offline. Your answers are still here; send again when you are connected.', 'لا يوجد اتصال. إجاباتك ما زالت هنا؛ أرسل مرة أخرى عند الاتصال.'])
-            : c(['The request was not sent. Your answers are still here; try again in a moment.', 'لم يُرسل الطلب. إجاباتك ما زالت هنا؛ حاول مرة أخرى بعد قليل.']));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <section className="pr-sales sales-panel" id="sales">
       <div className="lp-shell pr-sales-in">
         <div>
           <h2>{c(['Let’s shape your setup.', 'لنصمم ما يناسبك.'])}</h2>
-          <p>{c(['Tell us what you need. Your request is saved for the Resuto team, who reply by email. Automatic email notifications are not enabled.', 'أخبرنا بما تحتاجه. يُحفظ طلبك لفريق ريسوتو الذي يرد عليك بالبريد. إشعارات البريد التلقائية غير مفعّلة.'])}</p>
+          <p>{c(['Tell us what you need. This static site does not submit data to a server; contact sales by email and the team will reply directly.', 'أخبرنا بما تحتاجه. هذا الموقع الثابت لا يرسل بيانات إلى خادم؛ تواصل مع المبيعات بالبريد وسيرد عليك الفريق مباشرة.'])}</p>
         </div>
-        <form id="sales-form" className="pr-form" onSubmit={submit} noValidate={false}
-          onChange={() => { key.current = null; /* edited answers are a new inquiry, not a resend of the old one */ }}>
-          {done ? (
-            <p role="status">{c(['Request received. Reference:', 'تم استلام الطلب. الرقم:'])} <bdi>{done.reference}</bdi></p>
-          ) : (
-            <>
-              <label>{c(['Restaurant / company', 'المطعم / الشركة'])}<input name="restaurant" required maxLength={120} autoComplete="organization" /></label>
-              <label>{c(['Email', 'البريد الإلكتروني'])}<input name="email" type="email" required maxLength={200} autoComplete="email" dir="ltr" /></label>
-              <label>{c(['Branches', 'الفروع'])}<input name="branches" type="text" inputMode="numeric" pattern="[0-9٠-٩]{1,3}" defaultValue="1" required dir="ltr" /></label>
-              <label className="is-wide">{c(['What do you need?', 'ماذا تحتاج؟'])}<textarea name="requirements" required maxLength={1000} rows={3} /></label>
-              <label className="pr-trap" aria-hidden>Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
-              {error && <p role="alert">{error}</p>}
-              <button className="lp-btn lp-btn-solid" type="submit" disabled={busy}>{busy ? c(['Sending…', 'جارٍ الإرسال…']) : <>{c(['Send inquiry', 'إرسال الطلب'])} {arrow}</>}</button>
-            </>
-          )}
-        </form>
+        <div className="pr-form">
+          <p><b>{c(['Chosen plan', 'الخطة المختارة'])}:</b> <bdi>{planId ?? c(['Not selected', 'غير محددة'])}</bdi></p>
+          <a className="lp-btn lp-btn-solid" href={`mailto:contact@resuto.app?subject=${encodeURIComponent(`Resuto ${planId ?? 'sales'} inquiry`)}`}>{c(['Email contact@resuto.app', 'راسل contact@resuto.app'])}</a>
+          <a className="lp-btn lp-btn-line-ink" href={accessHref(planId ?? undefined)}>{c(['Request access page', 'صفحة طلب الوصول'])}</a>
+        </div>
       </div>
     </section>
   );

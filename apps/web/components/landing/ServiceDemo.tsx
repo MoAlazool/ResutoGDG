@@ -179,7 +179,7 @@ export function ServiceDemo({ L }: { L: Landing }) {
             <div data-guide />
             <article><strong>{l('A menu assistant that stays honest')}</strong><p>{l('Guests can ask for a suggestion. It only proposes dishes from the live menu, lists stated allergens, and the guest still confirms the order.')}</p></article>
             <article><strong>{l('Every table has an identity')}</strong><p>{l('The QR belongs to the table, not to a printed page, so moving furniture never breaks a code.')}</p></article>
-            <a className="lp-inline" href={LINKS.demo}>{l('Open the guest experience')} {arrow}</a>
+            <a className="lp-inline" href={LINKS.demo}>{rtl ? 'تواصل مع المبيعات' : 'Contact sales'} {arrow}</a>
           </div>
         </div>
       </div>

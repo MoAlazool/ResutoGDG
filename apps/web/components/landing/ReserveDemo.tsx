@@ -146,7 +146,7 @@ export function ReserveDemo({ L }: { L: Landing }) {
               </li>
             ))}
           </ol>
-          <div className="rsv-foot"><div data-guide /><a className="lp-inline is-dark" href={LINKS.reserve}>{l('Open the booking page')} {arrow}</a></div>
+          <div className="rsv-foot"><div data-guide /><a className="lp-inline is-dark" href={LINKS.reserve}>{rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a></div>
         </div>
         <article className="rsv-ticket" data-reveal aria-live="off">
           <header><small>{SAMPLE.restaurant} · {rtl ? SAMPLE.branchAr : SAMPLE.branch}</small><strong>{l('Reservation')}</strong></header>

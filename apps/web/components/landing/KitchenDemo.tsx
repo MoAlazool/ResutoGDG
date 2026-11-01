@@ -167,7 +167,7 @@ export function KitchenDemo({ L }: { L: Landing }) {
                 </>
               )}
             </div></div>
-            <a className="lp-inline is-dark" href={LINKS.login}>{l('Open the kitchen screen')} {arrow}</a>
+            <a className="lp-inline is-dark" href={LINKS.login}>{rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a>
           </aside>
           <div className="kds-guide" data-guide />
         </div>

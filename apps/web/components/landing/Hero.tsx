@@ -101,7 +101,7 @@ export function Hero({ L, floor }: { L: Landing; floor: LandingFloor }) {
         <h1><span>{l('Run the room.')}</span><em>{l('Resuto runs everything else.')}</em></h1>
         <p>{l('One system for the whole service: a floor plan your guests book from, QR ordering, the kitchen board, split bills and a manager view. In Arabic and English.')}</p>
         <div className="lp-hero-cta">
-          <a className="lp-btn lp-btn-solid lp-btn-lg" href={LINKS.demo}>{l('Open the live demo')} {arrow}</a>
+          <a className="lp-btn lp-btn-solid lp-btn-lg" href={LINKS.demo}>{L.rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a>
           <a className="lp-btn lp-btn-ghost lp-btn-lg" href="#studio">{l('See the Floor Studio')}</a>
         </div>
       </div>
@@ -143,7 +143,7 @@ export function Hero({ L, floor }: { L: Landing; floor: LandingFloor }) {
               <div className="lp-side-table" id="hero-table" aria-live="polite">
                 <div className="lp-side-table-head"><strong>{x.label}</strong><span className={`lp-state-line lp-state-${s}`}><i />{l(STATE_WORD[s] ?? 'Open')}</span></div>
                 <p>{l(x.zone ?? '')} · {num(x.capacity)} {l('seats')}{x.features?.length ? ` · ${l(x.features[0]!)}` : ''}</p>
-                <a className="lp-inline" href={LINKS.reserve}>{l('Reserve this table')} {arrow}</a>
+                <a className="lp-inline" href={LINKS.reserve}>{L.rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a>
               </div>
             </aside>
           </div>

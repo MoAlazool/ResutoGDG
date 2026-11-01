@@ -82,7 +82,7 @@ export function BillDemo({ L }: { L: Landing }) {
             <p className="pb-wait">{l('Receipt')}</p>
           </div>
         </div>
-        <p className="pb-foot"><a className="lp-inline" href={LINKS.demo}>{l('Open the guest experience')} {arrow}</a></p>
+        <p className="pb-foot"><a className="lp-inline" href={LINKS.demo}>{L.rtl ? 'تواصل مع المبيعات' : 'Contact sales'} {arrow}</a></p>
       </div>
     </section>
   );
@@ -172,7 +172,7 @@ export function ManagerDemo({ L }: { L: Landing }) {
               <ol className="mgr-cards" id="mgr-cards">{cards.map(([kind, title, detail], i) => <li key={`${kind}-${title}`} style={{ ['--i' as string]: i }}><small>{l(kind)}</small><strong>{title}</strong><p>{detail}</p></li>)}</ol>
             </article>
           </div>
-          <footer className="mgr-foot"><span>{l('Sample data, drawn as charts for this page. The AI manager raises low-stock and kitchen-load alerts; without a model key it uses built-in rules.')}</span><a className="lp-inline is-dark" href={LINKS.login}>{l('Open the manager screen')} {arrow}</a></footer>
+          <footer className="mgr-foot"><span>{l('Sample data, drawn as charts for this page. The AI manager raises low-stock and kitchen-load alerts; without a model key it uses built-in rules.')}</span><a className="lp-inline is-dark" href={LINKS.login}>{rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a></footer>
         </div>
       </div>
     </section>

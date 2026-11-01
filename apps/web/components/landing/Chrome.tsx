@@ -68,7 +68,7 @@ export function Nav({ L }: { L: Landing }) {
           </nav>
           <div className="lp-nav-end">
             <Switcher L={L} />
-            <a className="lp-btn lp-btn-solid" href={LINKS.demo}><span className="lp-cta-long">{l('Open the live demo')}</span><span className="lp-cta-short">{l('Live demo')}</span></a>
+            <a className="lp-btn lp-btn-solid" href={LINKS.demo}><span className="lp-cta-long">{rtl ? 'اطلب الوصول' : 'Request access'}</span><span className="lp-cta-short">{rtl ? 'تواصل' : 'Contact'}</span></a>
             <button type="button" className="lp-burger" aria-expanded={open} aria-controls="lp-drawer" aria-label={l('Menu')} onClick={() => setOpen(!open)}><i /><i /></button>
           </div>
         </div>
@@ -78,9 +78,9 @@ export function Nav({ L }: { L: Landing }) {
         <nav>
           {NAV_LINKS.map(([href, label]) => <a key={href} href={href} onClick={() => setOpen(false)}>{l(label)}</a>)}
           <a href={LINKS.pricing} onClick={() => setOpen(false)}>{l('Compare plans')}</a>
-          <a href={LINKS.login} onClick={() => setOpen(false)}>{l('Staff login')}</a>
+          <a href="/contact/" onClick={() => setOpen(false)}>{rtl ? 'تواصل معنا' : 'Contact sales'}</a>
         </nav>
-        <a className="lp-btn lp-btn-solid" href={LINKS.demo} onClick={() => setOpen(false)}>{l('Open the live demo')}</a>
+        <a className="lp-btn lp-btn-solid" href={LINKS.demo} onClick={() => setOpen(false)}>{rtl ? 'اطلب الوصول' : 'Request access'}</a>
       </div>
     </>
   );
@@ -180,7 +180,7 @@ export function Pricing({ L, plans, ownT }: { L: Landing; plans: LandingPlan[] |
             );
           })}
         </div>
-        <p className="lp-pricing-note" data-reveal>{priced ? l('Launch pricing. You can create a workspace and start a 14-day trial without a card. Subscription billing is not enabled yet, so nothing is charged.') : ownT('platform.pricingUnavailable')} <a className="lp-inline" href={`${LINKS.pricing}#compare`}>{l('Compare every feature')}</a></p>
+        <p className="lp-pricing-note" data-reveal>{priced ? (L.rtl ? 'أسعار إطلاق عامة. تواصل مع فريق المبيعات لتأكيد التوفر والنطاق النهائي؛ رسوم المزودين منفصلة.' : 'Public launch pricing. Contact sales to confirm availability and final scope; provider fees are separate.') : ownT('platform.pricingUnavailable')} <a className="lp-inline" href={`${LINKS.pricing}#compare`}>{l('Compare every feature')}</a></p>
       </div>
     </section>
   );
@@ -220,8 +220,8 @@ export function Cta({ L, ownT, floor }: { L: Landing; ownT: (k: string) => strin
         <h2>{l('Your dining room is already running. Resuto just keeps up with it.')}</h2>
         <p>{l('Open the demo restaurant, reserve a table, scan a QR, order, split the bill and watch the manager screen react. Nothing is charged and nothing is installed.')}</p>
         <div className="lp-hero-cta">
-          <a className="lp-btn lp-btn-solid lp-btn-lg" href={LINKS.demo}>{l('Open the live demo')} {arrow}</a>
-          <a className="lp-btn lp-btn-line" href={LINKS.signup}>{ownT('platform.signup')}</a>
+          <a className="lp-btn lp-btn-solid lp-btn-lg" href={LINKS.demo}>{L.rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a>
+          <a className="lp-btn lp-btn-line" href="/contact/">{L.rtl ? 'تواصل مع المبيعات' : 'Contact sales'}</a>
           <a className="lp-btn lp-btn-line" href={LINKS.pricing}>{l('Compare plans')}</a>
         </div>
         <ul className="lp-cta-list">{['No account for guests', 'One saved floor everywhere', 'Arabic and English throughout'].map((x) => <li key={x}>{l(x)}</li>)}</ul>
@@ -239,7 +239,7 @@ export function Footer({ L, ownT }: { L: Landing; ownT: (k: string) => string })
         <div className="lp-foot-navs">
           <nav aria-label={l('Product')}><h4>{l('Product')}</h4><a href="#studio">{l('Floor Studio')}</a><a href="#service">{l('Guest service')}</a><a href="#kitchen">{l('Kitchen')}</a><a href="#payments">{l('Payments')}</a></nav>
           <nav aria-label={l('Ecosystem')}><h4>{l('Ecosystem')}</h4><a href="#connect">{l('Resuto Native')}</a><a href="#connect">{l('Resuto Connect')}</a><a href="#operations">{l('AI manager')}</a><a href={LINKS.pricing}>{l('Pricing')}</a></nav>
-          <nav aria-label={l('Try it')}><h4>{l('Try it')}</h4><a href={LINKS.demo}>{l('Restaurant demo')}</a><a href={LINKS.reserve}>{l('Reserve a table')}</a><a href={LINKS.menu}>{l('Menu')}</a><a href={LINKS.signup}>{ownT('platform.signup')}</a><a href={LINKS.login}>{l('Staff login')}</a></nav>
+          <nav aria-label={l('Try it')}><h4>{L.rtl ? 'ابدأ' : 'Get started'}</h4><a href="/contact/?subject=request-access">{L.rtl ? 'اطلب الوصول' : 'Request access'}</a><a href="/contact/">{L.rtl ? 'تواصل مع المبيعات' : 'Contact sales'}</a><a href="/about/">{L.rtl ? 'عن ريسوتو' : 'About Resuto'}</a></nav>
         </div>
         <small>© {new Date().getFullYear()} Resuto</small>
       </div>
