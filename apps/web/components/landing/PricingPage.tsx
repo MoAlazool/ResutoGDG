@@ -234,7 +234,7 @@ export function PricingPage({ initial, countries }: { initial: PublicPlansRespon
           <a href="/contact/">{c(['Contact sales', 'تواصل مع المبيعات'])}</a>
           <a href="/about/">{c(['About', 'عن ريسوتو'])}</a>
           <a href="/privacy/">{c(['Privacy', 'الخصوصية'])}</a>
-          <small>© <bdi>{new Date().getFullYear()}</bdi> Resuto</small>
+          <small>© <bdi>{new Date().getFullYear()}</bdi> Resuto · {c(['Business contact: Top Handles LLC, incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt', 'جهة التواصل التجاري: توب هاندلز ذ.م.م.، وايومنغ، الولايات المتحدة، تأسست عام 2025، وتنسّق أعمالها من مصر'])}</small>
         </div>
       </footer>
     </div>

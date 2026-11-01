@@ -241,7 +241,7 @@ export function Footer({ L, ownT }: { L: Landing; ownT: (k: string) => string })
           <nav aria-label={l('Ecosystem')}><h4>{l('Ecosystem')}</h4><a href="#connect">{l('Resuto Native')}</a><a href="#connect">{l('Resuto Connect')}</a><a href="#operations">{l('AI manager')}</a><a href={LINKS.pricing}>{l('Pricing')}</a></nav>
           <nav aria-label={l('Try it')}><h4>{L.rtl ? 'ابدأ' : 'Get started'}</h4><a href="/contact/?subject=request-access">{L.rtl ? 'اطلب الوصول' : 'Request access'}</a><a href="/contact/">{L.rtl ? 'تواصل مع المبيعات' : 'Contact sales'}</a><a href="/about/">{L.rtl ? 'عن ريسوتو' : 'About Resuto'}</a></nav>
         </div>
-        <small>© {new Date().getFullYear()} Resuto</small>
+        <small>© {new Date().getFullYear()} Resuto · {rtl ? 'جهة التواصل التجاري: توب هاندلز ذ.م.م.، وايومنغ، الولايات المتحدة، تأسست عام 2025، وتنسّق أعمالها من مصر' : 'Business contact: Top Handles LLC, incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt'}</small>
       </div>
     </footer>
   );

@@ -1,4 +1,4 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-export const metadata: Metadata = { title: 'About', description: 'Why Resuto is building a connected operating system for restaurants.', alternates: { canonical: '/about/' } };
+export const metadata: Metadata = { title: 'About', description: 'About Resuto, its five-member university development team, and Top Handles LLC as its Wyoming business contact and NVIDIA Inception applicant.', alternates: { canonical: '/about/' } };
 export default function Layout({ children }: { children: ReactNode }) { return children; }

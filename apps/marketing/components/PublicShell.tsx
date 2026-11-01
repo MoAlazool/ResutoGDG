@@ -27,7 +27,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
       </header>
       {children}
       <footer className="mk-footer">
-        <div><Link href="/">Resuto</Link><span>© {new Date().getFullYear()} Resuto</span></div>
+        <div><Link href="/">Resuto</Link><span>© {new Date().getFullYear()} Resuto</span><span>{c(['Business contact: Top Handles LLC · Wyoming, USA · incorporated 2025 · operations coordinated from Egypt', 'جهة التواصل التجاري: توب هاندلز ذ.م.م. · وايومنغ، الولايات المتحدة · تأسست عام 2025 · تنسّق أعمالها من مصر'])}</span></div>
         <nav>
           <Link href="/privacy/">{c(['Privacy', 'الخصوصية'])}</Link>
           <Link href="/terms/">{c(['Terms', 'الشروط'])}</Link>
