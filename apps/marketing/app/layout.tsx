@@ -8,7 +8,11 @@ export const metadata: Metadata = {
   title: { default: 'Resuto — Restaurant operating system', template: '%s · Resuto' },
   description: 'Resuto connects reservations, QR ordering, kitchen operations, payments and restaurant management in Arabic and English.',
   alternates: { canonical: '/' },
-  icons: { icon: '/brand/resuto-icon.png' },
+  icons: {
+    icon: [{ url: '/brand/resuto-icon.png', type: 'image/png', sizes: '512x512' }],
+    shortcut: '/brand/resuto-icon.png',
+    apple: [{ url: '/brand/resuto-icon.png', type: 'image/png', sizes: '512x512' }],
+  },
   openGraph: { type: 'website', siteName: 'Resuto', url: '/', images: [{ url: '/brand/og-resuto.png', width: 1200, height: 630, alt: 'Resuto' }] },
   twitter: { card: 'summary_large_image', images: ['/brand/og-resuto.png'] },
   robots: { index: true, follow: true },

@@ -18,7 +18,7 @@ const NAV_LINKS: Array<[string, string]> = [['#studio', 'Floor Studio'], ['#serv
 export function Wordmark({ rtl }: { rtl: boolean }) {
   return rtl
     ? <img className="lp-logo-ar" src="/brand/resuto-arabic-logo.webp" alt="ريسوتو" width={308} height={96} />
-    : <><span className="lp-logo-mark" aria-hidden>r</span><span className="lp-logo-type">resuto<i>.</i></span></>;
+    : <><img className="lp-logo-mark-image" src="/brand/resuto-icon.png" alt="" width={512} height={512} /><span className="lp-logo-type">resuto<i>.</i></span></>;
 }
 
 export function Switcher({ L }: { L: Landing }) {
@@ -108,12 +108,109 @@ export function SystemBand({ L }: { L: Landing }) {
 
 // Logos only. Names are kept for screen readers.
 const INTEGRATIONS: Array<[string, string | null, string?, string?]> = [['Stripe', marks.stripe ?? null], ['Paymob', logos.paymob ?? null, '', 'is-word'], ['Tap Payments', null, 'tap'], ['Foodics', logos.foodics ?? null, '', 'is-word'], ['Odoo', marks.odoo ?? null], ['WhatsApp', marks.whatsapp ?? null], ['Meta', marks.meta ?? null], ['Google Gemini', marks.googlegemini ?? null]];
+
+type LocalCopy = readonly [string, string];
+type MetaChannel = {
+  id: 'instagram' | 'messenger' | 'whatsapp';
+  name: LocalCopy;
+  readiness: LocalCopy;
+  message: LocalCopy;
+  reply: LocalCopy;
+  context: LocalCopy;
+  action: LocalCopy;
+  followup: LocalCopy;
+  insight: LocalCopy;
+  note: LocalCopy;
+};
+
+const META_CHANNELS: MetaChannel[] = [
+  {
+    id: 'instagram', name: ['Instagram', 'إنستغرام'], readiness: ['Integration-ready · provider approval required', 'جاهز للتكامل · يتطلب موافقة المزود'],
+    message: ['Hi — do you have a table for four this Friday?', 'مرحبًا — هل لديكم طاولة لأربعة أشخاص يوم الجمعة؟'],
+    reply: ['Yes. I can share the available times.', 'نعم. يمكنني مشاركة المواعيد المتاحة.'],
+    context: ['Returning guest · asked about the terrace', 'ضيف عائد · سأل عن التراس'], action: ['Draft reservation', 'إنشاء مسودة حجز'],
+    followup: ['Availability shared in the same conversation', 'تمت مشاركة المواعيد في المحادثة نفسها'], insight: ['DM → reservation intent', 'رسالة مباشرة ← نية حجز'],
+    note: ['Designed for a linked Instagram professional account after Meta app review, permissions and Page setup.', 'مصمم لحساب إنستغرام احترافي مرتبط بعد مراجعة تطبيق Meta ومنح الأذونات وإعداد الصفحة.'],
+  },
+  {
+    id: 'messenger', name: ['Messenger', 'ماسنجر'], readiness: ['Integration-ready · Page permissions required', 'جاهز للتكامل · يتطلب أذونات الصفحة'],
+    message: ['Is the tasting menu available tonight?', 'هل قائمة التذوق متاحة الليلة؟'], reply: ['It is available from 7 PM. Shall I note your party size?', 'متاحة من السابعة مساءً. هل أسجل عدد الضيوف؟'],
+    context: ['Facebook Page conversation · new guest', 'محادثة صفحة فيسبوك · ضيف جديد'], action: ['Assign to host', 'إسناد إلى مسؤول الاستقبال'],
+    followup: ['Host continues inside the supported reply window', 'يتابع المسؤول ضمن نافذة الرد المدعومة'], insight: ['Question → qualified dining lead', 'استفسار ← فرصة زيارة مؤهلة'],
+    note: ['Designed for Facebook Page messaging after the restaurant grants the required Page access and Resuto completes provider setup.', 'مصمم لمراسلة صفحات فيسبوك بعد منح المطعم صلاحيات الصفحة المطلوبة واستكمال إعداد المزود في ريسوتو.'],
+  },
+  {
+    id: 'whatsapp', name: ['WhatsApp Business', 'واتساب للأعمال'], readiness: ['Available after approved business setup', 'متاح بعد اعتماد إعداد حساب الأعمال'],
+    message: ['Can you confirm my pickup order is ready?', 'هل يمكن تأكيد أن طلب الاستلام جاهز؟'], reply: ['Your order is ready for pickup. View order', 'طلبك جاهز للاستلام. عرض الطلب'],
+    context: ['Known customer · order #R-1842', 'عميل معروف · الطلب R-1842'], action: ['Send service update', 'إرسال تحديث الخدمة'],
+    followup: ['Delivery status recorded for the team', 'تم تسجيل حالة التسليم للفريق'], insight: ['Conversation → fulfilled order', 'محادثة ← طلب مكتمل'],
+    note: ['Designed for the WhatsApp Business Platform. Provider onboarding is required; business-initiated messages outside the service window use approved templates.', 'مصمم لمنصة واتساب للأعمال. يلزم إعداد المزود، وتستخدم الرسائل التي تبدأها المنشأة خارج نافذة الخدمة قوالب معتمدة.'],
+  },
+];
+
+function ChannelGlyph({ id }: { id: MetaChannel['id'] }) {
+  if (id === 'instagram') return <svg viewBox="0 0 24 24" aria-hidden><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" /></svg>;
+  if (id === 'messenger') return <svg viewBox="0 0 24 24" aria-hidden><path d="M3 11.7c0-5 3.9-8.7 9-8.7s9 3.6 9 8.7-3.9 8.7-9 8.7c-.9 0-1.7-.1-2.5-.3L6 22v-3.4c-1.9-1.6-3-4-3-6.9Z" /><path d="m7.3 14.5 4-4.2 2.2 2 3.4-2-4.1 4.3-2.2-2-3.3 1.9Z" /></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden><path d="M20.5 11.7a8.5 8.5 0 0 1-12.6 7.5L3 20.5l1.3-4.7A8.5 8.5 0 1 1 20.5 11.7Z" /><path d="M8.2 7.3c.3-.5.6-.5.9-.5h.5c.2 0 .4.1.5.4l.8 2c.1.3 0 .5-.2.7l-.6.7c-.2.2-.1.4 0 .6.7 1.3 1.8 2.3 3.2 2.9.2.1.4.1.6-.1l.8-1c.2-.2.4-.3.7-.2l1.9.9c.3.1.4.3.4.5 0 .4-.2 1.3-.7 1.8-.5.6-1.3.9-2.2.8-1.2-.1-3.3-.8-5.3-2.6-1.6-1.5-2.7-3.4-3-4.7-.2-.9.1-1.7.5-2.2Z" /></svg>;
+}
+
 export function Connect({ L }: { L: Landing }) {
-  const { l } = L;
+  const { l, rtl, reduced } = L;
+  const [selected, setSelected] = useState<MetaChannel['id']>('instagram');
+  const channel = META_CHANNELS.find((item) => item.id === selected)!;
+  const c = (pair: LocalCopy) => pair[rtl ? 1 : 0];
+  useEffect(() => {
+    if (reduced) return;
+    const timer = window.setInterval(() => setSelected((current) => {
+      const index = META_CHANNELS.findIndex((item) => item.id === current);
+      return META_CHANNELS[(index + 1) % META_CHANNELS.length]!.id;
+    }), 7200);
+    return () => window.clearInterval(timer);
+  }, [reduced]);
   return (
     <section className="lp-chapter lp-connect" id="connect">
-      <div className="lp-shell itx">
-        <div className="itx-head" data-reveal><h2>{l('Runs on its own.')} {l('Connects where it is ready.')}</h2><p>{l('Resuto works without any of these. Connect the ones you already use.')}</p></div>
+      <div className="lp-shell meta-story">
+        <header className="meta-story-head" data-reveal>
+          <span className="lp-chapter-tag">{rtl ? 'منظومة Meta' : 'Meta ecosystem'}</span>
+          <h2>{rtl ? 'من المحادثات إلى تشغيل المطعم. تجربة واحدة مترابطة.' : 'From conversations to restaurant operations. One connected experience.'}</h2>
+          <p>{rtl ? 'صُمم ريسوتو ليجمع محادثات العملاء والسياق وإجراءات الفريق وقياس الأداء في مسار واضح — مع إعداد كل قناة وموافقاتها بصورة مستقلة.' : 'Resuto is designed to bring customer conversations, context, team actions and performance signals into one clear workflow — with each channel connected and approved independently.'}</p>
+        </header>
+
+        <div className="meta-console" data-channel={selected} data-reveal>
+          <div className="meta-channel-tabs" role="group" aria-label={rtl ? 'اختر قناة المحادثة' : 'Choose a messaging channel'}>
+            {META_CHANNELS.map((item) => <button key={item.id} type="button" aria-pressed={selected === item.id} className={selected === item.id ? 'is-on' : undefined} onClick={() => setSelected(item.id)}><span className={`meta-glyph is-${item.id}`}><ChannelGlyph id={item.id} /></span><span><strong>{c(item.name)}</strong><small>{c(item.readiness)}</small></span></button>)}
+          </div>
+
+          <div className="meta-workspace" key={selected}>
+            <section className="meta-phone" aria-label={`${c(channel.name)} ${rtl ? 'مثال محاكاة' : 'simulated example'}`}>
+              <header><span className={`meta-glyph is-${selected}`}><ChannelGlyph id={selected} /></span><div><strong>{c(channel.name)}</strong><small>{rtl ? 'محادثة عميل محاكاة' : 'Simulated customer conversation'}</small></div><i aria-hidden /></header>
+              <div className="meta-thread"><p className="is-customer">{c(channel.message)}</p><p className="is-team">{c(channel.reply)}</p><span>{rtl ? 'مثال توضيحي · لا توجد بيانات حقيقية' : 'Illustrative example · no live data'}</span></div>
+            </section>
+
+            <div className="meta-route" aria-hidden><i /><i /><i /></div>
+
+            <section className="meta-inbox" aria-label={rtl ? 'مسار صندوق الوارد الموحد' : 'Unified inbox workflow'}>
+              <header><div><span>{rtl ? 'صندوق ريسوتو الموحد' : 'Resuto unified inbox'}</span><strong>{c(channel.context)}</strong></div><em>{rtl ? 'محاكاة' : 'SIMULATED'}</em></header>
+              <ol className="meta-steps">
+                <li className="is-active"><b>01</b><span><small>{rtl ? 'الرسالة' : 'Customer message'}</small><strong>{c(channel.name)}</strong></span></li>
+                <li><b>02</b><span><small>{rtl ? 'السياق' : 'Unified context'}</small><strong>{c(channel.context)}</strong></span></li>
+                <li><b>03</b><span><small>{rtl ? 'إجراء المطعم' : 'Restaurant action'}</small><strong>{c(channel.action)}</strong></span></li>
+                <li><b>04</b><span><small>{rtl ? 'المتابعة' : 'Customer follow-up'}</small><strong>{c(channel.followup)}</strong></span></li>
+              </ol>
+              <footer><span>{rtl ? 'إشارة للنمو' : 'Business signal'}</span><strong>{c(channel.insight)}</strong></footer>
+            </section>
+          </div>
+
+          <aside className="meta-accuracy"><span>{rtl ? 'حالة الجاهزية' : 'Readiness note'}</span><p>{c(channel.note)}</p></aside>
+        </div>
+
+        <div className="meta-proof" data-reveal>
+          <p>{rtl ? 'توجد الموصلات ومسارات صندوق الوارد في قاعدة الكود، لكنها تحتاج بيانات اعتماد فعلية وإعداد المزود والمراجعات المطبقة قبل الإطلاق لكل مطعم. لا يعني العرض شراكة أو اعتمادًا من Meta.' : 'The connectors and inbox workflows exist in the codebase, but real credentials, provider configuration and applicable reviews are required before restaurant activation. This presentation does not imply a Meta partnership or approval.'}</p>
+          <a className="lp-inline" href="/contact/?subject=partnerships">{rtl ? 'ناقش جاهزية التكامل ←' : 'Discuss integration readiness →'}</a>
+        </div>
+
+        <div className="itx itx-secondary">
+          <div className="itx-head" data-reveal><h3>{l('Runs on its own.')} {l('Connects where it is ready.')}</h3><p>{l('Resuto works without any of these. Connect the ones you already use.')}</p></div>
         <ul className="itx-row" data-reveal>
           {INTEGRATIONS.map(([name, logo, mark, kind = ''], i) => (
             <li key={name} className={kind || undefined} style={{ ['--i' as string]: i }} title={name}>
@@ -121,6 +218,7 @@ export function Connect({ L }: { L: Landing }) {
             </li>
           ))}
         </ul>
+        </div>
       </div>
     </section>
   );
