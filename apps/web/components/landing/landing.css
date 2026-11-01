@@ -590,8 +590,9 @@ body.lp-locked{overflow:hidden}
 .lp-pricing-note{font-size:12.5px;color:var(--brand-muted-2);margin:34px auto 0;text-align:center;max-width:74ch}
 
 /* ---------------------------------------------------- close ------------ */
-.lp-cta{position:relative;background:var(--brand-ink-2);color:#F4F0E6;padding-block:clamp(76px,9vw,140px);overflow:clip;isolation:isolate}
-.lp-cta-floor{position:absolute;inset-block-start:50%;inset-inline-start:50%;translate:-50% -50%;width:min(1700px,168%);opacity:.6;z-index:-1}
+.lp-ending{position:relative;background:var(--brand-ink-2);isolation:isolate;overflow:hidden}
+.lp-cta{position:relative;color:#F4F0E6;min-height:clamp(500px,48vw,650px);display:grid;align-items:center;padding-block:clamp(64px,7vw,98px);overflow:clip;isolation:isolate}
+.lp-cta-floor{position:absolute;inset-block:clamp(24px,3vw,42px);inset-inline-start:48%;width:min(1050px,78vw);opacity:.82;z-index:-1;display:grid;align-items:center}
 /* The closing floor is drawn as a blueprint, not a screenshot: outlines only,
    so it reads as texture behind the words instead of competing with them. */
 .lp-cta-floor *{filter:none!important}
@@ -603,29 +604,42 @@ body.lp-locked{overflow:hidden}
 .lp-cta-floor .chair rect{fill:none!important;stroke:#ffffff17!important}
 .lp-cta-floor .chair path{stroke:#ffffff0f!important}
 .lp-cta-floor .counter-surface,.lp-cta-floor .plant-pot,.lp-cta-floor .plant-leaves,.lp-cta-floor .door-leaf,.lp-cta-floor .door-swing,.lp-cta-floor .opening-cut,.lp-cta-floor .window-frame{fill:none!important;stroke:#ffffff17!important}
-.lp-cta-floor svg{width:100%;height:auto}
-.lp-cta::before{content:'';position:absolute;inset:0;z-index:-1;background:radial-gradient(58% 58% at 50% 50%,#061713e6 0,#061713 80%)}
+.lp-cta-floor svg{width:100%;height:auto;max-height:100%}
+.lp-cta::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#061713 0,#061713f5 37%,#0617139c 63%,#061713d9 100%)}
+[dir=rtl] .lp-cta::before{background:linear-gradient(-90deg,#061713 0,#061713f5 37%,#0617139c 63%,#061713d9 100%)}
 .lp-cta .lp-btn-solid{background:#F7F4EC;color:var(--brand-ink)}
 .lp-cta .lp-btn-solid:hover{background:#fff}
-.lp-cta-inner{display:grid;justify-items:center;text-align:center;gap:18px}
-.lp-cta h2{color:#F7F3EA;max-width:18ch;font-size:clamp(32px,4.6vw,66px)}
-.lp-cta p{color:#B7C6BA;max-width:56ch}
-.lp-cta-list{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 22px;margin-block-start:10px}
-.lp-cta-list li{font-size:12.5px;color:#93A99C;display:flex;align-items:center;gap:8px}
+.lp-cta-inner{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.72fr);align-items:end;gap:clamp(40px,7vw,110px)}
+.lp-cta-copy{display:grid;justify-items:start;text-align:start;gap:20px;max-width:720px}
+.lp-cta-kicker{display:inline-flex;align-items:center;gap:9px;color:#A8C58D;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+.lp-cta-kicker::before{content:'';width:28px;height:1px;background:var(--herb)}
+.lp-cta h2{color:#F7F3EA;max-width:15ch;font-size:clamp(38px,4.5vw,64px)}
+.lp-cta p{color:#B7C6BA;max-width:58ch;font-size:clamp(15px,1.2vw,18px)}
+.lp-cta-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-block-start:4px}
+.lp-cta-text-link{display:inline-flex;align-items:center;gap:8px;color:#DDE6DE;font-size:13.5px;font-weight:700;padding:10px 4px;border-block-end:1px solid #ffffff42;transition:gap .25s var(--ease),border-color .25s,color .25s}
+.lp-cta-text-link:hover{gap:12px;color:#fff;border-color:var(--ember-2)}
+.lp-cta-list{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:9px 20px;margin-block-start:4px}
+.lp-cta-list li{font-size:11.5px;color:#8FA79A;display:flex;align-items:center;gap:8px}
 .lp-cta-list li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ember-2)}
-.lp-foot{background:var(--brand-ink-2);color:#C6D3C6;padding-block:clamp(44px,5vw,68px);border-block-start:1px solid #ffffff12}
-.lp-foot-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:34px clamp(30px,5vw,80px)}
-.lp-foot-navs{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:clamp(24px,3vw,54px)}
+.lp-cta-floor-note{justify-self:end;align-self:end;display:grid;gap:6px;min-width:260px;padding:18px 20px;border:1px solid #ffffff1c;border-radius:16px;background:#061713a6;backdrop-filter:blur(10px);text-align:start}
+.lp-cta-floor-note span{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#87A379}.lp-cta-floor-note strong{font-size:12.5px;color:#D8E2D9}
+.lp-foot{color:#C6D3C6;padding-block:clamp(54px,6vw,82px) 32px;border-block-start:1px solid #ffffff18;background:#041510}
+.lp-foot-grid{display:grid;grid-template-columns:minmax(280px,.85fr) minmax(500px,1.15fr);gap:clamp(44px,6vw,96px)}
+.lp-foot-brand{display:grid;justify-items:start;align-content:start}
+.lp-foot-navs{display:grid;grid-template-columns:repeat(3,minmax(130px,1fr));gap:clamp(28px,4vw,64px)}
 .lp-foot .lp-logo{color:#F4F0E6;margin-block-end:14px}
 .lp-foot .lp-logo-mark{background:#F4EAD6;color:#0C2620}
 .lp-foot .lp-logo-type i{color:var(--ember-2)}
-.lp-foot p{font-size:13px;color:#93A99C;max-width:40ch}
+.lp-foot p{font-size:13.5px;color:#93A99C;max-width:42ch}
+.lp-foot-email{display:grid;gap:3px;margin-block-start:24px;padding-block-start:18px;border-block-start:1px solid #ffffff17;width:min(100%,360px)}
+.lp-foot-email span{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#718B7D}.lp-foot-email strong{font-size:16px;color:#F0F4EF;font-weight:650;transition:color .2s}.lp-foot-email:hover strong{color:#B9D59D}
 .lp-foot nav{display:grid;gap:9px;align-content:start}
-.lp-foot nav a{font-size:13.5px;color:#C6D3C6;transition:color .2s}
-.lp-foot nav a:hover{color:#fff}
-.lp-foot h4{margin-block-end:4px;color:#7E9488}
+.lp-foot nav a{font-size:13.5px;color:#B7C6BA;transition:color .2s,transform .2s var(--ease)}
+.lp-foot nav a:hover{color:#fff;transform:translateX(3px)}
+[dir=rtl] .lp-foot nav a:hover{transform:translateX(-3px)}
+.lp-foot h4{margin-block-end:8px;color:#718B7D}
 .lp-foot-note{grid-column:1/-1;font-size:11.5px;color:#7E9488;max-width:none;border-block-start:1px solid #ffffff12;padding-block-start:22px;margin-block-start:6px}
-.lp-foot small{grid-column:1/-1;font-size:11.5px;color:#6E8479}
+.lp-foot-legal{grid-column:1/-1;display:flex;justify-content:space-between;gap:18px 40px;padding-block-start:24px;border-block-start:1px solid #ffffff12}.lp-foot-legal small{font-size:11px;color:#6E8479;line-height:1.6}.lp-foot-legal small:last-child{text-align:end;max-width:76ch}
 
 /* ================================================================
    responsive — the composition is rebuilt for small screens,
@@ -700,6 +714,7 @@ body.lp-locked{overflow:hidden}
  .lp-plan{scroll-snap-align:center}
  .lp-foot-grid{grid-template-columns:1fr}
  .lp-foot-navs{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .lp-foot-brand{max-width:620px}
 }
 @media(max-width:600px){
  .lp{--rl:20px}
@@ -717,6 +732,21 @@ body.lp-locked{overflow:hidden}
  .lp-rail+.lp-rail{padding-inline-start:0;border-inline-start:0}
  .lp-pricing-head{flex-direction:column;align-items:stretch}
  .lp-foot-navs{grid-template-columns:1fr 1fr;gap:22px}
+ .lp-cta{min-height:auto;padding-block:60px 52px}
+ .lp-cta-inner{grid-template-columns:1fr;gap:46px}
+ .lp-cta-floor{inset-block:28% 5%;inset-inline-start:5%;width:150%;opacity:.42}
+ .lp-cta::before,[dir=rtl] .lp-cta::before{background:linear-gradient(180deg,#061713 0,#061713f2 54%,#061713b5 100%)}
+ .lp-cta-copy{gap:17px}
+ .lp-cta h2{font-size:clamp(36px,11vw,48px)}
+ .lp-cta-actions{display:grid;width:100%}
+ .lp-cta-actions .lp-btn{width:100%}
+ .lp-cta-text-link{justify-content:center;margin-block-start:3px}
+ .lp-cta-list{display:grid;grid-template-columns:1fr;gap:8px}
+ .lp-cta-floor-note{justify-self:stretch;min-width:0}
+ .lp-foot{padding-block-start:48px}
+ .lp-foot-grid{gap:40px}
+ .lp-foot-navs nav:last-child{grid-column:1/-1}
+ .lp-foot-legal{display:grid}.lp-foot-legal small:last-child{text-align:start}
 }
 
 /* ---------------------------------------------------- reduced motion --- */
@@ -1258,7 +1288,7 @@ html{scroll-behavior:smooth;scroll-padding-block-start:86px}
 .lp-system{padding-block:clamp(40px,4.2vw,58px)}
 .lp-reserve,.lp-service,.lp-kitchen,.lp-ops{padding-block:clamp(48px,5.4vw,80px)}
 .lp-studio-sticky{padding-block:clamp(44px,5vw,72px)}
-.lp-cta{padding-block:clamp(56px,6vw,84px)}
+.lp-cta{padding-block:clamp(64px,7vw,98px)}
 .lp-head-row,.lp-import .lp-head-row{margin-block-end:clamp(20px,2.6vw,36px)}
 .imp{--dh:clamp(440px,39vw,540px)}
 .kds-col{min-height:300px}

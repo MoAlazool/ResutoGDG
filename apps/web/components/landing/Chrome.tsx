@@ -312,7 +312,7 @@ function CountUp({ value, num, animate }: { value: number; num: (n: number) => s
 
 const HERO_CYCLE = ['available', 'occupied', 'preparing', 'available', 'ready', 'reserved', 'available', 'occupied', 'payment', 'available', 'cleaning', 'available'];
 export function Cta({ L, ownT, floor }: { L: Landing; ownT: (k: string) => string; floor: LandingFloor }) {
-  const { l, arrow, num } = L;
+  const { l, num, rtl } = L;
   const tables = floor.tables.map((x, i) => ({ ...x, minSpendMinor: null, internalNotes: null, state: HERO_CYCLE[i % HERO_CYCLE.length] })) as SceneTable[];
   return (
     <section className="lp-cta">
@@ -322,15 +322,19 @@ export function Cta({ L, ownT, floor }: { L: Landing; ownT: (k: string) => strin
             mode="operations" seatsLabel={(n) => `${num(n)} ${l('seats')}`} />
         </svg>
       </div>
-      <div className="lp-shell lp-cta-inner" data-reveal>
-        <h2>{l('Your dining room is already running. Resuto just keeps up with it.')}</h2>
-        <p>{l('Open the demo restaurant, reserve a table, scan a QR, order, split the bill and watch the manager screen react. Nothing is charged and nothing is installed.')}</p>
-        <div className="lp-hero-cta">
-          <a className="lp-btn lp-btn-solid lp-btn-lg" href={LINKS.demo}>{L.rtl ? 'اطلب الوصول' : 'Request access'} {arrow}</a>
-          <a className="lp-btn lp-btn-line" href="/contact/">{L.rtl ? 'تواصل مع المبيعات' : 'Contact sales'}</a>
-          <a className="lp-btn lp-btn-line" href={LINKS.pricing}>{l('Compare plans')}</a>
+      <div className="lp-shell lp-cta-inner">
+        <div className="lp-cta-copy" data-reveal>
+          <span className="lp-cta-kicker">{rtl ? 'الخطوة التالية' : 'The next service starts here'}</span>
+          <h2>{rtl ? 'اجمع تشغيل مطعمك حول صورة واحدة واضحة.' : 'Bring your restaurant into one clear operating view.'}</h2>
+          <p>{rtl ? 'شاركنا عدد الفروع وطريقة عمل فريقك وما تريد تحسينه. سنراجع معك مدى ملاءمة ريسوتو، ونطاق الإطلاق، والجاهزية المتاحة عبر محادثة مباشرة.' : 'Tell us about your locations, team workflow and priorities. We will discuss product fit, rollout scope and current availability with you directly.'}</p>
+          <div className="lp-cta-actions">
+            <a className="lp-btn lp-btn-solid lp-btn-lg" href="/contact/?subject=request-access">{rtl ? 'اطلب الوصول' : 'Request access'} <span aria-hidden>{rtl ? '←' : '→'}</span></a>
+            <a className="lp-btn lp-btn-line" href="/contact/">{rtl ? 'تواصل مع المبيعات' : 'Contact sales'}</a>
+            <a className="lp-cta-text-link" href={LINKS.pricing}>{rtl ? 'راجع الأسعار والخطط' : 'Review plans and pricing'} <span aria-hidden>{rtl ? '←' : '→'}</span></a>
+          </div>
+          <ul className="lp-cta-list"><li>{rtl ? 'العربية والإنجليزية' : 'Arabic and English'}</li><li>{rtl ? 'من صالة واحدة إلى عدة فروع' : 'From one room to multiple branches'}</li><li>{rtl ? 'نطاق واضح قبل الإطلاق' : 'Clear scope before rollout'}</li></ul>
         </div>
-        <ul className="lp-cta-list">{['No account for guests', 'One saved floor everywhere', 'Arabic and English throughout'].map((x) => <li key={x}>{l(x)}</li>)}</ul>
+        <div className="lp-cta-floor-note" data-reveal><span>{rtl ? 'عرض تشغيلي واحد' : 'One operating view'}</span><strong>{rtl ? 'الصالة · الضيوف · الطلبات · الخدمة' : 'Floor · guests · orders · service'}</strong></div>
       </div>
     </section>
   );
@@ -341,13 +345,13 @@ export function Footer({ L, ownT }: { L: Landing; ownT: (k: string) => string })
   return (
     <footer className="lp-foot">
       <div className="lp-shell lp-foot-grid">
-        <div><a className="lp-logo" href="/"><Wordmark rtl={rtl} /></a><p>{l('The operating system for restaurants — reservations, ordering, kitchen and payments around one live floor.')}</p></div>
+        <div className="lp-foot-brand"><a className="lp-logo" href="/"><Wordmark rtl={rtl} /></a><p>{rtl ? 'بيئة تشغيل مترابطة تجمع تجربة الضيف وفريق المطعم حول صالة واحدة حية.' : 'A connected restaurant operating environment, built around one live floor and the teams who run it.'}</p><a className="lp-foot-email" href="mailto:contact@resuto.app"><span>{rtl ? 'تواصل معنا' : 'Talk to Resuto'}</span><strong>contact@resuto.app</strong></a></div>
         <div className="lp-foot-navs">
-          <nav aria-label={l('Product')}><h4>{l('Product')}</h4><a href="#studio">{l('Floor Studio')}</a><a href="#service">{l('Guest service')}</a><a href="#kitchen">{l('Kitchen')}</a><a href="#payments">{l('Payments')}</a></nav>
-          <nav aria-label={l('Ecosystem')}><h4>{l('Ecosystem')}</h4><a href="#connect">{l('Resuto Native')}</a><a href="#connect">{l('Resuto Connect')}</a><a href="#operations">{l('AI manager')}</a><a href={LINKS.pricing}>{l('Pricing')}</a></nav>
-          <nav aria-label={l('Try it')}><h4>{L.rtl ? 'ابدأ' : 'Get started'}</h4><a href="/contact/?subject=request-access">{L.rtl ? 'اطلب الوصول' : 'Request access'}</a><a href="/contact/">{L.rtl ? 'تواصل مع المبيعات' : 'Contact sales'}</a><a href="/about/">{L.rtl ? 'عن ريسوتو' : 'About Resuto'}</a></nav>
+          <nav aria-label={l('Product')}><h4>{l('Product')}</h4><a href="/#studio">{l('Floor Studio')}</a><a href="/#service">{l('Guest service')}</a><a href="/#operations">{l('Operations')}</a><a href="/#connect">{rtl ? 'المنظومة والتكاملات' : 'Ecosystem & integrations'}</a></nav>
+          <nav aria-label={rtl ? 'الشركة' : 'Company'}><h4>{rtl ? 'الشركة' : 'Company'}</h4><a href="/about/">{rtl ? 'عن ريسوتو' : 'About Resuto'}</a><a href="/contact/">{rtl ? 'تواصل معنا' : 'Contact'}</a><a href="/pricing/">{rtl ? 'الأسعار' : 'Pricing'}</a><a href="/contact/?subject=request-access">{rtl ? 'اطلب الوصول' : 'Request access'}</a></nav>
+          <nav aria-label={rtl ? 'قانوني' : 'Legal'}><h4>{rtl ? 'قانوني' : 'Legal'}</h4><a href="/privacy/">{rtl ? 'سياسة الخصوصية' : 'Privacy policy'}</a><a href="/terms/">{rtl ? 'الشروط' : 'Terms'}</a><a href="mailto:founder@resuto.app">{rtl ? 'تواصل الأعمال' : 'Business contact'}</a></nav>
         </div>
-        <small>© {new Date().getFullYear()} Resuto · {rtl ? 'جهة التواصل التجاري: توب هاندلز ذ.م.م.، وايومنغ، الولايات المتحدة، تأسست عام 2025، وتنسّق أعمالها من مصر' : 'Business contact: Top Handles LLC, incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt'}</small>
+        <div className="lp-foot-legal"><small>© {new Date().getFullYear()} Resuto</small><small>{rtl ? 'توب هاندلز ذ.م.م. هي جهة التواصل التجاري لريسوتو؛ تأسست في وايومنغ، الولايات المتحدة عام 2025، وتنسّق أعمالها من مصر.' : 'Top Handles LLC is Resuto’s business contact; incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt.'}</small></div>
       </div>
     </footer>
   );

@@ -64,13 +64,13 @@ export function PublicShell({ children }: { children: ReactNode }) {
       {children}
       <footer className="lp-foot mk-footer">
         <div className="lp-shell lp-foot-grid">
-          <div><Link className="lp-logo" href="/"><Wordmark rtl={ar} /></Link><p>{c(['One connected operating environment for modern restaurant teams.', 'بيئة تشغيل واحدة مترابطة لفرق المطاعم الحديثة.'])}</p></div>
+          <div className="lp-foot-brand"><Link className="lp-logo" href="/"><Wordmark rtl={ar} /></Link><p>{c(['A connected restaurant operating environment, built around one live floor and the teams who run it.', 'بيئة تشغيل مترابطة تجمع تجربة الضيف وفريق المطعم حول صالة واحدة حية.'])}</p><a className="lp-foot-email" href="mailto:contact@resuto.app"><span>{c(['Talk to Resuto', 'تواصل معنا'])}</span><strong>contact@resuto.app</strong></a></div>
           <div className="lp-foot-navs">
-            <nav aria-label={c(['Explore', 'استكشف'])}><h4>{c(['Explore', 'استكشف'])}</h4><Link href="/">{c(['Home', 'الرئيسية'])}</Link><Link href="/pricing/">{c(['Pricing', 'الأسعار'])}</Link><Link href="/about/">{c(['About', 'عن ريسوتو'])}</Link></nav>
-            <nav aria-label={c(['Contact', 'التواصل'])}><h4>{c(['Contact', 'التواصل'])}</h4><Link href="/contact/?subject=request-access">{c(['Request access', 'اطلب الوصول'])}</Link><a href="mailto:contact@resuto.app">contact@resuto.app</a><a href="mailto:founder@resuto.app">founder@resuto.app</a></nav>
-            <nav aria-label={c(['Legal', 'قانوني'])}><h4>{c(['Legal', 'قانوني'])}</h4><Link href="/privacy/">{c(['Privacy', 'الخصوصية'])}</Link><Link href="/terms/">{c(['Terms', 'الشروط'])}</Link></nav>
+            <nav aria-label={c(['Product', 'المنتج'])}><h4>{c(['Product', 'المنتج'])}</h4><Link href="/#studio">{c(['Floor Studio', 'استوديو الصالة'])}</Link><Link href="/#service">{c(['Guest service', 'خدمة الضيوف'])}</Link><Link href="/#operations">{c(['Operations', 'التشغيل'])}</Link><Link href="/#connect">{c(['Ecosystem & integrations', 'المنظومة والتكاملات'])}</Link></nav>
+            <nav aria-label={c(['Company', 'الشركة'])}><h4>{c(['Company', 'الشركة'])}</h4><Link href="/about/">{c(['About Resuto', 'عن ريسوتو'])}</Link><Link href="/contact/">{c(['Contact', 'تواصل معنا'])}</Link><Link href="/pricing/">{c(['Pricing', 'الأسعار'])}</Link><Link href="/contact/?subject=request-access">{c(['Request access', 'اطلب الوصول'])}</Link></nav>
+            <nav aria-label={c(['Legal', 'قانوني'])}><h4>{c(['Legal', 'قانوني'])}</h4><Link href="/privacy/">{c(['Privacy policy', 'سياسة الخصوصية'])}</Link><Link href="/terms/">{c(['Terms', 'الشروط'])}</Link><a href="mailto:founder@resuto.app">{c(['Business contact', 'تواصل الأعمال'])}</a></nav>
           </div>
-          <small>© {new Date().getFullYear()} Resuto · {c(['Business contact: Top Handles LLC, incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt.', 'جهة التواصل التجاري: توب هاندلز ذ.م.م.، تأسست في وايومنغ بالولايات المتحدة عام 2025، وتنسّق أعمالها من مصر.'])}</small>
+          <div className="lp-foot-legal"><small>© {new Date().getFullYear()} Resuto</small><small>{c(['Top Handles LLC is Resuto’s business contact; incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt.', 'توب هاندلز ذ.م.م. هي جهة التواصل التجاري لريسوتو؛ تأسست في وايومنغ، الولايات المتحدة عام 2025، وتنسّق أعمالها من مصر.'])}</small></div>
         </div>
       </footer>
     </div>

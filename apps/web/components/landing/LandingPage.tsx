@@ -52,9 +52,11 @@ export function LandingPage({ plans, floor }: { plans: LandingPlan[] | null; flo
         <ManagerDemo L={L} />
         <Connect L={L} />
         <Pricing L={L} plans={plans} ownT={t} />
-        <Cta L={L} ownT={t} floor={floor} />
+        <div className="lp-ending">
+          <Cta L={L} ownT={t} floor={floor} />
+          <Footer L={L} ownT={t} />
+        </div>
       </main>
-      <Footer L={L} ownT={t} />
     </div>
   );
 }
