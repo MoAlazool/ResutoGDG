@@ -334,7 +334,6 @@ export function Cta({ L, ownT, floor }: { L: Landing; ownT: (k: string) => strin
           </div>
           <ul className="lp-cta-list"><li>{rtl ? 'العربية والإنجليزية' : 'Arabic and English'}</li><li>{rtl ? 'من صالة واحدة إلى عدة فروع' : 'From one room to multiple branches'}</li><li>{rtl ? 'نطاق واضح قبل الإطلاق' : 'Clear scope before rollout'}</li></ul>
         </div>
-        <div className="lp-cta-floor-note" data-reveal><span>{rtl ? 'عرض تشغيلي واحد' : 'One operating view'}</span><strong>{rtl ? 'الصالة · الضيوف · الطلبات · الخدمة' : 'Floor · guests · orders · service'}</strong></div>
       </div>
     </section>
   );

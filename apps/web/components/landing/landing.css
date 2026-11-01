@@ -591,8 +591,8 @@ body.lp-locked{overflow:hidden}
 
 /* ---------------------------------------------------- close ------------ */
 .lp-ending{position:relative;background:var(--brand-ink-2);isolation:isolate;overflow:hidden}
-.lp-cta{position:relative;color:#F4F0E6;min-height:clamp(500px,48vw,650px);display:grid;align-items:center;padding-block:clamp(64px,7vw,98px);overflow:clip;isolation:isolate}
-.lp-cta-floor{position:absolute;inset-block:clamp(24px,3vw,42px);inset-inline-start:48%;width:min(1050px,78vw);opacity:.82;z-index:-1;display:grid;align-items:center}
+.lp-cta{position:relative;color:#F4F0E6;min-height:clamp(500px,42vw,600px);display:grid;align-items:center;padding-block:clamp(64px,7vw,98px);overflow:clip;isolation:isolate}
+.lp-cta-floor{position:absolute;inset-block-start:50%;inset-inline-start:50%;translate:-50% -50%;width:min(1700px,150%);opacity:.68;z-index:-1}
 /* The closing floor is drawn as a blueprint, not a screenshot: outlines only,
    so it reads as texture behind the words instead of competing with them. */
 .lp-cta-floor *{filter:none!important}
@@ -604,13 +604,12 @@ body.lp-locked{overflow:hidden}
 .lp-cta-floor .chair rect{fill:none!important;stroke:#ffffff17!important}
 .lp-cta-floor .chair path{stroke:#ffffff0f!important}
 .lp-cta-floor .counter-surface,.lp-cta-floor .plant-pot,.lp-cta-floor .plant-leaves,.lp-cta-floor .door-leaf,.lp-cta-floor .door-swing,.lp-cta-floor .opening-cut,.lp-cta-floor .window-frame{fill:none!important;stroke:#ffffff17!important}
-.lp-cta-floor svg{width:100%;height:auto;max-height:100%}
-.lp-cta::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#061713 0,#061713f5 37%,#0617139c 63%,#061713d9 100%)}
-[dir=rtl] .lp-cta::before{background:linear-gradient(-90deg,#061713 0,#061713f5 37%,#0617139c 63%,#061713d9 100%)}
+.lp-cta-floor svg{width:100%;height:auto}
+.lp-cta::before{content:'';position:absolute;inset:0;z-index:-1;background:radial-gradient(48% 62% at 50% 48%,#061713c7 0,#061713ed 72%,#061713 100%)}
 .lp-cta .lp-btn-solid{background:#F7F4EC;color:var(--brand-ink)}
 .lp-cta .lp-btn-solid:hover{background:#fff}
-.lp-cta-inner{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.72fr);align-items:end;gap:clamp(40px,7vw,110px)}
-.lp-cta-copy{display:grid;justify-items:start;text-align:start;gap:20px;max-width:720px}
+.lp-cta-inner{display:grid;justify-items:center}
+.lp-cta-copy{display:grid;justify-items:center;text-align:center;gap:20px;max-width:760px}
 .lp-cta-kicker{display:inline-flex;align-items:center;gap:9px;color:#A8C58D;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
 .lp-cta-kicker::before{content:'';width:28px;height:1px;background:var(--herb)}
 .lp-cta h2{color:#F7F3EA;max-width:15ch;font-size:clamp(38px,4.5vw,64px)}
@@ -618,11 +617,9 @@ body.lp-locked{overflow:hidden}
 .lp-cta-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-block-start:4px}
 .lp-cta-text-link{display:inline-flex;align-items:center;gap:8px;color:#DDE6DE;font-size:13.5px;font-weight:700;padding:10px 4px;border-block-end:1px solid #ffffff42;transition:gap .25s var(--ease),border-color .25s,color .25s}
 .lp-cta-text-link:hover{gap:12px;color:#fff;border-color:var(--ember-2)}
-.lp-cta-list{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:9px 20px;margin-block-start:4px}
+.lp-cta-list{display:flex;flex-wrap:wrap;justify-content:center;gap:9px 20px;margin-block-start:4px}
 .lp-cta-list li{font-size:11.5px;color:#8FA79A;display:flex;align-items:center;gap:8px}
 .lp-cta-list li::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--ember-2)}
-.lp-cta-floor-note{justify-self:end;align-self:end;display:grid;gap:6px;min-width:260px;padding:18px 20px;border:1px solid #ffffff1c;border-radius:16px;background:#061713a6;backdrop-filter:blur(10px);text-align:start}
-.lp-cta-floor-note span{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#87A379}.lp-cta-floor-note strong{font-size:12.5px;color:#D8E2D9}
 .lp-foot{color:#C6D3C6;padding-block:clamp(54px,6vw,82px) 32px;border-block-start:1px solid #ffffff18;background:#041510}
 .lp-foot-grid{display:grid;grid-template-columns:minmax(280px,.85fr) minmax(500px,1.15fr);gap:clamp(44px,6vw,96px)}
 .lp-foot-brand{display:grid;justify-items:start;align-content:start}
@@ -733,9 +730,9 @@ body.lp-locked{overflow:hidden}
  .lp-pricing-head{flex-direction:column;align-items:stretch}
  .lp-foot-navs{grid-template-columns:1fr 1fr;gap:22px}
  .lp-cta{min-height:auto;padding-block:60px 52px}
- .lp-cta-inner{grid-template-columns:1fr;gap:46px}
- .lp-cta-floor{inset-block:28% 5%;inset-inline-start:5%;width:150%;opacity:.42}
- .lp-cta::before,[dir=rtl] .lp-cta::before{background:linear-gradient(180deg,#061713 0,#061713f2 54%,#061713b5 100%)}
+ .lp-cta-inner{grid-template-columns:1fr}
+ .lp-cta-floor{inset-block-start:50%;inset-inline-start:50%;translate:-50% -50%;width:160%;opacity:.7}
+ .lp-cta::before{background:radial-gradient(80% 58% at 50% 46%,#061713c9 0,#061713ee 72%,#061713 100%)}
  .lp-cta-copy{gap:17px}
  .lp-cta h2{font-size:clamp(36px,11vw,48px)}
  .lp-cta-actions{display:grid;width:100%}
