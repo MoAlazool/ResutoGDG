@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '@/lib/i18n/client';
 import { Switcher, Wordmark } from '../../web/components/landing/Chrome';
+import { InceptionMembership } from '../../web/components/landing/InceptionMembership';
 import '../../web/components/landing/landing.css';
 import './marketing.css';
 
@@ -64,7 +65,7 @@ export function PublicShell({ children }: { children: ReactNode }) {
       {children}
       <footer className="lp-foot mk-footer">
         <div className="lp-shell lp-foot-grid">
-          <div className="lp-foot-brand"><Link className="lp-logo" href="/"><Wordmark rtl={ar} /></Link><p>{c(['A connected restaurant operating environment, built around one live floor and the teams who run it.', 'بيئة تشغيل مترابطة تجمع تجربة الضيف وفريق المطعم حول صالة واحدة حية.'])}</p><a className="lp-foot-email" href="mailto:contact@resuto.app"><span>{c(['Talk to Resuto', 'تواصل معنا'])}</span><strong>contact@resuto.app</strong></a></div>
+          <div className="lp-foot-brand"><Link className="lp-logo" href="/"><Wordmark rtl={ar} /></Link><p>{c(['A connected restaurant operating environment, built around one live floor and the teams who run it.', 'بيئة تشغيل مترابطة تجمع تجربة الضيف وفريق المطعم حول صالة واحدة حية.'])}</p><a className="lp-foot-email" href="mailto:contact@resuto.app"><span>{c(['Talk to Resuto', 'تواصل معنا'])}</span><strong>contact@resuto.app</strong></a><InceptionMembership rtl={ar} variant="footer" /></div>
           <div className="lp-foot-navs">
             <nav aria-label={c(['Product', 'المنتج'])}><h4>{c(['Product', 'المنتج'])}</h4><Link href="/#studio">{c(['Floor Studio', 'استوديو الصالة'])}</Link><Link href="/#service">{c(['Guest service', 'خدمة الضيوف'])}</Link><Link href="/#operations">{c(['Operations', 'التشغيل'])}</Link><Link href="/#connect">{c(['Ecosystem & integrations', 'المنظومة والتكاملات'])}</Link></nav>
             <nav aria-label={c(['Company', 'الشركة'])}><h4>{c(['Company', 'الشركة'])}</h4><Link href="/about/">{c(['About Resuto', 'عن ريسوتو'])}</Link><Link href="/contact/">{c(['Contact', 'تواصل معنا'])}</Link><Link href="/pricing/">{c(['Pricing', 'الأسعار'])}</Link><Link href="/contact/?subject=request-access">{c(['Request access', 'اطلب الوصول'])}</Link></nav>

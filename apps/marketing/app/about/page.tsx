@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { PublicShell } from '@/components/PublicShell';
 import { useT } from '@/lib/i18n/client';
+import { InceptionMembership } from '../../../web/components/landing/InceptionMembership';
 
 export default function About() {
   const { locale } = useT();
@@ -36,9 +37,11 @@ export default function About() {
           <ol><li><b>01</b><strong>{c(['Connected operations', 'تشغيل مترابط'])}</strong><span>{c(['One context from booking to settlement.', 'سياق واحد من الحجز حتى التسوية.'])}</span></li><li><b>02</b><strong>{c(['Modular architecture', 'بنية معيارية'])}</strong><span>{c(['Capabilities can evolve without fragmenting the experience.', 'تتطور القدرات من دون تفتيت التجربة.'])}</span></li><li><b>03</b><strong>{c(['Governed intelligence', 'ذكاء منضبط'])}</strong><span>{c(['Human review and operational context remain central.', 'تبقى المراجعة البشرية والسياق التشغيلي في المركز.'])}</span></li></ol>
         </section>
 
+        <InceptionMembership rtl={ar} variant="about" />
+
         <section className="mk-company" data-mk-reveal>
           <div className="mk-team-stat"><strong>5</strong><span>{c(['member university project team developing Resuto', 'أعضاء في فريق مشروع جامعي يطور ريسوتو'])}</span></div>
-          <div className="mk-company-copy"><span className="mk-eyebrow">{c(['Company & development', 'الشركة والتطوير'])}</span><h2>{c(['A serious product in active development.', 'منتج جاد قيد التطوير النشط.'])}</h2><p>{c(['Resuto is a restaurant technology product developed by a five-member university project team pursuing commercialization.', 'ريسوتو منتج تقني للمطاعم يطوره فريق مشروع جامعي من خمسة أعضاء ويسعى إلى الوصول للسوق.'])}</p><p>{c(['Top Handles LLC was incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt. It is the legal applicant for the team’s NVIDIA Inception application and the business contact for Resuto inquiries.', 'تأسست توب هاندلز ذ.م.م. في وايومنغ بالولايات المتحدة عام 2025، وتنسّق أعمالها من مصر. وهي الجهة القانونية المتقدمة بطلب الفريق إلى NVIDIA Inception وجهة التواصل التجاري لاستفسارات ريسوتو.'])}</p><small>{c(['These roles do not by themselves state an employment relationship, exclusive ownership or other unverified legal rights.', 'لا تعني هذه الأدوار بذاتها وجود علاقة توظيف أو ملكية حصرية أو أي حقوق قانونية أخرى غير متحقق منها.'])}</small><a className="lp-inline" href="mailto:contact@resuto.app">contact@resuto.app</a></div>
+          <div className="mk-company-copy"><span className="mk-eyebrow">{c(['Company & development', 'الشركة والتطوير'])}</span><h2>{c(['A serious product in active development.', 'منتج جاد قيد التطوير النشط.'])}</h2><p>{c(['Resuto is a restaurant technology product developed by a five-member university project team pursuing commercialization.', 'ريسوتو منتج تقني للمطاعم يطوره فريق مشروع جامعي من خمسة أعضاء ويسعى إلى الوصول للسوق.'])}</p><p>{c(['Top Handles LLC was incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt. It is the accepted NVIDIA Inception member company and the business contact for Resuto inquiries.', 'تأسست توب هاندلز ذ.م.م. في وايومنغ بالولايات المتحدة عام 2025، وتنسّق أعمالها من مصر. وهي الشركة المقبولة عضوًا في NVIDIA Inception وجهة التواصل التجاري لاستفسارات ريسوتو.'])}</p><small>{c(['These roles do not by themselves state an employment relationship, exclusive ownership or other unverified legal rights.', 'لا تعني هذه الأدوار بذاتها وجود علاقة توظيف أو ملكية حصرية أو أي حقوق قانونية أخرى غير متحقق منها.'])}</small><a className="lp-inline" href="mailto:contact@resuto.app">contact@resuto.app</a></div>
         </section>
       </main>
     </PublicShell>

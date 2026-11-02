@@ -8,6 +8,7 @@ import { BillDemo, ManagerDemo } from './BillManagerDemos';
 import { Connect, Cta, Footer, Nav, Pricing, SystemBand, type LandingPlan } from './Chrome';
 import { Hero } from './Hero';
 import { ImportDemo } from './ImportDemo';
+import { InceptionMembership } from './InceptionMembership';
 import { KitchenDemo } from './KitchenDemo';
 import { ReserveDemo } from './ReserveDemo';
 import { ServiceDemo } from './ServiceDemo';
@@ -42,6 +43,7 @@ export function LandingPage({ plans, floor }: { plans: LandingPlan[] | null; flo
       <Nav L={L} />
       <main className="lp-main" id="lp-main">
         <Hero L={L} floor={floor} />
+        <InceptionMembership rtl={L.rtl} />
         <SystemBand L={L} />
         <StudioDemo L={L} />
         <ReserveDemo L={L} />

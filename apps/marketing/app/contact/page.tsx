@@ -57,7 +57,7 @@ export default function Contact() {
 
         <section className="mk-contact-company" data-mk-reveal>
           <div><span className="mk-eyebrow">{c(['Business contact', 'جهة التواصل التجاري'])}</span><h2>Top Handles LLC</h2></div>
-          <div><p>{c(['Incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt. Top Handles LLC coordinates business inquiries and is the legal applicant for the Resuto team’s NVIDIA Inception application.', 'تأسست في وايومنغ بالولايات المتحدة عام 2025، وتنسّق أعمالها من مصر. تتولى توب هاندلز ذ.م.م. تنسيق الاستفسارات التجارية وهي الجهة القانونية المتقدمة بطلب فريق ريسوتو إلى NVIDIA Inception.'])}</p><small>{c(['Resuto is developed by a five-member university project team. The stated roles do not establish employment or exclusive ownership.', 'يطور ريسوتو فريق مشروع جامعي من خمسة أعضاء. ولا تثبت الأدوار المذكورة علاقة توظيف أو ملكية حصرية.'])}</small></div>
+          <div><p>{c(['Incorporated in Wyoming, USA in 2025, with operations coordinated from Egypt. Top Handles LLC coordinates business inquiries and joined NVIDIA Inception in November 2026, with Resuto associated with its application.', 'تأسست في وايومنغ بالولايات المتحدة عام 2025، وتنسّق أعمالها من مصر. تتولى توب هاندلز ذ.م.م. تنسيق الاستفسارات التجارية، وانضمت إلى NVIDIA Inception في نوفمبر 2026، وريسوتو هو المنتج المرتبط بطلبها.'])}</p><small>{c(['Resuto is developed by a five-member university project team. The stated roles do not establish employment or exclusive ownership.', 'يطور ريسوتو فريق مشروع جامعي من خمسة أعضاء. ولا تثبت الأدوار المذكورة علاقة توظيف أو ملكية حصرية.'])}</small></div>
         </section>
       </main>
     </PublicShell>

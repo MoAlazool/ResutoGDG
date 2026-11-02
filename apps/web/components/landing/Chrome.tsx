@@ -9,6 +9,7 @@ import logos from './company-logos';
 import { LINKS } from './links';
 import { BUSINESS_CARD, cardAmount, type LandingPlan } from './plans';
 import type { LandingFloor } from './floor-data';
+import { InceptionMembership } from './InceptionMembership';
 import type { Landing } from './use-landing';
 
 export type { LandingPlan } from './plans';
@@ -344,7 +345,7 @@ export function Footer({ L, ownT }: { L: Landing; ownT: (k: string) => string })
   return (
     <footer className="lp-foot">
       <div className="lp-shell lp-foot-grid">
-        <div className="lp-foot-brand"><a className="lp-logo" href="/"><Wordmark rtl={rtl} /></a><p>{rtl ? 'بيئة تشغيل مترابطة تجمع تجربة الضيف وفريق المطعم حول صالة واحدة حية.' : 'A connected restaurant operating environment, built around one live floor and the teams who run it.'}</p><a className="lp-foot-email" href="mailto:contact@resuto.app"><span>{rtl ? 'تواصل معنا' : 'Talk to Resuto'}</span><strong>contact@resuto.app</strong></a></div>
+        <div className="lp-foot-brand"><a className="lp-logo" href="/"><Wordmark rtl={rtl} /></a><p>{rtl ? 'بيئة تشغيل مترابطة تجمع تجربة الضيف وفريق المطعم حول صالة واحدة حية.' : 'A connected restaurant operating environment, built around one live floor and the teams who run it.'}</p><a className="lp-foot-email" href="mailto:contact@resuto.app"><span>{rtl ? 'تواصل معنا' : 'Talk to Resuto'}</span><strong>contact@resuto.app</strong></a><InceptionMembership rtl={rtl} variant="footer" /></div>
         <div className="lp-foot-navs">
           <nav aria-label={l('Product')}><h4>{l('Product')}</h4><a href="/#studio">{l('Floor Studio')}</a><a href="/#service">{l('Guest service')}</a><a href="/#operations">{l('Operations')}</a><a href="/#connect">{rtl ? 'المنظومة والتكاملات' : 'Ecosystem & integrations'}</a></nav>
           <nav aria-label={rtl ? 'الشركة' : 'Company'}><h4>{rtl ? 'الشركة' : 'Company'}</h4><a href="/about/">{rtl ? 'عن ريسوتو' : 'About Resuto'}</a><a href="/contact/">{rtl ? 'تواصل معنا' : 'Contact'}</a><a href="/pricing/">{rtl ? 'الأسعار' : 'Pricing'}</a><a href="/contact/?subject=request-access">{rtl ? 'اطلب الوصول' : 'Request access'}</a></nav>
